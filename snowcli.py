@@ -1,4 +1,7 @@
 import click
+import configparser
+
+config = configparser.ConfigParser()
 
 @click.command()
 def create():
@@ -17,7 +20,13 @@ def build():
 @click.option('--username', prompt=True, help='Snowflake username')
 @click.option('--password', prompt=True, hide_input=True, help='Snowflake password')
 def login(account, username, password):
-    click.echo(f'Logging in... with {account} {username} {password}')
+    config['default'] = {
+        'account': account,
+        'username': username,
+        'password': password
+    }
+    with open('config.ini', 'w') as configfile:
+        config.write(configfile)
 
 @click.group()
 def cli():
