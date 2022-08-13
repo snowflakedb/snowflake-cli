@@ -25,7 +25,7 @@ def login(account, username, password):
         'username': username,
         'password': password
     }
-    with open('config.ini', 'w') as configfile:
+    with open('credentials', 'w') as configfile:
         config.write(configfile)
 
 @click.group()
