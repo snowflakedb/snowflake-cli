@@ -9,7 +9,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'snowcli = snowcli:cli',
+            'snowcli = snowcli:main',
         ],
     },
 )
