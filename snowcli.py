@@ -6,19 +6,26 @@ CONFIG = configparser.ConfigParser()
 CONFIG.read('credentials')
 SNOWFLAKE_CONN: snow_connector.SnowflakeConnector
 
+@click.group()
+def function():
+    pass
+
 @click.command()
-def create():
+@click.option('--name', '-n', help='Name of the function')
+@click.option('--database', '-d', help='Database name')
+@click.option('--schema', '-s', help='Schema name')
+def function_create(name, database, schema):
     if isAuth():
         connectToSnowflake()
         click.echo(SNOWFLAKE_CONN.getVersion())
 
 @click.command()
-def deploy():
+def function_deploy():
     if isAuth():
         click.echo('Deploying...')
 
 @click.command()
-def build():
+def function_build():
     if isAuth():
         click.echo(f'Building... with {CONFIG.get("default", "account")}')
 
@@ -40,11 +47,6 @@ def login(account, username, password):
 def cli():
     pass
 
-cli.add_command(create)
-cli.add_command(build)
-cli.add_command(deploy)
-cli.add_command(login)
-
 def isAuth():
     if not CONFIG.has_option('default', 'account'):
         click.echo('You must login first with `snowcli login`')
@@ -57,3 +59,19 @@ def connectToSnowflake():
 
 def main():
     cli()
+
+@click.command()
+def procedure():
+    pass
+
+@click.command()
+def streamlit():
+    pass
+
+function.add_command(function_create, 'create')
+function.add_command(function_deploy, 'deploy')
+function.add_command(function_build, 'build')
+cli.add_command(function)
+cli.add_command(procedure)
+cli.add_command(streamlit)
+cli.add_command(login)
