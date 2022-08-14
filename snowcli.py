@@ -21,11 +21,12 @@ def standard_options(function):
 @click.option('--handler', help='Handler', required=True)
 @click.option('--input-parameters', '-i', 'inputParams', help='Input parameters', required=True)
 @click.option('--return-type', '-r', 'returnType', help='Return type', required=True)
+@click.option('--overwrite', '-o', is_flag=True, help='Overwrite / replace if existing function')
 @click.option('--yaml', '-y', help="YAML file with function configuration")
-def function_create(name, database, schema, role, warehouse, imports, handler, yaml, inputParams, returnType):
+def function_create(name, database, schema, role, warehouse, imports, handler, yaml, inputParams, returnType, overwrite):
     if config.isAuth():
         config.connectToSnowflake()
-        click.echo(config.snowflake_connection.createFunction(name=name, inputParameters=inputParams, returnType=returnType, handler=handler, imports=imports, database=database, schema=schema, role=role, warehouse=warehouse))
+        click.echo(config.snowflake_connection.createFunction(name=name, inputParameters=inputParams, returnType=returnType, handler=handler, imports=imports, database=database, schema=schema, role=role, warehouse=warehouse, overwrite=overwrite))
 
 @click.command()
 def function_deploy():
