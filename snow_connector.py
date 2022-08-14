@@ -14,12 +14,12 @@ class SnowflakeConnector():
         self.cs.execute('SELECT current_version()')
         return self.cs.fetchone()[0] 
 
-    def createFunction(self, name, inputParameters, returnType, handler, imports, database, schema, role, warehouse):
+    def createFunction(self, name, inputParameters, returnType, handler, imports, database, schema, role, warehouse, overwrite):
         self.cs.execute(f'use role {role}')
         self.cs.execute(f'use warehouse {warehouse}')
         self.cs.execute(f'use database {database}')
         self.cs.execute(f'''
-        CREATE OR REPLACE FUNCTION {schema}.{name}({inputParameters})
+        CREATE {"OR REPLACE " if overwrite else ""} FUNCTION {schema}.{name}({inputParameters})
          RETURNS {returnType}
          LANGUAGE PYTHON
          RUNTIME_VERSION=3.8
