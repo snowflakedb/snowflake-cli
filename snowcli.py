@@ -1,14 +1,16 @@
 import click
 import configparser
+import snow_connector
 
 config = configparser.ConfigParser()
 config.default_section = 'default'
 config.read('credentials')
+SNOWFLAKE_CONN: snow_connector.SnowflakeConnector
 
 @click.command()
 def create():
     if isAuth():
-        click.echo('Creating a function...')
+        click.echo(SNOWFLAKE_CONN.getVersion())
 
 @click.command()
 def deploy():
@@ -49,4 +51,7 @@ def isAuth():
     return True
 
 def main():
+    if isAuth():
+        global SNOWFLAKE_CONN
+        SNOWFLAKE_CONN = snow_connector.SnowflakeConnector(config.get('default', 'account'), config.get('default', 'username'), config.get('default', 'password'))
     cli()
