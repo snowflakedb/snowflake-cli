@@ -17,7 +17,7 @@ def function():
 def function_create(name, database, schema):
     if isAuth():
         connectToSnowflake()
-        click.echo(SNOWFLAKE_CONN.getVersion())
+        click.echo(SNOWFLAKE_CONN.createFunction(name='testFunction', inputParameters='', returnType='string', handler='app.run', imports='@~/my-deployment-package.zip', database='JEFFHOLLAN_DEMO', schema='PUBLIC', role='ACCOUNTADMIN', warehouse='SRI'))
 
 @click.command()
 def function_deploy():
