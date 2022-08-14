@@ -3,13 +3,14 @@ import configparser
 import snow_connector
 
 config = configparser.ConfigParser()
-config.default_section = 'default'
+# config.default_section = 'default'
 config.read('credentials')
 SNOWFLAKE_CONN: snow_connector.SnowflakeConnector
 
 @click.command()
 def create():
     if isAuth():
+        connectToSnowflake()
         click.echo(SNOWFLAKE_CONN.getVersion())
 
 @click.command()
@@ -27,6 +28,7 @@ def build():
 @click.option('--username', prompt=True, help='Snowflake username')
 @click.option('--password', prompt=True, hide_input=True, help='Snowflake password')
 def login(account, username, password):
+    global config
     config['default'] = {
         'account': account,
         'username': username,
@@ -50,8 +52,9 @@ def isAuth():
         return False
     return True
 
+def connectToSnowflake():
+    global SNOWFLAKE_CONN
+    SNOWFLAKE_CONN = snow_connector.SnowflakeConnector(config.get('default', 'account'), config.get('default', 'username'), config.get('default', 'password'))
+
 def main():
-    if isAuth():
-        global SNOWFLAKE_CONN
-        SNOWFLAKE_CONN = snow_connector.SnowflakeConnector(config.get('default', 'account'), config.get('default', 'username'), config.get('default', 'password'))
     cli()
