@@ -2,18 +2,23 @@ import click
 import configparser
 
 config = configparser.ConfigParser()
+config.default_section = 'default'
+config.read('credentials')
 
 @click.command()
 def create():
-    click.echo('Creating a function...')
+    if isAuth():
+        click.echo('Creating a function...')
 
 @click.command()
 def deploy():
-    click.echo('Deploying...')
+    if isAuth():
+        click.echo('Deploying...')
 
 @click.command()
 def build():
-    click.echo('Building...')
+    if isAuth():
+        click.echo(f'Building... with {config.get("default", "account")}')
 
 @click.command()
 @click.option('--account', prompt=True, help='Snowflake account')
@@ -36,6 +41,12 @@ cli.add_command(create)
 cli.add_command(build)
 cli.add_command(deploy)
 cli.add_command(login)
+
+def isAuth():
+    if not config.has_option('default', 'account'):
+        click.echo('You must login first with `snowcli login`')
+        return False
+    return True
 
 def main():
     cli()
