@@ -2,9 +2,8 @@ import click
 import configparser
 import snow_connector
 
-config = configparser.ConfigParser()
-# config.default_section = 'default'
-config.read('credentials')
+CONFIG = configparser.ConfigParser()
+CONFIG.read('credentials')
 SNOWFLAKE_CONN: snow_connector.SnowflakeConnector
 
 @click.command()
@@ -21,21 +20,21 @@ def deploy():
 @click.command()
 def build():
     if isAuth():
-        click.echo(f'Building... with {config.get("default", "account")}')
+        click.echo(f'Building... with {CONFIG.get("default", "account")}')
 
 @click.command()
 @click.option('--account', prompt=True, help='Snowflake account')
 @click.option('--username', prompt=True, help='Snowflake username')
 @click.option('--password', prompt=True, hide_input=True, help='Snowflake password')
 def login(account, username, password):
-    global config
-    config['default'] = {
+    global CONFIG
+    CONFIG['default'] = {
         'account': account,
         'username': username,
         'password': password
     }
     with open('credentials', 'w') as configfile:
-        config.write(configfile)
+        CONFIG.write(configfile)
 
 @click.group()
 def cli():
@@ -47,14 +46,14 @@ cli.add_command(deploy)
 cli.add_command(login)
 
 def isAuth():
-    if not config.has_option('default', 'account'):
+    if not CONFIG.has_option('default', 'account'):
         click.echo('You must login first with `snowcli login`')
         return False
     return True
 
 def connectToSnowflake():
     global SNOWFLAKE_CONN
-    SNOWFLAKE_CONN = snow_connector.SnowflakeConnector(config.get('default', 'account'), config.get('default', 'username'), config.get('default', 'password'))
+    SNOWFLAKE_CONN = snow_connector.SnowflakeConnector(CONFIG.get('default', 'account'), CONFIG.get('default', 'username'), CONFIG.get('default', 'password'))
 
 def main():
     cli()
