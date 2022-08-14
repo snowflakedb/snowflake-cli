@@ -14,12 +14,6 @@ class SnowflakeConnector():
         self.cs.execute('SELECT current_version()')
         return self.cs.fetchone()[0] 
 
-    # create or replace function debug_holidays()
-    # returns string
-    # language python
-    # runtime_version = '3.8'
-    # imports=('@~/my-deployment-package.zip')
-    # handler='app.run';
     def createFunction(self, name, inputParameters, returnType, handler, imports, database, schema, role, warehouse):
         self.cs.execute(f'use role {role}')
         self.cs.execute(f'use warehouse {warehouse}')
