@@ -27,3 +27,7 @@ class SnowflakeConnector():
          HANDLER='{handler}'
         ''')
         return self.cs.fetchone()[0]
+
+    def uploadFileToStage(self, file_path, destination_stage, overwrite):
+        self.cs.execute(f'PUT file://{file_path} @{destination_stage} auto_compress=false overwrite={"true" if overwrite else "false"}')
+        return self.cs.fetchone()[0]
