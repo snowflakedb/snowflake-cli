@@ -7,12 +7,16 @@ import click_extensions
 def function():
     pass
 
+def standard_options(function):
+    function = click.option('--database', '-d', help='Database name')(function)
+    function = click.option('--schema', '-s', help='Schema name')(function)
+    function = click.option('--role', '-r', help='Role name')(function)
+    function = click.option('--warehouse', '-w', help='Warehouse name')(function)
+    return function
+
 @click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
+@standard_options
 @click.option('--name', '-n', help='Name of the function', required=True)
-@click.option('--database', '-d', help='Database name')
-@click.option('--schema', '-s', help='Schema name')
-@click.option('--role', '-r', help='Role name')
-@click.option('--warehouse', '-w', help='Warehouse name')
 @click.option('--imports', help='File imports into the function')
 @click.option('--handler', help='Handler', required=True)
 @click.option('--input-parameters', '-i', 'inputParams', help='Input parameters', required=True)
