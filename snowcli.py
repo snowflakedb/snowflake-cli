@@ -26,12 +26,17 @@ def standard_options(function):
 def function_create(name, database, schema, role, warehouse, imports, handler, yaml, inputParams, returnType, overwrite):
     if config.isAuth():
         config.connectToSnowflake()
+        click.echo('Creating function...')
         click.echo(config.snowflake_connection.createFunction(name=name, inputParameters=inputParams, returnType=returnType, handler=handler, imports=imports, database=database, schema=schema, role=role, warehouse=warehouse, overwrite=overwrite))
 
 @click.command()
-def function_deploy():
+@click.option('--file', '-f', 'file_path', type=click.Path(exists=True))
+@click.option('--overwrite', '-o', is_flag=True, help='Overwrite / replace if existing file')
+def function_deploy(file_path, overwrite):
     if config.isAuth():
-        click.echo('Deploying...')
+        config.connectToSnowflake()
+        click.echo('Deploying file...')
+        click.echo(config.snowflake_connection.uploadFileToStage(file_path=file_path, destination_stage='~', overwrite=overwrite))
 
 @click.command()
 def function_build():
