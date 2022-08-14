@@ -54,6 +54,18 @@ def login(account, username, password, database, schema, role, warehouse):
     with open('credentials', 'w') as configfile:
         config.auth_config.write(configfile)
 
+@click.command()
+def function_list():
+    click.echo('Not yet implemented...')
+
+@click.command()
+def function_delete():
+    click.echo('Not yet implemented...')
+
+@click.command()
+def function_logs():
+    click.echo('Not yet implemented...')
+
 @click.group()
 def cli():
     pass
@@ -72,6 +84,9 @@ def streamlit():
 function.add_command(function_create, 'create')
 function.add_command(function_deploy, 'deploy')
 function.add_command(function_build, 'build')
+function.add_command(function_list, 'list')
+function.add_command(function_delete, 'delete')
+function.add_command(function_logs, 'logs')
 cli.add_command(function)
 cli.add_command(procedure)
 cli.add_command(streamlit)
