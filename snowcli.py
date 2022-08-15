@@ -75,21 +75,22 @@ def function_build():
     if config.isAuth():
         click.echo('Resolving any requirements from requirements.txt...')
         requirements = utils.parseRequirements()
-        click.echo('Comparing provided packages from Snowflake Anaconda...')
-        parsedRequirements = utils.parseAnacondaPackages(requirements)
-        if not parsedRequirements['other']:
-            click.echo('No packages to manually resolve')
-        if parsedRequirements['other']:
-            click.echo('Writing requirements.other.txt...')
-            with open('requirements.other.txt', 'w') as f:
-                for package in parsedRequirements['other']:
-                    f.write(package + '\n')
-        # write requirements.snowflake.txt file
-        if parsedRequirements['snowflake']:
-            click.echo('Writing requirements.snowflake.txt file...')
-            with open('requirements.snowflake.txt', 'w') as f:
-                for package in parsedRequirements['snowflake']:
-                    f.write(package + '\n')
+        if requirements:
+            click.echo('Comparing provided packages from Snowflake Anaconda...')
+            parsedRequirements = utils.parseAnacondaPackages(requirements)
+            if not parsedRequirements['other']:
+                click.echo('No packages to manually resolve')
+            if parsedRequirements['other']:
+                click.echo('Writing requirements.other.txt...')
+                with open('requirements.other.txt', 'w') as f:
+                    for package in parsedRequirements['other']:
+                        f.write(package + '\n')
+            # write requirements.snowflake.txt file
+            if parsedRequirements['snowflake']:
+                click.echo('Writing requirements.snowflake.txt file...')
+                with open('requirements.snowflake.txt', 'w') as f:
+                    for package in parsedRequirements['snowflake']:
+                        f.write(package + '\n')
 
 @click.command()
 @click.option('--account', prompt='Snowflake account', help='Snowflake account')
