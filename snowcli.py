@@ -86,9 +86,10 @@ def function_build():
                 with open('requirements.other.txt', 'w') as f:
                     for package in parsedRequirements['other']:
                         f.write(package + '\n')
-                if click.confirm('Do you want to try to manually include non-Anaconda packages?'):
+                if click.confirm('Do you want to try to manually include non-Anaconda packages?', default=True):
                     click.echo('Installing non-Anaconda packages...')
-                    pack_dir = utils.installPackages('requirements.other.txt')
+                    if utils.installPackages('requirements.other.txt'):
+                        pack_dir = 'packages'
             # write requirements.snowflake.txt file
             if parsedRequirements['snowflake']:
                 click.echo('Writing requirements.snowflake.txt file...')

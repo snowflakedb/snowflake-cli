@@ -3,6 +3,7 @@ import requests
 import click
 import requirements
 import os
+import glob
 
 def getDeployNames(database, schema, name) -> dict:
     stage = f'{database}.{schema}.deployments'
@@ -53,9 +54,21 @@ def parseAnacondaPackages(packages: list[str]) -> dict:
         click.echo(f'Error: {response.status_code}')
         return {}
 
-def installPackages(file_name: str) -> str:
+def installPackages(file_name: str) -> bool:
     os.system(f'pip install -t packages/ -r {file_name}')
-    return 'packages'
+    click.echo('Checking to see if packages have native libaries...\n')
+    # use glob to see if any files in packages have a .so extension
+    if glob.glob('packages/*.so'):
+        for path in glob.glob('packages/*.so'):
+            click.echo(f'Potential native library: {path}')
+        if click.confirm('\n\nWARNING! Some packages appear to have native libraries!\nContinue with package installation?', default=False):
+            return True
+        else:
+            shutil.rmtree('packages')
+            return False
+    else:
+        click.echo('No native libraries found in packages (Good news!)...')
+        return True
 
 def recursiveZipPackagesDir(pack_dir: str, dest_zip: str) -> bool:
     prevdir = os.getcwd()
