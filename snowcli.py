@@ -72,35 +72,34 @@ def function_deploy(file_path, role, database, schema, warehouse, name, yaml):
 
 @click.command()
 def function_build():
-    if config.isAuth():
-        click.echo('Resolving any requirements from requirements.txt...')
-        requirements = utils.parseRequirements()
-        pack_dir: str = None
-        if requirements:
-            click.echo('Comparing provided packages from Snowflake Anaconda...')
-            parsedRequirements = utils.parseAnacondaPackages(requirements)
-            if not parsedRequirements['other']:
-                click.echo('No packages to manually resolve')
-            if parsedRequirements['other']:
-                click.echo('Writing requirements.other.txt...')
-                with open('requirements.other.txt', 'w') as f:
-                    for package in parsedRequirements['other']:
-                        f.write(package + '\n')
-                if click.confirm('Do you want to try to manually include non-Anaconda packages?', default=True):
-                    click.echo('Installing non-Anaconda packages...')
-                    if utils.installPackages('requirements.other.txt'):
-                        pack_dir = 'packages'
-            # write requirements.snowflake.txt file
-            if parsedRequirements['snowflake']:
-                click.echo('Writing requirements.snowflake.txt file...')
-                with open('requirements.snowflake.txt', 'w') as f:
-                    for package in parsedRequirements['snowflake']:
-                        f.write(package + '\n')
-            if pack_dir:
-                utils.recursiveZipPackagesDir(pack_dir, 'app.zip')
-            else:
-                utils.standardZipDir('app.zip')
-            click.echo('\n\nDeployment package now ready: app.zip')
+    click.echo('Resolving any requirements from requirements.txt...')
+    requirements = utils.parseRequirements()
+    pack_dir: str = None
+    if requirements:
+        click.echo('Comparing provided packages from Snowflake Anaconda...')
+        parsedRequirements = utils.parseAnacondaPackages(requirements)
+        if not parsedRequirements['other']:
+            click.echo('No packages to manually resolve')
+        if parsedRequirements['other']:
+            click.echo('Writing requirements.other.txt...')
+            with open('requirements.other.txt', 'w') as f:
+                for package in parsedRequirements['other']:
+                    f.write(package + '\n')
+            if click.confirm('Do you want to try to manually include non-Anaconda packages?', default=True):
+                click.echo('Installing non-Anaconda packages...')
+                if utils.installPackages('requirements.other.txt'):
+                    pack_dir = 'packages'
+        # write requirements.snowflake.txt file
+        if parsedRequirements['snowflake']:
+            click.echo('Writing requirements.snowflake.txt file...')
+            with open('requirements.snowflake.txt', 'w') as f:
+                for package in parsedRequirements['snowflake']:
+                    f.write(package + '\n')
+        if pack_dir:
+            utils.recursiveZipPackagesDir(pack_dir, 'app.zip')
+        else:
+            utils.standardZipDir('app.zip')
+        click.echo('\n\nDeployment package now ready: app.zip')
 
 @click.command()
 @click.option('--account', prompt='Snowflake account', help='Snowflake account')
