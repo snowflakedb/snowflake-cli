@@ -85,7 +85,9 @@ def function_build():
             with open('requirements.other.txt', 'w') as f:
                 for package in parsedRequirements['other']:
                     f.write(package + '\n')
-            if click.confirm('Do you want to try to manually include non-Anaconda packages?', default=True):
+        # if requirements.other.txt exists
+        if os.path.isfile('requirements.other.txt'):
+            if click.confirm('Do you want to download non-Anaconda packages?', default=True):
                 click.echo('Installing non-Anaconda packages...')
                 if utils.installPackages('requirements.other.txt'):
                     pack_dir = 'packages'
