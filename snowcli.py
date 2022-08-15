@@ -121,7 +121,7 @@ def function_deploy(file_path, role, database, schema, warehouse, name, yaml):
             f'Found {len(anaconda_packages)} defined Anaconda packages in deployed function...')
         click.echo(
             f'Checking if any packages defined or missing from requirements.snowflake.txt...')
-        updatedPackageList = utils.getSnowflakePackages(anaconda_packages)
+        updatedPackageList = utils.getSnowflakePackagesDelta(anaconda_packages)
         if updatedPackageList:
             click.echo(f'Replacing function with updated packages...')
             config.snowflake_connection.createFunction(
