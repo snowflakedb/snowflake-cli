@@ -1,9 +1,13 @@
 import configparser
 import snow_connector
 import click
+from pathlib import Path
+
+home = str(Path.home())
+config_file_path = f'{home}/.snowcli/credentials'
 
 auth_config = configparser.ConfigParser()
-auth_config.read('credentials')
+auth_config.read(config_file_path)
 snowflake_connection: snow_connector.SnowflakeConnector
 
 def connectToSnowflake():

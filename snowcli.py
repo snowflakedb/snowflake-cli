@@ -120,7 +120,8 @@ def login(account, username, password, database, schema, role, warehouse):
         'role': role,
         'warehouse': warehouse
     }
-    with open('credentials', 'w') as configfile:
+    os.makedirs(os.path.dirname(config.config_file_path), exist_ok=True)
+    with open(config.config_file_path, 'w') as configfile:
         config.auth_config.write(configfile)
 
 @click.command()
