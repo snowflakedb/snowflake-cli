@@ -95,7 +95,15 @@ def standardZipDir(dest_zip: str) -> bool:
     return True
 
 
-def getSnowflakePackages(anaconda_packages) -> list[str]:
+def getSnowflakePackages() -> list[str]:
+    if os.path.exists('requirements.snowflake.txt'):
+        with open('requirements.snowflake.txt', 'r') as f:
+            return [line.strip() for line in f]
+    else:
+        return []
+
+
+def getSnowflakePackagesDelta(anaconda_packages) -> list[str]:
     updatedPackageList = []
     if os.path.exists('requirements.snowflake.txt'):
         with open('requirements.snowflake.txt', 'r') as f:
