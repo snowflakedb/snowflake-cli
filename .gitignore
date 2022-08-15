@@ -3,3 +3,5 @@ __pycache__
 *.egg-info
 config.ini
 credentials
+_test.py
+test.zip

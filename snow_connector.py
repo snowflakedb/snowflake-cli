@@ -14,7 +14,7 @@ class SnowflakeConnector():
         self.cs.execute('SELECT current_version()')
         return self.cs.fetchone()[0] 
 
-    def createFunction(self, name, inputParameters, returnType, handler, imports, database, schema, role, warehouse, overwrite):
+    def createFunction(self, name: str, inputParameters: str, returnType: str, handler: str, imports: str, database: str, schema: str, role: str, warehouse: str, overwrite: bool):
         self.cs.execute(f'use role {role}')
         self.cs.execute(f'use warehouse {warehouse}')
         self.cs.execute(f'use database {database}')
@@ -28,6 +28,8 @@ class SnowflakeConnector():
         ''')
         return self.cs.fetchone()[0]
 
-    def uploadFileToStage(self, file_path, destination_stage, overwrite):
-        self.cs.execute(f'PUT file://{file_path} @{destination_stage} auto_compress=false overwrite={"true" if overwrite else "false"}')
+    def uploadFileToStage(self, file_path, destination_stage, path, role, overwrite):
+        self.cs.execute(f'use role {role}')
+        self.cs.execute(f'create stage if not exists {destination_stage} comment="deployments managed by snowcli"')
+        self.cs.execute(f'PUT file://{file_path} @{destination_stage}{path} auto_compress=false overwrite={"true" if overwrite else "false"}')
         return self.cs.fetchone()[0]
