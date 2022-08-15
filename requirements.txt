@@ -16,3 +16,4 @@ typing_extensions==4.3.0
 urllib3==1.26.11
 snowflake-connector-python==2.7.11
 pyyaml
+requirements-parser
