@@ -41,15 +41,15 @@ You should now be able to run `snowcli` and get the CLI message.
 
 ## Getting started
 1. Navigate to an empty directory to create your function.
-1. Run the command: `snowcli function init`
+1. Run the command: `snowcli function init`  
     It should populate this directory with the files for a basic function. You can open `app.py` to see the files.
-1. Test the code: `python app.py`
+1. Test the code: `python app.py`  
     You should see the message: `Hello World!`
-1. Build the function: `snowcli function build`
+1. Build the function: `snowcli function build`  
     This will create an `app.zip` file that has your files in it
 1. Login to snowflake: `snowcli login`
 1. Create a function: `snowcli function create -n helloFunction -h 'app.hello' -f app.zip -i '' -r string`
-1. Try running the function: `snowcli function execute -f 'helloFunction()'
+1. Try running the function: `snowcli function execute -f 'helloFunction()'  
     You should see Snowflake return the message: 'Hello World!'
 
 
