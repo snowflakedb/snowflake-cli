@@ -2,8 +2,8 @@ import shutil
 
 def getDeployNames(database, schema, name) -> dict:
     stage = f'{database}.{schema}.deployments'
-    path = f'/{name}/app.zip'
-    directory = f'/{name}'
+    path = f'/{name.lower()}/app.zip'
+    directory = f'/{name.lower()}'
     return { 
         'stage': stage, 
         'path': path, 
