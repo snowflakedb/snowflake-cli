@@ -1,3 +1,4 @@
+from email import utils
 import json
 import shutil
 import requests
@@ -5,6 +6,8 @@ import click
 import requirements
 import os
 import glob
+import yaml
+import config
 
 
 def getDeployNames(database, schema, name) -> dict:
@@ -126,3 +129,11 @@ def convertFunctionDetailsToDict(function_details: list[tuple]) -> dict:
         else:
             function_dict[function[0]] = function[1]
     return function_dict
+
+
+def readYamlConfig(ctx, param, value):
+    # read yaml config file at value, and return a dict of the contents
+    if value is not None and os.path.exists(value):
+        with open(value, 'r') as f:
+            ctx.default_map = yaml.load(f, Loader=yaml.FullLoader)
+    print(ctx.default_map)

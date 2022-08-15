@@ -61,5 +61,5 @@ class SnowflakeConnector():
         self.cs.execute(f'use warehouse {warehouse}')
         self.cs.execute(f'use database {database}')
         self.cs.execute(f'use schema {schema}')
-        self.cs.execute(f'show USER FUNCTIONS LIKE \'%{like}%\'')
+        self.cs.execute(f'show USER FUNCTIONS LIKE \'{like}\'')
         return self.cs.fetchall()
