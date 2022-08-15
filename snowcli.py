@@ -7,7 +7,9 @@ import tempfile
 from distutils.dir_util import copy_tree
 import os
 import pkg_resources
-from yaml import load, dump
+from yaml import dump
+import re
+import json
 
 
 def standard_options(function):
@@ -76,11 +78,63 @@ def function_deploy(file_path, role, database, schema, warehouse, name, yaml):
     if config.isAuth():
         config.connectToSnowflake()
         deploy_dict = utils.getDeployNames(database, schema, name)
-        click.echo(f'Deploying new file for {name}...')
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_app_zip_path = utils.prepareAppZip(file_path, temp_dir)
-            config.snowflake_connection.uploadFileToStage(
-                file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=True, role=role)
+        click.echo(f'Finding function {name}...')
+        functions = config.snowflake_connection.listFunctions(
+            database=database, schema=schema, role=role, warehouse=warehouse, like=name)
+        if len(functions) == 0:
+            click.echo(f'No functions named: {name} found')
+            return
+        else:
+            # if functions == 1, get function arguments property and regular expression till the fist )
+            # if function > 1, get all the function arguments properties and regular expression till the first ) and then ask the user to select which one
+            function_signature = None
+            # regular expression to return "HELLOFUNCTION()" from "HELLOFUNCTION() RETURN VARCHAR"
+            regex = re.compile(r'(^.*\(.*\))')
+            if len(functions) == 1:
+                function = functions[0]
+
+                # get the first group from regex
+                function_signature = regex.search(
+                    function[8]).group(1)
+                click.echo(f'Found function {function_signature}')
+            else:
+                click.echo(f'Found {len(functions)} like: {name}')
+                function_signatures = []
+                for function in functions:
+                    function_signatures.append(regex.search(
+                        function[8]).group(1))
+                function_signature = click.prompt(
+                    'Please select the function you want to deploy', type=click.Choice(function_signatures))
+        click.echo(f'Checking if any new packages...')
+        function_details = config.snowflake_connection.describeFunction(
+            function=function_signature, database=database, schema=schema, role=role, warehouse=warehouse)
+        anaconda_packages = utils.convertPackagesStringToDict(
+            dict(function_details)["packages"])
+        click.echo(
+            f'Found {len(anaconda_packages)} defined Anaconda packages...')
+        click.echo(
+            f'Checking if any packages defined or missing from requirements.snowflake.text...')
+        updatedPackageList = utils.getSnowflakePackages(anaconda_packages)
+        if updatedPackageList:
+            click.echo(f'Replacing function with updated packages...')
+            function_json = json.loads(dict(function_details))
+            config.snowflake_connection.createFunctionWithSignature(
+                function_signature=function_signature,
+                handler=function_json['handler'],
+                imports=deploy_dict['full_path'],
+                database=database,
+                schema=schema,
+                role=role,
+                warehouse=warehouse,
+                overwrite=True,
+                packages=updatedPackageList)
+        else:
+            click.echo(f'No packages to update...')
+            click.echo(f'Deploying new file for {name}...')
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_app_zip_path = utils.prepareAppZip(file_path, temp_dir)
+                config.snowflake_connection.uploadFileToStage(
+                    file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=True, role=role)
 
 
 @click.command()
