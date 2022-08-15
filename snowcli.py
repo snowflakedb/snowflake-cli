@@ -76,7 +76,7 @@ def function_create(name, database, schema, role, warehouse, handler, yaml, inpu
 @standard_options
 @click.option('--name', '-n', help='Name of the function', required=True)
 @click.option('--file', '-f', 'file', type=click.Path(exists=True))
-@click.option('--yaml', '-y', help="YAML file with function configuration")
+@click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
 def function_update(file, role, database, schema, warehouse, name, yaml):
     if config.isAuth():
         config.connectToSnowflake()
@@ -222,7 +222,7 @@ def function_logs():
 @click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
 @standard_options
 @click.option('--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'', required=True)
-@click.option('--yaml', '-y', help="YAML file with function configuration")
+@click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
 def function_execute(database, schema, role, warehouse, yaml, function):
     if config.isAuth():
         config.connectToSnowflake()
@@ -234,7 +234,7 @@ def function_execute(database, schema, role, warehouse, yaml, function):
 @click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
 @standard_options
 @click.option('--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'', required=True)
-@click.option('--yaml', '-y', help="YAML file with function configuration")
+@click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
 def function_describe(database, schema, role, warehouse, yaml, function):
     if config.isAuth():
         config.connectToSnowflake()
