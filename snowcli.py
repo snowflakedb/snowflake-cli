@@ -183,3 +183,6 @@ cli.add_command(procedure)
 cli.add_command(streamlit)
 cli.add_command(notebooks)
 cli.add_command(login)
+
+if __name__ == '__main__':
+    main()
