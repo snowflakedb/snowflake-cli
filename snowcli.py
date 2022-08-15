@@ -74,7 +74,7 @@ def function_create(name, database, schema, role, warehouse, handler, yaml, inpu
 @click.option('--name', '-n', help='Name of the function', required=True)
 @click.option('--file', '-f', 'file_path', type=click.Path(exists=True))
 @click.option('--yaml', '-y', help="YAML file with function configuration")
-def function_deploy(file_path, role, database, schema, warehouse, name, yaml):
+def function_update(file_path, role, database, schema, warehouse, name, yaml):
     if config.isAuth():
         config.connectToSnowflake()
         deploy_dict = utils.getDeployNames(database, schema, name)
@@ -266,7 +266,7 @@ def notebooks():
 
 function.add_command(function_init, 'init')
 function.add_command(function_create, 'create')
-function.add_command(function_deploy, 'deploy')
+function.add_command(function_update, 'update')
 function.add_command(function_build, 'build')
 function.add_command(function_list, 'list')
 function.add_command(function_delete, 'delete')

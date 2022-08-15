@@ -4,7 +4,8 @@ import click
 import yaml
 import configparser
 
-def CommandWithConfigOverload(config_file_param_name: str, auth_config: configparser.ConfigParser): 
+
+def CommandWithConfigOverload(config_file_param_name: str, auth_config: configparser.ConfigParser):
     class CustomCommandClass(click.Command):
         def invoke(self, ctx):
             # YAML file gets prescendence over config file
@@ -13,6 +14,7 @@ def CommandWithConfigOverload(config_file_param_name: str, auth_config: configpa
                 with open(config_file) as f:
                     config_data = yaml.safe_load(f)
                     for param, value in ctx.params.items():
+                        print(param, value)
                         if value is None and param in config_data:
                             ctx.params[param] = config_data[param]
 

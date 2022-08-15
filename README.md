@@ -53,7 +53,7 @@ You should now be able to run `snowcli` and get the CLI message.
     You should see Snowflake return the message: 'Hello World!'
 
 
-You can now go modify and edit your `app.py`, `requirements.txt`, or other files and follow a similar flow!
+You can now go modify and edit your `app.py`, `requirements.txt`, or other files and follow a similar flow, or update a function with `snowcli function update -n myfunction -f app.zip`
 
 ## Future ideas
 - Add delete command
