@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='SnowCLI',
@@ -12,4 +12,7 @@ setup(
             'snowcli = snowcli:main',
         ],
     },
+    packages=find_packages(where="templates"),
+    package_data={'templates': ['*']},
+    include_package_data=True
 )
