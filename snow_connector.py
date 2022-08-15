@@ -26,7 +26,24 @@ class SnowflakeConnector():
          RUNTIME_VERSION=3.8
          IMPORTS=('{imports}')
          HANDLER='{handler}'
-         PACKAGES=({','.join(["'{}'".format(package) for package in packages]) if packages else ""})
+         PACKAGES=({','.join(["'{}'".format(package)
+                   for package in packages]) if packages else ""})
+        ''')
+
+        return self.cs.fetchone()[0]
+
+    def createFunctionWithSignature(self, function_signature, handler, imports, database, schema, role, warehouse, overwrite, packages):
+        self.cs.execute(f'use role {role}')
+        self.cs.execute(f'use warehouse {warehouse}')
+        self.cs.execute(f'use database {database}')
+        self.cs.execute(f'''
+        CREATE {"OR REPLACE " if overwrite else ""} FUNCTION {schema}.{function_signature} 
+         LANGUAGE PYTHON
+         RUNTIME_VERSION=3.8
+         IMPORTS=('{imports}')
+         HANDLER='{handler}'
+         PACKAGES=({','.join(["'{}'".format(package)
+                   for package in packages]) if packages else ""})
         ''')
 
         return self.cs.fetchone()[0]
@@ -53,4 +70,12 @@ class SnowflakeConnector():
         self.cs.execute(f'use database {database}')
         self.cs.execute(f'use schema {schema}')
         self.cs.execute(f'desc FUNCTION {function}')
+        return self.cs.fetchall()
+
+    def listFunctions(self, database, schema, role, warehouse, like) -> list[tuple]:
+        self.cs.execute(f'use role {role}')
+        self.cs.execute(f'use warehouse {warehouse}')
+        self.cs.execute(f'use database {database}')
+        self.cs.execute(f'use schema {schema}')
+        self.cs.execute(f'show USER FUNCTIONS LIKE \'%{like}%\'')
         return self.cs.fetchall()
