@@ -37,7 +37,7 @@ def function_init():
 @click.option('--name', '-n', help='Name of the function', required=True)
 @click.option('--file', '-f', 'path', type=click.Path(exists=True), required=True, help='Path to the file or folder to deploy')
 # @click.option('--imports', help='File imports into the function')
-@click.option('--handler', help='Handler', required=True)
+@click.option('--handler', '-h', help='Handler', required=True)
 @click.option('--input-parameters', '-i', 'inputParams', help='Input parameters', required=True)
 @click.option('--return-type', '-r', 'returnType', help='Return type', required=True)
 @click.option('--overwrite', '-o', is_flag=True, help='Overwrite / replace if existing function')
