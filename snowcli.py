@@ -4,10 +4,9 @@ import config
 import click_extensions
 import utils
 import tempfile
-
-@click.group()
-def function():
-    pass
+from distutils.dir_util import copy_tree
+import os
+import pkg_resources
 
 def standard_options(function):
     function = click.option('--database', '-d', help='Database name')(function)
@@ -15,6 +14,15 @@ def standard_options(function):
     function = click.option('--role', '-r', help='Role name')(function)
     function = click.option('--warehouse', '-w', help='Warehouse name')(function)
     return function
+
+@click.group()
+def function():
+    pass
+
+@click.command()
+def function_init():
+    # Copy the contents of templates/default_function to the current directory
+    copy_tree(pkg_resources.resource_filename('templates', 'default_function'), f'{os.getcwd()}')
 
 @click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
 @standard_options
@@ -116,6 +124,11 @@ def procedure():
 def streamlit():
     pass
 
+@click.command()
+def notebooks():
+    pass
+
+function.add_command(function_init, 'init')
 function.add_command(function_create, 'create')
 function.add_command(function_deploy, 'deploy')
 function.add_command(function_build, 'build')
@@ -125,4 +138,5 @@ function.add_command(function_logs, 'logs')
 cli.add_command(function)
 cli.add_command(procedure)
 cli.add_command(streamlit)
+cli.add_command(notebooks)
 cli.add_command(login)
