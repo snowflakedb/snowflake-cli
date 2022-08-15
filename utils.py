@@ -52,3 +52,19 @@ def parseAnacondaPackages(packages: list[str]) -> dict:
     else:
         click.echo(f'Error: {response.status_code}')
         return {}
+
+def installPackages(file_name: str) -> str:
+    os.system(f'pip install -t packages/ -r {file_name}')
+    return 'packages'
+
+def recursiveZipPackagesDir(pack_dir: str, dest_zip: str) -> bool:
+    prevdir = os.getcwd()
+    os.chdir(f'./{pack_dir}')
+    os.system(f'zip -r ../{dest_zip} .')
+    os.chdir(prevdir)
+    os.system(f'zip -r -g {dest_zip} . -x ".git*" -x "{pack_dir}/*"')
+    return True
+
+def standardZipDir(dest_zip: str) -> bool:
+    os.system(f'zip -r -g {dest_zip} . -x ".git*"')
+    return True
