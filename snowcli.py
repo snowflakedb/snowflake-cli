@@ -32,7 +32,6 @@ def function_create(name, database, schema, role, warehouse, handler, yaml, inpu
         deploy_dict = utils.getDeployNames(database, schema, name)
         click.echo('Uploading deployment file to stage...')
 
-        # with temporary directory
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_app_zip_path = utils.prepareAppZip(path, temp_dir)
             config.snowflake_connection.uploadFileToStage(file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=overwrite, role=role)
@@ -50,15 +49,19 @@ def function_create(name, database, schema, role, warehouse, handler, yaml, inpu
                 )
             )
 
-@click.command()
+@click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
 @standard_options
+@click.option('--name', '-n', help='Name of the function', required=True)
 @click.option('--file', '-f', 'file_path', type=click.Path(exists=True))
-@click.option('--overwrite', '-o', is_flag=True, help='Overwrite / replace if existing file')
-def function_deploy(file_path, overwrite, role):
+@click.option('--yaml', '-y', help="YAML file with function configuration")
+def function_deploy(file_path, role, database, schema, warehouse, name, yaml):
     if config.isAuth():
         config.connectToSnowflake()
-        click.echo('Deploying file...')
-        click.echo(config.snowflake_connection.uploadFileToStage(file_path=file_path, destination_stage='~', overwrite=overwrite, role=role))
+        deploy_dict = utils.getDeployNames(database, schema, name)
+        click.echo(f'Deploying new file for {name}...')
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_app_zip_path = utils.prepareAppZip(file_path, temp_dir)
+            config.snowflake_connection.uploadFileToStage(file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=True, role=role)
 
 @click.command()
 def function_build():
