@@ -34,10 +34,10 @@ class SnowflakeConnector():
         self.cs.execute(f'PUT file://{file_path} @{destination_stage}{path} auto_compress=false overwrite={"true" if overwrite else "false"}')
         return self.cs.fetchone()[0]
     
-    def executeFunction(self, name, database, schema, role, warehouse, inputs):
+    def executeFunction(self, function, database, schema, role, warehouse):
         self.cs.execute(f'use role {role}')
         self.cs.execute(f'use warehouse {warehouse}')
         self.cs.execute(f'use database {database}')
         self.cs.execute(f'use schema {schema}')
-        self.cs.execute(f'select {name}{inputs}')
-        return self.cs.fetchone()[0]
+        self.cs.execute(f'select {function}')
+        return self.cs.fetchall()
