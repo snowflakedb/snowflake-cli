@@ -139,13 +139,13 @@ def function_logs():
 
 @click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
 @standard_options
-@click.option('--name', '-n', help='Name of the function', required=True)
-@click.option('--inputs', '-i', 'inputs', help='Function inputs: e.g. \'(1, "foo")\' or \'()\'', required=True)
+@click.option('--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'', required=True)
 @click.option('--yaml', '-y', help="YAML file with function configuration")
-def function_execute(name, database, schema, role, warehouse, yaml, inputs):
+def function_execute(database, schema, role, warehouse, yaml, function):
     if config.isAuth():
         config.connectToSnowflake()
-        config.snowflake_connection.executeFunction(name=name, database=database, schema=schema, role=role, warehouse=warehouse, inputs=inputs)
+        results = config.snowflake_connection.executeFunction(function=function, database=database, schema=schema, role=role, warehouse=warehouse)
+        click.echo(results)
 
 @click.group()
 def cli():
