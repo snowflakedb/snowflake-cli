@@ -42,6 +42,7 @@ def function_create(name, database, schema, role, warehouse, handler, yaml, inpu
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_app_zip_path = utils.prepareAppZip(path, temp_dir)
             config.snowflake_connection.uploadFileToStage(file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=overwrite, role=role)
+        packages=utils.getSnowflakePackages()
         click.echo('Creating function...')
         click.echo(
             config.snowflake_connection.createFunction(name=name, inputParameters=inputParams, 
@@ -52,7 +53,8 @@ def function_create(name, database, schema, role, warehouse, handler, yaml, inpu
                 schema=schema, 
                 role=role, 
                 warehouse=warehouse, 
-                overwrite=overwrite
+                overwrite=overwrite,
+                packages=packages
                 )
             )
 
@@ -101,7 +103,9 @@ def function_build():
             utils.recursiveZipPackagesDir(pack_dir, 'app.zip')
         else:
             utils.standardZipDir('app.zip')
-        click.echo('\n\nDeployment package now ready: app.zip')
+    else:
+        utils.standardZipDir('app.zip')
+    click.echo('\n\nDeployment package now ready: app.zip')
 
 @click.command()
 @click.option('--account', prompt='Snowflake account', help='Snowflake account')

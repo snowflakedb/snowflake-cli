@@ -79,5 +79,12 @@ def recursiveZipPackagesDir(pack_dir: str, dest_zip: str) -> bool:
     return True
 
 def standardZipDir(dest_zip: str) -> bool:
-    os.system(f'zip -r -g {dest_zip} . -x ".git*"')
+    os.system(f'zip -r {dest_zip} . -x ".git*"')
     return True
+
+def getSnowflakePackages() -> list[str]:
+    if os.path.exists('requirements.snowflake.txt'):
+        with open('requirements.snowflake.txt', 'r') as f:
+            return f.readlines()
+    else:
+        return []
