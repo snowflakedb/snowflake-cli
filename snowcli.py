@@ -112,7 +112,7 @@ def function_deploy(file_path, role, database, schema, warehouse, name, yaml):
                 file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=True, role=role)
         click.echo(
             f'{deploy_response} uploaded to stage {deploy_dict["full_path"]}')
-        click.echo(f'\n\nChecking if any new packages to update...')
+        click.echo(f'Checking if any new packages to update...')
         function_details = config.snowflake_connection.describeFunction(
             function=function_signature, database=database, schema=schema, role=role, warehouse=warehouse)
         function_json = utils.convertFunctionDetailsToDict(function_details)
@@ -136,8 +136,10 @@ def function_deploy(file_path, role, database, schema, warehouse, name, yaml):
                 warehouse=warehouse,
                 overwrite=True,
                 packages=updatedPackageList)
+            click.echo(
+                f'Function {name} updated with new packages. Deployment complete!')
         else:
-            click.echo(f'No packages to update...')
+            click.echo(f'No packages to update. Deployment complete!')
 
 
 @click.command()
