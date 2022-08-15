@@ -21,7 +21,6 @@ def function():
 
 @click.command()
 def function_init():
-    # Copy the contents of templates/default_function to the current directory
     copy_tree(pkg_resources.resource_filename('templates', 'default_function'), f'{os.getcwd()}')
 
 @click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
