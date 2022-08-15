@@ -46,7 +46,7 @@ def parseAnacondaPackages(packages: list[str]) -> dict:
             if package in channel_data['packages']:
                 snowflakePackages.append(package)
             else:
-                click.echo(f'{package} not found in Snowflake anaconda channel.\n Will attempt to install from PyPi.')
+                click.echo(f'"{package}" not found in Snowflake anaconda channel...')
                 otherPackages.append(package)
         return { 'snowflake': snowflakePackages, 'other': otherPackages }
     else:
