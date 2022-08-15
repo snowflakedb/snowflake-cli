@@ -105,21 +105,29 @@ def function_deploy(file_path, role, database, schema, warehouse, name, yaml):
                         function[8]).group(1))
                 function_signature = click.prompt(
                     'Please select the function you want to deploy', type=click.Choice(function_signatures))
-        click.echo(f'Checking if any new packages...')
+        click.echo(f'Deploying new file for {name}...')
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_app_zip_path = utils.prepareAppZip(file_path, temp_dir)
+            deploy_response = config.snowflake_connection.uploadFileToStage(
+                file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=True, role=role)
+        click.echo(
+            f'{deploy_response} uploaded to stage {deploy_dict["full_path"]}')
+        click.echo(f'\n\nChecking if any new packages to update...')
         function_details = config.snowflake_connection.describeFunction(
             function=function_signature, database=database, schema=schema, role=role, warehouse=warehouse)
-        anaconda_packages = utils.convertPackagesStringToDict(
-            dict(function_details)["packages"])
+        function_json = utils.convertFunctionDetailsToDict(function_details)
+        anaconda_packages = function_json['packages']
         click.echo(
-            f'Found {len(anaconda_packages)} defined Anaconda packages...')
+            f'Found {len(anaconda_packages)} defined Anaconda packages in deployed function...')
         click.echo(
-            f'Checking if any packages defined or missing from requirements.snowflake.text...')
+            f'Checking if any packages defined or missing from requirements.snowflake.txt...')
         updatedPackageList = utils.getSnowflakePackages(anaconda_packages)
         if updatedPackageList:
             click.echo(f'Replacing function with updated packages...')
-            function_json = json.loads(dict(function_details))
-            config.snowflake_connection.createFunctionWithSignature(
-                function_signature=function_signature,
+            config.snowflake_connection.createFunction(
+                name=name,
+                inputParameters=function_json['signature'].strip('()'),
+                returnType=function_json['returns'],
                 handler=function_json['handler'],
                 imports=deploy_dict['full_path'],
                 database=database,
@@ -130,11 +138,6 @@ def function_deploy(file_path, role, database, schema, warehouse, name, yaml):
                 packages=updatedPackageList)
         else:
             click.echo(f'No packages to update...')
-            click.echo(f'Deploying new file for {name}...')
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_app_zip_path = utils.prepareAppZip(file_path, temp_dir)
-                config.snowflake_connection.uploadFileToStage(
-                    file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=True, role=role)
 
 
 @click.command()

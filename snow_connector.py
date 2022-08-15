@@ -32,22 +32,6 @@ class SnowflakeConnector():
 
         return self.cs.fetchone()[0]
 
-    def createFunctionWithSignature(self, function_signature, handler, imports, database, schema, role, warehouse, overwrite, packages):
-        self.cs.execute(f'use role {role}')
-        self.cs.execute(f'use warehouse {warehouse}')
-        self.cs.execute(f'use database {database}')
-        self.cs.execute(f'''
-        CREATE {"OR REPLACE " if overwrite else ""} FUNCTION {schema}.{function_signature} 
-         LANGUAGE PYTHON
-         RUNTIME_VERSION=3.8
-         IMPORTS=('{imports}')
-         HANDLER='{handler}'
-         PACKAGES=({','.join(["'{}'".format(package)
-                   for package in packages]) if packages else ""})
-        ''')
-
-        return self.cs.fetchone()[0]
-
     def uploadFileToStage(self, file_path, destination_stage, path, role, overwrite):
         self.cs.execute(f'use role {role}')
         self.cs.execute(
