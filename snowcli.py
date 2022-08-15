@@ -137,6 +137,16 @@ def function_delete():
 def function_logs():
     click.echo('Not yet implemented...')
 
+@click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
+@standard_options
+@click.option('--name', '-n', help='Name of the function', required=True)
+@click.option('--inputs', '-i', 'inputs', help='Function inputs: e.g. \'(1, "foo")\' or \'()\'', required=True)
+@click.option('--yaml', '-y', help="YAML file with function configuration")
+def function_execute(name, database, schema, role, warehouse, yaml, inputs):
+    if config.isAuth():
+        config.connectToSnowflake()
+        config.snowflake_connection.executeFunction(name=name, database=database, schema=schema, role=role, warehouse=warehouse, inputs=inputs)
+
 @click.group()
 def cli():
     pass
@@ -163,6 +173,7 @@ function.add_command(function_build, 'build')
 function.add_command(function_list, 'list')
 function.add_command(function_delete, 'delete')
 function.add_command(function_logs, 'logs')
+function.add_command(function_execute, 'execute')
 cli.add_command(function)
 cli.add_command(procedure)
 cli.add_command(streamlit)
