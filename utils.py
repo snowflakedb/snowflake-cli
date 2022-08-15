@@ -45,7 +45,7 @@ def parseAnacondaPackages(packages: list[str]) -> dict:
         channel_data = response.json()
         for package in packages:
             if package in channel_data['packages']:
-                snowflakePackages.append(package)
+                snowflakePackages.append(f'{package}=={channel_data["packages"][package]["version"]}')
             else:
                 click.echo(f'"{package}" not found in Snowflake anaconda channel...')
                 otherPackages.append(package)
