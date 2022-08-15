@@ -108,5 +108,13 @@ def getSnowflakePackages(anaconda_packages) -> list[str]:
         return updatedPackageList
 
 
-def convertPackagesStringToDict(packages: str) -> dict:
-    return json.loads(packages)
+def convertFunctionDetailsToDict(function_details: list[tuple]) -> dict:
+    function_dict = {}
+    json_properties = ['packages', 'installed_packages']
+    for function in function_details:
+        if function[0] in json_properties:
+            function_dict[function[0]] = json.loads(
+                function[1].replace('\'', '"'))
+        else:
+            function_dict[function[0]] = function[1]
+    return function_dict
