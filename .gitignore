@@ -5,3 +5,4 @@ config.ini
 credentials
 _test.py
 test.zip
+.DS_Store
