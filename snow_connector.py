@@ -14,7 +14,7 @@ class SnowflakeConnector():
         self.cs.execute('SELECT current_version()')
         return self.cs.fetchone()[0] 
 
-    def createFunction(self, name: str, inputParameters: str, returnType: str, handler: str, imports: str, database: str, schema: str, role: str, warehouse: str, overwrite: bool):
+    def createFunction(self, name: str, inputParameters: str, returnType: str, handler: str, imports: str, database: str, schema: str, role: str, warehouse: str, overwrite: bool, packages: list[str]):
         self.cs.execute(f'use role {role}')
         self.cs.execute(f'use warehouse {warehouse}')
         self.cs.execute(f'use database {database}')
@@ -25,7 +25,9 @@ class SnowflakeConnector():
          RUNTIME_VERSION=3.8
          IMPORTS=('{imports}')
          HANDLER='{handler}'
+         PACKAGES=({','.join(["'{}'".format(package) for package in packages]) if packages else ""})
         ''')
+        
         return self.cs.fetchone()[0]
 
     def uploadFileToStage(self, file_path, destination_stage, path, role, overwrite):
