@@ -45,7 +45,7 @@ You should now be able to run `snowcli` and get the CLI message.
     It should populate this directory with the files for a basic function. You can open `app.py` to see the files.
 1. Test the code: `python app.py`  
     You should see the message: `Hello World!`
-1. Build the function: `snowcli function build`  
+1. Package the function: `snowcli function package`  
     This will create an `app.zip` file that has your files in it
 1. Login to snowflake: `snowcli login`
 1. Create a function: `snowcli function create -n helloFunction -h 'app.hello' -f app.zip -i '' -r string`

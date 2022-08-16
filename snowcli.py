@@ -146,7 +146,7 @@ def function_update(file, role, database, schema, warehouse, name, yaml):
 
 
 @click.command()
-def function_build():
+def function_package():
     click.echo('Resolving any requirements from requirements.txt...')
     requirements = utils.parseRequirements()
     pack_dir: str = None
@@ -162,7 +162,7 @@ def function_build():
                     f.write(package + '\n')
         # if requirements.other.txt exists
         if os.path.isfile('requirements.other.txt'):
-            if click.confirm('Do you want to download non-Anaconda packages?', default=True):
+            if click.confirm('Do you want to try to download non-Anaconda packages?', default=True):
                 click.echo('Installing non-Anaconda packages...')
                 if utils.installPackages('requirements.other.txt'):
                     pack_dir = 'packages'
@@ -270,7 +270,7 @@ def notebooks():
 function.add_command(function_init, 'init')
 function.add_command(function_create, 'create')
 function.add_command(function_update, 'update')
-function.add_command(function_build, 'build')
+function.add_command(function_package, 'package')
 function.add_command(function_list, 'list')
 function.add_command(function_delete, 'delete')
 function.add_command(function_logs, 'logs')

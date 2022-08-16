@@ -136,4 +136,3 @@ def readYamlConfig(ctx, param, value):
     if value is not None and os.path.exists(value):
         with open(value, 'r') as f:
             ctx.default_map = yaml.load(f, Loader=yaml.FullLoader)
-    print(ctx.default_map)
