@@ -2,7 +2,7 @@
 # > python app.py
 #
 # Create and deploy in snowflake:
-# > snowcli function build
+# > snowcli function package
 # > snowcli function create -n helloFunction -h 'app.hello' -f app.zip -i '' -r string
 # > snowcli function execute -f 'helloFunction()'
 import sys
