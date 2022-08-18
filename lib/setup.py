@@ -3,7 +3,6 @@ from setuptools import setup, find_packages
 setup(
     name='SnowCLI',
     version='0.1.0',
-    py_modules=['snowcli', 'config', 'snow_connector', 'utils', 'click_extensions'],
     install_requires=[
         'Click',
     ],
@@ -12,7 +11,10 @@ setup(
             'snowcli = snowcli:main',
         ],
     },
-    packages=find_packages(where="templates"),
+    packages=(
+        find_packages() +
+        find_packages(where="templates")
+    ),
     package_data={'templates': ['*']},
     include_package_data=True
 )
