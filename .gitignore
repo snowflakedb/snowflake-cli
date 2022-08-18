@@ -7,3 +7,4 @@ _test.py
 test.zip
 .DS_Store
 build/
+dist/
