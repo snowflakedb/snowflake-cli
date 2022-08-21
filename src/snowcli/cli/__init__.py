@@ -1,15 +1,13 @@
 from typing_extensions import Required
 import click
-import config
-import click_extensions
-import utils
 import tempfile
 from distutils.dir_util import copy_tree
 import os
-import pkg_resources
 from yaml import dump
 import re
+import prettytable
 
+from snowcli import config, click_extensions, utils
 
 def standard_options(function):
     function = click.option(
@@ -203,6 +201,17 @@ def login(account, username, password, database, schema, role, warehouse):
     with open(config.config_file_path, 'w') as configfile:
         config.auth_config.write(configfile)
 
+@click.command()
+@click.option('--config', 'snowsql_config', default='~/.snowsql/config', help='snowsql config file', required=True)
+@click.option('--connection', 'snowsql_connection', default='snowflake', help='connection name from snowsql config file', required=True)
+def login_snowsql(snowsql_config, snowsql_connection):
+    config.auth_config['default'] = {
+        'snowsql_config_path': snowsql_config,
+        'snowsql_connection': snowsql_connection
+    }
+    os.makedirs(os.path.dirname(config.config_file_path), exist_ok=True)
+    with open(config.config_file_path, 'w') as configfile:
+        config.auth_config.write(configfile)
 
 @click.command()
 def function_list():
@@ -257,10 +266,19 @@ def procedure():
     pass
 
 
-@click.command()
+@click.group()
 def streamlit():
     pass
 
+@click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
+@standard_options
+def streamlit_list(database, schema, role, warehouse):
+    if config.isAuth():
+        config.connectToSnowflake()
+        results = config.snowflake_connection.listStreamlits(
+            database=database, schema=schema, role=role, warehouse=warehouse)
+        table = prettytable.from_db_cursor(results)
+        click.echo(table)
 
 @click.command()
 def notebooks():
@@ -276,11 +294,13 @@ function.add_command(function_delete, 'delete')
 function.add_command(function_logs, 'logs')
 function.add_command(function_execute, 'execute')
 function.add_command(function_describe, 'describe')
+streamlit.add_command(streamlit_list, 'list')
 cli.add_command(function)
 cli.add_command(procedure)
 cli.add_command(streamlit)
 cli.add_command(notebooks)
 cli.add_command(login)
+cli.add_command(login_snowsql)
 
 if __name__ == '__main__':
     main()

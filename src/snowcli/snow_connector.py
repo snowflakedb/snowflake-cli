@@ -1,15 +1,28 @@
 from lib2to3.pgen2.pgen import DFAState
+import os
 import snowflake.connector
-
+import pkgutil
+from snowcli.snowsql_config import SnowsqlConfig
+from io import StringIO
 
 class SnowflakeConnector():
-    def __init__(self, account, username, password):
-        self.ctx = snowflake.connector.connect(
-            user=username,
-            password=password,
-            account=account
-        )
+    def __init__(self, *args):
+        if len(args) == 3:
+            self.ctx = snowflake.connector.connect(
+                    user=args[1],
+                    password=args[2],
+                    account=args[0]
+            )
+        elif len(args) == 1:
+            config = args[0]
+            self.ctx = snowflake.connector.connect(**config)
         self.cs = self.ctx.cursor()
+
+    """Initialize a connection from a snowsql-formatted config"""
+    @classmethod
+    def fromConfig(cls, path, connection_name):
+        config = SnowsqlConfig(path)
+        return cls(config.getConnection(connection_name))
 
     def getVersion(self):
         self.cs.execute('SELECT current_version()')
@@ -63,3 +76,23 @@ class SnowflakeConnector():
         self.cs.execute(f'use schema {schema}')
         self.cs.execute(f'show USER FUNCTIONS LIKE \'{like}\'')
         return self.cs.fetchall()
+
+    def listStreamlits(self, database="", schema="", role="", warehouse="", like='%%') -> list[tuple]:
+        return self.runSql('list_streamlits', database, schema, role, warehouse)
+
+    def runSql(self, command, database, schema, role, warehouse):
+        try:
+            sql = pkgutil.get_data(__name__, f"sql/{command}.sql").decode()
+            sql = sql.replace("{database}", database)
+            sql = sql.replace("{schema}", schema)
+            sql = sql.replace("{role}", role)
+            sql = sql.replace("{warehouse}", warehouse)
+            if os.getenv('DEBUG'): print(f"Executing sql:\n{sql}")
+            results = self.ctx.execute_stream(StringIO(sql))
+
+            # Return result from last cursor
+            *_, last_result = results
+            return last_result
+        except snowflake.connector.errors.ProgrammingError as e:
+            print(e)
+

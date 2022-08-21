@@ -7,7 +7,8 @@ import requirements
 import os
 import glob
 import yaml
-import config
+
+import snowcli.config
 
 
 def getDeployNames(database, schema, name) -> dict:
