@@ -78,15 +78,33 @@ class SnowflakeConnector():
         return self.cs.fetchall()
 
     def listStreamlits(self, database="", schema="", role="", warehouse="", like='%%') -> list[tuple]:
-        return self.runSql('list_streamlits', database, schema, role, warehouse)
+        return self.runSql('list_streamlits', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse
+        })
 
-    def runSql(self, command, database, schema, role, warehouse):
+    def createStreamlit(self, database="", schema="", role="", warehouse="", name="", file="") -> list[tuple]:
+        return self.runSql('create_streamlit', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse,
+            'name': name,
+            'file_name': file
+        })
+
+    def deployStreamlit(self, name, file_path, stage_path, role, overwrite):
+        self.uploadFileToStage(file_path, f"{name}_stage", stage_path, role, overwrite)
+        return self.runSql("get_streamlit_url", { "name": name })
+
+    def runSql(self, command, context):
         try:
             sql = pkgutil.get_data(__name__, f"sql/{command}.sql").decode()
-            sql = sql.replace("{database}", database)
-            sql = sql.replace("{schema}", schema)
-            sql = sql.replace("{role}", role)
-            sql = sql.replace("{warehouse}", warehouse)
+            for (k, v) in context.items():
+                sql = sql.replace("{" + k + "}", v)
+
             if os.getenv('DEBUG'): print(f"Executing sql:\n{sql}")
             results = self.ctx.execute_stream(StringIO(sql))
 

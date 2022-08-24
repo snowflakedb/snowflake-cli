@@ -293,6 +293,31 @@ def streamlit_list(database, schema, role, warehouse):
         table = prettytable.from_db_cursor(results)
         click.echo(table)
 
+@click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
+@standard_options
+@click.option('--name', '-n', help='Name of streamlit to be created.', required=True)
+@click.option('--file', '-f', help='Path to streamlit file', default='streamlit_app.py', required=True)
+def streamlit_create(database, schema, role, warehouse, name, file):
+    if config.isAuth():
+        config.connectToSnowflake()
+        results = config.snowflake_connection.createStreamlit(
+            database=database, schema=schema, role=role, warehouse=warehouse, name=name, file=file)
+        table = prettytable.from_db_cursor(results)
+        click.echo(table)
+
+@click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
+@standard_options
+@click.option('--name', '-n', help='Name of streamlit to be deployed', required=True)
+@click.option('--file', '-f', help='Path to streamlit file', default='streamlit_app.py', required=True)
+def streamlit_deploy(database, schema, role, warehouse, name, file):
+    if config.isAuth():
+        config.connectToSnowflake()
+        results = config.snowflake_connection.deployStreamlit(
+            name=name, file_path=file, stage_path='/', role=role,
+            overwrite=True)
+        table = prettytable.from_db_cursor(results)
+        click.echo(table)
+
 @click.command()
 def notebooks():
     pass
@@ -308,6 +333,8 @@ function.add_command(function_logs, 'logs')
 function.add_command(function_execute, 'execute')
 function.add_command(function_describe, 'describe')
 streamlit.add_command(streamlit_list, 'list')
+streamlit.add_command(streamlit_create, 'create')
+streamlit.add_command(streamlit_deploy, 'deploy')
 cli.add_command(function)
 cli.add_command(procedure)
 cli.add_command(streamlit)
