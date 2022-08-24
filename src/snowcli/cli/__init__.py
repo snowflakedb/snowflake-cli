@@ -11,18 +11,12 @@ import webbrowser
 from pathlib import Path
 
 from snowcli import config, click_extensions, utils
+from snowcli.config import AppConfig
+from snowcli.snowsql_config import SnowsqlConfig
 
 def standard_options(function):
-    # Need to search for app.toml by moving up directory tree
-    defaults = {}
-
-    # Find first app.toml by traversing parent dirs
-    p = Path.cwd()
-    while not any(p.glob('app.toml')):
-        p = p.parent
-
-    if p:
-        defaults = toml.load(next(p.glob('app.toml')))
+    app_config = config.AppConfig()
+    defaults = app_config.config
 
     function = click.option(
         '--database', '-d', help='Database name', default=defaults.get('database'))(function)
@@ -30,8 +24,8 @@ def standard_options(function):
         '--schema', '-s', help='Schema name', default=defaults.get('schema'))(function)
     function = click.option(
         '--role', '-r', help='Role name', default=defaults.get('role'))(function)
-    function = click.option('--warehouse', '-w',
-                            help='Warehouse name', default=defaults.get('warehouse'))(function)
+    function = click.option(
+        '--warehouse', '-w', help='Warehouse name', default=defaults.get('warehouse'))(function)
     return function
 
 
@@ -46,7 +40,6 @@ def function_init():
         'templates', 'default_function'), f'{os.getcwd()}')
 
 
-@click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
 @standard_options
 @click.option('--name', '-n', help='Name of the function', required=True)
 @click.option('--file', '-f', 'file', type=click.Path(exists=True), required=True, help='Path to the file or folder to deploy')
@@ -84,7 +77,6 @@ def function_create(name, database, schema, role, warehouse, handler, yaml, inpu
         )
 
 
-@click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
 @standard_options
 @click.option('--name', '-n', help='Name of the function', required=True)
 @click.option('--file', '-f', 'file', type=click.Path(exists=True))
@@ -192,8 +184,24 @@ def function_package():
         utils.standardZipDir('app.zip')
     click.echo('\n\nDeployment package now ready: app.zip')
 
+def config_specified(ctx, param, value):
+    # Config is specified, so we need to store that in the app.toml
+    cfg = AppConfig()
+    cfg.config['snowsql_config_path'] = value
+    cfg.save()
+    return value
+
+def connection_specified(ctx, param, value):
+    # Connection is specified, so we need to store that in the app.toml
+    cfg = AppConfig()
+    cfg.config['snowsql_connection_name'] = value
+    cfg.save()
+    click.echo(f"Using connection name {value} in {cfg.config['snowsql_config_path']}")
+    ctx.exit()
 
 @click.command()
+@click.option('--config', '-c', 'snowsql_config_path', prompt='Path to Snowsql config', default=lambda: '~/.snowsql/config', callback=config_specified, is_eager=True, help='snowsql config file')
+@click.option('--connection', '-C', 'snowsql_connection_name', prompt='Connection name (for entry in snowsql config)', callback=connection_specified, is_eager=True, default=lambda: 'snowcli', help='connection name from snowsql config file')
 @click.option('--account', prompt='Snowflake account', help='Snowflake account')
 @click.option('--username', prompt='Snowflake username', help='Snowflake username')
 @click.option('--password', prompt='Snowflake password', hide_input=True, help='Snowflake password')
@@ -202,7 +210,8 @@ def function_package():
 @click.option('--role', prompt='Snowflake role [optional]', default='', help='Snowflake role [optional]', required=False)
 @click.option('--warehouse', prompt='Snowflake warehouse [optional]', default='', help='Snowflake warehouse [optional]', required=False)
 def login(account, username, password, database, schema, role, warehouse):
-    config.auth_config['default'] = {
+    cfg = SnowsqlConfig(snowsql_config_path)
+    connection_entry = {
         'account': account,
         'username': username,
         'password': password,
@@ -211,21 +220,7 @@ def login(account, username, password, database, schema, role, warehouse):
         'role': role,
         'warehouse': warehouse
     }
-    os.makedirs(os.path.dirname(config.config_file_path), exist_ok=True)
-    with open(config.config_file_path, 'w') as configfile:
-        config.auth_config.write(configfile)
-
-@click.command()
-@click.option('--config', 'snowsql_config', default='~/.snowsql/config', help='snowsql config file', required=True)
-@click.option('--connection', 'snowsql_connection', default='snowflake', help='connection name from snowsql config file', required=True)
-def login_snowsql(snowsql_config, snowsql_connection):
-    config.auth_config['default'] = {
-        'snowsql_config_path': snowsql_config,
-        'snowsql_connection': snowsql_connection
-    }
-    os.makedirs(os.path.dirname(config.config_file_path), exist_ok=True)
-    with open(config.config_file_path, 'w') as configfile:
-        config.auth_config.write(configfile)
+    cfg.add_connection(snowsql_connection_name, connection_entry)
 
 @click.command()
 def function_list():
@@ -241,8 +236,6 @@ def function_delete():
 def function_logs():
     click.echo('Not yet implemented...')
 
-
-@click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
 @standard_options
 @click.option('--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'', required=True)
 @click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
@@ -254,7 +247,6 @@ def function_execute(database, schema, role, warehouse, yaml, function):
         click.echo(results)
 
 
-@click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
 @standard_options
 @click.option('--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'', required=True)
 @click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
@@ -284,8 +276,8 @@ def procedure():
 def streamlit():
     pass
 
-@click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
 @standard_options
+@click.command()
 def streamlit_list(database, schema, role, warehouse):
     if config.isAuth():
         config.connectToSnowflake()
@@ -294,7 +286,6 @@ def streamlit_list(database, schema, role, warehouse):
         table = prettytable.from_db_cursor(results)
         click.echo(table)
 
-@click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
 @standard_options
 @click.option('--name', '-n', help='Name of streamlit to be created.', required=True)
 @click.option('--file', '-f', help='Path to streamlit file', default='streamlit_app.py', required=True)
@@ -306,7 +297,6 @@ def streamlit_create(database, schema, role, warehouse, name, file):
         table = prettytable.from_db_cursor(results)
         click.echo(table)
 
-@click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
 @standard_options
 @click.option('--name', '-n', help='Name of streamlit to be deployed', required=True)
 @click.option('--file', '-f', help='Path to streamlit file', default='streamlit_app.py', required=True)
@@ -345,7 +335,6 @@ cli.add_command(procedure)
 cli.add_command(streamlit)
 cli.add_command(notebooks)
 cli.add_command(login)
-cli.add_command(login_snowsql)
 
 if __name__ == '__main__':
     main()

@@ -2,31 +2,48 @@ import configparser
 import click
 import os
 from pathlib import Path
+import toml
 
 from snowcli.snow_connector import SnowflakeConnector
 
-# XXX: This is quite ugly, but we store in .snowcli/credentials either:
-# 1. The actual creds for your Snowflake connection
-# 2. The path to the snowsql-formatted config and the connection name you want to use
-# TODO: Also, maybe look at what click offers https://click.palletsprojects.com/en/8.1.x/utils/#finding-application-folders 
-config_file_path = os.path.expanduser('~/.snowcli/credentials')
+# we store a reference in app.toml to the connection info in snowsql config
+# if they don't have a snowsql config, we let them create/add an entry
 
-auth_config = configparser.ConfigParser()
-auth_config.read(config_file_path)
 snowflake_connection: SnowflakeConnector
+
+class AppConfig():
+    def __init__(self):
+        self.path = self._find_app_toml()
+        if self.path:
+            self.config = toml.load(self.path)
+        else:
+            self.path = Path.cwd().joinpath('app.toml')
+            self.config = {}
+
+    def _find_app_toml(self):
+        # Find first app.toml by traversing parent dirs
+        p = Path.cwd()
+        while not any(p.glob('app.toml')):
+            p = p.parent
+
+        if p:
+            return next(p.glob('app.toml'))
+        else:
+            return None
+
+    def save(self):
+        with open(self.path, 'w') as f:
+            toml.dump(self.config, f)
 
 def connectToSnowflake():
     global snowflake_connection
-    if 'snowsql_config_path' in auth_config['default']:
-        snowflake_connection = SnowflakeConnector.fromConfig(
-                auth_config.get('default', 'snowsql_config_path'), auth_config.get('default', 'snowsql_connection'))
-    else:
-        snowflake_connection = SnowflakeConnector(auth_config.get(
-            'default', 'account'), auth_config.get('default', 'username'), auth_config.get('default', 'password'))
-
+    cfg = AppConfig()
+    snowflake_connection = SnowflakeConnector.fromConfig(
+            cfg.config.get('snowsql_config_path'), cfg.config.get('snowsql_connection_name'))
 
 def isAuth():
-    if not auth_config.has_section('default') and not auth_config.has_option('default', 'account'):
+    cfg = AppConfig()
+    if 'snowsql_config_path' not in cfg.config:
         click.echo('You must login first with `snowcli login`')
         return False
     return True

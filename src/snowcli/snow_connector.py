@@ -22,7 +22,7 @@ class SnowflakeConnector():
     @classmethod
     def fromConfig(cls, path, connection_name):
         config = SnowsqlConfig(path)
-        return cls(config.getConnection(connection_name))
+        return cls(config.get_connection(connection_name))
 
     def getVersion(self):
         self.cs.execute('SELECT current_version()')
