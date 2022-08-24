@@ -7,6 +7,7 @@ from yaml import dump
 import re
 import prettytable
 import toml
+import webbrowser
 from pathlib import Path
 
 from snowcli import config, click_extensions, utils
@@ -309,14 +310,18 @@ def streamlit_create(database, schema, role, warehouse, name, file):
 @standard_options
 @click.option('--name', '-n', help='Name of streamlit to be deployed', required=True)
 @click.option('--file', '-f', help='Path to streamlit file', default='streamlit_app.py', required=True)
-def streamlit_deploy(database, schema, role, warehouse, name, file):
+@click.option('--open/--no-open', '-o', 'open_', help='Open streamlit in browser', default=False, required=False)
+def streamlit_deploy(database, schema, role, warehouse, name, file, open_):
     if config.isAuth():
         config.connectToSnowflake()
         results = config.snowflake_connection.deployStreamlit(
             name=name, file_path=file, stage_path='/', role=role,
             overwrite=True)
-        table = prettytable.from_db_cursor(results)
-        click.echo(table)
+        url = results.fetchone()[0]
+        if open_:
+            webbrowser.open(url)
+        else:
+            click.echo(url)
 
 @click.command()
 def notebooks():
