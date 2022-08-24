@@ -10,6 +10,5 @@ class SnowsqlConfig():
         connection = self.config['connections.'+connection_name]
         # Remap names to appropriate args in Python Connector API
         connection = dict((k.replace('name', ''), v.strip('"')) for k, v in connection.items())
-        print(f"connection: {connection}")
         return connection
 
