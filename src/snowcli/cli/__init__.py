@@ -6,18 +6,31 @@ import os
 from yaml import dump
 import re
 import prettytable
+import toml
+from pathlib import Path
 
 from snowcli import config, click_extensions, utils
 
 def standard_options(function):
+    # Need to search for app.toml by moving up directory tree
+    defaults = {}
+
+    # Find first app.toml by traversing parent dirs
+    p = Path.cwd()
+    while not any(p.glob('app.toml')):
+        p = p.parent
+
+    if p:
+        defaults = toml.load(next(p.glob('app.toml')))
+
     function = click.option(
-        '--database', '-d', help='Database name')(function)
+        '--database', '-d', help='Database name', default=defaults.get('database'))(function)
     function = click.option(
-        '--schema', '-s', help='Schema name')(function)
+        '--schema', '-s', help='Schema name', default=defaults.get('schema'))(function)
     function = click.option(
-        '--role', '-r', help='Role name')(function)
+        '--role', '-r', help='Role name', default=defaults.get('role'))(function)
     function = click.option('--warehouse', '-w',
-                            help='Warehouse name')(function)
+                            help='Warehouse name', default=defaults.get('warehouse'))(function)
     return function
 
 
