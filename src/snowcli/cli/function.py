@@ -24,12 +24,12 @@ def global_options(func):
 def function():
     pass
 
-@function.command()
+@click.command("init")
 def function_init():
     copy_tree(pkg_resources.resource_filename(
         'templates', 'default_function'), f'{os.getcwd()}')
 
-@function.command()
+@click.command("create")
 @global_options
 @click.option('--name', '-n', help='Name of the function', required=True)
 @click.option('--file', '-f', 'file', type=click.Path(exists=True), required=True, help='Path to the file or folder to deploy')
@@ -67,7 +67,7 @@ def function_create(environment, name, handler, yaml, inputParams, returnType, o
         )
 
 
-@function.command()
+@click.command("update")
 @global_options
 @click.option('--name', '-n', help='Name of the function', required=True)
 @click.option('--file', '-f', 'file', type=click.Path(exists=True))
@@ -140,7 +140,7 @@ def function_update(environment, file, name, yaml):
         else:
             click.echo(f'No packages to update. Deployment complete!')
 
-@function.command()
+@click.command("package")
 def function_package():
     click.echo('Resolving any requirements from requirements.txt...')
     requirements = utils.parseRequirements()
@@ -175,21 +175,21 @@ def function_package():
         utils.standardZipDir('app.zip')
     click.echo('\n\nDeployment package now ready: app.zip')
 
-@function.command()
+@click.command("list")
 def function_list():
     click.echo('Not yet implemented...')
 
 
-@function.command()
+@click.command("delete")
 def function_delete():
     click.echo('Not yet implemented...')
 
 
-@function.command()
+@click.command("logs")
 def function_logs():
     click.echo('Not yet implemented...')
 
-@function.command()
+@click.command("execute")
 @global_options
 @click.option('--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'', required=True)
 @click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
@@ -202,7 +202,7 @@ def function_execute(environment, yaml, function):
         click.echo(results)
 
 
-@function.command()
+@click.command("describe")
 @global_options
 @click.option('--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'', required=True)
 @click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)

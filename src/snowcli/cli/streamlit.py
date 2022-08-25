@@ -26,7 +26,7 @@ def global_options(func):
 def streamlit():
     pass
 
-@streamlit.command()
+@click.command("list")
 @global_options
 def streamlit_list(environment):
     env_conf = AppConfig().config.get(environment)
@@ -41,7 +41,7 @@ def streamlit_list(environment):
         table = prettytable.from_db_cursor(results)
         click.echo(table)
 
-@streamlit.command()
+@click.command("create")
 @global_options
 @click.option('--name', '-n', help='Name of streamlit to be created.', required=True)
 @click.option('--file', '-f', help='Path to streamlit file', default='streamlit_app.py', required=True)
@@ -60,7 +60,7 @@ def streamlit_create(environment, name, file):
         table = prettytable.from_db_cursor(results)
         click.echo(table)
 
-@streamlit.command()
+@click.command("deploy")
 @global_options
 @click.option('--name', '-n', help='Name of streamlit to be deployed', required=True)
 @click.option('--file', '-f', help='Path to streamlit file', default='streamlit_app.py', required=True)
