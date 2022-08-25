@@ -1,13 +1,11 @@
 import configparser
-import click
 import os
 from pathlib import Path
+
+import click
 import toml
 
 from snowcli.snow_connector import SnowflakeConnector
-
-# we store a reference in app.toml to the connection info in snowsql config
-# if they don't have a snowsql config, we let them create/add an entry
 
 snowflake_connection: SnowflakeConnector
 

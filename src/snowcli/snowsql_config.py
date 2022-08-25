@@ -1,5 +1,6 @@
-import os
 import configparser
+import os
+
 
 class SnowsqlConfig():
     def __init__(self, path='~/.snowsql/config'):
