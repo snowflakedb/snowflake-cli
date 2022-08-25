@@ -13,11 +13,12 @@ from snowcli.snowsql_config import SnowsqlConfig
 def function():
     pass
 
-@click.command()
+@function.command()
 def function_init():
     copy_tree(pkg_resources.resource_filename(
         'templates', 'default_function'), f'{os.getcwd()}')
 
+@function.command()
 @click.option('--name', '-n', help='Name of the function', required=True)
 @click.option('--file', '-f', 'file', type=click.Path(exists=True), required=True, help='Path to the file or folder to deploy')
 # @click.option('--imports', help='File imports into the function')
@@ -54,6 +55,7 @@ def function_create(name, database, schema, role, warehouse, handler, yaml, inpu
         )
 
 
+@function.command()
 @click.option('--name', '-n', help='Name of the function', required=True)
 @click.option('--file', '-f', 'file', type=click.Path(exists=True))
 @click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
@@ -124,8 +126,7 @@ def function_update(file, role, database, schema, warehouse, name, yaml):
         else:
             click.echo(f'No packages to update. Deployment complete!')
 
-
-@click.command()
+@function.command()
 def function_package():
     click.echo('Resolving any requirements from requirements.txt...')
     requirements = utils.parseRequirements()
@@ -160,20 +161,21 @@ def function_package():
         utils.standardZipDir('app.zip')
     click.echo('\n\nDeployment package now ready: app.zip')
 
-@click.command()
+@function.command()
 def function_list():
     click.echo('Not yet implemented...')
 
 
-@click.command()
+@function.command()
 def function_delete():
     click.echo('Not yet implemented...')
 
 
-@click.command()
+@function.command()
 def function_logs():
     click.echo('Not yet implemented...')
 
+@function.command()
 @click.option('--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'', required=True)
 @click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
 def function_execute(database, schema, role, warehouse, yaml, function):
@@ -184,6 +186,7 @@ def function_execute(database, schema, role, warehouse, yaml, function):
         click.echo(results)
 
 
+@function.command()
 @click.option('--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'', required=True)
 @click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
 def function_describe(database, schema, role, warehouse, yaml, function):
@@ -192,7 +195,6 @@ def function_describe(database, schema, role, warehouse, yaml, function):
         results = config.snowflake_connection.describeFunction(
             function=function, database=database, schema=schema, role=role, warehouse=warehouse)
         click.echo(dump(dict(results), default_flow_style=False))
-
 
 function.add_command(function_init, 'init')
 function.add_command(function_create, 'create')

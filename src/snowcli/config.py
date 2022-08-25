@@ -19,15 +19,15 @@ class AppConfig():
             self.config = {}
 
     def _find_app_toml(self):
-        # Find first app.toml by traversing parent dirs
+        # Find first app.toml by traversing parent dirs up to home dir
         p = Path.cwd()
-        while not any(p.glob('app.toml')):
+        while not any(p.glob('app.toml')) and p != p.home():
             p = p.parent
 
-        if p:
-            return next(p.glob('app.toml'))
-        else:
+        if p == p.home():
             return None
+        else:
+            return next(p.glob('app.toml'))
 
     def save(self):
         with open(self.path, 'w') as f:

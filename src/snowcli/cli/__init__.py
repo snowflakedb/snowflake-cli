@@ -3,7 +3,7 @@ import click
 from snowcli import config, utils
 from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
-#from .function import function
+from .function import function
 from .streamlit import streamlit
 
 @click.group()
@@ -36,6 +36,7 @@ def login(snowsql_config_path, snowsql_connection_name):
     cfg.config['snowsql_connection_name'] = snowsql_connection_name
     cfg.save()
     click.echo(f"Using connection name {snowsql_connection_name} in {snowsql_config_path}")
+    click.echo(f"Wrote {cfg.path}")
 
 @cli.command()
 @click.option('--environment', '-e', default='dev', help='Name of environment (e.g. dev, prod, staging)', required=True)
@@ -53,7 +54,7 @@ def configure(environment, database, schema, role, warehouse):
     cfg.config[environment]['warehouse'] = warehouse
     cfg.save()
 
-#cli.add_command(function)
+cli.add_command(function)
 cli.add_command(streamlit)
 cli.add_command(login)
 cli.add_command(configure)
