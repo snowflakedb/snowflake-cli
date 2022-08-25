@@ -1,5 +1,7 @@
 import click
+from pathlib import Path
 from prettytable import PrettyTable
+import sys
 
 from snowcli import config, utils
 from snowcli.config import AppConfig
@@ -23,6 +25,8 @@ def connection_list():
     app_cfg = AppConfig().config
     if 'snowsql_config_path' not in app_cfg:
         click.echo("No snowsql config path set. Please run snowcli login first.")
+
+    click.echo(f"Using {app_cfg['snowsql_config_path']}...")
 
     cfg = SnowsqlConfig(app_cfg['snowsql_config_path'])
     table = PrettyTable()
@@ -54,7 +58,15 @@ def connection_add(account, username, password):
 @click.option('--config', '-c', 'snowsql_config_path', prompt='Path to Snowsql config', default='~/.snowsql/config', help='snowsql config file')
 @click.option('--connection', '-C', 'snowsql_connection_name', prompt='Connection name (for entry in snowsql config)', help='connection name from snowsql config file')
 def login(snowsql_config_path, snowsql_connection_name):
-    # TODO: Validate that the path exists and the connection does too
+    if not Path(snowsql_config_path).expanduser().exists():
+        click.echo(f"Path to snowsql config does not exist: {snowsql_config_path}")
+        sys.exit(1)
+
+    cfg = SnowsqlConfig(snowsql_config_path)
+    if f"connections.{snowsql_connection_name}" not in cfg.config:
+        click.echo(f"Connection not found in {snowsql_config_path}: {snowsql_connection_name}")
+        sys.exit(1)
+
     cfg = AppConfig()
     cfg.config['snowsql_config_path'] = snowsql_config_path
     cfg.config['snowsql_connection_name'] = snowsql_connection_name
