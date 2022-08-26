@@ -41,18 +41,20 @@ def connection_list():
     click.echo(table)
 
 @click.command("add")
+@click.option('--connection', prompt='Name for this connection', default='', help='Snowflake connection name', required=True)
 @click.option('--account', prompt='Snowflake account name', default='', help='Snowflake database', required=True)
 @click.option('--username', prompt='Snowflake username', default='', help='Snowflake schema', required=True)
-@click.option('--password', prompt='Snowflake password', default='', help='Snowflake role', required=True)
-def connection_add(account, username, password):
-    cfg = SnowsqlConfig(snowsql_config_path)
+@click.option('--password', prompt='Snowflake password', default='', hide_input=True, help='Snowflake password', required=True)
+def connection_add(connection, account, username, password):
+    app_cfg = AppConfig().config
+    cfg = SnowsqlConfig(app_cfg['snowsql_config_path'])
     connection_entry = {
         'account': account,
         'username': username,
         'password': password,
     }
-    cfg.add_connection(snowsql_connection_name, connection_entry)
-    click.echo(f"Wrote new connection {snowsql_connection_name} to {cfg.path}")
+    cfg.add_connection(connection, connection_entry)
+    click.echo(f"Wrote new connection {connection} to {cfg.path}")
 
 @click.command()
 @click.option('--config', '-c', 'snowsql_config_path', prompt='Path to Snowsql config', default='~/.snowsql/config', help='snowsql config file')

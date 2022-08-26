@@ -14,10 +14,11 @@ class SnowsqlConfig():
         return connection
 
     def add_connection(self, connection_name, entry):
+        self.config[f"connections.{connection_name}"] = {}
         connection = self.config[f"connections.{connection_name}"]
         for (k, v) in entry.items():
-            connection.set(k, v)
+            connection[k] = v
 
-        with open(self.path, 'wb') as f:
+        with open(os.path.expanduser(self.path), 'w') as f:
             self.config.write(f)
 
