@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-snowcli = "snowcli.cli:main"
+snow = "snowcli.cli:main"
 
 [tool.hatch.version]
 path = "src/__about__.py"
