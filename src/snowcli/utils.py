@@ -1,11 +1,12 @@
-from email import utils
-import json
-import shutil
-import requests
-import click
-import requirements
-import os
 import glob
+import json
+import os
+import shutil
+from email import utils
+
+import click
+import requests
+import requirements
 import yaml
 
 import snowcli.config

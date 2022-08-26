@@ -11,7 +11,9 @@ dependencies = [
   "click",
   "snowflake-connector-python",
   "requirements-parser",
-  "prettytable"
+  "prettytable",
+  "toml",
+  "pyyaml"
 ]
 
 [project.scripts]
@@ -26,4 +28,4 @@ exclude = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/snowcli"]
+packages = ["src/snowcli", "src/templates"]

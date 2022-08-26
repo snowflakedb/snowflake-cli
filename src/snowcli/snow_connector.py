@@ -1,9 +1,10 @@
-from lib2to3.pgen2.pgen import DFAState
 import os
-import snowflake.connector
 import pkgutil
-from snowcli.snowsql_config import SnowsqlConfig
 from io import StringIO
+
+import snowflake.connector
+
+from snowcli.snowsql_config import SnowsqlConfig
 
 class SnowflakeConnector():
     def __init__(self, *args):
@@ -22,7 +23,7 @@ class SnowflakeConnector():
     @classmethod
     def fromConfig(cls, path, connection_name):
         config = SnowsqlConfig(path)
-        return cls(config.getConnection(connection_name))
+        return cls(config.get_connection(connection_name))
 
     def getVersion(self):
         self.cs.execute('SELECT current_version()')
@@ -100,8 +101,8 @@ class SnowflakeConnector():
         return self.runSql("get_streamlit_url", { "name": name })
 
     def runSql(self, command, context):
+        sql = pkgutil.get_data(__name__, f"sql/{command}.sql").decode()
         try:
-            sql = pkgutil.get_data(__name__, f"sql/{command}.sql").decode()
             for (k, v) in context.items():
                 sql = sql.replace("{" + k + "}", v)
 
@@ -112,5 +113,7 @@ class SnowflakeConnector():
             *_, last_result = results
             return last_result
         except snowflake.connector.errors.ProgrammingError as e:
+            print(f"Error executing sql:\n{sql}")
             print(e)
+            raise(e)
 

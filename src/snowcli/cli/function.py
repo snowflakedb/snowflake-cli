@@ -1,41 +1,36 @@
-from typing_extensions import Required
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import click
-import config
-import click_extensions
-import utils
-import tempfile
 from distutils.dir_util import copy_tree
 import os
 import pkg_resources
-from yaml import dump
-import re
+import tempfile
 
+from snowcli import utils, config
+from snowcli.config import AppConfig
+from snowcli.snowsql_config import SnowsqlConfig
 
-def standard_options(function):
-    function = click.option(
-        '--database', '-d', help='Database name')(function)
-    function = click.option(
-        '--schema', '-s', help='Schema name')(function)
-    function = click.option(
-        '--role', '-r', help='Role name')(function)
-    function = click.option('--warehouse', '-w',
-                            help='Warehouse name')(function)
-    return function
+_global_options = [
+    click.option('--environment', '-e', help='Environment name', default='dev')
+]
 
+def global_options(func):
+    for option in reversed(_global_options):
+        func = option(func)
+    return func
 
 @click.group()
 def function():
     pass
 
-
-@click.command()
+@click.command("init")
 def function_init():
     copy_tree(pkg_resources.resource_filename(
         'templates', 'default_function'), f'{os.getcwd()}')
 
-
-@click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
-@standard_options
+@click.command("create")
+@global_options
 @click.option('--name', '-n', help='Name of the function', required=True)
 @click.option('--file', '-f', 'file', type=click.Path(exists=True), required=True, help='Path to the file or folder to deploy')
 # @click.option('--imports', help='File imports into the function')
@@ -44,17 +39,17 @@ def function_init():
 @click.option('--return-type', '-r', 'returnType', help='Return type', required=True)
 @click.option('--overwrite', '-o', is_flag=True, help='Overwrite / replace if existing function')
 @click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
-def function_create(name, database, schema, role, warehouse, handler, yaml, inputParams, returnType, overwrite, file):
-    print(f'name: {name}')
+def function_create(environment, name, handler, yaml, inputParams, returnType, overwrite, file):
+    env_conf = AppConfig().config.get(environment)
     if config.isAuth():
         config.connectToSnowflake()
-        deploy_dict = utils.getDeployNames(database, schema, name)
+        deploy_dict = utils.getDeployNames(env_conf['database'], env_conf['schema'], name)
         click.echo('Uploading deployment file to stage...')
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
             config.snowflake_connection.uploadFileToStage(
-                file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=overwrite, role=role)
+                file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=overwrite, role=env_conf['role'])
         packages = utils.getSnowflakePackages()
         click.echo('Creating function...')
         click.echo(
@@ -62,28 +57,29 @@ def function_create(name, database, schema, role, warehouse, handler, yaml, inpu
                                                        returnType=returnType,
                                                        handler=handler,
                                                        imports=deploy_dict['full_path'],
-                                                       database=database,
-                                                       schema=schema,
-                                                       role=role,
-                                                       warehouse=warehouse,
+                                                       database=env_conf['database'],
+                                                       schema=env_conf['schema'],
+                                                       role=env_conf['role'],
+                                                       warehouse=env_conf['warehouse'],
                                                        overwrite=overwrite,
                                                        packages=packages
                                                        )
         )
 
 
-@click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
-@standard_options
+@click.command("update")
+@global_options
 @click.option('--name', '-n', help='Name of the function', required=True)
 @click.option('--file', '-f', 'file', type=click.Path(exists=True))
 @click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
-def function_update(file, role, database, schema, warehouse, name, yaml):
+def function_update(environment, file, name, yaml):
+    env_conf = AppConfig().config.get(environment)
     if config.isAuth():
         config.connectToSnowflake()
-        deploy_dict = utils.getDeployNames(database, schema, name)
+        deploy_dict = utils.getDeployNames(env_conf['database'], env_conf['schema'], name)
         click.echo(f'Finding function {name}...')
         functions = config.snowflake_connection.listFunctions(
-            database=database, schema=schema, role=role, warehouse=warehouse, like=name)
+            database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'], like=name)
         if len(functions) == 0:
             click.echo(f'No functions named: {name} found')
             return
@@ -112,12 +108,12 @@ def function_update(file, role, database, schema, warehouse, name, yaml):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
             deploy_response = config.snowflake_connection.uploadFileToStage(
-                file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=True, role=role)
+                file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=True, role=env_conf['role'])
         click.echo(
             f'{deploy_response} uploaded to stage {deploy_dict["full_path"]}')
         click.echo(f'Checking if any new packages to update...')
         function_details = config.snowflake_connection.describeFunction(
-            function=function_signature, database=database, schema=schema, role=role, warehouse=warehouse)
+            function=function_signature, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
         function_json = utils.convertFunctionDetailsToDict(function_details)
         anaconda_packages = function_json['packages']
         click.echo(
@@ -133,10 +129,10 @@ def function_update(file, role, database, schema, warehouse, name, yaml):
                 returnType=function_json['returns'],
                 handler=function_json['handler'],
                 imports=deploy_dict['full_path'],
-                database=database,
-                schema=schema,
-                role=role,
-                warehouse=warehouse,
+                database=env_conf['database'],
+                schema=env_conf['schema'],
+                role=env_conf['role'],
+                warehouse=env_conf['warehouse'],
                 overwrite=True,
                 packages=updatedPackageList)
             click.echo(
@@ -144,8 +140,7 @@ def function_update(file, role, database, schema, warehouse, name, yaml):
         else:
             click.echo(f'No packages to update. Deployment complete!')
 
-
-@click.command()
+@click.command("package")
 def function_package():
     click.echo('Resolving any requirements from requirements.txt...')
     requirements = utils.parseRequirements()
@@ -180,92 +175,44 @@ def function_package():
         utils.standardZipDir('app.zip')
     click.echo('\n\nDeployment package now ready: app.zip')
 
-
-@click.command()
-@click.option('--account', prompt='Snowflake account', help='Snowflake account')
-@click.option('--username', prompt='Snowflake username', help='Snowflake username')
-@click.option('--password', prompt='Snowflake password', hide_input=True, help='Snowflake password')
-@click.option('--database', prompt='Snowflake database [optional]', default='', help='Snowflake database [optional]', required=False)
-@click.option('--schema', prompt='Snowflake schema [optional]', default='', help='Snowflake schema [optional]', required=False)
-@click.option('--role', prompt='Snowflake role [optional]', default='', help='Snowflake role [optional]', required=False)
-@click.option('--warehouse', prompt='Snowflake warehouse [optional]', default='', help='Snowflake warehouse [optional]', required=False)
-def login(account, username, password, database, schema, role, warehouse):
-    config.auth_config['default'] = {
-        'account': account,
-        'username': username,
-        'password': password,
-        'database': database,
-        'schema': schema,
-        'role': role,
-        'warehouse': warehouse
-    }
-    os.makedirs(os.path.dirname(config.config_file_path), exist_ok=True)
-    with open(config.config_file_path, 'w') as configfile:
-        config.auth_config.write(configfile)
-
-
-@click.command()
+@click.command("list")
 def function_list():
     click.echo('Not yet implemented...')
 
 
-@click.command()
+@click.command("delete")
 def function_delete():
     click.echo('Not yet implemented...')
 
 
-@click.command()
+@click.command("logs")
 def function_logs():
     click.echo('Not yet implemented...')
 
-
-@click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
-@standard_options
+@click.command("execute")
+@global_options
 @click.option('--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'', required=True)
 @click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
-def function_execute(database, schema, role, warehouse, yaml, function):
+def function_execute(environment, yaml, function):
+    env_conf = AppConfig().config.get(environment)
     if config.isAuth():
         config.connectToSnowflake()
         results = config.snowflake_connection.executeFunction(
-            function=function, database=database, schema=schema, role=role, warehouse=warehouse)
+            function=function, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
         click.echo(results)
 
 
-@click.command(cls=click_extensions.CommandWithConfigOverload('yaml', config.auth_config))
-@standard_options
+@click.command("describe")
+@global_options
 @click.option('--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'', required=True)
 @click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
-def function_describe(database, schema, role, warehouse, yaml, function):
+def function_describe(yaml, function):
+    env_conf = AppConfig().config.get(environment)
     if config.isAuth():
         config.connectToSnowflake()
         results = config.snowflake_connection.describeFunction(
-            function=function, database=database, schema=schema, role=role, warehouse=warehouse)
+            function=function, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
         click.echo(dump(dict(results), default_flow_style=False))
-
-
-@click.group()
-def cli():
-    pass
-
-
-def main():
-    cli()
-
-
-@click.command()
-def procedure():
-    pass
-
-
-@click.command()
-def streamlit():
-    pass
-
-
-@click.command()
-def notebooks():
-    pass
-
 
 function.add_command(function_init, 'init')
 function.add_command(function_create, 'create')
@@ -276,11 +223,3 @@ function.add_command(function_delete, 'delete')
 function.add_command(function_logs, 'logs')
 function.add_command(function_execute, 'execute')
 function.add_command(function_describe, 'describe')
-cli.add_command(function)
-cli.add_command(procedure)
-cli.add_command(streamlit)
-cli.add_command(notebooks)
-cli.add_command(login)
-
-if __name__ == '__main__':
-    main()
