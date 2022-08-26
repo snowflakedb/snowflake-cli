@@ -4,7 +4,7 @@ from snowcli import config, utils
 from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
 from .function import function
-from .streamlit import typer_click_object
+from .streamlit import streamlit
 
 @click.group()
 def cli():
@@ -55,7 +55,7 @@ def configure(environment, database, schema, role, warehouse):
     cfg.save()
 
 cli.add_command(function)
-cli.add_command(typer_click_object, "streamlit")
+cli.add_command(streamlit, "streamlit")
 cli.add_command(login)
 cli.add_command(configure)
 

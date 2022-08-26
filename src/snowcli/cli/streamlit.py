@@ -95,4 +95,4 @@ def streamlit_deploy(environment: str = EnvironmentOption,
         else:
             print(url)
 
-typer_click_object = typer.main.get_command(app)
+streamlit = typer.main.get_command(app)
