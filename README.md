@@ -15,7 +15,7 @@ This is a work-in-progress CLI for helping in creating apps in Snowflake. It doe
 
 ## Limitations
 - Only been tested on Linux and Mac. Not sure if it works on Windows.
-- Only currently works for Python functions (init, create, build, deploy, execute, describe)
+- Basic support for Python functions (describe, execute, package, create) and Streamlits (create, deploy, list)
 
 ## Installation
 
@@ -28,7 +28,7 @@ This is a work-in-progress CLI for helping in creating apps in Snowflake. It doe
 Navigate to the directory you want to install in. Then run the following:
 
 ```bash
-git clone https://github.com/jeffhollan/snowcli
+git clone https://github.com/snowflake-labs/snowcli
 cd snowcli
 # you can also do the below in an active virtual environment:
 # python -m venv .venv
@@ -37,23 +37,31 @@ pip install -r requirements.txt
 hatch build && pip install .
 ```
 
-You should now be able to run `snowcli` and get the CLI message.
+You should now be able to run `snow` and get the CLI message.
 
 ## Getting started
+
+### Building a function
 1. Navigate to an empty directory to create your function.
-1. Run the command: `snowcli function init`  
+1. Run the command: `snow function init`  
     It should populate this directory with the files for a basic function. You can open `app.py` to see the files.
 1. Test the code: `python app.py`  
     You should see the message: `Hello World!`
-1. Package the function: `snowcli function package`  
+1. Package the function: `snow function package`  
     This will create an `app.zip` file that has your files in it
-1. Login to snowflake: `snowcli login`
-1. Create a function: `snowcli function create -n helloFunction -h 'app.hello' -f app.zip -i '' -r string`
-1. Try running the function: `snowcli function execute -f 'helloFunction()'  
+1. Login to snowflake: `snow login`
+1. Create a function: `snow function create -n helloFunction -h 'app.hello' -f app.zip -i '' -r string`
+1. Try running the function: `snow function execute -f 'helloFunction()'  
     You should see Snowflake return the message: 'Hello World!'
 
+You can now go modify and edit your `app.py`, `requirements.txt`, or other files and follow a similar flow, or update a function with `snow function update -n myfunction -f app.zip`
 
-You can now go modify and edit your `app.py`, `requirements.txt`, or other files and follow a similar flow, or update a function with `snowcli function update -n myfunction -f app.zip`
+### Creating a Streamlit
+1. Change to a directory with an existing streamlit app (or create one)
+1. Run: `snow login` to select your snowsql config
+1. Run: `snow configure` to create an environment and select your database, schema, role, and warehouse (environment name defaults to 'dev')
+1. Run: `snow streamlit create <name>` to create a streamlit with a given name (file defaults to streamlit_app.py)
+1. Run: `snow streamlit deploy <name> -o` to deploy your app and open it in the browser
 
 ## Future ideas
 - Add delete command
