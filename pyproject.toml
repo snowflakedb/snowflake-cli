@@ -13,7 +13,9 @@ dependencies = [
   "requirements-parser",
   "prettytable",
   "toml",
-  "pyyaml"
+  "pyyaml",
+  "typer",
+  "rich"
 ]
 
 [project.scripts]

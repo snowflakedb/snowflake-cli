@@ -3,7 +3,11 @@
 
 import os
 import re
+from rich import print
+from rich.console import Console
+from rich.table import Table
 import tempfile
+import typer
 
 import click
 import prettytable
@@ -12,6 +16,8 @@ import toml
 from snowcli import config, utils
 from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
+
+console = Console()
 
 _global_options = [
     click.option('--environment', '-e', help='Environment name', default='dev')
@@ -26,9 +32,22 @@ def global_options(func):
 def streamlit():
     pass
 
-@click.command("list")
-@global_options
-def streamlit_list(environment):
+app = typer.Typer()
+
+EnvironmentOption = typer.Option("dev", help='Environment name')
+
+def print_db_cursor(cursor):
+    if cursor.description:
+        table = Table(*[col[0] for col in cursor.description])
+        for row in cursor.fetchall():
+            table.add_row(*[str(c) for c in row])
+        print(table)
+
+@app.command()
+def streamlit_list(environment: str = EnvironmentOption):
+    """
+    List streamlit apps.
+    """
     env_conf = AppConfig().config.get(environment)
 
     if config.isAuth():
@@ -38,8 +57,10 @@ def streamlit_list(environment):
             schema=env_conf.get('schema'),
             role=env_conf.get('role'),
             warehouse=env_conf.get('warehouse'))
-        table = prettytable.from_db_cursor(results)
-        click.echo(table)
+        print_db_cursor(results)
+
+typer_click_object = typer.main.get_command(app)
+streamlit.add_command(typer_click_object, "list")
 
 @click.command("create")
 @global_options
@@ -80,6 +101,5 @@ def streamlit_deploy(environment, name, file, open_):
         else:
             click.echo(url)
 
-streamlit.add_command(streamlit_list, 'list')
 streamlit.add_command(streamlit_create, 'create')
 streamlit.add_command(streamlit_deploy, 'deploy')
