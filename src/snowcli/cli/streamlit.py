@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+from pathlib import Path
 import re
 from rich import print
 from rich.console import Console
@@ -18,22 +19,7 @@ from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
 
 console = Console()
-
-_global_options = [
-    click.option('--environment', '-e', help='Environment name', default='dev')
-]
-
-def global_options(func):
-    for option in reversed(_global_options):
-        func = option(func)
-    return func
-
-@click.group()
-def streamlit():
-    pass
-
 app = typer.Typer()
-
 EnvironmentOption = typer.Option("dev", help='Environment name')
 
 def print_db_cursor(cursor):
@@ -43,7 +29,7 @@ def print_db_cursor(cursor):
             table.add_row(*[str(c) for c in row])
         print(table)
 
-@app.command()
+@app.command("list")
 def streamlit_list(environment: str = EnvironmentOption):
     """
     List streamlit apps.
@@ -59,14 +45,17 @@ def streamlit_list(environment: str = EnvironmentOption):
             warehouse=env_conf.get('warehouse'))
         print_db_cursor(results)
 
-typer_click_object = typer.main.get_command(app)
-streamlit.add_command(typer_click_object, "list")
-
-@click.command("create")
-@global_options
-@click.option('--name', '-n', help='Name of streamlit to be created.', required=True)
-@click.option('--file', '-f', help='Path to streamlit file', default='streamlit_app.py', required=True)
-def streamlit_create(environment, name, file):
+@app.command("create")
+def streamlit_create(environment: str = EnvironmentOption,
+                     name: str = typer.Argument(..., help='Name of streamlit to be created.'),
+                     file: Path = typer.Option('streamlit_app.py', 
+                                               exists=True,
+                                               readable=True,
+                                               file_okay=True,
+                                               help='Path to streamlit file')):
+    """
+    Create a streamlit app named NAME.
+    """
     env_conf = AppConfig().config.get(environment)
 
     if config.isAuth():
@@ -77,29 +66,33 @@ def streamlit_create(environment, name, file):
             role=env_conf.get('role'),
             warehouse=env_conf.get('warehouse'),
             name=name,
-            file=file)
-        table = prettytable.from_db_cursor(results)
-        click.echo(table)
+            file=str(file))
+        print_db_cursor(results)
 
-@click.command("deploy")
-@global_options
-@click.option('--name', '-n', help='Name of streamlit to be deployed', required=True)
-@click.option('--file', '-f', help='Path to streamlit file', default='streamlit_app.py', required=True)
-@click.option('--open/--no-open', '-o', 'open_', help='Open streamlit in browser', default=False, required=False)
-def streamlit_deploy(environment, name, file, open_):
+@app.command("deploy")
+def streamlit_deploy(environment: str = EnvironmentOption,
+                     name: str = typer.Argument(..., help='Name of streamlit to be deployed.'),
+                     file: Path = typer.Option('streamlit_app.py', 
+                                               exists=True,
+                                               readable=True,
+                                               file_okay=True,
+                                               help='Path to streamlit file'),
+                     open_: bool = typer.Option(False, "--open", "-o", help='Open streamlit in browser.')):
+    """
+    Deploy streamlit with NAME.
+    """
     env_conf = AppConfig().config.get(environment)
 
     if config.isAuth():
         config.connectToSnowflake()
         results = config.snowflake_connection.deployStreamlit(
-            name=name, file_path=file, stage_path='/',
+            name=name, file_path=str(file), stage_path='/',
             role=env_conf.get('role'), overwrite=True)
 
         url = results.fetchone()[0]
         if open_:
-            click.launch(url)
+            typer.launch(url)
         else:
-            click.echo(url)
+            print(url)
 
-streamlit.add_command(streamlit_create, 'create')
-streamlit.add_command(streamlit_deploy, 'deploy')
+typer_click_object = typer.main.get_command(app)
