@@ -6,6 +6,7 @@ from distutils.dir_util import copy_tree
 import os
 import pkg_resources
 import tempfile
+from yaml import dump
 
 from snowcli import utils, config
 from snowcli.config import AppConfig
@@ -204,9 +205,9 @@ def function_execute(environment, yaml, function):
 
 @click.command("describe")
 @global_options
-@click.option('--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'', required=True)
+@click.option('--function', '-f', help='Function with inputs. E.g. \'hello(int, string)\'', required=True)
 @click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
-def function_describe(yaml, function):
+def function_describe(environment, yaml, function):
     env_conf = AppConfig().config.get(environment)
     if config.isAuth():
         config.connectToSnowflake()
