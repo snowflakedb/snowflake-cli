@@ -219,7 +219,7 @@ def function_logs():
 
 @app.command("execute")
 def function_execute(environment: str = EnvironmentOption,
-                     function: str = typer.Option(..., '--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'')):
+                     function: str = typer.Option(..., '--function', '-f', help='Function with inputs. E.g. \'hello(int, string)\'')):
     env_conf = AppConfig().config.get(environment)
     if env_conf is None:
         print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
@@ -233,7 +233,7 @@ def function_execute(environment: str = EnvironmentOption,
 
 @app.command("describe")
 def function_describe(environment: str = EnvironmentOption,
-                      function: str = typer.Option(..., '--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'')):
+                      function: str = typer.Option(..., '--function', '-f', help='Function with inputs. E.g. \'hello(int, string)\'')):
     env_conf = AppConfig().config.get(environment)
     if env_conf is None:
         print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
