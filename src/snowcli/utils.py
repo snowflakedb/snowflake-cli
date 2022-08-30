@@ -7,10 +7,11 @@ from email import utils
 import click
 import requests
 import requirements
-import yaml
 
 import snowcli.config
 
+from rich.table import Table
+from rich import print
 
 def getDeployNames(database, schema, name) -> dict:
     stage = f'{database}.{schema}.deployments'
@@ -132,9 +133,16 @@ def convertFunctionDetailsToDict(function_details: list[tuple]) -> dict:
             function_dict[function[0]] = function[1]
     return function_dict
 
+def print_db_cursor(cursor):
+    if cursor.description:
+        table = Table(*[col[0] for col in cursor.description])
+        for row in cursor.fetchall():
+            table.add_row(*[str(c) for c in row])
+        print(table)
 
-def readYamlConfig(ctx, param, value):
-    # read yaml config file at value, and return a dict of the contents
-    if value is not None and os.path.exists(value):
-        with open(value, 'r') as f:
-            ctx.default_map = yaml.load(f, Loader=yaml.FullLoader)
+
+def print_list_tuples(lt: list[tuple]):
+    table = Table("Key", "Value")
+    for item in lt:
+        table.add_row(item[0], item[1])
+    print(table)

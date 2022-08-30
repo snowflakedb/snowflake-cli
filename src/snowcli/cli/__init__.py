@@ -83,6 +83,7 @@ def login(snowsql_config_path, snowsql_connection_name):
 @click.option('--role', prompt='Snowflake role', default='', help='Snowflake role', required=True)
 @click.option('--warehouse', prompt='Snowflake warehouse', default='', help='Snowflake warehouse', required=True)
 def configure(environment, database, schema, role, warehouse):
+    click.echo(f"Configuring environment #{environment}...")
     # TODO: Let user know if we're overwriting an existing environment
     cfg = AppConfig()
     cfg.config[environment] = {}
@@ -91,12 +92,12 @@ def configure(environment, database, schema, role, warehouse):
     cfg.config[environment]['role'] = role
     cfg.config[environment]['warehouse'] = warehouse
     cfg.save()
-    click.echo(f"Wrote new environment {environment} to {cfg.path}")
+    click.echo(f"Wrote environment {environment} to {cfg.path}")
 
 connection.add_command(connection_list)
 connection.add_command(connection_add)
 
-cli.add_command(function)
+cli.add_command(function, "function")
 cli.add_command(streamlit, "streamlit")
 cli.add_command(login)
 cli.add_command(configure)

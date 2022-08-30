@@ -5,8 +5,6 @@ import os
 from pathlib import Path
 import re
 from rich import print
-from rich.console import Console
-from rich.table import Table
 import tempfile
 import typer
 
@@ -17,17 +15,10 @@ import toml
 from snowcli import config, utils
 from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
+from snowcli.utils import print_db_cursor
 
-console = Console()
 app = typer.Typer()
 EnvironmentOption = typer.Option("dev", help='Environment name')
-
-def print_db_cursor(cursor):
-    if cursor.description:
-        table = Table(*[col[0] for col in cursor.description])
-        for row in cursor.fetchall():
-            table.add_row(*[str(c) for c in row])
-        print(table)
 
 @app.command("list")
 def streamlit_list(environment: str = EnvironmentOption):

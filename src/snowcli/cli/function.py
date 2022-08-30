@@ -4,43 +4,64 @@
 import click
 from distutils.dir_util import copy_tree
 import os
+from pathlib import Path
 import pkg_resources
 import tempfile
+import re
+from rich import print
+from rich.console import Console
+from rich.table import Table
+import typer
 
 from snowcli import utils, config
 from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
+from snowcli.utils import print_db_cursor, print_list_tuples
 
-_global_options = [
-    click.option('--environment', '-e', help='Environment name', default='dev')
-]
+console = Console()
+app = typer.Typer()
+EnvironmentOption = typer.Option("dev", help='Environment name')
 
-def global_options(func):
-    for option in reversed(_global_options):
-        func = option(func)
-    return func
-
-@click.group()
-def function():
-    pass
-
-@click.command("init")
+@app.command("init")
 def function_init():
+    """
+    Initialize this directory with a sample set of files to create a function.
+    """
     copy_tree(pkg_resources.resource_filename(
         'templates', 'default_function'), f'{os.getcwd()}')
 
-@click.command("create")
-@global_options
-@click.option('--name', '-n', help='Name of the function', required=True)
-@click.option('--file', '-f', 'file', type=click.Path(exists=True), required=True, help='Path to the file or folder to deploy')
-# @click.option('--imports', help='File imports into the function')
-@click.option('--handler', '-h', help='Handler', required=True)
-@click.option('--input-parameters', '-i', 'inputParams', help='Input parameters', required=True)
-@click.option('--return-type', '-r', 'returnType', help='Return type', required=True)
-@click.option('--overwrite', '-o', is_flag=True, help='Overwrite / replace if existing function')
-@click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
-def function_create(environment, name, handler, yaml, inputParams, returnType, overwrite, file):
+@app.command("create")
+def function_create(environment: str = EnvironmentOption,
+                    name: str = typer.Option(..., '--name', '-n', help="Name of the function"),
+                    file: Path = typer.Option('app.py',
+                                              '--file',
+                                              '-f', 
+                                              help='Path to the file or folder to deploy',
+                                              exists=True,
+                                              readable=True,
+                                              file_okay=True),
+                    handler: str = typer.Option(...,
+                                                '--handler',
+                                                '-h',
+                                                help='Handler'),
+                    input_parameters: str = typer.Option(...,
+                                                         '--input-parameters',
+                                                         '-i',
+                                                         help='Input parameters'),
+                    return_type: str = typer.Option(...,
+                                                    '--return-type',
+                                                    '-r',
+                                                    help='Return type'),
+                    overwrite: bool = typer.Option(False,
+                                                   '--overwrite',
+                                                   '-o',
+                                                   help='Overwrite / replace if existing function')
+                    ):
     env_conf = AppConfig().config.get(environment)
+    if env_conf is None:
+        print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
+        raise typer.Abort()
+
     if config.isAuth():
         config.connectToSnowflake()
         deploy_dict = utils.getDeployNames(env_conf['database'], env_conf['schema'], name)
@@ -53,8 +74,8 @@ def function_create(environment, name, handler, yaml, inputParams, returnType, o
         packages = utils.getSnowflakePackages()
         click.echo('Creating function...')
         click.echo(
-            config.snowflake_connection.createFunction(name=name, inputParameters=inputParams,
-                                                       returnType=returnType,
+            config.snowflake_connection.createFunction(name=name, inputParameters=input_parameters,
+                                                       returnType=return_type,
                                                        handler=handler,
                                                        imports=deploy_dict['full_path'],
                                                        database=env_conf['database'],
@@ -67,13 +88,20 @@ def function_create(environment, name, handler, yaml, inputParams, returnType, o
         )
 
 
-@click.command("update")
-@global_options
-@click.option('--name', '-n', help='Name of the function', required=True)
-@click.option('--file', '-f', 'file', type=click.Path(exists=True))
-@click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
-def function_update(environment, file, name, yaml):
+@app.command("update")
+def function_update(environment: str = EnvironmentOption,
+                    name: str = typer.Option(..., '--name', '-n', help="Name of the function"),
+                    file: Path = typer.Option('app.py',
+                                              '--file',
+                                              '-f', 
+                                              help='Path to the file to update',
+                                              exists=True,
+                                              readable=True,
+                                              file_okay=True)):
     env_conf = AppConfig().config.get(environment)
+    if env_conf is None:
+        print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
+        raise typer.Abort()
     if config.isAuth():
         config.connectToSnowflake()
         deploy_dict = utils.getDeployNames(env_conf['database'], env_conf['schema'], name)
@@ -140,7 +168,7 @@ def function_update(environment, file, name, yaml):
         else:
             click.echo(f'No packages to update. Deployment complete!')
 
-@click.command("package")
+@app.command("package")
 def function_package():
     click.echo('Resolving any requirements from requirements.txt...')
     requirements = utils.parseRequirements()
@@ -189,12 +217,13 @@ def function_delete():
 def function_logs():
     click.echo('Not yet implemented...')
 
-@click.command("execute")
-@global_options
-@click.option('--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'', required=True)
-@click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
-def function_execute(environment, yaml, function):
+@app.command("execute")
+def function_execute(environment: str = EnvironmentOption,
+                     function: str = typer.Option(..., '--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'')):
     env_conf = AppConfig().config.get(environment)
+    if env_conf is None:
+        print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
+        raise typer.Abort()
     if config.isAuth():
         config.connectToSnowflake()
         results = config.snowflake_connection.executeFunction(
@@ -202,24 +231,17 @@ def function_execute(environment, yaml, function):
         click.echo(results)
 
 
-@click.command("describe")
-@global_options
-@click.option('--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'', required=True)
-@click.option('--yaml', '-y', help="YAML file with function configuration", callback=utils.readYamlConfig, is_eager=True)
-def function_describe(yaml, function):
+@app.command("describe")
+def function_describe(environment: str = EnvironmentOption,
+                      function: str = typer.Option(..., '--function', '-f', help='Function with inputs. E.g. \'hello(1, "world")\'')):
     env_conf = AppConfig().config.get(environment)
+    if env_conf is None:
+        print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
+        raise typer.Abort()
     if config.isAuth():
         config.connectToSnowflake()
         results = config.snowflake_connection.describeFunction(
             function=function, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
-        click.echo(dump(dict(results), default_flow_style=False))
+        print_list_tuples(results)
 
-function.add_command(function_init, 'init')
-function.add_command(function_create, 'create')
-function.add_command(function_update, 'update')
-function.add_command(function_package, 'package')
-function.add_command(function_list, 'list')
-function.add_command(function_delete, 'delete')
-function.add_command(function_logs, 'logs')
-function.add_command(function_execute, 'execute')
-function.add_command(function_describe, 'describe')
+function = typer.main.get_command(app)
