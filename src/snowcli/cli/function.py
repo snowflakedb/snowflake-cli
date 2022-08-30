@@ -243,5 +243,3 @@ def function_describe(environment: str = EnvironmentOption,
         results = config.snowflake_connection.describeFunction(
             function=function, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
         print_list_tuples(results)
-
-function = typer.main.get_command(app)

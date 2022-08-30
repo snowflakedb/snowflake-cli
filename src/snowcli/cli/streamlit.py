@@ -9,7 +9,6 @@ import tempfile
 import typer
 
 import click
-import prettytable
 import toml
 
 from snowcli import config, utils
@@ -85,5 +84,3 @@ def streamlit_deploy(environment: str = EnvironmentOption,
             typer.launch(url)
         else:
             print(url)
-
-streamlit = typer.main.get_command(app)

@@ -1,113 +1,80 @@
-import click
 from pathlib import Path
-from prettytable import PrettyTable
 import sys
+import typer
 
 from snowcli import config, utils
 from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
-from .function import function
-from .streamlit import streamlit
+from snowcli.cli import connection
+from snowcli.cli import function
+from snowcli.cli import streamlit
+from rich import print
 
-@click.group()
-def cli():
-    pass
+app = typer.Typer()
 
-def main():
-    cli()
-
-@click.group()
-def connection():
-    pass
-
-@click.command("list")
-def connection_list():
-    app_cfg = AppConfig().config
-    if 'snowsql_config_path' not in app_cfg:
-        click.echo("No snowsql config path set. Please run snowcli login first.")
-
-    click.echo(f"Using {app_cfg['snowsql_config_path']}...")
-
-    cfg = SnowsqlConfig(app_cfg['snowsql_config_path'])
-    table = PrettyTable()
-    table.field_names = ["Connection", "Account", "Username"]
-    for (connection_name, v) in cfg.config.items():
-        if connection_name.startswith("connections."):
-            connection_name = connection_name.replace("connections.", "")
-            if 'account' in v:
-                table.add_row([connection_name, v['account'], v['username']])
-            if 'accountname' in v:
-                table.add_row([connection_name, v['accountname'], v['username']])
-    click.echo(table)
-
-@click.command("add")
-@click.option('--connection', prompt='Name for this connection', default='', help='Snowflake connection name', required=True)
-@click.option('--account', prompt='Snowflake account name', default='', help='Snowflake database', required=True)
-@click.option('--username', prompt='Snowflake username', default='', help='Snowflake schema', required=True)
-@click.option('--password', prompt='Snowflake password', default='', hide_input=True, help='Snowflake password', required=True)
-def connection_add(connection, account, username, password):
-    app_cfg = AppConfig().config
-    if 'snowsql_config_path' not in app_cfg:
-        cfg = SnowsqlConfig()
-    else:
-        cfg = SnowsqlConfig(app_cfg['snowsql_config_path'])
-    connection_entry = {
-        'account': account,
-        'username': username,
-        'password': password,
-    }
-    cfg.add_connection(connection, connection_entry)
-    click.echo(f"Wrote new connection {connection} to {cfg.path}")
-
-@click.command()
-@click.option('--config', '-c', 'snowsql_config_path', prompt='Path to Snowsql config', default='~/.snowsql/config', help='snowsql config file')
-@click.option('--connection', '-C', 'snowsql_connection_name', prompt='Connection name (for entry in snowsql config)', help='connection name from snowsql config file')
-def login(snowsql_config_path, snowsql_connection_name):
-    if not Path(snowsql_config_path).expanduser().exists():
-        click.echo(f"Path to snowsql config does not exist: {snowsql_config_path}")
-        sys.exit(1)
+@app.command()
+def login(
+    snowsql_config_path: Path = typer.Option('~/.snowsql/config',
+                                             '--config', '-c',
+                                             prompt='Path to Snowsql config',
+                                             help='snowsql config file'),
+    snowsql_connection_name: str = typer.Option(..., '--connection', '-C',
+                                                prompt='Connection name (for entry in snowsql config)',
+                                                help='connection name from snowsql config file')):
+    """
+    Select a Snowflake connection to use with SnowCLI.
+    """
+    if not snowsql_config_path.expanduser().exists():
+        print(f"Path to snowsql config does not exist: {snowsql_config_path}")
+        raise typer.Abort()
 
     cfg = SnowsqlConfig(snowsql_config_path)
     if f"connections.{snowsql_connection_name}" not in cfg.config:
-        click.echo(f"Connection not found in {snowsql_config_path}: {snowsql_connection_name}")
-        sys.exit(1)
+        print(f"Connection not found in {snowsql_config_path}: {snowsql_connection_name}")
+        raise typer.Abort()
 
     cfg = AppConfig()
-    cfg.config['snowsql_config_path'] = snowsql_config_path
+    cfg.config['snowsql_config_path'] = str(snowsql_config_path.expanduser())
     cfg.config['snowsql_connection_name'] = snowsql_connection_name
     cfg.save()
-    click.echo(f"Using connection name {snowsql_connection_name} in {snowsql_config_path}")
-    click.echo(f"Wrote {cfg.path}")
+    print(f"Using connection name {snowsql_connection_name} in {snowsql_config_path}")
+    print(f"Wrote {cfg.path}")
 
-@click.command()
-@click.option('--environment', '-e', default='dev', help='Name of environment (e.g. dev, prod, staging)', required=True)
-@click.option('--database', prompt='Snowflake database', default='', help='Snowflake database', required=True)
-@click.option('--schema', prompt='Snowflake schema', default='', help='Snowflake schema', required=True)
-@click.option('--role', prompt='Snowflake role', default='', help='Snowflake role', required=True)
-@click.option('--warehouse', prompt='Snowflake warehouse', default='', help='Snowflake warehouse', required=True)
-def configure(environment, database, schema, role, warehouse):
-    click.echo(f"Configuring environment #{environment}...")
-    # TODO: Let user know if we're overwriting an existing environment
+@app.command()
+def configure(environment: str = typer.Option('dev', '-e', '--environment',
+                                              help='Name of environment (e.g. dev, prod, staging)'),
+              database: str = typer.Option(..., '--database',
+                                           prompt='Snowflake database',
+                                           help='Snowflake database'),
+              schema: str = typer.Option(..., '--schema',
+                                         prompt='Snowflake schema',
+                                         help='Snowflake schema'),
+              role: str = typer.Option(..., '--role',
+                                       prompt='Snowflake role',
+                                       help='Snowflake role'),
+              warehouse: str = typer.Option(..., '--warehouse',
+                                            prompt='Snowflake warehouse',
+                                            help='Snowflake warehouse')):
+    """
+    Configure an environment to use with your Snowflake connection.
+    """
+    print(f"Configuring environment #{environment}...")
     cfg = AppConfig()
+    if environment in cfg.config and not typer.confirm("Environment {environment} already exists. Overwrite?"):
+        print("Cancelling...")
+        raise typer.Abort()
+        
     cfg.config[environment] = {}
     cfg.config[environment]['database'] = database
     cfg.config[environment]['schema'] = schema
     cfg.config[environment]['role'] = role
     cfg.config[environment]['warehouse'] = warehouse
     cfg.save()
-    click.echo(f"Wrote environment {environment} to {cfg.path}")
+    print(f"Wrote environment {environment} to {cfg.path}")
 
-connection.add_command(connection_list)
-connection.add_command(connection_add)
-
-cli.add_command(function, "function")
-cli.add_command(streamlit, "streamlit")
-cli.add_command(login)
-cli.add_command(configure)
-cli.add_command(connection)
-
-#cli.add_command(notebooks)
-#cli.add_command(procedure)
+app.add_typer(function.app, name="function")
+app.add_typer(streamlit.app, name="streamlit")
+app.add_typer(connection.app, name="connection")
 
 if __name__ == '__main__':
-    main()
+    app()

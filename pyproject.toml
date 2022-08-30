@@ -8,10 +8,8 @@ dynamic = ["version"]
 requires-python = ">=3.7"
 description = "Snowflake CLI"
 dependencies = [
-  "click",
   "snowflake-connector-python",
   "requirements-parser",
-  "prettytable",
   "toml",
   "pyyaml",
   "typer",
@@ -19,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-snow = "snowcli.cli:main"
+snow = "snowcli.cli:app"
 
 [tool.hatch.version]
 path = "src/__about__.py"
