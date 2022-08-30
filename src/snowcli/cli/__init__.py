@@ -47,7 +47,10 @@ def connection_list():
 @click.option('--password', prompt='Snowflake password', default='', hide_input=True, help='Snowflake password', required=True)
 def connection_add(connection, account, username, password):
     app_cfg = AppConfig().config
-    cfg = SnowsqlConfig(app_cfg['snowsql_config_path'])
+    if 'snowsql_config_path' not in app_cfg:
+        cfg = SnowsqlConfig()
+    else:
+        cfg = SnowsqlConfig(app_cfg['snowsql_config_path'])
     connection_entry = {
         'account': account,
         'username': username,
