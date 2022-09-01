@@ -133,11 +133,17 @@ def convertFunctionDetailsToDict(function_details: list[tuple]) -> dict:
             function_dict[function[0]] = function[1]
     return function_dict
 
-def print_db_cursor(cursor):
+def print_db_cursor(cursor, only_cols=[]):
     if cursor.description:
-        table = Table(*[col[0] for col in cursor.description])
+        if any(only_cols):
+            cols = [(index, col[0]) for (index, col) in enumerate(cursor.description) if col[0] in only_cols]
+        else:
+            cols = [(index, col[0]) for (index, col) in enumerate(cursor.description)]
+
+        table = Table(*[col[1] for col in cols])
         for row in cursor.fetchall():
-            table.add_row(*[str(c) for c in row])
+            filtered_row = [str(row[col_index]) for (col_index, _) in cols]
+            table.add_row(*filtered_row)
         print(table)
 
 
