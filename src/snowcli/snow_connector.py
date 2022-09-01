@@ -86,6 +86,14 @@ class SnowflakeConnector():
             'warehouse': warehouse
         })
 
+    def showWarehouses(self, database="", schema="", role="", warehouse="", like='%%') -> list[tuple]:
+        return self.runSql('show_warehouses', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse
+        })
+
     def createStreamlit(self, database="", schema="", role="", warehouse="", name="", file="") -> list[tuple]:
         return self.runSql('create_streamlit', {
             'database': database,

@@ -8,6 +8,7 @@ from snowcli.snowsql_config import SnowsqlConfig
 from snowcli.cli import connection
 from snowcli.cli import function
 from snowcli.cli import streamlit
+from snowcli.cli import warehouse
 from rich import print
 
 app = typer.Typer()
@@ -75,6 +76,7 @@ def configure(environment: str = typer.Option('dev', '-e', '--environment',
 app.add_typer(function.app, name="function")
 app.add_typer(streamlit.app, name="streamlit")
 app.add_typer(connection.app, name="connection")
+app.add_typer(warehouse.app, name="warehouse")
 
 if __name__ == '__main__':
     app()
