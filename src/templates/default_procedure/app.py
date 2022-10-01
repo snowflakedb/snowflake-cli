@@ -2,9 +2,9 @@
 # > python app.py
 #
 # Create and deploy in snowflake:
-# > snowcli function package
-# > snowcli function create --environment dev
-# > snowcli function execute -f 'helloFunction()'
+# > snowcli procedure package
+# > snowcli procedure create --environment dev
+# > snowcli procedure call -f 'helloProcedure()'
 import sys
 
 

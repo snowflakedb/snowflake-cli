@@ -1,0 +1,16 @@
+# The values in this file will be used if flags aren't given
+# in CLI commands. Can create multiple --environments (default 'dev')
+
+[default]
+input_parameters = ""
+return_type = "string"
+file = "app.zip"
+
+[dev]
+name = "helloProcedure"
+database = "<DATABASE_NAME>"
+schema = "<SCHEMA_NAME>"
+warehouse = "<WAREHOUSE_NAME>"
+role = "<ROLE_NAME>"
+handler = "app.hello"
+overwrite = true

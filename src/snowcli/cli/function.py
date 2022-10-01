@@ -18,7 +18,7 @@ from snowcli.snowsql_config import SnowsqlConfig
 from snowcli.utils import print_db_cursor, print_list_tuples
 
 app = typer.Typer()
-EnvironmentOption = typer.Option("dev", help='Environment name')
+EnvironmentOption = typer.Option("dev", help='Environment name', callback=utils.conf_callback, is_eager=True)
 
 @app.command("init")
 def function_init():
@@ -54,7 +54,7 @@ def function_create(environment: str = EnvironmentOption,
                     overwrite: bool = typer.Option(False,
                                                    '--overwrite',
                                                    '-o',
-                                                   help='Overwrite / replace if existing function')
+                                                   help='Replace if existing function')
                     ):
     env_conf = AppConfig().config.get(environment)
     if env_conf is None:
@@ -63,7 +63,7 @@ def function_create(environment: str = EnvironmentOption,
 
     if config.isAuth():
         config.connectToSnowflake()
-        deploy_dict = utils.getDeployNames(env_conf['database'], env_conf['schema'], name)
+        deploy_dict = utils.getDeployNames(env_conf['database'], env_conf['schema'], name+input_parameters)
         print('Uploading deployment file to stage...')
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -72,8 +72,7 @@ def function_create(environment: str = EnvironmentOption,
                 file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=overwrite, role=env_conf['role'])
         packages = utils.getSnowflakePackages()
         print('Creating function...')
-        print(
-            config.snowflake_connection.createFunction(name=name, inputParameters=input_parameters,
+        results =  config.snowflake_connection.createFunction(name=name, inputParameters=input_parameters,
                                                        returnType=return_type,
                                                        handler=handler,
                                                        imports=deploy_dict['full_path'],
@@ -84,7 +83,7 @@ def function_create(environment: str = EnvironmentOption,
                                                        overwrite=overwrite,
                                                        packages=packages
                                                        )
-        )
+        print_db_cursor(results)
 
 
 @app.command("update")
@@ -187,7 +186,7 @@ def function_package():
             if click.confirm('Do you want to try to download non-Anaconda packages?', default=True):
                 print('Installing non-Anaconda packages...')
                 if utils.installPackages('requirements.other.txt'):
-                    pack_dir = 'packages'
+                    pack_dir = '.packages'
         # write requirements.snowflake.txt file
         if parsedRequirements['snowflake']:
             print('Writing requirements.snowflake.txt file...')

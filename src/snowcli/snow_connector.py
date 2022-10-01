@@ -30,21 +30,19 @@ class SnowflakeConnector():
         return self.cs.fetchone()[0]
 
     def createFunction(self, name: str, inputParameters: str, returnType: str, handler: str, imports: str, database: str, schema: str, role: str, warehouse: str, overwrite: bool, packages: list[str]):
-        self.cs.execute(f'use role {role}')
-        self.cs.execute(f'use warehouse {warehouse}')
-        self.cs.execute(f'use database {database}')
-        self.cs.execute(f'''
-        CREATE {"OR REPLACE " if overwrite else ""} FUNCTION {schema}.{name}({inputParameters})
-         RETURNS {returnType}
-         LANGUAGE PYTHON
-         RUNTIME_VERSION=3.8
-         IMPORTS=('{imports}')
-         HANDLER='{handler}'
-         PACKAGES=({','.join(["'{}'".format(package)
-                   for package in packages]) if packages else ""})
-        ''')
-
-        return self.cs.fetchone()[0]
+        return self.runSql('create_function', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse,
+            'name': name,
+            'overwrite': overwrite,
+            'input_parameters': inputParameters,
+            'return_type': returnType,
+            'handler': handler,
+            'imports': imports,
+            'packages': packages
+        })
 
     def uploadFileToStage(self, file_path, destination_stage, path, role, overwrite):
         self.cs.execute(f'use role {role}')
@@ -111,8 +109,11 @@ class SnowflakeConnector():
     def runSql(self, command, context):
         sql = pkgutil.get_data(__name__, f"sql/{command}.sql").decode()
         try:
-            for (k, v) in context.items():
-                sql = sql.replace("{" + k + "}", v)
+            # if sql starts with f###
+            if sql.startswith('f"""'):
+                sql = eval(sql, context)
+            else:
+                sql.format(**context)
 
             if os.getenv('DEBUG'): print(f"Executing sql:\n{sql}")
             results = self.ctx.execute_stream(StringIO(sql))

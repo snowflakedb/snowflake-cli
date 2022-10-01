@@ -7,8 +7,9 @@ from email import utils
 import click
 import requests
 import requirements
+import typer
 
-import snowcli.config
+from snowcli.config import AppConfig
 
 from rich.table import Table
 from rich import print
@@ -71,11 +72,11 @@ def parseAnacondaPackages(packages: list[str]) -> dict:
 
 
 def installPackages(file_name: str) -> bool:
-    os.system(f'pip install -t packages/ -r {file_name}')
+    os.system(f'pip install -t .packages/ -r {file_name}')
     click.echo('Checking to see if packages have native libaries...\n')
     # use glob to see if any files in packages have a .so extension
-    if glob.glob('packages/*.so'):
-        for path in glob.glob('packages/*.so'):
+    if glob.glob('.packages/*.so'):
+        for path in glob.glob('.packages/*.so'):
             click.echo(f'Potential native library: {path}')
         if click.confirm('\n\nWARNING! Some packages appear to have native libraries!\nContinue with package installation?', default=False):
             return True
@@ -152,3 +153,18 @@ def print_list_tuples(lt: list[tuple]):
     for item in lt:
         table.add_row(item[0], item[1])
     print(table)
+
+def conf_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
+    if value:
+        try: 
+            app_config= AppConfig().config
+            
+            ctx.default_map = ctx.default_map or {}   # Initialize the default map
+            # if app_config has key 'default'
+            if 'default' in app_config:
+                ctx.default_map.update(app_config.get('default'))  # type: ignore
+            if value in app_config:
+                ctx.default_map.update(app_config.get(value)) # type: ignore - Merge the config dict into default_map
+        except Exception as ex:
+            raise typer.BadParameter(str(ex))
+    return value
