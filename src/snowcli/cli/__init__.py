@@ -74,6 +74,14 @@ def configure(environment: str = typer.Option('dev', '-e', '--environment',
     cfg.save()
     print(f"Wrote environment {environment} to {cfg.path}")
 
+@app.callback(invoke_without_command=True)
+def default() -> None:
+    """
+    SnowCLI - A CLI for Snowflake                    
+    """
+    print('[bold blue]Welcome to the SnowCLI![bold blue]\n')
+    print('No command provided. See `snowcli --help` for usage.')
+
 app.add_typer(function.app, name="function")
 app.add_typer(procedure.app, name="procedure")
 app.add_typer(streamlit.app, name="streamlit")
@@ -82,3 +90,6 @@ app.add_typer(warehouse.app, name="warehouse")
 
 if __name__ == '__main__':
     app()
+
+if getattr(sys, 'frozen', False):
+    app(sys.argv[1:])
