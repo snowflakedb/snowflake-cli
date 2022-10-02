@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import typer
-from snowcli import config, utils
 from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
 from rich.table import Table

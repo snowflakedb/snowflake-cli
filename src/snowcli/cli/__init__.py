@@ -2,7 +2,6 @@ from pathlib import Path
 import sys
 import typer
 
-from snowcli import config, utils
 from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
 from snowcli.cli import connection

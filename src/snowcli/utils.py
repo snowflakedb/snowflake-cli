@@ -2,7 +2,6 @@ import glob
 import json
 import os
 import shutil
-from email import utils
 
 import click
 import requests

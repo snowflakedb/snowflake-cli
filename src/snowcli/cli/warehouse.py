@@ -1,15 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-from pathlib import Path
-import re
-from rich import print
-import tempfile
 import typer
-
-import click
-import toml
 
 from snowcli import config, utils
 from snowcli.config import AppConfig
