@@ -10,6 +10,7 @@ import requirements
 import typer
 
 from snowcli.config import AppConfig
+from snowflake.connector.cursor import SnowflakeCursor
 
 from rich.table import Table
 from rich import print
@@ -148,7 +149,7 @@ def print_db_cursor(cursor, only_cols=[]):
         print(table)
 
 
-def print_list_tuples(lt: list[tuple]):
+def print_list_tuples(lt: SnowflakeCursor):
     table = Table("Key", "Value")
     for item in lt:
         table.add_row(item[0], item[1])

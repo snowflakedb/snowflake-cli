@@ -171,7 +171,7 @@ def function_update(environment: str = EnvironmentOption,
 def function_package():
     print('Resolving any requirements from requirements.txt...')
     requirements = utils.parseRequirements()
-    pack_dir: str = None
+    pack_dir: str = None  # type: ignore
     if requirements:
         print('Comparing provided packages from Snowflake Anaconda...')
         parsedRequirements = utils.parseAnacondaPackages(requirements)

@@ -3,6 +3,7 @@ import pkgutil
 from io import StringIO
 
 import snowflake.connector
+from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.snowsql_config import SnowsqlConfig
 
@@ -62,16 +63,16 @@ class SnowflakeConnector():
             'function': function
         })
 
-    def describeFunction(self, database, schema, role, warehouse, signature = None, name = None, inputParameters = None) -> list[tuple]:
-        self.cs.execute(f'use role {role}')
-        self.cs.execute(f'use warehouse {warehouse}')
-        self.cs.execute(f'use database {database}')
-        self.cs.execute(f'use schema {schema}')
-        if signature:
-            self.cs.execute(f'desc FUNCTION {signature}')
-        elif name and inputParameters:
-            self.cs.execute(f'desc FUNCTION {name}{self.generate_signature_from_params(inputParameters)}')
-        return self.cs.fetchall()
+    def describeFunction(self, database, schema, role, warehouse, signature = None, name = None, inputParameters = None) -> SnowflakeCursor:
+        if signature is None and name and inputParameters:
+            signature =  name + self.generate_signature_from_params(inputParameters)
+        return self.runSql('describe_function', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse,
+            'signature': signature
+        })
 
     def listFunctions(self, database, schema, role, warehouse, like) -> list[tuple]:
         self.cs.execute(f'use role {role}')
@@ -81,7 +82,7 @@ class SnowflakeConnector():
         self.cs.execute(f'show USER FUNCTIONS LIKE \'{like}\'')
         return self.cs.fetchall()
 
-    def listStreamlits(self, database="", schema="", role="", warehouse="", like='%%') -> list[tuple]:
+    def listStreamlits(self, database="", schema="", role="", warehouse="", like='%%') -> SnowflakeCursor:
         return self.runSql('list_streamlits', {
             'database': database,
             'schema': schema,
@@ -89,7 +90,7 @@ class SnowflakeConnector():
             'warehouse': warehouse
         })
 
-    def showWarehouses(self, database="", schema="", role="", warehouse="", like='%%') -> list[tuple]:
+    def showWarehouses(self, database="", schema="", role="", warehouse="", like='%%') -> SnowflakeCursor:
         return self.runSql('show_warehouses', {
             'database': database,
             'schema': schema,
@@ -97,7 +98,7 @@ class SnowflakeConnector():
             'warehouse': warehouse
         })
 
-    def createStreamlit(self, database="", schema="", role="", warehouse="", name="", file="") -> list[tuple]:
+    def createStreamlit(self, database="", schema="", role="", warehouse="", name="", file="") -> SnowflakeCursor:
         return self.runSql('create_streamlit', {
             'database': database,
             'schema': schema,
@@ -111,7 +112,7 @@ class SnowflakeConnector():
         self.uploadFileToStage(file_path, f"{name}_stage", stage_path, role, overwrite)
         return self.runSql("get_streamlit_url", { "name": name })
 
-    def runSql(self, command, context):
+    def runSql(self, command, context) -> SnowflakeCursor:
         sql = pkgutil.get_data(__name__, f"sql/{command}.sql").decode()
         try:
             # if sql starts with f###
