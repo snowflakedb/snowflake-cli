@@ -46,7 +46,7 @@ def function_create(environment: str = EnvironmentOption,
                     input_parameters: str = typer.Option(...,
                                                          '--input-parameters',
                                                          '-i',
-                                                         help='Input parameters'),
+                                                         help='Input parameters - such as (message string, count int)'),
                     return_type: str = typer.Option(...,
                                                     '--return-type',
                                                     '-r',
@@ -103,7 +103,7 @@ def function_update(environment: str = EnvironmentOption,
                     input_parameters: str = typer.Option(...,
                                                          '--input-parameters',
                                                          '-i',
-                                                         help='Input parameters'),
+                                                         help='Input parameters - such as (message string, count int)'),
                     return_type: str = typer.Option(...,
                                                     '--return-type',
                                                     '-r',
@@ -218,7 +218,13 @@ def function_execute(environment: str = EnvironmentOption,
 
 @app.command("describe")
 def function_describe(environment: str = EnvironmentOption,
-                      function: str = typer.Option(..., '--function', '-f', help='Function with inputs. E.g. \'hello(int, string)\'')):
+                      name: str = typer.Option('', '--name', '-n', help="Name of the function"),
+                      input_parameters: str = typer.Option('',
+                                                         '--input-parameters',
+                                                         '-i',
+                                                         help='Input parameters - such as (message string, count int)'),
+                      function: str = typer.Option('', '--function', '-f', help='Function signature with inputs. E.g. \'hello(int, string)\'')
+                      ):
     env_conf = AppConfig().config.get(environment)
     if env_conf is None:
         print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
@@ -226,6 +232,10 @@ def function_describe(environment: str = EnvironmentOption,
     
     if config.isAuth():
         config.connectToSnowflake()
+        if function == '':
+            if name == '' and input_parameters == '':
+                typer.BadParameter('Please provide either a function name and input parameters or a function signture')
+            function = name + config.snowflake_connection.generate_signature_from_params(input_parameters)
         results = config.snowflake_connection.describeFunction(
             signature=function, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
         print_list_tuples(results)
