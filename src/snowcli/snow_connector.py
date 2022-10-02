@@ -89,7 +89,7 @@ class SnowflakeConnector():
             'procedure': procedure
         })
 
-    def describeFunction(self, database, schema, role, warehouse, signature = None, name = None, inputParameters = None) -> SnowflakeCursor:
+    def describeFunction(self, database, schema, role, warehouse, signature = None, name = None, inputParameters = None, show_exceptions=True) -> SnowflakeCursor:
         if signature is None and name and inputParameters:
             signature =  name + self.generate_signature_from_params(inputParameters)
         return self.runSql('describe_function', {
@@ -97,10 +97,10 @@ class SnowflakeConnector():
             'schema': schema,
             'role': role,
             'warehouse': warehouse,
-            'signature': signature
-        })
+            'signature': signature,
+        }, show_exceptions)
     
-    def describeProcedure(self, database, schema, role, warehouse, signature = None, name = None, inputParameters = None) -> SnowflakeCursor:
+    def describeProcedure(self, database, schema, role, warehouse, signature = None, name = None, inputParameters = None, show_exceptions=True) -> SnowflakeCursor:
         if signature is None and name and inputParameters:
             signature =  name + self.generate_signature_from_params(inputParameters)
         return self.runSql('describe_procedure', {
@@ -109,7 +109,7 @@ class SnowflakeConnector():
             'role': role,
             'warehouse': warehouse,
             'signature': signature
-        })
+        }, show_exceptions)
 
     def listFunctions(self, database, schema, role, warehouse, like='%%') -> SnowflakeCursor:
         return self.runSql('list_functions', {
@@ -177,7 +177,7 @@ class SnowflakeConnector():
         self.uploadFileToStage(file_path, f"{name}_stage", stage_path, role, overwrite)
         return self.runSql("get_streamlit_url", { "name": name })
 
-    def runSql(self, command, context) -> SnowflakeCursor:
+    def runSql(self, command, context, show_exceptions=True) -> SnowflakeCursor:
         sql = pkgutil.get_data(__name__, f"sql/{command}.sql").decode()
         try:
             # if sql starts with f###
@@ -193,8 +193,9 @@ class SnowflakeConnector():
             *_, last_result = results
             return last_result
         except snowflake.connector.errors.ProgrammingError as e:
-            print(f"Error executing sql:\n{sql}")
-            print(e)
+            if show_exceptions:
+                print(f"Error executing sql:\n{sql}")
+                print(e)
             raise(e)
 
 

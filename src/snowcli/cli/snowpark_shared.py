@@ -69,10 +69,10 @@ def snowpark_update(type: str, environment: str, name: str, file: Path, handler:
             match type:
                 case 'function':
                     resource_details = config.snowflake_connection.describeFunction(
-                        name=name, inputParameters=input_parameters, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
+                        name=name, inputParameters=input_parameters, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'], show_exceptions=False)
                 case 'procedure':
                     resource_details = config.snowflake_connection.describeProcedure(
-                        name=name, inputParameters=input_parameters, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
+                        name=name, inputParameters=input_parameters, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'], show_exceptions=False)
             print(f'Checking if any new packages to update...')
             resource_json = utils.convertResourceDetailsToDict(resource_details)  # type: ignore
             anaconda_packages = resource_json['packages']
