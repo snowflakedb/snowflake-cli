@@ -213,7 +213,7 @@ def function_execute(environment: str = EnvironmentOption,
         config.connectToSnowflake()
         results = config.snowflake_connection.executeFunction(
             function=function, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
-        print(results)
+        print_db_cursor(results)
 
 
 @app.command("describe")

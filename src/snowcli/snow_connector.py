@@ -54,12 +54,13 @@ class SnowflakeConnector():
         return self.cs.fetchone()[0]
 
     def executeFunction(self, function, database, schema, role, warehouse):
-        self.cs.execute(f'use role {role}')
-        self.cs.execute(f'use warehouse {warehouse}')
-        self.cs.execute(f'use database {database}')
-        self.cs.execute(f'use schema {schema}')
-        self.cs.execute(f'select {function}')
-        return self.cs.fetchall()
+        return self.runSql('execute_function', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse,
+            'function': function
+        })
 
     def describeFunction(self, database, schema, role, warehouse, signature = None, name = None, inputParameters = None) -> list[tuple]:
         self.cs.execute(f'use role {role}')
@@ -117,7 +118,7 @@ class SnowflakeConnector():
             if sql.startswith('f"""'):
                 sql = eval(sql, context)
             else:
-                sql.format(**context)
+                sql = sql.format(**context)
 
             if os.getenv('DEBUG'): print(f"Executing sql:\n{sql}")
             results = self.ctx.execute_stream(StringIO(sql))
