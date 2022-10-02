@@ -1,12 +1,3 @@
-# Configure app.toml
-# > snow login
-# > snow configure
-# Test locally
-# > python app.py
-# Create and deploy in snowflake:
-# > snowcli function package
-# > snowcli function create --environment dev
-# > snowcli function execute -f 'helloFunction()'
 import sys
 
 

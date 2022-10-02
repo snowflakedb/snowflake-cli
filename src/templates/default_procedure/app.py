@@ -1,12 +1,3 @@
-# Configure app.toml
-# > snow login
-# > snow configure
-# Test locally
-# > python app.py
-# Create and deploy in snowflake:
-# > snowcli procedure package
-# > snowcli procedure create --environment dev
-# > snowcli procedure call -f 'helloProcedure()'
 import sys
 from snowflake.snowpark import Session
 
