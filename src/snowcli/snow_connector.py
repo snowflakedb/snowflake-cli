@@ -128,6 +128,24 @@ class SnowflakeConnector():
             'warehouse': warehouse,
             'like': like
         })
+    
+    def dropFunction(self, database, schema, role, warehouse, signature) -> SnowflakeCursor:
+        return self.runSql('drop_function', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse,
+            'signature': signature
+        })
+
+    def dropProcedure(self, database, schema, role, warehouse, signature) -> SnowflakeCursor:
+        return self.runSql('drop_procedure', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse,
+            'signature': signature
+        })
 
     def listStreamlits(self, database="", schema="", role="", warehouse="", like='%%') -> SnowflakeCursor:
         return self.runSql('list_streamlits', {

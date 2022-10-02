@@ -192,7 +192,7 @@ def snowpark_describe(type: str, environment: str, name: str, input_parameters: 
         config.connectToSnowflake()
         if signature == '':
             if name == '' and input_parameters == '':
-                typer.BadParameter('Please provide either a function name and input parameters or a function signture')
+                typer.BadParameter('Please provide either a function name and input parameters or a function signature')
             signature = name + config.snowflake_connection.generate_signature_from_params(input_parameters)
         match type:
             case 'function':
@@ -219,6 +219,29 @@ def snowpark_list(type, environment, like):
             case 'procedure':
                 results = config.snowflake_connection.listProcedures(
                     database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'], like=like)
+            case _:
+                raise typer.Abort()
+        print_db_cursor(results)
+
+def snowpark_drop(type: str, environment: str, name: str, input_parameters: str, signature: str):
+    env_conf = AppConfig().config.get(environment)
+    if env_conf is None:
+        print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
+        raise typer.Abort()
+    
+    if config.isAuth():
+        config.connectToSnowflake()
+        if signature == '':
+            if name == '' and input_parameters == '':
+                typer.BadParameter('Please provide either a function name and input parameters or a function signature')
+            signature = name + config.snowflake_connection.generate_signature_from_params(input_parameters)
+        match type:
+            case 'function':
+                results = config.snowflake_connection.dropFunction(
+                    signature=signature, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
+            case 'procedure':
+                results = config.snowflake_connection.dropProcedure(
+                    signature=signature, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
             case _:
                 raise typer.Abort()
         print_db_cursor(results)
