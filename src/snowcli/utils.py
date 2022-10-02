@@ -168,3 +168,6 @@ def conf_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
         except Exception as ex:
             raise typer.BadParameter(str(ex))
     return value
+
+def generate_deploy_stage_name(name: str, input_parameters: str) -> str:
+    return name+input_parameters.replace('(','').replace(')','').replace(' ', '_').replace(',', '')

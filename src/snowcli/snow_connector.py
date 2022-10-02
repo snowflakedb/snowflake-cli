@@ -41,7 +41,8 @@ class SnowflakeConnector():
             'return_type': returnType,
             'handler': handler,
             'imports': imports,
-            'packages': packages
+            'packages': packages,
+            'signature': self.generate_signature_from_params(inputParameters)
         })
 
     def uploadFileToStage(self, file_path, destination_stage, path, role, overwrite):
@@ -60,12 +61,15 @@ class SnowflakeConnector():
         self.cs.execute(f'select {function}')
         return self.cs.fetchall()
 
-    def describeFunction(self, function, database, schema, role, warehouse) -> list[tuple]:
+    def describeFunction(self, database, schema, role, warehouse, signature = None, name = None, inputParameters = None) -> list[tuple]:
         self.cs.execute(f'use role {role}')
         self.cs.execute(f'use warehouse {warehouse}')
         self.cs.execute(f'use database {database}')
         self.cs.execute(f'use schema {schema}')
-        self.cs.execute(f'desc FUNCTION {function}')
+        if signature:
+            self.cs.execute(f'desc FUNCTION {signature}')
+        elif name and inputParameters:
+            self.cs.execute(f'desc FUNCTION {name}{self.generate_signature_from_params(inputParameters)}')
         return self.cs.fetchall()
 
     def listFunctions(self, database, schema, role, warehouse, like) -> list[tuple]:
@@ -126,3 +130,6 @@ class SnowflakeConnector():
             print(e)
             raise(e)
 
+
+    def generate_signature_from_params(self, params: str) -> str:
+       return  '(' + ' '.join(params.strip('()').split()[1::2]) + ')'

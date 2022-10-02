@@ -15,7 +15,7 @@ import typer
 from snowcli import utils, config
 from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
-from snowcli.utils import print_db_cursor, print_list_tuples
+from snowcli.utils import print_db_cursor, print_list_tuples, generate_deploy_stage_name
 
 app = typer.Typer()
 EnvironmentOption = typer.Option("dev", help='Environment name', callback=utils.conf_callback, is_eager=True)
@@ -32,7 +32,7 @@ def function_init():
 def function_create(environment: str = EnvironmentOption,
                     name: str = typer.Option(..., '--name', '-n',
                                              help="Name of the function"),
-                    file: Path = typer.Option('app.py',
+                    file: Path = typer.Option('app.zip',
                                               '--file',
                                               '-f', 
                                               help='Path to the file or folder to deploy',
@@ -63,7 +63,7 @@ def function_create(environment: str = EnvironmentOption,
 
     if config.isAuth():
         config.connectToSnowflake()
-        deploy_dict = utils.getDeployNames(env_conf['database'], env_conf['schema'], name+input_parameters)
+        deploy_dict = utils.getDeployNames(env_conf['database'], env_conf['schema'], generate_deploy_stage_name(name, input_parameters))
         print('Uploading deployment file to stage...')
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -89,82 +89,83 @@ def function_create(environment: str = EnvironmentOption,
 @app.command("update")
 def function_update(environment: str = EnvironmentOption,
                     name: str = typer.Option(..., '--name', '-n', help="Name of the function"),
-                    file: Path = typer.Option('app.py',
+                    file: Path = typer.Option('app.zip',
                                               '--file',
                                               '-f', 
                                               help='Path to the file to update',
                                               exists=True,
                                               readable=True,
-                                              file_okay=True)):
-    env_conf = AppConfig().config.get(environment)
+                                              file_okay=True),
+                    handler: str = typer.Option(...,
+                                                '--handler',
+                                                '-h',
+                                                help='Handler'),
+                    input_parameters: str = typer.Option(...,
+                                                         '--input-parameters',
+                                                         '-i',
+                                                         help='Input parameters'),
+                    return_type: str = typer.Option(...,
+                                                    '--return-type',
+                                                    '-r',
+                                                    help='Return type'),
+                    replace: bool = typer.Option(False, 
+                                                '--replace-always', '-r', 
+                                                help='Replace function, even if no detected changes to metadata')
+                    ):
+    env_conf: dict = AppConfig().config.get(environment)  # type: ignore
     if env_conf is None:
         print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
         raise typer.Abort()
     if config.isAuth():
         config.connectToSnowflake()
-        deploy_dict = utils.getDeployNames(env_conf['database'], env_conf['schema'], name)
         print(f'Finding function {name}...')
         functions = config.snowflake_connection.listFunctions(
             database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'], like=name)
         if len(functions) == 0:
-            print(f'No functions named: {name} found')
-            return
-        else:
-            # if functions == 1, get function arguments property and regular expression till the fist )
-            # if function > 1, get all the function arguments properties and regular expression till the first ) and then ask the user to select which one
-            function_signature = None
-            # regular expression to return "HELLOFUNCTION()" from "HELLOFUNCTION() RETURN VARCHAR"
-            regex = re.compile(r'(^.*\(.*\))')
-            if len(functions) == 1:
-                function = functions[0]
-
-                # get the first group from regex
-                function_signature = regex.search(
-                    function[8]).group(1)
-                print(f'Found function {function_signature}')
-            else:
-                print(f'Found {len(functions)} like: {name}')
-                function_signatures = []
-                for function in functions:
-                    function_signatures.append(regex.search(
-                        function[8]).group(1))
-                function_signature = click.prompt(
-                    'Please select the function you want to deploy', type=click.Choice(function_signatures))
-        print(f'Deploying new file for {name}...')
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
-            deploy_response = config.snowflake_connection.uploadFileToStage(
-                file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=True, role=env_conf['role'])
-        print(
-            f'{deploy_response} uploaded to stage {deploy_dict["full_path"]}')
+            print(f'No functions named: {name} found. Creating new function...')
         print(f'Checking if any new packages to update...')
-        function_details = config.snowflake_connection.describeFunction(
-            function=function_signature, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
-        function_json = utils.convertFunctionDetailsToDict(function_details)
-        anaconda_packages = function_json['packages']
-        print(
-            f'Found {len(anaconda_packages)} defined Anaconda packages in deployed function...')
-        print(
-            f'Checking if any packages defined or missing from requirements.snowflake.txt...')
-        updatedPackageList = utils.getSnowflakePackagesDelta(anaconda_packages)
-        if updatedPackageList:
-            print(f'Replacing function with updated packages...')
-            config.snowflake_connection.createFunction(
-                name=name,
-                inputParameters=function_json['signature'].strip('()'),
-                returnType=function_json['returns'],
-                handler=function_json['handler'],
-                imports=deploy_dict['full_path'],
-                database=env_conf['database'],
-                schema=env_conf['schema'],
-                role=env_conf['role'],
-                warehouse=env_conf['warehouse'],
-                overwrite=True,
-                packages=updatedPackageList)
+        try:
+            function_details = config.snowflake_connection.describeFunction(
+                name=name, inputParameters=input_parameters, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
+            function_json = utils.convertFunctionDetailsToDict(function_details)
+            anaconda_packages = function_json['packages']
             print(
-                f'Function {name} updated with new packages. Deployment complete!')
-        else:
-            print(f'No packages to update. Deployment complete!')
+                f'Found {len(anaconda_packages)} defined Anaconda packages in deployed function...')
+            print(
+                f'Checking if any packages defined or missing from requirements.snowflake.txt...')
+            updatedPackageList = utils.getSnowflakePackagesDelta(anaconda_packages)
+        except:
+            typer.echo('Existing function not found, creating new function...')
+            updatedPackageList = utils.getSnowflakePackagesDelta([])
+            replace = True
+        
+        finally:
+            deploy_dict = utils.getDeployNames(env_conf['database'], env_conf['schema'], generate_deploy_stage_name(name, input_parameters))
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
+                deploy_response = config.snowflake_connection.uploadFileToStage(
+                    file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=True, role=env_conf['role'])
+            print(
+                f'{deploy_response} uploaded to stage {deploy_dict["full_path"]}')
+            
+            if updatedPackageList or replace:
+                print(f'Replacing function with updated values...')
+                config.snowflake_connection.createFunction(
+                    name=name,
+                    inputParameters=input_parameters,
+                    returnType=return_type,
+                    handler=handler,
+                    imports=deploy_dict['full_path'],
+                    database=env_conf['database'],
+                    schema=env_conf['schema'],
+                    role=env_conf['role'],
+                    warehouse=env_conf['warehouse'],
+                    overwrite=True,
+                    packages=updatedPackageList)
+                print(
+                    f'Function {name} updated with new packages. Deployment complete!')
+            else:
+                print(f'No packages to update. Deployment complete!')
 
 @app.command("package")
 def function_package():
@@ -222,8 +223,9 @@ def function_describe(environment: str = EnvironmentOption,
     if env_conf is None:
         print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
         raise typer.Abort()
+    
     if config.isAuth():
         config.connectToSnowflake()
         results = config.snowflake_connection.describeFunction(
-            function=function, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
+            signature=function, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
         print_list_tuples(results)

@@ -2,7 +2,7 @@
 # in CLI commands. Can create multiple --environments (default 'dev')
 
 [default]
-input_parameters = ""
+input_parameters = "()"
 return_type = "string"
 file = "app.zip"
 
