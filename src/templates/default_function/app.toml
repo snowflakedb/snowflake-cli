@@ -4,6 +4,8 @@
 [default]
 input_parameters = "()"
 return_type = "string"
+name = "helloFunction"
+handler = "app.hello"
 file = "app.zip"
 
 [dev]
@@ -11,6 +13,3 @@ database = "<DATABASE_NAME>"
 schema = "<SCHEMA_NAME>"
 warehouse = "<WAREHOUSE_NAME>"
 role = "<ROLE_NAME>"
-name = "helloFunction"
-handler = "app.hello"
-overwrite = true

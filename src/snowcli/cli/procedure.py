@@ -7,24 +7,24 @@ from pathlib import Path
 import pkg_resources
 import typer
 
+from snowcli.cli.snowpark_shared import snowpark_create, snowpark_update, snowpark_package, snowpark_execute, snowpark_describe
 from snowcli.utils import conf_callback
-from snowcli.cli.snowpark_shared import snowpark_create, snowpark_describe, snowpark_execute, snowpark_package, snowpark_update
 
 app = typer.Typer()
 EnvironmentOption = typer.Option("dev", help='Environment name', callback=conf_callback, is_eager=True)
 
 @app.command("init")
-def function_init():
+def procedure_init():
     """
-    Initialize this directory with a sample set of files to create a function.
+    Initialize this directory with a sample set of files to create a procedure.
     """
     copy_tree(pkg_resources.resource_filename(
-        'templates', 'default_function'), f'{os.getcwd()}')
+        'templates', 'default_procedure'), f'{os.getcwd()}')
 
 @app.command("create")
-def function_create(environment: str = EnvironmentOption,
+def procedure_create(environment: str = EnvironmentOption,
                     name: str = typer.Option(..., '--name', '-n',
-                                             help="Name of the function"),
+                                             help="Name of the procedure"),
                     file: Path = typer.Option('app.zip',
                                               '--file',
                                               '-f', 
@@ -47,14 +47,14 @@ def function_create(environment: str = EnvironmentOption,
                     overwrite: bool = typer.Option(False,
                                                    '--overwrite',
                                                    '-o',
-                                                   help='Replace if existing function')
+                                                   help='Replace if existing procedure'),
+                    execute_as_caller: bool = typer.Option(False, '--execute-as-caller', help='Execute as caller')
                     ):
-    snowpark_create(type='function', environment=environment, name=name, file=file, handler=handler, input_parameters=input_parameters, return_type=return_type, overwrite=overwrite)
-
+    snowpark_create('procedure', environment, name, file, handler, input_parameters, return_type, overwrite, execute_as_caller)
 
 @app.command("update")
-def function_update(environment: str = EnvironmentOption,
-                    name: str = typer.Option(..., '--name', '-n', help="Name of the function"),
+def procedure_update(environment: str = EnvironmentOption,
+                    name: str = typer.Option(..., '--name', '-n', help="Name of the procedure"),
                     file: Path = typer.Option('app.zip',
                                               '--file',
                                               '-f', 
@@ -76,27 +76,27 @@ def function_update(environment: str = EnvironmentOption,
                                                     help='Return type'),
                     replace: bool = typer.Option(False, 
                                                 '--replace-always', '-r', 
-                                                help='Replace function, even if no detected changes to metadata')
-                    ):
-    snowpark_update(type='function', environment=environment, name=name, file=file, handler=handler, input_parameters=input_parameters, return_type=return_type, replace=replace)
+                                                help='Replace procedure, even if no detected changes to metadata'),
+                    execute_as_caller: bool = typer.Option(False, '--execute-as-caller', help='Execute as caller')):
+    snowpark_update('procedure', environment, name, file, handler, input_parameters, return_type, replace, execute_as_caller)
 
 @app.command("package")
-def function_package():
+def procedure_package():
     snowpark_package()
 
 @app.command("execute")
-def function_execute(environment: str = EnvironmentOption,
-                     function: str = typer.Option(..., '--function', '-f', help='Function with inputs. E.g. \'hello(int, string)\'')):
-    snowpark_execute(type='function', environment=environment, select=function)
+def procedure_execute(environment: str = EnvironmentOption,
+                     select: str = typer.Option(..., '--procedure', '-p', help='Procedure with inputs. E.g. \'hello(int, string)\'')):
+    snowpark_execute('procedure', environment, select)
 
 
 @app.command("describe")
-def function_describe(environment: str = EnvironmentOption,
-                      name: str = typer.Option('', '--name', '-n', help="Name of the function"),
+def procedure_describe(environment: str = EnvironmentOption,
+                      name: str = typer.Option('', '--name', '-n', help="Name of the procedure"),
                       input_parameters: str = typer.Option('',
                                                          '--input-parameters',
                                                          '-i',
                                                          help='Input parameters - such as (message string, count int)'),
-                      function: str = typer.Option('', '--function', '-f', help='Function signature with inputs. E.g. \'hello(int, string)\'')
+                      signature: str = typer.Option('', '--procedure', '-p', help='Procedure signature with inputs. E.g. \'hello(int, string)\'')
                       ):
-    snowpark_describe(type='function', environment=environment, name=name, input_parameters=input_parameters, signature=function)
+    snowpark_describe('procedure', environment, name, input_parameters, signature)

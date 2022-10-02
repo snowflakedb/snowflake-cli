@@ -1,6 +1,8 @@
+# Configure app.toml
+# > snow login
+# > snow configure
 # Test locally
 # > python app.py
-#
 # Create and deploy in snowflake:
 # > snowcli function package
 # > snowcli function create --environment dev
@@ -17,4 +19,4 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         print(hello(sys.argv[1:]))  # type: ignore
     else:
-        print(hello())
+        print(hello()) # type: ignore
