@@ -8,7 +8,7 @@ a = Analysis(
     ['src/snowcli/cli/__init__.py'],
     pathex=[],
     binaries=[],
-    datas=[('src/templates', 'templates')],
+    datas=[('src/templates', 'templates'), ('src/snowcli', 'snowcli')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
