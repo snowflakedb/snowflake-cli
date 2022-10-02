@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "snowcli"
+name = "snowflake-cli-labs"
 dynamic = ["version"]
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 description = "Snowflake CLI"
 dependencies = [
   "snowflake-connector-python",
@@ -15,6 +15,9 @@ dependencies = [
   "typer",
   "rich"
 ]
+
+[project.urls]
+"Source code" = "https://github.com/Snowflake-Labs/snowcli"
 
 [project.scripts]
 snow = "snowcli.cli:app"
