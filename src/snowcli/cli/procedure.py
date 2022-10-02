@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from distutils.dir_util import copy_tree
+from shutil import copytree
 import os
 from pathlib import Path
 import pkg_resources
@@ -18,8 +18,8 @@ def procedure_init():
     """
     Initialize this directory with a sample set of files to create a procedure.
     """
-    copy_tree(pkg_resources.resource_filename(
-        'templates', 'default_procedure'), f'{os.getcwd()}')
+    copytree(pkg_resources.resource_filename(
+        'templates', 'default_procedure'), f'{os.getcwd()}', dirs_exist_ok=True)
 
 @app.command("create")
 def procedure_create(environment: str = EnvironmentOption,

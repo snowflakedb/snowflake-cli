@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from distutils.dir_util import copy_tree
 import os
 from pathlib import Path
+from shutil import copytree
 import pkg_resources
 import typer
 
@@ -18,8 +18,8 @@ def function_init():
     """
     Initialize this directory with a sample set of files to create a function.
     """
-    copy_tree(pkg_resources.resource_filename(
-        'templates', 'default_function'), f'{os.getcwd()}')
+    copytree(pkg_resources.resource_filename(
+        'templates', 'default_function'), f'{os.getcwd()}', dirs_exist_ok=True)
 
 @app.command("create")
 def function_create(environment: str = EnvironmentOption,
