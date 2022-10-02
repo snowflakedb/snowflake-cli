@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 from rich import print
 import typer
+import re
 
 from snowcli import utils, config
 from snowcli.config import AppConfig
@@ -64,7 +65,37 @@ def snowpark_update(type: str, environment: str, name: str, file: Path, handler:
     if config.isAuth():
         config.connectToSnowflake()
         
-        try:
+        typer.echo(f'Finding {type} {name}...')
+        match type:
+            case 'function':
+                resources = config.snowflake_connection.listFunctions(
+                    like=f'{name}%', database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse']).fetchall()
+            case 'procedure':
+                resources = config.snowflake_connection.listProcedures(
+                    like='{name}%', database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse']).fetchall()
+            case _:
+                resources = []
+
+        if len(resources) == 0:
+            typer.echo(f'No {type} named {name} found')
+            return
+        else:
+            destination_signature = name + config.snowflake_connection.generate_signature_from_params(input_parameters)
+            # regular expression to return "HELLOFUNCTION()" from "HELLOFUNCTION() RETURN VARCHAR"
+            regex = re.compile(r'(^.*\(.*\))')
+            found=False
+            for resource in resources:
+                resource_signature = regex.search(
+                    resource[2]).group(1)
+                print(f'comparing {resource_signature} to {destination_signature}')
+                if resource_signature == destination_signature:
+                    typer.echo(f'Found function {name}{destination_signature}')
+                    found=True
+            if not found:
+                typer.echo(f'No {type} named with signature {destination_signature} found. Creating {type}...')
+                replace=True
+
+        if not replace:
             print(f'Updating {type} {name}...')
             match type:
                 case 'function':
@@ -81,54 +112,51 @@ def snowpark_update(type: str, environment: str, name: str, file: Path, handler:
             print(
                 f'Checking if any packages defined or missing from requirements.snowflake.txt...')
             updatedPackageList = utils.getSnowflakePackagesDelta(anaconda_packages)
-        except:
-            typer.echo(f'Existing {type} not found, creating new {type}...')
+        else:
             updatedPackageList = utils.getSnowflakePackagesDelta([])
-            replace = True
         
-        finally:
-            deploy_dict = utils.getDeployNames(env_conf['database'], env_conf['schema'], generate_deploy_stage_name(name, input_parameters))
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
-                deploy_response = config.snowflake_connection.uploadFileToStage(
-                    file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=True, role=env_conf['role'])
+        deploy_dict = utils.getDeployNames(env_conf['database'], env_conf['schema'], generate_deploy_stage_name(name, input_parameters))
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
+            deploy_response = config.snowflake_connection.uploadFileToStage(
+                file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=True, role=env_conf['role'])
+        print(
+            f'{deploy_response} uploaded to stage {deploy_dict["full_path"]}')
+        
+        if updatedPackageList or replace:
+            print(f'Creating {type} with updated values...')
+            match type:
+                case 'function':
+                    config.snowflake_connection.createFunction(
+                        name=name,
+                        inputParameters=input_parameters,
+                        returnType=return_type,
+                        handler=handler,
+                        imports=deploy_dict['full_path'],
+                        database=env_conf['database'],
+                        schema=env_conf['schema'],
+                        role=env_conf['role'],
+                        warehouse=env_conf['warehouse'],
+                        overwrite=True,
+                        packages=updatedPackageList)
+                case 'procedure':
+                    config.snowflake_connection.createProcedure(
+                        name=name,
+                        inputParameters=input_parameters,
+                        returnType=return_type,
+                        handler=handler,
+                        imports=deploy_dict['full_path'],
+                        database=env_conf['database'],
+                        schema=env_conf['schema'],
+                        role=env_conf['role'],
+                        warehouse=env_conf['warehouse'],
+                        overwrite=True,
+                        packages=updatedPackageList,
+                        execute_as_caller=execute_as_caller)
             print(
-                f'{deploy_response} uploaded to stage {deploy_dict["full_path"]}')
-            
-            if updatedPackageList or replace:
-                print(f'Replacing {type} with updated values...')
-                match type:
-                    case 'function':
-                        config.snowflake_connection.createFunction(
-                            name=name,
-                            inputParameters=input_parameters,
-                            returnType=return_type,
-                            handler=handler,
-                            imports=deploy_dict['full_path'],
-                            database=env_conf['database'],
-                            schema=env_conf['schema'],
-                            role=env_conf['role'],
-                            warehouse=env_conf['warehouse'],
-                            overwrite=True,
-                            packages=updatedPackageList)
-                    case 'procedure':
-                        config.snowflake_connection.createProcedure(
-                            name=name,
-                            inputParameters=input_parameters,
-                            returnType=return_type,
-                            handler=handler,
-                            imports=deploy_dict['full_path'],
-                            database=env_conf['database'],
-                            schema=env_conf['schema'],
-                            role=env_conf['role'],
-                            warehouse=env_conf['warehouse'],
-                            overwrite=True,
-                            packages=updatedPackageList,
-                            execute_as_caller=execute_as_caller)
-                print(
-                    f'{type.capitalize()} {name} updated with new packages. Deployment complete!')
-            else:
-                print(f'No packages to update. Deployment complete!')
+                f'{type.capitalize()} {name} updated with new packages. Deployment complete!')
+        else:
+            print(f'No packages to update. Deployment complete!')
 
 def snowpark_package():
     print('Resolving any requirements from requirements.txt...')
