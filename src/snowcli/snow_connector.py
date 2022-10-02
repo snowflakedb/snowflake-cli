@@ -46,6 +46,23 @@ class SnowflakeConnector():
             'signature': self.generate_signature_from_params(inputParameters)
         })
 
+    def createProcedure(self, name: str, inputParameters: str, returnType: str, handler: str, imports: str, database: str, schema: str, role: str, warehouse: str, overwrite: bool, packages: list[str], execute_as_caller: bool):
+        return self.runSql('create_procedure', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse,
+            'name': name,
+            'overwrite': overwrite,
+            'input_parameters': inputParameters,
+            'return_type': returnType,
+            'handler': handler,
+            'imports': imports,
+            'packages': packages,
+            'signature': self.generate_signature_from_params(inputParameters),
+            'execute_as_caller': execute_as_caller
+        })
+
     def uploadFileToStage(self, file_path, destination_stage, path, role, overwrite):
         self.cs.execute(f'use role {role}')
         self.cs.execute(
@@ -63,10 +80,30 @@ class SnowflakeConnector():
             'function': function
         })
 
+    def executeProcedure(self, procedure, database, schema, role, warehouse):
+        return self.runSql('call_procedure', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse,
+            'procedure': procedure
+        })
+
     def describeFunction(self, database, schema, role, warehouse, signature = None, name = None, inputParameters = None) -> SnowflakeCursor:
         if signature is None and name and inputParameters:
             signature =  name + self.generate_signature_from_params(inputParameters)
         return self.runSql('describe_function', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse,
+            'signature': signature
+        })
+    
+    def describeProcedure(self, database, schema, role, warehouse, signature = None, name = None, inputParameters = None) -> SnowflakeCursor:
+        if signature is None and name and inputParameters:
+            signature =  name + self.generate_signature_from_params(inputParameters)
+        return self.runSql('describe_procedure', {
             'database': database,
             'schema': schema,
             'role': role,

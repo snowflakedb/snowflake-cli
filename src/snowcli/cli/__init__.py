@@ -7,6 +7,7 @@ from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
 from snowcli.cli import connection
 from snowcli.cli import function
+from snowcli.cli import procedure
 from snowcli.cli import streamlit
 from snowcli.cli import warehouse
 from rich import print
@@ -74,6 +75,7 @@ def configure(environment: str = typer.Option('dev', '-e', '--environment',
     print(f"Wrote environment {environment} to {cfg.path}")
 
 app.add_typer(function.app, name="function")
+app.add_typer(procedure.app, name="procedure")
 app.add_typer(streamlit.app, name="streamlit")
 app.add_typer(connection.app, name="connection")
 app.add_typer(warehouse.app, name="warehouse")

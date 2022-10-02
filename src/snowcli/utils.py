@@ -124,7 +124,7 @@ def getSnowflakePackagesDelta(anaconda_packages) -> list[str]:
         return updatedPackageList
 
 
-def convertFunctionDetailsToDict(function_details: list[tuple]) -> dict:
+def convertResourceDetailsToDict(function_details: list[tuple]) -> dict:
     function_dict = {}
     json_properties = ['packages', 'installed_packages']
     for function in function_details:

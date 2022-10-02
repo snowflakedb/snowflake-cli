@@ -5,12 +5,12 @@
 input_parameters = "()"
 return_type = "string"
 file = "app.zip"
+name = "helloProcedure"
+handler = "app.hello"
 
 [dev]
-name = "helloProcedure"
 database = "<DATABASE_NAME>"
 schema = "<SCHEMA_NAME>"
 warehouse = "<WAREHOUSE_NAME>"
 role = "<ROLE_NAME>"
-handler = "app.hello"
 overwrite = true
