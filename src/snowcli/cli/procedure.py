@@ -50,6 +50,7 @@ def procedure_create(environment: str = EnvironmentOption,
                                                    help='Replace if existing procedure'),
                     execute_as_caller: bool = typer.Option(False, '--execute-as-caller', help='Execute as caller')
                     ):
+    snowpark_package()
     snowpark_create('procedure', environment, name, file, handler, input_parameters, return_type, overwrite, execute_as_caller)
 
 @app.command("update")
@@ -78,6 +79,7 @@ def procedure_update(environment: str = EnvironmentOption,
                                                 '--replace-always', '-r', 
                                                 help='Replace procedure, even if no detected changes to metadata'),
                     execute_as_caller: bool = typer.Option(False, '--execute-as-caller', help='Execute as caller')):
+    snowpark_package()
     snowpark_update('procedure', environment, name, file, handler, input_parameters, return_type, replace, execute_as_caller)
 
 @app.command("package")

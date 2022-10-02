@@ -49,6 +49,7 @@ def function_create(environment: str = EnvironmentOption,
                                                    '-o',
                                                    help='Replace if existing function')
                     ):
+    snowpark_package()
     snowpark_create(type='function', environment=environment, name=name, file=file, handler=handler, input_parameters=input_parameters, return_type=return_type, overwrite=overwrite)
 
 
@@ -78,6 +79,7 @@ def function_update(environment: str = EnvironmentOption,
                                                 '--replace-always', '-r', 
                                                 help='Replace function, even if no detected changes to metadata')
                     ):
+    snowpark_package()
     snowpark_update(type='function', environment=environment, name=name, file=file, handler=handler, input_parameters=input_parameters, return_type=return_type, replace=replace)
 
 @app.command("package")
