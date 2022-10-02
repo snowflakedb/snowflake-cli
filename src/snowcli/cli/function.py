@@ -9,13 +9,11 @@ import pkg_resources
 import tempfile
 import re
 from rich import print
-from rich.table import Table
 import typer
 
 from snowcli import utils, config
 from snowcli.config import AppConfig
-from snowcli.snowsql_config import SnowsqlConfig
-from snowcli.utils import print_db_cursor, print_list_tuples, generate_deploy_stage_name
+from snowcli.utils import print_db_cursor, generate_deploy_stage_name, print_list_tuples
 
 app = typer.Typer()
 EnvironmentOption = typer.Option("dev", help='Environment name', callback=utils.conf_callback, is_eager=True)
@@ -83,7 +81,7 @@ def function_create(environment: str = EnvironmentOption,
                                                        overwrite=overwrite,
                                                        packages=packages
                                                        )
-        print_db_cursor(results)
+        print_list_tuples(results)
 
 
 @app.command("update")

@@ -145,14 +145,22 @@ def print_db_cursor(cursor, only_cols=[]):
         table = Table(*[col[1] for col in cols])
         for row in cursor.fetchall():
             filtered_row = [str(row[col_index]) for (col_index, _) in cols]
-            table.add_row(*filtered_row)
+            try:
+                table.add_row(*filtered_row)
+            except Exception as e:
+                print(type(e))
+                print(e.args)
+                print(e)
         print(table)
 
 
 def print_list_tuples(lt: SnowflakeCursor):
     table = Table("Key", "Value")
     for item in lt:
-        table.add_row(item[0], item[1])
+        if(item[0] == "imports"):
+            table.add_row(item[0], item[1].strip("[]"))
+        else:
+            table.add_row(item[0], item[1])
     print(table)
 
 def conf_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
