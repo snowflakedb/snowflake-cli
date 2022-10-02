@@ -204,3 +204,21 @@ def snowpark_describe(type: str, environment: str, name: str, input_parameters: 
             case _:
                 raise typer.Abort()
         print_list_tuples(results)
+
+def snowpark_list(type, environment, like):
+    env_conf = AppConfig().config.get(environment)
+    if env_conf is None:
+        print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
+        raise typer.Abort()
+    if config.isAuth():
+        config.connectToSnowflake()
+        match type:
+            case 'function':
+                results = config.snowflake_connection.listFunctions(
+                    database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'], like=like)
+            case 'procedure':
+                results = config.snowflake_connection.listProcedures(
+                    database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'], like=like)
+            case _:
+                raise typer.Abort()
+        print_db_cursor(results)

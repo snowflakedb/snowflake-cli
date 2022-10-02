@@ -30,7 +30,7 @@ class SnowflakeConnector():
         self.cs.execute('SELECT current_version()')
         return self.cs.fetchone()[0]
 
-    def createFunction(self, name: str, inputParameters: str, returnType: str, handler: str, imports: str, database: str, schema: str, role: str, warehouse: str, overwrite: bool, packages: list[str]):
+    def createFunction(self, name: str, inputParameters: str, returnType: str, handler: str, imports: str, database: str, schema: str, role: str, warehouse: str, overwrite: bool, packages: list[str])  -> SnowflakeCursor:
         return self.runSql('create_function', {
             'database': database,
             'schema': schema,
@@ -46,7 +46,7 @@ class SnowflakeConnector():
             'signature': self.generate_signature_from_params(inputParameters)
         })
 
-    def createProcedure(self, name: str, inputParameters: str, returnType: str, handler: str, imports: str, database: str, schema: str, role: str, warehouse: str, overwrite: bool, packages: list[str], execute_as_caller: bool):
+    def createProcedure(self, name: str, inputParameters: str, returnType: str, handler: str, imports: str, database: str, schema: str, role: str, warehouse: str, overwrite: bool, packages: list[str], execute_as_caller: bool)  -> SnowflakeCursor:
         return self.runSql('create_procedure', {
             'database': database,
             'schema': schema,
@@ -71,7 +71,7 @@ class SnowflakeConnector():
             f'PUT file://{file_path} @{destination_stage}{path} auto_compress=false overwrite={"true" if overwrite else "false"}')
         return self.cs.fetchone()[0]
 
-    def executeFunction(self, function, database, schema, role, warehouse):
+    def executeFunction(self, function, database, schema, role, warehouse) -> SnowflakeCursor:
         return self.runSql('execute_function', {
             'database': database,
             'schema': schema,
@@ -80,7 +80,7 @@ class SnowflakeConnector():
             'function': function
         })
 
-    def executeProcedure(self, procedure, database, schema, role, warehouse):
+    def executeProcedure(self, procedure, database, schema, role, warehouse) -> SnowflakeCursor:
         return self.runSql('call_procedure', {
             'database': database,
             'schema': schema,
@@ -111,13 +111,23 @@ class SnowflakeConnector():
             'signature': signature
         })
 
-    def listFunctions(self, database, schema, role, warehouse, like) -> list[tuple]:
-        self.cs.execute(f'use role {role}')
-        self.cs.execute(f'use warehouse {warehouse}')
-        self.cs.execute(f'use database {database}')
-        self.cs.execute(f'use schema {schema}')
-        self.cs.execute(f'show USER FUNCTIONS LIKE \'{like}\'')
-        return self.cs.fetchall()
+    def listFunctions(self, database, schema, role, warehouse, like='%%') -> SnowflakeCursor:
+        return self.runSql('list_functions', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse,
+            'like': like
+        })
+
+    def listProcedures(self, database, schema, role, warehouse, like='%%') -> SnowflakeCursor:
+        return self.runSql('list_procedures', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse,
+            'like': like
+        })
 
     def listStreamlits(self, database="", schema="", role="", warehouse="", like='%%') -> SnowflakeCursor:
         return self.runSql('list_streamlits', {

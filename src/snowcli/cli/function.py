@@ -8,7 +8,7 @@ import pkg_resources
 import typer
 
 from snowcli.utils import conf_callback
-from snowcli.cli.snowpark_shared import snowpark_create, snowpark_describe, snowpark_execute, snowpark_package, snowpark_update
+from snowcli.cli.snowpark_shared import snowpark_create, snowpark_describe, snowpark_execute, snowpark_package, snowpark_update, snowpark_list
 
 app = typer.Typer()
 EnvironmentOption = typer.Option("dev", help='Environment name', callback=conf_callback, is_eager=True)
@@ -102,3 +102,8 @@ def function_describe(environment: str = EnvironmentOption,
                       function: str = typer.Option('', '--function', '-f', help='Function signature with inputs. E.g. \'hello(int, string)\'')
                       ):
     snowpark_describe(type='function', environment=environment, name=name, input_parameters=input_parameters, signature=function)
+
+@app.command("list")
+def function_list(environment: str = EnvironmentOption,
+                   like: str = typer.Option('%%', '--like', '-l', help='Filter functions by name - e.g. "hello%"')):
+    snowpark_list('function', environment, like=like)

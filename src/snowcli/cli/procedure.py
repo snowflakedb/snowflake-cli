@@ -7,7 +7,7 @@ from pathlib import Path
 import pkg_resources
 import typer
 
-from snowcli.cli.snowpark_shared import snowpark_create, snowpark_update, snowpark_package, snowpark_execute, snowpark_describe
+from snowcli.cli.snowpark_shared import snowpark_create, snowpark_update, snowpark_package, snowpark_execute, snowpark_describe, snowpark_list
 from snowcli.utils import conf_callback
 
 app = typer.Typer()
@@ -102,3 +102,8 @@ def procedure_describe(environment: str = EnvironmentOption,
                       signature: str = typer.Option('', '--procedure', '-p', help='Procedure signature with inputs. E.g. \'hello(int, string)\'')
                       ):
     snowpark_describe('procedure', environment, name, input_parameters, signature)
+
+@app.command("list")
+def procedure_list(environment: str = EnvironmentOption,
+                   like: str = typer.Option('%%', '--like', '-l', help='Filter procedures by name - e.g. "hello%"')):
+    snowpark_list('procedure', environment, like=like)
