@@ -18,17 +18,17 @@ jobs:
             TARGET: macos
             CMD_BUILD: >
               pyinstaller snowcli.spec
-            OUT_FILE_DEST: ./dist/snow
+            OUT_FILE_DEST: ./dist/snow/
             ARTIFACT_NAME: snow-${{ github.ref_name }}-darwin
           - os: windows-latest
             TARGET: windows
             CMD_BUILD: pyinstaller snowcli.spec
-            OUT_FILE_DEST: ./dist/snow.exe
-            ARTIFACT_NAME: snow-${{ github.ref_name }}-windows.exe
+            OUT_FILE_DEST: ./dist/snow/
+            ARTIFACT_NAME: snow-${{ github.ref_name }}-windows
           - os: ubuntu-latest
             TARGET: linux
             CMD_BUILD: pyinstaller snowcli.spec
-            OUT_FILE_DEST: ./dist/snow
+            OUT_FILE_DEST: ./dist/snow/
             ARTIFACT_NAME: snow-${{ github.ref_name }}-linux
     steps:
       - uses: actions/checkout@v1
