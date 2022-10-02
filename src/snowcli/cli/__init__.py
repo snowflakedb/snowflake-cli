@@ -74,13 +74,11 @@ def configure(environment: str = typer.Option('dev', '-e', '--environment',
     cfg.save()
     print(f"Wrote environment {environment} to {cfg.path}")
 
-@app.callback(invoke_without_command=True)
+@app.callback()
 def default() -> None:
     """
     SnowCLI - A CLI for Snowflake                    
     """
-    print('[bold blue]Welcome to the SnowCLI![bold blue]\n')
-    print('No command provided. See `snowcli --help` for usage.')
 
 app.add_typer(function.app, name="function")
 app.add_typer(procedure.app, name="procedure")
