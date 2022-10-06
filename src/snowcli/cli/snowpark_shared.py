@@ -63,7 +63,7 @@ def snowpark_update(type: str, environment: str, name: str, file: Path, handler:
         raise typer.Abort()
     if config.isAuth():
         config.connectToSnowflake()
-        
+        updatedPackageList = []
         try:
             print(f'Updating {type} {name}...')
             match type:
@@ -81,9 +81,13 @@ def snowpark_update(type: str, environment: str, name: str, file: Path, handler:
             print(
                 f'Checking if any packages defined or missing from requirements.snowflake.txt...')
             updatedPackageList = utils.getSnowflakePackagesDelta(anaconda_packages)
+            print(
+                f'Checking if app configuration has changed...')
+            if resource_json['handler'].lower() != handler.lower() or resource_json['returns'].lower() != return_type.lower():
+                print(f'Return type or handler types do not match. Replacing function configuration...')
+                replace = True
         except:
             typer.echo(f'Existing {type} not found, creating new {type}...')
-            updatedPackageList = utils.getSnowflakePackagesDelta([])
             replace = True
         
         finally:
@@ -110,7 +114,7 @@ def snowpark_update(type: str, environment: str, name: str, file: Path, handler:
                             role=env_conf['role'],
                             warehouse=env_conf['warehouse'],
                             overwrite=True,
-                            packages=updatedPackageList)
+                            packages=utils.getSnowflakePackages())
                     case 'procedure':
                         config.snowflake_connection.createProcedure(
                             name=name,
@@ -123,7 +127,7 @@ def snowpark_update(type: str, environment: str, name: str, file: Path, handler:
                             role=env_conf['role'],
                             warehouse=env_conf['warehouse'],
                             overwrite=True,
-                            packages=updatedPackageList,
+                            packages=utils.getSnowflakePackages(),
                             execute_as_caller=execute_as_caller)
                 print(
                     f'{type.capitalize()} {name} updated with new packages. Deployment complete!')
