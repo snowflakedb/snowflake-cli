@@ -6,6 +6,9 @@
 
 The SnowCLI is a command line interface for working with Snowflake. It allows users to create, manage, update, and view apps running in Snowflake. This is an open source project and contributions are welcome (though the project is maintained on a best-effort basis). We do plan to incorporate some of the patterns and features of this CLI into the Snowflake CLI (SnowSQL) in the future, and are hoping this project will help start the conversation on what a delightful developer experience could look like - and would love your help in shaping that with us.
 
+### CLI tour and quickstart
+[![SnowCLI overview and quickstart demo](https://i.imgur.com/tqLVPWnm.png)](https://youtu.be/WDuBeAgbTt4)
+
 ## Benefits
 - Supports local debugging and running of Snowflake apps.
 - Define packages using `requirements.txt`, with dependencies automatically added via integration with Anaconda at deploy time.
@@ -60,13 +63,18 @@ You should now be able to run `snow` and get the CLI message.
 
 ## Getting started
 
-### Adding connection credentials.
+### Adding connection credentials
+
+#### Snow CLI
+`snow connection add`
+
+#### Manually
 1. Open the SnowSQL configuration file at `~/.snowsql/config` or `%USERPROFILE%\.snowsql\config`.
 1. Add a new configuration for your Snowflake connection (be sure to prefix with `connections.`). 
 
 For example:
 ```ini
-[connections.my_connection]
+[connections.connection_name]
 accountname = myaccount
 username = jondoe
 password = hunter2
