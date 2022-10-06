@@ -60,7 +60,7 @@ def parseAnacondaPackages(packages: list[str]) -> dict:
         for package in packages:
             if package in channel_data['packages']:
                 snowflakePackages.append(
-                    f'{package}=={channel_data["packages"][package]["version"]}')
+                    f'{package}')
             else:
                 click.echo(
                     f'"{package}" not found in Snowflake anaconda channel...')
