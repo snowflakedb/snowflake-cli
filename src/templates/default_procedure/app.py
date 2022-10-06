@@ -9,7 +9,6 @@ def hello(session: Session) -> str:
 # For local debugging. Be aware you may need to type-convert arguments if you add input parameters
 if __name__ == '__main__':
     from local_connection import get_dev_config
-    print(get_dev_config('dev'))
     session = Session.builder.configs(get_dev_config('dev')).create()
     if len(sys.argv) > 1:
         print(hello(session, *sys.argv[1:]))  # type: ignore
