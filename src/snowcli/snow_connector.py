@@ -176,7 +176,7 @@ class SnowflakeConnector():
 
     def deployStreamlit(self, name, file_path, stage_path, role, database, schema, overwrite):
         self.uploadFileToStage(file_path, f"{name}_stage", stage_path, role, database, overwrite)
-        return self.runSql("get_streamlit_url", { "name": name, "database": database, "schema": schema })
+        return self.runSql("get_streamlit_url", { "name": name, "role": role, "database": database, "schema": schema })
 
     def runSql(self, command, context, show_exceptions=True) -> SnowflakeCursor:
         sql = pkgutil.get_data(__name__, f"sql/{command}.sql").decode()
