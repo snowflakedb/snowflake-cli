@@ -63,9 +63,10 @@ class SnowflakeConnector():
             'execute_as_caller': execute_as_caller
         })
 
-    def uploadFileToStage(self, file_path, destination_stage, path, role, database, overwrite):
+    def uploadFileToStage(self, file_path, destination_stage, path, role, database, schema, overwrite):
         self.cs.execute(f'use database {database}')
         self.cs.execute(f'use role {role}')
+        self.cs.execute(f'use schema {schema}')
         self.cs.execute(
             f'create stage if not exists {destination_stage} comment="deployments managed by snowcli"')
         self.cs.execute(
@@ -175,7 +176,7 @@ class SnowflakeConnector():
         })
 
     def deployStreamlit(self, name, file_path, stage_path, role, database, schema, overwrite):
-        self.uploadFileToStage(file_path, f"{name}_stage", stage_path, role, database, overwrite)
+        self.uploadFileToStage(file_path, f"{name}_stage", stage_path, role, database, schema, overwrite)
         return self.runSql("get_streamlit_url", { "name": name, "role": role, "database": database, "schema": schema })
 
     def runSql(self, command, context, show_exceptions=True) -> SnowflakeCursor:
