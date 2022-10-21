@@ -70,7 +70,9 @@ def streamlit_deploy(environment: str = EnvironmentOption,
         config.connectToSnowflake()
         results = config.snowflake_connection.deployStreamlit(
             name=name, file_path=str(file), stage_path='/',
-            role=env_conf.get('role'), overwrite=True)
+            role=env_conf.get('role'), database=env_conf.get('database'),
+            schema=env_conf.get('schema'),
+            overwrite=True)
 
         url = results.fetchone()[0]
         if open_:
