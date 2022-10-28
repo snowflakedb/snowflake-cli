@@ -16,7 +16,8 @@ class SnowflakeConnector():
                     account=args[0]
             )
         elif len(args) == 1:
-            config = args[0]
+            config: dict = args[0]
+            config["application"] = "SNOWCLI"
             self.ctx = snowflake.connector.connect(**config)
         self.cs = self.ctx.cursor()
 
