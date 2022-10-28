@@ -28,6 +28,27 @@ def streamlit_list(environment: str = EnvironmentOption):
             warehouse=env_conf.get('warehouse'))
         print_db_cursor(results)
 
+@app.command("describe")
+def streamlit_describe(environment: str = EnvironmentOption,
+                   name: str = typer.Argument(..., help='Name of streamlit to be deployed.')):
+    """
+    Describe a streamlit app.
+    """
+    env_conf = AppConfig().config.get(environment)
+
+    if config.isAuth():
+        config.connectToSnowflake()
+        description, url = config.snowflake_connection.describeStreamlit(
+            name,
+            database=env_conf.get('database'),
+            schema=env_conf.get('schema'),
+            role=env_conf.get('role'),
+            warehouse=env_conf.get('warehouse'))
+        print_db_cursor(description)
+        print_db_cursor(url)
+
+
+
 @app.command("create")
 def streamlit_create(environment: str = EnvironmentOption,
                      name: str = typer.Argument(..., help='Name of streamlit to be created.'),
