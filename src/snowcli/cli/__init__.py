@@ -9,6 +9,7 @@ from snowcli.cli import function
 from snowcli.cli import procedure
 from snowcli.cli import streamlit
 from snowcli.cli import warehouse
+from snowcli.cli import stage
 from rich import print
 
 app = typer.Typer()
@@ -84,6 +85,7 @@ app.add_typer(procedure.app, name="procedure")
 app.add_typer(streamlit.app, name="streamlit")
 app.add_typer(connection.app, name="connection")
 app.add_typer(warehouse.app, name="warehouse")
+app.add_typer(stage.app, name="stage")
 
 if __name__ == '__main__':
     app()

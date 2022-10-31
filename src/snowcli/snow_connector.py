@@ -123,6 +123,45 @@ class SnowflakeConnector():
             'like': like
         })
 
+    def listStages(self, database, schema, role, warehouse, like='%%') -> SnowflakeCursor:
+        return self.runSql('list_stages', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse,
+            'like': like
+        })
+
+    def listStage(self, database, schema, role, warehouse, name, like='%%') -> SnowflakeCursor:
+        return self.runSql('list_stage', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse,
+            'name': name,
+            'like': like
+        })
+
+    def getStage(self, database, schema, role, warehouse, name, path) -> SnowflakeCursor:
+        return self.runSql('get_stage', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse,
+            'name': name,
+            'path': path,
+        })
+
+    def putStage(self, database, schema, role, warehouse, name, path) -> SnowflakeCursor:
+        return self.runSql('put_stage', {
+            'database': database,
+            'schema': schema,
+            'role': role,
+            'warehouse': warehouse,
+            'name': name,
+            'path': path,
+        })
+
     def listProcedures(self, database, schema, role, warehouse, like='%%') -> SnowflakeCursor:
         return self.runSql('list_procedures', {
             'database': database,
