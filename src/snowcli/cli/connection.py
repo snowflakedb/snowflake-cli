@@ -44,7 +44,7 @@ def add(
                                        help='Snowflake username'),
         password: str = typer.Option(...,
                                        prompt='Snowflake password',
-                                       help='Snowflake password')):
+                                       help='Snowflake password', hide_input=True)):
     app_cfg = AppConfig().config
     if 'snowsql_config_path' not in app_cfg:
         cfg = SnowsqlConfig()

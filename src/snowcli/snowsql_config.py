@@ -19,6 +19,6 @@ class SnowsqlConfig():
         for (k, v) in entry.items():
             connection[k] = v
 
-        with open(os.path.expanduser(self.path), 'w') as f:
+        with open(os.path.expanduser(self.path), 'w+') as f:
             self.config.write(f)
 
