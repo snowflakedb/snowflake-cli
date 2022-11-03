@@ -14,7 +14,7 @@ EnvironmentOption = typer.Option("dev", help='Environment name')
 @app.command("status")
 def warehouse_status(environment: str = EnvironmentOption):
     """
-    List streamlit apps.
+    Show the status of each warehouse in the configured environment.
     """
     env_conf = AppConfig().config.get(environment)
 
