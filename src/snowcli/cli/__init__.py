@@ -12,7 +12,7 @@ from snowcli.cli import warehouse
 from snowcli.cli import stage
 from rich import print
 
-app = typer.Typer()
+app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 
 @app.command()
 def login(

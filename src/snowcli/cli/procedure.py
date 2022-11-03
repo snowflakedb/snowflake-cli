@@ -10,7 +10,7 @@ import typer
 from snowcli.cli.snowpark_shared import snowpark_create, snowpark_update, snowpark_package, snowpark_execute, snowpark_describe, snowpark_list, snowpark_drop
 from snowcli.utils import conf_callback
 
-app = typer.Typer()
+app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 EnvironmentOption = typer.Option("dev", help='Environment name', callback=conf_callback, is_eager=True)
 
 @app.command("init")
