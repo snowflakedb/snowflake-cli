@@ -1,13 +1,16 @@
-import click
 import os
-from pathlib import Path
 import tempfile
-from rich import print
-import typer
+from pathlib import Path
 
-from snowcli import utils, config
+import click
+import typer
+from rich import print
+
+from snowcli import config, utils
 from snowcli.config import AppConfig
-from snowcli.utils import print_db_cursor, generate_deploy_stage_name, print_list_tuples
+from snowcli.utils import (generate_deploy_stage_name, print_db_cursor,
+                           print_list_tuples)
+
 
 def snowpark_create(type: str, environment: str, name: str, file: Path, handler: str, input_parameters: str, return_type: str, overwrite: bool, execute_as_caller: bool = False):
     env_conf = AppConfig().config.get(environment)
@@ -23,7 +26,7 @@ def snowpark_create(type: str, environment: str, name: str, file: Path, handler:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
             config.snowflake_connection.uploadFileToStage(
-                file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=overwrite, role=env_conf['role'])
+                file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], database=env_conf['database'], schema=env_conf['schema'], overwrite=overwrite, role=env_conf['role'])
         packages = utils.getSnowflakePackages()
         print(f'Creating {type}...')
         match type:
@@ -95,7 +98,7 @@ def snowpark_update(type: str, environment: str, name: str, file: Path, handler:
             with tempfile.TemporaryDirectory() as temp_dir:
                 temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
                 deploy_response = config.snowflake_connection.uploadFileToStage(
-                    file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], overwrite=True, role=env_conf['role'])
+                    file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], database=env_conf['database'], schema=env_conf['schema'], overwrite=True, role=env_conf['role'])
             print(
                 f'{deploy_response} uploaded to stage {deploy_dict["full_path"]}')
             
