@@ -10,9 +10,15 @@ from snowcli.cli import procedure
 from snowcli.cli import streamlit
 from snowcli.cli import warehouse
 from snowcli.cli import stage
+from snowcli import __about__
 from rich import print
 
-app = typer.Typer()
+app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
+
+def version_callback(value: bool):
+    if value:
+        typer.echo(f"SnowCLI Version: {__about__.VERSION}")
+        raise typer.Exit()
 
 @app.command()
 def login(
@@ -75,7 +81,7 @@ def configure(environment: str = typer.Option('dev', '-e', '--environment',
     print(f"Wrote environment {environment} to {cfg.path}")
 
 @app.callback()
-def default() -> None:
+def default(version: bool = typer.Option(None, "--version", callback=version_callback, is_eager=True)) -> None:
     """
     SnowCLI - A CLI for Snowflake                    
     """

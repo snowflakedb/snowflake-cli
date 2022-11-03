@@ -7,7 +7,7 @@ from snowcli.snowsql_config import SnowsqlConfig
 from rich.table import Table
 from rich import print
 
-app = typer.Typer()
+app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 
 @app.command()
 def list():
