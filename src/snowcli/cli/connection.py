@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import annotations
 
 import typer
+from rich import print
+from rich.table import Table
 from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
-from rich.table import Table
-from rich import print
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 

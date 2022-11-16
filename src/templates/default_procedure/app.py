@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import sys
+
 from snowflake.snowpark import Session
 
 

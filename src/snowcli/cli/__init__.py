@@ -1,17 +1,19 @@
-from pathlib import Path
-import sys
-import typer
+from __future__ import annotations
 
-from snowcli.config import AppConfig
-from snowcli.snowsql_config import SnowsqlConfig
-from snowcli.cli import connection
-from snowcli.cli import function
-from snowcli.cli import procedure
-from snowcli.cli import streamlit
-from snowcli.cli import warehouse
-from snowcli.cli import stage
-from snowcli import __about__
+import sys
+from pathlib import Path
+
+import typer
 from rich import print
+from .. import __about__
+from . import connection
+from . import function
+from . import procedure
+from . import stage
+from . import streamlit
+from . import warehouse
+from ..config import AppConfig
+from ..snowsql_config import SnowsqlConfig
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 

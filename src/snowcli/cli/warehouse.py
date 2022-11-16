@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import annotations
 
 import typer
-
-from snowcli import config, utils
+from snowcli import config
+from snowcli import utils
 from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
 from snowcli.utils import print_db_cursor

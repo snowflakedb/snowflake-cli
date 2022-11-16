@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 from pathlib import Path
 
 import click
 import toml
-
 from snowcli.snow_connector import SnowflakeConnector
 
 snowflake_connection: SnowflakeConnector

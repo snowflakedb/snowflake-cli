@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import annotations
 
 from genericpath import isfile
-from rich import print
 from pathlib import Path
-import typer
-from typing import Optional
 from typing import List
+from typing import Optional
+
+import typer
+from rich import print
 from snowcli import config
 from snowcli.config import AppConfig
 from snowcli.utils import print_db_cursor

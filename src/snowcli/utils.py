@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import glob
 import json
 import os
@@ -7,12 +9,10 @@ import click
 import requests
 import requirements
 import typer
-
+from rich import print
+from rich.table import Table
 from snowcli.config import AppConfig
 from snowflake.connector.cursor import SnowflakeCursor
-
-from rich.table import Table
-from rich import print
 
 def getDeployNames(database, schema, name) -> dict:
     stage = f'{database}.{schema}.deployments'

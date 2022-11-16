@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import configparser
 import os
 
@@ -21,4 +23,3 @@ class SnowsqlConfig():
 
         with open(os.path.expanduser(self.path), 'w+') as f:
             self.config.write(f)
-

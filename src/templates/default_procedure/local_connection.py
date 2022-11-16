@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import configparser
 from os import environ
-import toml
 from pathlib import Path
+
+import toml
 
 def get_dev_config(environment: str = 'dev', app_config_path: Path = Path.cwd().joinpath('app.toml')) -> dict:
     try: 

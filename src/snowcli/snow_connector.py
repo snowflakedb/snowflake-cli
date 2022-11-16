@@ -1,11 +1,12 @@
+from __future__ import annotations
+
 import os
 import pkgutil
 from io import StringIO
 
 import snowflake.connector
-from snowflake.connector.cursor import SnowflakeCursor
-
 from snowcli.snowsql_config import SnowsqlConfig
+from snowflake.connector.cursor import SnowflakeCursor
 
 class SnowflakeConnector():
     def __init__(self, *args):

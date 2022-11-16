@@ -1,14 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import annotations
 
 import os
 from pathlib import Path
 from shutil import copytree
+
 import pkg_resources
 import typer
-
+from snowcli.cli.snowpark_shared import snowpark_create
+from snowcli.cli.snowpark_shared import snowpark_describe
+from snowcli.cli.snowpark_shared import snowpark_drop
+from snowcli.cli.snowpark_shared import snowpark_execute
+from snowcli.cli.snowpark_shared import snowpark_list
+from snowcli.cli.snowpark_shared import snowpark_package
+from snowcli.cli.snowpark_shared import snowpark_update
 from snowcli.utils import conf_callback
-from snowcli.cli.snowpark_shared import snowpark_create, snowpark_describe, snowpark_execute, snowpark_package, snowpark_update, snowpark_list, snowpark_drop
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 EnvironmentOption = typer.Option("dev", help='Environment name', callback=conf_callback, is_eager=True)
