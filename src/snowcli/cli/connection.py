@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import typer
@@ -9,6 +8,7 @@ from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
+
 
 @app.command()
 def list():
@@ -32,20 +32,30 @@ def list():
                 table.add_row(connection_name, v['accountname'], v['username'])
     print(table)
 
+
 @app.command()
 def add(
-        connection: str = typer.Option(...,
-                                       prompt='Name for this connection',
-                                       help='Snowflake connection name'),
-        account: str = typer.Option(...,
-                                       prompt='Snowflake account',
-                                       help='Snowflake account name'),
-        username: str = typer.Option(...,
-                                       prompt='Snowflake username',
-                                       help='Snowflake username'),
-        password: str = typer.Option(...,
-                                       prompt='Snowflake password',
-                                       help='Snowflake password', hide_input=True)):
+        connection: str = typer.Option(
+            ...,
+            prompt='Name for this connection',
+            help='Snowflake connection name',
+        ),
+        account: str = typer.Option(
+            ...,
+            prompt='Snowflake account',
+            help='Snowflake account name',
+        ),
+        username: str = typer.Option(
+            ...,
+            prompt='Snowflake username',
+            help='Snowflake username',
+        ),
+        password: str = typer.Option(
+            ...,
+            prompt='Snowflake password',
+            help='Snowflake password', hide_input=True,
+        ),
+):
     app_cfg = AppConfig().config
     if 'snowsql_config_path' not in app_cfg:
         cfg = SnowsqlConfig()

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-
 import functools
-import pytest
-from typer import Typer
 
+import pytest
 from snowcli.cli import app
+from typer import Typer
 from typer.testing import CliRunner
 
 

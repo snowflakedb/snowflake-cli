@@ -3,6 +3,7 @@ from __future__ import annotations
 import configparser
 import os
 
+
 class SnowsqlConfig():
     def __init__(self, path='~/.snowsql/config'):
         self.path = path
@@ -12,7 +13,10 @@ class SnowsqlConfig():
     def get_connection(self, connection_name):
         connection = self.config['connections.'+connection_name]
         # Remap names to appropriate args in Python Connector API
-        connection = dict((k.replace('name', ''), v.strip('"')) for k, v in connection.items())
+        connection = {
+            k.replace('name', ''): v.strip('"')
+            for k, v in connection.items()
+        }
         return connection
 
     def add_connection(self, connection_name, entry):

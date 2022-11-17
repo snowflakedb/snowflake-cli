@@ -70,7 +70,7 @@ You should now be able to run `snow` and get the CLI message.
 
 #### Manually
 1. Open the SnowSQL configuration file at `~/.snowsql/config` or `%USERPROFILE%\.snowsql\config`.
-1. Add a new configuration for your Snowflake connection (be sure to prefix with `connections.`). 
+1. Add a new configuration for your Snowflake connection (be sure to prefix with `connections.`).
 
 For example:
 ```ini
@@ -82,16 +82,16 @@ password = hunter2
 
 ### Building a function
 1. Navigate to an empty directory to create your function.
-1. Run the command: `snow function init`  
+1. Run the command: `snow function init`
     It should populate this directory with the files for a basic function. You can open `app.py` to see the files.
-1. Test the code: `python app.py`  
+1. Test the code: `python app.py`
     You should see the message: `Hello World!`
-1. Package the function: `snow function package`  
+1. Package the function: `snow function package`
     This will create an `app.zip` file that has your files in it
 1. Login to snowflake: `snow login`
 1. Configure your first environment: `snow configure`
 1. Create a function: `snow function create`
-1. Try running the function: `snow function execute -f 'helloFunction()'  
+1. Try running the function: `snow function execute -f 'helloFunction()'
     You should see Snowflake return the message: 'Hello World!'
 
 You can now go modify and edit your `app.py`, `requirements.txt`, or other files and follow a similar flow, or update a function with `snow function update -n myfunction -f app.zip`

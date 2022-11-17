@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,6 +11,7 @@ from snowcli.utils import print_db_cursor
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 EnvironmentOption = typer.Option("dev", help='Environment name')
+
 
 @app.command("list")
 def streamlit_list(environment: str = EnvironmentOption):
@@ -26,12 +26,16 @@ def streamlit_list(environment: str = EnvironmentOption):
             database=env_conf.get('database'),
             schema=env_conf.get('schema'),
             role=env_conf.get('role'),
-            warehouse=env_conf.get('warehouse'))
+            warehouse=env_conf.get('warehouse'),
+        )
         print_db_cursor(results)
 
+
 @app.command("describe")
-def streamlit_describe(environment: str = EnvironmentOption,
-                   name: str = typer.Argument(..., help='Name of streamlit to be deployed.')):
+def streamlit_describe(
+    environment: str = EnvironmentOption,
+    name: str = typer.Argument(..., help='Name of streamlit to be deployed.'),
+):
     """
     Describe a streamlit app.
     """
@@ -44,20 +48,24 @@ def streamlit_describe(environment: str = EnvironmentOption,
             database=env_conf.get('database'),
             schema=env_conf.get('schema'),
             role=env_conf.get('role'),
-            warehouse=env_conf.get('warehouse'))
+            warehouse=env_conf.get('warehouse'),
+        )
         print_db_cursor(description)
         print_db_cursor(url)
 
 
-
 @app.command("create")
-def streamlit_create(environment: str = EnvironmentOption,
-                     name: str = typer.Argument(..., help='Name of streamlit to be created.'),
-                     file: Path = typer.Option('streamlit_app.py', 
-                                               exists=True,
-                                               readable=True,
-                                               file_okay=True,
-                                               help='Path to streamlit file')):
+def streamlit_create(
+    environment: str = EnvironmentOption,
+    name: str = typer.Argument(..., help='Name of streamlit to be created.'),
+    file: Path = typer.Option(
+        'streamlit_app.py',
+        exists=True,
+        readable=True,
+        file_okay=True,
+        help='Path to streamlit file',
+    ),
+):
     """
     Create a streamlit app named NAME.
     """
@@ -71,18 +79,26 @@ def streamlit_create(environment: str = EnvironmentOption,
             role=env_conf.get('role'),
             warehouse=env_conf.get('warehouse'),
             name=name,
-            file=str(file))
+            file=str(file),
+        )
         print_db_cursor(results)
 
+
 @app.command("deploy")
-def streamlit_deploy(environment: str = EnvironmentOption,
-                     name: str = typer.Argument(..., help='Name of streamlit to be deployed.'),
-                     file: Path = typer.Option('streamlit_app.py', 
-                                               exists=True,
-                                               readable=True,
-                                               file_okay=True,
-                                               help='Path to streamlit file'),
-                     open_: bool = typer.Option(False, "--open", "-o", help='Open streamlit in browser.')):
+def streamlit_deploy(
+    environment: str = EnvironmentOption,
+    name: str = typer.Argument(..., help='Name of streamlit to be deployed.'),
+    file: Path = typer.Option(
+        'streamlit_app.py',
+        exists=True,
+        readable=True,
+        file_okay=True,
+        help='Path to streamlit file',
+    ),
+    open_: bool = typer.Option(
+        False, "--open", "-o", help='Open streamlit in browser.',
+    ),
+):
     """
     Deploy streamlit with NAME.
     """
@@ -94,7 +110,8 @@ def streamlit_deploy(environment: str = EnvironmentOption,
             name=name, file_path=str(file), stage_path='/',
             role=env_conf.get('role'), database=env_conf.get('database'),
             schema=env_conf.get('schema'),
-            overwrite=True)
+            overwrite=True,
+        )
 
         url = results.fetchone()[0]
         if open_:

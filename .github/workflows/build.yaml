@@ -17,8 +17,8 @@ jobs:
           - os: macos-latest
             TARGET: macos
             CMD_BUILD: >
-              pyinstaller snowcli.spec && 
-              cd ./dist/snow && 
+              pyinstaller snowcli.spec &&
+              cd ./dist/snow &&
               zip -g ../../snow.zip -r .
             ARTIFACT_NAME: snow-${{ github.ref_name }}-darwin
             PATH: snow.zip
@@ -30,8 +30,8 @@ jobs:
           - os: ubuntu-latest
             TARGET: linux
             CMD_BUILD: >
-              pyinstaller snowcli.spec && 
-              cd ./dist/snow && 
+              pyinstaller snowcli.spec &&
+              cd ./dist/snow &&
               zip -g ../../snow.zip -r .
             ARTIFACT_NAME: snow-${{ github.ref_name }}-linux
             PATH: snow.zip
