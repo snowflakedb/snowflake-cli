@@ -1,11 +1,13 @@
+from __future__ import annotations
+
 from pathlib import Path
 
 import click
 import toml
-
 from snowcli.snow_connector import SnowflakeConnector
 
 snowflake_connection: SnowflakeConnector
+
 
 class AppConfig():
     def __init__(self):
@@ -31,11 +33,16 @@ class AppConfig():
         with open(self.path, 'w') as f:
             toml.dump(self.config, f)
 
+
 def connectToSnowflake():
     global snowflake_connection
     cfg = AppConfig()
     snowflake_connection = SnowflakeConnector.fromConfig(
-            cfg.config.get('snowsql_config_path'), cfg.config.get('snowsql_connection_name'))
+        cfg.config.get('snowsql_config_path'), cfg.config.get(
+            'snowsql_connection_name',
+        ),
+    )
+
 
 def isAuth():
     cfg = AppConfig()

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import tempfile
 from pathlib import Path
@@ -5,137 +7,228 @@ from pathlib import Path
 import click
 import typer
 from rich import print
-
-from snowcli import config, utils
+from snowcli import config
+from snowcli import utils
 from snowcli.config import AppConfig
-from snowcli.utils import (generate_deploy_stage_name, print_db_cursor,
-                           print_list_tuples)
+from snowcli.utils import generate_deploy_stage_name
+from snowcli.utils import print_db_cursor
+from snowcli.utils import print_list_tuples
 
 
-def snowpark_create(type: str, environment: str, name: str, file: Path, handler: str, input_parameters: str, return_type: str, overwrite: bool, execute_as_caller: bool = False):
+def snowpark_create(
+    type: str,
+    environment: str,
+    name: str,
+    file: Path,
+    handler: str,
+    input_parameters: str,
+    return_type: str,
+    overwrite: bool,
+    execute_as_caller: bool = False,
+):
     env_conf = AppConfig().config.get(environment)
     if env_conf is None:
-        print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
+        print(
+            "The {environment} environment is not configured in app.toml "
+            "yet, please run `snow configure dev` first before continuing.",
+        )
         raise typer.Abort()
 
     if config.isAuth():
         config.connectToSnowflake()
-        deploy_dict = utils.getDeployNames(env_conf['database'], env_conf['schema'], generate_deploy_stage_name(name, input_parameters))
+        deploy_dict = utils.getDeployNames(
+            env_conf['database'],
+            env_conf['schema'],
+            generate_deploy_stage_name(
+                name, input_parameters,
+            ),
+        )
         print('Uploading deployment file to stage...')
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
             config.snowflake_connection.uploadFileToStage(
-                file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], database=env_conf['database'], schema=env_conf['schema'], overwrite=overwrite, role=env_conf['role'])
+                file_path=temp_app_zip_path,
+                destination_stage=deploy_dict['stage'],
+                path=deploy_dict['directory'],
+                database=env_conf['database'],
+                schema=env_conf['schema'],
+                overwrite=overwrite,
+                role=env_conf['role'],
+            )
         packages = utils.getSnowflakePackages()
         print(f'Creating {type}...')
-        match type:
-            case 'function':
-                results =  config.snowflake_connection.createFunction(name=name, inputParameters=input_parameters,
-                                                            returnType=return_type,
-                                                            handler=handler,
-                                                            imports=deploy_dict['full_path'],
-                                                            database=env_conf['database'],
-                                                            schema=env_conf['schema'],
-                                                            role=env_conf['role'],
-                                                            warehouse=env_conf['warehouse'],
-                                                            overwrite=overwrite,
-                                                            packages=packages,
-                                                            )
-            case 'procedure':
-                results =  config.snowflake_connection.createProcedure(name=name, inputParameters=input_parameters,
-                                                            returnType=return_type,
-                                                            handler=handler,
-                                                            imports=deploy_dict['full_path'],
-                                                            database=env_conf['database'],
-                                                            schema=env_conf['schema'],
-                                                            role=env_conf['role'],
-                                                            warehouse=env_conf['warehouse'],
-                                                            overwrite=overwrite,
-                                                            packages=packages,
-                                                            execute_as_caller=execute_as_caller
-                                                            )
-            case _:
-                raise typer.Abort()
+        if type == 'function':
+            results = config.snowflake_connection.createFunction(
+                name=name, inputParameters=input_parameters,
+                returnType=return_type,
+                handler=handler,
+                imports=deploy_dict['full_path'],
+                database=env_conf['database'],
+                schema=env_conf['schema'],
+                role=env_conf['role'],
+                warehouse=env_conf['warehouse'],
+                overwrite=overwrite,
+                packages=packages,
+            )
+        elif type == 'procedure':
+            results = config.snowflake_connection.createProcedure(
+                name=name, inputParameters=input_parameters,
+                returnType=return_type,
+                handler=handler,
+                imports=deploy_dict['full_path'],
+                database=env_conf['database'],
+                schema=env_conf['schema'],
+                role=env_conf['role'],
+                warehouse=env_conf['warehouse'],
+                overwrite=overwrite,
+                packages=packages,
+                execute_as_caller=execute_as_caller,
+            )
+        else:
+            raise typer.Abort()
         print_list_tuples(results)
 
-def snowpark_update(type: str, environment: str, name: str, file: Path, handler: str, input_parameters: str, return_type: str, replace: bool, execute_as_caller: bool = False):
+
+def snowpark_update(
+    type: str,
+    environment: str,
+    name: str,
+    file: Path,
+    handler: str,
+    input_parameters: str,
+    return_type: str,
+    replace: bool,
+    execute_as_caller: bool = False,
+) -> None:
     env_conf: dict = AppConfig().config.get(environment)  # type: ignore
     if env_conf is None:
-        print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
+        print(
+            "The {environment} environment is not configured in app.toml yet, "
+            "please run `snow configure dev` first before continuing.",
+        )
         raise typer.Abort()
     if config.isAuth():
         config.connectToSnowflake()
         updatedPackageList = []
         try:
             print(f'Updating {type} {name}...')
-            match type:
-                case 'function':
-                    resource_details = config.snowflake_connection.describeFunction(
-                        name=name, inputParameters=input_parameters, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'], show_exceptions=False)
-                case 'procedure':
-                    resource_details = config.snowflake_connection.describeProcedure(
-                        name=name, inputParameters=input_parameters, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'], show_exceptions=False)
-            print(f'Checking if any new packages to update...')
-            resource_json = utils.convertResourceDetailsToDict(resource_details)  # type: ignore
+            if type == 'function':
+                resource_details = (
+                    config.snowflake_connection.describeFunction(
+                        name=name,
+                        inputParameters=input_parameters,
+                        database=env_conf['database'],
+                        schema=env_conf['schema'],
+                        role=env_conf['role'],
+                        warehouse=env_conf['warehouse'],
+                        show_exceptions=False,
+                    )
+                )
+            elif type == 'procedure':
+                resource_details = (
+                    config.snowflake_connection.describeProcedure(
+                        name=name,
+                        inputParameters=input_parameters,
+                        database=env_conf['database'],
+                        schema=env_conf['schema'],
+                        role=env_conf['role'],
+                        warehouse=env_conf['warehouse'],
+                        show_exceptions=False,
+                    )
+                )
+            print('Checking if any new packages to update...')
+            resource_json = utils.convertResourceDetailsToDict(
+                resource_details,
+            )  # type: ignore
             anaconda_packages = resource_json['packages']
             print(
-                f'Found {len(anaconda_packages)} defined Anaconda packages in deployed {type}...')
+                f'Found {len(anaconda_packages)} defined Anaconda '
+                f'packages in deployed {type}...',
+            )
             print(
-                f'Checking if any packages defined or missing from requirements.snowflake.txt...')
-            updatedPackageList = utils.getSnowflakePackagesDelta(anaconda_packages)
+                'Checking if any packages defined or missing from '
+                'requirements.snowflake.txt...',
+            )
+            updatedPackageList = utils.getSnowflakePackagesDelta(
+                anaconda_packages,
+            )
             print(
-                f'Checking if app configuration has changed...')
-            if resource_json['handler'].lower() != handler.lower() or resource_json['returns'].lower() != return_type.lower():
-                print(f'Return type or handler types do not match. Replacing function configuration...')
+                'Checking if app configuration has changed...',
+            )
+            if resource_json['handler'].lower() != handler.lower(
+            ) or resource_json['returns'].lower() != return_type.lower():
+                print(
+                    'Return type or handler types do not match. Replacing '
+                    'function configuration...',
+                )
                 replace = True
-        except:
+        except Exception:
             typer.echo(f'Existing {type} not found, creating new {type}...')
             replace = True
-        
+
         finally:
-            deploy_dict = utils.getDeployNames(env_conf['database'], env_conf['schema'], generate_deploy_stage_name(name, input_parameters))
+            deploy_dict = utils.getDeployNames(
+                env_conf['database'],
+                env_conf['schema'],
+                generate_deploy_stage_name(name, input_parameters),
+            )
             with tempfile.TemporaryDirectory() as temp_dir:
                 temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
-                deploy_response = config.snowflake_connection.uploadFileToStage(
-                    file_path=temp_app_zip_path, destination_stage=deploy_dict['stage'], path=deploy_dict['directory'], database=env_conf['database'], schema=env_conf['schema'], overwrite=True, role=env_conf['role'])
+                deploy_response = (
+                    config.snowflake_connection.uploadFileToStage(
+                        file_path=temp_app_zip_path,
+                        destination_stage=deploy_dict['stage'],
+                        path=deploy_dict['directory'],
+                        database=env_conf['database'],
+                        schema=env_conf['schema'],
+                        overwrite=True,
+                        role=env_conf['role'],
+                    )
+                )
             print(
-                f'{deploy_response} uploaded to stage {deploy_dict["full_path"]}')
-            
+                f'{deploy_response} uploaded to stage '
+                f'{deploy_dict["full_path"]}',
+            )
+
             if updatedPackageList or replace:
                 print(f'Replacing {type} with updated values...')
-                match type:
-                    case 'function':
-                        config.snowflake_connection.createFunction(
-                            name=name,
-                            inputParameters=input_parameters,
-                            returnType=return_type,
-                            handler=handler,
-                            imports=deploy_dict['full_path'],
-                            database=env_conf['database'],
-                            schema=env_conf['schema'],
-                            role=env_conf['role'],
-                            warehouse=env_conf['warehouse'],
-                            overwrite=True,
-                            packages=utils.getSnowflakePackages())
-                    case 'procedure':
-                        config.snowflake_connection.createProcedure(
-                            name=name,
-                            inputParameters=input_parameters,
-                            returnType=return_type,
-                            handler=handler,
-                            imports=deploy_dict['full_path'],
-                            database=env_conf['database'],
-                            schema=env_conf['schema'],
-                            role=env_conf['role'],
-                            warehouse=env_conf['warehouse'],
-                            overwrite=True,
-                            packages=utils.getSnowflakePackages(),
-                            execute_as_caller=execute_as_caller)
+                if type == 'function':
+                    config.snowflake_connection.createFunction(
+                        name=name,
+                        inputParameters=input_parameters,
+                        returnType=return_type,
+                        handler=handler,
+                        imports=deploy_dict['full_path'],
+                        database=env_conf['database'],
+                        schema=env_conf['schema'],
+                        role=env_conf['role'],
+                        warehouse=env_conf['warehouse'],
+                        overwrite=True,
+                        packages=utils.getSnowflakePackages(),
+                    )
+                elif type == 'procedure':
+                    config.snowflake_connection.createProcedure(
+                        name=name,
+                        inputParameters=input_parameters,
+                        returnType=return_type,
+                        handler=handler,
+                        imports=deploy_dict['full_path'],
+                        database=env_conf['database'],
+                        schema=env_conf['schema'],
+                        role=env_conf['role'],
+                        warehouse=env_conf['warehouse'],
+                        overwrite=True,
+                        packages=utils.getSnowflakePackages(),
+                        execute_as_caller=execute_as_caller,
+                    )
                 print(
-                    f'{type.capitalize()} {name} updated with new packages. Deployment complete!')
+                    f'{type.capitalize()} {name} updated with new packages. '
+                    'Deployment complete!',
+                )
             else:
-                print(f'No packages to update. Deployment complete!')
+                print('No packages to update. Deployment complete!')
+
 
 def snowpark_package():
     print('Resolving any requirements from requirements.txt...')
@@ -153,7 +246,10 @@ def snowpark_package():
                     f.write(package + '\n')
         # if requirements.other.txt exists
         if os.path.isfile('requirements.other.txt'):
-            if click.confirm('Do you want to try to download non-Anaconda packages?', default=True):
+            if click.confirm(
+                'Do you want to try to download non-Anaconda packages?',
+                default=True,
+            ):
                 print('Installing non-Anaconda packages...')
                 if utils.installPackages('requirements.other.txt'):
                     pack_dir = '.packages'
@@ -171,84 +267,154 @@ def snowpark_package():
         utils.standardZipDir('app.zip')
     print('\n\nDeployment package now ready: app.zip')
 
+
 def snowpark_execute(type: str, environment: str, select: str):
     env_conf = AppConfig().config.get(environment)
     if env_conf is None:
-        print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
+        print(
+            f"The {environment} environment is not configured in app.toml "
+            "yet, please run `snow configure dev` first before continuing.",
+        )
         raise typer.Abort()
     if config.isAuth():
         config.connectToSnowflake()
-        match type:
-            case 'function':
-                results = config.snowflake_connection.executeFunction(
-                    function=select, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
-            case 'procedure':
-                results = config.snowflake_connection.executeProcedure(
-                    procedure=select, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
-            case _:
-                raise typer.Abort()
+        if type == 'function':
+            results = config.snowflake_connection.executeFunction(
+                function=select,
+                database=env_conf['database'],
+                schema=env_conf['schema'],
+                role=env_conf['role'],
+                warehouse=env_conf['warehouse'],
+            )
+        elif type == 'procedure':
+            results = config.snowflake_connection.executeProcedure(
+                procedure=select,
+                database=env_conf['database'],
+                schema=env_conf['schema'],
+                role=env_conf['role'],
+                warehouse=env_conf['warehouse'],
+            )
+        else:
+            raise typer.Abort()
         print_db_cursor(results)
 
-def snowpark_describe(type: str, environment: str, name: str, input_parameters: str, signature: str):
+
+def snowpark_describe(
+    type: str, environment: str, name: str,
+    input_parameters: str, signature: str,
+):
     env_conf = AppConfig().config.get(environment)
     if env_conf is None:
-        print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
+        print(
+            "The {environment} environment is not configured in app.toml yet, "
+            "please run `snow configure dev` first before continuing.",
+        )
         raise typer.Abort()
-    
+
     if config.isAuth():
         config.connectToSnowflake()
         if signature == '':
             if name == '' and input_parameters == '':
-                typer.BadParameter('Please provide either a function name and input parameters or a function signature')
-            signature = name + config.snowflake_connection.generate_signature_from_params(input_parameters)
-        match type:
-            case 'function':
-                results = config.snowflake_connection.describeFunction(
-                    signature=signature, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
-            case 'procedure':
-                results = config.snowflake_connection.describeProcedure(
-                    signature=signature, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
-            case _:
-                raise typer.Abort()
+                typer.BadParameter(
+                    'Please provide either a function name and input '
+                    'parameters or a function signature',
+                )
+            signature = name + \
+                config.snowflake_connection.generate_signature_from_params(
+                    input_parameters,
+                )
+        if type == 'function':
+            results = config.snowflake_connection.describeFunction(
+                signature=signature,
+                database=env_conf['database'],
+                schema=env_conf['schema'],
+                role=env_conf['role'],
+                warehouse=env_conf['warehouse'],
+            )
+        elif type == 'procedure':
+            results = config.snowflake_connection.describeProcedure(
+                signature=signature,
+                database=env_conf['database'],
+                schema=env_conf['schema'],
+                role=env_conf['role'],
+                warehouse=env_conf['warehouse'],
+            )
+        else:
+            raise typer.Abort()
         print_list_tuples(results)
+
 
 def snowpark_list(type, environment, like):
     env_conf = AppConfig().config.get(environment)
     if env_conf is None:
-        print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
+        print(
+            f"The {environment} environment is not configured in app.toml "
+            f"yet, please run `snow configure dev` first before continuing.",
+        )
         raise typer.Abort()
     if config.isAuth():
         config.connectToSnowflake()
-        match type:
-            case 'function':
-                results = config.snowflake_connection.listFunctions(
-                    database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'], like=like)
-            case 'procedure':
-                results = config.snowflake_connection.listProcedures(
-                    database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'], like=like)
-            case _:
-                raise typer.Abort()
+        if type == 'function':
+            results = config.snowflake_connection.listFunctions(
+                database=env_conf['database'],
+                schema=env_conf['schema'],
+                role=env_conf['role'],
+                warehouse=env_conf['warehouse'],
+                like=like,
+            )
+        elif type == 'procedure':
+            results = config.snowflake_connection.listProcedures(
+                database=env_conf['database'],
+                schema=env_conf['schema'],
+                role=env_conf['role'],
+                warehouse=env_conf['warehouse'],
+                like=like,
+            )
+        else:
+            raise typer.Abort()
         print_db_cursor(results)
 
-def snowpark_drop(type: str, environment: str, name: str, input_parameters: str, signature: str):
+
+def snowpark_drop(
+    type: str, environment: str, name: str,
+    input_parameters: str, signature: str,
+):
     env_conf = AppConfig().config.get(environment)
     if env_conf is None:
-        print("The {environment} environment is not configured in app.toml yet, please run `snow configure dev` first before continuing.")
+        print(
+            "The {environment} environment is not configured in app.toml "
+            "yet, please run `snow configure dev` first before continuing.",
+        )
         raise typer.Abort()
-    
+
     if config.isAuth():
         config.connectToSnowflake()
         if signature == '':
             if name == '' and input_parameters == '':
-                typer.BadParameter('Please provide either a function name and input parameters or a function signature')
-            signature = name + config.snowflake_connection.generate_signature_from_params(input_parameters)
-        match type:
-            case 'function':
-                results = config.snowflake_connection.dropFunction(
-                    signature=signature, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
-            case 'procedure':
-                results = config.snowflake_connection.dropProcedure(
-                    signature=signature, database=env_conf['database'], schema=env_conf['schema'], role=env_conf['role'], warehouse=env_conf['warehouse'])
-            case _:
-                raise typer.Abort()
+                typer.BadParameter(
+                    'Please provide either a function name and input '
+                    'parameters or a function signature',
+                )
+            signature = name + \
+                config.snowflake_connection.generate_signature_from_params(
+                    input_parameters,
+                )
+        if type == 'function':
+            results = config.snowflake_connection.dropFunction(
+                signature=signature,
+                database=env_conf['database'],
+                schema=env_conf['schema'],
+                role=env_conf['role'],
+                warehouse=env_conf['warehouse'],
+            )
+        elif type == 'procedure':
+            results = config.snowflake_connection.dropProcedure(
+                signature=signature,
+                database=env_conf['database'],
+                schema=env_conf['schema'],
+                role=env_conf['role'],
+                warehouse=env_conf['warehouse'],
+            )
+        else:
+            raise typer.Abort()
         print_db_cursor(results)
