@@ -15,7 +15,7 @@ EnvironmentOption = typer.Option("dev", help='Environment name')
 @app.command("list")
 def stage_list(
     environment: str = EnvironmentOption,
-    name = typer.Argument(None, help='Name of stage'),
+    name=typer.Argument(None, help='Name of stage'),
 ):
     """
     List stage contents
