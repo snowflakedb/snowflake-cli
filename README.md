@@ -89,7 +89,7 @@ After installing SnowSQL, use the following SnowCLI command to add your Snowflak
 
 Provide a name for your connection, your account, username, and password for Snowflake.
 
-#### Manually on *nix systems
+#### Add credentials manually on *nix systems
 
 If you do not want to install SnowSQL, you can add Snowflake account credentials manually:
 
@@ -114,7 +114,7 @@ username = jondoe
 password = hunter2
 ```
 
-#### Manually using Windows
+#### Add credentials manually using Windows
 
 1. Create a `.snowsql` folder with a `config` file at the following path: `%USERPROFILE%\.snowsql\config`
 2. Add a new configuration for your Snowflake connection with SnowCLI. You must prefix the configuration with `connections.`.
