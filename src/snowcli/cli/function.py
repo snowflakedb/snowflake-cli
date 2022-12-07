@@ -14,7 +14,10 @@ from snowcli.cli.snowpark_shared import snowpark_execute
 from snowcli.cli.snowpark_shared import snowpark_list
 from snowcli.cli.snowpark_shared import snowpark_package
 from snowcli.cli.snowpark_shared import snowpark_update
-from snowcli.utils import conf_callback
+from snowcli.cli.snowpark_shared import PyPiDownloadOption
+from snowcli.cli.snowpark_shared import CheckAnacondaForPyPiDependancies
+from snowcli.cli.snowpark_shared import PackageNativeLibrariesOption
+from snowcli.utils import YesNoAskOptionsType, conf_callback
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 EnvironmentOption = typer.Option(
@@ -37,6 +40,9 @@ def function_init():
 @app.command("create")
 def function_create(
     environment: str = EnvironmentOption,
+    pypi_download: YesNoAskOptionsType = PyPiDownloadOption,
+    package_native_libraries: YesNoAskOptionsType = PackageNativeLibrariesOption,
+    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     name: str = typer.Option(
         ..., '--name', '-n',
         help="Name of the function",
@@ -73,7 +79,7 @@ def function_create(
         help='Replace if existing function',
     ),
 ):
-    snowpark_package()
+    snowpark_package(pypi_download,check_anaconda_for_pypi_deps,package_native_libraries)
     snowpark_create(
         type='function',
         environment=environment,
@@ -89,6 +95,9 @@ def function_create(
 @app.command("update")
 def function_update(
     environment: str = EnvironmentOption,
+    pypi_download: YesNoAskOptionsType = PyPiDownloadOption,
+    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
+    package_native_libraries: YesNoAskOptionsType = PackageNativeLibrariesOption,
     name: str = typer.Option(..., '--name', '-n', help="Name of the function"),
     file: Path = typer.Option(
         'app.zip',
@@ -122,7 +131,7 @@ def function_update(
         help='Replace function, even if no detected changes to metadata',
     ),
 ):
-    snowpark_package()
+    snowpark_package(pypi_download,check_anaconda_for_pypi_deps,package_native_libraries)
     snowpark_update(
         type='function',
         environment=environment,
@@ -136,8 +145,11 @@ def function_update(
 
 
 @app.command("package")
-def function_package():
-    snowpark_package()
+def function_package(
+    pypi_download: YesNoAskOptionsType = PyPiDownloadOption,
+    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
+    package_native_libraries: YesNoAskOptionsType = PackageNativeLibrariesOption):
+    snowpark_package(pypi_download,check_anaconda_for_pypi_deps,package_native_libraries)
 
 
 @app.command("execute")
