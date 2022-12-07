@@ -17,7 +17,7 @@ from snowcli.cli.snowpark_shared import snowpark_execute
 from snowcli.cli.snowpark_shared import snowpark_list
 from snowcli.cli.snowpark_shared import snowpark_package
 from snowcli.cli.snowpark_shared import snowpark_update
-from snowcli.utils import YesNoAskOptionsType, conf_callback
+from snowcli.utils import conf_callback
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 EnvironmentOption = typer.Option(
@@ -39,9 +39,9 @@ def procedure_init():
 @app.command("create")
 def procedure_create(
     environment: str = EnvironmentOption,
-    pypi_download: YesNoAskOptionsType = PyPiDownloadOption,
+    pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
-    package_native_libraries: YesNoAskOptionsType = PackageNativeLibrariesOption,
+    package_native_libraries: str = PackageNativeLibrariesOption,
     name: str = typer.Option(
         ..., '--name', '-n',
         help="Name of the procedure",
@@ -141,9 +141,9 @@ def procedure_update(
 
 @app.command("package")
 def procedure_package(
-    pypi_download: YesNoAskOptionsType = PyPiDownloadOption,
+    pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
-    package_native_libraries: YesNoAskOptionsType = PackageNativeLibrariesOption):
+    package_native_libraries: str = PackageNativeLibrariesOption):
     snowpark_package(pypi_download,check_anaconda_for_pypi_deps,package_native_libraries)
 
 

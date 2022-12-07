@@ -151,14 +151,9 @@ def installPackages(file_name: str,perform_anaconda_check:bool=True, package_nat
     second_chance_results = None
     if perform_anaconda_check:
         # it's not over just yet. a non-Anaconda package may have brought in a package available on Anaconda.
-        # We can pip freeze and do another pass over the resulting full requirements
-        os.system('pip freeze > requirements_deps.txt')
-        full_requirements = parseRequirements('requirements_deps.txt')
-        os.remove('requirements_deps.txt')
         # use each folder's METADATA file to determine its real name
         downloaded_packages = getDownloadedPackageNames()
         click.echo(f'Downloaded packages: {downloaded_packages.values()}')
-        click.echo(f'All requirements: {full_requirements}')
         # look for all the downloaded packages on the Anaconda channel
         second_chance_results = parseAnacondaPackages(downloaded_packages.keys())
         second_chance_snowflake_packages = second_chance_results['snowflake']

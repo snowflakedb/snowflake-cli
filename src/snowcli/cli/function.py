@@ -17,7 +17,7 @@ from snowcli.cli.snowpark_shared import snowpark_update
 from snowcli.cli.snowpark_shared import PyPiDownloadOption
 from snowcli.cli.snowpark_shared import CheckAnacondaForPyPiDependancies
 from snowcli.cli.snowpark_shared import PackageNativeLibrariesOption
-from snowcli.utils import YesNoAskOptionsType, conf_callback
+from snowcli.utils import conf_callback
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 EnvironmentOption = typer.Option(
@@ -40,8 +40,8 @@ def function_init():
 @app.command("create")
 def function_create(
     environment: str = EnvironmentOption,
-    pypi_download: YesNoAskOptionsType = PyPiDownloadOption,
-    package_native_libraries: YesNoAskOptionsType = PackageNativeLibrariesOption,
+    pypi_download: str = PyPiDownloadOption,
+    package_native_libraries: str = PackageNativeLibrariesOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     name: str = typer.Option(
         ..., '--name', '-n',
@@ -95,9 +95,9 @@ def function_create(
 @app.command("update")
 def function_update(
     environment: str = EnvironmentOption,
-    pypi_download: YesNoAskOptionsType = PyPiDownloadOption,
+    pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
-    package_native_libraries: YesNoAskOptionsType = PackageNativeLibrariesOption,
+    package_native_libraries: str = PackageNativeLibrariesOption,
     name: str = typer.Option(..., '--name', '-n', help="Name of the function"),
     file: Path = typer.Option(
         'app.zip',
@@ -146,9 +146,9 @@ def function_update(
 
 @app.command("package")
 def function_package(
-    pypi_download: YesNoAskOptionsType = PyPiDownloadOption,
+    pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
-    package_native_libraries: YesNoAskOptionsType = PackageNativeLibrariesOption):
+    package_native_libraries: str = PackageNativeLibrariesOption):
     snowpark_package(pypi_download,check_anaconda_for_pypi_deps,package_native_libraries)
 
 
