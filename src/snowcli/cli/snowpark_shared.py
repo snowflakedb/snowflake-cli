@@ -10,25 +10,29 @@ from rich import print
 from snowcli import config
 from snowcli import utils
 from snowcli.config import AppConfig
-from snowcli.utils import YesNoAskOptionsType
-from snowcli.utils import yes_no_ask_callback
 from snowcli.utils import generate_deploy_stage_name
 from snowcli.utils import print_db_cursor
 from snowcli.utils import print_list_tuples
+from snowcli.utils import yes_no_ask_callback
+from snowcli.utils import YesNoAskOptionsType
 
 # common CLI options
 PyPiDownloadOption = typer.Option(
-    "ask", help='Download non-Anaconda packages from PyPi (yes/no/ask)', callback=yes_no_ask_callback,
+    "ask", help='Download non-Anaconda packages from PyPi (yes/no/ask)',
+    callback=yes_no_ask_callback,
 )
 PackageNativeLibrariesOption = typer.Option(
-    "ask", help='When using packages from PyPi, allow native libraries', callback=yes_no_ask_callback,
+    "ask", help='When using packages from PyPi, allow native libraries',
+    callback=yes_no_ask_callback,
 )
 CheckAnacondaForPyPiDependancies: bool = typer.Option(
     True,
     '--check-anaconda-for-pypi-deps',
     '-a',
-    help='When downloading missing Anaconda packages, check if any of their dependancies can be imported directly from Anaconda',
+    help="""When downloading missing Anaconda packages, check if any of
+    their dependancies can be imported directly from Anaconda""",
 )
+
 
 def snowpark_create(
     type: str,
@@ -44,8 +48,9 @@ def snowpark_create(
     env_conf = AppConfig().config.get(environment)
     if env_conf is None:
         print(
-            f"The {environment} environment is not configured in app.toml "
-            f"yet, please run `snow configure {environment}` first before continuing.",
+            f"""The {environment} environment is not configured in app.toml
+            yet, please run `snow configure {environment}` first before
+            continuing.""",
         )
         raise typer.Abort()
 
@@ -119,8 +124,9 @@ def snowpark_update(
     env_conf: dict = AppConfig().config.get(environment)  # type: ignore
     if env_conf is None:
         print(
-            f"The {environment} environment is not configured in app.toml yet, "
-            f"please run `snow configure {environment}` first before continuing.",
+            f"""The {environment} environment is not configured in app.toml
+            yet, please run `snow configure {environment}` first before
+            continuing.""",
         )
         raise typer.Abort()
     if config.isAuth():
@@ -245,9 +251,11 @@ def snowpark_update(
                 print('No packages to update. Deployment complete!')
 
 
-def snowpark_package(pypi_download: YesNoAskOptionsType,
-                    check_anaconda_for_pypi_dependencies: bool, 
-                    package_native_libraries: YesNoAskOptionsType):
+def snowpark_package(
+    pypi_download: YesNoAskOptionsType,
+    check_anaconda_for_pypi_dependencies: bool,
+    package_native_libraries: YesNoAskOptionsType,
+):
     print('Resolving any requirements from requirements.txt...')
     requirements = utils.parseRequirements()
     pack_dir: str = None  # type: ignore
@@ -266,20 +274,29 @@ def snowpark_package(pypi_download: YesNoAskOptionsType,
             do_download = click.confirm(
                 'Do you want to try to download non-Anaconda packages?',
                 default=True,
-            ) if pypi_download=='ask' else pypi_download=='yes'
+            ) if pypi_download == 'ask' else pypi_download == 'yes'
             if do_download:
                 print('Installing non-Anaconda packages...')
-                should_pack,second_chance_results = utils.installPackages('requirements.other.txt',check_anaconda_for_pypi_dependencies,package_native_libraries)
+                should_pack, second_chance_results = utils.installPackages(
+                    'requirements.other.txt',
+                    check_anaconda_for_pypi_dependencies,
+                    package_native_libraries,
+                )
                 if should_pack:
                     pack_dir = '.packages'
                     # add the Anaconda packages discovered as dependancies
                     if second_chance_results is not None:
-                        parsedRequirements['snowflake'] = parsedRequirements['snowflake'] + second_chance_results['snowflake']
-                
+                        parsedRequirements['snowflake'] = \
+                            parsedRequirements['snowflake'] + \
+                            second_chance_results['snowflake']
+
         # write requirements.snowflake.txt file
         if parsedRequirements['snowflake']:
             print('Writing requirements.snowflake.txt file...')
-            with open('requirements.snowflake.txt', 'w', encoding='utf-8') as f:
+            with open(
+                'requirements.snowflake.txt', 'w',
+                encoding='utf-8',
+            ) as f:
                 for package in parsedRequirements['snowflake']:
                     f.write(package + '\n')
         if pack_dir:

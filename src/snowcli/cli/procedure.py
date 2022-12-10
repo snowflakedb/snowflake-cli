@@ -24,6 +24,7 @@ EnvironmentOption = typer.Option(
     "dev", help='Environment name', callback=conf_callback, is_eager=True,
 )
 
+
 @app.command("init")
 def procedure_init():
     """
@@ -81,7 +82,11 @@ def procedure_create(
         False, '--execute-as-caller', help='Execute as caller',
     ),
 ):
-    snowpark_package(pypi_download,check_anaconda_for_pypi_deps,package_native_libraries)
+    snowpark_package(
+        pypi_download,  # type: ignore[arg-type]
+        check_anaconda_for_pypi_deps,
+        package_native_libraries,  # type: ignore[arg-type]
+    )
     snowpark_create(
         'procedure', environment, name, file, handler,
         input_parameters, return_type, overwrite, execute_as_caller,
@@ -132,7 +137,7 @@ def procedure_update(
         False, '--execute-as-caller', help='Execute as caller',
     ),
 ):
-    (pypi_download,check_anaconda_for_pypi_deps,package_native_libraries)
+    (pypi_download, check_anaconda_for_pypi_deps, package_native_libraries)
     snowpark_update(
         'procedure', environment, name, file, handler,
         input_parameters, return_type, replace, execute_as_caller,
@@ -143,8 +148,13 @@ def procedure_update(
 def procedure_package(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
-    package_native_libraries: str = PackageNativeLibrariesOption):
-    snowpark_package(pypi_download,check_anaconda_for_pypi_deps,package_native_libraries)
+    package_native_libraries: str = PackageNativeLibrariesOption,
+):
+    snowpark_package(
+        pypi_download,  # type: ignore[arg-type]
+        check_anaconda_for_pypi_deps,
+        package_native_libraries,  # type: ignore[arg-type]
+    )
 
 
 @app.command("execute")
