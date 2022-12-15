@@ -109,7 +109,7 @@ def streamlit_deploy(
         schema = env_conf.get('schema')
         role = env_conf.get('role')
         database = env_conf.get('database')
-        result = config.snowflake_connection.deployStreamlit(
+        config.snowflake_connection.deployStreamlit(
             name=name, file_path=str(file), stage_path='/',
             role=role, database=database,
             schema=schema,
