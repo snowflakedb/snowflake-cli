@@ -130,8 +130,10 @@ def streamlit_deploy(
 
         snowflake_host = env_conf.get('snowflake_host', 'app.snowflake.com')
         uppercased_dsn = f"{database}.{schema}.{name}".upper()
-        url = (f"https://{snowflake_host}/{deployment}/{account_name}/"
-               f"#/streamlit-apps/{uppercased_dsn}")
+        url = (
+            f"https://{snowflake_host}/{deployment}/{account_name}/"
+            f"#/streamlit-apps/{uppercased_dsn}"
+        )
 
         if open_:
             typer.launch(url)

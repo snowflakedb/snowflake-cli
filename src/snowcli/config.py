@@ -40,7 +40,8 @@ def connectToSnowflake():
     cfg = AppConfig()
     snowsql_config = SnowsqlConfig(path=cfg.config.get('snowsql_config_path'))
     snowflake_connection = SnowflakeConnector(
-            snowsql_config, cfg.config.get('snowsql_connection_name'))
+        snowsql_config, cfg.config.get('snowsql_connection_name'),
+    )
 
 
 def isAuth():

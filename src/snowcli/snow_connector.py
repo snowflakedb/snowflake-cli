@@ -11,11 +11,13 @@ from snowflake.connector.cursor import SnowflakeCursor
 
 class SnowflakeConnector():
     """Initialize a connection from a snowsql-formatted config"""
+
     def __init__(self, snowsql_config: SnowsqlConfig, connection_name: str):
         self.snowsql_config = snowsql_config
         self.connection_name = connection_name
         self.connection_config: dict = snowsql_config.get_connection(
-                connection_name)
+            connection_name,
+        )
         self.connection_config["application"] = "SNOWCLI"
         self.ctx = snowflake.connector.connect(**self.connection_config)
         self.cs = self.ctx.cursor()
