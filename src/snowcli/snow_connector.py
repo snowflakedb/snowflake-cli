@@ -21,7 +21,8 @@ class SnowflakeConnector():
         self.cs = self.ctx.cursor()
 
     def __del__(self):
-        self.cs.close
+        self.cs.close()
+        self.ctx.close()
 
     def getVersion(self):
         self.cs.execute('SELECT current_version()')
