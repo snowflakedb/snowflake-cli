@@ -28,6 +28,7 @@ def yes_no_ask_callback(value: str):
         raise typer.BadParameter(
             f"Valid values: {YesNoAskOptions}. You provided: {value}",
         )
+    return value
 
 
 def getDeployNames(database, schema, name) -> dict:
