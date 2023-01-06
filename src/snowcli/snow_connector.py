@@ -669,9 +669,8 @@ class SnowflakeConnector:
     def create_service(
         self,
         name: str,
-        image: str,
         compute_pool: str,
-        num_instances: int,
+        spec_path: str,
         role: str,
         warehouse: str,
         database: str,
@@ -685,9 +684,8 @@ class SnowflakeConnector:
                 "role": role,
                 "warehouse": warehouse,
                 "name": name,
-                "image": image,
                 "compute_pool": compute_pool,
-                "num_instances": num_instances,
+                "spec_path": spec_path,
             },
         )
 
@@ -747,7 +745,14 @@ class SnowflakeConnector:
         )
 
     def logs_service(
-        self, name: str, role: str, warehouse: str, database: str, schema: str
+        self,
+        name: str,
+        instance_id: str,
+        container_name: str,
+        role: str,
+        warehouse: str,
+        database: str,
+        schema: str,
     ) -> SnowflakeCursor:
         return self.run_sql(
             "snowservices/services/logs_service",
@@ -757,15 +762,16 @@ class SnowflakeConnector:
                 "role": role,
                 "warehouse": warehouse,
                 "name": name,
+                "instance_id": instance_id,
+                "container_name": container_name,
             },
         )
 
     def create_job(
         self,
         name: str,
-        image: str,
         compute_pool: str,
-        num_instances: int,
+        spec_path: str,
         role: str,
         warehouse: str,
         database: str,
@@ -779,9 +785,8 @@ class SnowflakeConnector:
                 "role": role,
                 "warehouse": warehouse,
                 "name": name,
-                "image": image,
                 "compute_pool": compute_pool,
-                "num_instances": num_instances,
+                "spec_path": spec_path,
             },
         )
 
@@ -841,7 +846,13 @@ class SnowflakeConnector:
         )
 
     def logs_job(
-        self, name: str, role: str, warehouse: str, database: str, schema: str
+        self,
+        name: str,
+        container_name: str,
+        role: str,
+        warehouse: str,
+        database: str,
+        schema: str,
     ) -> SnowflakeCursor:
         return self.run_sql(
             "snowservices/jobs/logs_job",
@@ -851,6 +862,7 @@ class SnowflakeConnector:
                 "role": role,
                 "warehouse": warehouse,
                 "name": name,
+                "container_name": container_name,
             },
         )
 

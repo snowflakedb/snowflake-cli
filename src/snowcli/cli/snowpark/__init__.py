@@ -8,7 +8,7 @@ from snowcli.cli.snowpark.cp import app as compute_pools_app, app_cp as cp_app
 from snowcli.cli.snowpark.services import app as services_app
 from snowcli.cli.snowpark.jobs import app as jobs_app
 
-app: typer.Typer = typer.Typer(
+app = typer.Typer(
     name="snowpark",
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage functions, procedures and Snowpark objects",
@@ -20,4 +20,4 @@ app.add_typer(procedure_app)
 app.add_typer(compute_pools_app)
 app.add_typer(cp_app)
 app.add_typer(services_app)
-app.add_typer(jobs_app)
+app.add_typer(jobs_app)  # type: ignore

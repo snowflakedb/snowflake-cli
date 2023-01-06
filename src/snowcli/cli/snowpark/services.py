@@ -32,9 +32,8 @@ else:
 def create(
     environment: str = ConnectionOption,
     name: str = typer.Option(..., "--name", "-n", help="Job Name"),
-    image: str = typer.Option(..., "--image", "-i", help="Image"),
     compute_pool: str = typer.Option(..., "--compute_pool", "-c", help="Compute Pool"),
-    num: int = typer.Option(..., "--num", "-d", help="Num Instances"),
+    spec_path: str = typer.Option(..., "--spec_path", "-s", help="Spec Path"),
 ):
     """
     Create Service
@@ -48,9 +47,8 @@ def create(
             role=conn.ctx.role,
             warehouse=conn.ctx.warehouse,
             name=name,
-            image=image,
             compute_pool=compute_pool,
-            num_instances=num,
+            spec_path=spec_path,
         )
         print_db_cursor(results)
 
@@ -100,6 +98,9 @@ def print_log_lines(file: TextIO, name, id, logs):
 def logs(
     environment: str = ConnectionOption,
     name: str = typer.Argument(..., help="Service Name"),
+    container_name: str = typer.Option(
+        ..., "--container_name", "-c", help="Container Name"
+    ),
 ):
     """
     Logs Service
@@ -113,12 +114,12 @@ def logs(
             role=conn.ctx.role,
             warehouse=conn.ctx.warehouse,
             name=name,
+            instance_id="0",
+            container_name=container_name,
         )
         cursor = results.fetchone()
-        service_logs = json.loads(next(iter(cursor)))
-        for service_id, log_str in service_logs.items():
-            logs = log_str.split("\n")
-            print_log_lines(sys.stdout, name, service_id, logs)
+        logs = next(iter(cursor)).split("\n")
+        print_log_lines(sys.stdout, name, "0", logs)
 
 
 @app.command()

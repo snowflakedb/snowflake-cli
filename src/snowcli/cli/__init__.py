@@ -109,7 +109,7 @@ def register_cli_typers(ignore_container: Container[str] = MODULE_IGNORE_SET) ->
 register_cli_typers()
 
 app.command("sql")(sql.execute_sql)
-app.add_typer(snowpark_app)
+app.add_typer(snowpark_app)  # type: ignore
 
 
 if __name__ == "__main__":
