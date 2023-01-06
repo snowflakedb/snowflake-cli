@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import click
 import logging
 from io import StringIO
@@ -676,6 +678,7 @@ class SnowflakeConnector:
         database: str,
         schema: str,
     ) -> SnowflakeCursor:
+        spec_filename = os.path.basename(spec_path)
         return self.run_sql(
             "snowservices/services/create_service",
             {
@@ -685,7 +688,7 @@ class SnowflakeConnector:
                 "warehouse": warehouse,
                 "name": name,
                 "compute_pool": compute_pool,
-                "spec_path": spec_path,
+                "spec_path": spec_filename,
             },
         )
 
@@ -777,6 +780,7 @@ class SnowflakeConnector:
         database: str,
         schema: str,
     ) -> SnowflakeCursor:
+        spec_filename = os.path.basename(spec_path)
         return self.run_sql(
             "snowservices/jobs/create_job",
             {
@@ -786,7 +790,7 @@ class SnowflakeConnector:
                 "warehouse": warehouse,
                 "name": name,
                 "compute_pool": compute_pool,
-                "spec_path": spec_path,
+                "spec_path": spec_filename,
             },
         )
 
