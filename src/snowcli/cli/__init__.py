@@ -50,7 +50,8 @@ def login(
     if f"connections.{snowsql_connection_name}" not in cfg_snowsql.config:
         print(
             "Connection not found in "
-            f"{snowsql_config_path}: {snowsql_connection_name}",
+            f"{snowsql_config_path}: {snowsql_connection_name}. ",
+            "You can add with `snow connection add`.",
         )
         raise typer.Abort()
 

@@ -66,7 +66,7 @@ cd snowcli
 # source .venv/bin/activate
 pip install -r requirements.txt
 hatch build && pip install .
-snow --help
+snow --version
 ```
 
 You should now be able to run `snow` and get the CLI message.
@@ -185,6 +185,14 @@ Note: Your account must have access to the Streamlit in Snowflake private previe
 ### Create a stored procedure
 
 See [Build a function](#build-a-function).
+
+## Contributing
+If interested in contributing, you will want to instanstiate the pre-commit logic to help with formatting and linting of commits. To do this, run the following in the `snowcli` cloned folder on your development machine:
+
+```bash
+pip install pre-commit
+pre-commit
+```
 
 ## Get involved
 

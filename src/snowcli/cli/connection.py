@@ -16,8 +16,11 @@ def list():
     List Snowflake connections.
     """
     app_cfg = AppConfig().config
+    # if key 'snowsql_config_path' isn't defined in app_cfg
     if 'snowsql_config_path' not in app_cfg:
-        print("No snowsql config path set. Please run snowcli login first.")
+        # set snowsql_config_path to ~/.snowsql/config
+        app_cfg['snowsql_config_path'] = '~/.snowsql/config'
+        print("No snowsql config path set. Using default...")
 
     print(f"Using {app_cfg['snowsql_config_path']}...")
 
