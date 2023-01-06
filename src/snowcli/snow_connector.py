@@ -4,6 +4,7 @@ import os
 
 import click
 import logging
+import hashlib
 from io import StringIO
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
@@ -679,6 +680,8 @@ class SnowflakeConnector:
         schema: str,
     ) -> SnowflakeCursor:
         spec_filename = os.path.basename(spec_path)
+        file_hash = hashlib.md5(open(spec_path, "rb").read()).hexdigest()
+        stage_dir = os.path.join("services", file_hash)
         return self.run_sql(
             "snowservices/services/create_service",
             {
@@ -688,7 +691,9 @@ class SnowflakeConnector:
                 "warehouse": warehouse,
                 "name": name,
                 "compute_pool": compute_pool,
-                "spec_path": spec_filename,
+                "spec_path": spec_path,
+                "stage_dir": stage_dir,
+                "stage_filename": spec_filename,
             },
         )
 
@@ -781,6 +786,8 @@ class SnowflakeConnector:
         schema: str,
     ) -> SnowflakeCursor:
         spec_filename = os.path.basename(spec_path)
+        file_hash = hashlib.md5(open(spec_path, "rb").read()).hexdigest()
+        stage_dir = os.path.join("jobs", file_hash)
         return self.run_sql(
             "snowservices/jobs/create_job",
             {
@@ -790,7 +797,9 @@ class SnowflakeConnector:
                 "warehouse": warehouse,
                 "name": name,
                 "compute_pool": compute_pool,
-                "spec_path": spec_filename,
+                "spec_path": spec_path,
+                "stage_dir": stage_dir,
+                "stage_filename": spec_filename,
             },
         )
 
