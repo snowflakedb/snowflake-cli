@@ -5,6 +5,7 @@ from pathlib import Path
 import click
 import toml
 from snowcli.snow_connector import SnowflakeConnector
+from snowcli.snowsql_config import SnowsqlConfig
 
 snowflake_connection: SnowflakeConnector
 
@@ -37,10 +38,9 @@ class AppConfig():
 def connectToSnowflake():
     global snowflake_connection
     cfg = AppConfig()
-    snowflake_connection = SnowflakeConnector.fromConfig(
-        cfg.config.get('snowsql_config_path'), cfg.config.get(
-            'snowsql_connection_name',
-        ),
+    snowsql_config = SnowsqlConfig(path=cfg.config.get('snowsql_config_path'))
+    snowflake_connection = SnowflakeConnector(
+        snowsql_config, cfg.config.get('snowsql_connection_name'),
     )
 
 

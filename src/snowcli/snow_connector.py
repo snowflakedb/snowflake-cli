@@ -10,24 +10,21 @@ from snowflake.connector.cursor import SnowflakeCursor
 
 
 class SnowflakeConnector():
-    def __init__(self, *args):
-        if len(args) == 3:
-            self.ctx = snowflake.connector.connect(
-                user=args[1],
-                password=args[2],
-                account=args[0],
-            )
-        elif len(args) == 1:
-            config: dict = args[0]
-            config["application"] = "SNOWCLI"
-            self.ctx = snowflake.connector.connect(**config)
+    """Initialize a connection from a snowsql-formatted config"""
+
+    def __init__(self, snowsql_config: SnowsqlConfig, connection_name: str):
+        self.snowsql_config = snowsql_config
+        self.connection_name = connection_name
+        self.connection_config: dict = snowsql_config.get_connection(
+            connection_name,
+        )
+        self.connection_config["application"] = "SNOWCLI"
+        self.ctx = snowflake.connector.connect(**self.connection_config)
         self.cs = self.ctx.cursor()
 
-    """Initialize a connection from a snowsql-formatted config"""
-    @classmethod
-    def fromConfig(cls, path, connection_name):
-        config = SnowsqlConfig(path)
-        return cls(config.get_connection(connection_name))
+    def __del__(self):
+        self.cs.close()
+        self.ctx.close()
 
     def getVersion(self):
         self.cs.execute('SELECT current_version()')
@@ -347,7 +344,7 @@ class SnowflakeConnector():
         schema,
         overwrite,
     ):
-        self.uploadFileToStage(
+        return self.uploadFileToStage(
             file_path,
             f"{name}_stage",
             stage_path,
@@ -355,14 +352,6 @@ class SnowflakeConnector():
             database,
             schema,
             overwrite,
-        )
-        return self.runSql(
-            "get_streamlit_url", {
-                "name": name,
-                "role": role,
-                "database": database,
-                "schema": schema,
-            },
         )
 
     def describeStreamlit(self, name, database, schema, role, warehouse):
