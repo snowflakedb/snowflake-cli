@@ -79,7 +79,7 @@ def streamlit_create(
             role=env_conf.get('role'),
             warehouse=env_conf.get('warehouse'),
             name=name,
-            file=str(file),
+            file=file.name,
         )
         print_db_cursor(results)
 
