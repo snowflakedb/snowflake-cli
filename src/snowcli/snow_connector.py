@@ -416,4 +416,3 @@ class SnowflakeConnector():
 
     def generate_signature_from_params(self, params: str) -> str:
         return '(' + ' '.join(params.strip('()').split()[1::2]) + ')'
-        return '(' + ' '.join(params.strip('()').split()[1::2]) + ')'
