@@ -16,8 +16,8 @@ from rich.table import Table
 from snowcli.config import AppConfig
 from snowflake.connector.cursor import SnowflakeCursor
 
-YesNoAskOptions = ['yes', 'no', 'ask']
-YesNoAskOptionsType = Literal['yes', 'no', 'ask']
+YesNoAskOptions = ["yes", "no", "ask"]
+YesNoAskOptionsType = Literal["yes", "no", "ask"]
 
 
 def yes_no_ask_callback(value: str):
@@ -32,27 +32,27 @@ def yes_no_ask_callback(value: str):
 
 
 def getDeployNames(database, schema, name) -> dict:
-    stage = f'{database}.{schema}.deployments'
-    path = f'/{name.lower()}/app.zip'
-    directory = f'/{name.lower()}'
+    stage = f"{database}.{schema}.deployments"
+    path = f"/{name.lower()}/app.zip"
+    directory = f"/{name.lower()}"
     return {
-        'stage': stage,
-        'path': path,
-        'full_path': f'@{stage}{path}',
-        'directory': directory,
+        "stage": stage,
+        "path": path,
+        "full_path": f"@{stage}{path}",
+        "directory": directory,
     }
+
 
 # create a temporary directory, copy the file_path to it and rename to app.zip
 
 
 def prepareAppZip(file_path, temp_dir) -> str:
-    temp_path = temp_dir + '/app.zip'
+    temp_path = temp_dir + "/app.zip"
     shutil.copy(file_path, temp_path)
     return temp_path
 
 
-def parseRequirements(requirements_file: str = 'requirements.txt') -> \
-        list[str]:
+def parseRequirements(requirements_file: str = "requirements.txt") -> list[str]:
     """Reads and parses a python requirements.txt file.
 
     Args:
@@ -64,13 +64,14 @@ def parseRequirements(requirements_file: str = 'requirements.txt') -> \
     """
     reqs = []
     if os.path.exists(requirements_file):
-        with open(requirements_file, encoding='utf-8') as f:
+        with open(requirements_file, encoding="utf-8") as f:
             for req in requirements.parse(f):
                 reqs.append(req.name)
     else:
-        click.echo(f'No {requirements_file} found')
+        click.echo(f"No {requirements_file} found")
 
     return reqs
+
 
 # parse JSON from https://repo.anaconda.com/pkgs/snowflake/channeldata.json and
 # return a list of packages that exist in packages with the .packages json
@@ -79,7 +80,7 @@ def parseRequirements(requirements_file: str = 'requirements.txt') -> \
 
 
 def parseAnacondaPackages(packages: list[str]) -> dict:
-    url = 'https://repo.anaconda.com/pkgs/snowflake/channeldata.json'
+    url = "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
     response = requests.get(url)
     snowflakePackages = []
     otherPackages = []
@@ -88,18 +89,18 @@ def parseAnacondaPackages(packages: list[str]) -> dict:
         for package in packages:
             # pip package names are case insensitive,
             # Anaconda package names are lowercased
-            if package.lower() in channel_data['packages']:
+            if package.lower() in channel_data["packages"]:
                 snowflakePackages.append(
-                    f'{package}',
+                    f"{package}",
                 )
             else:
                 click.echo(
                     f'"{package}" not found in Snowflake anaconda channel...',
                 )
                 otherPackages.append(package)
-        return {'snowflake': snowflakePackages, 'other': otherPackages}
+        return {"snowflake": snowflakePackages, "other": otherPackages}
     else:
-        click.echo(f'Error: {response.status_code}')
+        click.echo(f"Error: {response.status_code}")
         return {}
 
 
@@ -110,8 +111,8 @@ def getDownloadedPackageNames() -> dict[str, list[str]]:
     Returns:
         dict[str:List[str]]: a dict of package folder names to package name
     """
-    metadata_files = glob.glob('.packages/*dist-info/METADATA')
-    packages_full_path = os.path.abspath('.packages')
+    metadata_files = glob.glob(".packages/*dist-info/METADATA")
+    packages_full_path = os.path.abspath(".packages")
     return_dict = {}
     for metadata_file in metadata_files:
         parent_folder = os.path.dirname(metadata_file)
@@ -120,32 +121,34 @@ def getDownloadedPackageNames() -> dict[str, list[str]]:
             # since we found a package name, we can now look at the RECORD
             # file (a sibling of METADATA) to determine which files and
             # folders that belong to it
-            record_file_path = os.path.join(parent_folder, 'RECORD')
+            record_file_path = os.path.join(parent_folder, "RECORD")
             if os.path.exists(record_file_path):
                 # the RECORD file contains a list of files included in the
                 # package, get the unique root folder names and delete them
                 # recursively
-                with open(record_file_path, encoding='utf-8') as record_file:
+                with open(record_file_path, encoding="utf-8") as record_file:
                     # we want the part up until the first '/'.
                     # Sometimes it's a file with a trailing ",sha256=abcd....",
                     # so we trim that off too
                     record_entries = list(
                         {
-                            line.split('/')[0].split(',')[0]
+                            line.split("/")[0].split(",")[0]
                             for line in record_file.readlines()
                         },
                     )
                     included_record_entries = []
                     for record_entry in record_entries:
                         record_entry_full_path = os.path.abspath(
-                            os.path.join('.packages', record_entry),
+                            os.path.join(".packages", record_entry),
                         )
                         # it's possible for the RECORD file to contain relative
                         # paths to items outside of the packages folder.
                         # We'll ignore those by asserting that the full
                         # packages path exists in the full path of each item.
-                        if os.path.exists(record_entry_full_path) and \
-                                packages_full_path in record_entry_full_path:
+                        if (
+                            os.path.exists(record_entry_full_path)
+                            and packages_full_path in record_entry_full_path
+                        ):
                             included_record_entries.append(record_entry)
                     return_dict[package_name] = included_record_entries
     return return_dict
@@ -162,32 +165,32 @@ def getPackageNameFromMetadata(metadata_file_path: str) -> str | None:
     Returns:
         str: the name of the package.
     """
-    with open(metadata_file_path, encoding='utf-8') as metadata_file:
+    with open(metadata_file_path, encoding="utf-8") as metadata_file:
         contents = metadata_file.read()
-        results = re.search('^Name: (.*)$', contents, flags=re.MULTILINE)
+        results = re.search("^Name: (.*)$", contents, flags=re.MULTILINE)
         if results is None:
             return None
         return results.group(1)
 
 
 def installPackages(
-    file_name: str, perform_anaconda_check: bool = True,
-        package_native_libraries: YesNoAskOptionsType = 'ask',
-) -> \
-        tuple[bool, dict[str, list[str]] | None]:
-    os.system(f'pip install -t .packages/ -r {file_name}')
+    file_name: str,
+    perform_anaconda_check: bool = True,
+    package_native_libraries: YesNoAskOptionsType = "ask",
+) -> tuple[bool, dict[str, list[str]] | None]:
+    os.system(f"pip install -t .packages/ -r {file_name}")
     second_chance_results = None
     if perform_anaconda_check:
         # it's not over just yet. a non-Anaconda package may have brought in
         # a package available on Anaconda.
         # use each folder's METADATA file to determine its real name
         downloaded_packages = getDownloadedPackageNames()
-        click.echo(f'Downloaded packages: {downloaded_packages.values()}')
+        click.echo(f"Downloaded packages: {downloaded_packages.values()}")
         # look for all the downloaded packages on the Anaconda channel
         second_chance_results = parseAnacondaPackages(
             list(downloaded_packages.keys()),
         )
-        second_chance_snowflake_packages = second_chance_results['snowflake']
+        second_chance_snowflake_packages = second_chance_results["snowflake"]
         if len(second_chance_snowflake_packages) > 0:
             click.echo(
                 f"""Good news! The following package dependencies can be
@@ -196,47 +199,51 @@ def installPackages(
             )
         else:
             click.echo(
-                'None of the package dependencies were found on Anaconda',
+                "None of the package dependencies were found on Anaconda",
             )
         downloaded_packages_not_needed = {
-            k: v for k, v in downloaded_packages.items(
-            ) if k in second_chance_snowflake_packages
+            k: v
+            for k, v in downloaded_packages.items()
+            if k in second_chance_snowflake_packages
         }
         for package, items in downloaded_packages_not_needed.items():
             click.echo(f"Package {package}: deleting {items}")
             for item in items:
-                item_path = os.path.join('.packages', item)
+                item_path = os.path.join(".packages", item)
                 if os.path.exists(item_path):
                     if os.path.isdir(item_path):
                         shutil.rmtree(item_path)
                     else:
                         os.remove(item_path)
 
-    click.echo('Checking to see if packages have native libaries...\n')
+    click.echo("Checking to see if packages have native libaries...\n")
     # use glob to see if any files in packages have a .so extension
-    if glob.glob('.packages/**/*.so'):
-        for path in glob.glob('.packages/**/*.so'):
-            click.echo(f'Potential native library: {path}')
-        continue_installation = click.confirm(
-            '\n\nWARNING! Some packages appear to have native libraries!\n'
-            'Continue with package installation?',
-            default=False,
-        ) if package_native_libraries == 'ask' \
-            else package_native_libraries == 'yes'
+    if glob.glob(".packages/**/*.so"):
+        for path in glob.glob(".packages/**/*.so"):
+            click.echo(f"Potential native library: {path}")
+        continue_installation = (
+            click.confirm(
+                "\n\nWARNING! Some packages appear to have native libraries!\n"
+                "Continue with package installation?",
+                default=False,
+            )
+            if package_native_libraries == "ask"
+            else package_native_libraries == "yes"
+        )
         if continue_installation:
             return True, second_chance_results
         else:
-            shutil.rmtree('.packages')
+            shutil.rmtree(".packages")
             return False, second_chance_results
     else:
-        click.echo('No native libraries found in packages (Good news!)...')
+        click.echo("No native libraries found in packages (Good news!)...")
         return True, second_chance_results
 
 
 def recursiveZipPackagesDir(pack_dir: str, dest_zip: str) -> bool:
     prevdir = os.getcwd()
-    os.chdir(f'./{pack_dir}')
-    os.system(f'zip -r ../{dest_zip} .')
+    os.chdir(f"./{pack_dir}")
+    os.system(f"zip -r ../{dest_zip} .")
     os.chdir(prevdir)
     os.system(f'zip -r -g {dest_zip} . -x ".*" -x "{pack_dir}/*"')
     return True
@@ -248,8 +255,8 @@ def standardZipDir(dest_zip: str) -> bool:
 
 
 def getSnowflakePackages() -> list[str]:
-    if os.path.exists('requirements.snowflake.txt'):
-        with open('requirements.snowflake.txt', encoding='utf-8') as f:
+    if os.path.exists("requirements.snowflake.txt"):
+        with open("requirements.snowflake.txt", encoding="utf-8") as f:
             return [line.strip() for line in f]
     else:
         return []
@@ -257,8 +264,8 @@ def getSnowflakePackages() -> list[str]:
 
 def getSnowflakePackagesDelta(anaconda_packages) -> list[str]:
     updatedPackageList = []
-    if os.path.exists('requirements.snowflake.txt'):
-        with open('requirements.snowflake.txt', encoding='utf-8') as f:
+    if os.path.exists("requirements.snowflake.txt"):
+        with open("requirements.snowflake.txt", encoding="utf-8") as f:
             # for each line, check if it exists in anaconda_packages. If it
             # doesn't, add it to the return string
             for line in f:
@@ -271,11 +278,11 @@ def getSnowflakePackagesDelta(anaconda_packages) -> list[str]:
 
 def convertResourceDetailsToDict(function_details: list[tuple]) -> dict:
     function_dict = {}
-    json_properties = ['packages', 'installed_packages']
+    json_properties = ["packages", "installed_packages"]
     for function in function_details:
         if function[0] in json_properties:
             function_dict[function[0]] = json.loads(
-                function[1].replace('\'', '"'),
+                function[1].replace("'", '"'),
             )
         else:
             function_dict[function[0]] = function[1]
@@ -286,13 +293,14 @@ def print_db_cursor(cursor, only_cols=[]):
     if cursor.description:
         if any(only_cols):
             cols = [
-                (index, col[0]) for (index, col) in enumerate(
+                (index, col[0])
+                for (index, col) in enumerate(
                     cursor.description,
-                ) if col[0] in only_cols
+                )
+                if col[0] in only_cols
             ]
         else:
-            cols = [(index, col[0])
-                    for (index, col) in enumerate(cursor.description)]
+            cols = [(index, col[0]) for (index, col) in enumerate(cursor.description)]
 
         table = Table(*[col[1] for col in cols])
         for row in cursor.fetchall():
@@ -309,7 +317,7 @@ def print_db_cursor(cursor, only_cols=[]):
 def print_list_tuples(lt: SnowflakeCursor):
     table = Table("Key", "Value")
     for item in lt:
-        if (item[0] == "imports"):
+        if item[0] == "imports":
             table.add_row(item[0], item[1].strip("[]"))
         else:
             table.add_row(item[0], item[1])
@@ -324,9 +332,9 @@ def conf_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
             # Initialize the default map
             ctx.default_map = ctx.default_map or {}
             # if app_config has key 'default'
-            if 'default' in app_config:
+            if "default" in app_config:
                 ctx.default_map.update(
-                    app_config.get('default'),
+                    app_config.get("default"),
                 )  # type: ignore
             if value in app_config:
                 # TODO: Merge the config dict into default_map
@@ -338,17 +346,10 @@ def conf_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
 
 
 def generate_deploy_stage_name(name: str, input_parameters: str) -> str:
-    return name + \
-        input_parameters.replace(
-            '(',
-            '',
-        ).replace(
-            ')',
-            '',
-        ).replace(
-            ' ',
-            '_',
-        ).replace(
-            ',',
-            '',
-        )
+    return name + input_parameters.replace("(", "",).replace(")", "",).replace(
+        " ",
+        "_",
+    ).replace(
+        ",",
+        "",
+    )
