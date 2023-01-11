@@ -6,15 +6,10 @@ from pathlib import Path
 import typer
 from rich import print
 
-from . import connection
-from . import function
-from . import procedure
-from . import stage
-from . import streamlit
-from . import warehouse
 from .. import __about__
 from ..config import AppConfig
 from ..snowsql_config import SnowsqlConfig
+from . import connection, function, procedure, stage, streamlit, warehouse
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 
