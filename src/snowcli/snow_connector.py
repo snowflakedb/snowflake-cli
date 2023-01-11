@@ -437,7 +437,8 @@ class SnowflakeConnector:
         schema,
         overwrite,
     ):
-        return self.uploadFileToStage(
+        """Upload main python file to stage and return url of streamlit"""
+        self.uploadFileToStage(
             file_path,
             f"{name}_stage",
             stage_path,
@@ -446,6 +447,18 @@ class SnowflakeConnector:
             schema,
             overwrite,
         )
+
+        result = self.runSql(
+            "get_streamlit_url",
+            {
+                "name": name,
+                "role": role,
+                "database": database,
+                "schema": schema,
+            },
+        )
+
+        return result.fetchone()[0]
 
     def describeStreamlit(self, name, database, schema, role, warehouse):
         description = self.runSql(

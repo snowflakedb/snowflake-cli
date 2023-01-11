@@ -5,6 +5,7 @@ from pathlib import Path
 
 import typer
 from rich import print
+
 from snowcli import config
 from snowcli.config import AppConfig
 from snowcli.utils import print_db_cursor
@@ -112,7 +113,7 @@ def streamlit_deploy(
         schema = env_conf.get("schema")
         role = env_conf.get("role")
         database = env_conf.get("database")
-        config.snowflake_connection.deployStreamlit(
+        base_url = config.snowflake_connection.deployStreamlit(
             name=name,
             file_path=str(file),
             stage_path="/",
@@ -122,28 +123,40 @@ def streamlit_deploy(
             overwrite=True,
         )
 
-        host = config.snowflake_connection.connection_config["host"]
-        host_parts = host.split(".")
+        def get_url() -> str:
+            try:
+                host = config.snowflake_connection.connection_config["host"]
+            except KeyError:
+                return base_url
 
-        if len(host_parts) != 6:
-            print(
-                f"""The connection host ({host}) was missing or not in the
-                  expected format
-                  (<account>.<deployment>.snowflakecomputing.com)"""
+            host_parts = host.split(".")
+
+            if len(host_parts) != 6:
+                print(
+                    f"""The connection host ({host}) was missing or not in
+                    the expected format
+                    (<account>.<deployment>.snowflakecomputing.com)"""
+                )
+                raise typer.Exit()
+            else:
+                account_name = host_parts[0]
+                deployment = ".".join(host_parts[1:4])
+
+            snowflake_host = env_conf.get(
+                "snowflake_host",
+                "app.snowflake.com",
             )
-            raise typer.Exit()
-        else:
-            account_name = host_parts[0]
-            deployment = ".".join(host_parts[1:4])
+            uppercased_dsn = f"{database}.{schema}.{name}".upper()
+            return (
+                f"https://{snowflake_host}/{deployment}/{account_name}/"
+                f"#/streamlit-apps/{uppercased_dsn}"
+            )
 
-        snowflake_host = env_conf.get("snowflake_host", "app.snowflake.com")
-        uppercased_dsn = f"{database}.{schema}.{name}".upper()
-        url = (
-            f"https://{snowflake_host}/{deployment}/{account_name}/"
-            f"#/streamlit-apps/{uppercased_dsn}"
-        )
+        url = get_url()
 
         if open_:
             typer.launch(url)
         else:
+            print(url)
+            print(url)
             print(url)
