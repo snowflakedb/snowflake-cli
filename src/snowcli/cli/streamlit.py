@@ -158,5 +158,3 @@ def streamlit_deploy(
             typer.launch(url)
         else:
             print(url)
-            print(url)
-            print(url)
