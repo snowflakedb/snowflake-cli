@@ -5,8 +5,9 @@ import pkgutil
 from io import StringIO
 
 import snowflake.connector
-from snowcli.snowsql_config import SnowsqlConfig
 from snowflake.connector.cursor import SnowflakeCursor
+
+from snowcli.snowsql_config import SnowsqlConfig
 
 
 class SnowflakeConnector:
@@ -300,6 +301,8 @@ class SnowflakeConnector:
         warehouse,
         name,
         path,
+        overwrite: bool = False,
+        parallel: int = 4,
     ) -> SnowflakeCursor:
         return self.runSql(
             "put_stage",
@@ -310,6 +313,8 @@ class SnowflakeConnector:
                 "warehouse": warehouse,
                 "name": name,
                 "path": path,
+                "overwrite": overwrite,
+                "parallel": parallel,
             },
         )
 
