@@ -21,7 +21,10 @@ from snowcli.utils import conf_callback
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 EnvironmentOption = typer.Option(
-    "dev", help='Environment name', callback=conf_callback, is_eager=True,
+    "dev",
+    help="Environment name",
+    callback=conf_callback,
+    is_eager=True,
 )
 
 
@@ -32,8 +35,11 @@ def function_init():
     """
     copytree(
         pkg_resources.resource_filename(
-            'templates', 'default_function',
-        ), f'{os.getcwd()}', dirs_exist_ok=True,
+            "templates",
+            "default_function",
+        ),
+        f"{os.getcwd()}",
+        dirs_exist_ok=True,
     )
 
 
@@ -44,39 +50,41 @@ def function_create(
     package_native_libraries: str = PackageNativeLibrariesOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     name: str = typer.Option(
-        ..., '--name', '-n',
+        ...,
+        "--name",
+        "-n",
         help="Name of the function",
     ),
     file: Path = typer.Option(
-        'app.zip',
-        '--file',
-        '-f',
-        help='Path to the file or folder to deploy',
+        "app.zip",
+        "--file",
+        "-f",
+        help="Path to the file or folder to deploy",
         exists=False,
     ),
     handler: str = typer.Option(
         ...,
-        '--handler',
-        '-h',
-        help='Handler',
+        "--handler",
+        "-h",
+        help="Handler",
     ),
     input_parameters: str = typer.Option(
         ...,
-        '--input-parameters',
-        '-i',
-        help='Input parameters - such as (message string, count int)',
+        "--input-parameters",
+        "-i",
+        help="Input parameters - such as (message string, count int)",
     ),
     return_type: str = typer.Option(
         ...,
-        '--return-type',
-        '-r',
-        help='Return type',
+        "--return-type",
+        "-r",
+        help="Return type",
     ),
     overwrite: bool = typer.Option(
         False,
-        '--overwrite',
-        '-o',
-        help='Replace if existing function',
+        "--overwrite",
+        "-o",
+        help="Replace if existing function",
     ),
 ):
     snowpark_package(
@@ -85,7 +93,7 @@ def function_create(
         package_native_libraries,  # type: ignore[arg-type]
     )
     snowpark_create(
-        type='function',
+        type="function",
         environment=environment,
         name=name,
         file=file,
@@ -102,37 +110,37 @@ def function_update(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
-    name: str = typer.Option(..., '--name', '-n', help="Name of the function"),
+    name: str = typer.Option(..., "--name", "-n", help="Name of the function"),
     file: Path = typer.Option(
-        'app.zip',
-        '--file',
-        '-f',
-        help='Path to the file to update',
+        "app.zip",
+        "--file",
+        "-f",
+        help="Path to the file to update",
         exists=False,
     ),
     handler: str = typer.Option(
         ...,
-        '--handler',
-        '-h',
-        help='Handler',
+        "--handler",
+        "-h",
+        help="Handler",
     ),
     input_parameters: str = typer.Option(
         ...,
-        '--input-parameters',
-        '-i',
-        help='Input parameters - such as (message string, count int)',
+        "--input-parameters",
+        "-i",
+        help="Input parameters - such as (message string, count int)",
     ),
     return_type: str = typer.Option(
         ...,
-        '--return-type',
-        '-r',
-        help='Return type',
+        "--return-type",
+        "-r",
+        help="Return type",
     ),
     replace: bool = typer.Option(
         False,
-        '--replace-always',
-        '-r',
-        help='Replace function, even if no detected changes to metadata',
+        "--replace-always",
+        "-r",
+        help="Replace function, even if no detected changes to metadata",
     ),
 ):
     snowpark_package(
@@ -141,7 +149,7 @@ def function_update(
         package_native_libraries,  # type: ignore[arg-type]
     )
     snowpark_update(
-        type='function',
+        type="function",
         environment=environment,
         name=name,
         file=file,
@@ -169,33 +177,38 @@ def function_package(
 def function_execute(
     environment: str = EnvironmentOption,
     function: str = typer.Option(
-        ..., '--function', '-f',
-        help='Function with inputs. E.g. \'hello(int, string)\'',
+        ...,
+        "--function",
+        "-f",
+        help="Function with inputs. E.g. 'hello(int, string)'",
     ),
 ):
-    snowpark_execute(type='function', environment=environment, select=function)
+    snowpark_execute(type="function", environment=environment, select=function)
 
 
 @app.command("describe")
 def function_describe(
     environment: str = EnvironmentOption,
-    name: str = typer.Option('', '--name', '-n', help="Name of the function"),
+    name: str = typer.Option("", "--name", "-n", help="Name of the function"),
     input_parameters: str = typer.Option(
-        '',
-        '--input-parameters',
-        '-i',
-        help='Input parameters - such as (message string, count int)',
+        "",
+        "--input-parameters",
+        "-i",
+        help="Input parameters - such as (message string, count int)",
     ),
     function: str = typer.Option(
-        '',
-        '--function',
-        '-f',
-        help='Function signature with inputs. E.g. \'hello(int, string)\'',
+        "",
+        "--function",
+        "-f",
+        help="Function signature with inputs. E.g. 'hello(int, string)'",
     ),
 ):
     snowpark_describe(
-        type='function', environment=environment, name=name,
-        input_parameters=input_parameters, signature=function,
+        type="function",
+        environment=environment,
+        name=name,
+        input_parameters=input_parameters,
+        signature=function,
     )
 
 
@@ -203,28 +216,30 @@ def function_describe(
 def function_list(
     environment: str = EnvironmentOption,
     like: str = typer.Option(
-        '%%', '--like', '-l',
+        "%%",
+        "--like",
+        "-l",
         help='Filter functions by name - e.g. "hello%"',
     ),
 ):
-    snowpark_list('function', environment, like=like)
+    snowpark_list("function", environment, like=like)
 
 
 @app.command("drop")
 def function_drop(
     environment: str = EnvironmentOption,
-    name: str = typer.Option('', '--name', '-n', help="Name of the function"),
+    name: str = typer.Option("", "--name", "-n", help="Name of the function"),
     input_parameters: str = typer.Option(
-        '',
-        '--input-parameters',
-        '-i',
-        help='Input parameters - such as (message string, count int)',
+        "",
+        "--input-parameters",
+        "-i",
+        help="Input parameters - such as (message string, count int)",
     ),
     signature: str = typer.Option(
-        '',
-        '--procedure',
-        '-p',
-        help='Function signature with inputs. E.g. \'hello(int, string)\'',
+        "",
+        "--procedure",
+        "-p",
+        help="Function signature with inputs. E.g. 'hello(int, string)'",
     ),
 ):
-    snowpark_drop('function', environment, name, input_parameters, signature)
+    snowpark_drop("function", environment, name, input_parameters, signature)

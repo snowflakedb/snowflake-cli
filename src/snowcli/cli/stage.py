@@ -9,13 +9,13 @@ from snowcli.config import AppConfig
 from snowcli.utils import print_db_cursor
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
-EnvironmentOption = typer.Option("dev", help='Environment name')
+EnvironmentOption = typer.Option("dev", help="Environment name")
 
 
 @app.command("list")
 def stage_list(
     environment: str = EnvironmentOption,
-    name=typer.Argument(None, help='Name of stage'),
+    name=typer.Argument(None, help="Name of stage"),
 ):
     """
     List stage contents
@@ -26,19 +26,19 @@ def stage_list(
         config.connectToSnowflake()
         if name:
             results = config.snowflake_connection.listStage(
-                database=env_conf.get('database'),
-                schema=env_conf.get('schema'),
-                role=env_conf.get('role'),
-                warehouse=env_conf.get('warehouse'),
+                database=env_conf.get("database"),
+                schema=env_conf.get("schema"),
+                role=env_conf.get("role"),
+                warehouse=env_conf.get("warehouse"),
                 name=name,
             )
             print_db_cursor(results)
         else:
             results = config.snowflake_connection.listStages(
-                database=env_conf.get('database'),
-                schema=env_conf.get('schema'),
-                role=env_conf.get('role'),
-                warehouse=env_conf.get('warehouse'),
+                database=env_conf.get("database"),
+                schema=env_conf.get("schema"),
+                role=env_conf.get("role"),
+                warehouse=env_conf.get("warehouse"),
             )
             print_db_cursor(results)
 
@@ -46,9 +46,9 @@ def stage_list(
 @app.command("get")
 def stage_get(
     environment: str = EnvironmentOption,
-    name: str = typer.Argument(..., help='Stage name'),
+    name: str = typer.Argument(..., help="Stage name"),
     path: Path = typer.Argument(
-        Path('.'),
+        Path("."),
         exists=False,
         file_okay=True,
         dir_okay=True,
@@ -65,10 +65,10 @@ def stage_get(
     if config.isAuth():
         config.connectToSnowflake()
         results = config.snowflake_connection.getStage(
-            database=env_conf.get('database'),
-            schema=env_conf.get('schema'),
-            role=env_conf.get('role'),
-            warehouse=env_conf.get('warehouse'),
+            database=env_conf.get("database"),
+            schema=env_conf.get("schema"),
+            role=env_conf.get("role"),
+            warehouse=env_conf.get("warehouse"),
             name=name,
             path=str(path),
         )
@@ -87,7 +87,7 @@ def stage_put(
         resolve_path=True,
         help="Directory location to store downloaded files",
     ),
-    name: str = typer.Argument(..., help='Stage name'),
+    name: str = typer.Argument(..., help="Stage name"),
 ):
     """
     Upload files to a stage from a local client
@@ -98,13 +98,13 @@ def stage_put(
         config.connectToSnowflake()
         filepath = str(path)
         if path.is_dir():
-            filepath = str(path) + '/*'
+            filepath = str(path) + "/*"
 
         results = config.snowflake_connection.putStage(
-            database=env_conf.get('database'),
-            schema=env_conf.get('schema'),
-            role=env_conf.get('role'),
-            warehouse=env_conf.get('warehouse'),
+            database=env_conf.get("database"),
+            schema=env_conf.get("schema"),
+            role=env_conf.get("role"),
+            warehouse=env_conf.get("warehouse"),
             name=name,
             path=str(filepath),
         )

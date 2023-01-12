@@ -32,3 +32,6 @@ exclude = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/snowcli", "src/templates"]
+
+[tool.ruff]
+line-length = 88
