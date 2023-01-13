@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import typer
+
 from snowcli import config
 from snowcli.config import AppConfig
 from snowcli.utils import print_db_cursor
@@ -85,9 +86,17 @@ def stage_put(
         dir_okay=True,
         writable=True,
         resolve_path=True,
-        help="Directory location to store downloaded files",
+        help="File or directory to upload to stage",
     ),
     name: str = typer.Argument(..., help="Stage name"),
+    overwrite: bool = typer.Option(
+        False,
+        help="Overwrite existing files in stage",
+    ),
+    parallel: int = typer.Option(
+        4,
+        help="Number of parallel threads to use for upload",
+    ),
 ):
     """
     Upload files to a stage from a local client
@@ -107,5 +116,7 @@ def stage_put(
             warehouse=env_conf.get("warehouse"),
             name=name,
             path=str(filepath),
+            overwrite=overwrite,
+            parallel=parallel,
         )
         print_db_cursor(results)
