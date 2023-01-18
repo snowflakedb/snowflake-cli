@@ -111,8 +111,8 @@ class SnowflakeConnector:
         schema,
         overwrite,
     ):
-        self.cs.execute(f"use database {database}")
         self.cs.execute(f"use role {role}")
+        self.cs.execute(f"use database {database}")
         self.cs.execute(f"use schema {schema}")
         self.cs.execute(
             f"create stage if not exists {destination_stage} "
