@@ -13,8 +13,9 @@ import requirements
 import typer
 from rich import print
 from rich.table import Table
-from snowcli.config import AppConfig
 from snowflake.connector.cursor import SnowflakeCursor
+
+from snowcli.config import AppConfig
 
 YesNoAskOptions = ["yes", "no", "ask"]
 YesNoAskOptionsType = Literal["yes", "no", "ask"]
