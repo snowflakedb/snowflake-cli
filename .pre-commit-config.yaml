@@ -13,6 +13,7 @@ repos:
     rev: 'v0.0.217'
     hooks:
         - id: ruff
+          args: [--fix]
   -   repo: https://github.com/asottile/pyupgrade
       rev: v3.2.2
       hooks:
