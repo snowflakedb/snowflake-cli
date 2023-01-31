@@ -85,6 +85,28 @@ def streamlit_create(
         print_db_cursor(results)
 
 
+@app.command("drop")
+def streamlit_drop(
+    environment: str = EnvironmentOption,
+    name: str = typer.Argument(..., help="Name of streamlit to be deleted."),
+):
+    """
+    Create a streamlit app named NAME.
+    """
+    env_conf = AppConfig().config.get(environment)
+
+    if config.isAuth():
+        config.connectToSnowflake()
+        results = config.snowflake_connection.dropStreamlit(
+            database=env_conf.get("database"),
+            schema=env_conf.get("schema"),
+            role=env_conf.get("role"),
+            warehouse=env_conf.get("warehouse"),
+            name=name,
+        )
+        print_db_cursor(results)
+
+
 @app.command("deploy")
 def streamlit_deploy(
     environment: str = EnvironmentOption,
