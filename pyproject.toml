@@ -36,8 +36,6 @@ packages = ["src/snowcli", "src/templates"]
 [tool.ruff]
 line-length = 88
 select = [
-    # Pyflakes
-    "F",
     # isort
     "I001"
 ]
