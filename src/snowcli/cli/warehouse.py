@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import typer
+
 from snowcli import config
 from snowcli.config import AppConfig
 from snowcli.utils import print_db_cursor

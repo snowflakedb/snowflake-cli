@@ -4,6 +4,7 @@ from pathlib import Path
 
 import click
 import toml
+
 from snowcli.snow_connector import SnowflakeConnector
 from snowcli.snowsql_config import SnowsqlConfig
 

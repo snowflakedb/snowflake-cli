@@ -4,6 +4,7 @@ from __future__ import annotations
 import typer
 from rich import print
 from rich.table import Table
+
 from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
 

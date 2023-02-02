@@ -7,14 +7,16 @@ from pathlib import Path
 import click
 import typer
 from rich import print
-from snowcli import config
-from snowcli import utils
+
+from snowcli import config, utils
 from snowcli.config import AppConfig
-from snowcli.utils import generate_deploy_stage_name
-from snowcli.utils import print_db_cursor
-from snowcli.utils import print_list_tuples
-from snowcli.utils import yes_no_ask_callback
-from snowcli.utils import YesNoAskOptionsType
+from snowcli.utils import (
+    YesNoAskOptionsType,
+    generate_deploy_stage_name,
+    print_db_cursor,
+    print_list_tuples,
+    yes_no_ask_callback,
+)
 
 # common CLI options
 PyPiDownloadOption = typer.Option(
