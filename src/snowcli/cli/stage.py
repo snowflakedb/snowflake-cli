@@ -120,3 +120,47 @@ def stage_put(
             parallel=parallel,
         )
         print_db_cursor(results)
+
+
+@app.command("create")
+def stage_create(
+    environment: str = EnvironmentOption,
+    name: str = typer.Argument(..., help="Stage name"),
+):
+    """
+    Create stage if not exists
+    """
+    env_conf = AppConfig().config.get(environment)
+
+    if config.isAuth():
+        config.connectToSnowflake()
+        results = config.snowflake_connection.createStage(
+            database=env_conf.get("database"),
+            schema=env_conf.get("schema"),
+            role=env_conf.get("role"),
+            warehouse=env_conf.get("warehouse"),
+            name=name,
+        )
+        print_db_cursor(results)
+
+
+@app.command("drop")
+def stage_drop(
+    environment: str = EnvironmentOption,
+    name: str = typer.Argument(..., help="Stage name"),
+):
+    """
+    Drop stage
+    """
+    env_conf = AppConfig().config.get(environment)
+
+    if config.isAuth():
+        config.connectToSnowflake()
+        results = config.snowflake_connection.dropStage(
+            database=env_conf.get("database"),
+            schema=env_conf.get("schema"),
+            role=env_conf.get("role"),
+            warehouse=env_conf.get("warehouse"),
+            name=name,
+        )
+        print_db_cursor(results)

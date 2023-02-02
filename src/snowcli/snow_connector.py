@@ -318,6 +318,44 @@ class SnowflakeConnector:
             },
         )
 
+    def createStage(
+        self,
+        database,
+        schema,
+        role,
+        warehouse,
+        name,
+    ) -> SnowflakeCursor:
+        return self.runSql(
+            "create_stage",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "name": name,
+            },
+        )
+
+    def dropStage(
+        self,
+        database,
+        schema,
+        role,
+        warehouse,
+        name,
+    ) -> SnowflakeCursor:
+        return self.runSql(
+            "drop_stage",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "name": name,
+            },
+        )
+
     def listProcedures(
         self,
         database,
@@ -429,6 +467,30 @@ class SnowflakeConnector:
                 "warehouse": warehouse,
                 "name": name,
                 "file_name": file,
+            },
+        )
+
+    def dropStreamlit(
+        self,
+        database="",
+        schema="",
+        role="",
+        warehouse="",
+        name="",
+        drop_stage: bool = True,
+    ) -> SnowflakeCursor:
+
+        drop_command = f"drop stage {name}_stage;" if drop_stage else ""
+
+        return self.runSql(
+            "drop_streamlit",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "name": name,
+                "drop_command": drop_command,
             },
         )
 
