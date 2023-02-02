@@ -2,5 +2,6 @@ use database {database};
 use schema {schema};
 use warehouse {warehouse};
 
-drop stage {name}_stage;
+{drop_command}
+
 drop streamlit {name};
