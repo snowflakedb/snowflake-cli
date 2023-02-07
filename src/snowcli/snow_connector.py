@@ -470,6 +470,27 @@ class SnowflakeConnector:
             },
         )
 
+    def shareStreamlit(
+        self,
+        database="",
+        schema="",
+        role="",
+        warehouse="",
+        name="",
+        to_role="",
+    ) -> SnowflakeCursor:
+        return self.runSql(
+            "share_streamlit",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "name": name,
+                "to_role": to_role,
+            },
+        )
+
     def dropStreamlit(
         self,
         database="",
