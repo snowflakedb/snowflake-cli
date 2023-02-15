@@ -3,8 +3,11 @@ from __future__ import annotations
 import glob
 import json
 import os
+import pathlib
 import re
 import shutil
+import warnings
+import zipfile
 from typing import Literal
 
 import click
@@ -16,6 +19,8 @@ from rich.table import Table
 from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.config import AppConfig
+
+warnings.filterwarnings("ignore", category=UserWarning)
 
 YesNoAskOptions = ["yes", "no", "ask"]
 YesNoAskOptionsType = Literal["yes", "no", "ask"]
@@ -182,6 +187,7 @@ def installPackages(
     os.system(f"pip install -t .packages/ -r {file_name}")
     second_chance_results = None
     if perform_anaconda_check:
+        click.echo("Checking for dependencies available in Anaconda...")
         # it's not over just yet. a non-Anaconda package may have brought in
         # a package available on Anaconda.
         # use each folder's METADATA file to determine its real name
@@ -242,16 +248,35 @@ def installPackages(
 
 
 def recursiveZipPackagesDir(pack_dir: str, dest_zip: str) -> bool:
-    prevdir = os.getcwd()
-    os.chdir(f"./{pack_dir}")
-    os.system(f"zip -r ../{dest_zip} .")
-    os.chdir(prevdir)
-    os.system(f'zip -r -g {dest_zip} . -x ".*" -x "{pack_dir}/*"')
+    # create a zip file object
+    zipf = zipfile.ZipFile(dest_zip, "w", zipfile.ZIP_DEFLATED, allowZip64=True)
+
+    # for every file in the relative path pack_dir, add it to the zip file
+    for file in pathlib.Path(pack_dir).glob("**/*"):
+        zipf.write(file, arcname=os.path.relpath(file, pack_dir))
+
+    # zip all files in the current directory except the ones that start with "." or are in the pack_dir
+    for file in pathlib.Path(".").glob("**/*"):
+        if (
+            not file.match(".*")
+            and not file.match(f"{pack_dir}/*")
+            and not file.match(dest_zip)
+        ):
+            zipf.write(os.path.relpath(file))
+
+    # close the zip file object
+    zipf.close()
     return True
 
 
 def standardZipDir(dest_zip: str) -> bool:
-    os.system(f'zip -r {dest_zip} . -x ".*"')
+    zipf = zipfile.ZipFile(dest_zip, "w", zipfile.ZIP_DEFLATED, allowZip64=True)
+    for file in pathlib.Path(".").glob("*"):
+        if not file.match(".*"):
+            zipf.write(os.path.relpath(file))
+
+    # close the zip file object
+    zipf.close()
     return True
 
 

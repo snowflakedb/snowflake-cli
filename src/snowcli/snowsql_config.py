@@ -7,7 +7,9 @@ import os
 class SnowsqlConfig:
     def __init__(self, path="~/.snowsql/config"):
         self.path = path
-        self.config = configparser.ConfigParser(inline_comment_prefixes="#")
+        self.config = configparser.ConfigParser(
+            inline_comment_prefixes="#", interpolation=None
+        )
         self.config.read(os.path.expanduser(path))
 
     def get_connection(self, connection_name):
