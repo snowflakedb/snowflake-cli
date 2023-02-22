@@ -419,7 +419,6 @@ class SnowflakeConnector:
         schema="",
         role="",
         warehouse="",
-        like="%%",
     ) -> SnowflakeCursor:
         return self.runSql(
             "list_streamlits",

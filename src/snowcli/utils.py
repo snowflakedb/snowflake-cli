@@ -14,7 +14,7 @@ import click
 import requests
 import requirements
 import typer
-from rich import print
+from rich import box, print
 from rich.table import Table
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -315,7 +315,9 @@ def convertResourceDetailsToDict(function_details: list[tuple]) -> dict:
     return function_dict
 
 
-def print_db_cursor(cursor, only_cols=[]):
+def print_db_cursor(
+    cursor, only_cols=[], show_header: bool = True, show_border: bool = True
+):
     if cursor.description:
         if any(only_cols):
             cols = [
@@ -328,7 +330,14 @@ def print_db_cursor(cursor, only_cols=[]):
         else:
             cols = [(index, col[0]) for (index, col) in enumerate(cursor.description)]
 
-        table = Table(*[col[1] for col in cols])
+        box_val = box.HEAVY_HEAD if show_border else None
+
+        table = Table(
+            *[col[1] for col in cols],
+            show_header=show_header,
+            box=box_val,
+            border_style=None,
+        )
         for row in cursor.fetchall():
             filtered_row = [str(row[col_index]) for (col_index, _) in cols]
             try:
