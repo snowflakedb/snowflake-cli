@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
 import typer
 from rich import print
@@ -15,7 +16,18 @@ EnvironmentOption = typer.Option("dev", help="Environment name")
 
 
 @app.command("list")
-def streamlit_list(environment: str = EnvironmentOption):
+def streamlit_list(
+    environment: str = EnvironmentOption,
+    only_cols: list[str] = typer.Option(list, help="Only show these columns"),
+    show_header: bool = typer.Option(
+        True,
+        help="Show column headers",
+    ),
+    show_border: bool = typer.Option(
+        True,
+        help="Show column borders",
+    ),
+):
     """
     List streamlit apps.
     """
@@ -29,7 +41,15 @@ def streamlit_list(environment: str = EnvironmentOption):
             role=env_conf.get("role"),
             warehouse=env_conf.get("warehouse"),
         )
-        print_db_cursor(results)
+        if only_cols is None:
+            only_cols = []
+
+        print_db_cursor(
+            results,
+            only_cols=only_cols,
+            show_header=show_header,
+            show_border=show_border,
+        )
 
 
 @app.command("describe")
