@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich import print
@@ -41,8 +40,6 @@ def streamlit_list(
             role=env_conf.get("role"),
             warehouse=env_conf.get("warehouse"),
         )
-        if only_cols is None:
-            only_cols = []
 
         print_db_cursor(
             results,
