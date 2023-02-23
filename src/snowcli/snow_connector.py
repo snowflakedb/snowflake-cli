@@ -500,7 +500,7 @@ class SnowflakeConnector:
         drop_stage: bool = True,
     ) -> SnowflakeCursor:
 
-        drop_command = f"drop stage {name}_stage;" if drop_stage else ""
+        drop_command = f'drop stage "{name}_stage";' if drop_stage else ""
 
         return self.runSql(
             "drop_streamlit",
