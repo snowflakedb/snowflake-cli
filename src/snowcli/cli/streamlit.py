@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import List
 
 import typer
 from rich import print
@@ -17,7 +18,7 @@ EnvironmentOption = typer.Option("dev", help="Environment name")
 @app.command("list")
 def streamlit_list(
     environment: str = EnvironmentOption,
-    only_cols: list[str] = typer.Option(list, help="Only show these columns"),
+    only_cols: List[str] = typer.Option(list, help="Only show these columns"),
     show_header: bool = typer.Option(
         True,
         help="Show column headers",
