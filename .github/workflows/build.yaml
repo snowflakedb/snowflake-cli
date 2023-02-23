@@ -41,13 +41,13 @@ jobs:
               cd ./dist/snow &&
               zip -g ../../snow.zip -r .
             ARTIFACT_NAME:
-              sed -e 's/snow-${{ github.ref_name }}-darwin/\//-'
+              echo snow-${{ github.ref_name }}-darwin | sed -e 's/\//-/'
             PATH: snow.zip
           - os: windows-latest
             TARGET: windows
             CMD_BUILD: pyinstaller snowcli.spec
             ARTIFACT_NAME:
-              sed -e 's/snow-${{ github.ref_name }}-windows/\//-'
+              echo snow-${{ github.ref_name }}-windows | sed -e 's/\//-/'
             PATH: ./dist/snow/
           - os: ubuntu-latest
             TARGET: linux
@@ -56,7 +56,7 @@ jobs:
               cd ./dist/snow &&
               zip -g ../../snow.zip -r .
             ARTIFACT_NAME:
-              sed -e 's/snow-${{ github.ref_name }}-linux/\//-'
+              echo snow-${{ github.ref_name }}-linux | sed -e 's/\//-/'
             PATH: snow.zip
     steps:
       - uses: actions/checkout@v1
