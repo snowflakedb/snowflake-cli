@@ -17,7 +17,7 @@ EnvironmentOption = typer.Option("dev", help="Environment name")
 @app.command("list")
 def streamlit_list(
     environment: str = EnvironmentOption,
-    only_cols: list[str] = typer.Option(list, help="Only show these columns"),
+    only_cols: list = typer.Option(list, help="Only show these columns"),
     show_header: bool = typer.Option(
         True,
         help="Show column headers",
