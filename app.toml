@@ -1,0 +1,8 @@
+snowsql_config_path = "~/.snowsql/config"
+snowsql_connection_name = "snowhouse"
+
+[dev]
+database = "STREAMLIT"
+schema = "SIS_APPS"
+role = "STREAMLIT_PRODUCT_RL"
+warehouse = "STREAMLIT_MEDIUM"

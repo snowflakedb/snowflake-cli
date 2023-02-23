@@ -4,4 +4,4 @@ use warehouse {warehouse};
 
 {drop_command}
 
-drop streamlit {name};
+drop streamlit "{name}";
