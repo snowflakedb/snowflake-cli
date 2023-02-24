@@ -600,4 +600,6 @@ class SnowflakeConnector:
             raise (e)
 
     def generate_signature_from_params(self, params: str) -> str:
-        return "(" + " ".join(params.strip("()").split()[1::2]) + ")"
+        if params == "()":
+            return "()"
+        return "(" + " ".join(params.split()[1::2])
