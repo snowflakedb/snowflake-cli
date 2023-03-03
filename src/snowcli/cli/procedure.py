@@ -22,6 +22,8 @@ from snowcli.cli.snowpark_shared import (
 )
 from snowcli.utils import conf_callback
 
+from . import procedure_coverage
+
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 EnvironmentOption = typer.Option(
     "dev",
@@ -29,6 +31,7 @@ EnvironmentOption = typer.Option(
     callback=conf_callback,
     is_eager=True,
 )
+app.add_typer(procedure_coverage.app, name="coverage")
 
 
 @app.command("init")
@@ -94,6 +97,11 @@ def procedure_create(
         "--execute-as-caller",
         help="Execute as caller",
     ),
+    install_coverage_wrapper: bool = typer.Option(
+        False,
+        "--install-coverage-wrapper",
+        help="Wraps the procedure with a code coverage measurement tool, so that a coverage report can be later retrieved.",
+    ),
 ):
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
@@ -110,6 +118,7 @@ def procedure_create(
         return_type,
         overwrite,
         execute_as_caller,
+        install_coverage_wrapper,
     )
 
 
@@ -161,6 +170,11 @@ def procedure_update(
         "--execute-as-caller",
         help="Execute as caller",
     ),
+    install_coverage_wrapper: bool = typer.Option(
+        False,
+        "--install-coverage-wrapper",
+        help="Wraps the procedure with a code coverage measurement tool, so that a coverage report can be later retrieved.",
+    ),
 ):
     (pypi_download, check_anaconda_for_pypi_deps, package_native_libraries)
     snowpark_update(
@@ -173,6 +187,7 @@ def procedure_update(
         return_type,
         replace,
         execute_as_caller,
+        install_coverage_wrapper,
     )
 
 
@@ -196,7 +211,7 @@ def procedure_execute(
         ...,
         "--procedure",
         "-p",
-        help="Procedure with inputs. E.g. 'hello(int, string)'",
+        help="Procedure with inputs. E.g. 'hello(int, string)'. Must exactly match those provided when creating the procedure.",
     ),
 ):
     snowpark_execute("procedure", environment, select)

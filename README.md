@@ -186,6 +186,76 @@ Note: Your account must have access to the Streamlit in Snowflake private previe
 
 See [Build a function](#build-a-function).
 
+### Code coverage for stored procedures
+
+When running `snow procedure create` or `snow procedure update`, you can choose to add the flag `--install-coverage-wrapper`. This will automatically capture code coverage information whenever your stored procedure is invoked.
+
+For example, imagine an `app.py` like this:
+
+```
+import sys
+
+def calculator(session,thing_to_do:str,first:float,second:float):
+  if thing_to_do=='add':
+    return first + second
+  if thing_to_do=='subtract':
+    return first - second
+  if thing_to_do=='multiply':
+    return first * second
+  if thing_to_do=='divide':
+    return other_stuff.divide_two_numbers(first,second)
+  raise Exception(f"Unknown thing_to_do {thing_to_do}")
+```
+
+and other_stuff.py like this:
+
+```
+def divide_two_numbers(first,second):
+    return first/second
+```
+
+After `snow procedure package`, we run:
+
+`snow procedure create -n calculator -h "app.calculator" -i "(thing_to_do string, first float, second float)" --return-type "numeric" --install-coverage-wrapper --replace-always`
+
+Then invoke it:
+
+`snow procedure execute -p "calculator('add',1,1)"`
+
+We can build a coverage report:
+
+`snow procedure coverage report -n "calculator" -i "(thing_to_do string, first float, second float)"`
+
+Under htmlcov/index.html we see a summary of the two files:
+
+![Coverage 1](coverage_1.png)
+
+and drilling into app.py:
+
+![Coverage 2](coverage_2.png)
+
+Then use a couple of other code paths:
+
+`snow procedure execute -p "calculator('multiply',3,4)"`
+
+`snow procedure execute -p "calculator('divide',10,2)"`
+
+If we run the report again, we're now up to 85%:
+
+![Coverage 3](coverage_3.png)
+
+With app.py showing a bit more green:
+
+![Coverage 4](coverage_4.png)
+
+and other_stuff.py fully covered:
+
+![Coverage 5](coverage_5.png)
+
+Remember to clear the coverage data whenever you change the code or start a new test run.
+
+Also, ensure that you don't enable code coverage in production, it adds a delay and a small amount of stage storage for each invocation.
+
 ## Contributing
 If interested in contributing, you will want to instanstiate the pre-commit logic to help with formatting and linting of commits. To do this, run the following in the `snowcli` cloned folder on your development machine:
 
