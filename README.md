@@ -207,7 +207,7 @@ def calculator(session,thing_to_do:str,first:float,second:float):
   raise Exception(f"Unknown thing_to_do {thing_to_do}")
 ```
 
-and other_stuff.py like this:
+and `other_stuff.py` like this:
 
 ```
 def divide_two_numbers(first,second):
