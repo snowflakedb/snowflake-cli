@@ -9,7 +9,6 @@ requires-python = ">=3.8"
 description = "Snowflake CLI"
 dependencies = [
   "snowflake-connector-python[secure-local-storage]",
-  "snowflake-snowpark-python",
   "requirements-parser",
   "toml",
   "pyyaml",

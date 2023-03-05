@@ -3,12 +3,12 @@ import tempfile
 from typing import List
 
 import coverage
+import snowflake.connector
 import typer
-from snowflake.snowpark import GetResult
 
 from snowcli import config, utils
 from snowcli.config import AppConfig
-from snowcli.utils import conf_callback, generate_deploy_stage_name
+from snowcli.utils import conf_callback, generate_deploy_stage_name, print_db_cursor
 
 from . import app
 
@@ -71,13 +71,21 @@ def procedure_coverage_report(
 
         combined_coverage = coverage.Coverage(data_file=coverage_file)
         with tempfile.TemporaryDirectory() as temp_dir:
-            results: List[
-                GetResult
-            ] = config.snowflake_connection.fetchProcedureCoverageReports(
-                stage_name=deploy_dict["stage"],
-                stage_path=deploy_dict["directory"],
-                target_directory=temp_dir,
-            )
+            stage_name = deploy_dict["stage"]
+            stage_path = deploy_dict["directory"]
+            report_files = f"{stage_name}{stage_path}/coverage/"
+            try:
+                results = config.snowflake_connection.getStage(
+                    database=env_conf.get("database"),
+                    schema=env_conf.get("schema"),
+                    role=env_conf.get("role"),
+                    warehouse=env_conf.get("warehouse"),
+                    name=report_files,
+                    path=str(temp_dir),
+                ).fetchall()
+            except snowflake.connector.errors.DatabaseError as database_error:
+                if database_error.errno == 253006:
+                    results = []
             if len(results) == 0:
                 print(
                     "No code coverage reports were found on the stage. Please ensure that you've invoked the procedure at least once and that you provided the correct inputs"
@@ -86,6 +94,13 @@ def procedure_coverage_report(
             else:
                 print(f"Combining data from {len(results)} reports")
             combined_coverage.combine(
-                data_paths=[os.path.join(temp_dir, result.file) for result in results]
+                # the tuple contains the columns: | file ┃ size ┃ status ┃ message |
+                data_paths=[
+                    os.path.join(temp_dir, os.path.basename(result[0]))
+                    for result in results
+                ]
             )
         combined_coverage.html_report()
+        print(
+            "Your code coverage report is now available under the htmlcov folder (htmlcov/index.html)."
+        )

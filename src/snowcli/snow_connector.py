@@ -7,7 +7,7 @@ from typing import List
 
 import snowflake.connector
 from snowflake.connector.cursor import SnowflakeCursor
-from snowflake.snowpark import GetResult, Session
+from snowflake.snowpark import Session
 
 from snowcli.snowsql_config import SnowsqlConfig
 
@@ -165,27 +165,6 @@ class SnowflakeConnector:
                 "procedure": procedure,
             },
         )
-
-    def fetchProcedureCoverageReports(
-        self,
-        stage_name: str,
-        stage_path: str,
-        target_directory: str,
-    ) -> List[GetResult]:
-        stage_path = f"@{stage_name}{stage_path}/coverage/"
-        print(
-            f"Fetching code coverage reports from {stage_path} into {target_directory}"
-        )
-        try:
-            return self.snowpark_session.file.get(
-                stage_location=stage_path,
-                target_directory=f"{target_directory}/coverage",
-                pattern=".*",
-            )
-        except snowflake.connector.errors.DatabaseError as database_error:
-            if database_error.errno == 253006:
-                return []
-            raise
 
     def describeFunction(
         self,

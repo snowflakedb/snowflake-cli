@@ -16,7 +16,6 @@ requests==2.28.1
 typing_extensions==4.4.0
 urllib3==1.26.12
 snowflake-connector-python==2.8.1
-snowflake-snowpark-python>=1.1
 pyyaml
 toml
 requirements-parser
