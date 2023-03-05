@@ -1,6 +1,6 @@
 import os
 import tempfile
-from typing import List
+from enum import Enum
 
 import coverage
 import snowflake.connector
@@ -20,6 +20,12 @@ EnvironmentOption = typer.Option(
 )
 
 
+class ReportOutputOptions(str, Enum):
+    html = "html"
+    json = "json"
+    lcov = "lcov"
+
+
 @app.command(
     "report",
     help="Generate a code coverage report by downloading and combining reports from the stage",
@@ -37,6 +43,17 @@ def procedure_coverage_report(
         "--input-parameters",
         "-i",
         help="Input parameters - such as (message string, count int). Must exactly match those provided when creating the procedure.",
+    ),
+    output_format: ReportOutputOptions = typer.Option(
+        ReportOutputOptions.html,
+        "--output-format",
+        case_sensitive=False,
+        help="The format to use when saving the coverage report locally",
+    ),
+    store_as_comment: bool = typer.Option(
+        False,
+        "--store-as-comment",
+        help="In addition to the local report, saves the percentage coverage (a decimal value) as a comment on the stored procedure so that a coverage threshold can be easily checked for a number of procedures.",
     ),
 ):
     env_conf = AppConfig().config.get(environment)
@@ -100,7 +117,30 @@ def procedure_coverage_report(
                     for result in results
                 ]
             )
-        combined_coverage.html_report()
-        print(
-            "Your code coverage report is now available under the htmlcov folder (htmlcov/index.html)."
-        )
+        if output_format == ReportOutputOptions.html:
+            coverage_percentage = combined_coverage.html_report()
+            print(
+                "Your HTML code coverage report is now available under the 'htmlcov' folder (htmlcov/index.html)."
+            )
+        elif output_format == ReportOutputOptions.json:
+            coverage_percentage = combined_coverage.json_report()
+            print("Your JSON code coverage report is now available in 'coverage.json'.")
+        elif output_format == ReportOutputOptions.lcov:
+            coverage_percentage = combined_coverage.lcov_report()
+            print("Your lcov code coverage report is now available in 'coverage.lcov'.")
+        else:
+            print(f"Unknown output format '{output_format}'")
+        if store_as_comment:
+            print(
+                f"Storing total coverage value of {str(coverage_percentage)} as a procedure comment."
+            )
+            config.snowflake_connection.setProcedureComment(
+                env_conf["database"],
+                env_conf["schema"],
+                env_conf["role"],
+                env_conf["warehouse"],
+                name=name,
+                inputParameters=input_parameters,
+                show_exceptions=True,
+                comment=str(coverage_percentage),
+            )

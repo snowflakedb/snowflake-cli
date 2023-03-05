@@ -294,6 +294,33 @@ class SnowflakeConnector:
             },
         )
 
+    def setProcedureComment(
+        self,
+        database,
+        schema,
+        role,
+        warehouse,
+        signature=None,
+        name=None,
+        inputParameters=None,
+        show_exceptions=True,
+        comment="",
+    ) -> SnowflakeCursor:
+        if signature is None and name and inputParameters:
+            signature = name + self.generate_signature_from_params(inputParameters)
+        return self.runSql(
+            "set_procedure_comment",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "signature": signature,
+                "comment": comment,
+            },
+            show_exceptions,
+        )
+
     def putStage(
         self,
         database,

@@ -252,9 +252,20 @@ and other_stuff.py fully covered:
 
 ![Coverage 5](coverage_5.png)
 
-Remember to clear the coverage data whenever you change the code or start a new test run.
 
-Also, ensure that you don't enable code coverage in production, it adds a delay and a small amount of stage storage for each invocation.
+#### More code coverage tips:
+- Remember to `clear` the coverage data whenever you change the code or start a new test run.
+- Ensure that you don't enable code coverage in production, it adds a delay and a small amount of stage storage for each invocation.
+- You can choose the output format by using the `--output-format` option
+- You can write the coverage percentage value back into Snowflake as a procedure comment, by using the `--store-as-comment` option. This means that after your test suite completes, you can check coverage across a number of procedures with a query like so:
+
+```
+select COALESCE(COMMENT,0)::numeric(5,2) as COVERAGE, *
+from information_schema.procedures
+where COVERAGE < 75;
+```
+
+
 
 ## Contributing
 If interested in contributing, you will want to instanstiate the pre-commit logic to help with formatting and linting of commits. To do this, run the following in the `snowcli` cloned folder on your development machine:
