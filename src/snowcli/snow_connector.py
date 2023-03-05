@@ -7,7 +7,6 @@ from typing import List
 
 import snowflake.connector
 from snowflake.connector.cursor import SnowflakeCursor
-from snowflake.snowpark import Session
 
 from snowcli.snowsql_config import SnowsqlConfig
 
@@ -24,7 +23,6 @@ class SnowflakeConnector:
         self.connection_config["application"] = "SNOWCLI"
         self.ctx = snowflake.connector.connect(**self.connection_config)
         self.cs = self.ctx.cursor()
-        self.snowpark_session = Session.builder.configs(self.connection_config).create()
 
     def __del__(self):
         self.cs.close()
