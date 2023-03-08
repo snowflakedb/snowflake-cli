@@ -108,14 +108,14 @@ def package_upload(
     if env_conf is None:
         print(
             f"The {environment} environment is not configured in app.toml "
-            "yet, please run `snow configure dev` first before continuing.",
+            "yet, please run `snow configure` first before continuing.",
         )
         raise typer.Abort()
     if config.isAuth():
         config.connectToSnowflake()
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
-            config.snowflake_connection.uploadFileToStage(
+            deploy_response = config.snowflake_connection.uploadFileToStage(
                 file_path=temp_app_zip_path,
                 destination_stage=stage,
                 path="/",
@@ -124,4 +124,4 @@ def package_upload(
                 overwrite=overwrite,
                 role=env_conf["role"],
             )
-        print(f"Package {file} uploaded to stage @{stage}/{file}.")
+        print(f"Package {file} uploaded to stage.\n{deploy_response}")

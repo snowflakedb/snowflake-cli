@@ -54,7 +54,7 @@ def snowpark_create(
     if env_conf is None:
         print(
             f"""The {environment} environment is not configured in app.toml
-            yet, please run `snow configure {environment}` first before
+            yet, please run `snow configure -e {environment}` first before
             continuing.""",
         )
         raise typer.Abort()
@@ -397,7 +397,7 @@ def snowpark_execute(type: str, environment: str, select: str):
     if env_conf is None:
         print(
             f"The {environment} environment is not configured in app.toml "
-            "yet, please run `snow configure dev` first before continuing.",
+            "yet, please run `snow configure -e dev` first before continuing.",
         )
         raise typer.Abort()
     if config.isAuth():
@@ -434,7 +434,7 @@ def snowpark_describe(
     if env_conf is None:
         print(
             "The {environment} environment is not configured in app.toml yet, "
-            "please run `snow configure dev` first before continuing.",
+            "please run `snow configure -e dev` first before continuing.",
         )
         raise typer.Abort()
 
@@ -478,7 +478,7 @@ def snowpark_list(type, environment, like):
     if env_conf is None:
         print(
             f"The {environment} environment is not configured in app.toml "
-            f"yet, please run `snow configure dev` first before continuing.",
+            f"yet, please run `snow configure -e dev` first before continuing.",
         )
         raise typer.Abort()
     if config.isAuth():
@@ -515,7 +515,7 @@ def snowpark_drop(
     if env_conf is None:
         print(
             "The {environment} environment is not configured in app.toml "
-            "yet, please run `snow configure dev` first before continuing.",
+            "yet, please run `snow configure -e dev` first before continuing.",
         )
         raise typer.Abort()
 
