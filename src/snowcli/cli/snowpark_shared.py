@@ -48,6 +48,7 @@ def snowpark_create(
     return_type: str,
     overwrite: bool,
     execute_as_caller: bool = False,
+    install_coverage_wrapper: bool = False,
 ):
     env_conf = AppConfig().config.get(environment)
     if env_conf is None:
@@ -57,7 +58,11 @@ def snowpark_create(
             continuing.""",
         )
         raise typer.Abort()
-
+    if type == "function" and install_coverage_wrapper:
+        print(
+            """You cannot install a code coverage wrapper on a function, only a procedure."""
+        )
+        raise typer.Abort()
     if config.isAuth():
         config.connectToSnowflake()
         deploy_dict = utils.getDeployNames(
@@ -72,6 +77,16 @@ def snowpark_create(
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
+            if install_coverage_wrapper:
+                handler = replace_handler_in_zip(
+                    proc_name=name,
+                    proc_signature=input_parameters,
+                    handler=handler,
+                    coverage_reports_stage=deploy_dict["stage"],
+                    coverage_reports_stage_path=deploy_dict["directory"] + "/coverage",
+                    temp_dir=temp_dir,
+                    zip_file_path=temp_app_zip_path,
+                )
             config.snowflake_connection.uploadFileToStage(
                 file_path=temp_app_zip_path,
                 destination_stage=deploy_dict["stage"],
@@ -82,6 +97,10 @@ def snowpark_create(
                 role=env_conf["role"],
             )
         packages = utils.getSnowflakePackages()
+        if install_coverage_wrapper:
+            # if we're installing a coverage wrapper, ensure the coverage package included as a dependency
+            if "coverage" not in packages:
+                packages.append("coverage")
         print(f"Creating {type}...")
         if type == "function":
             results = config.snowflake_connection.createFunction(
@@ -127,6 +146,7 @@ def snowpark_update(
     return_type: str,
     replace: bool,
     execute_as_caller: bool = False,
+    install_coverage_wrapper: bool = False,
 ) -> None:
     env_conf: dict = AppConfig().config.get(environment)  # type: ignore
     if env_conf is None:
@@ -134,6 +154,11 @@ def snowpark_update(
             f"""The {environment} environment is not configured in app.toml
             yet, please run `snow configure {environment}` first before
             continuing.""",
+        )
+        raise typer.Abort()
+    if type == "function" and install_coverage_wrapper:
+        print(
+            """You cannot install a code coverage wrapper on a function, only a procedure."""
         )
         raise typer.Abort()
     if config.isAuth():
@@ -177,6 +202,13 @@ def snowpark_update(
             updatedPackageList = utils.getSnowflakePackagesDelta(
                 anaconda_packages,
             )
+            if install_coverage_wrapper:
+                # if we're installing a coverage wrapper, ensure the coverage package included as a dependency
+                if (
+                    "coverage" not in anaconda_packages
+                    and "coverage" not in updatedPackageList
+                ):
+                    updatedPackageList.append("coverage")
             print(
                 "Checking if app configuration has changed...",
             )
@@ -201,6 +233,17 @@ def snowpark_update(
             )
             with tempfile.TemporaryDirectory() as temp_dir:
                 temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
+                stage_path = deploy_dict["directory"] + "/coverage"
+                if install_coverage_wrapper:
+                    handler = replace_handler_in_zip(
+                        proc_name=name,
+                        proc_signature=input_parameters,
+                        handler=handler,
+                        coverage_reports_stage=deploy_dict["stage"],
+                        coverage_reports_stage_path=stage_path,
+                        temp_dir=temp_dir,
+                        zip_file_path=temp_app_zip_path,
+                    )
                 deploy_response = config.snowflake_connection.uploadFileToStage(
                     file_path=temp_app_zip_path,
                     destination_stage=deploy_dict["stage"],
@@ -251,6 +294,39 @@ def snowpark_update(
                 )
             else:
                 print("No packages to update. Deployment complete!")
+
+
+def replace_handler_in_zip(
+    proc_name: str,
+    proc_signature: str,
+    handler: str,
+    temp_dir: str,
+    zip_file_path: str,
+    coverage_reports_stage: str,
+    coverage_reports_stage_path: str,
+) -> str:
+    """
+    Given an existing zipped stored proc artifact, this function inserts a file containing a code coverage
+    wrapper, then returns the name of the new handler that the proc should use
+    """
+    handler_parts = handler.split(".")
+    if len(handler_parts) != 2:
+        print(
+            "To install a code coverage wrapper, your handler must be in the format <module>.<function>"
+        )
+        raise typer.Abort()
+    wrapper_file = os.path.join(temp_dir, "snowpark_coverage.py")
+    utils.generateSnowparkCoverageWrapper(
+        target_file=wrapper_file,
+        proc_name=proc_name,
+        proc_signature=proc_signature,
+        coverage_reports_stage=coverage_reports_stage,
+        coverage_reports_stage_path=coverage_reports_stage_path,
+        handler_module=handler_parts[0],
+        handler_function=handler_parts[1],
+    )
+    utils.addFileToExistingZip(zip_file=zip_file_path, other_file=wrapper_file)
+    return "snowpark_coverage.measure_coverage"
 
 
 def snowpark_package(

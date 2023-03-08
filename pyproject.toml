@@ -13,7 +13,9 @@ dependencies = [
   "toml",
   "pyyaml",
   "typer",
-  "rich"
+  "rich",
+  "jinja2",
+  "coverage"
 ]
 
 [project.urls]

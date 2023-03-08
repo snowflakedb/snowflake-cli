@@ -21,3 +21,6 @@ toml
 requirements-parser
 typer
 hatch
+rich
+jinja2
+coverage

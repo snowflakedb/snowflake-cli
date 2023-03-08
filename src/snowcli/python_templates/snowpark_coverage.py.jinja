@@ -1,0 +1,26 @@
+import coverage
+import os
+import sys
+import time
+IMPORT_DIRECTORY_NAME = "snowflake_import_directory"
+
+def measure_coverage(*args,**kwargs):
+    import_dir = sys._xoptions[IMPORT_DIRECTORY_NAME]
+    os.chdir(import_dir)
+    os.environ['COVERAGE_FILE'] = '/tmp'
+    current_timestamp = time.strftime("%Y%m%d-%H%M%S")
+    coverage_file = f"/tmp/{current_timestamp}.coverage"
+    cov = coverage.Coverage(data_file=coverage_file)
+    cov.start()
+    # call the original handler
+    import {{handler_module}}
+    try:
+        return {{handler_module}}.{{handler_function}}(*args,**kwargs)
+    finally:
+        try:
+            cov.stop()
+            cov.save()
+            session = args[0]
+            session.file.put(coverage_file,f'@{{coverage_reports_stage}}/{{coverage_reports_stage_path}}',auto_compress=False)
+        except Exception:
+            pass

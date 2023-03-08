@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import pkgutil
 from io import StringIO
+from typing import List
 
 import snowflake.connector
 from snowflake.connector.cursor import SnowflakeCursor
@@ -293,6 +294,33 @@ class SnowflakeConnector:
             },
         )
 
+    def setProcedureComment(
+        self,
+        database,
+        schema,
+        role,
+        warehouse,
+        signature=None,
+        name=None,
+        inputParameters=None,
+        show_exceptions=True,
+        comment="",
+    ) -> SnowflakeCursor:
+        if signature is None and name and inputParameters:
+            signature = name + self.generate_signature_from_params(inputParameters)
+        return self.runSql(
+            "set_procedure_comment",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "signature": signature,
+                "comment": comment,
+            },
+            show_exceptions,
+        )
+
     def putStage(
         self,
         database,
@@ -315,6 +343,21 @@ class SnowflakeConnector:
                 "path": path,
                 "overwrite": overwrite,
                 "parallel": parallel,
+            },
+        )
+
+    def removeFromStage(
+        self, database, schema, role, warehouse, name, path
+    ) -> SnowflakeCursor:
+        return self.runSql(
+            "remove_from_stage",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "name": name,
+                "path": path,
             },
         )
 

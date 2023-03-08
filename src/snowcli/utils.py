@@ -8,12 +8,14 @@ import re
 import shutil
 import warnings
 import zipfile
+from pathlib import Path
 from typing import Literal
 
 import click
 import requests
 import requirements
 import typer
+from jinja2 import Environment, FileSystemLoader
 from rich import box, print
 from rich.table import Table
 from snowflake.connector.cursor import SnowflakeCursor
@@ -177,6 +179,56 @@ def getPackageNameFromMetadata(metadata_file_path: str) -> str | None:
         if results is None:
             return None
         return results.group(1)
+
+
+def generateSnowparkCoverageWrapper(
+    target_file: str,
+    proc_name: str,
+    proc_signature: str,
+    handler_module: str,
+    handler_function: str,
+    coverage_reports_stage: str,
+    coverage_reports_stage_path: str,
+):
+    """Using a hardcoded template (python_templates/snowpark_coverage.py.jinja), substitutes variables
+    and writes out a file.
+    The resulting file can be used as the initial handler for the stored proc, and uses the coverage package
+    to measure code coverage of the actual stored proc code.
+    Afterwards, the handler persists the coverage report to json by executing a query.
+
+    Args:
+        target_file (str): _description_
+        proc_name (str): _description_
+        proc_signature (str): _description_
+        handler_module (str): _description_
+        handler_function (str): _description_
+    """
+    templates_path = os.path.join(Path(__file__).parent, "python_templates")
+    environment = Environment(loader=FileSystemLoader(templates_path))
+    template = environment.get_template("snowpark_coverage.py.jinja")
+    content = template.render(
+        {
+            "proc_name": proc_name,
+            "proc_signature": proc_signature,
+            "handler_module": handler_module,
+            "handler_function": handler_function,
+            "coverage_reports_stage": coverage_reports_stage,
+            "coverage_reports_stage_path": coverage_reports_stage_path,
+        }
+    )
+    with open(target_file, "w", encoding="utf-8") as output_file:
+        output_file.write(content)
+
+
+def addFileToExistingZip(zip_file: str, other_file: str):
+    """Adds another file to an existing zip file
+
+    Args:
+        zip_file (str): The existing zip file
+        other_file (str): The new file to add
+    """
+    with zipfile.ZipFile(zip_file, mode="a") as myzip:
+        myzip.write(other_file, os.path.basename(other_file))
 
 
 def installPackages(
