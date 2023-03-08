@@ -115,7 +115,7 @@ def package_upload(
         config.connectToSnowflake()
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
-            deploy_response = config.snowflake_connection.uploadFileToStage(
+            config.snowflake_connection.uploadFileToStage(
                 file_path=temp_app_zip_path,
                 destination_stage=stage,
                 path="/",
@@ -124,4 +124,4 @@ def package_upload(
                 overwrite=overwrite,
                 role=env_conf["role"],
             )
-        print(f"Package {file} uploaded to stage.\n{deploy_response}")
+        print(f"Package {file} uploaded to stage @{stage}/{file}.")
