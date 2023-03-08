@@ -18,6 +18,7 @@ We plan to incorporate some patterns and features of this CLI into the Snowflake
 
 SnowCLI lets you locally run and debug Snowflake apps, and has the following benefits:
 
+- Search, create, and upload python packages that may not be yet supported in Anaconda.
 - Has support for Snowpark Python **user defined functions** and **stored procedures**, **warehouses**, and **Streamlit** apps.
 - Define packages using `requirements.txt`, with dependencies automatically added via integration with Anaconda at deploy time.
 - Use packages in `requirements.txt` that aren't yet in Anaconda and have them manually included in the application package deployed to Snowflake (only works with packages that don't rely on native libraries).
@@ -29,8 +30,6 @@ SnowCLI lets you locally run and debug Snowflake apps, and has the following ben
 SnowCLI has the following limitations:
 
 - You must have the [SnowSQL](https://docs.snowflake.com/en/user-guide/snowsql.html) configuration file to authenticate to SnowCLI. See the [Prerequisites](#prerequisites) for more details.
-- Authentication and connections are not cached between calls, so if you use authentication `externalbrowser` you must authenticate every command via the browser. See issue [#19](https://github.com/Snowflake-Labs/snowcli/issues/19).
-- Support for Windows is not yet validated. SnowCLI has been primarily tested on MacOS and Linux.
 - To run Streamlit in Snowflake using SnowCLI, your Snowflake account must have access to the Streamlit private preview.
 
 ## Install SnowCLI
@@ -118,6 +117,20 @@ password = hunter2
 
 1. Create a `.snowsql` folder with a `config` file at the following path: `%USERPROFILE%\.snowsql\config`
 2. Add a new configuration for your Snowflake connection with SnowCLI. You must prefix the configuration with `connections.`.
+
+### Manage packages in Snowflake Stages
+
+You can use the Snowflake CLI to assist you in creating and uploading custom packages for Snowflake. This includes both full native libraries (and all needed dependencies) and Python packages that have native dependencies that are supported by Anaconda. All dependency evaluation is performed using `pip` on the machine the SnowCLI runs on and can create and help upload packages. Here's a flow to upload a custom package:
+
+1. Check to see if a package is supported: `snow package check textblob`
+2. Create a zip file of the package: `snow package create textblob` - this creates a `{package}.zip` file in the current directory that can be uploaded to a stage to used in imports to include the package.
+3. Connect to snowflake
+   - `snow login`
+   - `snow configure`
+4. Upload to a stage (I'll upload to a stage called `packages` in the database / schema configured in previous step): `snow package upload -n textblob.zip -s packages --overwrite`
+5. You can now use the package in functions / procedures by adding an import to `@packages/textblob.zip`.
+
+It's worth noting that if you create and publish functions and procedures using the SnowCLI using the patterns below, it will automatically bundle packages + code in a single zip that is created. But you can manage packages independently of the SnowCLI if you want to.
 
 ### Build a function
 
@@ -228,11 +241,11 @@ We can build a coverage report:
 
 Under htmlcov/index.html we see a summary of the two files:
 
-![Coverage 1](coverage_1.png)
+![Coverage 1](./docs/images/coverage_1.png)
 
 and drilling into app.py:
 
-![Coverage 2](coverage_2.png)
+![Coverage 2](./docs/images/coverage_2.png)
 
 Then use a couple of other code paths:
 
@@ -242,15 +255,15 @@ Then use a couple of other code paths:
 
 If we run the report again, we're now up to 85%:
 
-![Coverage 3](coverage_3.png)
+![Coverage 3](./docs/images/coverage_3.png)
 
 With app.py showing a bit more green:
 
-![Coverage 4](coverage_4.png)
+![Coverage 4](./docs/images/coverage_4.png)
 
 and other_stuff.py fully covered:
 
-![Coverage 5](coverage_5.png)
+![Coverage 5](./docs/images/coverage_5.png)
 
 
 #### More code coverage tips:
