@@ -55,7 +55,9 @@ def getDeployNames(database, schema, name) -> dict:
 
 
 def prepareAppZip(file_path, temp_dir) -> str:
-    temp_path = temp_dir + "/app.zip"
+    # get filename from file path (e.g. app.zip from /path/to/app.zip)
+    file_name = os.path.basename(file_path)
+    temp_path = temp_dir + "/" + file_name
     shutil.copy(file_path, temp_path)
     return temp_path
 
@@ -232,11 +234,15 @@ def addFileToExistingZip(zip_file: str, other_file: str):
 
 
 def installPackages(
-    file_name: str,
+    file_name: str | None,
     perform_anaconda_check: bool = True,
     package_native_libraries: YesNoAskOptionsType = "ask",
+    package_name: str | None = None,
 ) -> tuple[bool, dict[str, list[str]] | None]:
-    os.system(f"pip install -t .packages/ -r {file_name}")
+    if file_name is not None:
+        os.system(f"pip install -t .packages/ -r {file_name}")
+    if package_name is not None:
+        os.system(f"pip install -t .packages/ {package_name}")
     second_chance_results = None
     if perform_anaconda_check:
         click.echo("Checking for dependencies available in Anaconda...")
@@ -295,7 +301,9 @@ def installPackages(
             shutil.rmtree(".packages")
             return False, second_chance_results
     else:
-        click.echo("No native libraries found in packages (Good news!)...")
+        click.echo(
+            "No non-supported native libraries found in packages (Good news!)..."
+        )
         return True, second_chance_results
 
 
