@@ -31,7 +31,7 @@ PackageNativeLibrariesOption = typer.Option(
 )
 CheckAnacondaForPyPiDependancies: bool = typer.Option(
     True,
-    "--check-anaconda-for-pypi-deps",
+    "--check-anaconda-for-pypi-deps/--no-check-anaconda-for-pypi-deps",
     "-a",
     help="""When downloading missing Anaconda packages, check if any of
     their dependancies can be imported directly from Anaconda""",
@@ -255,7 +255,7 @@ def snowpark_update(
 
 def snowpark_package(
     pypi_download: YesNoAskOptionsType,
-    check_anaconda_for_pypi_dependencies: bool,
+    check_anaconda_for_pypi_deps: bool,
     package_native_libraries: YesNoAskOptionsType,
 ):
     print("Resolving any requirements from requirements.txt...")
@@ -285,7 +285,7 @@ def snowpark_package(
                 print("Installing non-Anaconda packages...")
                 should_pack, second_chance_results = utils.installPackages(
                     "requirements.other.txt",
-                    check_anaconda_for_pypi_dependencies,
+                    check_anaconda_for_pypi_deps,
                     package_native_libraries,
                 )
                 if should_pack:
