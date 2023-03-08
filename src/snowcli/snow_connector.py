@@ -124,7 +124,7 @@ class SnowflakeConnector:
             "auto_compress=false overwrite="
             f'{"true" if overwrite else "false"}',
         )
-        return self.cs.fetchone()[0]
+        return self.cs.fetchone()
 
     def executeFunction(
         self,

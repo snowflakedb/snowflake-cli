@@ -254,7 +254,8 @@ def snowpark_update(
                     role=env_conf["role"],
                 )
             print(
-                f"{deploy_response} uploaded to stage " f'{deploy_dict["full_path"]}',
+                f"{deploy_response[0]} uploaded to stage "
+                f'{deploy_dict["full_path"]}',
             )
 
             if updatedPackageList or replace:
