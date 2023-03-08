@@ -42,12 +42,19 @@ def package_lookup(
             default=True,
         )
         if check_if_native:
-            utils.installPackages(
+            packages_string = None
+            status, results = utils.installPackages(
                 perform_anaconda_check=True, package_name=name, file_name=None
             )
+            if status and results is not None and len(results["snowflake"]) > 0:
+                packages_string = f"The package {name} is supported, but does depend on the following Snowflake supported native libraries you should include the following in your packages: {results['snowflake']}"
             # if .packages subfolder exists, delete it
             if not run_nested and os.path.exists(".packages"):
                 rmtree(".packages")
+            if packages_string is not None:
+                print("\n\n" + packages_string)
+            if run_nested and packages_string is not None:
+                return packages_string
 
 
 @app.command("create")
@@ -60,13 +67,15 @@ def package_create(
     """
     Create a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
     """
-    package_lookup(name, run_nested=True)
+    results_string = package_lookup(name, run_nested=True)
     if os.path.exists(".packages"):
         utils.recursiveZipPackagesDir(".packages", name + ".zip")
         rmtree(".packages")
         print(
             f"\n\nPackage {name}.zip created. You can now upload it to a stage (`snow package upload -f {name}.zip -s packages`) and reference it in your procedure or function."
         )
+        if results_string is not None:
+            print("\n" + results_string)
 
 
 @app.command("upload")

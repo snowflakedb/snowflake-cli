@@ -123,6 +123,7 @@ password = hunter2
 You can use the Snowflake CLI to assist you in creating and uploading custom packages for Snowflake. This includes both full native libraries (and all needed dependencies) and Python packages that have native dependencies that are supported by Anaconda. All dependency evaluation is performed using `pip` on the machine the SnowCLI runs on and can create and help upload packages. Here's a flow to upload a custom package:
 
 1. Check to see if a package is supported: `snow package check textblob`
+   - NOTE: if you see a WARNING! message, it means the package has likely has native libraries that are NOT supported by the Anaconda Snowflake channel.
 2. Create a zip file of the package: `snow package create textblob` - this creates a `{package}.zip` file in the current directory that can be uploaded to a stage to used in imports to include the package.
 3. Connect to snowflake
    - `snow login`
