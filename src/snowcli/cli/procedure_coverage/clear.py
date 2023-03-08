@@ -39,7 +39,7 @@ def procedure_coverage_clear(
     if env_conf is None:
         print(
             f"The {environment} environment is not configured in app.toml "
-            "yet, please run `snow configure dev` first before continuing.",
+            "yet, please run `snow configure -e dev` first before continuing.",
         )
         raise typer.Abort()
     if config.isAuth():
