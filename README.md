@@ -120,7 +120,7 @@ password = hunter2
 
 ### Manage packages in Snowflake Stages
 
-You can use the Snowflake CLI to assist you in creating and uploading custom packages for Snowflake. This includes both full native libraries (and all needed dependencies) and Python packages that have native dependencies that are supported by Anaconda. All dependency evaluation is performed using `pip` on the machine the SnowCLI runs on and can create and help upload packages. Here's a flow to upload a custom package:
+You can use the Snowflake CLI to assist you in creating and uploading custom packages for Snowflake. This includes both full Python packages (and all needed dependencies) and Python packages that have native dependencies that are supported by Anaconda. All dependency evaluation is performed using `pip` on the machine the SnowCLI runs on and can create and help upload packages. Here's a flow to upload a custom package:
 
 1. Check to see if a package is supported: `snow package lookup <package-name>`
    - NOTE: if you see a WARNING! message, it means the package has likely has native libraries that are NOT supported by the Anaconda Snowflake channel.
@@ -131,7 +131,7 @@ You can use the Snowflake CLI to assist you in creating and uploading custom pac
 4. Upload to a stage (I'll upload to a stage called `packages` in the database / schema configured in previous step): `snow package upload -f <package-name>.zip -s packages --overwrite`
 5. You can now use the package in functions / procedures by adding an import to `@packages/<package-name>.zip`.
 
-It's worth noting that if you create and publish functions and procedures using the SnowCLI using the patterns below, it will automatically bundle packages + code in a single zip that is created. But you can manage packages independently of the SnowCLI if you want to.
+It's worth noting that if you create and publish functions and procedures using the SnowCLI using the patterns below (`snow function` and `snow procedure`), SnowCLI will automatically bundle packages + code in a single zip that is created. But you can manage packages independently in stages as desired.
 
 ### Build a function
 
