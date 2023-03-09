@@ -128,7 +128,7 @@ You can use the Snowflake CLI to assist you in creating and uploading custom pac
 3. Connect to snowflake
    - `snow login`
    - `snow configure`
-4. Upload to a stage (I'll upload to a stage called `packages` in the database / schema configured in previous step): `snow package upload -n <package-name>.zip -s packages --overwrite`
+4. Upload to a stage (I'll upload to a stage called `packages` in the database / schema configured in previous step): `snow package upload -f <package-name>.zip -s packages --overwrite`
 5. You can now use the package in functions / procedures by adding an import to `@packages/<package-name>.zip`.
 
 It's worth noting that if you create and publish functions and procedures using the SnowCLI using the patterns below, it will automatically bundle packages + code in a single zip that is created. But you can manage packages independently of the SnowCLI if you want to.
