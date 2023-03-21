@@ -1,6 +1,6 @@
 # Snowflake Developer CLI
 
-⚠️ This is an early concept CLI for working with Snowflake. It is not officially supported by Snowflake, and is not intended for production use. ⚠️
+This is an open source and community supported tool. Support is provided on a best effort basis by project contributors.
 
 ## Overview
 
