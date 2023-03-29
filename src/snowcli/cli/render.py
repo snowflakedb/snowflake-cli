@@ -36,7 +36,7 @@ def procedure_from_js_file(env: jinja2.Environment, file_name: str):
 
 PROCEDURE_TEMPLATE = dedent(
     """\
-    CREATE OR REPLACE {{ object_type }} {{ name | upper }}(\
+    CREATE OR REPLACE {{ object_type | upper }} {{ name | upper }}(\
     {% for arg in signature %}
     {{ arg['name'] | upper }} {{ arg['type'] }}{{ "," if not loop.last -}}
     {% endfor %}
@@ -65,8 +65,7 @@ PROCEDURE_TEMPLATE = dedent(
 
     {%- if grants is defined -%}
     {%- for grant in grants %}
-    GRANT USAGE ON {{ object_type }} {{ name | upper }}\
-    ({% for arg in signature %}{{ arg['type'] }}{{ ", " if not loop.last }}{% endfor -%}) \
+    GRANT USAGE ON {{ object_type | upper }} {{ name | upper }}({% for arg in signature %}{{ arg['type'] }}{{ ", " if not loop.last }}{% endfor %})
     TO DATABASE ROLE {{ grant['role'] }};
     {% endfor -%}
     {% endif -%}\
