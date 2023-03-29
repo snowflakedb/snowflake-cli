@@ -9,7 +9,16 @@ from rich import print
 from .. import __about__
 from ..config import AppConfig
 from ..snowsql_config import SnowsqlConfig
-from . import connection, function, package, procedure, stage, streamlit, warehouse
+from . import (
+    connection,
+    function,
+    package,
+    procedure,
+    render,
+    stage,
+    streamlit,
+    warehouse,
+)
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 
@@ -137,6 +146,8 @@ app.add_typer(connection.app, name="connection")
 app.add_typer(warehouse.app, name="warehouse")
 app.add_typer(stage.app, name="stage")
 app.add_typer(package.app, name="package")
+app.add_typer(render.app, name="render", hidden=True)
+
 
 if __name__ == "__main__":
     app()
