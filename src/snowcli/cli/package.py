@@ -31,9 +31,9 @@ def package_lookup(
     ## if list has any items
 
     if len(packageResponse["snowflake"]) > 0:
-        print(f"Package {name} is available on the Snowflake anaconda channel.")
+        click.echo(f"Package {name} is available on the Snowflake anaconda channel.")
         if run_nested:
-            print(
+            click.echo(
                 f"No need to create a package. Just include in your `packages` declaration."
             )
     else:
@@ -52,7 +52,7 @@ def package_lookup(
             if not run_nested and os.path.exists(".packages"):
                 rmtree(".packages")
             if packages_string is not None:
-                print("\n\n" + packages_string)
+                click.echo("\n\n" + packages_string)
             if run_nested and packages_string is not None:
                 return packages_string
 
@@ -71,11 +71,11 @@ def package_create(
     if os.path.exists(".packages"):
         utils.recursiveZipPackagesDir(".packages", name + ".zip")
         rmtree(".packages")
-        print(
+        click.echo(
             f"\n\nPackage {name}.zip created. You can now upload it to a stage (`snow package upload -f {name}.zip -s packages`) and reference it in your procedure or function."
         )
         if results_string is not None:
-            print("\n" + results_string)
+            click.echo("\n" + results_string)
 
 
 @app.command("upload")
@@ -106,13 +106,14 @@ def package_upload(
     """
     env_conf = AppConfig().config.get(environment)
     if env_conf is None:
-        print(
+        click.echo(
             f"The {environment} environment is not configured in app.toml "
             "yet, please run `snow configure` first before continuing.",
         )
         raise typer.Abort()
     if config.isAuth():
         config.connectToSnowflake()
+        click.echo(f"Uploading {file} to Snowflake @{stage}/{file}...")
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
             deploy_response = config.snowflake_connection.uploadFileToStage(
@@ -124,8 +125,8 @@ def package_upload(
                 overwrite=overwrite,
                 role=env_conf["role"],
             )
-        print(f"Package {file} {deploy_response[6]} to Snowflake @{stage}/{file}.")
+        click.echo(f"Package {file} {deploy_response[6]} to Snowflake @{stage}/{file}.")
         if deploy_response[6] == "SKIPPED":
-            print(
+            click.echo(
                 "Package already exists on stage. Consider using --overwrite to overwrite the file."
             )
