@@ -12,7 +12,10 @@ import typer
 from snowcli import config, utils
 from snowcli.config import AppConfig
 
-app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    help="Manage custom Python packages for Snowpark",
+)
 EnvironmentOption = typer.Option("dev", help="Environment name")
 
 
@@ -22,7 +25,13 @@ def package_lookup(
         ...,
         help="Name of the package",
     ),
-    run_nested: bool = False,
+    install_packages: bool = typer.Option(
+        False,
+        "--yes",
+        "-y",
+        help="Install packages that are not available on the Snowflake anaconda channel",
+    ),
+    _run_nested: bool = False,
 ):
     """
     Check to see if a package is available on the Snowflake anaconda channel.
@@ -32,16 +41,17 @@ def package_lookup(
 
     if len(packageResponse["snowflake"]) > 0:
         click.echo(f"Package {name} is available on the Snowflake anaconda channel.")
-        if run_nested:
+        if _run_nested:
             click.echo(
                 f"No need to create a package. Just include in your `packages` declaration."
             )
     else:
-        check_if_native = click.confirm(
-            "The package is not in Anaconda. Do you want to try to see if it's supported as a custom package (requires pip)?",
-            default=True,
-        )
-        if check_if_native:
+        if not install_packages:
+            install_packages = click.confirm(
+                "The package is not in Anaconda. Do you want to try to see if it's supported as a custom package (requires pip)?",
+                default=True,
+            )
+        if install_packages:
             packages_string = None
             status, results = utils.installPackages(
                 perform_anaconda_check=True, package_name=name, file_name=None
@@ -49,11 +59,11 @@ def package_lookup(
             if status and results is not None and len(results["snowflake"]) > 0:
                 packages_string = f"The package {name} is supported, but does depend on the following Snowflake supported native libraries you should include the following in your packages: {results['snowflake']}"
             # if .packages subfolder exists, delete it
-            if not run_nested and os.path.exists(".packages"):
+            if not _run_nested and os.path.exists(".packages"):
                 rmtree(".packages")
             if packages_string is not None:
                 click.echo("\n\n" + packages_string)
-            if run_nested and packages_string is not None:
+            if _run_nested and packages_string is not None:
                 return packages_string
 
 
@@ -62,12 +72,18 @@ def package_create(
     name: str = typer.Argument(
         ...,
         help="Name of the package",
-    )
+    ),
+    install_packages: bool = typer.Option(
+        False,
+        "--yes",
+        "-y",
+        help="Install packages that are not available on the Snowflake anaconda channel",
+    ),
 ):
     """
     Create a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
     """
-    results_string = package_lookup(name, run_nested=True)
+    results_string = package_lookup(name, install_packages, _run_nested=True)
     if os.path.exists(".packages"):
         utils.recursiveZipPackagesDir(".packages", name + ".zip")
         rmtree(".packages")
