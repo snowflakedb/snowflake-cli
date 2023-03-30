@@ -5,14 +5,28 @@ from tempfile import NamedTemporaryFile
 
 def test_render_template(runner):
     with NamedTemporaryFile("r") as tmp_file, NamedTemporaryFile("r") as json_file:
-        Path(tmp_file.name).write_text("This is my template {{ data.name }}")
-        Path(json_file.name).write_text(json.dumps({"data": {"name": "value"}}))
+        Path(tmp_file.name).write_text(
+            "This is my template {{ data.name }} and {{ toBeUpdated }}"
+        )
+        Path(json_file.name).write_text(
+            json.dumps(
+                {"data": {"name": "value"}, "toBeUpdated": "should not be in output"}
+            )
+        )
         result = runner.invoke(
-            ["render", "template", tmp_file.name, "-d", json_file.name]
+            [
+                "render",
+                "template",
+                tmp_file.name,
+                "-d",
+                json_file.name,
+                "-D",
+                "toBeUpdated=ok",
+            ]
         )
 
     assert result.exit_code == 0
-    assert result.stdout_bytes.decode() == "This is my template value\n"
+    assert result.stdout_bytes.decode() == "This is my template value and ok\n"
 
 
 def test_render_js_proc(runner):

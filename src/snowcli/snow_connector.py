@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import pkgutil
 from io import StringIO
-from typing import List
 
 import snowflake.connector
 from snowflake.connector.cursor import SnowflakeCursor

@@ -51,13 +51,7 @@ def snowpark_create(
     install_coverage_wrapper: bool = False,
 ):
     env_conf = AppConfig().config.get(environment)
-    if env_conf is None:
-        print(
-            f"""The {environment} environment is not configured in app.toml
-            yet, please run `snow configure -e {environment}` first before
-            continuing.""",
-        )
-        raise typer.Abort()
+    validate_configuration(env_conf, environment)
     if type == "function" and install_coverage_wrapper:
         print(
             """You cannot install a code coverage wrapper on a function, only a procedure."""
@@ -136,6 +130,16 @@ def snowpark_create(
         print_list_tuples(results)
 
 
+def validate_configuration(env_conf, environment):
+    if env_conf is None:
+        print(
+            f"""The {environment} environment is not configured in app.toml
+            yet, please run `snow configure -e {environment}` first before
+            continuing.""",
+        )
+        raise typer.Abort()
+
+
 def snowpark_update(
     type: str,
     environment: str,
@@ -149,13 +153,7 @@ def snowpark_update(
     install_coverage_wrapper: bool = False,
 ) -> None:
     env_conf: dict = AppConfig().config.get(environment)  # type: ignore
-    if env_conf is None:
-        print(
-            f"""The {environment} environment is not configured in app.toml
-            yet, please run `snow configure {environment}` first before
-            continuing.""",
-        )
-        raise typer.Abort()
+    validate_configuration(env_conf, environment)
     if type == "function" and install_coverage_wrapper:
         print(
             """You cannot install a code coverage wrapper on a function, only a procedure."""
@@ -395,12 +393,7 @@ def snowpark_package(
 
 def snowpark_execute(type: str, environment: str, select: str):
     env_conf = AppConfig().config.get(environment)
-    if env_conf is None:
-        print(
-            f"The {environment} environment is not configured in app.toml "
-            "yet, please run `snow configure -e dev` first before continuing.",
-        )
-        raise typer.Abort()
+    validate_configuration(env_conf, environment)
     if config.isAuth():
         config.connectToSnowflake()
         if type == "function":
@@ -432,12 +425,7 @@ def snowpark_describe(
     signature: str,
 ):
     env_conf = AppConfig().config.get(environment)
-    if env_conf is None:
-        print(
-            "The {environment} environment is not configured in app.toml yet, "
-            "please run `snow configure -e dev` first before continuing.",
-        )
-        raise typer.Abort()
+    validate_configuration(env_conf, environment)
 
     if config.isAuth():
         config.connectToSnowflake()
@@ -476,12 +464,7 @@ def snowpark_describe(
 
 def snowpark_list(type, environment, like):
     env_conf = AppConfig().config.get(environment)
-    if env_conf is None:
-        print(
-            f"The {environment} environment is not configured in app.toml "
-            f"yet, please run `snow configure -e dev` first before continuing.",
-        )
-        raise typer.Abort()
+    validate_configuration(env_conf, environment)
     if config.isAuth():
         config.connectToSnowflake()
         if type == "function":
@@ -513,12 +496,7 @@ def snowpark_drop(
     signature: str,
 ):
     env_conf = AppConfig().config.get(environment)
-    if env_conf is None:
-        print(
-            "The {environment} environment is not configured in app.toml "
-            "yet, please run `snow configure -e dev` first before continuing.",
-        )
-        raise typer.Abort()
+    validate_configuration(env_conf, environment)
 
     if config.isAuth():
         config.connectToSnowflake()
