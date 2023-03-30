@@ -28,6 +28,8 @@ warnings.filterwarnings("ignore", category=UserWarning)
 YesNoAskOptions = ["yes", "no", "ask"]
 YesNoAskOptionsType = Literal["yes", "no", "ask"]
 
+PIP_PATH = os.environ.get("SNOWCLI_PIP_PATH", "pip")
+
 
 def yes_no_ask_callback(value: str):
     """
@@ -242,25 +244,39 @@ def installPackages(
 ) -> tuple[bool, dict[str, list[str]] | None]:
     pip_install_result = None
     if file_name is not None:
-        process = subprocess.Popen(
-            ["pip", "install", "-t", ".packages/", "-r", file_name],
-            stdout=subprocess.PIPE,
-            universal_newlines=True,
-        )
-        for line in process.stdout:  # type: ignore
-            click.echo(line.strip())
-        process.wait()
-        pip_install_result = process.returncode
+        try:
+            process = subprocess.Popen(
+                [PIP_PATH, "install", "-t", ".packages/", "-r", file_name],
+                stdout=subprocess.PIPE,
+                universal_newlines=True,
+            )
+            for line in process.stdout:  # type: ignore
+                click.echo(line.strip())
+            process.wait()
+            pip_install_result = process.returncode
+        except FileNotFoundError:
+            click.echo(
+                "pip not found. Please install pip and try again.",
+                err=True,
+            )
+            return False, None
     if package_name is not None:
-        process = subprocess.Popen(
-            ["pip", "install", "-t", ".packages/", package_name],
-            stdout=subprocess.PIPE,
-            universal_newlines=True,
-        )
-        for line in process.stdout:  # type: ignore
-            click.echo(line.strip())
-        process.wait()
-        pip_install_result = process.returncode
+        try:
+            process = subprocess.Popen(
+                [PIP_PATH, "install", "-t", ".packages/", package_name],
+                stdout=subprocess.PIPE,
+                universal_newlines=True,
+            )
+            for line in process.stdout:  # type: ignore
+                click.echo(line.strip())
+            process.wait()
+            pip_install_result = process.returncode
+        except FileNotFoundError:
+            click.echo(
+                "\n\npip not found. Please install pip and try again.\nHINT: you can also set the environment variable 'SNOWCLI_PIP_PATH' to the path of pip.",
+                err=True,
+            )
+            return False, None
 
     if pip_install_result is not None and pip_install_result != 0:
         print(
