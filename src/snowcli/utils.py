@@ -256,7 +256,7 @@ def installPackages(
             pip_install_result = process.returncode
         except FileNotFoundError:
             click.echo(
-                "pip not found. Please install pip and try again.",
+                "\n\npip not found. Please install pip and try again.\nHINT: you can also set the environment variable 'SNOWCLI_PIP_PATH' to the path of pip.",
                 err=True,
             )
             return False, None
