@@ -29,8 +29,7 @@ def test_sql_execute_file(mock_config, runner):
 
 @mock.patch(CONFIG_MOCK)
 def test_sql_execute_from_stdin(mock_config, runner):
-    with NamedTemporaryFile("r") as tmp_file:
-        result = runner.invoke(["sql", "-f", tmp_file.name], input="query from input")
+    result = runner.invoke(["sql"], input="query from input")
 
     assert result.exit_code == 0
     mock_config.snowflake_connection.ctx.execute_string.assert_called_once_with(
