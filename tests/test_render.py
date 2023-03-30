@@ -79,7 +79,6 @@ def test_render_metadata(runner):
         result = runner.invoke(["render", "template", tmp_file.name])
 
     assert result.exit_code == 0
-    print(result.stdout_bytes.decode())
     assert (
         result.stdout_bytes.decode()
         == """\
