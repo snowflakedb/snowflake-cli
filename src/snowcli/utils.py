@@ -6,6 +6,7 @@ import os
 import pathlib
 import re
 import shutil
+import subprocess
 import warnings
 import zipfile
 from pathlib import Path
@@ -26,6 +27,8 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 YesNoAskOptions = ["yes", "no", "ask"]
 YesNoAskOptionsType = Literal["yes", "no", "ask"]
+
+PIP_PATH = os.environ.get("SNOWCLI_PIP_PATH", "pip")
 
 
 def yes_no_ask_callback(value: str):
@@ -239,11 +242,47 @@ def installPackages(
     package_native_libraries: YesNoAskOptionsType = "ask",
     package_name: str | None = None,
 ) -> tuple[bool, dict[str, list[str]] | None]:
+    pip_install_result = None
     if file_name is not None:
-        os.system(f"pip install -t .packages/ -r {file_name}")
+        try:
+            process = subprocess.Popen(
+                [PIP_PATH, "install", "-t", ".packages/", "-r", file_name],
+                stdout=subprocess.PIPE,
+                universal_newlines=True,
+            )
+            for line in process.stdout:  # type: ignore
+                click.echo(line.strip())
+            process.wait()
+            pip_install_result = process.returncode
+        except FileNotFoundError:
+            click.echo(
+                "\n\npip not found. Please install pip and try again.\nHINT: you can also set the environment variable 'SNOWCLI_PIP_PATH' to the path of pip.",
+                err=True,
+            )
+            return False, None
     if package_name is not None:
-        os.system(f"pip install -t .packages/ {package_name}")
-    second_chance_results = None
+        try:
+            process = subprocess.Popen(
+                [PIP_PATH, "install", "-t", ".packages/", package_name],
+                stdout=subprocess.PIPE,
+                universal_newlines=True,
+            )
+            for line in process.stdout:  # type: ignore
+                click.echo(line.strip())
+            process.wait()
+            pip_install_result = process.returncode
+        except FileNotFoundError:
+            click.echo(
+                "\n\npip not found. Please install pip and try again.\nHINT: you can also set the environment variable 'SNOWCLI_PIP_PATH' to the path of pip.",
+                err=True,
+            )
+            return False, None
+
+    if pip_install_result is not None and pip_install_result != 0:
+        print(
+            f"pip failed with return code {pip_install_result}. \n\nThis may happen when attempting to install a package that isn't compatible with the host architecture - and generally means it has native libraries."
+        )
+        return False, None
     if perform_anaconda_check:
         click.echo("Checking for dependencies available in Anaconda...")
         # it's not over just yet. a non-Anaconda package may have brought in

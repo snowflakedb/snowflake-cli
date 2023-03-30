@@ -27,7 +27,7 @@ def test_render_js_proc(runner):
     assert (
         result.stdout_bytes.decode()
         == """\
-CREATE PROCEDURE
+CREATE PROCEDURE 
 var module = {};
 var exports = {};
 module.exports = exports;
@@ -79,11 +79,10 @@ def test_render_metadata(runner):
         result = runner.invoke(["render", "template", tmp_file.name])
 
     assert result.exit_code == 0
-    print(result.stdout_bytes.decode())
     assert (
         result.stdout_bytes.decode()
         == """\
-CREATE OR REPLACE PROCEDURE APP.PYTHON_HELLO(
+CREATE OR REPLACE PROCEDURE APP.PYTHON_HELLO(    
 ARG1 STRING
 )
 RETURNS STRING
