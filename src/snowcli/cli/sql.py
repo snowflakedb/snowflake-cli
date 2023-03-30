@@ -67,10 +67,8 @@ def execute_sql(
     """
     Executes Snowflake query.
 
-    Query to execute can be specified using
-    - query option
-    - filename option (all queries from file will be executed)
-    - stdin by piping output, for example `snow render template my.sql | snow sql`
+    Query to execute can be specified using query option, filename option (all queries from file will be executed)
+    or via stdin by piping output from other command. For example `snow render template my.sql | snow sql`.
     """
     sys_input = None
 
