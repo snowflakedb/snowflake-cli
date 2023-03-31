@@ -1,18 +1,15 @@
-f"""
-use database {database};
-use schema {schema};
-use warehouse {warehouse};
+use database {{ database }};
+use schema {{ schema }};
+use warehouse {{ warehouse }};
 
-CREATE {"OR REPLACE " if overwrite else ""} PROCEDURE {name}{input_parameters}
-         RETURNS {return_type}
+CREATE {% if overwrite %}OR REPLACE {% endif %} PROCEDURE {{ name }}{{ input_parameters }}
+         RETURNS {{ return_type }}
          LANGUAGE PYTHON
          RUNTIME_VERSION=3.8
-         IMPORTS=('{imports}')
-         HANDLER='{handler}'
-         PACKAGES=({','.join(["'{}'".format(package)
-                   for package in packages]) if packages else ""})
-        {"EXECUTE AS CALLER" if execute_as_caller else ""};
+         IMPORTS=('{{ imports }}')
+         HANDLER='{{ handler }}'
+         PACKAGES=({% for pkg in packages %}'{{  pkg  }}'{{  "," if not loop.last  }}{% endfor %})
+         {% if execute_as_caller %}EXECUTE AS CALLER{% endif %};
 
 
-describe PROCEDURE {name}{signature};
-"""
+describe PROCEDURE {{ name }}{{ signature }};

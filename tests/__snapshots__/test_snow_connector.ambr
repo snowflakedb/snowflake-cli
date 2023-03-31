@@ -1,11 +1,9 @@
 # serializer version: 1
 # name: test_createFunction
   '''
-  
   use database databaseValue;
   use schema schemaValue;
   use warehouse warehouseValue;
-  
   CREATE OR REPLACE  FUNCTION nameValue(string a, variant b)
            RETURNS returnTypeValue
            LANGUAGE PYTHON
@@ -13,15 +11,11 @@
            IMPORTS=('import1, import2')
            HANDLER='handlerValue'
            PACKAGES=('aaa','bbb');
-  
-  
   describe function nameValue(a, b);
-  
   '''
 # ---
 # name: test_createProcedure
   '''
-  
   use database databaseValue;
   use schema schemaValue;
   use warehouse warehouseValue;
@@ -33,11 +27,10 @@
            IMPORTS=('import1, import2')
            HANDLER='handlerValue'
            PACKAGES=('aaa','bbb')
-          EXECUTE AS CALLER;
+           EXECUTE AS CALLER;
   
   
   describe PROCEDURE nameValue(a, b);
-  
   '''
 # ---
 # name: test_createStage
@@ -48,7 +41,6 @@
   use schema schemaValue;
   
   create stage if not exists nameValue;
-  
   '''
 # ---
 # name: test_createStreamlit
@@ -67,7 +59,6 @@
   
   show streamlits;
   describe streamlit nameValue;
-  
   '''
 # ---
 # name: test_deployStreamlit
@@ -77,7 +68,6 @@
   use role roleValue;
   
   CALL SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('nameValue');
-  
   '''
 # ---
 # name: test_describeFunction
@@ -87,7 +77,6 @@
   use database databaseValue;
   use schema schemaValue;
   desc FUNCTION signatureValue;
-  
   '''
 # ---
 # name: test_describeProcedure
@@ -97,7 +86,6 @@
   use database databaseValue;
   use schema schemaValue;
   desc PROCEDURE signatureValue;
-  
   '''
 # ---
 # name: test_describeStreamlit
@@ -107,7 +95,6 @@
   use role roleValue;
   
   CALL SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('nameValue');
-  
   '''
 # ---
 # name: test_dropFunction
@@ -117,7 +104,6 @@
   use database databaseValue;
   use schema schemaValue;
   drop function signatureValue;
-  
   '''
 # ---
 # name: test_dropProcedure
@@ -127,7 +113,6 @@
   use database databaseValue;
   use schema schemaValue;
   drop procedure signatureValue;
-  
   '''
 # ---
 # name: test_dropStage
@@ -138,7 +123,6 @@
   use schema schemaValue;
   
   drop stage nameValue;
-  
   '''
 # ---
 # name: test_dropStreamlit
@@ -150,7 +134,6 @@
   drop stage "nameValue_STAGE";
   
   drop streamlit "nameValue";
-  
   '''
 # ---
 # name: test_executeFunction
@@ -160,7 +143,6 @@
   use database databaseValue;
   use schema schemaValue;
   select functionValue;
-  
   '''
 # ---
 # name: test_executeProcedure
@@ -170,7 +152,6 @@
   use database databaseValue;
   use schema schemaValue;
   call procedureValue;
-  
   '''
 # ---
 # name: test_getStage
@@ -181,7 +162,6 @@
   use schema schemaValue;
   
   get @nameValue file://pathValue/
-  
   '''
 # ---
 # name: test_listFunctions
@@ -192,7 +172,6 @@
   use schema schemaValue;
   show user functions like 'likeValue';
   select "name", "created_on", "arguments", "language" from table(result_scan(last_query_id()));
-  
   '''
 # ---
 # name: test_listProcedures
@@ -203,7 +182,6 @@
   use schema schemaValue;
   show user procedures like 'likeValue';
   select "name", "created_on", "arguments" from table(result_scan(last_query_id()));
-  
   '''
 # ---
 # name: test_listStage
@@ -213,7 +191,6 @@
   use database databaseValue;
   use schema schemaValue;
   ls @nameValue;
-  
   '''
 # ---
 # name: test_listStages
@@ -223,7 +200,6 @@
   use database databaseValue;
   use schema schemaValue;
   show stages;
-  
   '''
 # ---
 # name: test_listStreamlits
@@ -233,7 +209,6 @@
   use database databaseValue;
   use schema schemaValue;
   show streamlits;
-  
   '''
 # ---
 # name: test_putStage
@@ -244,7 +219,6 @@
   use schema schemaValue;
   
   put file://pathValue @nameValue auto_compress=false parallel=parallelValue overwrite=True;
-  
   '''
 # ---
 # name: test_removeFromStage
@@ -255,7 +229,6 @@
   use schema schemaValue;
   
   remove @nameValuepathValue
-  
   '''
 # ---
 # name: test_setProcedureComment
@@ -265,7 +238,6 @@
   use database databaseValue;
   use schema schemaValue;
   alter PROCEDURE signatureValue SET COMMENT = $$commentValue$$;
-  
   '''
 # ---
 # name: test_shareStreamlit
@@ -276,7 +248,6 @@
   use schema schemaValue;
   
   grant usage on streamlit nameValue to role to_roleValue;
-  
   '''
 # ---
 # name: test_showWarehouses
@@ -286,6 +257,5 @@
   use database databaseValue;
   use schema schemaValue;
   show warehouses;
-  
   '''
 # ---

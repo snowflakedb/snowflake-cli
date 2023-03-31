@@ -1,5 +1,5 @@
-use role {role};
-use warehouse {warehouse};
-use database {database};
-use schema {schema};
-select {function};
+use role {{ role }};
+use warehouse {{ warehouse }};
+use database {{ database }};
+use schema {{ schema }};
+select {{ function }};

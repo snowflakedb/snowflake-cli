@@ -1,6 +1,13 @@
+import textwrap
 from unittest import mock
 
 from snowcli.snow_connector import SnowflakeConnector
+
+
+# Used as a solution to syrupy having some problems with comparing multilines string
+class custom_str(str):
+    def __repr__(self):
+        return str(self)
 
 
 @mock.patch("snowflake.connector")
@@ -23,8 +30,10 @@ def test_createFunction(_, snapshot):
         overwrite=True,
         packages=["aaa", "bbb"],
     )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert str(query.getvalue()) == snapshot
+    query_io, *_ = connector.ctx.execute_stream.call_args.args
+    query_str = query_io.getvalue()
+    print(custom_str(query_str))
+    assert custom_str(query_str) == snapshot
 
 
 @mock.patch("snowflake.connector")
@@ -46,7 +55,7 @@ def test_createProcedure(_, snapshot):
         warehouse="warehouseValue",
         overwrite=True,
         packages=["aaa", "bbb"],
-        execute_as_caller="execute_as_callerValue",
+        execute_as_caller=True,
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
     assert query.getvalue() == snapshot
@@ -244,7 +253,7 @@ def test_putStage(_, snapshot):
         parallel="parallelValue",
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
+    assert textwrap.dedent(query.getvalue()) == snapshot
 
 
 @mock.patch("snowflake.connector")
