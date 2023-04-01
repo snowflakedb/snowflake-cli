@@ -111,6 +111,10 @@ def parseAnacondaPackages(packages: list[str]) -> dict:
                     f'"{package}" not found in Snowflake anaconda channel...',
                 )
                 otherPackages.append(package)
+        # As at April 2023, streamlit appears unavailable in the Snowflake Anaconda channel
+        # but actually works if specified in the environment
+        if "streamlit" in otherPackages:
+            otherPackages.remove("streamlit")
         return {"snowflake": snowflakePackages, "other": otherPackages}
     else:
         click.echo(f"Error: {response.status_code}")
@@ -357,7 +361,7 @@ def recursiveZipPackagesDir(pack_dir: str, dest_zip: str) -> bool:
     # zip all files in the current directory except the ones that start with "." or are in the pack_dir
     for file in pathlib.Path(".").glob("**/*"):
         if (
-            not file.match(".*")
+            not str(file).startswith(".")
             and not file.match(f"{pack_dir}/*")
             and not file.match(dest_zip)
         ):
