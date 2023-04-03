@@ -15,6 +15,7 @@ from . import (
     package,
     procedure,
     render,
+    sql,
     stage,
     streamlit,
     warehouse,
@@ -146,7 +147,8 @@ app.add_typer(connection.app, name="connection")
 app.add_typer(warehouse.app, name="warehouse")
 app.add_typer(stage.app, name="stage")
 app.add_typer(package.app, name="package")
-app.add_typer(render.app, name="render", hidden=True)
+app.add_typer(render.app, name="render")
+app.command("sql")(sql.execute_sql)
 
 
 if __name__ == "__main__":
