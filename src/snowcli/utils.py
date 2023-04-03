@@ -10,7 +10,7 @@ import subprocess
 import warnings
 import zipfile
 from pathlib import Path
-from typing import Literal
+from typing import List, Literal, Optional
 
 import click
 import requests
@@ -29,6 +29,8 @@ YesNoAskOptions = ["yes", "no", "ask"]
 YesNoAskOptionsType = Literal["yes", "no", "ask"]
 
 PIP_PATH = os.environ.get("SNOWCLI_PIP_PATH", "pip")
+
+templates_path = os.path.join(Path(__file__).parent, "python_templates")
 
 
 def yes_no_ask_callback(value: str):
@@ -111,10 +113,67 @@ def parseAnacondaPackages(packages: list[str]) -> dict:
                     f'"{package}" not found in Snowflake anaconda channel...',
                 )
                 otherPackages.append(package)
+        # As at April 2023, streamlit appears unavailable in the Snowflake Anaconda channel
+        # but actually works if specified in the environment
+        if "streamlit" in otherPackages:
+            otherPackages.remove("streamlit")
         return {"snowflake": snowflakePackages, "other": otherPackages}
     else:
         click.echo(f"Error: {response.status_code}")
         return {}
+
+
+def generateStreamlitEnvironmentFile(
+    excluded_anaconda_deps: Optional[List[str]],
+) -> Optional[Path]:
+    """Creates an environment.yml file for streamlit deployment, if a Snowflake
+    requirements file exists.
+    The file path is returned if it was generated, otherwise None is returned.
+    """
+    if os.path.exists("requirements.snowflake.txt"):
+        # for each line in requirements.snowflake.txt, prepend '- ' to the line and prepare it for interpolation into the template
+        with open("requirements.snowflake.txt", "r", encoding="utf-8") as f:
+            requirements = f.read().split("\n")
+        # remove explicitly excluded anaconda dependencies
+        if excluded_anaconda_deps is not None:
+            print(f"""Excluded dependencies: {','.join(excluded_anaconda_deps)}""")
+            requirements = [
+                line for line in requirements if line not in excluded_anaconda_deps
+            ]
+        # remove duplicates, remove comments, remove snowflake-connector-python
+        requirements = [
+            f"- {line}"
+            for line in sorted(list(set(requirements)))
+            if len(line) > 0 and line[0] != "#" and line != "snowflake-connector-python"
+        ]
+        dependencies_list = "\n".join(requirements)
+        environment = Environment(loader=FileSystemLoader(templates_path))
+        template = environment.get_template("environment.yml.jinja")
+        with open("environment.yml", "w", encoding="utf-8") as f:
+            f.write(template.render(dependencies=dependencies_list))
+        return Path("environment.yml")
+    return None
+
+
+def generateStreamlitPackageWrapper(
+    stage_name: str, main_module: str, extract_zip: bool
+) -> Path:
+    """Uses a jinja template to generate a streamlit wrapper.
+    The wrapper will add app.zip to the path and import the app module.
+    """
+    environment = Environment(loader=FileSystemLoader(templates_path))
+    template = environment.get_template("streamlit_app_launcher.py.jinja")
+    target_file = Path("streamlit_app_launcher.py")
+    content = template.render(
+        {
+            "stage_name": stage_name,
+            "main_module": main_module,
+            "extract_zip": extract_zip,
+        }
+    )
+    with open(target_file, "w", encoding="utf-8") as output_file:
+        output_file.write(content)
+    return target_file
 
 
 def getDownloadedPackageNames() -> dict[str, list[str]]:
@@ -208,7 +267,7 @@ def generateSnowparkCoverageWrapper(
         handler_module (str): _description_
         handler_function (str): _description_
     """
-    templates_path = os.path.join(Path(__file__).parent, "python_templates")
+
     environment = Environment(loader=FileSystemLoader(templates_path))
     template = environment.get_template("snowpark_coverage.py.jinja")
     content = template.render(
@@ -357,7 +416,7 @@ def recursiveZipPackagesDir(pack_dir: str, dest_zip: str) -> bool:
     # zip all files in the current directory except the ones that start with "." or are in the pack_dir
     for file in pathlib.Path(".").glob("**/*"):
         if (
-            not file.match(".*")
+            not str(file).startswith(".")
             and not file.match(f"{pack_dir}/*")
             and not file.match(dest_zip)
         ):

@@ -196,6 +196,14 @@ Note: Your account must have access to the Streamlit in Snowflake private previe
 
     `snow streamlit deploy <name> -o`
 
+#### Deploy a packaged Streamlit app (temporary workaround)
+
+As at April 2023, you must provide a single file script to Streamlit, with an optional environment.yml file containing a list of Anaconda packages.
+
+By adding the `--use-packaging-workaround` parameter during `snow streamlit create` and `snow streamlit deploy`, you can have your directory packaged into an app.zip file with PyPi packages.
+
+A wrapper file will be generated as a Streamlit entrypoint, and it will download the app.zip from the stage, add it to the system path and import the original Streamlit script.
+
 ### Create a stored procedure
 
 See [Build a function](#build-a-function).
