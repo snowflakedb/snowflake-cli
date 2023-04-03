@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
 import click
 import toml
@@ -36,13 +37,18 @@ class AppConfig:
             toml.dump(self.config, f)
 
 
-def connectToSnowflake():
+def connectToSnowflake(connection: Optional[str] = None):  # type: ignore
     global snowflake_connection
     cfg = AppConfig()
     snowsql_config = SnowsqlConfig(path=cfg.config.get("snowsql_config_path"))
+
+    # If there's no user-provided connection then read
+    # the one specified by configuration file
+    connection = connection or cfg.config.get("snowsql_connection_name")
+
     snowflake_connection = SnowflakeConnector(
         snowsql_config,
-        cfg.config.get("snowsql_connection_name"),
+        connection,
     )
 
 
