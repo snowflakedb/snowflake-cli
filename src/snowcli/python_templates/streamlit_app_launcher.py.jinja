@@ -1,0 +1,19 @@
+from snowflake.snowpark.context import get_active_session
+import sys,os,zipfile,importlib
+import_dir = '/tmp/streamlit_app'
+if not os.path.exists(import_dir):
+    os.makedirs(import_dir, exist_ok=True)
+    session = get_active_session()
+    session.file.get(stage_location='{{stage_name}}',target_directory=import_dir)
+    if {{extract_zip}}:
+      with zipfile.ZipFile('app.zip', 'r') as myzip:
+          myzip.extractall(import_dir)
+      sys.path.append(import_dir)
+    else:
+      sys.path.append(f"{import_dir}/app.zip")
+    os.chdir(import_dir)
+
+if "{{main_module}}" in sys.modules:
+  importlib.reload(sys.modules["{{main_module}}"])
+else:
+  importlib.import_module("{{main_module}}")

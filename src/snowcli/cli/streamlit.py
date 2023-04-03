@@ -2,17 +2,28 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import typer
 from rich import print
 
 from snowcli import config
 from snowcli.config import AppConfig
-from snowcli.utils import print_db_cursor
+from snowcli.utils import (
+    generateStreamlitEnvironmentFile,
+    generateStreamlitPackageWrapper,
+    print_db_cursor,
+)
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 EnvironmentOption = typer.Option("dev", help="Environment name")
+
+from snowcli.cli.snowpark_shared import (
+    CheckAnacondaForPyPiDependancies,
+    PackageNativeLibrariesOption,
+    PyPiDownloadOption,
+    snowpark_package,
+)
 
 
 @app.command("list")
@@ -84,6 +95,11 @@ def streamlit_create(
         file_okay=True,
         help="Path to streamlit file",
     ),
+    use_packaging_workaround: bool = typer.Option(
+        False,
+        help="Set this flag to package all code and dependencies into a zip file. "
+        + "This should be considered a temporary workaround until native support is available.",
+    ),
 ):
     """
     Create a streamlit app named NAME.
@@ -98,7 +114,7 @@ def streamlit_create(
             role=env_conf.get("role"),
             warehouse=env_conf.get("warehouse"),
             name=name,
-            file=file.name,
+            file="streamlit_app_launcher.py" if use_packaging_workaround else file.name,
         )
         print_db_cursor(results)
 
@@ -173,6 +189,26 @@ def streamlit_deploy(
         "-o",
         help="Open streamlit in browser.",
     ),
+    use_packaging_workaround: bool = typer.Option(
+        False,
+        help="Set this flag to package all code and dependencies into a zip file. "
+        + "This should be considered a temporary workaround until native support is available.",
+    ),
+    packaging_workaround_includes_content: bool = typer.Option(
+        False,
+        help="Set this flag to unzip the package to the working directory. "
+        + "Use this if your directory contains non-code files that you need "
+        + "to access within your Streamlit app.",
+    ),
+    pypi_download: str = PyPiDownloadOption,
+    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
+    package_native_libraries: str = PackageNativeLibrariesOption,
+    excluded_anaconda_deps: str = typer.Option(
+        None,
+        help="Sometimes Streamlit fails to import an Anaconda package at runtime. "
+        + "Provide a comma-separated list of package names to exclude them from "
+        + "environment.yml (noting the risk of runtime errors).",
+    ),
 ):
     """
     Deploy streamlit with NAME.
@@ -184,6 +220,56 @@ def streamlit_deploy(
         schema = env_conf.get("schema")
         role = env_conf.get("role")
         database = env_conf.get("database")
+        if use_packaging_workaround:
+            # package an app.zip file, same as the other snowpark package commands
+            snowpark_package(
+                pypi_download,  # type: ignore[arg-type]
+                check_anaconda_for_pypi_deps,
+                package_native_libraries,  # type: ignore[arg-type]
+            )
+            # upload the resulting app.zip file
+            config.snowflake_connection.uploadFileToStage(
+                "app.zip",
+                f"{name}_stage",
+                "/",
+                role,
+                database,
+                schema,
+                overwrite=True,
+            )
+            main_module = str(file).replace(".py", "")
+            file = generateStreamlitPackageWrapper(
+                stage_name=f"{name}_stage",
+                main_module=main_module,
+                extract_zip=packaging_workaround_includes_content,
+            )
+            # upload the wrapper file
+            config.snowflake_connection.uploadFileToStage(
+                str(file),
+                f"{name}_stage",
+                "/",
+                role,
+                database,
+                schema,
+                overwrite=True,
+            )
+            # if the packaging process generated an environment.snowflake.txt
+            # file, convert it into an environment.yml file
+            excluded_anaconda_deps_list: Optional[List[str]] = None
+            if excluded_anaconda_deps is not None:
+                excluded_anaconda_deps_list = excluded_anaconda_deps.split(",")
+            env_file = generateStreamlitEnvironmentFile(excluded_anaconda_deps_list)
+            if env_file:
+                config.snowflake_connection.uploadFileToStage(
+                    str(env_file),
+                    f"{name}_stage",
+                    "/",
+                    role,
+                    database,
+                    schema,
+                    overwrite=True,
+                )
+
         base_url = config.snowflake_connection.deployStreamlit(
             name=name,
             file_path=str(file),
