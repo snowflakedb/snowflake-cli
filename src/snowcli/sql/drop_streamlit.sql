@@ -1,7 +1,7 @@
-use database {database};
-use schema {schema};
-use warehouse {warehouse};
+use database {{ database }};
+use schema {{ schema }};
+use warehouse {{ warehouse }};
 
-{drop_command}
+{{ drop_command }}
 
-drop streamlit "{name}";
+drop streamlit "{{ name }}";

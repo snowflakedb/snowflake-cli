@@ -1,0 +1,261 @@
+# serializer version: 1
+# name: test_createFunction
+  '''
+  use database databaseValue;
+  use schema schemaValue;
+  use warehouse warehouseValue;
+  CREATE OR REPLACE  FUNCTION nameValue(string a, variant b)
+           RETURNS returnTypeValue
+           LANGUAGE PYTHON
+           RUNTIME_VERSION=3.8
+           IMPORTS=('import1, import2')
+           HANDLER='handlerValue'
+           PACKAGES=('aaa','bbb');
+  describe function nameValue(a, b);
+  '''
+# ---
+# name: test_createProcedure
+  '''
+  use database databaseValue;
+  use schema schemaValue;
+  use warehouse warehouseValue;
+  
+  CREATE OR REPLACE  PROCEDURE nameValue(string a, variant b)
+           RETURNS returnTypeValue
+           LANGUAGE PYTHON
+           RUNTIME_VERSION=3.8
+           IMPORTS=('import1, import2')
+           HANDLER='handlerValue'
+           PACKAGES=('aaa','bbb')
+           EXECUTE AS CALLER;
+  
+  
+  describe PROCEDURE nameValue(a, b);
+  '''
+# ---
+# name: test_createStage
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  create stage if not exists nameValue;
+  '''
+# ---
+# name: test_createStreamlit
+  '''
+  use role roleValue;
+  use database databaseValue;
+  use schema schemaValue;
+  use warehouse warehouseValue;
+  
+  create or replace stage nameValue_stage;
+  
+  create streamlit nameValue
+    ROOT_LOCATION = @databaseValue.schemaValue.nameValue_stage
+    MAIN_FILE = '/fileValue'
+    QUERY_WAREHOUSE = warehouseValue;
+  
+  show streamlits;
+  describe streamlit nameValue;
+  '''
+# ---
+# name: test_deployStreamlit
+  '''
+  use database databaseValue;
+  use schema schemaValue;
+  use role roleValue;
+  
+  CALL SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('nameValue');
+  '''
+# ---
+# name: test_describeFunction
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  desc FUNCTION signatureValue;
+  '''
+# ---
+# name: test_describeProcedure
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  desc PROCEDURE signatureValue;
+  '''
+# ---
+# name: test_describeStreamlit
+  '''
+  use database databaseValue;
+  use schema schemaValue;
+  use role roleValue;
+  
+  CALL SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('nameValue');
+  '''
+# ---
+# name: test_dropFunction
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  drop function signatureValue;
+  '''
+# ---
+# name: test_dropProcedure
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  drop procedure signatureValue;
+  '''
+# ---
+# name: test_dropStage
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  drop stage nameValue;
+  '''
+# ---
+# name: test_dropStreamlit
+  '''
+  use database databaseValue;
+  use schema schemaValue;
+  use warehouse warehouseValue;
+  
+  drop stage "nameValue_STAGE";
+  
+  drop streamlit "nameValue";
+  '''
+# ---
+# name: test_executeFunction
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  select functionValue;
+  '''
+# ---
+# name: test_executeProcedure
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  call procedureValue;
+  '''
+# ---
+# name: test_getStage
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  get @nameValue file://pathValue/
+  '''
+# ---
+# name: test_listFunctions
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  show user functions like 'likeValue';
+  select "name", "created_on", "arguments", "language" from table(result_scan(last_query_id()));
+  '''
+# ---
+# name: test_listProcedures
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  show user procedures like 'likeValue';
+  select "name", "created_on", "arguments" from table(result_scan(last_query_id()));
+  '''
+# ---
+# name: test_listStage
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  ls @nameValue;
+  '''
+# ---
+# name: test_listStages
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  show stages;
+  '''
+# ---
+# name: test_listStreamlits
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  show streamlits;
+  '''
+# ---
+# name: test_putStage
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  put file://pathValue @nameValue auto_compress=false parallel=parallelValue overwrite=True;
+  '''
+# ---
+# name: test_removeFromStage
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  remove @nameValuepathValue
+  '''
+# ---
+# name: test_setProcedureComment
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  alter PROCEDURE signatureValue SET COMMENT = $$commentValue$$;
+  '''
+# ---
+# name: test_shareStreamlit
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  grant usage on streamlit nameValue to role to_roleValue;
+  '''
+# ---
+# name: test_showWarehouses
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  show warehouses;
+  '''
+# ---

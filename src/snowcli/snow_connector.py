@@ -3,11 +3,15 @@ from __future__ import annotations
 import os
 import pkgutil
 from io import StringIO
+from pathlib import Path
 
 import snowflake.connector
+from jinja2 import Environment, FileSystemLoader
 from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.snowsql_config import SnowsqlConfig
+
+TEMPLATES_PATH = Path(__file__).parent / "sql"
 
 
 class SnowflakeConnector:
@@ -617,17 +621,11 @@ class SnowflakeConnector:
         context,
         show_exceptions=True,
     ) -> SnowflakeCursor:
-        sql_bytes = pkgutil.get_data(__name__, f"sql/{command}.sql")
-        if sql_bytes is None:
-            raise Exception(f"The SQL file {command} cannot be found")
-        sql = sql_bytes.decode()
-        try:
-            # if sql starts with f###
-            if sql.startswith('f"""'):
-                sql = eval(sql, context)
-            else:
-                sql = sql.format(**context)
 
+        env = Environment(loader=FileSystemLoader(TEMPLATES_PATH))
+        template = env.get_template(f"{command}.sql")
+        sql = template.render(**context)
+        try:
             if os.getenv("DEBUG"):
                 print(f"Executing sql:\n{sql}")
             results = self.ctx.execute_stream(StringIO(sql))

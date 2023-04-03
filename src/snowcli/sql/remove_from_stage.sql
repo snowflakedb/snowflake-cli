@@ -1,6 +1,6 @@
-use role {role};
-use warehouse {warehouse};
-use database {database};
-use schema {schema};
+use role {{ role }};
+use warehouse {{ warehouse }};
+use database {{ database }};
+use schema {{ schema }};
 
-remove @{name}{path}
+remove @{{ name }}{{ path }}
