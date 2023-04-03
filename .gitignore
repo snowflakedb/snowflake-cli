@@ -10,5 +10,4 @@ build/
 dist/
 .idea
 .tox
-app.toml
 .packages
