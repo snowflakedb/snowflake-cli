@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import typer
 from rich import print
 from snowcli import config
@@ -35,4 +37,4 @@ def get_token(
             "token": token_data["data"]["sessionToken"],
             "expires_in": token_data["data"]["validityInSecondsST"],
         }
-        print("Session token for connection : \n", str(token))
+        print("Session token for connection : \n", json.dumps(token))

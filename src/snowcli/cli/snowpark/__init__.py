@@ -22,4 +22,4 @@ app.add_typer(compute_pools_app)
 app.add_typer(cp_app)
 app.add_typer(services_app)
 app.add_typer(jobs_app)  # type: ignore
-app.add_typer(registry_app)
+app.add_typer(registry_app)  # type: ignore
