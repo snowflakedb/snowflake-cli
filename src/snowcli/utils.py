@@ -302,6 +302,7 @@ def installPackages(
     package_name: str | None = None,
 ) -> tuple[bool, dict[str, list[str]] | None]:
     pip_install_result = None
+    second_chance_results = None
     if file_name is not None:
         try:
             process = subprocess.Popen(
