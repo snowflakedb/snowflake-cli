@@ -7,6 +7,7 @@ from snowcli.cli.snowpark.procedure import app as procedure_app
 from snowcli.cli.snowpark.cp import app as compute_pools_app, app_cp as cp_app
 from snowcli.cli.snowpark.services import app as services_app
 from snowcli.cli.snowpark.jobs import app as jobs_app
+from snowcli.cli.snowpark.registry import app as registry_app
 
 app = typer.Typer(
     name="snowpark",
@@ -21,3 +22,4 @@ app.add_typer(compute_pools_app)
 app.add_typer(cp_app)
 app.add_typer(services_app)
 app.add_typer(jobs_app)  # type: ignore
+app.add_typer(registry_app)

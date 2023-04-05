@@ -1,7 +1,4 @@
-import configparser
-import os
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -12,3 +9,5 @@ class ConnectionParams:
     host: str = "snowflakecomputing.com"
     port: int = 443
     protocol: str = "https"
+    # add a new parameter to support registry login
+    session_parameters: str = '{"PYTHON_CONNECTOR_QUERY_RESULT_FORMAT": "json"}'
