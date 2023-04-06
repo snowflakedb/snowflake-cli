@@ -60,3 +60,45 @@ def test_sql_fails_for_both_query_and_file(runner):
 
     assert result.exit_code == 1
     assert "Both query and file provided" in str(result)
+
+
+@mock.patch("snowcli.config.AppConfig")
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.cli.sql.config.isAuth")
+def test_sql_overrides_connection_configuration(_, mock_conn, mock_app_config, runner):
+    with NamedTemporaryFile() as tmp:
+        Path(tmp.name).write_text("[connections.fooConn]")
+
+        mock_app_config.return_value.config = {"snowsql_config_path": tmp.name}
+        result = runner.invoke(
+            [
+                "sql",
+                "-q",
+                "select 1",
+                "--connection",
+                "fooConn",
+                "--accountname",
+                "accountnameValue",
+                "--username",
+                "usernameValue",
+                "--dbname",
+                "dbnameValue",
+                "--schemaname",
+                "schemanameValue",
+                "--rolename",
+                "rolenameValue",
+                "--warehouse",
+                "warehouseValue",
+            ]
+        )
+
+    assert result.exit_code == 0
+    mock_conn.assert_called_once_with(
+        account="accountnameValue",
+        user="usernameValue",
+        warehouse="warehouseValue",
+        role="rolenameValue",
+        database="dbnameValue",
+        schema="schemanameValue",
+        application="SNOWCLI",
+    )

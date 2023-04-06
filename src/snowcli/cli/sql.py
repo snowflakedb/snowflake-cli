@@ -60,6 +60,28 @@ def execute_sql(
     connection: Optional[str] = typer.Option(
         None, "-c", "--connection", help="Connection to be used"
     ),
+    account: Optional[str] = typer.Option(
+        None,
+        "-a",
+        "--accountname",
+        "--account",
+        help="Name assigned to your Snowflake account.",
+    ),
+    user: Optional[str] = typer.Option(
+        None, "-u", "--username", "--user", help="Username to connect to Snowflake."
+    ),
+    database: Optional[str] = typer.Option(
+        None, "-d", "--dbname", "--database", help="Database to use."
+    ),
+    schema: Optional[str] = typer.Option(
+        None, "-s", "--schemaname", "--schema", help=" Schema in the database to use."
+    ),
+    role: Optional[str] = typer.Option(
+        None, "-r", "--rolename", "--role", help="Role to be used"
+    ),
+    warehouse: Optional[str] = typer.Option(
+        None, "-w", "--warehouse", help="Warehouse to use."
+    ),
     verbose: Optional[bool] = typer.Option(
         True, "-v", "--verbose", help="Prints information about executed queries"
     ),
@@ -93,7 +115,15 @@ def execute_sql(
     if not config.isAuth():
         raise ValueError("Not authorize")
 
-    config.connectToSnowflake(connection)
+    config.connectToSnowflake(
+        connection,
+        account=account,
+        user=user,
+        role=role,
+        warehouse=warehouse,
+        database=database,
+        schema=schema,
+    )
 
     table = Table(show_lines=True, box=box.ASCII, width=120)
     table.add_column("Query")
