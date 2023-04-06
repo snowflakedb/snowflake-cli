@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import pkgutil
 import sys
+from collections.abc import Container
 from pathlib import Path
 
 import typer
@@ -140,14 +142,22 @@ def default(
     """
 
 
-app.add_typer(function.app, name="function")
-app.add_typer(procedure.app, name="procedure")
-app.add_typer(streamlit.app, name="streamlit")
-app.add_typer(connection.app, name="connection")
-app.add_typer(warehouse.app, name="warehouse")
-app.add_typer(stage.app, name="stage")
-app.add_typer(package.app, name="package")
-app.add_typer(render.app, name="render")
+MODULE_IGNORE_SET = frozenset(("procedure_coverage",))
+
+
+def register_cli_typers(ignore_container: Container[str] = MODULE_IGNORE_SET) -> None:
+    for _, name, _ in pkgutil.walk_packages(__path__):
+        if name not in ignore_container:
+            cli_app = __import__(f"{__name__}.{name}", fromlist=["_trash"])
+            try:
+                app.add_typer(cli_app.app, name=name)
+            except AttributeError:
+                # Ignore modules that don't define app global
+                pass
+
+
+register_cli_typers()
+
 app.command("sql")(sql.execute_sql)
 
 
