@@ -525,9 +525,10 @@ def conf_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
             # Initialize the default map
             ctx.default_map = ctx.default_map or {}
             # if app_config has key 'default'
-            if "default" in app_config:
+            config_section = os.getenv("SNOWCLI_CONFIG_SECTION", "default")
+            if config_section in app_config:
                 ctx.default_map.update(
-                    app_config.get("default"),
+                    app_config.get(config_section),
                 )  # type: ignore
             if value in app_config:
                 # TODO: Merge the config dict into default_map
