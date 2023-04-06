@@ -4,6 +4,7 @@ import os
 import pkgutil
 from io import StringIO
 from pathlib import Path
+from typing import Optional
 
 import snowflake.connector
 from jinja2 import Environment, FileSystemLoader
@@ -17,19 +18,33 @@ TEMPLATES_PATH = Path(__file__).parent / "sql"
 class SnowflakeConnector:
     """Initialize a connection from a snowsql-formatted config"""
 
-    def __init__(self, snowsql_config: SnowsqlConfig, connection_name: str):
+    def __init__(
+        self,
+        snowsql_config: SnowsqlConfig,
+        connection_name: str,
+        overrides: Optional[dict] = None,
+    ):
         self.snowsql_config = snowsql_config
         self.connection_name = connection_name
         self.connection_config: dict = snowsql_config.get_connection(
             connection_name,
         )
+        if overrides:
+            for config, value in ((k, v) for k, v in overrides.items() if v):
+                self.connection_config[config] = value
+        print(self.connection_config)
         self.connection_config["application"] = "SNOWCLI"
         self.ctx = snowflake.connector.connect(**self.connection_config)
         self.cs = self.ctx.cursor()
 
     def __del__(self):
-        self.cs.close()
-        self.ctx.close()
+        try:
+            self.cs.close()
+            self.ctx.close()
+        except TypeError:
+            pass
+        else:
+            raise
 
     def getVersion(self):
         self.cs.execute("SELECT current_version()")

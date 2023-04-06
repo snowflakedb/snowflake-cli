@@ -37,7 +37,7 @@ class AppConfig:
             toml.dump(self.config, f)
 
 
-def connectToSnowflake(connection: Optional[str] = None):  # type: ignore
+def connectToSnowflake(connection: Optional[str] = None, **overrides):  # type: ignore
     global snowflake_connection
     cfg = AppConfig()
     snowsql_config = SnowsqlConfig(path=cfg.config.get("snowsql_config_path"))
@@ -47,8 +47,7 @@ def connectToSnowflake(connection: Optional[str] = None):  # type: ignore
     connection = connection or cfg.config.get("snowsql_connection_name")
 
     snowflake_connection = SnowflakeConnector(
-        snowsql_config,
-        connection,
+        snowsql_config, connection, overrides=overrides
     )
 
 
