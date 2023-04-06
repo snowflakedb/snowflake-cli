@@ -422,6 +422,11 @@ def recursiveZipPackagesDir(pack_dir: str, dest_zip: str) -> bool:
         ):
             zipf.write(os.path.relpath(file))
 
+    for file_path in os.getenv("SNOWCLI_EXTRA_LIBS", "").split(":"):
+        file = pathlib.Path(file_path)
+        if file.is_file():
+            zipf.write(file, arcname=os.path.basename(file))
+
     # close the zip file object
     zipf.close()
     return True
@@ -432,6 +437,11 @@ def standardZipDir(dest_zip: str) -> bool:
     for file in pathlib.Path(".").glob("*"):
         if not file.match(".*"):
             zipf.write(os.path.relpath(file))
+
+    for file_path in os.getenv("SNOWCLI_EXTRA_LIBS", "").split(":"):
+        file = pathlib.Path(file_path)
+        if file.is_file():
+            zipf.write(file, arcname=os.path.basename(file))
 
     # close the zip file object
     zipf.close()
