@@ -32,7 +32,6 @@ class SnowflakeConnector:
         if overrides:
             for config, value in ((k, v) for k, v in overrides.items() if v):
                 self.connection_config[config] = value
-        print(self.connection_config)
         self.connection_config["application"] = "SNOWCLI"
         self.ctx = snowflake.connector.connect(**self.connection_config)
         self.cs = self.ctx.cursor()
@@ -41,10 +40,8 @@ class SnowflakeConnector:
         try:
             self.cs.close()
             self.ctx.close()
-        except TypeError:
+        except (TypeError, AttributeError):
             pass
-        else:
-            raise
 
     def getVersion(self):
         self.cs.execute("SELECT current_version()")
