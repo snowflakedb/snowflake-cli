@@ -422,10 +422,16 @@ def recursiveZipPackagesDir(pack_dir: str, dest_zip: str) -> bool:
         ):
             zipf.write(os.path.relpath(file))
 
-    for file_path in os.getenv("SNOWCLI_EXTRA_LIBS", "").split(":"):
-        file = pathlib.Path(file_path)
-        if file.is_file():
-            zipf.write(file, arcname=os.path.basename(file))
+    for dir_path in os.getenv("SNOWCLI_INCLUDE_PATHS", "").split(":"):
+        directory = pathlib.Path(dir_path)
+        if directory.is_dir():
+            for file in pathlib.Path(directory).glob("**/*"):
+                if (
+                    not str(file).startswith(".")
+                    and not file.match("*.pyc")
+                    and not file.match("*__pycache__*")
+                ):
+                    zipf.write(file, arcname=os.path.relpath(file, directory))
 
     # close the zip file object
     zipf.close()
@@ -438,10 +444,16 @@ def standardZipDir(dest_zip: str) -> bool:
         if not file.match(".*"):
             zipf.write(os.path.relpath(file))
 
-    for file_path in os.getenv("SNOWCLI_EXTRA_LIBS", "").split(":"):
-        file = pathlib.Path(file_path)
-        if file.is_file():
-            zipf.write(file, arcname=os.path.basename(file))
+    for dir_path in os.getenv("SNOWCLI_INCLUDE_PATHS", "").split(":"):
+        directory = pathlib.Path(dir_path)
+        if directory.is_dir():
+            for file in pathlib.Path(directory).glob("**/*"):
+                if (
+                    not str(file).startswith(".")
+                    and not file.match("*.pyc")
+                    and not file.match("*__pycache__*")
+                ):
+                    zipf.write(file, arcname=os.path.relpath(file, directory))
 
     # close the zip file object
     zipf.close()
