@@ -29,15 +29,21 @@ class LiveOutput:
         self.table.add_row(*args)
         self.live.refresh()
 
+    def add_result_row(self, result):
+        self.table.add_row(str(result))
+        self.live.refresh()
+
 
 class LoggingCursor(SnowflakeCursor):
     def __init__(self, live_output: LiveOutput, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, use_dict_result=True, **kwargs)
         self.live_output = live_output
 
     def execute(self, command: str, *args, **kwargs):
         self.live_output.add_row(command)
-        super(LoggingCursor, self).execute(command, *args, **kwargs)
+        result = super(LoggingCursor, self).execute(command, *args, **kwargs)
+        for result in result.fetchall():
+            self.live_output.add_result_row(result)
 
 
 def execute_sql(
