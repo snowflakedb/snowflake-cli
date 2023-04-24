@@ -446,16 +446,17 @@ def standardZipDir(dest_zip: str) -> bool:
         if not file.match(".*"):
             zipf.write(os.path.relpath(file))
 
-    for dir_path in os.getenv("SNOWCLI_INCLUDE_PATHS", "").split(":"):
-        directory = pathlib.Path(dir_path)
-        if directory.is_dir():
-            for file in pathlib.Path(directory).glob("**/*"):
-                if (
-                    not str(file).startswith(".")
-                    and not file.match("*.pyc")
-                    and not file.match("*__pycache__*")
-                ):
-                    zipf.write(file, arcname=os.path.relpath(file, directory))
+    if os.getenv("SNOWCLI_INCLUDE_PATHS") is not None:
+        for dir_path in os.getenv("SNOWCLI_INCLUDE_PATHS", "").split(":"):
+            directory = pathlib.Path(dir_path)
+            if directory.is_dir():
+                for file in pathlib.Path(directory).glob("**/*"):
+                    if (
+                        not str(file).startswith(".")
+                        and not file.match("*.pyc")
+                        and not file.match("*__pycache__*")
+                    ):
+                        zipf.write(file, arcname=os.path.relpath(file, directory))
 
     # close the zip file object
     zipf.close()
