@@ -26,7 +26,7 @@ from snowcli.config import config_init
 from snowcli.output.formats import OutputFormat
 
 
-app = SnowCliMainTyper()
+app: SnowCliMainTyper = SnowCliMainTyper()
 log = logging.getLogger(__name__)
 
 

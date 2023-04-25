@@ -20,7 +20,6 @@ from snowcli.cli.common.flags import (
     RoleOption,
     WarehouseOption,
 )
-from snowcli.utils import check_for_connection
 
 
 class LiveOutput:
