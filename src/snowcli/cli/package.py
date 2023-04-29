@@ -43,7 +43,7 @@ def package_lookup(
         click.echo(f"Package {name} is available on the Snowflake anaconda channel.")
         if _run_nested:
             click.echo(
-                f"No need to create a package. Just include in your `packages` declaration."
+                "No need to create a package. Just include in your `packages` declaration."
             )
     else:
         if not install_packages:
