@@ -8,7 +8,7 @@ import typer
 
 from snowcli import config, utils
 from snowcli.config import AppConfig
-from snowcli.utils import conf_callback, generate_deploy_stage_name, print_db_cursor
+from snowcli.utils import conf_callback, generate_deploy_stage_name
 
 from . import app
 

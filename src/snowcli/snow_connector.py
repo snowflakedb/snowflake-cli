@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import pkgutil
 from io import StringIO
 from pathlib import Path
 from typing import Optional
