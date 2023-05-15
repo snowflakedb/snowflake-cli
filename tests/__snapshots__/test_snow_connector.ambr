@@ -127,6 +127,7 @@
 # ---
 # name: test_dropStreamlit
   '''
+  use role roleValue;
   use database databaseValue;
   use schema schemaValue;
   use warehouse warehouseValue;
