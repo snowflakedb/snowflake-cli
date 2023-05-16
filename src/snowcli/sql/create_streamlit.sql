@@ -6,7 +6,7 @@ use warehouse {{ warehouse }};
 create or replace stage {{ name }}_stage;
 
 create streamlit {{ name }}
-  ROOT_LOCATION = @{{ database }}.{{ schema }}.{{ name }}_stage
+  FROM @{{ database }}.{{ schema }}.{{ name }}_stage
   MAIN_FILE = '/{{ file_name }}'
   QUERY_WAREHOUSE = {{ warehouse }};
 
