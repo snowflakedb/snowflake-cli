@@ -12,3 +12,5 @@ create streamlit {{ name }}
 
 show streamlits;
 describe streamlit {{ name }};
+
+ALTER STREAMLIT {{ name }} CHECKOUT;

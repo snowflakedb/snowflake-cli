@@ -59,6 +59,8 @@
   
   show streamlits;
   describe streamlit nameValue;
+  
+  ALTER STREAMLIT nameValue CHECKOUT;
   '''
 # ---
 # name: test_deployStreamlit
