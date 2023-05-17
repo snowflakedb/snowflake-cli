@@ -3,8 +3,6 @@ use database {{ database }};
 use schema {{ schema }};
 use warehouse {{ warehouse }};
 
-create or replace stage {{ name }}_stage;
-
 create streamlit {{ name }}
   FROM @{{ database }}.{{ schema }}.{{ name }}_stage
   MAIN_FILE = '/{{ file_name }}'
@@ -13,4 +11,4 @@ create streamlit {{ name }}
 show streamlits;
 describe streamlit {{ name }};
 
-ALTER STREAMLIT {{ name }} CHECKOUT;
+alter streamlit {{ name }} checkout;
