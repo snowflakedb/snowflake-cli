@@ -4,8 +4,7 @@ use schema {{ schema }};
 use warehouse {{ warehouse }};
 
 create streamlit {{ name }}
-  FROM @{{ database }}.{{ schema }}.{{ name }}_stage
-  MAIN_FILE = '/{{ file_name }}'
+  MAIN_FILE = '{{ file_name }}'
   QUERY_WAREHOUSE = {{ warehouse }};
 
 show streamlits;
