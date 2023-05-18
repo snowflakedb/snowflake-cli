@@ -5,6 +5,7 @@ use warehouse {{ warehouse }};
 
 create streamlit {{ name }}
   MAIN_FILE = '{{ file_name }}'
+  {{ from_stage_command }}
   QUERY_WAREHOUSE = {{ warehouse }};
 
 show streamlits;

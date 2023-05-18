@@ -15,6 +15,14 @@ from snowcli.snowsql_config import SnowsqlConfig
 TEMPLATES_PATH = Path(__file__).parent / "sql"
 
 
+def get_standard_stage_name(name: str) -> str:
+    # Handle embedded stages
+    if name.startswith("snow://"):
+        return name
+
+    return f"@{name}"
+
+
 class SnowflakeConnector:
     """Initialize a connection from a snowsql-formatted config"""
 
@@ -276,6 +284,8 @@ class SnowflakeConnector:
         name,
         like="%%",
     ) -> SnowflakeCursor:
+        name = get_standard_stage_name(name)
+
         return self.runSql(
             "list_stage",
             {
@@ -297,6 +307,8 @@ class SnowflakeConnector:
         name,
         path,
     ) -> SnowflakeCursor:
+        name = get_standard_stage_name(name)
+
         return self.runSql(
             "get_stage",
             {
@@ -347,6 +359,8 @@ class SnowflakeConnector:
         overwrite: bool = False,
         parallel: int = 4,
     ) -> SnowflakeCursor:
+        name = get_standard_stage_name(name)
+
         return self.runSql(
             "put_stage",
             {
@@ -364,6 +378,8 @@ class SnowflakeConnector:
     def removeFromStage(
         self, database, schema, role, warehouse, name, path
     ) -> SnowflakeCursor:
+        name = get_standard_stage_name(name)
+
         return self.runSql(
             "remove_from_stage",
             {
@@ -514,6 +530,7 @@ class SnowflakeConnector:
         warehouse="",
         name="",
         file="",
+        from_stage_command="",
     ) -> SnowflakeCursor:
         return self.runSql(
             "create_streamlit",
@@ -524,6 +541,7 @@ class SnowflakeConnector:
                 "warehouse": warehouse,
                 "name": name,
                 "file_name": file,
+                "from_stage_command": from_stage_command,
             },
         )
 
@@ -557,7 +575,6 @@ class SnowflakeConnector:
         name="",
         drop_stage: bool = True,
     ) -> SnowflakeCursor:
-
         drop_command = f'drop stage "{name}_STAGE";' if drop_stage else ""
 
         return self.runSql(
@@ -582,10 +599,12 @@ class SnowflakeConnector:
         schema,
         overwrite,
     ):
+        stage_name = f"snow://streamlit/{database}.{schema}.{name}/default_checkout"
+
         """Upload main python file to stage and return url of streamlit"""
         self.uploadFileToStage(
             file_path,
-            f"{name}_stage",
+            stage_name,
             stage_path,
             role,
             database,
@@ -633,7 +652,6 @@ class SnowflakeConnector:
         context,
         show_exceptions=True,
     ) -> SnowflakeCursor:
-
         env = Environment(loader=FileSystemLoader(TEMPLATES_PATH))
         template = env.get_template(f"{command}.sql")
         sql = template.render(**context)

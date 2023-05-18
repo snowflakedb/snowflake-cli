@@ -95,6 +95,10 @@ def streamlit_create(
         file_okay=True,
         help="Path to streamlit file",
     ),
+    from_stage: Optional[str] = typer.Option(
+        None,
+        help="Stage name to copy streamlit file from",
+    ),
     use_packaging_workaround: bool = typer.Option(
         False,
         help="Set this flag to package all code and dependencies into a zip file. "
@@ -108,6 +112,17 @@ def streamlit_create(
 
     if config.isAuth():
         config.connectToSnowflake()
+        if from_stage:
+            if "." in from_stage:
+                full_stage_name = from_stage
+            else:
+                full_stage_name = (
+                    f"@{env_conf.get('database')}.{env_conf.get('schema')}.{from_stage}"
+                )
+            from_stage_command = f"FROM @{full_stage_name}"
+        else:
+            from_stage_command = ""
+
         results = config.snowflake_connection.createStreamlit(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
@@ -115,6 +130,7 @@ def streamlit_create(
             warehouse=env_conf.get("warehouse"),
             name=name,
             file="streamlit_app_launcher.py" if use_packaging_workaround else file.name,
+            from_stage_command=from_stage_command,
         )
         print_db_cursor(results)
 

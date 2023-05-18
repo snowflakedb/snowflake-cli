@@ -1,6 +1,7 @@
 import textwrap
 from unittest import mock
 
+import pytest
 from snowcli.snow_connector import SnowflakeConnector
 
 
@@ -175,8 +176,11 @@ def test_listStages(_, snapshot):
     assert query.getvalue() == snapshot
 
 
+@pytest.mark.parametrize(
+    "stage_name", [("namedStageValue"), ("snow://embeddedStageValue")]
+)
 @mock.patch("snowflake.connector")
-def test_listStage(_, snapshot):
+def test_listStage(_, snapshot, stage_name):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -187,15 +191,18 @@ def test_listStage(_, snapshot):
         schema="schemaValue",
         role="roleValue",
         warehouse="warehouseValue",
-        name="nameValue",
+        name=stage_name,
         like="likeValue",
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
     assert query.getvalue() == snapshot
 
 
+@pytest.mark.parametrize(
+    "stage_name", [("namedStageValue"), ("snow://embeddedStageValue")]
+)
 @mock.patch("snowflake.connector")
-def test_getStage(_, snapshot):
+def test_getStage(_, snapshot, stage_name):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -206,7 +213,7 @@ def test_getStage(_, snapshot):
         schema="schemaValue",
         role="roleValue",
         warehouse="warehouseValue",
-        name="nameValue",
+        name=stage_name,
         path="pathValue",
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
@@ -235,8 +242,11 @@ def test_setProcedureComment(_, snapshot):
     assert query.getvalue() == snapshot
 
 
+@pytest.mark.parametrize(
+    "stage_name", [("namedStageValue"), ("snow://embeddedStageValue")]
+)
 @mock.patch("snowflake.connector")
-def test_putStage(_, snapshot):
+def test_putStage(_, snapshot, stage_name):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -247,7 +257,7 @@ def test_putStage(_, snapshot):
         schema="schemaValue",
         role="roleValue",
         warehouse="warehouseValue",
-        name="nameValue",
+        name=stage_name,
         path="pathValue",
         overwrite=True,
         parallel="parallelValue",
@@ -256,8 +266,11 @@ def test_putStage(_, snapshot):
     assert textwrap.dedent(query.getvalue()) == snapshot
 
 
+@pytest.mark.parametrize(
+    "stage_name", [("namedStageValue"), ("snow://embeddedStageValue")]
+)
 @mock.patch("snowflake.connector")
-def test_removeFromStage(_, snapshot):
+def test_removeFromStage(_, snapshot, stage_name):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -268,8 +281,8 @@ def test_removeFromStage(_, snapshot):
         schema="schemaValue",
         role="roleValue",
         warehouse="warehouseValue",
-        name="nameValue",
-        path="pathValue",
+        name=stage_name,
+        path="/pathValue",
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
     assert query.getvalue() == snapshot
@@ -414,6 +427,26 @@ def test_createStreamlit(_, snapshot):
         warehouse="warehouseValue",
         name="nameValue",
         file="fileValue",
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@mock.patch("snowflake.connector")
+def test_createStreamlitFromStage(_, snapshot):
+    connector = SnowflakeConnector(
+        connection_name="foo", snowsql_config=mock.MagicMock()
+    )
+    connector.ctx.execute_stream.return_value = (None, None)
+
+    connector.createStreamlit(
+        database="databaseValue",
+        schema="schemaValue",
+        role="roleValue",
+        warehouse="warehouseValue",
+        name="nameValue",
+        file="fileValue",
+        from_stage_command="FROM @stageValue",
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
     assert query.getvalue() == snapshot
