@@ -51,8 +51,8 @@
   use warehouse warehouseValue;
   
   create streamlit nameValue
-    MAIN_FILE = 'fileValue'
     
+    MAIN_FILE = 'fileValue'
     QUERY_WAREHOUSE = warehouseValue;
   
   show streamlits;
@@ -69,8 +69,8 @@
   use warehouse warehouseValue;
   
   create streamlit nameValue
-    MAIN_FILE = 'fileValue'
     FROM @stageValue
+    MAIN_FILE = 'fileValue'
     QUERY_WAREHOUSE = warehouseValue;
   
   show streamlits;

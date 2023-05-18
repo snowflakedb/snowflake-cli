@@ -26,6 +26,14 @@ from snowcli.cli.snowpark_shared import (
 )
 
 
+def get_standard_stage_name(name: str) -> str:
+    # Handle embedded stages
+    if name.startswith("snow://"):
+        return name
+
+    return f"@{name}"
+
+
 @app.command("list")
 def streamlit_list(
     environment: str = EnvironmentOption,
@@ -117,9 +125,10 @@ def streamlit_create(
                 full_stage_name = from_stage
             else:
                 full_stage_name = (
-                    f"@{env_conf.get('database')}.{env_conf.get('schema')}.{from_stage}"
+                    f"{env_conf.get('database')}.{env_conf.get('schema')}.{from_stage}"
                 )
-            from_stage_command = f"FROM @{full_stage_name}"
+            standard_page_name = get_standard_stage_name(full_stage_name)
+            from_stage_command = f"FROM {standard_page_name}"
         else:
             from_stage_command = ""
 
