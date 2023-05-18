@@ -7,6 +7,7 @@ name = "snowflake-cli-labs"
 dynamic = ["version"]
 requires-python = ">=3.8"
 description = "Snowflake CLI"
+readme = "README.md"
 dependencies = [
   "snowflake-connector-python[secure-local-storage]",
   "requirements-parser",
