@@ -484,7 +484,6 @@ def test_dropStreamlit(_, snapshot):
         role="roleValue",
         warehouse="warehouseValue",
         name="nameValue",
-        drop_stage="drop_stageValue",
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
     assert query.getvalue() == snapshot

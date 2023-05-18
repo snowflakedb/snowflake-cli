@@ -573,10 +573,7 @@ class SnowflakeConnector:
         role="",
         warehouse="",
         name="",
-        drop_stage: bool = True,
     ) -> SnowflakeCursor:
-        drop_command = f'drop stage "{name}_STAGE";' if drop_stage else ""
-
         return self.runSql(
             "drop_streamlit",
             {
@@ -585,7 +582,6 @@ class SnowflakeConnector:
                 "role": role,
                 "warehouse": warehouse,
                 "name": name,
-                "drop_command": drop_command,
             },
         )
 

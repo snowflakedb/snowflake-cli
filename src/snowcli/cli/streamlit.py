@@ -165,10 +165,6 @@ def streamlit_share(
 def streamlit_drop(
     environment: str = EnvironmentOption,
     name: str = typer.Argument(..., help="Name of streamlit to be deleted."),
-    drop_stage: bool = typer.Option(
-        True,
-        help="Drop the stage associated with the streamlit app",
-    ),
 ):
     """
     Create a streamlit app named NAME.
@@ -183,7 +179,6 @@ def streamlit_drop(
             role=env_conf.get("role"),
             warehouse=env_conf.get("warehouse"),
             name=name,
-            drop_stage=drop_stage,
         )
         print_db_cursor(results)
 

@@ -148,9 +148,6 @@
   use database databaseValue;
   use schema schemaValue;
   use warehouse warehouseValue;
-  
-  drop stage "nameValue_STAGE";
-  
   drop streamlit "nameValue";
   '''
 # ---
