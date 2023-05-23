@@ -11,3 +11,5 @@ dist/
 .idea
 .tox
 .packages
+.mypy_cache
+.ruff_cache

@@ -99,28 +99,27 @@ def parse_anaconda_packages(packages: list[str]) -> dict:
     response = requests.get(url)
     snowflakePackages = []
     otherPackages = []
-    if response.status_code == 200:
-        channel_data = response.json()
-        for package in packages:
-            # pip package names are case insensitive,
-            # Anaconda package names are lowercased
-            if package.lower() in channel_data["packages"]:
-                snowflakePackages.append(
-                    f"{package}",
-                )
-            else:
-                click.echo(
-                    f'"{package}" not found in Snowflake anaconda channel...',
-                )
-                otherPackages.append(package)
-        # As at April 2023, streamlit appears unavailable in the Snowflake Anaconda channel
-        # but actually works if specified in the environment
-        if "streamlit" in otherPackages:
-            otherPackages.remove("streamlit")
-        return {"snowflake": snowflakePackages, "other": otherPackages}
-    else:
+    if response.status_code is not 200:
         click.echo(f"Error: {response.status_code}")
         return {}
+    channel_data_packages = response.json().get("packages")
+    for package in packages:
+        # pip package names are case insensitive,
+        # Anaconda package names are lowercased
+        if package.lower() in channel_data_packages:
+            snowflakePackages.append(
+                f"{package}",
+            )
+        else:
+            click.echo(
+                f'"{package}" not found in Snowflake Anaconda channel...',
+            )
+            otherPackages.append(package)
+    # As at April 2023, streamlit appears unavailable in the Snowflake Anaconda channel
+    # but actually works if specified in the environment
+    if "streamlit" in otherPackages:
+        otherPackages.remove("streamlit")
+    return {"snowflake": snowflakePackages, "other": otherPackages}
 
 
 def generate_streamlit_environment_file(

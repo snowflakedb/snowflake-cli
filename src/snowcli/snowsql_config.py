@@ -7,10 +7,11 @@ import os
 class SnowsqlConfig:
     def __init__(self, path="~/.snowsql/config"):
         self.path = path
+        self.expanded_path = os.path.expanduser(path)
         self.config = configparser.ConfigParser(
             inline_comment_prefixes="#", interpolation=None
         )
-        self.config.read(os.path.expanduser(path))
+        self.config.read(self.expanded_path)
 
     def get_connection(self, connection_name):
         connection = self.config["connections." + connection_name]
@@ -26,5 +27,6 @@ class SnowsqlConfig:
         for (k, v) in entry.items():
             connection[k] = v
 
-        with open(os.path.expanduser(self.path), "w+") as f:
+    def write(self):
+        with open(self.expanded_path, "w+") as f:
             self.config.write(f)

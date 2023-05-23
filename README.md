@@ -94,9 +94,7 @@ If you do not want to install SnowSQL, you can add Snowflake account credentials
 
 1. In your home directory, make `.snowsql` directory with a `config` file:
 
-   `mkdir .snowsql`
-   `cd .snowsql`
-   `touch config`
+   `mkdir -p ~/.snowsql && touch ~/.snowsql/config`
 
 2. Open the config file for editing:
 
