@@ -36,7 +36,7 @@ def package_lookup(
     """
     Check to see if a package is available on the Snowflake anaconda channel.
     """
-    packageResponse = utils.parseAnacondaPackages([name])
+    packageResponse = utils.parse_anaconda_packages([name])
     ## if list has any items
 
     if len(packageResponse["snowflake"]) > 0:
@@ -53,7 +53,7 @@ def package_lookup(
             )
         if install_packages:
             packages_string = None
-            status, results = utils.installPackages(
+            status, results = utils.install_packages(
                 perform_anaconda_check=True, package_name=name, file_name=None
             )
             if status and results is not None and len(results["snowflake"]) > 0:
@@ -85,7 +85,7 @@ def package_create(
     """
     results_string = package_lookup(name, install_packages, _run_nested=True)
     if os.path.exists(".packages"):
-        utils.recursiveZipPackagesDir(".packages", name + ".zip")
+        utils.recursive_zip_packages_dir(".packages", name + ".zip")
         rmtree(".packages")
         click.echo(
             f"\n\nPackage {name}.zip created. You can now upload it to a stage (`snow package upload -f {name}.zip -s packages`) and reference it in your procedure or function."
@@ -131,7 +131,7 @@ def package_upload(
         config.connectToSnowflake()
         click.echo(f"Uploading {file} to Snowflake @{stage}/{file}...")
         with tempfile.TemporaryDirectory() as temp_dir:
-            temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
+            temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
             deploy_response = config.snowflake_connection.uploadFileToStage(
                 file_path=temp_app_zip_path,
                 destination_stage=stage,

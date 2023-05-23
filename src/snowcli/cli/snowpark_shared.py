@@ -59,7 +59,7 @@ def snowpark_create(
         raise typer.Abort()
     if config.isAuth():
         config.connectToSnowflake()
-        deploy_dict = utils.getDeployNames(
+        deploy_dict = utils.get_deploy_names(
             env_conf["database"],
             env_conf["schema"],
             generate_deploy_stage_name(
@@ -70,7 +70,7 @@ def snowpark_create(
         print("Uploading deployment file to stage...")
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
+            temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
             if install_coverage_wrapper:
                 handler = replace_handler_in_zip(
                     proc_name=name,
@@ -90,7 +90,7 @@ def snowpark_create(
                 overwrite=overwrite,
                 role=env_conf["role"],
             )
-        packages = utils.getSnowflakePackages()
+        packages = utils.get_snowflake_packages()
         if install_coverage_wrapper:
             # if we're installing a coverage wrapper, ensure the coverage package included as a dependency
             if "coverage" not in packages:
@@ -185,7 +185,7 @@ def snowpark_update(
                     show_exceptions=False,
                 )
             print("Checking if any new packages to update...")
-            resource_json = utils.convertResourceDetailsToDict(
+            resource_json = utils.convert_resource_details_to_dict(
                 resource_details,
             )  # type: ignore
             anaconda_packages = resource_json["packages"]
@@ -197,7 +197,7 @@ def snowpark_update(
                 "Checking if any packages defined or missing from "
                 "requirements.snowflake.txt...",
             )
-            updatedPackageList = utils.getSnowflakePackagesDelta(
+            updatedPackageList = utils.get_snowflake_packages_delta(
                 anaconda_packages,
             )
             if install_coverage_wrapper:
@@ -224,13 +224,13 @@ def snowpark_update(
             replace = True
 
         finally:
-            deploy_dict = utils.getDeployNames(
+            deploy_dict = utils.get_deploy_names(
                 env_conf["database"],
                 env_conf["schema"],
                 generate_deploy_stage_name(name, input_parameters),
             )
             with tempfile.TemporaryDirectory() as temp_dir:
-                temp_app_zip_path = utils.prepareAppZip(file, temp_dir)
+                temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
                 stage_path = deploy_dict["directory"] + "/coverage"
                 if install_coverage_wrapper:
                     handler = replace_handler_in_zip(
@@ -270,7 +270,7 @@ def snowpark_update(
                         role=env_conf["role"],
                         warehouse=env_conf["warehouse"],
                         overwrite=True,
-                        packages=utils.getSnowflakePackages(),
+                        packages=utils.get_snowflake_packages(),
                     )
                 elif type == "procedure":
                     config.snowflake_connection.createProcedure(
@@ -284,7 +284,7 @@ def snowpark_update(
                         role=env_conf["role"],
                         warehouse=env_conf["warehouse"],
                         overwrite=True,
-                        packages=utils.getSnowflakePackages(),
+                        packages=utils.get_snowflake_packages(),
                         execute_as_caller=execute_as_caller,
                     )
                 print(
@@ -315,7 +315,7 @@ def replace_handler_in_zip(
         )
         raise typer.Abort()
     wrapper_file = os.path.join(temp_dir, "snowpark_coverage.py")
-    utils.generateSnowparkCoverageWrapper(
+    utils.generate_snowpark_coverage_wrapper(
         target_file=wrapper_file,
         proc_name=proc_name,
         proc_signature=proc_signature,
@@ -324,7 +324,7 @@ def replace_handler_in_zip(
         handler_module=handler_parts[0],
         handler_function=handler_parts[1],
     )
-    utils.addFileToExistingZip(zip_file=zip_file_path, other_file=wrapper_file)
+    utils.add_file_to_existing_zip(zip_file=zip_file_path, other_file=wrapper_file)
     return "snowpark_coverage.measure_coverage"
 
 
@@ -334,11 +334,11 @@ def snowpark_package(
     package_native_libraries: YesNoAskOptionsType,
 ):
     print("Resolving any requirements from requirements.txt...")
-    requirements = utils.parseRequirements()
+    requirements = utils.parse_requirements()
     pack_dir: str = None  # type: ignore
     if requirements:
         print("Comparing provided packages from Snowflake Anaconda...")
-        parsedRequirements = utils.parseAnacondaPackages(requirements)
+        parsedRequirements = utils.parse_anaconda_packages(requirements)
         if not parsedRequirements["other"]:
             print("No packages to manually resolve")
         if parsedRequirements["other"]:
@@ -358,7 +358,7 @@ def snowpark_package(
             )
             if do_download:
                 print("Installing non-Anaconda packages...")
-                should_pack, second_chance_results = utils.installPackages(
+                should_pack, second_chance_results = utils.install_packages(
                     "requirements.other.txt",
                     check_anaconda_for_pypi_deps,
                     package_native_libraries,
@@ -383,11 +383,11 @@ def snowpark_package(
                 for package in sorted(list(set(parsedRequirements["snowflake"]))):
                     f.write(package + "\n")
         if pack_dir:
-            utils.recursiveZipPackagesDir(pack_dir, "app.zip")
+            utils.recursive_zip_packages_dir(pack_dir, "app.zip")
         else:
-            utils.standardZipDir("app.zip")
+            utils.standard_zip_dir("app.zip")
     else:
-        utils.standardZipDir("app.zip")
+        utils.standard_zip_dir("app.zip")
     print("\n\nDeployment package now ready: app.zip")
 
 
