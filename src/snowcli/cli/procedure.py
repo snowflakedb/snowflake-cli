@@ -176,7 +176,11 @@ def procedure_update(
         help="Wraps the procedure with a code coverage measurement tool, so that a coverage report can be later retrieved.",
     ),
 ):
-    (pypi_download, check_anaconda_for_pypi_deps, package_native_libraries)
+    snowpark_package(
+        pypi_download,  # type: ignore[arg-type]
+        check_anaconda_for_pypi_deps,
+        package_native_libraries,  # type: ignore[arg-type]
+    )
     snowpark_update(
         "procedure",
         environment,
