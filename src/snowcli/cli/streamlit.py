@@ -10,8 +10,8 @@ from rich import print
 from snowcli import config
 from snowcli.config import AppConfig
 from snowcli.utils import (
-    generateStreamlitEnvironmentFile,
-    generateStreamlitPackageWrapper,
+    generate_streamlit_environment_file,
+    generate_streamlit_package_wrapper,
     print_db_cursor,
 )
 
@@ -258,7 +258,7 @@ def streamlit_deploy(
                 overwrite=True,
             )
             main_module = str(file).replace(".py", "")
-            file = generateStreamlitPackageWrapper(
+            file = generate_streamlit_package_wrapper(
                 stage_name=f"{name}_stage",
                 main_module=main_module,
                 extract_zip=packaging_workaround_includes_content,
@@ -278,7 +278,7 @@ def streamlit_deploy(
             excluded_anaconda_deps_list: Optional[List[str]] = None
             if excluded_anaconda_deps is not None:
                 excluded_anaconda_deps_list = excluded_anaconda_deps.split(",")
-            env_file = generateStreamlitEnvironmentFile(excluded_anaconda_deps_list)
+            env_file = generate_streamlit_environment_file(excluded_anaconda_deps_list)
             if env_file:
                 config.snowflake_connection.uploadFileToStage(
                     str(env_file),
