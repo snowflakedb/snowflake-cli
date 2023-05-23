@@ -44,7 +44,7 @@ def yes_no_ask_callback(value: str):
     return value
 
 
-def getDeployNames(database, schema, name) -> dict:
+def get_deploy_names(database, schema, name) -> dict:
     stage = f"{database}.{schema}.deployments"
     path = f"/{name.lower()}/app.zip"
     directory = f"/{name.lower()}"
@@ -59,15 +59,16 @@ def getDeployNames(database, schema, name) -> dict:
 # create a temporary directory, copy the file_path to it and rename to app.zip
 
 
-def prepareAppZip(file_path, temp_dir) -> str:
+def prepare_app_zip(file_path, temp_dir) -> str:
     # get filename from file path (e.g. app.zip from /path/to/app.zip)
-    # TODO: think if no file exceptions are handled correctlyń    file_name = os.path.basename(file_path)
+    # TODO: think if no file exceptions are handled correctly
+    file_name = os.path.basename(file_path)
     temp_path = temp_dir + "/" + file_name
     shutil.copy(file_path, temp_path)
     return temp_path
 
 
-def parseRequirements(requirements_file: str = "requirements.txt") -> list[str]:
+def parse_requirements(requirements_file: str = "requirements.txt") -> list[str]:
     """Reads and parses a python requirements.txt file.
 
     Args:
@@ -94,7 +95,7 @@ def parseRequirements(requirements_file: str = "requirements.txt") -> list[str]:
 # CURRENTLY DOES NOT SUPPORT PINNING TO VERSIONS
 
 
-def parseAnacondaPackages(packages: list[str]) -> dict:
+def parse_anaconda_packages(packages: list[str]) -> dict:
     url = "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
     response = requests.get(url)
     snowflakePackages = []
@@ -123,7 +124,7 @@ def parseAnacondaPackages(packages: list[str]) -> dict:
         return {}
 
 
-def generateStreamlitEnvironmentFile(
+def generate_streamlit_environment_file(
     excluded_anaconda_deps: Optional[List[str]],
 ) -> Optional[Path]:
     """Creates an environment.yml file for streamlit deployment, if a Snowflake
@@ -155,7 +156,7 @@ def generateStreamlitEnvironmentFile(
     return None
 
 
-def generateStreamlitPackageWrapper(
+def generate_streamlit_package_wrapper(
     stage_name: str, main_module: str, extract_zip: bool
 ) -> Path:
     """Uses a jinja template to generate a streamlit wrapper.
@@ -176,7 +177,7 @@ def generateStreamlitPackageWrapper(
     return target_file
 
 
-def getDownloadedPackageNames() -> dict[str, list[str]]:
+def get_downloaded_package_names() -> dict[str, list[str]]:
     """Returns a dict of official package names mapped to the files/folders
     that belong to it under the .packages directory.
 
@@ -188,7 +189,7 @@ def getDownloadedPackageNames() -> dict[str, list[str]]:
     return_dict = {}
     for metadata_file in metadata_files:
         parent_folder = os.path.dirname(metadata_file)
-        package_name = getPackageNameFromMetadata(metadata_file)
+        package_name = get_package_name_from_metadata(metadata_file)
         if package_name is not None:
             # since we found a package name, we can now look at the RECORD
             # file (a sibling of METADATA) to determine which files and
@@ -226,7 +227,7 @@ def getDownloadedPackageNames() -> dict[str, list[str]]:
     return return_dict
 
 
-def getPackageNameFromMetadata(metadata_file_path: str) -> str | None:
+def get_package_name_from_metadata(metadata_file_path: str) -> str | None:
     """Loads a METADATA file from the dist-info directory of an installed
     Python package, finds the name of the package.
     This is found on a line containing "Name: my_package".
@@ -245,7 +246,7 @@ def getPackageNameFromMetadata(metadata_file_path: str) -> str | None:
         return results.group(1)
 
 
-def generateSnowparkCoverageWrapper(
+def generate_snowpark_coverage_wrapper(
     target_file: str,
     proc_name: str,
     proc_signature: str,
@@ -284,7 +285,7 @@ def generateSnowparkCoverageWrapper(
         output_file.write(content)
 
 
-def addFileToExistingZip(zip_file: str, other_file: str):
+def add_file_to_existing_zip(zip_file: str, other_file: str):
     """Adds another file to an existing zip file
 
     Args:
@@ -295,7 +296,7 @@ def addFileToExistingZip(zip_file: str, other_file: str):
         myzip.write(other_file, os.path.basename(other_file))
 
 
-def installPackages(
+def install_packages(
     file_name: str | None,
     perform_anaconda_check: bool = True,
     package_native_libraries: YesNoAskOptionsType = "ask",
@@ -348,10 +349,10 @@ def installPackages(
         # it's not over just yet. a non-Anaconda package may have brought in
         # a package available on Anaconda.
         # use each folder's METADATA file to determine its real name
-        downloaded_packages = getDownloadedPackageNames()
+        downloaded_packages = get_downloaded_package_names()
         click.echo(f"Downloaded packages: {downloaded_packages.values()}")
         # look for all the downloaded packages on the Anaconda channel
-        second_chance_results = parseAnacondaPackages(
+        second_chance_results = parse_anaconda_packages(
             list(downloaded_packages.keys()),
         )
         second_chance_snowflake_packages = second_chance_results["snowflake"]
@@ -406,7 +407,7 @@ def installPackages(
         return True, second_chance_results
 
 
-def recursiveZipPackagesDir(pack_dir: str, dest_zip: str) -> bool:
+def recursive_zip_packages_dir(pack_dir: str, dest_zip: str) -> bool:
     # create a zip file object
     zipf = zipfile.ZipFile(dest_zip, "w", zipfile.ZIP_DEFLATED, allowZip64=True)
 
@@ -440,7 +441,7 @@ def recursiveZipPackagesDir(pack_dir: str, dest_zip: str) -> bool:
     return True
 
 
-def standardZipDir(dest_zip: str) -> bool:
+def standard_zip_dir(dest_zip: str) -> bool:
     zipf = zipfile.ZipFile(dest_zip, "w", zipfile.ZIP_DEFLATED, allowZip64=True)
     for file in pathlib.Path(".").glob("*"):
         if not file.match(".*"):
@@ -463,7 +464,7 @@ def standardZipDir(dest_zip: str) -> bool:
     return True
 
 
-def getSnowflakePackages() -> list[str]:
+def get_snowflake_packages() -> list[str]:
     if os.path.exists("requirements.snowflake.txt"):
         with open("requirements.snowflake.txt", encoding="utf-8") as f:
             return [line.strip() for line in f]
@@ -471,7 +472,7 @@ def getSnowflakePackages() -> list[str]:
         return []
 
 
-def getSnowflakePackagesDelta(anaconda_packages) -> list[str]:
+def get_snowflake_packages_delta(anaconda_packages) -> list[str]:
     updatedPackageList = []
     if os.path.exists("requirements.snowflake.txt"):
         with open("requirements.snowflake.txt", encoding="utf-8") as f:
@@ -485,7 +486,7 @@ def getSnowflakePackagesDelta(anaconda_packages) -> list[str]:
         return updatedPackageList
 
 
-def convertResourceDetailsToDict(function_details: list[tuple]) -> dict:
+def convert_resource_details_to_dict(function_details: list[tuple]) -> dict:
     function_dict = {}
     json_properties = ["packages", "installed_packages"]
     for function in function_details:

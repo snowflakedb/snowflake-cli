@@ -1,4 +1,5 @@
 # test_utils.py
+import os
 
 bad_arguments_for_yesnoask = ['Yes', 'No', 'Ask', 'yse', 42, 'and_now_for_something_completely_different']
 
