@@ -33,7 +33,6 @@ def test_createFunction(_, snapshot):
     )
     query_io, *_ = connector.ctx.execute_stream.call_args.args
     query_str = query_io.getvalue()
-    print(custom_str(query_str))
     assert custom_str(query_str) == snapshot
 
 
