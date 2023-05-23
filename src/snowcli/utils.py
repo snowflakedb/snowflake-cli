@@ -61,7 +61,7 @@ def getDeployNames(database, schema, name) -> dict:
 
 def prepareAppZip(file_path, temp_dir) -> str:
     # get filename from file path (e.g. app.zip from /path/to/app.zip)
-    file_name = os.path.basename(file_path)
+    # TODO: think if no file exceptions are handled correctlyń    file_name = os.path.basename(file_path)
     temp_path = temp_dir + "/" + file_name
     shutil.copy(file_path, temp_path)
     return temp_path
