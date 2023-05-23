@@ -10,8 +10,8 @@ from tests.unit.test_data.test_data import *
 
 class TestUtils:
     def setup_class(self):
-        print(os.getcwd())
-        print('**************************************')
+        self.temp_directory = self.create_temp_test_directory()
+        self.create_correct_app_zip()
 
     @pytest.mark.parametrize('argument', utils.YesNoAskOptions)
     def test_yes_no_ask_callback_with_correct_argument(self, argument: str):
@@ -35,9 +35,15 @@ class TestUtils:
         result = utils.prepare_app_zip('app.zip', path)
         assert result == path + 'app.zip'
 
-    @staticmethod
-    def create_correct_app_zip() -> str:
-        path = os.getcwd() + 'app.zip'
+    def create_correct_app_zip(self) -> str:
+        path = os.path.join(self.temp_directory, 'app.zip')
         dummy_file = open(path, 'w')
         dummy_file.close()
+        print('*********')
+        return path
+
+    @staticmethod
+    def create_temp_test_directory() -> str:
+        path = os.path.join(os.getcwd(),'.tests')
+        os.mkdir(path)
         return path
