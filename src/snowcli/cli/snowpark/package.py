@@ -13,6 +13,7 @@ from snowcli import config, utils
 from snowcli.config import AppConfig
 
 app = typer.Typer(
+    name="package",
     context_settings={"help_option_names": ["-h", "--help"]},
     help="Manage custom Python packages for Snowpark",
 )

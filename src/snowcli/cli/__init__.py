@@ -8,20 +8,16 @@ from pathlib import Path
 import typer
 from rich import print
 
-from .. import __about__
-from ..config import AppConfig
-from ..snowsql_config import SnowsqlConfig
-from . import (
+from snowcli import __about__
+from snowcli.cli import (
     connection,
-    function,
-    package,
-    procedure,
     render,
     sql,
-    stage,
     streamlit,
-    warehouse,
 )
+from snowcli.cli.snowpark import app as snowpark_app
+from snowcli.config import AppConfig
+from snowcli.snowsql_config import SnowsqlConfig
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 
@@ -159,6 +155,7 @@ def register_cli_typers(ignore_container: Container[str] = MODULE_IGNORE_SET) ->
 register_cli_typers()
 
 app.command("sql")(sql.execute_sql)
+app.add_typer(snowpark_app)
 
 
 if __name__ == "__main__":
