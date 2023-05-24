@@ -33,6 +33,7 @@ PIP_PATH = os.environ.get("SNOWCLI_PIP_PATH", "pip")
 templates_path = os.path.join(Path(__file__).parent, "python_templates")
 
 
+#TODO: add typing to all functions
 def yes_no_ask_callback(value: str):
     """
     A typer callback to handle yes/no/ask parameters

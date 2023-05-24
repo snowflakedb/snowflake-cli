@@ -15,3 +15,15 @@ positive_arguments_for_deploy_names = [
 positive_arguments_for_prepareappzip = [
     (('c:\\app.zip','temp'), 'c:\\temp\\app.zip')
 ]
+
+requirements = [
+    'pytest==1.0.0',
+    'Django==3.2.1',
+    'awesome_lib==3.3.3'
+]
+
+packages = [
+    'snowflake-connector-python',
+    'snowflake-snowpark-python',
+    'my-totally-awesome-package'
+]

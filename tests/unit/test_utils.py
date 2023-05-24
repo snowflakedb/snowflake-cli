@@ -1,9 +1,10 @@
 import pytest
-from shutil import rmtree
 import typer
 
+from shutil import rmtree
 from snowcli import utils
 from tests.unit.test_data.test_data import *
+
 
 # TODO: check for consistency in using ' or "
 
@@ -25,27 +26,51 @@ class TestUtils:
     def test_get_deploy_names_correct(self, arguments: tuple[tuple[str, str, str], dict]):
         result = utils.get_deploy_names(*arguments[0])
         assert result == arguments[1]
+
     # TODO: think what you can break in getDeployNames
 
     def test_prepare_app_zip(self, temp_test_directory, correct_app_zip, temp_directory_for_app_zip):
-        result = utils.prepare_app_zip(correct_app_zip, temp_directory_for_app_zip )
+        result = utils.prepare_app_zip(correct_app_zip, temp_directory_for_app_zip)
         assert result == temp_directory_for_app_zip + '/app.zip'
 
-    def test_prepare_app_zip_if_exception_is_raised_if_no_source(self,temp_directory_for_app_zip):
+    def test_prepare_app_zip_if_exception_is_raised_if_no_source(self, temp_directory_for_app_zip):
         with pytest.raises(FileNotFoundError) as expected_error:
             utils.prepare_app_zip('/non/existent/path', temp_directory_for_app_zip)
         assert expected_error.value.errno == 2
         assert expected_error.type == FileNotFoundError
 
-    def test_prepare_app_zip_if_exception_is_raised_if_no_dst(self,correct_app_zip):
+    def test_prepare_app_zip_if_exception_is_raised_if_no_dst(self, correct_app_zip):
         with pytest.raises(FileNotFoundError) as expected_error:
             utils.prepare_app_zip(correct_app_zip, '/non/existent/path')
         assert expected_error.value.errno == 2
         assert expected_error.type == FileNotFoundError
 
-# Setup functions
-# These functions are used to set up files and directories used in tests
-# and delete them, after the tests are performed
+    def test_parse_requierements_with_correct_file(self, correct_requirements_txt):
+        result = utils.parse_requirements(correct_requirements_txt)
+        assert len(result) == len(requirements)
+
+    def test_parse_requirements_with_nonexistent_file(self, temp_test_directory):
+        path = os.path.join(temp_test_directory, 'non_existent.file')
+        result = utils.parse_requirements(path)
+        assert result == []
+
+    def test_anaconda_packages(self):
+        anaconda_packages = utils.parse_anaconda_packages(packages)
+        assert 'snowflake' in anaconda_packages.keys()
+        assert 'other' in anaconda_packages.keys()
+        assert len(anaconda_packages.get('other')) == 1
+        assert len(anaconda_packages.get('snowflake')) == 2
+        # TODO: above tests relies on correct response from anaconda.com - shouldn`t it be mocked?
+
+    def test_anaconda_packages_with_incorrect_response(self, requests_mock):
+        requests_mock.get('https://repo.anaconda.com/pkgs/snowflake/channeldata.json', status_code=404)
+        result = utils.parse_anaconda_packages(packages)
+        assert result == {}
+
+    # Setup functions
+    # These functions are used to set up files and directories used in tests
+    # and delete them, after the tests are performed
+
     @pytest.fixture
     def temp_test_directory(self) -> str:
         path = os.path.join(os.getcwd(), '.tests').lower()
@@ -55,8 +80,8 @@ class TestUtils:
         rmtree(path)
 
     @pytest.fixture
-    def temp_directory_for_app_zip(self,temp_test_directory):
-        path = os.path.join(temp_test_directory,'temp_dir')
+    def temp_directory_for_app_zip(self, temp_test_directory):
+        path = os.path.join(temp_test_directory, 'temp_dir')
         os.mkdir(path)
         yield path
 
@@ -67,3 +92,10 @@ class TestUtils:
         dummy_file.close()
         yield path
 
+    @pytest.fixture
+    def correct_requirements_txt(self, temp_test_directory):
+        path = os.path.join(temp_test_directory, 'requirements.txt')
+        with open(path, 'w') as req_file:
+            for req in requirements:
+                req_file.writelines(req + '\n')
+        yield path
