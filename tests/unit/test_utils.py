@@ -60,12 +60,25 @@ class TestUtils:
         assert 'other' in anaconda_packages.keys()
         assert len(anaconda_packages.get('other')) == 1
         assert len(anaconda_packages.get('snowflake')) == 2
-        # TODO: above tests relies on correct response from anaconda.com - shouldn`t it be mocked?
+
+    def test_anaconda_packages_streamlit(self):
+        packages.append('streamlit==1.2.3')
+        anaconda_packages = utils.parse_anaconda_packages(packages)
+        assert 'snowflake' in anaconda_packages.keys()
+        assert 'other' in anaconda_packages.keys()
+        assert 'streamlit' not in anaconda_packages.get('other')
+        # TODO: above tests rely on correct response from anaconda.com - shouldn`t it be mocked?
 
     def test_anaconda_packages_with_incorrect_response(self, requests_mock):
         requests_mock.get('https://repo.anaconda.com/pkgs/snowflake/channeldata.json', status_code=404)
         result = utils.parse_anaconda_packages(packages)
         assert result == {}
+
+    def test_generate_streamlit_environment_file(self):
+        pass
+
+
+
 
     # Setup functions
     # These functions are used to set up files and directories used in tests
@@ -99,3 +112,4 @@ class TestUtils:
             for req in requirements:
                 req_file.writelines(req + '\n')
         yield path
+
