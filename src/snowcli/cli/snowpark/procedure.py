@@ -8,6 +8,7 @@ from shutil import copytree
 import pkg_resources
 import typer
 
+from snowcli.cli.snowpark.procedure_coverage import app as procedure_coverage_app
 from snowcli.cli.snowpark_shared import (
     CheckAnacondaForPyPiDependancies,
     PackageNativeLibrariesOption,
@@ -22,16 +23,16 @@ from snowcli.cli.snowpark_shared import (
 )
 from snowcli.utils import conf_callback
 
-from . import procedure_coverage
-
-app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
+app = typer.Typer(
+    name="procedure", context_settings={"help_option_names": ["-h", "--help"]}
+)
 EnvironmentOption = typer.Option(
     "dev",
     help="Environment name",
     callback=conf_callback,
     is_eager=True,
 )
-app.add_typer(procedure_coverage.app, name="coverage")
+app.add_typer(procedure_coverage_app)
 
 
 @app.command("init")

@@ -9,7 +9,9 @@ from snowcli import config
 from snowcli.config import AppConfig
 from snowcli.utils import print_db_cursor
 
-app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
+app = typer.Typer(
+    name="stage", context_settings={"help_option_names": ["-h", "--help"]}
+)
 EnvironmentOption = typer.Option("dev", help="Environment name")
 
 
@@ -49,7 +51,7 @@ def stage_get(
     environment: str = EnvironmentOption,
     name: str = typer.Argument(..., help="Stage name"),
     path: Path = typer.Argument(
-        Path("."),
+        Path.cwd(),
         exists=False,
         file_okay=True,
         dir_okay=True,
