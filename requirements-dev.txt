@@ -1,5 +1,5 @@
 pytest==7.2.0
-syrupy==4.0.1
+syrupy==4.0.2
 tox==3.27.1
 pre-commit
 requests_mock==1.10.0

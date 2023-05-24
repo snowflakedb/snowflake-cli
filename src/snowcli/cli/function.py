@@ -142,7 +142,7 @@ def function_update(
     replace: bool = typer.Option(
         False,
         "--replace-always",
-        "-r",
+        "-a",
         help="Replace function, even if no detected changes to metadata",
     ),
 ):

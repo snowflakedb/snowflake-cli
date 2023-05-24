@@ -4,22 +4,38 @@ build-backend = "hatchling.build"
 
 [project]
 name = "snowflake-cli-labs"
+author = "Snowflake, Inc"
+license = "Apache-2.0"
+license_files = ["LICENSE"]
 dynamic = ["version"]
 requires-python = ">=3.8"
 description = "Snowflake CLI"
+readme = "README.md"
 dependencies = [
-  "snowflake-connector-python[secure-local-storage]",
-  "requirements-parser",
-  "toml",
-  "pyyaml",
-  "typer",
-  "rich",
+  "coverage",
   "jinja2",
-  "coverage"
+  "pyyaml",
+  "requirements-parser",
+  "rich",
+  "snowflake-connector-python[secure-local-storage]",
+  "toml",
+  "typer"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Information Technology",
+  "Intended Audience :: System Administrators",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: SQL",
+  "Topic :: Database"
 ]
 
 [project.urls]
 "Source code" = "https://github.com/Snowflake-Labs/snowcli"
+"Bug Tracker" = "https://github.com/Snowflake-Labs/snowcli/issues"
 
 [project.scripts]
 snow = "snowcli.cli:app"
