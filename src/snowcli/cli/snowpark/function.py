@@ -22,27 +22,26 @@ from snowcli.cli.snowpark_shared import (
 )
 from snowcli.utils import conf_callback
 
-from . import procedure_coverage
-
-app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
+app = typer.Typer(
+    name="function", context_settings={"help_option_names": ["-h", "--help"]}
+)
 EnvironmentOption = typer.Option(
     "dev",
     help="Environment name",
     callback=conf_callback,
     is_eager=True,
 )
-app.add_typer(procedure_coverage.app, name="coverage")
 
 
 @app.command("init")
-def procedure_init():
+def function_init():
     """
-    Initialize this directory with a sample set of files to create a procedure.
+    Initialize this directory with a sample set of files to create a function.
     """
     copytree(
         pkg_resources.resource_filename(
             "templates",
-            "default_procedure",
+            "default_function",
         ),
         f"{os.getcwd()}",
         dirs_exist_ok=True,
@@ -50,16 +49,16 @@ def procedure_init():
 
 
 @app.command("create")
-def procedure_create(
+def function_create(
     environment: str = EnvironmentOption,
     pypi_download: str = PyPiDownloadOption,
-    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
+    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     name: str = typer.Option(
         ...,
         "--name",
         "-n",
-        help="Name of the procedure",
+        help="Name of the function",
     ),
     file: Path = typer.Option(
         "app.zip",
@@ -90,17 +89,7 @@ def procedure_create(
         False,
         "--overwrite",
         "-o",
-        help="Replace if existing procedure",
-    ),
-    execute_as_caller: bool = typer.Option(
-        False,
-        "--execute-as-caller",
-        help="Execute as caller",
-    ),
-    install_coverage_wrapper: bool = typer.Option(
-        False,
-        "--install-coverage-wrapper",
-        help="Wraps the procedure with a code coverage measurement tool, so that a coverage report can be later retrieved.",
+        help="Replace if existing function",
     ),
 ):
     snowpark_package(
@@ -109,31 +98,24 @@ def procedure_create(
         package_native_libraries,  # type: ignore[arg-type]
     )
     snowpark_create(
-        "procedure",
-        environment,
-        name,
-        file,
-        handler,
-        input_parameters,
-        return_type,
-        overwrite,
-        execute_as_caller,
-        install_coverage_wrapper,
+        type="function",
+        environment=environment,
+        name=name,
+        file=file,
+        handler=handler,
+        input_parameters=input_parameters,
+        return_type=return_type,
+        overwrite=overwrite,
     )
 
 
 @app.command("update")
-def procedure_update(
+def function_update(
     environment: str = EnvironmentOption,
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
-    name: str = typer.Option(
-        ...,
-        "--name",
-        "-n",
-        help="Name of the procedure",
-    ),
+    name: str = typer.Option(..., "--name", "-n", help="Name of the function"),
     file: Path = typer.Option(
         "app.zip",
         "--file",
@@ -162,37 +144,29 @@ def procedure_update(
     replace: bool = typer.Option(
         False,
         "--replace-always",
-        "-r",
-        help="Replace procedure, even if no detected changes to metadata",
-    ),
-    execute_as_caller: bool = typer.Option(
-        False,
-        "--execute-as-caller",
-        help="Execute as caller",
-    ),
-    install_coverage_wrapper: bool = typer.Option(
-        False,
-        "--install-coverage-wrapper",
-        help="Wraps the procedure with a code coverage measurement tool, so that a coverage report can be later retrieved.",
+        "-a",
+        help="Replace function, even if no detected changes to metadata",
     ),
 ):
-    (pypi_download, check_anaconda_for_pypi_deps, package_native_libraries)
+    snowpark_package(
+        pypi_download,  # type: ignore[arg-type]
+        check_anaconda_for_pypi_deps,
+        package_native_libraries,  # type: ignore[arg-type]
+    )
     snowpark_update(
-        "procedure",
-        environment,
-        name,
-        file,
-        handler,
-        input_parameters,
-        return_type,
-        replace,
-        execute_as_caller,
-        install_coverage_wrapper,
+        type="function",
+        environment=environment,
+        name=name,
+        file=file,
+        handler=handler,
+        input_parameters=input_parameters,
+        return_type=return_type,
+        replace=replace,
     )
 
 
 @app.command("package")
-def procedure_package(
+def function_package(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
@@ -205,61 +179,61 @@ def procedure_package(
 
 
 @app.command("execute")
-def procedure_execute(
+def function_execute(
     environment: str = EnvironmentOption,
-    select: str = typer.Option(
+    function: str = typer.Option(
         ...,
-        "--procedure",
-        "-p",
-        help="Procedure with inputs. E.g. 'hello(int, string)'. Must exactly match those provided when creating the procedure.",
+        "--function",
+        "-f",
+        help="Function with inputs. E.g. 'hello(int, string)'",
     ),
 ):
-    snowpark_execute("procedure", environment, select)
+    snowpark_execute(type="function", environment=environment, select=function)
 
 
 @app.command("describe")
-def procedure_describe(
+def function_describe(
     environment: str = EnvironmentOption,
-    name: str = typer.Option("", "--name", "-n", help="Name of the procedure"),
+    name: str = typer.Option("", "--name", "-n", help="Name of the function"),
     input_parameters: str = typer.Option(
         "",
         "--input-parameters",
         "-i",
         help="Input parameters - such as (message string, count int)",
     ),
-    signature: str = typer.Option(
+    function: str = typer.Option(
         "",
-        "--procedure",
-        "-p",
-        help="Procedure signature with inputs. E.g. 'hello(int, string)'",
+        "--function",
+        "-f",
+        help="Function signature with inputs. E.g. 'hello(int, string)'",
     ),
 ):
     snowpark_describe(
-        "procedure",
-        environment,
-        name,
-        input_parameters,
-        signature,
+        type="function",
+        environment=environment,
+        name=name,
+        input_parameters=input_parameters,
+        signature=function,
     )
 
 
 @app.command("list")
-def procedure_list(
+def function_list(
     environment: str = EnvironmentOption,
     like: str = typer.Option(
         "%%",
         "--like",
         "-l",
-        help='Filter procedures by name - e.g. "hello%"',
+        help='Filter functions by name - e.g. "hello%"',
     ),
 ):
-    snowpark_list("procedure", environment, like=like)
+    snowpark_list("function", environment, like=like)
 
 
 @app.command("drop")
-def procedure_drop(
+def function_drop(
     environment: str = EnvironmentOption,
-    name: str = typer.Option("", "--name", "-n", help="Name of the procedure"),
+    name: str = typer.Option("", "--name", "-n", help="Name of the function"),
     input_parameters: str = typer.Option(
         "",
         "--input-parameters",
@@ -270,7 +244,7 @@ def procedure_drop(
         "",
         "--procedure",
         "-p",
-        help="Procedure signature with inputs. E.g. 'hello(int, string)'",
+        help="Function signature with inputs. E.g. 'hello(int, string)'",
     ),
 ):
-    snowpark_drop("procedure", environment, name, input_parameters, signature)
+    snowpark_drop("function", environment, name, input_parameters, signature)
