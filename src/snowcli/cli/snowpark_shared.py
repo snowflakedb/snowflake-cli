@@ -57,7 +57,7 @@ def snowpark_create(
             """You cannot install a code coverage wrapper on a function, only a procedure."""
         )
         raise typer.Abort()
-    if config.isAuth():
+    if config.is_auth():
         config.connect_to_snowflake()
         deploy_dict = utils.get_deploy_names(
             env_conf["database"],
@@ -159,7 +159,7 @@ def snowpark_update(
             """You cannot install a code coverage wrapper on a function, only a procedure."""
         )
         raise typer.Abort()
-    if config.isAuth():
+    if config.is_auth():
         config.connect_to_snowflake()
         updatedPackageList = []
         try:
@@ -394,7 +394,7 @@ def snowpark_package(
 def snowpark_execute(type: str, environment: str, select: str):
     env_conf = AppConfig().config.get(environment)
     validate_configuration(env_conf, environment)
-    if config.isAuth():
+    if config.is_auth():
         config.connect_to_snowflake()
         if type == "function":
             results = config.snowflake_connection.executeFunction(
@@ -427,7 +427,7 @@ def snowpark_describe(
     env_conf = AppConfig().config.get(environment)
     validate_configuration(env_conf, environment)
 
-    if config.isAuth():
+    if config.is_auth():
         config.connect_to_snowflake()
         if signature == "":
             if name == "" and input_parameters == "":
@@ -465,7 +465,7 @@ def snowpark_describe(
 def snowpark_list(type, environment, like):
     env_conf = AppConfig().config.get(environment)
     validate_configuration(env_conf, environment)
-    if config.isAuth():
+    if config.is_auth():
         config.connect_to_snowflake()
         if type == "function":
             results = config.snowflake_connection.listFunctions(
@@ -498,7 +498,7 @@ def snowpark_drop(
     env_conf = AppConfig().config.get(environment)
     validate_configuration(env_conf, environment)
 
-    if config.isAuth():
+    if config.is_auth():
         config.connect_to_snowflake()
         if signature == "":
             if name == "" and input_parameters == "":

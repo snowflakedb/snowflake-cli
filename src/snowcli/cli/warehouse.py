@@ -20,7 +20,7 @@ def warehouse_status(environment: str = EnvironmentOption):
     """
     env_conf = AppConfig().config.get(environment)
 
-    if config.isAuth():
+    if config.is_auth():
         config.connect_to_snowflake()
         results = config.snowflake_connection.showWarehouses(
             database=env_conf.get("database"),

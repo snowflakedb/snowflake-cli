@@ -128,7 +128,7 @@ def package_upload(
             "yet, please run `snow configure` first before continuing.",
         )
         raise typer.Abort()
-    if config.isAuth():
+    if config.is_auth():
         config.connect_to_snowflake()
         click.echo(f"Uploading {file} to Snowflake @{stage}/{file}...")
         with tempfile.TemporaryDirectory() as temp_dir:

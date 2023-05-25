@@ -63,7 +63,7 @@ def procedure_coverage_report(
             "yet, please run `snow configure -e dev` first before continuing.",
         )
         raise typer.Abort()
-    if config.isAuth():
+    if config.is_auth():
         config.connect_to_snowflake()
         deploy_dict = utils.get_deploy_names(
             env_conf["database"],

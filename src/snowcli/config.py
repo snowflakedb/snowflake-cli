@@ -51,7 +51,7 @@ def connect_to_snowflake(connection: Optional[str] = None, **overrides):  # type
     )
 
 
-def isAuth():
+def is_auth():
     cfg = AppConfig()
     if "snowsql_config_path" not in cfg.config:
         click.echo("You must login first with `snow login`")
