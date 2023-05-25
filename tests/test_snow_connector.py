@@ -18,7 +18,7 @@ def test_createFunction(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.createFunction(
+    connector.create_function(
         name="nameValue",
         inputParameters="(string a, variant b)",
         returnType="returnTypeValue",
@@ -43,7 +43,7 @@ def test_createProcedure(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.createProcedure(
+    connector.create_procedure(
         name="nameValue",
         inputParameters="(string a, variant b)",
         returnType="returnTypeValue",
@@ -68,7 +68,7 @@ def test_executeFunction(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.executeFunction(
+    connector.execute_function(
         function="functionValue",
         database="databaseValue",
         schema="schemaValue",
@@ -86,7 +86,7 @@ def test_executeProcedure(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.executeProcedure(
+    connector.execute_procedure(
         procedure="procedureValue",
         database="databaseValue",
         schema="schemaValue",
@@ -104,7 +104,7 @@ def test_describeFunction(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.describeFunction(
+    connector.describe_function(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -125,7 +125,7 @@ def test_describeProcedure(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.describeProcedure(
+    connector.describe_procedure(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -146,7 +146,7 @@ def test_listFunctions(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.listFunctions(
+    connector.list_functions(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -164,7 +164,7 @@ def test_listStages(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.listStages(
+    connector.list_stages(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -185,7 +185,7 @@ def test_listStage(_, snapshot, stage_name):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.listStage(
+    connector.list_stage(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -207,7 +207,7 @@ def test_getStage(_, snapshot, stage_name):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.getStage(
+    connector.get_stage(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -251,7 +251,7 @@ def test_putStage(_, snapshot, stage_name):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.putStage(
+    connector.put_stage(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -275,7 +275,7 @@ def test_removeFromStage(_, snapshot, stage_name):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.removeFromStage(
+    connector.remove_from_stage(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -294,7 +294,7 @@ def test_createStage(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.createStage(
+    connector.create_stage(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -312,7 +312,7 @@ def test_dropStage(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.dropStage(
+    connector.drop_stage(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -330,7 +330,7 @@ def test_listProcedures(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.listProcedures(
+    connector.list_procedures(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -348,7 +348,7 @@ def test_dropFunction(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.dropFunction(
+    connector.drop_function(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -366,7 +366,7 @@ def test_dropProcedure(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.dropProcedure(
+    connector.drop_procedure(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -384,7 +384,7 @@ def test_listStreamlits(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.listStreamlits(
+    connector.list_streamlits(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -401,7 +401,7 @@ def test_showWarehouses(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.showWarehouses(
+    connector.show_warehouses(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -419,7 +419,7 @@ def test_createStreamlit(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.createStreamlit(
+    connector.create_streamlit(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -438,7 +438,7 @@ def test_createStreamlitFromStage(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.createStreamlit(
+    connector.create_streamlit(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -458,7 +458,7 @@ def test_shareStreamlit(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.shareStreamlit(
+    connector.share_streamlit(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -477,7 +477,7 @@ def test_dropStreamlit(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.dropStreamlit(
+    connector.drop_streamlit(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
@@ -494,9 +494,9 @@ def test_deployStreamlit(_, snapshot):
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
     connector.ctx.execute_stream.return_value = (mock.MagicMock(),)
-    connector.uploadFileToStage = mock.MagicMock()
+    connector.upload_file_to_stage = mock.MagicMock()
 
-    connector.deployStreamlit(
+    connector.deploy_streamlit(
         name="nameValue",
         file_path="file_pathValue",
         stage_path="stage_pathValue",
@@ -516,7 +516,7 @@ def test_describeStreamlit(_, snapshot):
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.describeStreamlit(
+    connector.describe_streamlit(
         name="nameValue",
         database="databaseValue",
         schema="schemaValue",

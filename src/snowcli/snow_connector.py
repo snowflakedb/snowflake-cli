@@ -55,7 +55,7 @@ class SnowflakeConnector:
         self.cs.execute("SELECT current_version()")
         return self.cs.fetchone()[0]
 
-    def createFunction(
+    def create_function(
         self,
         name: str,
         inputParameters: str,
@@ -69,7 +69,7 @@ class SnowflakeConnector:
         overwrite: bool,
         packages: list[str],
     ) -> SnowflakeCursor:
-        return self.runSql(
+        return self.run_sql(
             "create_function",
             {
                 "database": database,
@@ -89,7 +89,7 @@ class SnowflakeConnector:
             },
         )
 
-    def createProcedure(
+    def create_procedure(
         self,
         name: str,
         inputParameters: str,
@@ -104,7 +104,7 @@ class SnowflakeConnector:
         packages: list[str],
         execute_as_caller: bool,
     ) -> SnowflakeCursor:
-        return self.runSql(
+        return self.run_sql(
             "create_procedure",
             {
                 "database": database,
@@ -125,7 +125,7 @@ class SnowflakeConnector:
             },
         )
 
-    def uploadFileToStage(
+    def upload_file_to_stage(
         self,
         file_path,
         destination_stage,
@@ -149,7 +149,7 @@ class SnowflakeConnector:
         )
         return self.cs.fetchone()
 
-    def executeFunction(
+    def execute_function(
         self,
         function,
         database,
@@ -157,7 +157,7 @@ class SnowflakeConnector:
         role,
         warehouse,
     ) -> SnowflakeCursor:
-        return self.runSql(
+        return self.run_sql(
             "execute_function",
             {
                 "database": database,
@@ -168,7 +168,7 @@ class SnowflakeConnector:
             },
         )
 
-    def executeProcedure(
+    def execute_procedure(
         self,
         procedure,
         database,
@@ -176,7 +176,7 @@ class SnowflakeConnector:
         role,
         warehouse,
     ) -> SnowflakeCursor:
-        return self.runSql(
+        return self.run_sql(
             "call_procedure",
             {
                 "database": database,
@@ -187,7 +187,7 @@ class SnowflakeConnector:
             },
         )
 
-    def describeFunction(
+    def describe_function(
         self,
         database,
         schema,
@@ -200,7 +200,7 @@ class SnowflakeConnector:
     ) -> SnowflakeCursor:
         if signature is None and name and inputParameters:
             signature = name + self.generate_signature_from_params(inputParameters)
-        return self.runSql(
+        return self.run_sql(
             "describe_function",
             {
                 "database": database,
@@ -212,7 +212,7 @@ class SnowflakeConnector:
             show_exceptions,
         )
 
-    def describeProcedure(
+    def describe_procedure(
         self,
         database,
         schema,
@@ -225,7 +225,7 @@ class SnowflakeConnector:
     ) -> SnowflakeCursor:
         if signature is None and name and inputParameters:
             signature = name + self.generate_signature_from_params(inputParameters)
-        return self.runSql(
+        return self.run_sql(
             "describe_procedure",
             {
                 "database": database,
@@ -237,7 +237,7 @@ class SnowflakeConnector:
             show_exceptions,
         )
 
-    def listFunctions(
+    def list_functions(
         self,
         database,
         schema,
@@ -245,7 +245,7 @@ class SnowflakeConnector:
         warehouse,
         like="%%",
     ) -> SnowflakeCursor:
-        return self.runSql(
+        return self.run_sql(
             "list_functions",
             {
                 "database": database,
@@ -256,7 +256,7 @@ class SnowflakeConnector:
             },
         )
 
-    def listStages(
+    def list_stages(
         self,
         database,
         schema,
@@ -264,7 +264,7 @@ class SnowflakeConnector:
         warehouse,
         like="%%",
     ) -> SnowflakeCursor:
-        return self.runSql(
+        return self.run_sql(
             "list_stages",
             {
                 "database": database,
@@ -275,7 +275,7 @@ class SnowflakeConnector:
             },
         )
 
-    def listStage(
+    def list_stage(
         self,
         database,
         schema,
@@ -286,7 +286,7 @@ class SnowflakeConnector:
     ) -> SnowflakeCursor:
         name = get_standard_stage_name(name)
 
-        return self.runSql(
+        return self.run_sql(
             "list_stage",
             {
                 "database": database,
@@ -298,7 +298,7 @@ class SnowflakeConnector:
             },
         )
 
-    def getStage(
+    def get_stage(
         self,
         database,
         schema,
@@ -309,7 +309,7 @@ class SnowflakeConnector:
     ) -> SnowflakeCursor:
         name = get_standard_stage_name(name)
 
-        return self.runSql(
+        return self.run_sql(
             "get_stage",
             {
                 "database": database,
@@ -335,7 +335,7 @@ class SnowflakeConnector:
     ) -> SnowflakeCursor:
         if signature is None and name and inputParameters:
             signature = name + self.generate_signature_from_params(inputParameters)
-        return self.runSql(
+        return self.run_sql(
             "set_procedure_comment",
             {
                 "database": database,
@@ -348,7 +348,7 @@ class SnowflakeConnector:
             show_exceptions,
         )
 
-    def putStage(
+    def put_stage(
         self,
         database,
         schema,
@@ -361,7 +361,7 @@ class SnowflakeConnector:
     ) -> SnowflakeCursor:
         name = get_standard_stage_name(name)
 
-        return self.runSql(
+        return self.run_sql(
             "put_stage",
             {
                 "database": database,
@@ -375,12 +375,12 @@ class SnowflakeConnector:
             },
         )
 
-    def removeFromStage(
+    def remove_from_stage(
         self, database, schema, role, warehouse, name, path
     ) -> SnowflakeCursor:
         name = get_standard_stage_name(name)
 
-        return self.runSql(
+        return self.run_sql(
             "remove_from_stage",
             {
                 "database": database,
@@ -392,7 +392,7 @@ class SnowflakeConnector:
             },
         )
 
-    def createStage(
+    def create_stage(
         self,
         database,
         schema,
@@ -400,7 +400,7 @@ class SnowflakeConnector:
         warehouse,
         name,
     ) -> SnowflakeCursor:
-        return self.runSql(
+        return self.run_sql(
             "create_stage",
             {
                 "database": database,
@@ -411,7 +411,7 @@ class SnowflakeConnector:
             },
         )
 
-    def dropStage(
+    def drop_stage(
         self,
         database,
         schema,
@@ -419,7 +419,7 @@ class SnowflakeConnector:
         warehouse,
         name,
     ) -> SnowflakeCursor:
-        return self.runSql(
+        return self.run_sql(
             "drop_stage",
             {
                 "database": database,
@@ -430,7 +430,7 @@ class SnowflakeConnector:
             },
         )
 
-    def listProcedures(
+    def list_procedures(
         self,
         database,
         schema,
@@ -438,7 +438,7 @@ class SnowflakeConnector:
         warehouse,
         like="%%",
     ) -> SnowflakeCursor:
-        return self.runSql(
+        return self.run_sql(
             "list_procedures",
             {
                 "database": database,
@@ -449,7 +449,7 @@ class SnowflakeConnector:
             },
         )
 
-    def dropFunction(
+    def drop_function(
         self,
         database,
         schema,
@@ -457,7 +457,7 @@ class SnowflakeConnector:
         warehouse,
         signature,
     ) -> SnowflakeCursor:
-        return self.runSql(
+        return self.run_sql(
             "drop_function",
             {
                 "database": database,
@@ -468,7 +468,7 @@ class SnowflakeConnector:
             },
         )
 
-    def dropProcedure(
+    def drop_procedure(
         self,
         database,
         schema,
@@ -476,7 +476,7 @@ class SnowflakeConnector:
         warehouse,
         signature,
     ) -> SnowflakeCursor:
-        return self.runSql(
+        return self.run_sql(
             "drop_procedure",
             {
                 "database": database,
@@ -487,14 +487,14 @@ class SnowflakeConnector:
             },
         )
 
-    def listStreamlits(
+    def list_streamlits(
         self,
         database="",
         schema="",
         role="",
         warehouse="",
     ) -> SnowflakeCursor:
-        return self.runSql(
+        return self.run_sql(
             "list_streamlits",
             {
                 "database": database,
@@ -504,7 +504,7 @@ class SnowflakeConnector:
             },
         )
 
-    def showWarehouses(
+    def show_warehouses(
         self,
         database="",
         schema="",
@@ -512,7 +512,7 @@ class SnowflakeConnector:
         warehouse="",
         like="%%",
     ) -> SnowflakeCursor:
-        return self.runSql(
+        return self.run_sql(
             "show_warehouses",
             {
                 "database": database,
@@ -522,7 +522,7 @@ class SnowflakeConnector:
             },
         )
 
-    def createStreamlit(
+    def create_streamlit(
         self,
         database="",
         schema="",
@@ -532,7 +532,7 @@ class SnowflakeConnector:
         file="",
         from_stage_command="",
     ) -> SnowflakeCursor:
-        return self.runSql(
+        return self.run_sql(
             "create_streamlit",
             {
                 "database": database,
@@ -545,7 +545,7 @@ class SnowflakeConnector:
             },
         )
 
-    def shareStreamlit(
+    def share_streamlit(
         self,
         database="",
         schema="",
@@ -554,7 +554,7 @@ class SnowflakeConnector:
         name="",
         to_role="",
     ) -> SnowflakeCursor:
-        return self.runSql(
+        return self.run_sql(
             "share_streamlit",
             {
                 "database": database,
@@ -566,7 +566,7 @@ class SnowflakeConnector:
             },
         )
 
-    def dropStreamlit(
+    def drop_streamlit(
         self,
         database="",
         schema="",
@@ -574,7 +574,7 @@ class SnowflakeConnector:
         warehouse="",
         name="",
     ) -> SnowflakeCursor:
-        return self.runSql(
+        return self.run_sql(
             "drop_streamlit",
             {
                 "database": database,
@@ -585,7 +585,7 @@ class SnowflakeConnector:
             },
         )
 
-    def deployStreamlit(
+    def deploy_streamlit(
         self,
         name,
         file_path,
@@ -598,7 +598,7 @@ class SnowflakeConnector:
         stage_name = f"snow://streamlit/{database}.{schema}.{name}/default_checkout"
 
         """Upload main python file to stage and return url of streamlit"""
-        self.uploadFileToStage(
+        self.upload_file_to_stage(
             file_path,
             stage_name,
             stage_path,
@@ -608,7 +608,7 @@ class SnowflakeConnector:
             overwrite,
         )
 
-        result = self.runSql(
+        result = self.run_sql(
             "get_streamlit_url",
             {
                 "name": name,
@@ -620,8 +620,8 @@ class SnowflakeConnector:
 
         return result.fetchone()[0]
 
-    def describeStreamlit(self, name, database, schema, role, warehouse):
-        description = self.runSql(
+    def describe_streamlit(self, name, database, schema, role, warehouse):
+        description = self.run_sql(
             "describe_streamlit",
             {
                 "name": name,
@@ -631,7 +631,7 @@ class SnowflakeConnector:
                 "warehouse": warehouse,
             },
         )
-        url = self.runSql(
+        url = self.run_sql(
             "get_streamlit_url",
             {
                 "name": name,
@@ -642,7 +642,7 @@ class SnowflakeConnector:
         )
         return (description, url)
 
-    def runSql(
+    def run_sql(
         self,
         command,
         context,

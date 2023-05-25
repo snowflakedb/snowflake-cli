@@ -92,7 +92,7 @@ def procedure_coverage_report(
             stage_path = deploy_dict["directory"]
             report_files = f"{stage_name}{stage_path}/coverage/"
             try:
-                results = config.snowflake_connection.getStage(
+                results = config.snowflake_connection.get_stage(
                     database=env_conf.get("database"),
                     schema=env_conf.get("schema"),
                     role=env_conf.get("role"),

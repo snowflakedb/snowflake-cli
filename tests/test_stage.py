@@ -20,7 +20,7 @@ def test_default_path_in_get_command(mock_config, mock_app_config, runner):
 
     assert result.exit_code == 0
     mock_config.connect_to_snowflake.assert_called_once()
-    mock_config.snowflake_connection.getStage.assert_called_once_with(
+    mock_config.snowflake_connection.get_stage.assert_called_once_with(
         database="some_database",
         schema="some_schema",
         role="some_role",
