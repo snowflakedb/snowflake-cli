@@ -129,7 +129,7 @@ def package_upload(
         )
         raise typer.Abort()
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         click.echo(f"Uploading {file} to Snowflake @{stage}/{file}...")
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)

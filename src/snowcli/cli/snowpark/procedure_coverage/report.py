@@ -64,7 +64,7 @@ def procedure_coverage_report(
         )
         raise typer.Abort()
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         deploy_dict = utils.get_deploy_names(
             env_conf["database"],
             env_conf["schema"],

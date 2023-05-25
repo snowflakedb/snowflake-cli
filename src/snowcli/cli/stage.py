@@ -26,7 +26,7 @@ def stage_list(
     env_conf = AppConfig().config.get(environment)
 
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         if name:
             results = config.snowflake_connection.listStage(
                 database=env_conf.get("database"),
@@ -66,7 +66,7 @@ def stage_get(
     env_conf = AppConfig().config.get(environment)
 
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         results = config.snowflake_connection.getStage(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
@@ -106,7 +106,7 @@ def stage_put(
     env_conf = AppConfig().config.get(environment)
 
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         filepath = str(path)
         if path.is_dir():
             filepath = str(path) + "/*"
@@ -135,7 +135,7 @@ def stage_create(
     env_conf = AppConfig().config.get(environment)
 
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         results = config.snowflake_connection.createStage(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
@@ -157,7 +157,7 @@ def stage_drop(
     env_conf = AppConfig().config.get(environment)
 
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         results = config.snowflake_connection.dropStage(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),

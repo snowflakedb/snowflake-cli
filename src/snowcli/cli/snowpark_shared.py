@@ -58,7 +58,7 @@ def snowpark_create(
         )
         raise typer.Abort()
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         deploy_dict = utils.get_deploy_names(
             env_conf["database"],
             env_conf["schema"],
@@ -160,7 +160,7 @@ def snowpark_update(
         )
         raise typer.Abort()
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         updatedPackageList = []
         try:
             print(f"Updating {type} {name}...")
@@ -395,7 +395,7 @@ def snowpark_execute(type: str, environment: str, select: str):
     env_conf = AppConfig().config.get(environment)
     validate_configuration(env_conf, environment)
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         if type == "function":
             results = config.snowflake_connection.executeFunction(
                 function=select,
@@ -428,7 +428,7 @@ def snowpark_describe(
     validate_configuration(env_conf, environment)
 
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         if signature == "":
             if name == "" and input_parameters == "":
                 typer.BadParameter(
@@ -466,7 +466,7 @@ def snowpark_list(type, environment, like):
     env_conf = AppConfig().config.get(environment)
     validate_configuration(env_conf, environment)
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         if type == "function":
             results = config.snowflake_connection.listFunctions(
                 database=env_conf["database"],
@@ -499,7 +499,7 @@ def snowpark_drop(
     validate_configuration(env_conf, environment)
 
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         if signature == "":
             if name == "" and input_parameters == "":
                 typer.BadParameter(

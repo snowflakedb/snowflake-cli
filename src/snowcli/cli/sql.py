@@ -121,7 +121,7 @@ def execute_sql(
     if not config.isAuth():
         raise ValueError("Not authorize")
 
-    config.connectToSnowflake(
+    config.connect_to_snowflake(
         connection,
         account=account,
         user=user,

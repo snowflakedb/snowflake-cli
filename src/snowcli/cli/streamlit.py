@@ -53,7 +53,7 @@ def streamlit_list(
     env_conf = AppConfig().config.get(environment)
 
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         results = config.snowflake_connection.listStreamlits(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
@@ -80,7 +80,7 @@ def streamlit_describe(
     env_conf = AppConfig().config.get(environment)
 
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         description, url = config.snowflake_connection.describeStreamlit(
             name,
             database=env_conf.get("database"),
@@ -119,7 +119,7 @@ def streamlit_create(
     env_conf = AppConfig().config.get(environment)
 
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         if from_stage:
             if "." in from_stage:
                 full_stage_name = from_stage
@@ -158,7 +158,7 @@ def streamlit_share(
     env_conf = AppConfig().config.get(environment)
 
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         results = config.snowflake_connection.shareStreamlit(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
@@ -181,7 +181,7 @@ def streamlit_drop(
     env_conf = AppConfig().config.get(environment)
 
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         results = config.snowflake_connection.dropStreamlit(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
@@ -236,7 +236,7 @@ def streamlit_deploy(
     env_conf = AppConfig().config.get(environment)
 
     if config.isAuth():
-        config.connectToSnowflake()
+        config.connect_to_snowflake()
         schema = env_conf.get("schema")
         role = env_conf.get("role")
         database = env_conf.get("database")
