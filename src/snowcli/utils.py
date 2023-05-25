@@ -33,7 +33,7 @@ PIP_PATH = os.environ.get("SNOWCLI_PIP_PATH", "pip")
 templates_path = os.path.join(Path(__file__).parent, "python_templates")
 
 
-#TODO: add typing to all functions
+# TODO: add typing to all functions
 def yes_no_ask_callback(value: str):
     """
     A typer callback to handle yes/no/ask parameters
@@ -567,7 +567,13 @@ def conf_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
 
 
 def generate_deploy_stage_name(name: str, input_parameters: str) -> str:
-    return name + input_parameters.replace("(", "",).replace(")", "",).replace(
+    return name + input_parameters.replace(
+        "(",
+        "",
+    ).replace(
+        ")",
+        "",
+    ).replace(
         " ",
         "_",
     ).replace(
