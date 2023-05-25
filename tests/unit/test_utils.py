@@ -103,10 +103,8 @@ class TestUtils:
         os.mkdir(path)  # TODO: should we check if the directory was correctly created?
         print(path)
         yield path
-        rmtree(
-            path
-        )  # We delete whole directory in teardown -
-           # so, no need to delete any of the files separately
+        rmtree(path)  # We delete whole directory in teardown -
+        # so, no need to delete any of the files separately
 
     @pytest.fixture
     def temp_directory_for_app_zip(self, temp_test_directory: str) -> Generator:
