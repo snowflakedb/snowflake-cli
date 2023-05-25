@@ -58,8 +58,8 @@ class SnowflakeConnector:
     def create_function(
         self,
         name: str,
-        inputParameters: str,
-        returnType: str,
+        input_parameters: str,
+        return_type: str,
         handler: str,
         imports: str,
         database: str,
@@ -78,13 +78,13 @@ class SnowflakeConnector:
                 "warehouse": warehouse,
                 "name": name,
                 "overwrite": overwrite,
-                "input_parameters": inputParameters,
-                "return_type": returnType,
+                "input_parameters": input_parameters,
+                "return_type": return_type,
                 "handler": handler,
                 "imports": imports,
                 "packages": packages,
                 "signature": self.generate_signature_from_params(
-                    inputParameters,
+                    input_parameters,
                 ),
             },
         )
@@ -92,8 +92,8 @@ class SnowflakeConnector:
     def create_procedure(
         self,
         name: str,
-        inputParameters: str,
-        returnType: str,
+        input_parameters: str,
+        return_type: str,
         handler: str,
         imports: str,
         database: str,
@@ -113,13 +113,13 @@ class SnowflakeConnector:
                 "warehouse": warehouse,
                 "name": name,
                 "overwrite": overwrite,
-                "input_parameters": inputParameters,
-                "return_type": returnType,
+                "input_parameters": input_parameters,
+                "return_type": return_type,
                 "handler": handler,
                 "imports": imports,
                 "packages": packages,
                 "signature": self.generate_signature_from_params(
-                    inputParameters,
+                    input_parameters,
                 ),
                 "execute_as_caller": execute_as_caller,
             },
@@ -195,11 +195,11 @@ class SnowflakeConnector:
         warehouse,
         signature=None,
         name=None,
-        inputParameters=None,
+        input_parameters=None,
         show_exceptions=True,
     ) -> SnowflakeCursor:
-        if signature is None and name and inputParameters:
-            signature = name + self.generate_signature_from_params(inputParameters)
+        if signature is None and name and input_parameters:
+            signature = name + self.generate_signature_from_params(input_parameters)
         return self.run_sql(
             "describe_function",
             {
@@ -220,11 +220,11 @@ class SnowflakeConnector:
         warehouse,
         signature=None,
         name=None,
-        inputParameters=None,
+        input_parameters=None,
         show_exceptions=True,
     ) -> SnowflakeCursor:
-        if signature is None and name and inputParameters:
-            signature = name + self.generate_signature_from_params(inputParameters)
+        if signature is None and name and input_parameters:
+            signature = name + self.generate_signature_from_params(input_parameters)
         return self.run_sql(
             "describe_procedure",
             {
@@ -321,7 +321,7 @@ class SnowflakeConnector:
             },
         )
 
-    def setProcedureComment(
+    def set_procedure_comment(
         self,
         database,
         schema,
@@ -329,12 +329,12 @@ class SnowflakeConnector:
         warehouse,
         signature=None,
         name=None,
-        inputParameters=None,
+        input_parameters=None,
         show_exceptions=True,
         comment="",
     ) -> SnowflakeCursor:
-        if signature is None and name and inputParameters:
-            signature = name + self.generate_signature_from_params(inputParameters)
+        if signature is None and name and input_parameters:
+            signature = name + self.generate_signature_from_params(input_parameters)
         return self.run_sql(
             "set_procedure_comment",
             {
@@ -663,7 +663,7 @@ class SnowflakeConnector:
             if show_exceptions:
                 print(f"Error executing sql:\n{sql}")
                 print(e)
-            raise (e)
+            raise e
 
     def generate_signature_from_params(self, params: str) -> str:
         if params == "()":

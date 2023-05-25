@@ -99,8 +99,8 @@ def snowpark_create(
         if type == "function":
             results = config.snowflake_connection.create_function(
                 name=name,
-                inputParameters=input_parameters,
-                returnType=return_type,
+                input_parameters=input_parameters,
+                return_type=return_type,
                 handler=handler,
                 imports=deploy_dict["full_path"],
                 database=env_conf["database"],
@@ -113,8 +113,8 @@ def snowpark_create(
         elif type == "procedure":
             results = config.snowflake_connection.create_procedure(
                 name=name,
-                inputParameters=input_parameters,
-                returnType=return_type,
+                input_parameters=input_parameters,
+                return_type=return_type,
                 handler=handler,
                 imports=deploy_dict["full_path"],
                 database=env_conf["database"],
@@ -167,7 +167,7 @@ def snowpark_update(
             if type == "function":
                 resource_details = config.snowflake_connection.describe_function(
                     name=name,
-                    inputParameters=input_parameters,
+                    input_parameters=input_parameters,
                     database=env_conf["database"],
                     schema=env_conf["schema"],
                     role=env_conf["role"],
@@ -177,7 +177,7 @@ def snowpark_update(
             elif type == "procedure":
                 resource_details = config.snowflake_connection.describe_procedure(
                     name=name,
-                    inputParameters=input_parameters,
+                    input_parameters=input_parameters,
                     database=env_conf["database"],
                     schema=env_conf["schema"],
                     role=env_conf["role"],
@@ -261,8 +261,8 @@ def snowpark_update(
                 if type == "function":
                     config.snowflake_connection.create_function(
                         name=name,
-                        inputParameters=input_parameters,
-                        returnType=return_type,
+                        input_parameters=input_parameters,
+                        return_type=return_type,
                         handler=handler,
                         imports=deploy_dict["full_path"],
                         database=env_conf["database"],
@@ -275,8 +275,8 @@ def snowpark_update(
                 elif type == "procedure":
                     config.snowflake_connection.create_procedure(
                         name=name,
-                        inputParameters=input_parameters,
-                        returnType=return_type,
+                        input_parameters=input_parameters,
+                        return_type=return_type,
                         handler=handler,
                         imports=deploy_dict["full_path"],
                         database=env_conf["database"],

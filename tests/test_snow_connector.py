@@ -12,7 +12,7 @@ class custom_str(str):
 
 
 @mock.patch("snowflake.connector")
-def test_createFunction(_, snapshot):
+def test_create_function(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -20,8 +20,8 @@ def test_createFunction(_, snapshot):
 
     connector.create_function(
         name="nameValue",
-        inputParameters="(string a, variant b)",
-        returnType="returnTypeValue",
+        input_parameters="(string a, variant b)",
+        return_type="returnTypeValue",
         handler="handlerValue",
         imports="import1, import2",
         database="databaseValue",
@@ -37,7 +37,7 @@ def test_createFunction(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_createProcedure(_, snapshot):
+def test_create_procedure(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -45,8 +45,8 @@ def test_createProcedure(_, snapshot):
 
     connector.create_procedure(
         name="nameValue",
-        inputParameters="(string a, variant b)",
-        returnType="returnTypeValue",
+        input_parameters="(string a, variant b)",
+        return_type="returnTypeValue",
         handler="handlerValue",
         imports="import1, import2",
         database="databaseValue",
@@ -62,7 +62,7 @@ def test_createProcedure(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_executeFunction(_, snapshot):
+def test_execute_function(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -80,7 +80,7 @@ def test_executeFunction(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_executeProcedure(_, snapshot):
+def test_execute_procedure(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -98,7 +98,7 @@ def test_executeProcedure(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_describeFunction(_, snapshot):
+def test_describe_function(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -111,7 +111,7 @@ def test_describeFunction(_, snapshot):
         warehouse="warehouseValue",
         signature="signatureValue",
         name="nameValue",
-        inputParameters="(string a, variant b)",
+        input_parameters="(string a, variant b)",
         show_exceptions="show_exceptionsValue",
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
@@ -119,7 +119,7 @@ def test_describeFunction(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_describeProcedure(_, snapshot):
+def test_describe_procedure(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -132,7 +132,7 @@ def test_describeProcedure(_, snapshot):
         warehouse="warehouseValue",
         signature="signatureValue",
         name="nameValue",
-        inputParameters="(string a, variant b)",
+        input_parameters="(string a, variant b)",
         show_exceptions="show_exceptionsValue",
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
@@ -140,7 +140,7 @@ def test_describeProcedure(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_listFunctions(_, snapshot):
+def test_list_functions(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -158,7 +158,7 @@ def test_listFunctions(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_listStages(_, snapshot):
+def test_list_stages(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -179,7 +179,7 @@ def test_listStages(_, snapshot):
     "stage_name", [("namedStageValue"), ("snow://embeddedStageValue")]
 )
 @mock.patch("snowflake.connector")
-def test_listStage(_, snapshot, stage_name):
+def test_list_stage(_, snapshot, stage_name):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -201,7 +201,7 @@ def test_listStage(_, snapshot, stage_name):
     "stage_name", [("namedStageValue"), ("snow://embeddedStageValue")]
 )
 @mock.patch("snowflake.connector")
-def test_getStage(_, snapshot, stage_name):
+def test_get_stage(_, snapshot, stage_name):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -220,20 +220,20 @@ def test_getStage(_, snapshot, stage_name):
 
 
 @mock.patch("snowflake.connector")
-def test_setProcedureComment(_, snapshot):
+def test_set_procedure_comment(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
     connector.ctx.execute_stream.return_value = (None, None)
 
-    connector.setProcedureComment(
+    connector.set_procedure_comment(
         database="databaseValue",
         schema="schemaValue",
         role="roleValue",
         warehouse="warehouseValue",
         signature="signatureValue",
         name="nameValue",
-        inputParameters="(string a, variant b)",
+        input_parameters="(string a, variant b)",
         show_exceptions="show_exceptionsValue",
         comment="commentValue",
     )
@@ -245,7 +245,7 @@ def test_setProcedureComment(_, snapshot):
     "stage_name", [("namedStageValue"), ("snow://embeddedStageValue")]
 )
 @mock.patch("snowflake.connector")
-def test_putStage(_, snapshot, stage_name):
+def test_put_stage(_, snapshot, stage_name):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -269,7 +269,7 @@ def test_putStage(_, snapshot, stage_name):
     "stage_name", [("namedStageValue"), ("snow://embeddedStageValue")]
 )
 @mock.patch("snowflake.connector")
-def test_removeFromStage(_, snapshot, stage_name):
+def test_remove_from_stage(_, snapshot, stage_name):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -288,7 +288,7 @@ def test_removeFromStage(_, snapshot, stage_name):
 
 
 @mock.patch("snowflake.connector")
-def test_createStage(_, snapshot):
+def test_create_stage(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -306,7 +306,7 @@ def test_createStage(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_dropStage(_, snapshot):
+def test_drop_stage(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -324,7 +324,7 @@ def test_dropStage(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_listProcedures(_, snapshot):
+def test_list_procedures(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -342,7 +342,7 @@ def test_listProcedures(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_dropFunction(_, snapshot):
+def test_drop_function(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -360,7 +360,7 @@ def test_dropFunction(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_dropProcedure(_, snapshot):
+def test_drop_procedure(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -378,7 +378,7 @@ def test_dropProcedure(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_listStreamlits(_, snapshot):
+def test_list_streamlits(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -395,7 +395,7 @@ def test_listStreamlits(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_showWarehouses(_, snapshot):
+def test_show_warehouses(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -413,7 +413,7 @@ def test_showWarehouses(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_createStreamlit(_, snapshot):
+def test_create_streamlit(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -432,7 +432,7 @@ def test_createStreamlit(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_createStreamlitFromStage(_, snapshot):
+def test_create_streamlit_from_stage(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -452,7 +452,7 @@ def test_createStreamlitFromStage(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_shareStreamlit(_, snapshot):
+def test_share_streamlit(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -471,7 +471,7 @@ def test_shareStreamlit(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_dropStreamlit(_, snapshot):
+def test_drop_streamlit(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -489,7 +489,7 @@ def test_dropStreamlit(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_deployStreamlit(_, snapshot):
+def test_deploy_streamlit(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )
@@ -510,7 +510,7 @@ def test_deployStreamlit(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_describeStreamlit(_, snapshot):
+def test_describe_streamlit(_, snapshot):
     connector = SnowflakeConnector(
         connection_name="foo", snowsql_config=mock.MagicMock()
     )

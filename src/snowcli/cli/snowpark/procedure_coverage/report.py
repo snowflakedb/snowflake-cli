@@ -134,13 +134,13 @@ def procedure_coverage_report(
             print(
                 f"Storing total coverage value of {str(coverage_percentage)} as a procedure comment."
             )
-            config.snowflake_connection.setProcedureComment(
+            config.snowflake_connection.set_procedure_comment(
                 env_conf["database"],
                 env_conf["schema"],
                 env_conf["role"],
                 env_conf["warehouse"],
                 name=name,
-                inputParameters=input_parameters,
+                input_parameters=input_parameters,
                 show_exceptions=True,
                 comment=str(coverage_percentage),
             )

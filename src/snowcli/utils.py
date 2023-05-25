@@ -97,27 +97,27 @@ def parse_requirements(requirements_file: str = "requirements.txt") -> list[str]
 def parse_anaconda_packages(packages: list[str]) -> dict:
     url = "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
     response = requests.get(url)
-    snowflakePackages = []
-    otherPackages = []
+    snowflake_packages = []
+    other_packages = []
     if response.status_code == 200:
         channel_data = response.json()
         for package in packages:
             # pip package names are case insensitive,
             # Anaconda package names are lowercased
             if package.lower() in channel_data["packages"]:
-                snowflakePackages.append(
+                snowflake_packages.append(
                     f"{package}",
                 )
             else:
                 click.echo(
                     f'"{package}" not found in Snowflake anaconda channel...',
                 )
-                otherPackages.append(package)
+                other_packages.append(package)
         # As at April 2023, streamlit appears unavailable in the Snowflake Anaconda channel
         # but actually works if specified in the environment
-        if "streamlit" in otherPackages:
-            otherPackages.remove("streamlit")
-        return {"snowflake": snowflakePackages, "other": otherPackages}
+        if "streamlit" in other_packages:
+            other_packages.remove("streamlit")
+        return {"snowflake": snowflake_packages, "other": other_packages}
     else:
         click.echo(f"Error: {response.status_code}")
         return {}
