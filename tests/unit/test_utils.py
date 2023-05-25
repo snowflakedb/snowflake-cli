@@ -80,7 +80,8 @@ class TestUtils:
         assert "snowflake" in anaconda_packages.keys()
         assert "other" in anaconda_packages.keys()
         assert "streamlit" not in anaconda_packages.get("other")
-        # TODO: above tests rely on correct response from anaconda.com - shouldn`t it be mocked?
+        # TODO: above tests rely on correct response from anaconda.com
+        #  - shouldn`t it be mocked?
 
     def test_anaconda_packages_with_incorrect_response(self, requests_mock):
         requests_mock.get(
@@ -104,7 +105,8 @@ class TestUtils:
         yield path
         rmtree(
             path
-        )  # We delete whole directory in teardown - so, no need to delete any of the files separately
+        )  # We delete whole directory in teardown -
+           # so, no need to delete any of the files separately
 
     @pytest.fixture
     def temp_directory_for_app_zip(self, temp_test_directory: str) -> Generator:
