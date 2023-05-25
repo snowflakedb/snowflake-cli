@@ -1,3 +1,5 @@
+from typing import Generator
+
 import pytest
 import typer
 
@@ -34,7 +36,10 @@ class TestUtils:
     # TODO: think what you can break in getDeployNames
 
     def test_prepare_app_zip(
-        self, temp_test_directory, correct_app_zip, temp_directory_for_app_zip
+        self,
+        temp_test_directory: str,
+        correct_app_zip: str,
+        temp_directory_for_app_zip: str,
     ):
         result = utils.prepare_app_zip(correct_app_zip, temp_directory_for_app_zip)
         assert result == temp_directory_for_app_zip + "/app.zip"
@@ -53,11 +58,11 @@ class TestUtils:
         assert expected_error.value.errno == 2
         assert expected_error.type == FileNotFoundError
 
-    def test_parse_requierements_with_correct_file(self, correct_requirements_txt):
+    def test_parse_requierements_with_correct_file(self, correct_requirements_txt: str):
         result = utils.parse_requirements(correct_requirements_txt)
         assert len(result) == len(requirements)
 
-    def test_parse_requirements_with_nonexistent_file(self, temp_test_directory):
+    def test_parse_requirements_with_nonexistent_file(self, temp_test_directory: str):
         path = os.path.join(temp_test_directory, "non_existent.file")
         result = utils.parse_requirements(path)
         assert result == []
@@ -92,7 +97,7 @@ class TestUtils:
     # and delete them, after the tests are performed
 
     @pytest.fixture
-    def temp_test_directory(self) -> str:
+    def temp_test_directory(self) -> Generator:
         path = os.path.join(os.getcwd(), ".tests").lower()
         os.mkdir(path)  # TODO: should we check if the directory was correctly created?
         print(path)
@@ -102,20 +107,20 @@ class TestUtils:
         )  # We delete whole directory in teardown - so, no need to delete any of the files separately
 
     @pytest.fixture
-    def temp_directory_for_app_zip(self, temp_test_directory) -> str:
+    def temp_directory_for_app_zip(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, "temp_dir")
         os.mkdir(path)
         yield path
 
     @pytest.fixture
-    def correct_app_zip(self, temp_test_directory) -> str:
+    def correct_app_zip(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, "app.zip")
         dummy_file = open(path, "w")
         dummy_file.close()
         yield path
 
     @pytest.fixture
-    def correct_requirements_txt(self, temp_test_directory) -> str:
+    def correct_requirements_txt(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, "requirements.txt")
         with open(path, "w") as req_file:
             for req in requirements:
@@ -123,7 +128,7 @@ class TestUtils:
         yield path
 
     @pytest.fixture
-    def streamlit_requirements_txt(self, temp_test_directory) -> str:
+    def streamlit_requirements_txt(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, "requirements.snowflake.txt")
         dummy_file = open(path, "w")
         dummy_file.close()
