@@ -51,7 +51,7 @@ class SnowflakeConnector:
         except (TypeError, AttributeError):
             pass
 
-    def getVersion(self):
+    def get_version(self):
         self.cs.execute("SELECT current_version()")
         return self.cs.fetchone()[0]
 
