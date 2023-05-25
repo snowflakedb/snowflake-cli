@@ -472,17 +472,17 @@ def get_snowflake_packages() -> list[str]:
 
 
 def get_snowflake_packages_delta(anaconda_packages) -> list[str]:
-    updatedPackageList = []
+    updated_package_list = []
     if os.path.exists("requirements.snowflake.txt"):
         with open("requirements.snowflake.txt", encoding="utf-8") as f:
             # for each line, check if it exists in anaconda_packages. If it
             # doesn't, add it to the return string
             for line in f:
                 if line.strip() not in anaconda_packages:
-                    updatedPackageList.append(line.strip())
-        return updatedPackageList
+                    updated_package_list.append(line.strip())
+        return updated_package_list
     else:
-        return updatedPackageList
+        return updated_package_list
 
 
 def convert_resource_details_to_dict(function_details: list[tuple]) -> dict:

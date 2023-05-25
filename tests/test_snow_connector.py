@@ -6,7 +6,7 @@ from snowcli.snow_connector import SnowflakeConnector
 
 
 # Used as a solution to syrupy having some problems with comparing multilines string
-class custom_str(str):
+class CustomStr(str):
     def __repr__(self):
         return str(self)
 
@@ -33,7 +33,7 @@ def test_create_function(_, snapshot):
     )
     query_io, *_ = connector.ctx.execute_stream.call_args.args
     query_str = query_io.getvalue()
-    assert custom_str(query_str) == snapshot
+    assert CustomStr(query_str) == snapshot
 
 
 @mock.patch("snowflake.connector")
