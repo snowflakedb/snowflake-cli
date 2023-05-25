@@ -27,7 +27,7 @@ def list():
 
     cfg = SnowsqlConfig(app_cfg["snowsql_config_path"])
     table = Table("Connection", "Account", "Username")
-    for (connection_name, v) in cfg.config.items():
+    for connection_name, v in cfg.config.items():
         if connection_name.startswith("connections."):
             connection_name = connection_name.replace("connections.", "")
             if "account" in v:
