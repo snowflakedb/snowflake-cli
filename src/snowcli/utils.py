@@ -97,27 +97,27 @@ def parse_requirements(requirements_file: str = "requirements.txt") -> list[str]
 def parse_anaconda_packages(packages: list[str]) -> dict:
     url = "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
     response = requests.get(url)
-    snowflakePackages = []
-    otherPackages = []
+    snowflake_packages = []
+    other_packages = []
     if response.status_code == 200:
         channel_data = response.json()
         for package in packages:
             # pip package names are case insensitive,
             # Anaconda package names are lowercased
             if package.lower() in channel_data["packages"]:
-                snowflakePackages.append(
+                snowflake_packages.append(
                     f"{package}",
                 )
             else:
                 click.echo(
                     f'"{package}" not found in Snowflake anaconda channel...',
                 )
-                otherPackages.append(package)
+                other_packages.append(package)
         # As at April 2023, streamlit appears unavailable in the Snowflake Anaconda channel
         # but actually works if specified in the environment
-        if "streamlit" in otherPackages:
-            otherPackages.remove("streamlit")
-        return {"snowflake": snowflakePackages, "other": otherPackages}
+        if "streamlit" in other_packages:
+            other_packages.remove("streamlit")
+        return {"snowflake": snowflake_packages, "other": other_packages}
     else:
         click.echo(f"Error: {response.status_code}")
         return {}
@@ -472,17 +472,17 @@ def get_snowflake_packages() -> list[str]:
 
 
 def get_snowflake_packages_delta(anaconda_packages) -> list[str]:
-    updatedPackageList = []
+    updated_package_list = []
     if os.path.exists("requirements.snowflake.txt"):
         with open("requirements.snowflake.txt", encoding="utf-8") as f:
             # for each line, check if it exists in anaconda_packages. If it
             # doesn't, add it to the return string
             for line in f:
                 if line.strip() not in anaconda_packages:
-                    updatedPackageList.append(line.strip())
-        return updatedPackageList
+                    updated_package_list.append(line.strip())
+        return updated_package_list
     else:
-        return updatedPackageList
+        return updated_package_list
 
 
 def convert_resource_details_to_dict(function_details: list[tuple]) -> dict:

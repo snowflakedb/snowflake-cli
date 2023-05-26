@@ -37,10 +37,10 @@ def package_lookup(
     """
     Check to see if a package is available on the Snowflake anaconda channel.
     """
-    packageResponse = utils.parse_anaconda_packages([name])
+    package_response = utils.parse_anaconda_packages([name])
     ## if list has any items
 
-    if len(packageResponse["snowflake"]) > 0:
+    if len(package_response["snowflake"]) > 0:
         click.echo(f"Package {name} is available on the Snowflake anaconda channel.")
         if _run_nested:
             click.echo(
@@ -128,8 +128,8 @@ def package_upload(
             "yet, please run `snow configure` first before continuing.",
         )
         raise typer.Abort()
-    if config.isAuth():
-        config.connectToSnowflake()
+    if config.is_auth():
+        config.connect_to_snowflake()
         click.echo(f"Uploading {file} to Snowflake @{stage}/{file}...")
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)

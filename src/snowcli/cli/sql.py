@@ -118,10 +118,10 @@ def execute_sql(
     else:
         sql = query if query else file.read_text()  # type: ignore
 
-    if not config.isAuth():
+    if not config.is_auth():
         raise ValueError("Not authorize")
 
-    config.connectToSnowflake(
+    config.connect_to_snowflake(
         connection,
         account=account,
         user=user,
