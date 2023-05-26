@@ -53,7 +53,7 @@ def procedure_coverage_clear(
             ),
         )
         coverage_path = f"""{deploy_dict["directory"]}/coverage"""
-        results = config.snowflake_connection.removeFromStage(
+        results = config.snowflake_connection.remove_from_stage(
             database=env_conf["database"],
             schema=env_conf["schema"],
             role=env_conf["role"],

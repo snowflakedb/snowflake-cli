@@ -133,7 +133,7 @@ def package_upload(
         click.echo(f"Uploading {file} to Snowflake @{stage}/{file}...")
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
-            deploy_response = config.snowflake_connection.uploadFileToStage(
+            deploy_response = config.snowflake_connection.upload_file_to_stage(
                 file_path=temp_app_zip_path,
                 destination_stage=stage,
                 path="/",

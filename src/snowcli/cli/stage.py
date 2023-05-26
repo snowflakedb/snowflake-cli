@@ -28,7 +28,7 @@ def stage_list(
     if config.isAuth():
         config.connectToSnowflake()
         if name:
-            results = config.snowflake_connection.listStage(
+            results = config.snowflake_connection.list_stage(
                 database=env_conf.get("database"),
                 schema=env_conf.get("schema"),
                 role=env_conf.get("role"),
@@ -37,7 +37,7 @@ def stage_list(
             )
             print_db_cursor(results)
         else:
-            results = config.snowflake_connection.listStages(
+            results = config.snowflake_connection.list_stages(
                 database=env_conf.get("database"),
                 schema=env_conf.get("schema"),
                 role=env_conf.get("role"),
@@ -67,7 +67,7 @@ def stage_get(
 
     if config.isAuth():
         config.connectToSnowflake()
-        results = config.snowflake_connection.getStage(
+        results = config.snowflake_connection.get_stage(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
             role=env_conf.get("role"),
@@ -111,7 +111,7 @@ def stage_put(
         if path.is_dir():
             filepath = str(path) + "/*"
 
-        results = config.snowflake_connection.putStage(
+        results = config.snowflake_connection.put_stage(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
             role=env_conf.get("role"),
@@ -136,7 +136,7 @@ def stage_create(
 
     if config.isAuth():
         config.connectToSnowflake()
-        results = config.snowflake_connection.createStage(
+        results = config.snowflake_connection.create_stage(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
             role=env_conf.get("role"),
@@ -158,7 +158,7 @@ def stage_drop(
 
     if config.isAuth():
         config.connectToSnowflake()
-        results = config.snowflake_connection.dropStage(
+        results = config.snowflake_connection.drop_stage(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
             role=env_conf.get("role"),
