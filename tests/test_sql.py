@@ -64,7 +64,7 @@ def test_sql_fails_for_both_query_and_file(runner):
 
 @mock.patch("snowcli.config.AppConfig")
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.sql.config.isAuth")
+@mock.patch("snowcli.cli.sql.config.is_auth")
 def test_sql_overrides_connection_configuration(_, mock_conn, mock_app_config, runner):
     with NamedTemporaryFile() as tmp:
         Path(tmp.name).write_text("[connections.fooConn]")

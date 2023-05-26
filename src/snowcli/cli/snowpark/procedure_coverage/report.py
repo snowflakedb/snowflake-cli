@@ -63,8 +63,8 @@ def procedure_coverage_report(
             "yet, please run `snow configure -e dev` first before continuing.",
         )
         raise typer.Abort()
-    if config.isAuth():
-        config.connectToSnowflake()
+    if config.is_auth():
+        config.connect_to_snowflake()
         deploy_dict = utils.get_deploy_names(
             env_conf["database"],
             env_conf["schema"],
@@ -92,7 +92,7 @@ def procedure_coverage_report(
             stage_path = deploy_dict["directory"]
             report_files = f"{stage_name}{stage_path}/coverage/"
             try:
-                results = config.snowflake_connection.getStage(
+                results = config.snowflake_connection.get_stage(
                     database=env_conf.get("database"),
                     schema=env_conf.get("schema"),
                     role=env_conf.get("role"),
@@ -134,13 +134,13 @@ def procedure_coverage_report(
             print(
                 f"Storing total coverage value of {str(coverage_percentage)} as a procedure comment."
             )
-            config.snowflake_connection.setProcedureComment(
+            config.snowflake_connection.set_procedure_comment(
                 env_conf["database"],
                 env_conf["schema"],
                 env_conf["role"],
                 env_conf["warehouse"],
                 name=name,
-                inputParameters=input_parameters,
+                input_parameters=input_parameters,
                 show_exceptions=True,
                 comment=str(coverage_percentage),
             )

@@ -37,7 +37,7 @@ class AppConfig:
             toml.dump(self.config, f)
 
 
-def connectToSnowflake(connection: Optional[str] = None, **overrides):  # type: ignore
+def connect_to_snowflake(connection: Optional[str] = None, **overrides):  # type: ignore
     global snowflake_connection
     cfg = AppConfig()
     snowsql_config = SnowsqlConfig(path=cfg.config.get("snowsql_config_path"))
@@ -51,7 +51,7 @@ def connectToSnowflake(connection: Optional[str] = None, **overrides):  # type: 
     )
 
 
-def isAuth():
+def is_auth():
     cfg = AppConfig()
     if "snowsql_config_path" not in cfg.config:
         click.echo("You must login first with `snow login`")
