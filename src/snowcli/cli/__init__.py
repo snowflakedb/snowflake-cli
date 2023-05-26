@@ -19,7 +19,10 @@ from snowcli.cli.snowpark import app as snowpark_app
 from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
 
-app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    pretty_exceptions_show_locals=False,
+)
 
 
 def version_callback(value: bool):
