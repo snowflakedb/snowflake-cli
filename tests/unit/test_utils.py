@@ -1,12 +1,11 @@
+from shutil import rmtree
 from typing import Generator
 
 import pytest
 import typer
-
-from shutil import rmtree
 from snowcli import utils
-from tests.unit.test_data.test_data import *
 
+from tests.unit.test_data.test_data import *
 
 # TODO: check for consistency in using ' or "
 

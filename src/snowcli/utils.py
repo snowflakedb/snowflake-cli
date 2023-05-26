@@ -567,13 +567,7 @@ def conf_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
 
 
 def generate_deploy_stage_name(name: str, input_parameters: str) -> str:
-    return name + input_parameters.replace(
-        "(",
-        "",
-    ).replace(
-        ")",
-        "",
-    ).replace(
+    return name + input_parameters.replace("(", "",).replace(")", "",).replace(
         " ",
         "_",
     ).replace(
