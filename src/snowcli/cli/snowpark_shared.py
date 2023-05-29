@@ -13,10 +13,10 @@ from snowcli.config import AppConfig
 from snowcli.utils import (
     YesNoAskOptionsType,
     generate_deploy_stage_name,
-    print_db_cursor,
     print_list_tuples,
     yes_no_ask_callback,
 )
+from snowcli.output.printing import print_db_cursor
 
 # common CLI options
 PyPiDownloadOption = typer.Option(
