@@ -1,6 +1,6 @@
 click
 asn1crypto==1.5.1
-certifi==2022.9.24
+certifi==2023.5.7
 cffi==1.15.1
 charset-normalizer==2.1.1
 cryptography==38.0.1
