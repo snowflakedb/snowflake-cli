@@ -14,7 +14,7 @@ pyOpenSSL==22.1.0
 pytz==2022.5
 requests==2.28.1
 typing_extensions==4.5.0
-urllib3==1.26.12
+urllib3==2.0.2
 snowflake-connector-python==3.0.3
 pyyaml
 toml
