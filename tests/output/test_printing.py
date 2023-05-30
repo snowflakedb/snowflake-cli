@@ -1,10 +1,15 @@
 import json
 from datetime import datetime
 from textwrap import dedent
+from typing import NamedTuple
 from unittest import mock
 
 from click import Context, Command
 from snowcli.output.printing import print_db_cursor
+
+
+class MockResultMetadata(NamedTuple):
+    name: str
 
 
 class _MockCursor:
@@ -13,7 +18,13 @@ class _MockCursor:
             ("string", 42, ["array"], {"k": "object"}, datetime(2022, 3, 21)),
             ("string", 43, ["array"], {"k": "object"}, datetime(2022, 3, 21)),
         ]
-        self._columns = [("string",), ("number",), ("array",), ("object",), ("date",)]
+        self._columns = [
+            MockResultMetadata("string"),
+            MockResultMetadata("number"),
+            MockResultMetadata("array"),
+            MockResultMetadata("object"),
+            MockResultMetadata("date"),
+        ]
 
     def fetchall(self):
         yield from self._rows

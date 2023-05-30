@@ -36,13 +36,16 @@ def print_db_cursor(
     output_format = OutputFormat(context.find_root().params.get("output_format"))
 
     result = cursor.fetchall()
-    column_names = [t[0] for t in cursor.description]
-    columns = columns or column_names
+    column_names = [col.name for col in cursor.description]
+    columns_to_include = columns or column_names
 
-    data = [{k: v for k, v in zip(column_names, row) if k in columns} for row in result]
+    data = [
+        {k: v for k, v in zip(column_names, row) if k in columns_to_include}
+        for row in result
+    ]
 
     if output_format == OutputFormat.TABLE:
-        _print_table(column_names, data, columns)
+        _print_table(data, columns_to_include)
     elif output_format == OutputFormat.JSON:
         import json
 
@@ -51,13 +54,12 @@ def print_db_cursor(
         raise Exception(f"Unknown {output_format} format option")
 
 
-def _print_table(column_names: List[str], data: List[Dict], columns: List[str]):
+def _print_table(data: List[Dict], columns: List[str]):
     from rich.table import Table
 
     table = Table(show_header=True, box=box.ASCII)
-    for column in column_names:
-        if column in columns:
-            table.add_column(column)
+    for column in columns:
+        table.add_column(column)
     for row in data:
         table.add_row(*[str(i) for i in row.values()])
     print(table)
