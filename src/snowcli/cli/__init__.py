@@ -133,6 +133,7 @@ def default(
     version: bool = typer.Option(
         None,
         "--version",
+        help="Prints version of the snowcli",
         callback=version_callback,
         is_eager=True,
     ),

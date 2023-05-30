@@ -23,7 +23,9 @@ from snowcli.cli.snowpark_shared import (
 from snowcli.utils import conf_callback
 
 app = typer.Typer(
-    name="function", context_settings={"help_option_names": ["-h", "--help"]}
+    name="function",
+    context_settings={"help_option_names": ["-h", "--help"]},
+    help="Manage user defined functions",
 )
 EnvironmentOption = typer.Option(
     "dev",

@@ -10,7 +10,9 @@ from snowcli.config import AppConfig
 from snowcli.output.printing import print_db_cursor
 
 app = typer.Typer(
-    name="stage", context_settings={"help_option_names": ["-h", "--help"]}
+    name="stage",
+    context_settings={"help_option_names": ["-h", "--help"]},
+    help="Manage stages",
 )
 EnvironmentOption = typer.Option("dev", help="Environment name")
 

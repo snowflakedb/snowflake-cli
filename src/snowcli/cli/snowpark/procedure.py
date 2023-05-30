@@ -24,7 +24,9 @@ from snowcli.cli.snowpark_shared import (
 from snowcli.utils import conf_callback
 
 app = typer.Typer(
-    name="procedure", context_settings={"help_option_names": ["-h", "--help"]}
+    name="procedure",
+    context_settings={"help_option_names": ["-h", "--help"]},
+    help="Manage stored procedures",
 )
 EnvironmentOption = typer.Option(
     "dev",
