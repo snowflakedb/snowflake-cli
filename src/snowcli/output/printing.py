@@ -4,9 +4,8 @@ from datetime import datetime
 from json import JSONEncoder
 from typing import List, Optional, Dict
 
-import click
 from rich import box, print, print_json
-from rich.table import Table
+import click
 from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.output.formats import OutputFormat
@@ -53,6 +52,8 @@ def print_db_cursor(
 
 
 def _print_table(column_names: List[str], data: List[Dict], columns: List[str]):
+    from rich.table import Table
+
     table = Table(show_header=True, box=box.ASCII)
     for column in column_names:
         if column in columns:
