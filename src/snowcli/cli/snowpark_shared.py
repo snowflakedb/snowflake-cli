@@ -13,7 +13,6 @@ from snowcli.config import AppConfig
 from snowcli.utils import (
     YesNoAskOptionsType,
     generate_deploy_stage_name,
-    print_list_tuples,
     yes_no_ask_callback,
 )
 from snowcli.output.printing import print_db_cursor
@@ -127,7 +126,7 @@ def snowpark_create(
             )
         else:
             raise typer.Abort()
-        print_list_tuples(results)
+        print_db_cursor(results)
 
 
 def validate_configuration(env_conf, environment):
@@ -459,7 +458,7 @@ def snowpark_describe(
             )
         else:
             raise typer.Abort()
-        print_list_tuples(results)
+        print_db_cursor(results)
 
 
 def snowpark_list(type, environment, like):

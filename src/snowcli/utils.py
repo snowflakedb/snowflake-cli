@@ -18,8 +18,6 @@ import requirements
 import typer
 from jinja2 import Environment, FileSystemLoader
 from rich import print
-from rich.table import Table
-from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.config import AppConfig
 
@@ -496,16 +494,6 @@ def convert_resource_details_to_dict(function_details: list[tuple]) -> dict:
         else:
             function_dict[function[0]] = function[1]
     return function_dict
-
-
-def print_list_tuples(lt: SnowflakeCursor):
-    table = Table("Key", "Value")
-    for item in lt:
-        if item[0] == "imports":
-            table.add_row(item[0], item[1].strip("[]"))
-        else:
-            table.add_row(item[0], item[1])
-    print(table)
 
 
 def conf_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
