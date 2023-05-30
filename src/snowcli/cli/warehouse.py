@@ -5,7 +5,7 @@ import typer
 
 from snowcli import config
 from snowcli.config import AppConfig
-from snowcli.utils import print_db_cursor
+from snowcli.output.printing import print_db_cursor
 
 app = typer.Typer(
     name="warehouse", context_settings={"help_option_names": ["-h", "--help"]}

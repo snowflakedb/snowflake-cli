@@ -12,8 +12,8 @@ from snowcli.config import AppConfig
 from snowcli.utils import (
     generate_streamlit_environment_file,
     generate_streamlit_package_wrapper,
-    print_db_cursor,
 )
+from snowcli.output.printing import print_db_cursor
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 EnvironmentOption = typer.Option("dev", help="Environment name")
@@ -38,14 +38,6 @@ def get_standard_stage_name(name: str) -> str:
 def streamlit_list(
     environment: str = EnvironmentOption,
     only_cols: List[str] = typer.Option(list, help="Only show these columns"),
-    show_header: bool = typer.Option(
-        True,
-        help="Show column headers",
-    ),
-    show_border: bool = typer.Option(
-        True,
-        help="Show column borders",
-    ),
 ):
     """
     List streamlit apps.
@@ -63,9 +55,7 @@ def streamlit_list(
 
         print_db_cursor(
             results,
-            only_cols=only_cols,
-            show_header=show_header,
-            show_border=show_border,
+            columns=only_cols,
         )
 
 

@@ -17,9 +17,7 @@ import requests
 import requirements
 import typer
 from jinja2 import Environment, FileSystemLoader
-from rich import box, print
-from rich.table import Table
-from snowflake.connector.cursor import SnowflakeCursor
+from rich import print
 
 from snowcli.config import AppConfig
 
@@ -496,50 +494,6 @@ def convert_resource_details_to_dict(function_details: list[tuple]) -> dict:
         else:
             function_dict[function[0]] = function[1]
     return function_dict
-
-
-def print_db_cursor(
-    cursor, only_cols=[], show_header: bool = True, show_border: bool = True
-):
-    if cursor.description:
-        if any(only_cols):
-            cols = [
-                (index, col[0])
-                for (index, col) in enumerate(
-                    cursor.description,
-                )
-                if col[0] in only_cols
-            ]
-        else:
-            cols = [(index, col[0]) for (index, col) in enumerate(cursor.description)]
-
-        box_val = box.HEAVY_HEAD if show_border else None
-
-        table = Table(
-            *[col[1] for col in cols],
-            show_header=show_header,
-            box=box_val,
-            border_style=None,
-        )
-        for row in cursor.fetchall():
-            filtered_row = [str(row[col_index]) for (col_index, _) in cols]
-            try:
-                table.add_row(*filtered_row)
-            except Exception as e:
-                print(type(e))
-                print(e.args)
-                print(e)
-        print(table)
-
-
-def print_list_tuples(lt: SnowflakeCursor):
-    table = Table("Key", "Value")
-    for item in lt:
-        if item[0] == "imports":
-            table.add_row(item[0], item[1].strip("[]"))
-        else:
-            table.add_row(item[0], item[1])
-    print(table)
 
 
 def conf_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
