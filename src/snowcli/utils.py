@@ -237,7 +237,9 @@ def get_package_name_from_metadata(metadata_file_path: str) -> str | None:
     """
     with open(metadata_file_path, encoding="utf-8") as metadata_file:
         contents = metadata_file.read()
-        results = re.search("^( *)name: (.*)$", contents, flags=re.MULTILINE | re.IGNORECASE)
+        results = re.search(
+            "^( *)name: (.*)$", contents, flags=re.MULTILINE | re.IGNORECASE
+        )
         if results is None:
             return None
         return results.group(2)
