@@ -231,7 +231,7 @@ def streamlit_deploy(
         role = env_conf.get("role")
         database = env_conf.get("database")
         warehouse = env_conf.get("warehouse")
-        # THIS WORKAROUND MAY NOT WORK WITH THE NEW STREAMLIT SYNTAX
+        # THIS WORKAROUND HAS NOT BEEN TESTETD WITH THE NEW STREAMLIT SYNTAX
         if use_packaging_workaround:
             stage_name = f"snow://streamlit/{database}.{schema}.{name}/default_checkout"
             # package an app.zip file, same as the other snowpark package commands
