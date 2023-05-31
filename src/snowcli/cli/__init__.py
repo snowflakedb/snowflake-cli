@@ -17,9 +17,13 @@ from snowcli.cli import (
 )
 from snowcli.cli.snowpark import app as snowpark_app
 from snowcli.config import AppConfig
+from snowcli.output.formats import OutputFormat
 from snowcli.snowsql_config import SnowsqlConfig
 
-app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    pretty_exceptions_show_locals=False,
+)
 
 
 def version_callback(value: bool):
@@ -130,6 +134,13 @@ def default(
         None,
         "--version",
         callback=version_callback,
+        is_eager=True,
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE.value,
+        "--format",
+        help="Specifies output format",
+        case_sensitive=False,
         is_eager=True,
     ),
 ) -> None:

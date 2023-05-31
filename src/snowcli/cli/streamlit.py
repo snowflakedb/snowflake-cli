@@ -12,8 +12,8 @@ from snowcli.config import AppConfig
 from snowcli.utils import (
     generate_streamlit_environment_file,
     generate_streamlit_package_wrapper,
-    print_db_cursor,
 )
+from snowcli.output.printing import print_db_cursor
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 EnvironmentOption = typer.Option("dev", help="Environment name")
@@ -38,23 +38,15 @@ def get_standard_stage_name(name: str) -> str:
 def streamlit_list(
     environment: str = EnvironmentOption,
     only_cols: List[str] = typer.Option(list, help="Only show these columns"),
-    show_header: bool = typer.Option(
-        True,
-        help="Show column headers",
-    ),
-    show_border: bool = typer.Option(
-        True,
-        help="Show column borders",
-    ),
 ):
     """
     List streamlit apps.
     """
     env_conf = AppConfig().config.get(environment)
 
-    if config.isAuth():
-        config.connectToSnowflake()
-        results = config.snowflake_connection.listStreamlits(
+    if config.is_auth():
+        config.connect_to_snowflake()
+        results = config.snowflake_connection.list_streamlits(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
             role=env_conf.get("role"),
@@ -63,9 +55,7 @@ def streamlit_list(
 
         print_db_cursor(
             results,
-            only_cols=only_cols,
-            show_header=show_header,
-            show_border=show_border,
+            columns=only_cols,
         )
 
 
@@ -79,9 +69,9 @@ def streamlit_describe(
     """
     env_conf = AppConfig().config.get(environment)
 
-    if config.isAuth():
-        config.connectToSnowflake()
-        description, url = config.snowflake_connection.describeStreamlit(
+    if config.is_auth():
+        config.connect_to_snowflake()
+        description, url = config.snowflake_connection.describe_streamlit(
             name,
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
@@ -118,8 +108,8 @@ def streamlit_create(
     """
     env_conf = AppConfig().config.get(environment)
 
-    if config.isAuth():
-        config.connectToSnowflake()
+    if config.is_auth():
+        config.connect_to_snowflake()
         if from_stage:
             if "." in from_stage:
                 full_stage_name = from_stage
@@ -132,7 +122,7 @@ def streamlit_create(
         else:
             from_stage_command = ""
 
-        results = config.snowflake_connection.createStreamlit(
+        results = config.snowflake_connection.create_streamlit(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
             role=env_conf.get("role"),
@@ -157,9 +147,9 @@ def streamlit_share(
     """
     env_conf = AppConfig().config.get(environment)
 
-    if config.isAuth():
-        config.connectToSnowflake()
-        results = config.snowflake_connection.shareStreamlit(
+    if config.is_auth():
+        config.connect_to_snowflake()
+        results = config.snowflake_connection.share_streamlit(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
             role=env_conf.get("role"),
@@ -180,9 +170,9 @@ def streamlit_drop(
     """
     env_conf = AppConfig().config.get(environment)
 
-    if config.isAuth():
-        config.connectToSnowflake()
-        results = config.snowflake_connection.dropStreamlit(
+    if config.is_auth():
+        config.connect_to_snowflake()
+        results = config.snowflake_connection.drop_streamlit(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
             role=env_conf.get("role"),
@@ -235,8 +225,8 @@ def streamlit_deploy(
     """
     env_conf = AppConfig().config.get(environment)
 
-    if config.isAuth():
-        config.connectToSnowflake()
+    if config.is_auth():
+        config.connect_to_snowflake()
         schema = env_conf.get("schema")
         role = env_conf.get("role")
         database = env_conf.get("database")
@@ -248,7 +238,7 @@ def streamlit_deploy(
                 package_native_libraries,  # type: ignore[arg-type]
             )
             # upload the resulting app.zip file
-            config.snowflake_connection.uploadFileToStage(
+            config.snowflake_connection.upload_file_to_stage(
                 "app.zip",
                 f"{name}_stage",
                 "/",
@@ -264,7 +254,7 @@ def streamlit_deploy(
                 extract_zip=packaging_workaround_includes_content,
             )
             # upload the wrapper file
-            config.snowflake_connection.uploadFileToStage(
+            config.snowflake_connection.upload_file_to_stage(
                 str(file),
                 f"{name}_stage",
                 "/",
@@ -280,7 +270,7 @@ def streamlit_deploy(
                 excluded_anaconda_deps_list = excluded_anaconda_deps.split(",")
             env_file = generate_streamlit_environment_file(excluded_anaconda_deps_list)
             if env_file:
-                config.snowflake_connection.uploadFileToStage(
+                config.snowflake_connection.upload_file_to_stage(
                     str(env_file),
                     f"{name}_stage",
                     "/",
@@ -290,7 +280,7 @@ def streamlit_deploy(
                     overwrite=True,
                 )
 
-        base_url = config.snowflake_connection.deployStreamlit(
+        base_url = config.snowflake_connection.deploy_streamlit(
             name=name,
             file_path=str(file),
             stage_path="/",

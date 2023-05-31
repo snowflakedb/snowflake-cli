@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+from click import UsageError
 from rich import box
 from rich.live import Live
 from rich.table import Table
@@ -101,27 +102,27 @@ def execute_sql(
     sys_input = None
 
     if query and file:
-        raise ValueError("Both query and file provided, please specify only one.")
+        raise UsageError("Both query and file provided, please specify only one.")
 
     if not sys.stdin.isatty():
         sys_input = sys.stdin.read()
 
     if sys_input and (query or file):
-        raise ValueError(
+        raise UsageError(
             "Can't use stdin input together with query or filename option."
         )
 
     if not query and not file and not sys_input:
-        raise ValueError("Provide either query or filename argument")
+        raise UsageError("Provide either query or filename argument")
     elif sys_input:
         sql = sys_input
     else:
         sql = query if query else file.read_text()  # type: ignore
 
-    if not config.isAuth():
-        raise ValueError("Not authorize")
+    if not config.is_auth():
+        raise UsageError("Not authenticated")
 
-    config.connectToSnowflake(
+    config.connect_to_snowflake(
         connection,
         account=account,
         user=user,

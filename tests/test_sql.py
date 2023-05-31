@@ -2,6 +2,8 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from unittest import mock
 
+from testing_utils.result_assertions import assert_that_result_is_usage_error
+
 CONFIG_MOCK = "snowcli.cli.sql.config"
 
 
@@ -37,34 +39,41 @@ def test_sql_execute_from_stdin(mock_config, runner):
     )
 
 
-def test_sql_execute_from_stdin_with_other_query_source(runner):
+def test_sql_fails_if_no_query_file_or_stdin(runner):
+    result = runner.invoke(["sql"])
+
+    assert_that_result_is_usage_error(
+        result, "Provide either query or filename argument"
+    )
+
+
+def test_sql_fails_for_both_stdin_and_other_query_source(runner):
     with NamedTemporaryFile("r") as tmp_file:
         result = runner.invoke(["sql", "-f", tmp_file.name], input="query from input")
 
-    assert result.exit_code == 1
-    assert "Can't use stdin input together with query or filename" in str(result)
-
-
-def test_sql_execute_fails_if_no_query_file_or_stdin(runner):
-    result = runner.invoke(
-        ["sql"],
+    assert_that_result_is_usage_error(
+        result, "Can't use stdin input together with query or filename"
     )
-
-    assert result.exit_code == 1
-    assert "Provide either query or filename argument" in str(result)
 
 
 def test_sql_fails_for_both_query_and_file(runner):
     with NamedTemporaryFile("r") as tmp_file:
         result = runner.invoke(["sql", "-f", tmp_file.name, "-q", "query"])
 
-    assert result.exit_code == 1
-    assert "Both query and file provided" in str(result)
+    assert_that_result_is_usage_error(result, "Both query and file provided")
+
+
+@mock.patch("snowcli.cli.sql.config.is_auth")
+def test_sql_fails_if_user_not_authenticated(mock_is_auth, runner):
+    mock_is_auth.return_value = False
+    result = runner.invoke(["sql", "-q", "select 1"])
+
+    assert_that_result_is_usage_error(result, "Not authenticated")
 
 
 @mock.patch("snowcli.config.AppConfig")
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.sql.config.isAuth")
+@mock.patch("snowcli.cli.sql.config.is_auth")
 def test_sql_overrides_connection_configuration(_, mock_conn, mock_app_config, runner):
     with NamedTemporaryFile() as tmp:
         Path(tmp.name).write_text("[connections.fooConn]")

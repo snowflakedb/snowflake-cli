@@ -5,7 +5,7 @@ import typer
 
 from snowcli import config
 from snowcli.config import AppConfig
-from snowcli.utils import print_db_cursor
+from snowcli.output.printing import print_db_cursor
 
 app = typer.Typer(
     name="warehouse", context_settings={"help_option_names": ["-h", "--help"]}
@@ -20,9 +20,9 @@ def warehouse_status(environment: str = EnvironmentOption):
     """
     env_conf = AppConfig().config.get(environment)
 
-    if config.isAuth():
-        config.connectToSnowflake()
-        results = config.snowflake_connection.showWarehouses(
+    if config.is_auth():
+        config.connect_to_snowflake()
+        results = config.snowflake_connection.show_warehouses(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
             role=env_conf.get("role"),

@@ -4,7 +4,8 @@ import typer
 
 from snowcli import config, utils
 from snowcli.config import AppConfig
-from snowcli.utils import conf_callback, generate_deploy_stage_name, print_db_cursor
+from snowcli.utils import conf_callback, generate_deploy_stage_name
+from snowcli.output.printing import print_db_cursor
 
 from . import app
 
@@ -42,8 +43,8 @@ def procedure_coverage_clear(
             "yet, please run `snow configure -e dev` first before continuing.",
         )
         raise typer.Abort()
-    if config.isAuth():
-        config.connectToSnowflake()
+    if config.is_auth():
+        config.connect_to_snowflake()
         deploy_dict = utils.get_deploy_names(
             env_conf["database"],
             env_conf["schema"],
@@ -53,7 +54,7 @@ def procedure_coverage_clear(
             ),
         )
         coverage_path = f"""{deploy_dict["directory"]}/coverage"""
-        results = config.snowflake_connection.removeFromStage(
+        results = config.snowflake_connection.remove_from_stage(
             database=env_conf["database"],
             schema=env_conf["schema"],
             role=env_conf["role"],

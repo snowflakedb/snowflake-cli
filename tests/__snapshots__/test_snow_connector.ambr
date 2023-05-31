@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_createFunction
+# name: test_create_function
   '''
   use database databaseValue;
   use schema schemaValue;
@@ -14,7 +14,7 @@
   describe function nameValue(a, b);
   '''
 # ---
-# name: test_createProcedure
+# name: test_create_procedure
   '''
   use database databaseValue;
   use schema schemaValue;
@@ -33,7 +33,7 @@
   describe PROCEDURE nameValue(a, b);
   '''
 # ---
-# name: test_createStage
+# name: test_create_stage
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -43,7 +43,7 @@
   create stage if not exists nameValue;
   '''
 # ---
-# name: test_createStreamlit
+# name: test_create_streamlit
   '''
   use role roleValue;
   use database databaseValue;
@@ -61,7 +61,7 @@
   alter streamlit nameValue checkout;
   '''
 # ---
-# name: test_createStreamlitFromStage
+# name: test_create_streamlit_from_stage
   '''
   use role roleValue;
   use database databaseValue;
@@ -79,7 +79,7 @@
   alter streamlit nameValue checkout;
   '''
 # ---
-# name: test_deployStreamlit
+# name: test_deploy_streamlit
   '''
   use database databaseValue;
   use schema schemaValue;
@@ -88,7 +88,7 @@
   CALL SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('nameValue');
   '''
 # ---
-# name: test_describeFunction
+# name: test_describe_function
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -97,7 +97,7 @@
   desc FUNCTION signatureValue;
   '''
 # ---
-# name: test_describeProcedure
+# name: test_describe_procedure
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -106,7 +106,7 @@
   desc PROCEDURE signatureValue;
   '''
 # ---
-# name: test_describeStreamlit
+# name: test_describe_streamlit
   '''
   use database databaseValue;
   use schema schemaValue;
@@ -115,7 +115,7 @@
   CALL SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('nameValue');
   '''
 # ---
-# name: test_dropFunction
+# name: test_drop_function
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -124,7 +124,7 @@
   drop function signatureValue;
   '''
 # ---
-# name: test_dropProcedure
+# name: test_drop_procedure
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -133,7 +133,7 @@
   drop procedure signatureValue;
   '''
 # ---
-# name: test_dropStage
+# name: test_drop_stage
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -143,7 +143,7 @@
   drop stage nameValue;
   '''
 # ---
-# name: test_dropStreamlit
+# name: test_drop_streamlit
   '''
   use role roleValue;
   use database databaseValue;
@@ -152,7 +152,7 @@
   drop streamlit "nameValue";
   '''
 # ---
-# name: test_executeFunction
+# name: test_execute_function
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -161,7 +161,7 @@
   select functionValue;
   '''
 # ---
-# name: test_executeProcedure
+# name: test_execute_procedure
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -170,7 +170,7 @@
   call procedureValue;
   '''
 # ---
-# name: test_getStage[namedStageValue]
+# name: test_get_stage[namedStageValue]
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -180,7 +180,7 @@
   get @namedStageValue file://pathValue/
   '''
 # ---
-# name: test_getStage[snow://embeddedStageValue]
+# name: test_get_stage[snow://embeddedStageValue]
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -190,7 +190,7 @@
   get snow://embeddedStageValue file://pathValue/
   '''
 # ---
-# name: test_listFunctions
+# name: test_list_functions
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -200,7 +200,7 @@
   select "name", "created_on", "arguments", "language" from table(result_scan(last_query_id()));
   '''
 # ---
-# name: test_listProcedures
+# name: test_list_procedures
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -210,7 +210,7 @@
   select "name", "created_on", "arguments" from table(result_scan(last_query_id()));
   '''
 # ---
-# name: test_listStage[namedStageValue]
+# name: test_list_stage[namedStageValue]
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -219,7 +219,7 @@
   ls @namedStageValue;
   '''
 # ---
-# name: test_listStage[snow://embeddedStageValue]
+# name: test_list_stage[snow://embeddedStageValue]
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -228,7 +228,7 @@
   ls snow://embeddedStageValue;
   '''
 # ---
-# name: test_listStages
+# name: test_list_stages
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -237,7 +237,7 @@
   show stages;
   '''
 # ---
-# name: test_listStreamlits
+# name: test_list_streamlits
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -246,7 +246,7 @@
   show streamlits;
   '''
 # ---
-# name: test_putStage[namedStageValue]
+# name: test_put_stage[namedStageValue]
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -256,7 +256,7 @@
   put file://pathValue @namedStageValue auto_compress=false parallel=parallelValue overwrite=True;
   '''
 # ---
-# name: test_putStage[snow://embeddedStageValue]
+# name: test_put_stage[snow://embeddedStageValue]
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -266,7 +266,7 @@
   put file://pathValue snow://embeddedStageValue auto_compress=false parallel=parallelValue overwrite=True;
   '''
 # ---
-# name: test_removeFromStage[namedStageValue]
+# name: test_remove_from_stage[namedStageValue]
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -276,7 +276,7 @@
   remove @namedStageValue/pathValue
   '''
 # ---
-# name: test_removeFromStage[snow://embeddedStageValue]
+# name: test_remove_from_stage[snow://embeddedStageValue]
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -286,7 +286,7 @@
   remove snow://embeddedStageValue/pathValue
   '''
 # ---
-# name: test_setProcedureComment
+# name: test_set_procedure_comment
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -295,7 +295,7 @@
   alter PROCEDURE signatureValue SET COMMENT = $$commentValue$$;
   '''
 # ---
-# name: test_shareStreamlit
+# name: test_share_streamlit
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -305,7 +305,7 @@
   grant usage on streamlit nameValue to role to_roleValue;
   '''
 # ---
-# name: test_showWarehouses
+# name: test_show_warehouses
   '''
   use role roleValue;
   use warehouse warehouseValue;

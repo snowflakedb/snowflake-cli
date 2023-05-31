@@ -7,7 +7,7 @@ import typer
 
 from snowcli import config
 from snowcli.config import AppConfig
-from snowcli.utils import print_db_cursor
+from snowcli.output.printing import print_db_cursor
 
 app = typer.Typer(
     name="stage", context_settings={"help_option_names": ["-h", "--help"]}
@@ -25,10 +25,10 @@ def stage_list(
     """
     env_conf = AppConfig().config.get(environment)
 
-    if config.isAuth():
-        config.connectToSnowflake()
+    if config.is_auth():
+        config.connect_to_snowflake()
         if name:
-            results = config.snowflake_connection.listStage(
+            results = config.snowflake_connection.list_stage(
                 database=env_conf.get("database"),
                 schema=env_conf.get("schema"),
                 role=env_conf.get("role"),
@@ -37,7 +37,7 @@ def stage_list(
             )
             print_db_cursor(results)
         else:
-            results = config.snowflake_connection.listStages(
+            results = config.snowflake_connection.list_stages(
                 database=env_conf.get("database"),
                 schema=env_conf.get("schema"),
                 role=env_conf.get("role"),
@@ -65,9 +65,9 @@ def stage_get(
     """
     env_conf = AppConfig().config.get(environment)
 
-    if config.isAuth():
-        config.connectToSnowflake()
-        results = config.snowflake_connection.getStage(
+    if config.is_auth():
+        config.connect_to_snowflake()
+        results = config.snowflake_connection.get_stage(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
             role=env_conf.get("role"),
@@ -105,13 +105,13 @@ def stage_put(
     """
     env_conf = AppConfig().config.get(environment)
 
-    if config.isAuth():
-        config.connectToSnowflake()
+    if config.is_auth():
+        config.connect_to_snowflake()
         filepath = str(path)
         if path.is_dir():
             filepath = str(path) + "/*"
 
-        results = config.snowflake_connection.putStage(
+        results = config.snowflake_connection.put_stage(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
             role=env_conf.get("role"),
@@ -134,9 +134,9 @@ def stage_create(
     """
     env_conf = AppConfig().config.get(environment)
 
-    if config.isAuth():
-        config.connectToSnowflake()
-        results = config.snowflake_connection.createStage(
+    if config.is_auth():
+        config.connect_to_snowflake()
+        results = config.snowflake_connection.create_stage(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
             role=env_conf.get("role"),
@@ -156,9 +156,9 @@ def stage_drop(
     """
     env_conf = AppConfig().config.get(environment)
 
-    if config.isAuth():
-        config.connectToSnowflake()
-        results = config.snowflake_connection.dropStage(
+    if config.is_auth():
+        config.connect_to_snowflake()
+        results = config.snowflake_connection.drop_stage(
             database=env_conf.get("database"),
             schema=env_conf.get("schema"),
             role=env_conf.get("role"),

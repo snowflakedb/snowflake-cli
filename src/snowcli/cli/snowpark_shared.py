@@ -13,10 +13,9 @@ from snowcli.config import AppConfig
 from snowcli.utils import (
     YesNoAskOptionsType,
     generate_deploy_stage_name,
-    print_db_cursor,
-    print_list_tuples,
     yes_no_ask_callback,
 )
+from snowcli.output.printing import print_db_cursor
 
 # common CLI options
 PyPiDownloadOption = typer.Option(
@@ -57,8 +56,8 @@ def snowpark_create(
             """You cannot install a code coverage wrapper on a function, only a procedure."""
         )
         raise typer.Abort()
-    if config.isAuth():
-        config.connectToSnowflake()
+    if config.is_auth():
+        config.connect_to_snowflake()
         deploy_dict = utils.get_deploy_names(
             env_conf["database"],
             env_conf["schema"],
@@ -81,7 +80,7 @@ def snowpark_create(
                     temp_dir=temp_dir,
                     zip_file_path=temp_app_zip_path,
                 )
-            config.snowflake_connection.uploadFileToStage(
+            config.snowflake_connection.upload_file_to_stage(
                 file_path=temp_app_zip_path,
                 destination_stage=deploy_dict["stage"],
                 path=deploy_dict["directory"],
@@ -97,10 +96,10 @@ def snowpark_create(
                 packages.append("coverage")
         print(f"Creating {type}...")
         if type == "function":
-            results = config.snowflake_connection.createFunction(
+            results = config.snowflake_connection.create_function(
                 name=name,
-                inputParameters=input_parameters,
-                returnType=return_type,
+                input_parameters=input_parameters,
+                return_type=return_type,
                 handler=handler,
                 imports=deploy_dict["full_path"],
                 database=env_conf["database"],
@@ -111,10 +110,10 @@ def snowpark_create(
                 packages=packages,
             )
         elif type == "procedure":
-            results = config.snowflake_connection.createProcedure(
+            results = config.snowflake_connection.create_procedure(
                 name=name,
-                inputParameters=input_parameters,
-                returnType=return_type,
+                input_parameters=input_parameters,
+                return_type=return_type,
                 handler=handler,
                 imports=deploy_dict["full_path"],
                 database=env_conf["database"],
@@ -127,7 +126,7 @@ def snowpark_create(
             )
         else:
             raise typer.Abort()
-        print_list_tuples(results)
+        print_db_cursor(results)
 
 
 def validate_configuration(env_conf, environment):
@@ -159,15 +158,15 @@ def snowpark_update(
             """You cannot install a code coverage wrapper on a function, only a procedure."""
         )
         raise typer.Abort()
-    if config.isAuth():
-        config.connectToSnowflake()
-        updatedPackageList = []
+    if config.is_auth():
+        config.connect_to_snowflake()
+        updated_package_list = []
         try:
             print(f"Updating {type} {name}...")
             if type == "function":
-                resource_details = config.snowflake_connection.describeFunction(
+                resource_details = config.snowflake_connection.describe_function(
                     name=name,
-                    inputParameters=input_parameters,
+                    input_parameters=input_parameters,
                     database=env_conf["database"],
                     schema=env_conf["schema"],
                     role=env_conf["role"],
@@ -175,9 +174,9 @@ def snowpark_update(
                     show_exceptions=False,
                 )
             elif type == "procedure":
-                resource_details = config.snowflake_connection.describeProcedure(
+                resource_details = config.snowflake_connection.describe_procedure(
                     name=name,
-                    inputParameters=input_parameters,
+                    input_parameters=input_parameters,
                     database=env_conf["database"],
                     schema=env_conf["schema"],
                     role=env_conf["role"],
@@ -197,16 +196,16 @@ def snowpark_update(
                 "Checking if any packages defined or missing from "
                 "requirements.snowflake.txt...",
             )
-            updatedPackageList = utils.get_snowflake_packages_delta(
+            updated_package_list = utils.get_snowflake_packages_delta(
                 anaconda_packages,
             )
             if install_coverage_wrapper:
                 # if we're installing a coverage wrapper, ensure the coverage package included as a dependency
                 if (
                     "coverage" not in anaconda_packages
-                    and "coverage" not in updatedPackageList
+                    and "coverage" not in updated_package_list
                 ):
-                    updatedPackageList.append("coverage")
+                    updated_package_list.append("coverage")
             print(
                 "Checking if app configuration has changed...",
             )
@@ -242,7 +241,7 @@ def snowpark_update(
                         temp_dir=temp_dir,
                         zip_file_path=temp_app_zip_path,
                     )
-                deploy_response = config.snowflake_connection.uploadFileToStage(
+                deploy_response = config.snowflake_connection.upload_file_to_stage(
                     file_path=temp_app_zip_path,
                     destination_stage=deploy_dict["stage"],
                     path=deploy_dict["directory"],
@@ -256,13 +255,13 @@ def snowpark_update(
                 f'{deploy_dict["full_path"]}',
             )
 
-            if updatedPackageList or replace:
+            if updated_package_list or replace:
                 print(f"Replacing {type} with updated values...")
                 if type == "function":
-                    config.snowflake_connection.createFunction(
+                    config.snowflake_connection.create_function(
                         name=name,
-                        inputParameters=input_parameters,
-                        returnType=return_type,
+                        input_parameters=input_parameters,
+                        return_type=return_type,
                         handler=handler,
                         imports=deploy_dict["full_path"],
                         database=env_conf["database"],
@@ -273,10 +272,10 @@ def snowpark_update(
                         packages=utils.get_snowflake_packages(),
                     )
                 elif type == "procedure":
-                    config.snowflake_connection.createProcedure(
+                    config.snowflake_connection.create_procedure(
                         name=name,
-                        inputParameters=input_parameters,
-                        returnType=return_type,
+                        input_parameters=input_parameters,
+                        return_type=return_type,
                         handler=handler,
                         imports=deploy_dict["full_path"],
                         database=env_conf["database"],
@@ -338,13 +337,13 @@ def snowpark_package(
     pack_dir: str = None  # type: ignore
     if requirements:
         print("Comparing provided packages from Snowflake Anaconda...")
-        parsedRequirements = utils.parse_anaconda_packages(requirements)
-        if not parsedRequirements["other"]:
+        parsed_requirements = utils.parse_anaconda_packages(requirements)
+        if not parsed_requirements["other"]:
             print("No packages to manually resolve")
-        if parsedRequirements["other"]:
+        if parsed_requirements["other"]:
             print("Writing requirements.other.txt...")
             with open("requirements.other.txt", "w", encoding="utf-8") as f:
-                for package in parsedRequirements["other"]:
+                for package in parsed_requirements["other"]:
                     f.write(package + "\n")
         # if requirements.other.txt exists
         if os.path.isfile("requirements.other.txt"):
@@ -367,20 +366,20 @@ def snowpark_package(
                     pack_dir = ".packages"
                     # add the Anaconda packages discovered as dependancies
                     if second_chance_results is not None:
-                        parsedRequirements["snowflake"] = (
-                            parsedRequirements["snowflake"]
+                        parsed_requirements["snowflake"] = (
+                            parsed_requirements["snowflake"]
                             + second_chance_results["snowflake"]
                         )
 
         # write requirements.snowflake.txt file
-        if parsedRequirements["snowflake"]:
+        if parsed_requirements["snowflake"]:
             print("Writing requirements.snowflake.txt file...")
             with open(
                 "requirements.snowflake.txt",
                 "w",
                 encoding="utf-8",
             ) as f:
-                for package in sorted(list(set(parsedRequirements["snowflake"]))):
+                for package in sorted(list(set(parsed_requirements["snowflake"]))):
                     f.write(package + "\n")
         if pack_dir:
             utils.recursive_zip_packages_dir(pack_dir, "app.zip")
@@ -394,10 +393,10 @@ def snowpark_package(
 def snowpark_execute(type: str, environment: str, select: str):
     env_conf = AppConfig().config.get(environment)
     validate_configuration(env_conf, environment)
-    if config.isAuth():
-        config.connectToSnowflake()
+    if config.is_auth():
+        config.connect_to_snowflake()
         if type == "function":
-            results = config.snowflake_connection.executeFunction(
+            results = config.snowflake_connection.execute_function(
                 function=select,
                 database=env_conf["database"],
                 schema=env_conf["schema"],
@@ -405,7 +404,7 @@ def snowpark_execute(type: str, environment: str, select: str):
                 warehouse=env_conf["warehouse"],
             )
         elif type == "procedure":
-            results = config.snowflake_connection.executeProcedure(
+            results = config.snowflake_connection.execute_procedure(
                 procedure=select,
                 database=env_conf["database"],
                 schema=env_conf["schema"],
@@ -427,8 +426,8 @@ def snowpark_describe(
     env_conf = AppConfig().config.get(environment)
     validate_configuration(env_conf, environment)
 
-    if config.isAuth():
-        config.connectToSnowflake()
+    if config.is_auth():
+        config.connect_to_snowflake()
         if signature == "":
             if name == "" and input_parameters == "":
                 typer.BadParameter(
@@ -442,7 +441,7 @@ def snowpark_describe(
                 )
             )
         if type == "function":
-            results = config.snowflake_connection.describeFunction(
+            results = config.snowflake_connection.describe_function(
                 signature=signature,
                 database=env_conf["database"],
                 schema=env_conf["schema"],
@@ -450,7 +449,7 @@ def snowpark_describe(
                 warehouse=env_conf["warehouse"],
             )
         elif type == "procedure":
-            results = config.snowflake_connection.describeProcedure(
+            results = config.snowflake_connection.describe_procedure(
                 signature=signature,
                 database=env_conf["database"],
                 schema=env_conf["schema"],
@@ -459,16 +458,16 @@ def snowpark_describe(
             )
         else:
             raise typer.Abort()
-        print_list_tuples(results)
+        print_db_cursor(results)
 
 
 def snowpark_list(type, environment, like):
     env_conf = AppConfig().config.get(environment)
     validate_configuration(env_conf, environment)
-    if config.isAuth():
-        config.connectToSnowflake()
+    if config.is_auth():
+        config.connect_to_snowflake()
         if type == "function":
-            results = config.snowflake_connection.listFunctions(
+            results = config.snowflake_connection.list_functions(
                 database=env_conf["database"],
                 schema=env_conf["schema"],
                 role=env_conf["role"],
@@ -476,7 +475,7 @@ def snowpark_list(type, environment, like):
                 like=like,
             )
         elif type == "procedure":
-            results = config.snowflake_connection.listProcedures(
+            results = config.snowflake_connection.list_procedures(
                 database=env_conf["database"],
                 schema=env_conf["schema"],
                 role=env_conf["role"],
@@ -498,8 +497,8 @@ def snowpark_drop(
     env_conf = AppConfig().config.get(environment)
     validate_configuration(env_conf, environment)
 
-    if config.isAuth():
-        config.connectToSnowflake()
+    if config.is_auth():
+        config.connect_to_snowflake()
         if signature == "":
             if name == "" and input_parameters == "":
                 typer.BadParameter(
@@ -513,7 +512,7 @@ def snowpark_drop(
                 )
             )
         if type == "function":
-            results = config.snowflake_connection.dropFunction(
+            results = config.snowflake_connection.drop_function(
                 signature=signature,
                 database=env_conf["database"],
                 schema=env_conf["schema"],
@@ -521,7 +520,7 @@ def snowpark_drop(
                 warehouse=env_conf["warehouse"],
             )
         elif type == "procedure":
-            results = config.snowflake_connection.dropProcedure(
+            results = config.snowflake_connection.drop_procedure(
                 signature=signature,
                 database=env_conf["database"],
                 schema=env_conf["schema"],

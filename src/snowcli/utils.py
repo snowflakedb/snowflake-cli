@@ -17,9 +17,7 @@ import requests
 import requirements
 import typer
 from jinja2 import Environment, FileSystemLoader
-from rich import box, print
-from rich.table import Table
-from snowflake.connector.cursor import SnowflakeCursor
+from rich import print
 
 from snowcli.config import AppConfig
 
@@ -99,27 +97,27 @@ def parse_requirements(requirements_file: str = "requirements.txt") -> list[str]
 def parse_anaconda_packages(packages: list[str]) -> dict:
     url = "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
     response = requests.get(url)
-    snowflakePackages = []
-    otherPackages = []
+    snowflake_packages = []
+    other_packages = []
     if response.status_code == 200:
         channel_data = response.json()
         for package in packages:
             # pip package names are case insensitive,
             # Anaconda package names are lowercased
             if package.lower() in channel_data["packages"]:
-                snowflakePackages.append(
+                snowflake_packages.append(
                     f"{package}",
                 )
             else:
                 click.echo(
                     f'"{package}" not found in Snowflake anaconda channel...',
                 )
-                otherPackages.append(package)
+                other_packages.append(package)
         # As at April 2023, streamlit appears unavailable in the Snowflake Anaconda channel
         # but actually works if specified in the environment
-        if "streamlit" in otherPackages:
-            otherPackages.remove("streamlit")
-        return {"snowflake": snowflakePackages, "other": otherPackages}
+        if "streamlit" in other_packages:
+            other_packages.remove("streamlit")
+        return {"snowflake": snowflake_packages, "other": other_packages}
     else:
         click.echo(f"Error: {response.status_code}")
         return {}
@@ -474,17 +472,17 @@ def get_snowflake_packages() -> list[str]:
 
 
 def get_snowflake_packages_delta(anaconda_packages) -> list[str]:
-    updatedPackageList = []
+    updated_package_list = []
     if os.path.exists("requirements.snowflake.txt"):
         with open("requirements.snowflake.txt", encoding="utf-8") as f:
             # for each line, check if it exists in anaconda_packages. If it
             # doesn't, add it to the return string
             for line in f:
                 if line.strip() not in anaconda_packages:
-                    updatedPackageList.append(line.strip())
-        return updatedPackageList
+                    updated_package_list.append(line.strip())
+        return updated_package_list
     else:
-        return updatedPackageList
+        return updated_package_list
 
 
 def convert_resource_details_to_dict(function_details: list[tuple]) -> dict:
@@ -498,50 +496,6 @@ def convert_resource_details_to_dict(function_details: list[tuple]) -> dict:
         else:
             function_dict[function[0]] = function[1]
     return function_dict
-
-
-def print_db_cursor(
-    cursor, only_cols=[], show_header: bool = True, show_border: bool = True
-):
-    if cursor.description:
-        if any(only_cols):
-            cols = [
-                (index, col[0])
-                for (index, col) in enumerate(
-                    cursor.description,
-                )
-                if col[0] in only_cols
-            ]
-        else:
-            cols = [(index, col[0]) for (index, col) in enumerate(cursor.description)]
-
-        box_val = box.HEAVY_HEAD if show_border else None
-
-        table = Table(
-            *[col[1] for col in cols],
-            show_header=show_header,
-            box=box_val,
-            border_style=None,
-        )
-        for row in cursor.fetchall():
-            filtered_row = [str(row[col_index]) for (col_index, _) in cols]
-            try:
-                table.add_row(*filtered_row)
-            except Exception as e:
-                print(type(e))
-                print(e.args)
-                print(e)
-        print(table)
-
-
-def print_list_tuples(lt: SnowflakeCursor):
-    table = Table("Key", "Value")
-    for item in lt:
-        if item[0] == "imports":
-            table.add_row(item[0], item[1].strip("[]"))
-        else:
-            table.add_row(item[0], item[1])
-    print(table)
 
 
 def conf_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
