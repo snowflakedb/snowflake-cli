@@ -90,7 +90,13 @@ class TestUtils:
         assert result == {}
 
     def test_generate_streamlit_environment_file(self):
-        pass
+        pass  # todo: create this
+
+    def test_get_package_name_from_metadata_using_correct_data(self, correct_metadata_file: str):
+        result = utils.get_package_name_from_metadata(correct_metadata_file)
+        with open(correct_metadata_file,'r') as f:
+            print(f)
+        assert result == 'my-awesome-package'
 
     # Setup functions
     # These functions are used to set up files and directories used in tests
@@ -131,4 +137,11 @@ class TestUtils:
         path = os.path.join(temp_test_directory, "requirements.snowflake.txt")
         dummy_file = open(path, "w")
         dummy_file.close()
+        yield path
+
+    @pytest.fixture
+    def correct_metadata_file(self, temp_test_directory: str) -> Generator:
+        path = os.path.join(temp_test_directory, 'correct_metadata.yaml')
+        with open(path, 'w') as dummy_file:
+            dummy_file.write(correct_package_metadata)
         yield path

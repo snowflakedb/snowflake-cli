@@ -31,3 +31,17 @@ packages = [
     "snowflake-snowpark-python",
     "my-totally-awesome-package",
 ]
+
+correct_package_metadata = """
+ package:
+  Name: my-awesome-package
+  version: 1.2.3
+
+source:
+  url: https://snowflake.com
+
+build:
+  noarch: python
+  number: 0
+  script: python -m pip install --no-deps --ignore-installed .
+"""
