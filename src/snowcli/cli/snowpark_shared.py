@@ -10,12 +10,12 @@ from rich import print
 
 from snowcli import config, utils
 from snowcli.config import AppConfig
+from snowcli.output.printing import print_db_cursor
 from snowcli.utils import (
     YesNoAskOptionsType,
     generate_deploy_stage_name,
     yes_no_ask_callback,
 )
-from snowcli.output.printing import print_db_cursor
 
 # common CLI options
 PyPiDownloadOption = typer.Option(
@@ -88,6 +88,7 @@ def snowpark_create(
                 schema=env_conf["schema"],
                 overwrite=overwrite,
                 role=env_conf["role"],
+                warehouse=env_conf["warehouse"],
             )
         packages = utils.get_snowflake_packages()
         if install_coverage_wrapper:
@@ -249,6 +250,7 @@ def snowpark_update(
                     schema=env_conf["schema"],
                     overwrite=True,
                     role=env_conf["role"],
+                    warehouse=env_conf["warehouse"],
                 )
             print(
                 f"{deploy_response[0]} uploaded to stage "

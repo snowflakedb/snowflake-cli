@@ -3,4 +3,6 @@ use warehouse {{ warehouse }};
 use database {{ database }};
 use schema {{ schema }};
 
-put file://{{ path }} {{ name }} auto_compress=false parallel={{ parallel }} overwrite={{ overwrite }};
+{{ create_stage_command }}
+
+put file://{{ path }} {{ name }}{{ destination_path }} auto_compress=false parallel={{ parallel }} overwrite={{ overwrite }};

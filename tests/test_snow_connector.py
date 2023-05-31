@@ -2,6 +2,7 @@ import textwrap
 from unittest import mock
 
 import pytest
+
 from snowcli.snow_connector import SnowflakeConnector
 
 
@@ -503,7 +504,37 @@ def test_deploy_streamlit(_, snapshot):
         role="roleValue",
         database="databaseValue",
         schema="schemaValue",
+        warehouse="warehouseValue",
         overwrite=True,
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@pytest.mark.parametrize(
+    "create_stage",
+    [(True), (False)],
+)
+@pytest.mark.parametrize(
+    "stage_name", [("namedStageValue"), ("snow://embeddedStageValue")]
+)
+@mock.patch("snowflake.connector")
+def test_upload_file_to_stage(_, snapshot, create_stage, stage_name):
+    connector = SnowflakeConnector(
+        connection_name="foo", snowsql_config=mock.MagicMock()
+    )
+    connector.ctx.execute_stream.return_value = (None, None)
+
+    connector.upload_file_to_stage(
+        file_path="file_pathValue",
+        destination_stage=stage_name,
+        path="pathValue",
+        role="roleValue",
+        database="databaseValue",
+        schema="schemaValue",
+        warehouse="warehouseValue",
+        overwrite="overwriteValue",
+        create_stage=create_stage,
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
     assert query.getvalue() == snapshot

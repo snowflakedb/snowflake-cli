@@ -253,6 +253,8 @@
   use database databaseValue;
   use schema schemaValue;
   
+  
+  
   put file://pathValue @namedStageValue auto_compress=false parallel=parallelValue overwrite=True;
   '''
 # ---
@@ -262,6 +264,8 @@
   use warehouse warehouseValue;
   use database databaseValue;
   use schema schemaValue;
+  
+  
   
   put file://pathValue snow://embeddedStageValue auto_compress=false parallel=parallelValue overwrite=True;
   '''
@@ -312,5 +316,53 @@
   use database databaseValue;
   use schema schemaValue;
   show warehouses;
+  '''
+# ---
+# name: test_upload_file_to_stage[namedStageValue-False]
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  
+  
+  put file://file_pathValue @namedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
+  '''
+# ---
+# name: test_upload_file_to_stage[namedStageValue-True]
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  create stage if not exists namedStageValue comment='deployments managed by snowcli'
+  
+  put file://file_pathValue @namedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
+  '''
+# ---
+# name: test_upload_file_to_stage[snow://embeddedStageValue-False]
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  
+  
+  put file://file_pathValue snow://embeddedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
+  '''
+# ---
+# name: test_upload_file_to_stage[snow://embeddedStageValue-True]
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  create stage if not exists snow://embeddedStageValue comment='deployments managed by snowcli'
+  
+  put file://file_pathValue snow://embeddedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
   '''
 # ---

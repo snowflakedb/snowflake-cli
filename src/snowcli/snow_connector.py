@@ -132,30 +132,39 @@ class SnowflakeConnector:
         path,
         role,
         database,
+        warehouse,
         schema,
         overwrite,
+        parallel: int = 4,
         create_stage: bool = True,
     ):
-        self.cs.execute(f"use role {role}")
-        self.cs.execute(f"use database {database}")
-        self.cs.execute(f"use schema {schema}")
+        create_stage_command = ""
         if create_stage:
-            self.cs.execute(
+            create_stage_command = (
                 f"create stage if not exists {destination_stage} "
-                'comment="deployments managed by snowcli"',
+                "comment='deployments managed by snowcli'"
             )
-        # Only put the @ in front of named stages, not embedded stages
+
         full_stage_name = (
             f"@{destination_stage}"
             if not destination_stage.startswith("snow://")
             else destination_stage
         )
-        self.cs.execute(
-            f"PUT file://{file_path} {full_stage_name}{path} "
-            "auto_compress=false overwrite="
-            f'{"true" if overwrite else "false"}',
+        return self.run_sql(
+            "put_stage",
+            {
+                "role": role,
+                "database": database,
+                "schema": schema,
+                "warehouse": warehouse,
+                "path": file_path,
+                "destination_path": path,
+                "name": full_stage_name,
+                "create_stage_command": create_stage_command,
+                "parallel": parallel,
+                "overwrite": overwrite,
+            },
         )
-        return self.cs.fetchone()
 
     def execute_function(
         self,
@@ -360,8 +369,8 @@ class SnowflakeConnector:
         self,
         database,
         schema,
-        role,
         warehouse,
+        role,
         name,
         path,
         overwrite: bool = False,
@@ -601,19 +610,21 @@ class SnowflakeConnector:
         role,
         database,
         schema,
+        warehouse,
         overwrite,
     ):
         stage_name = f"snow://streamlit/{database}.{schema}.{name}/default_checkout"
 
         """Upload main python file to stage and return url of streamlit"""
         self.upload_file_to_stage(
-            file_path,
-            stage_name,
-            stage_path,
-            role,
-            database,
-            schema,
-            overwrite,
+            file_path=file_path,
+            destination_stage=stage_name,
+            path=stage_path,
+            role=role,
+            database=database,
+            schema=schema,
+            warehouse=warehouse,
+            overwrite=overwrite,
             create_stage=False,
         )
 

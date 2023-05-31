@@ -230,8 +230,10 @@ def streamlit_deploy(
         schema = env_conf.get("schema")
         role = env_conf.get("role")
         database = env_conf.get("database")
-        # This workaround very likely doesn't work with the new SiS syntax
+        warehouse = env_conf.get("warehouse")
+        # THIS WORKAROUND MAY NOT WORK WITH THE NEW STREAMLIT SYNTAX
         if use_packaging_workaround:
+            stage_name = f"snow://streamlit/{database}.{schema}.{name}/default_checkout"
             # package an app.zip file, same as the other snowpark package commands
             snowpark_package(
                 pypi_download,  # type: ignore[arg-type]
@@ -241,12 +243,14 @@ def streamlit_deploy(
             # upload the resulting app.zip file
             config.snowflake_connection.upload_file_to_stage(
                 "app.zip",
-                f"{name}_stage",
+                stage_name,
                 "/",
-                role,
-                database,
-                schema,
+                role=role,
+                database=database,
+                schema=schema,
+                warehouse=warehouse,
                 overwrite=True,
+                create_stage=False,
             )
             main_module = str(file).replace(".py", "")
             file = generate_streamlit_package_wrapper(
@@ -257,11 +261,12 @@ def streamlit_deploy(
             # upload the wrapper file
             config.snowflake_connection.upload_file_to_stage(
                 str(file),
-                f"{name}_stage",
+                stage_name,
                 "/",
-                role,
-                database,
-                schema,
+                role=role,
+                database=database,
+                schema=schema,
+                warehouse=warehouse,
                 overwrite=True,
             )
             # if the packaging process generated an environment.snowflake.txt
@@ -273,11 +278,12 @@ def streamlit_deploy(
             if env_file:
                 config.snowflake_connection.upload_file_to_stage(
                     str(env_file),
-                    f"{name}_stage",
+                    stage_name,
                     "/",
-                    role,
-                    database,
-                    schema,
+                    role=role,
+                    database=database,
+                    schema=schema,
+                    warehouse=warehouse,
                     overwrite=True,
                 )
 
@@ -288,6 +294,7 @@ def streamlit_deploy(
             role=role,
             database=database,
             schema=schema,
+            warehouse=warehouse,
             overwrite=True,
         )
 
