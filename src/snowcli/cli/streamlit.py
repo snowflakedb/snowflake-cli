@@ -268,6 +268,7 @@ def streamlit_deploy(
                 schema=schema,
                 warehouse=warehouse,
                 overwrite=True,
+                create_stage=False,
             )
             # if the packaging process generated an environment.snowflake.txt
             # file, convert it into an environment.yml file
@@ -285,6 +286,7 @@ def streamlit_deploy(
                     schema=schema,
                     warehouse=warehouse,
                     overwrite=True,
+                    create_stage=False,
                 )
 
         base_url = config.snowflake_connection.deploy_streamlit(
