@@ -63,7 +63,6 @@ cd snowcli
 # you can also do the below in an active virtual environment:
 # python -m venv .venv
 # source .venv/bin/activate
-pip install -r requirements.txt
 hatch build && pip install .
 snow --version
 ```
@@ -295,6 +294,13 @@ If interested in contributing, you will want to instanstiate the pre-commit logi
 ```bash
 pip install pre-commit
 pre-commit
+```
+
+### Test dependencies
+Dependencies are defined as optional dependencies, to install them run
+
+```bash
+pip install ".[dev]"
 ```
 
 ### Integration tests
