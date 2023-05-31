@@ -57,4 +57,3 @@ select = [
     # isort
     "I001"
 ]
-
