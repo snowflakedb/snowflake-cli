@@ -143,6 +143,14 @@ def default(
         case_sensitive=False,
         is_eager=True,
     ),
+    configuration_file: Path = typer.Option(
+        None,
+        "--config-file",
+        help="Specifies snowcli configuration file that should be used",
+        exists=True,
+        dir_okay=False,
+        is_eager=True,
+    ),
 ) -> None:
     """
     SnowCLI - A CLI for Snowflake

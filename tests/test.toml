@@ -1,0 +1,8 @@
+snowsql_config_path = "foo"
+snowsql_connection_name = "foo"
+
+[dev]
+database = "db_for_test"
+schema = "test_public"
+role = "test_role"
+warehouse = "xs"
