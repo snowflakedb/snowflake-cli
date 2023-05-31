@@ -15,7 +15,10 @@ from snowcli.utils import (
 )
 from snowcli.output.printing import print_db_cursor
 
-app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    help="Manage Streamlit in Snowflake",
+)
 EnvironmentOption = typer.Option("dev", help="Environment name")
 
 from snowcli.cli.snowpark_shared import (

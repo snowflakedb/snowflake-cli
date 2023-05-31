@@ -5,7 +5,9 @@ from snowcli.cli.snowpark.package import app as package_app
 from snowcli.cli.snowpark.procedure import app as procedure_app
 
 app = typer.Typer(
-    name="snowpark", context_settings={"help_option_names": ["-h", "--help"]}
+    name="snowpark",
+    context_settings={"help_option_names": ["-h", "--help"]},
+    help="Manage functions, procedures and Snowpark objects",
 )
 
 app.add_typer(function_app)
