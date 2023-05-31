@@ -9,11 +9,11 @@ from rich import print
 
 from snowcli import config
 from snowcli.config import AppConfig
+from snowcli.output.printing import print_db_cursor
 from snowcli.utils import (
     generate_streamlit_environment_file,
     generate_streamlit_package_wrapper,
 )
-from snowcli.output.printing import print_db_cursor
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 EnvironmentOption = typer.Option("dev", help="Environment name")
@@ -230,6 +230,7 @@ def streamlit_deploy(
         schema = env_conf.get("schema")
         role = env_conf.get("role")
         database = env_conf.get("database")
+        # This workaround very likely doesn't work with the new SiS syntax
         if use_packaging_workaround:
             # package an app.zip file, same as the other snowpark package commands
             snowpark_package(

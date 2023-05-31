@@ -134,16 +134,24 @@ class SnowflakeConnector:
         database,
         schema,
         overwrite,
+        create_stage: bool = True,
     ):
         self.cs.execute(f"use role {role}")
         self.cs.execute(f"use database {database}")
         self.cs.execute(f"use schema {schema}")
-        self.cs.execute(
-            f"create stage if not exists {destination_stage} "
-            'comment="deployments managed by snowcli"',
+        if create_stage:
+            self.cs.execute(
+                f"create stage if not exists {destination_stage} "
+                'comment="deployments managed by snowcli"',
+            )
+        # Only put the @ in front of named stages, not embedded stages
+        full_stage_name = (
+            f"@{destination_stage}"
+            if not destination_stage.startswith("snow://")
+            else destination_stage
         )
         self.cs.execute(
-            f"PUT file://{file_path} @{destination_stage}{path} "
+            f"PUT file://{file_path} {full_stage_name}{path} "
             "auto_compress=false overwrite="
             f'{"true" if overwrite else "false"}',
         )
@@ -606,6 +614,7 @@ class SnowflakeConnector:
             database,
             schema,
             overwrite,
+            create_stage=False,
         )
 
         result = self.run_sql(
