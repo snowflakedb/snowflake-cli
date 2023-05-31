@@ -10,11 +10,12 @@ import click
 import typer
 
 from snowcli import config, utils
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.config import AppConfig
 
 app = typer.Typer(
     name="package",
-    context_settings={"help_option_names": ["-h", "--help"]},
+    context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage custom Python packages for Snowpark",
 )
 EnvironmentOption = typer.Option("dev", help="Environment name")

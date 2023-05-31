@@ -8,6 +8,7 @@ import typer
 from rich import print
 
 from snowcli import config
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.config import AppConfig
 from snowcli.utils import (
     generate_streamlit_environment_file,
@@ -16,7 +17,7 @@ from snowcli.utils import (
 from snowcli.output.printing import print_db_cursor
 
 app = typer.Typer(
-    context_settings={"help_option_names": ["-h", "--help"]},
+    context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage Streamlit in Snowflake",
 )
 EnvironmentOption = typer.Option("dev", help="Environment name")
