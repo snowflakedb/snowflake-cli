@@ -7,7 +7,7 @@ import click
 import toml
 
 from snowcli.snow_connector import SnowflakeConnector
-from snowcli.snowsql_config import SnowsqlConfig
+from snowcli.connection_config import ConnectionConfigs
 
 snowflake_connection: SnowflakeConnector
 
@@ -46,15 +46,15 @@ class AppConfig:
 def connect_to_snowflake(connection: Optional[str] = None, **overrides):  # type: ignore
     global snowflake_connection
     cfg = AppConfig()
-    snowsql_config = SnowsqlConfig(path=cfg.config.get("snowsql_config_path"))
+    connection_configs = ConnectionConfigs(
+        snowsql_config_path=cfg.config.get("snowsql_config_path")
+    )
 
     # If there's no user-provided connection then read
     # the one specified by configuration file
-    connection = connection or cfg.config.get("snowsql_connection_name")
-
-    snowflake_connection = SnowflakeConnector(
-        snowsql_config, connection, overrides=overrides
-    )
+    connection_name = connection or cfg.config.get("snowsql_connection_name")
+    connection_config = connection_configs.get_connection(connection_name)
+    snowflake_connection = SnowflakeConnector(connection_config, overrides=overrides)
 
 
 def is_auth():
