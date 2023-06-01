@@ -133,6 +133,7 @@ def default(
     version: bool = typer.Option(
         None,
         "--version",
+        help="Prints version of the snowcli",
         callback=version_callback,
         is_eager=True,
     ),
@@ -141,6 +142,14 @@ def default(
         "--format",
         help="Specifies output format",
         case_sensitive=False,
+        is_eager=True,
+    ),
+    configuration_file: Path = typer.Option(
+        None,
+        "--config-file",
+        help="Specifies snowcli configuration file that should be used",
+        exists=True,
+        dir_okay=False,
         is_eager=True,
     ),
 ) -> None:

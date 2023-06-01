@@ -22,6 +22,12 @@ class AppConfig:
             self.config = {}
 
     def _find_app_toml(self):
+        config_file_path_from_cli: Optional[str] = (
+            click.get_current_context().find_root().params.get("configuration_file")
+        )
+        if config_file_path_from_cli:
+            return Path(config_file_path_from_cli).absolute()
+
         # Find first app.toml by traversing parent dirs up to home dir
         p = Path.cwd()
         while not any(p.glob("app.toml")) and p != p.home():

@@ -8,7 +8,10 @@ from rich.table import Table
 from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
 
-app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    help="Manage connection to Snowflake",
+)
 
 
 @app.command()
