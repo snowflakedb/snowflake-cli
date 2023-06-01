@@ -1,5 +1,6 @@
 from shutil import rmtree
 from typing import Generator
+from zipfile import ZipFile
 
 import pytest
 import typer
@@ -110,6 +111,24 @@ class TestUtils:
         with open(path) as coverage_file:
             assert "return awesomeModule.even_better_function(*args,**kwargs)" in coverage_file.read()
 
+    def test_add_file_to_existing_zip(self, correct_app_zip: str, correct_requirements_txt: str):
+        utils.add_file_to_existing_zip(correct_app_zip, correct_requirements_txt)
+        zip_file = ZipFile(correct_app_zip)
+        assert os.path.basename(correct_requirements_txt) in zip_file.namelist()
+
+    def test_install_packages(self):
+        pass #todo: add this
+
+    def test_recursive_zip_packages(self,temp_test_directory: str, correct_requirements_txt: str):
+        zip_file_path = os.path.join(temp_test_directory, 'packed.zip')
+        utils.recursive_zip_packages_dir(temp_test_directory, zip_file_path)
+        zip_file = ZipFile(zip_file_path)
+
+        assert os.path.isfile(zip_file_path)
+        assert os.path.basename(correct_requirements_txt) in zip_file.namelist()
+
+
+
     # Setup functions
     # These functions are used to set up files and directories used in tests
     # and delete them, after the tests are performed
@@ -157,3 +176,4 @@ class TestUtils:
         with open(path, 'w') as dummy_file:
             dummy_file.write(correct_package_metadata)
         yield path
+
