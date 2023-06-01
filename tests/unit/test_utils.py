@@ -94,9 +94,21 @@ class TestUtils:
 
     def test_get_package_name_from_metadata_using_correct_data(self, correct_metadata_file: str):
         result = utils.get_package_name_from_metadata(correct_metadata_file)
-        with open(correct_metadata_file,'r') as f:
-            print(f)
         assert result == 'my-awesome-package'
+
+    def test_generate_snowpark_coverage_wrapper(self, temp_test_directory: str):
+        path = os.path.join(temp_test_directory, 'coverage.py')
+        utils.generate_snowpark_coverage_wrapper(target_file=path,
+                                                 proc_name='process',
+                                                 proc_signature='signature',
+                                                 handler_module='awesomeModule',
+                                                 handler_function='even_better_function',
+                                                 coverage_reports_stage='example_stage',
+                                                 coverage_reports_stage_path='nyan-cat.jpg')
+
+        assert os.path.isfile(path)
+        with open(path) as coverage_file:
+            assert "return awesomeModule.even_better_function(*args,**kwargs)" in coverage_file.read()
 
     # Setup functions
     # These functions are used to set up files and directories used in tests

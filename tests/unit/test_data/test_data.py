@@ -33,15 +33,12 @@ packages = [
 ]
 
 correct_package_metadata = """
- package:
-  Name: my-awesome-package
-  version: 1.2.3
-
-source:
-  url: https://snowflake.com
-
-build:
-  noarch: python
-  number: 0
-  script: python -m pip install --no-deps --ignore-installed .
+Metadata-Version: 2.1
+Name: my-awesome-package
+Version: 0.0.1
+Requires-Dist: requests===2.28.1
+Requires-Dist: snowflake-connector-python==3.0.2
+Requires-Dist: snowflake-snowpark-python==1.1.0
+Provides-Extra: dev
+Requires-Dist: pytest; extra == 'dev'
 """
