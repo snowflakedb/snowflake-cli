@@ -55,7 +55,7 @@ snow --help
 
 ### Install from source
 
-Requires Python >= 3.10 and git
+Requires Python >= 3.8 and git
 
 ```bash
 git clone https://github.com/snowflake-labs/snowcli
@@ -296,6 +296,14 @@ If interested in contributing, you will want to instanstiate the pre-commit logi
 pip install pre-commit
 pre-commit
 ```
+
+### Integration tests
+
+Every integration test should have `integration` mark. By default, integration tests are not execute in `pytest`.
+
+To execute only unit tests run `pytest`
+
+To execute only integration tests run `pytest -m integration`
 
 ## Get involved
 
