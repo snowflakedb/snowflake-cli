@@ -833,19 +833,6 @@ class SnowflakeConnector:
             },
         )
 
-    def list_job(
-        self, role: str, warehouse: str, database: str, schema: str
-    ) -> SnowflakeCursor:
-        return self.run_sql(
-            "snowservices/jobs/list_job",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-            },
-        )
-
     def drop_job(
         self, name: str, role: str, warehouse: str, database: str, schema: str
     ) -> SnowflakeCursor:
