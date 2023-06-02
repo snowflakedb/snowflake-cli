@@ -4,6 +4,7 @@ from typing import Generator
 from zipfile import ZipFile
 
 import pytest
+import requests_mock
 import typer
 from snowcli import utils
 
@@ -48,8 +49,6 @@ class TestUtils:
         result = utils.get_deploy_names(*arguments[0])
 
         assert result == arguments[1]
-
-    # TODO: think what you can break in getDeployNames
 
     def test_prepare_app_zip(
         self,
