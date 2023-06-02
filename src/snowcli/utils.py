@@ -407,7 +407,7 @@ def install_packages(
 
 
 def recursive_zip_packages_dir(pack_dir: str, dest_zip: str) -> bool:
-    #TODO:
+    # TODO:
     # 1. why this is -> bool
     # 2. Reformat it to with open...
     # 3. Reformat it to get list od dirs and then iterate through it, adding files to zip
@@ -438,7 +438,6 @@ def recursive_zip_packages_dir(pack_dir: str, dest_zip: str) -> bool:
                         and not file.match("*__pycache__*")
                     ):
                         zipf.write(file, arcname=os.path.relpath(file, directory))
-
 
     # close the zip file object
     zipf.close()

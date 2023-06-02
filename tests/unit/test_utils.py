@@ -177,7 +177,7 @@ class TestUtils:
         file_in_a_subdir: str,
         other_directory: str,
         file_in_other_directory: str,
-        include_paths_env_variable
+        include_paths_env_variable,
     ):
         zip_file_path = os.path.join(temp_test_directory, "packed.zip")
 
@@ -186,10 +186,7 @@ class TestUtils:
 
         assert os.path.isfile(zip_file_path)
         assert (os.path.join(self.SUBDIR, self.FILE_IN_A_SUBDIR)) in zip_file.namelist()
-        assert (
-            os.path.join(self.FILE_IN_SECOND_TEST_DIRECTORY)
-            in zip_file.namelist()
-        )
+        assert os.path.join(self.FILE_IN_SECOND_TEST_DIRECTORY) in zip_file.namelist()
 
     def test_standard_zip_dir(self, temp_test_directory: str, file_in_a_subdir: str):
         zip_file_path = os.path.join(temp_test_directory, "packed.zip")
@@ -263,7 +260,9 @@ class TestUtils:
     @pytest.fixture
     def other_directory(self) -> Generator:
         current_path = Path(os.getcwd())
-        path = os.path.join(current_path.parent.absolute(), self.SECOND_TEST_DIRECTORY).lower()
+        path = os.path.join(
+            current_path.parent.absolute(), self.SECOND_TEST_DIRECTORY
+        ).lower()
         os.mkdir(path)
         yield path
         rmtree(path)
@@ -276,7 +275,7 @@ class TestUtils:
         yield path
 
     @pytest.fixture
-    def include_paths_env_variable(self, other_directory: str) -> str:
+    def include_paths_env_variable(self, other_directory: str) -> Generator:
         os.environ["SNOWCLI_INCLUDE_PATHS"] = other_directory
         yield os.environ["SNOWCLI_INCLUDE_PATHS"]
         os.environ.pop("SNOWCLI_INCLUDE_PATHS")
