@@ -3,5 +3,4 @@ use warehouse {{ warehouse }};
 use database {{ database }};
 use schema {{ schema }};
 
-
-show services;
+alter compute pool {{ name }} stop all services;

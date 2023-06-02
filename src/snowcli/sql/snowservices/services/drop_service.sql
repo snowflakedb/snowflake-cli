@@ -1,7 +1,7 @@
-use role {role};
-use warehouse {warehouse};
-use database {database};
-use schema {schema};
+use role {{ role }};
+use warehouse {{ warehouse }};
+use database {{ database }};
+use schema {{ schema }};
 
 
-DROP SERVICE {name};
+DROP SERVICE {{ name }};

@@ -677,6 +677,7 @@ class SnowflakeConnector:
         role: str,
         warehouse: str,
         database: str,
+        num_instances: int,
         schema: str,
     ) -> SnowflakeCursor:
         spec_filename = os.path.basename(spec_path)
@@ -690,6 +691,7 @@ class SnowflakeConnector:
                 "role": role,
                 "warehouse": warehouse,
                 "name": name,
+                "num_instances": num_instances,
                 "compute_pool": compute_pool,
                 "spec_path": spec_path,
                 "stage_dir": stage_dir,
@@ -900,6 +902,20 @@ class SnowflakeConnector:
                 "min_node": num_instances,
                 "max_node": num_instances,
                 "instance_family": instance_family,
+            },
+        )
+
+    def stop_compute_pool(
+        self, role: str, warehouse: str, database: str, schema: str, name: str
+    ) -> SnowflakeCursor:
+        return self.run_sql(
+            "snowservices/compute_pool/stop_compute_pools",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "name": name,
             },
         )
 

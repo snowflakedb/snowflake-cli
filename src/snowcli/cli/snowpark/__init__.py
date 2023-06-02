@@ -15,11 +15,11 @@ app = typer.Typer(
     help="Manage functions, procedures and Snowpark objects",
 )
 
-app.add_typer(function_app)
-app.add_typer(package_app)
-app.add_typer(procedure_app)
-app.add_typer(compute_pools_app)
-app.add_typer(cp_app)
-app.add_typer(services_app)
+app.add_typer(function_app)  # type: ignore
+app.add_typer(package_app)  # type: ignore
+app.add_typer(procedure_app)  # type: ignore
+app.add_typer(compute_pools_app)  # type: ignore
+app.add_typer(cp_app)  # type: ignore
+app.add_typer(services_app)  # type: ignore
 app.add_typer(jobs_app)  # type: ignore
 app.add_typer(registry_app)  # type: ignore

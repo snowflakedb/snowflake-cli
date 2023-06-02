@@ -16,12 +16,12 @@ app = typer.Typer(
 @app.command()
 def create(
     environment: str = ConnectionOption,
-    name: str = typer.Option(..., "--name", "-n", help="Compute Pool Name"),
+    name: str = typer.Option(..., "--name", "-n", help="Compute pool name"),
     num_instances: int = typer.Option(..., "--num", "-d", help="Number of instances"),
-    instance_family: str = typer.Option(..., "--family", "-f", help="Instance Family"),
+    instance_family: str = typer.Option(..., "--family", "-f", help="Instance family"),
 ):
     """
-    Create Compute Pool
+    Create compute pool
     """
     conn = connect_to_snowflake(connection_name=environment)
 
@@ -41,7 +41,7 @@ def create(
 @app.command()
 def list(environment: str = ConnectionOption):
     """
-    List Compute Pools
+    List compute pools
     """
     conn = connect_to_snowflake(connection_name=environment)
 
@@ -61,12 +61,33 @@ def drop(
     name: str = typer.Argument(..., help="Compute Pool Name"),
 ):
     """
-    Drop Service
+    Drop compute pool
     """
     conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
         results = config.snowflake_connection.drop_compute_pool(
+            database=conn.ctx.database,
+            schema=conn.ctx.schema,
+            role=conn.ctx.role,
+            warehouse=conn.ctx.warehouse,
+            name=name,
+        )
+        print_db_cursor(results)
+
+
+@app.command()
+def stop(
+    environment: str = ConnectionOption,
+    name: str = typer.Argument(..., help="Compute Pool Name"),
+):
+    """
+    Stop and delete all services running on Compute Pool
+    """
+    conn = connect_to_snowflake(connection_name=environment)
+
+    if config.is_auth():
+        results = config.snowflake_connection.stop_compute_pool(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,

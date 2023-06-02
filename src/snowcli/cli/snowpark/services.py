@@ -1,9 +1,10 @@
 import sys
-import json
+
 import typer
 from snowcli import config
 from snowcli.cli import DEFAULT_CONTEXT_SETTINGS
 from typing import TextIO
+from typing_extensions import Annotated
 
 from snowcli.cli.common.flags import ConnectionOption
 from snowcli.config import connect_to_snowflake
@@ -34,9 +35,12 @@ def create(
     name: str = typer.Option(..., "--name", "-n", help="Job Name"),
     compute_pool: str = typer.Option(..., "--compute_pool", "-c", help="Compute Pool"),
     spec_path: str = typer.Option(..., "--spec_path", "-s", help="Spec Path"),
+    num_instances: Annotated[
+        int, typer.Option("--num_instances", "-num", help="Number of instances")
+    ] = 1,
 ):
     """
-    Create Service
+    Create service
     """
     conn = connect_to_snowflake(connection_name=environment)
 
@@ -48,6 +52,7 @@ def create(
             warehouse=conn.ctx.warehouse,
             name=name,
             compute_pool=compute_pool,
+            num_instances=num_instances,
             spec_path=spec_path,
         )
         print_db_cursor(results)
