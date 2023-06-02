@@ -5,11 +5,12 @@ import typer
 from rich import print
 from rich.table import Table
 
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.config import AppConfig
 from snowcli.snowsql_config import SnowsqlConfig
 
 app = typer.Typer(
-    context_settings={"help_option_names": ["-h", "--help"]},
+    context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage connection to Snowflake",
 )
 

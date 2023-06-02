@@ -15,13 +15,14 @@ from snowcli.cli import (
     sql,
     streamlit,
 )
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark import app as snowpark_app
 from snowcli.config import AppConfig
 from snowcli.output.formats import OutputFormat
 from snowcli.snowsql_config import SnowsqlConfig
 
 app = typer.Typer(
-    context_settings={"help_option_names": ["-h", "--help"]},
+    context_settings=DEFAULT_CONTEXT_SETTINGS,
     pretty_exceptions_show_locals=False,
 )
 
