@@ -2,7 +2,7 @@ import pytest
 
 from unittest import mock
 
-from integration.snowflake_connector import snowflake_session
+from tests.integration.snowflake_connector import snowflake_session
 
 
 @pytest.mark.integration

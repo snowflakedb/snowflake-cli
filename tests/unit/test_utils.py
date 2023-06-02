@@ -278,5 +278,5 @@ class TestUtils:
     @pytest.fixture
     def include_paths_env_variable(self, other_directory: str) -> str:
         os.environ["SNOWCLI_INCLUDE_PATHS"] = other_directory
-        return os.environ["SNOWCLI_INCLUDE_PATHS"]
+        yield os.environ["SNOWCLI_INCLUDE_PATHS"]
         os.environ.pop("SNOWCLI_INCLUDE_PATHS")
