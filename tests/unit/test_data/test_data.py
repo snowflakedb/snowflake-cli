@@ -32,6 +32,8 @@ packages = [
     "my-totally-awesome-package",
 ]
 
+excluded_anaconda_deps = ["pytest==1.0.0"]
+
 correct_package_metadata = """
 Metadata-Version: 2.1
 Name: my-awesome-package

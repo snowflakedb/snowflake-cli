@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import Path, PosixPath
 from shutil import rmtree
 from typing import Generator, Tuple
 from zipfile import ZipFile
@@ -111,8 +111,39 @@ class TestUtils:
         result = utils.parse_anaconda_packages(packages)
         assert result == {}
 
-    def test_generate_streamlit_environment_file(self):
-        pass  # todo: create this
+    def test_generate_streamlit_environment_file_with_no_requirements(self):
+        result = utils.generate_streamlit_environment_file([])
+        assert result is None
+
+    def test_generate_streamlit_environment_file(
+        self, streamlit_requirements_txt, temp_test_directory: str
+    ):
+        os.chdir(temp_test_directory)
+        result = utils.generate_streamlit_environment_file([])
+        os.chdir("..")
+
+        assert result == PosixPath("environment.yml")
+        assert os.path.isfile(os.path.join(temp_test_directory, "environment.yml"))
+
+    def test_generate_streamlit_environment_file_with_excluded_dependencies(
+        self, streamlit_requirements_txt, temp_test_directory: str
+    ):
+        os.chdir(temp_test_directory)
+        result = utils.generate_streamlit_environment_file(excluded_anaconda_deps)
+        os.chdir("..")
+        env_file = os.path.join(temp_test_directory, "environment.yml")
+        assert result == PosixPath("environment.yml")
+        assert os.path.isfile(env_file)
+        with open(env_file, "r") as f:
+            for dep in excluded_anaconda_deps:
+                assert dep not in f.read()
+
+    def test_generate_streamlit_package_wrapper(self):
+        result = utils.generate_streamlit_package_wrapper('example_stage', 'example_module', False)
+
+        assert os.path.exists(result)
+        with open(result, 'r') as f:
+            assert 'importlib.reload(sys.modules["example_module"])' in f.read()
 
     def test_get_package_name_from_metadata_using_correct_data(
         self, correct_metadata_file: str
@@ -235,8 +266,9 @@ class TestUtils:
     @pytest.fixture
     def streamlit_requirements_txt(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, self.REQUIREMENTS_SNOWFLAKE)
-        dummy_file = open(path, "w")
-        dummy_file.close()
+        with open(path, "w") as dummy_file:
+            for req in requirements:
+                dummy_file.writelines(req + "\n")
         yield path
 
     @pytest.fixture
