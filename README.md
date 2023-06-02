@@ -55,7 +55,7 @@ snow --help
 
 ### Install from source
 
-Requires Python >= 3.10 and git
+Requires Python >= 3.8 and git
 
 ```bash
 git clone https://github.com/snowflake-labs/snowcli
@@ -63,7 +63,6 @@ cd snowcli
 # you can also do the below in an active virtual environment:
 # python -m venv .venv
 # source .venv/bin/activate
-pip install -r requirements.txt
 hatch build && pip install .
 snow --version
 ```
@@ -296,6 +295,21 @@ If interested in contributing, you will want to instanstiate the pre-commit logi
 pip install pre-commit
 pre-commit
 ```
+
+### Test dependencies
+Dependencies are defined as optional dependencies, to install them run
+
+```bash
+pip install ".[dev]"
+```
+
+### Integration tests
+
+Every integration test should have `integration` mark. By default, integration tests are not execute in `pytest`.
+
+To execute only unit tests run `pytest`
+
+To execute only integration tests run `pytest -m integration`
 
 ## Get involved
 

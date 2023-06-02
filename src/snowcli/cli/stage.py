@@ -6,12 +6,13 @@ from pathlib import Path
 import typer
 
 from snowcli import config
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.config import AppConfig
 from snowcli.output.printing import print_db_cursor
 
 app = typer.Typer(
     name="stage",
-    context_settings={"help_option_names": ["-h", "--help"]},
+    context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage stages",
 )
 EnvironmentOption = typer.Option("dev", help="Environment name")
