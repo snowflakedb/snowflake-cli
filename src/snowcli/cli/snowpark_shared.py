@@ -379,10 +379,8 @@ def snowpark_package(
                 "w",
                 encoding="utf-8",
             ) as f:
-                # deduplicate and sort
-                snowflake_package_lines = [p.line for p in split_requirements.snowflake]
-                for package_line in sorted(list(set(snowflake_package_lines))):
-                    f.write(package_line + "\n")
+                for package in utils.deduplicate_and_sort_reqs(split_requirements.snowflake):
+                    f.write(package.line + "\n")
         if pack_dir:
             utils.recursive_zip_packages_dir(pack_dir, "app.zip")
         else:

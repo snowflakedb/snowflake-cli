@@ -97,14 +97,26 @@ def parse_requirements(
     else:
         click.echo(f"No {requirements_file} found")
 
-    return reqs
+    return deduplicate_and_sort_reqs(reqs)
 
+
+def deduplicate_and_sort_reqs(packages: List[Requirement]) -> List[Requirement]:
+    """
+    Deduplicates a list of requirements, keeping the first occurrence of each package.
+    """
+    seen = set()
+    deduped: List[Requirement] = []
+    for package in packages:
+        if package.name not in seen:
+            deduped.append(package)
+            seen.add(package.name)
+    # sort by package name
+    deduped.sort(key=lambda x: x.name)
+    return deduped
 
 # parse JSON from https://repo.anaconda.com/pkgs/snowflake/channeldata.json and
 # return a list of packages that exist in packages with the .packages json
 # response from https://repo.anaconda.com/pkgs/snowflake/channeldata.json
-
-
 def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
     """
     Checks if a list of packages are available in the Snowflake Anaconda channel.
@@ -159,14 +171,11 @@ def generate_streamlit_environment_file(
                 for r in snowflake_requirements
                 if r.name not in excluded_anaconda_deps
             ]
-        # remove duplicates, remove comments, remove snowflake-connector-python
-        requirement_names = [
-            r.name
-            for r in snowflake_requirements
-            if r.name != "snowflake-connector-python"
-        ]
+        # remove snowflake-connector-python
         requirement_yaml_lines = [
-            f"- {line}" for line in sorted(list(set(requirement_names)))
+            # unsure if streamlit supports versioned requirements, 
+            # following PrPr docs convention for now
+            f"- {req.name}" for req in snowflake_requirements if req.name != "snowflake-connector-python"
         ]
         dependencies_list = "\n".join(requirement_yaml_lines)
         environment = Environment(loader=FileSystemLoader(templates_path))

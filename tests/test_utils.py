@@ -15,12 +15,12 @@ def test_parse_requirements():
         result = utils.parse_requirements(tmp.name)
 
     assert len(result) == 2
-    assert result[0].name == "pandas"
+    assert result[0].name == "FuelSDK"
     assert result[0].specifier is True
-    assert result[0].specs == [("==", "1.0.0")]
-    assert result[1].name == "FuelSDK"
+    assert result[0].specs == [(">=", "0.9.3")]
+    assert result[1].name == "pandas"
     assert result[1].specifier is True
-    assert result[1].specs == [(">=", "0.9.3")]
+    assert result[1].specs == [("==", "1.0.0")]
 
 
 # mock the next call to requests.get
@@ -93,3 +93,16 @@ channels:
 dependencies:
 - pydantic"""
     )
+
+def test_deduplicate_and_sort_reqs():
+    packages = [Requirement.parse("d"), 
+                Requirement.parse("b==0.9.3"),
+                Requirement.parse("a==0.9.5"),
+                Requirement.parse("a==0.9.3"),
+                Requirement.parse("c>=0.9.5")
+                ]
+    sorted_packages = utils.deduplicate_and_sort_reqs(packages)
+    assert len(sorted_packages) == 4
+    assert sorted_packages[0].name == "a"
+    assert sorted_packages[0].specifier is True
+    assert sorted_packages[0].specs == [("==", "0.9.5")]
