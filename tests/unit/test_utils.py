@@ -1,15 +1,13 @@
 from pathlib import Path, PosixPath
 from shutil import rmtree
-from typing import Generator, Tuple
-from unittest import mock
+from typing import Generator, Tuple, List
 from zipfile import ZipFile
 
+import os
 import pytest
 import requests_mock
 import typer
 from snowcli import utils
-from snowcli.cli.streamlit import streamlit_list, app
-from snowcli.config import AppConfig
 
 from tests.unit.test_data.test_data import *
 
@@ -279,31 +277,25 @@ class TestUtils:
     @pytest.fixture
     def correct_app_zip(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, self.APP_ZIP)
-        dummy_file = open(path, "w")
-        dummy_file.close()
+        self.create_file(path, [])
         yield path
 
     @pytest.fixture
     def correct_requirements_txt(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, self.REQUIREMENTS_TXT)
-        with open(path, "w") as req_file:
-            for req in requirements:
-                req_file.writelines(req + "\n")
+        self.create_file(path, requirements)
         yield path
 
     @pytest.fixture
     def streamlit_requirements_txt(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, self.REQUIREMENTS_SNOWFLAKE)
-        with open(path, "w") as dummy_file:
-            for req in requirements:
-                dummy_file.writelines(req + "\n")
+        self.create_file(path, requirements)
         yield path
 
     @pytest.fixture
     def correct_metadata_file(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, self.CORRECT_METADATA)
-        with open(path, "w") as dummy_file:
-            dummy_file.write(correct_package_metadata)
+        self.create_file(path, correct_package_metadata)
         yield path
 
     @pytest.fixture
@@ -311,10 +303,9 @@ class TestUtils:
         dir_path = os.path.join(temp_test_directory, self.SUBDIR)
         os.mkdir(dir_path)
 
-        file_path = os.path.join(dir_path, self.FILE_IN_A_SUBDIR)
-        dummy_file = open(file_path, "w")
-        dummy_file.close()
-        yield file_path
+        path = os.path.join(dir_path, self.FILE_IN_A_SUBDIR)
+        self.create_file(path, [])
+        yield path
 
     @pytest.fixture
     def other_directory(self) -> Generator:
@@ -329,8 +320,7 @@ class TestUtils:
     @pytest.fixture
     def file_in_other_directory(self, other_directory: str) -> Generator:
         path = os.path.join(other_directory, self.FILE_IN_SECOND_TEST_DIRECTORY)
-        dummy_file = open(path, "w")
-        dummy_file.close()
+        self.create_file(path, [])
         yield path
 
     @pytest.fixture
@@ -338,3 +328,9 @@ class TestUtils:
         os.environ["SNOWCLI_INCLUDE_PATHS"] = other_directory
         yield os.environ["SNOWCLI_INCLUDE_PATHS"]
         os.environ.pop("SNOWCLI_INCLUDE_PATHS")
+
+    @staticmethod
+    def create_file(filepath: str, contents: List[str]) -> None:
+        with open(filepath, "w") as new_file:
+            for line in contents:
+                new_file.write(line + "\n")

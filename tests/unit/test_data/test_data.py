@@ -1,6 +1,3 @@
-# test_utils.py
-import os
-
 bad_arguments_for_yesnoask = [
     "Yes",
     "No",
@@ -34,16 +31,16 @@ packages = [
 
 excluded_anaconda_deps = ["pytest==1.0.0"]
 
-correct_package_metadata = """
-Metadata-Version: 2.1
-Name: my-awesome-package
-Version: 0.0.1
-Requires-Dist: requests===2.28.1
-Requires-Dist: snowflake-connector-python==3.0.2
-Requires-Dist: snowflake-snowpark-python==1.1.0
-Provides-Extra: dev
-Requires-Dist: pytest; extra == 'dev'
-"""
+correct_package_metadata = [
+    "Metadata-Version: 2.1",
+    "Name: my-awesome-package",
+    "Version: 0.0.1",
+    "Requires-Dist: requests===2.28.1",
+    "Requires-Dist: snowflake-connector-python==3.0.2",
+    "Requires-Dist: snowflake-snowpark-python==1.1.0",
+    "Provides-Extra: dev",
+    "Requires-Dist: pytest; extra == 'dev'",
+]
 
 example_resource_details = [
     ("packages", "{'name': 'my-awesome-package','version': '1.2.3'}"),
