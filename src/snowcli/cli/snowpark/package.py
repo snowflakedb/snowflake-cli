@@ -8,6 +8,7 @@ from shutil import rmtree
 
 import click
 import typer
+from requirements.requirement import Requirement
 
 from snowcli import config, utils
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
@@ -38,10 +39,10 @@ def package_lookup(
     """
     Check to see if a package is available on the Snowflake anaconda channel.
     """
-    package_response = utils.parse_anaconda_packages([name])
+    package_response = utils.parse_anaconda_packages([Requirement.parse(name)])
     ## if list has any items
 
-    if len(package_response["snowflake"]) > 0:
+    if len(package_response.snowflake) > 0:
         click.echo(f"Package {name} is available on the Snowflake anaconda channel.")
         if _run_nested:
             click.echo(
@@ -58,8 +59,8 @@ def package_lookup(
             status, results = utils.install_packages(
                 perform_anaconda_check=True, package_name=name, file_name=None
             )
-            if status and results is not None and len(results["snowflake"]) > 0:
-                packages_string = f"The package {name} is supported, but does depend on the following Snowflake supported native libraries you should include the following in your packages: {results['snowflake']}"
+            if status and results is not None and len(results.snowflake) > 0:
+                packages_string = f"The package {name} is supported, but does depend on the following Snowflake supported native libraries you should include the following in your packages: {results.snowflake}"
             # if .packages subfolder exists, delete it
             if not _run_nested and os.path.exists(".packages"):
                 rmtree(".packages")

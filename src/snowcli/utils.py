@@ -1,4 +1,5 @@
 from __future__ import annotations
+from dataclasses import dataclass
 
 import glob
 import json
@@ -10,11 +11,12 @@ import subprocess
 import warnings
 import zipfile
 from pathlib import Path
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional, Tuple
 
 import click
 import requests
 import requirements
+from requirements.requirement import Requirement
 import typer
 from jinja2 import Environment, FileSystemLoader
 from rich import print
@@ -64,8 +66,16 @@ def prepare_app_zip(file_path, temp_dir) -> str:
     shutil.copy(file_path, temp_path)
     return temp_path
 
+@dataclass
+class SplitRequirements:
+    """A dataclass to hold the results of parsing requirements files and dividing them into
+    snowflake-supported vs other packages.
+    """
+    snowflake: List[Requirement]
+    other: List[Requirement]
 
-def parse_requirements(requirements_file: str = "requirements.txt") -> list[str]:
+
+def parse_requirements(requirements_file: str = "requirements.txt") -> List[Requirement]:
     """Reads and parses a python requirements.txt file.
 
     Args:
@@ -75,11 +85,11 @@ def parse_requirements(requirements_file: str = "requirements.txt") -> list[str]
     Returns:
         list[str]: A flat list of package names, without versions
     """
-    reqs = []
+    reqs:List[Requirement] = []
     if os.path.exists(requirements_file):
         with open(requirements_file, encoding="utf-8") as f:
             for req in requirements.parse(f):
-                reqs.append(req.name)
+                reqs.append(req)
     else:
         click.echo(f"No {requirements_file} found")
 
@@ -92,30 +102,36 @@ def parse_requirements(requirements_file: str = "requirements.txt") -> list[str]
 # CURRENTLY DOES NOT SUPPORT PINNING TO VERSIONS
 
 
-def parse_anaconda_packages(packages: list[str]) -> dict:
+def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
+    """
+    Checks if a list of packages are available in the Snowflake Anaconda channel.
+    Returns a dict with two keys: 'snowflake' and 'other'. 
+    Each key contains a list of Requirement objects.
+    """
     url = "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
     response = requests.get(url)
-    snowflake_packages = []
-    other_packages = []
+    snowflake_packages:List[Requirement] = []
+    other_packages:List[Requirement] = []
     if response.status_code == 200:
         channel_data = response.json()
         for package in packages:
             # pip package names are case insensitive,
             # Anaconda package names are lowercased
-            if package.lower() in channel_data["packages"]:
-                snowflake_packages.append(
-                    f"{package}",
-                )
+            if package.name.lower() in channel_data["packages"]:
+                snowflake_packages.append(package)
             else:
                 click.echo(
-                    f'"{package}" not found in Snowflake anaconda channel...',
+                    f'"{package.name}" not found in Snowflake anaconda channel...',
                 )
-                other_packages.append(package)
-        # As at April 2023, streamlit appears unavailable in the Snowflake Anaconda channel
-        # but actually works if specified in the environment
-        if "streamlit" in other_packages:
-            other_packages.remove("streamlit")
-        return {"snowflake": snowflake_packages, "other": other_packages}
+                if package.name.lower()=='streamlit':
+                    # As at April 2023, streamlit appears unavailable in the Snowflake Anaconda channel
+                    # but actually works if specified in the environment
+                    click.echo(
+                        f'"{package.name}" is not available in the Snowflake anaconda channel but is supported in the environment.yml file',
+                    )
+                else:
+                    other_packages.append(package)
+        return SplitRequirements(snowflake=snowflake_packages, other=other_packages)
     else:
         click.echo(f"Error: {response.status_code}")
         return {}
@@ -173,8 +189,14 @@ def generate_streamlit_package_wrapper(
         output_file.write(content)
     return target_file
 
+@dataclass
+class RequirementWithFiles:
+    """A dataclass to hold a requirement and the path to the 
+    downloaded files/folders that belong to it"""
+    requirement:Requirement
+    files:List[str]
 
-def get_downloaded_package_names() -> dict[str, list[str]]:
+def get_downloaded_packages() -> Dict[str, RequirementWithFiles]:
     """Returns a dict of official package names mapped to the files/folders
     that belong to it under the .packages directory.
 
@@ -183,11 +205,11 @@ def get_downloaded_package_names() -> dict[str, list[str]]:
     """
     metadata_files = glob.glob(".packages/*dist-info/METADATA")
     packages_full_path = os.path.abspath(".packages")
-    return_dict = {}
+    return_dict:Dict[str, RequirementWithFiles] = {}
     for metadata_file in metadata_files:
         parent_folder = os.path.dirname(metadata_file)
-        package_name = get_package_name_from_metadata(metadata_file)
-        if package_name is not None:
+        package = get_package_name_from_metadata(metadata_file)
+        if package is not None:
             # since we found a package name, we can now look at the RECORD
             # file (a sibling of METADATA) to determine which files and
             # folders that belong to it
@@ -220,11 +242,12 @@ def get_downloaded_package_names() -> dict[str, list[str]]:
                             and packages_full_path in record_entry_full_path
                         ):
                             included_record_entries.append(record_entry)
-                    return_dict[package_name] = included_record_entries
+                    return_dict[package.name] = RequirementWithFiles(requirement=package,
+                                                                     files=included_record_entries)
     return return_dict
 
 
-def get_package_name_from_metadata(metadata_file_path: str) -> str | None:
+def get_package_name_from_metadata(metadata_file_path: str) -> Requirement | None:
     """Loads a METADATA file from the dist-info directory of an installed
     Python package, finds the name of the package.
     This is found on a line containing "Name: my_package".
@@ -240,7 +263,12 @@ def get_package_name_from_metadata(metadata_file_path: str) -> str | None:
         results = re.search("^Name: (.*)$", contents, flags=re.MULTILINE)
         if results is None:
             return None
-        return results.group(1)
+        requirement_line = results.group(1)
+        results = re.search("^Version: (.*)$", contents, flags=re.MULTILINE)
+        if results is not None:
+            version = results.group(1)
+            requirement_line += f"=={version}"
+        return Requirement.parse(requirement_line)
 
 
 def generate_snowpark_coverage_wrapper(
@@ -298,7 +326,18 @@ def install_packages(
     perform_anaconda_check: bool = True,
     package_native_libraries: YesNoAskOptionsType = "ask",
     package_name: str | None = None,
-) -> tuple[bool, dict[str, list[str]] | None]:
+) -> tuple[bool, SplitRequirements | None]:
+    """
+    Install packages from a requirements.txt file or a single package name,
+    into a local folder named '.packages'.
+    If a requirements.txt file is provided, they will be installed using pip.
+    If a package name is provided, it will be installed using pip.
+    Returns a tuple of:
+    1) a boolean indicating whether the installation was successful
+    2) a SplitRequirements object containing any installed dependencies
+    which are available on the Snowflake anaconda channel. These will have
+    been deleted from the local packages folder.
+    """
     pip_install_result = None
     second_chance_results = None
     if file_name is not None:
@@ -346,13 +385,14 @@ def install_packages(
         # it's not over just yet. a non-Anaconda package may have brought in
         # a package available on Anaconda.
         # use each folder's METADATA file to determine its real name
-        downloaded_packages = get_downloaded_package_names()
-        click.echo(f"Downloaded packages: {downloaded_packages.values()}")
+        downloaded_packages_dict = get_downloaded_packages()
+        click.echo(f"Downloaded packages: {downloaded_packages_dict.keys()}")
         # look for all the downloaded packages on the Anaconda channel
+        downloaded_package_requirements = [r.requirement for r in downloaded_packages_dict.values()]
         second_chance_results = parse_anaconda_packages(
-            list(downloaded_packages.keys()),
+            downloaded_package_requirements,
         )
-        second_chance_snowflake_packages = second_chance_results["snowflake"]
+        second_chance_snowflake_packages = second_chance_results.snowflake
         if len(second_chance_snowflake_packages) > 0:
             click.echo(
                 f"""Good news! The following package dependencies can be
@@ -363,14 +403,15 @@ def install_packages(
             click.echo(
                 "None of the package dependencies were found on Anaconda",
             )
+        second_chance_snowflake_package_names = [p.name for p in second_chance_snowflake_packages]
         downloaded_packages_not_needed = {
             k: v
-            for k, v in downloaded_packages.items()
-            if k in second_chance_snowflake_packages
+            for k, v in downloaded_packages_dict.items()
+            if k in second_chance_snowflake_package_names
         }
         for package, items in downloaded_packages_not_needed.items():
-            click.echo(f"Package {package}: deleting {items}")
-            for item in items:
+            click.echo(f"Package {package}: deleting {len(items.files)} files")
+            for item in items.files:
                 item_path = os.path.join(".packages", item)
                 if os.path.exists(item_path):
                     if os.path.isdir(item_path):
