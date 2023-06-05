@@ -1,0 +1,6 @@
+[connections]
+[connections.foo]
+accountname = test
+username = test
+warehousename = test
+rolename = test

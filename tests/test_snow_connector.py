@@ -1,4 +1,5 @@
 import textwrap
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -22,14 +23,12 @@ class CustomStr(str):
 def test_command_context_is_passed_to_snowflake_connection(
     mock_conn, runner, cmd, expected
 ):
-    runner.invoke(cmd)
+    runner.invoke(["--config-file", Path(__file__).parent / "test.toml", *cmd])
     mock_conn.assert_called_once_with(
         account=mock.ANY,
         user=mock.ANY,
-        password=mock.ANY,
         warehouse=mock.ANY,
         role=mock.ANY,
-        host=mock.ANY,
         application=expected,
     )
 
