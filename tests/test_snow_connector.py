@@ -11,6 +11,27 @@ class CustomStr(str):
         return str(self)
 
 
+@pytest.mark.parametrize(
+    "cmd,expected",
+    [
+        (["sql", "-q", "foo"], "SNOWCLI.SQL"),
+        (["warehouse", "status"], "SNOWCLI.WAREHOUSE.STATUS"),
+    ],
+)
+@mock.patch("snowcli.snow_connector.snowflake.connector.connect")
+def test_command_context_is_passed_to_snowflake_connection(
+    mock_conn, runner, cmd, expected
+):
+    runner.invoke_with_config(cmd)
+    mock_conn.assert_called_once_with(
+        account=mock.ANY,
+        user=mock.ANY,
+        warehouse=mock.ANY,
+        role=mock.ANY,
+        application=expected,
+    )
+
+
 @mock.patch("snowflake.connector")
 def test_create_function(_, snapshot):
     connector = SnowflakeConnector(

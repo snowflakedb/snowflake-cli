@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import os
-import pkgutil
 from io import StringIO
 from pathlib import Path
 from typing import Optional
 
+import click
 import snowflake.connector
 from jinja2 import Environment, FileSystemLoader
 from snowflake.connector.cursor import SnowflakeCursor
@@ -40,9 +40,17 @@ class SnowflakeConnector:
         if overrides:
             for config, value in ((k, v) for k, v in overrides.items() if v):
                 self.connection_config[config] = value
-        self.connection_config["application"] = "SNOWCLI"
+        self.connection_config["application"] = self._find_command_path()
         self.ctx = snowflake.connector.connect(**self.connection_config)
         self.cs = self.ctx.cursor()
+
+    @staticmethod
+    def _find_command_path():
+        ctx = click.get_current_context(silent=True)
+        if ctx:
+            # Example: SNOWCLI.WAREHOUSE.STATUS
+            return ".".join(["SNOWCLI", *ctx.command_path.split(" ")[1:]]).upper()
+        return "SNOWCLI"
 
     def __del__(self):
         try:
