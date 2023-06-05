@@ -82,6 +82,8 @@ def test_generate_streamlit_environment_file():
     # read in the generated environment.yml file
     assert environment_file is not None
     file_result = environment_file.read_text(encoding="utf-8")
+    # delete file_result
+    environment_file.unlink()
     # pandas is excluded explicitly, snowflake-connector-python is excluded automatically
     assert (
         file_result
