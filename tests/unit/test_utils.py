@@ -1,12 +1,15 @@
 from pathlib import Path, PosixPath
 from shutil import rmtree
 from typing import Generator, Tuple
+from unittest import mock
 from zipfile import ZipFile
 
 import pytest
 import requests_mock
 import typer
 from snowcli import utils
+from snowcli.cli.streamlit import streamlit_list, app
+from snowcli.config import AppConfig
 
 from tests.unit.test_data.test_data import *
 
@@ -250,7 +253,11 @@ class TestUtils:
         assert result == requirements[:-1]
 
     def test_convert_resource_details_to_dict(self):
-        assert utils.convert_resource_details_to_dict(example_resource_details) == expected_resource_dict
+        assert (
+            utils.convert_resource_details_to_dict(example_resource_details)
+            == expected_resource_dict
+        )
+
     # Setup functions
     # These functions are used to set up files and directories used in tests
     # and delete them, after the tests are performed
