@@ -139,11 +139,16 @@ class TestUtils:
                 assert dep not in f.read()
 
     def test_generate_streamlit_package_wrapper(self):
-        result = utils.generate_streamlit_package_wrapper('example_stage', 'example_module', False)
+        result = utils.generate_streamlit_package_wrapper(
+            "example_stage", "example_module", False
+        )
 
         assert os.path.exists(result)
-        with open(result, 'r') as f:
+        with open(result, "r") as f:
             assert 'importlib.reload(sys.modules["example_module"])' in f.read()
+
+    def test_get_downloaded_package_names(self):
+        pass  # todo: prepare a fixture to test it
 
     def test_get_package_name_from_metadata_using_correct_data(
         self, correct_metadata_file: str
@@ -228,6 +233,21 @@ class TestUtils:
             os.path.join("subdir", os.path.basename(file_in_a_subdir))
             not in zip_file.namelist()
         )
+
+    def test_get_snowflake_packages(self, streamlit_requirements_txt):
+        os.chdir(".tests")
+        result = utils.get_snowflake_packages()
+        os.chdir("..")
+
+        assert result == requirements
+
+    def test_get_snowflake_packages_delta(self, streamlit_requirements_txt):
+        anaconda_package = requirements[-1]
+        os.chdir(".tests")
+        result = utils.get_snowflake_packages_delta(anaconda_package)
+        os.chdir("..")
+
+        assert result == requirements[:-1]
 
     # Setup functions
     # These functions are used to set up files and directories used in tests
