@@ -249,6 +249,8 @@ class TestUtils:
 
         assert result == requirements[:-1]
 
+    def test_convert_resource_details_to_dict(self):
+        assert utils.convert_resource_details_to_dict(example_resource_details) == expected_resource_dict
     # Setup functions
     # These functions are used to set up files and directories used in tests
     # and delete them, after the tests are performed

@@ -44,3 +44,14 @@ Requires-Dist: snowflake-snowpark-python==1.1.0
 Provides-Extra: dev
 Requires-Dist: pytest; extra == 'dev'
 """
+
+example_resource_details = [
+    ("packages", "{'name': 'my-awesome-package','version': '1.2.3'}"),
+    ("handler", "handler_function")
+]
+
+expected_resource_dict = {
+    "packages": {"name": "my-awesome-package",
+                "version": "1.2.3"},
+    "handler": "handler_function"
+}
