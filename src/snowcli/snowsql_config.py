@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import configparser
 import os
+from pathlib import Path
 
 
 class SnowsqlConfig:
@@ -10,7 +11,8 @@ class SnowsqlConfig:
         self.config = configparser.ConfigParser(
             inline_comment_prefixes="#", interpolation=None
         )
-        self.config.read(os.path.expanduser(path))
+        p = Path(path).absolute().expanduser()
+        self.config.read(p)
 
     def get_connection(self, connection_name):
         connection = self.config["connections." + connection_name]
