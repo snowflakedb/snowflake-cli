@@ -17,7 +17,6 @@ from tests.unit.test_data.test_data import *
 
 
 class TestUtils:
-
     APP_ZIP = "app.zip"
     CORRECT_METADATA = "correct_metadata.yaml"
     FILE_IN_A_SUBDIR = "file_in_a_subdir.txt"
