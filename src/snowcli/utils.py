@@ -66,16 +66,20 @@ def prepare_app_zip(file_path, temp_dir) -> str:
     shutil.copy(file_path, temp_path)
     return temp_path
 
+
 @dataclass
 class SplitRequirements:
     """A dataclass to hold the results of parsing requirements files and dividing them into
     snowflake-supported vs other packages.
     """
+
     snowflake: List[Requirement]
     other: List[Requirement]
 
 
-def parse_requirements(requirements_file: str = "requirements.txt") -> List[Requirement]:
+def parse_requirements(
+    requirements_file: str = "requirements.txt",
+) -> List[Requirement]:
     """Reads and parses a python requirements.txt file.
 
     Args:
@@ -85,7 +89,7 @@ def parse_requirements(requirements_file: str = "requirements.txt") -> List[Requ
     Returns:
         list[str]: A flat list of package names, without versions
     """
-    reqs:List[Requirement] = []
+    reqs: List[Requirement] = []
     if os.path.exists(requirements_file):
         with open(requirements_file, encoding="utf-8") as f:
             for req in requirements.parse(f):
@@ -100,16 +104,17 @@ def parse_requirements(requirements_file: str = "requirements.txt") -> List[Requ
 # return a list of packages that exist in packages with the .packages json
 # response from https://repo.anaconda.com/pkgs/snowflake/channeldata.json
 
+
 def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
     """
     Checks if a list of packages are available in the Snowflake Anaconda channel.
-    Returns a dict with two keys: 'snowflake' and 'other'. 
+    Returns a dict with two keys: 'snowflake' and 'other'.
     Each key contains a list of Requirement objects.
     """
     url = "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
     response = requests.get(url)
-    snowflake_packages:List[Requirement] = []
-    other_packages:List[Requirement] = []
+    snowflake_packages: List[Requirement] = []
+    other_packages: List[Requirement] = []
     if response.status_code == 200:
         channel_data = response.json()
         for package in packages:
@@ -121,7 +126,7 @@ def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
                 click.echo(
                     f'"{package.name}" not found in Snowflake anaconda channel...',
                 )
-                if package.name.lower()=='streamlit':
+                if package.name.lower() == "streamlit":
                     # As at April 2023, streamlit appears unavailable in the Snowflake Anaconda channel
                     # but actually works if specified in the environment
                     click.echo(
@@ -137,7 +142,7 @@ def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
 
 def generate_streamlit_environment_file(
     excluded_anaconda_deps: Optional[List[str]],
-    requirements_file: str = "requirements.snowflake.txt"
+    requirements_file: str = "requirements.snowflake.txt",
 ) -> Optional[Path]:
     """Creates an environment.yml file for streamlit deployment, if a Snowflake
     requirements file exists.
@@ -150,10 +155,16 @@ def generate_streamlit_environment_file(
         if excluded_anaconda_deps is not None:
             print(f"""Excluded dependencies: {','.join(excluded_anaconda_deps)}""")
             snowflake_requirements = [
-                r for r in snowflake_requirements if r.name not in excluded_anaconda_deps
+                r
+                for r in snowflake_requirements
+                if r.name not in excluded_anaconda_deps
             ]
         # remove duplicates, remove comments, remove snowflake-connector-python
-        requirement_names = [r.name for r in snowflake_requirements if r.name != "snowflake-connector-python"]
+        requirement_names = [
+            r.name
+            for r in snowflake_requirements
+            if r.name != "snowflake-connector-python"
+        ]
         requirement_yaml_lines = [
             f"- {line}" for line in sorted(list(set(requirement_names)))
         ]
@@ -186,12 +197,15 @@ def generate_streamlit_package_wrapper(
         output_file.write(content)
     return target_file
 
+
 @dataclass
 class RequirementWithFiles:
-    """A dataclass to hold a requirement and the path to the 
+    """A dataclass to hold a requirement and the path to the
     downloaded files/folders that belong to it"""
-    requirement:Requirement
-    files:List[str]
+
+    requirement: Requirement
+    files: List[str]
+
 
 def get_downloaded_packages() -> Dict[str, RequirementWithFiles]:
     """Returns a dict of official package names mapped to the files/folders
@@ -202,7 +216,7 @@ def get_downloaded_packages() -> Dict[str, RequirementWithFiles]:
     """
     metadata_files = glob.glob(".packages/*dist-info/METADATA")
     packages_full_path = os.path.abspath(".packages")
-    return_dict:Dict[str, RequirementWithFiles] = {}
+    return_dict: Dict[str, RequirementWithFiles] = {}
     for metadata_file in metadata_files:
         parent_folder = os.path.dirname(metadata_file)
         package = get_package_name_from_metadata(metadata_file)
@@ -239,8 +253,9 @@ def get_downloaded_packages() -> Dict[str, RequirementWithFiles]:
                             and packages_full_path in record_entry_full_path
                         ):
                             included_record_entries.append(record_entry)
-                    return_dict[package.name] = RequirementWithFiles(requirement=package,
-                                                                     files=included_record_entries)
+                    return_dict[package.name] = RequirementWithFiles(
+                        requirement=package, files=included_record_entries
+                    )
     return return_dict
 
 
@@ -385,7 +400,9 @@ def install_packages(
         downloaded_packages_dict = get_downloaded_packages()
         click.echo(f"Downloaded packages: {downloaded_packages_dict.keys()}")
         # look for all the downloaded packages on the Anaconda channel
-        downloaded_package_requirements = [r.requirement for r in downloaded_packages_dict.values()]
+        downloaded_package_requirements = [
+            r.requirement for r in downloaded_packages_dict.values()
+        ]
         second_chance_results = parse_anaconda_packages(
             downloaded_package_requirements,
         )
@@ -400,7 +417,9 @@ def install_packages(
             click.echo(
                 "None of the package dependencies were found on Anaconda",
             )
-        second_chance_snowflake_package_names = [p.name for p in second_chance_snowflake_packages]
+        second_chance_snowflake_package_names = [
+            p.name for p in second_chance_snowflake_packages
+        ]
         downloaded_packages_not_needed = {
             k: v
             for k, v in downloaded_packages_dict.items()

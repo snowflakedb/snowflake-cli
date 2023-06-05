@@ -15,4 +15,3 @@ Classifier: Topic :: Internet
 License-File: LICENSE.txt
 Requires-Dist: httplib2
 Requires-Dist: simplejson
-
