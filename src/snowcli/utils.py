@@ -114,6 +114,7 @@ def deduplicate_and_sort_reqs(packages: List[Requirement]) -> List[Requirement]:
     deduped.sort(key=lambda x: x.name)
     return deduped
 
+
 # parse JSON from https://repo.anaconda.com/pkgs/snowflake/channeldata.json and
 # return a list of packages that exist in packages with the .packages json
 # response from https://repo.anaconda.com/pkgs/snowflake/channeldata.json
@@ -173,9 +174,11 @@ def generate_streamlit_environment_file(
             ]
         # remove snowflake-connector-python
         requirement_yaml_lines = [
-            # unsure if streamlit supports versioned requirements, 
+            # unsure if streamlit supports versioned requirements,
             # following PrPr docs convention for now
-            f"- {req.name}" for req in snowflake_requirements if req.name != "snowflake-connector-python"
+            f"- {req.name}"
+            for req in snowflake_requirements
+            if req.name != "snowflake-connector-python"
         ]
         dependencies_list = "\n".join(requirement_yaml_lines)
         environment = Environment(loader=FileSystemLoader(templates_path))
