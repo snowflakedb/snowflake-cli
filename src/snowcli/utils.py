@@ -137,28 +137,27 @@ def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
 
 def generate_streamlit_environment_file(
     excluded_anaconda_deps: Optional[List[str]],
+    requirements_file: str = "requirements.snowflake.txt"
 ) -> Optional[Path]:
     """Creates an environment.yml file for streamlit deployment, if a Snowflake
     requirements file exists.
     The file path is returned if it was generated, otherwise None is returned.
     """
-    if os.path.exists("requirements.snowflake.txt"):
-        # for each line in requirements.snowflake.txt, prepend '- ' to the line and prepare it for interpolation into the template
-        with open("requirements.snowflake.txt", "r", encoding="utf-8") as f:
-            requirements = f.read().split("\n")
+    if os.path.exists(requirements_file):
+        snowflake_requirements = parse_requirements(requirements_file)
+
         # remove explicitly excluded anaconda dependencies
         if excluded_anaconda_deps is not None:
             print(f"""Excluded dependencies: {','.join(excluded_anaconda_deps)}""")
-            requirements = [
-                line for line in requirements if line not in excluded_anaconda_deps
+            snowflake_requirements = [
+                r for r in snowflake_requirements if r.name not in excluded_anaconda_deps
             ]
         # remove duplicates, remove comments, remove snowflake-connector-python
-        requirements = [
-            f"- {line}"
-            for line in sorted(list(set(requirements)))
-            if len(line) > 0 and line[0] != "#" and line != "snowflake-connector-python"
+        requirement_names = [r.name for r in snowflake_requirements if r.name != "snowflake-connector-python"]
+        requirement_yaml_lines = [
+            f"- {line}" for line in sorted(list(set(requirement_names)))
         ]
-        dependencies_list = "\n".join(requirements)
+        dependencies_list = "\n".join(requirement_yaml_lines)
         environment = Environment(loader=FileSystemLoader(templates_path))
         template = environment.get_template("environment.yml.jinja")
         with open("environment.yml", "w", encoding="utf-8") as f:

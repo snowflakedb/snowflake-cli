@@ -64,3 +64,18 @@ def test_get_downloaded_packages():
     assert zendesk_req.requirement.specifier is True
     assert zendesk_req.requirement.specs == [("==","1.1.1")]
     assert sorted(zendesk_req.files) == ['Zendesk-1.1.1.dist-info','zendesk']
+
+def test_generate_streamlit_environment_file():
+    test_requirements = Path(os.path.join(Path(__file__).parent,"test_data","test_streamlit_requirements.txt"))
+    environment_file = utils.generate_streamlit_environment_file(
+        excluded_anaconda_deps=["pandas"],
+        requirements_file=test_requirements)
+    # read in the generated environment.yml file
+    assert environment_file is not None
+    file_result = environment_file.read_text(encoding='utf-8')
+    # pandas is excluded explicitly, snowflake-connector-python is excluded automatically
+    assert file_result == """name: sf_env
+channels:
+- snowflake
+dependencies:
+- pydantic"""
