@@ -46,12 +46,11 @@ class SnowflakeConnector:
 
     @staticmethod
     def _find_command_path():
-        try:
-            ctx = click.get_current_context()
+        ctx = click.get_current_context(silent=True)
+        if ctx:
             # Example: SNOWCLI.WAREHOUSE.STATUS
             return ".".join(["SNOWCLI", *ctx.command_path.split(" ")[1:]]).upper()
-        except RuntimeError:
-            return "SNOWCLI"
+        return "SNOWCLI"
 
     def __del__(self):
         try:
