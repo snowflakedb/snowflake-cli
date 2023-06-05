@@ -99,8 +99,6 @@ def parse_requirements(requirements_file: str = "requirements.txt") -> List[Requ
 # parse JSON from https://repo.anaconda.com/pkgs/snowflake/channeldata.json and
 # return a list of packages that exist in packages with the .packages json
 # response from https://repo.anaconda.com/pkgs/snowflake/channeldata.json
-# CURRENTLY DOES NOT SUPPORT PINNING TO VERSIONS
-
 
 def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
     """
@@ -133,8 +131,8 @@ def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
                     other_packages.append(package)
         return SplitRequirements(snowflake=snowflake_packages, other=other_packages)
     else:
-        click.echo(f"Error: {response.status_code}")
-        return {}
+        click.echo(f"Error reading Anaconda channel data: {response.status_code}")
+        raise typer.Abort()
 
 
 def generate_streamlit_environment_file(
