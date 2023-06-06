@@ -13,7 +13,7 @@ class ConnectionConfigs:
         p = Path(snowsql_config_path).absolute().expanduser()
         self._config.read(p)
 
-    def is_connection_exists(self, connection_name: str):
+    def connection_exists(self, connection_name: str):
         return self._config.sections().__contains__(f"connections.{connection_name}")
 
     def get_connections(self):
@@ -35,18 +35,19 @@ class ConnectionConfigs:
             self._config.write(f)
 
     def _get_connection(self, connection_full_name: str):
-        connection = self._config[connection_full_name]
+        connection_parameters = self._config[connection_full_name]
         # Remap names to appropriate args in Python Connector API
-        connection = {
-            k.replace("name", ""): v.strip('"') for k, v in connection.items()
+        connection_parameters = {
+            k.replace("name", ""): v.strip('"')
+            for k, v in connection_parameters.items()
         }
-        return self._replace_with_env_variables(connection)
+        return self._replace_with_env_variables(connection_parameters)
 
-    def _replace_with_env_variables(self, connection_sections: dict):
-        for (name, value) in connection_sections.items():
+    def _replace_with_env_variables(self, connection_parameters: dict):
+        for (name, value) in connection_parameters.items():
             if value.startswith("$SNOWCLI_"):
                 try:
-                    connection_sections[name] = os.environ[value[1:]]
+                    connection_parameters[name] = os.environ[value[1:]]
                 except (KeyError):
-                    raise EnvironmentVariableNotFoundError(value[1:]) from None
-        return connection_sections
+                    raise EnvironmentVariableNotFoundError(value[1:])
+        return connection_parameters
