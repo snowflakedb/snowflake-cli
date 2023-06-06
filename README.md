@@ -117,6 +117,27 @@ password = hunter2
 1. Create a `.snowsql` folder with a `config` file at the following path: `%USERPROFILE%\.snowsql\config`
 2. Add a new configuration for your Snowflake connection with SnowCLI. You must prefix the configuration with `connections.`.
 
+### Using environment variables
+
+Environment variables can only be replaced in connection parameters. Parameter values in config file have to start with `$SNOWCLI_` and will be searched as a name in environment variables, but without `$` at the beginning.
+
+For example connection config:
+
+```ini
+[connections.test]
+account = $SNOWCLI_ACCOUNT
+user = $SNOWCLI_USER
+password = $SNOWCLI_PASSWORD
+```
+
+will be replaced with environment variables:
+
+```ini
+SNOWCLI_ACCOUNT = "account"
+SNOWCLI_USER = "user"
+SNOWCLI_PASSWORD = "password"
+```
+
 ### Manage packages in Snowflake Stages
 
 You can use the Snowflake CLI to assist you in creating and uploading custom packages for Snowflake. This includes both full Python packages (and all needed dependencies) and Python packages that have native dependencies that are supported by Anaconda. All dependency evaluation is performed using `pip` on the machine the SnowCLI runs on and can create and help upload packages. Here's a flow to upload a custom package:

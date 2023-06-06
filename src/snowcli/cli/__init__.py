@@ -19,7 +19,7 @@ from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark import app as snowpark_app
 from snowcli.config import AppConfig
 from snowcli.output.formats import OutputFormat
-from snowcli.snowsql_config import SnowsqlConfig
+from snowcli.connection_config import ConnectionConfigs
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -42,7 +42,7 @@ def login(
         prompt="Path to Snowsql config",
         help="snowsql config file",
     ),
-    snowsql_connection_name: str = typer.Option(
+    connection_name: str = typer.Option(
         ...,
         "--connection",
         "-C",
@@ -57,21 +57,20 @@ def login(
         print(f"Path to snowsql config does not exist: {snowsql_config_path}")
         raise typer.Abort()
 
-    cfg_snowsql = SnowsqlConfig(snowsql_config_path)
-    if f"connections.{snowsql_connection_name}" not in cfg_snowsql.config:
+    connection_configs = ConnectionConfigs(snowsql_config_path)
+    if not connection_configs.connection_exists(connection_name):
         print(
-            "Connection not found in "
-            f"{snowsql_config_path}: {snowsql_connection_name}. ",
+            "Connection not found in " f"{snowsql_config_path}: {connection_name}. ",
             "You can add with `snow connection add`.",
         )
         raise typer.Abort()
 
     cfg = AppConfig()
     cfg.config["snowsql_config_path"] = str(snowsql_config_path.expanduser())
-    cfg.config["snowsql_connection_name"] = snowsql_connection_name
+    cfg.config["snowsql_connection_name"] = connection_name
     cfg.save()
     print(
-        "Using connection name " f"{snowsql_connection_name} in {snowsql_config_path}",
+        "Using connection name " f"{connection_name} in {snowsql_config_path}",
     )
     print(f"Wrote {cfg.path}")
 

@@ -7,7 +7,7 @@ from rich.table import Table
 
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.config import AppConfig
-from snowcli.snowsql_config import SnowsqlConfig
+from snowcli.connection_config import ConnectionConfigs
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -29,15 +29,11 @@ def list():
 
     print(f"Using {app_cfg['snowsql_config_path']}...")
 
-    cfg = SnowsqlConfig(app_cfg["snowsql_config_path"])
+    connection_configs = ConnectionConfigs(app_cfg["snowsql_config_path"])
     table = Table("Connection", "Account", "Username")
-    for (connection_name, v) in cfg.config.items():
-        if connection_name.startswith("connections."):
-            connection_name = connection_name.replace("connections.", "")
-            if "account" in v:
-                table.add_row(connection_name, v["account"], v["username"])
-            if "accountname" in v:
-                table.add_row(connection_name, v["accountname"], v["username"])
+    for (connection_name, v) in connection_configs.get_connections().items():
+        connection_name = connection_name.replace("connections.", "")
+        table.add_row(connection_name, v["account"], v["user"])
     print(table)
 
 
@@ -67,13 +63,15 @@ def add(
 ):
     app_cfg = AppConfig().config
     if "snowsql_config_path" not in app_cfg:
-        cfg = SnowsqlConfig()
+        connection_configs = ConnectionConfigs()
     else:
-        cfg = SnowsqlConfig(app_cfg["snowsql_config_path"])
+        connection_configs = ConnectionConfigs(app_cfg["snowsql_config_path"])
     connection_entry = {
         "account": account,
         "username": username,
         "password": password,
     }
-    cfg.add_connection(connection, connection_entry)
-    print(f"Wrote new connection {connection} to {cfg.path}")
+    connection_configs.add_connection(connection, connection_entry)
+    print(
+        f"Wrote new connection {connection} to {connection_configs.snowsql_config_path}"
+    )

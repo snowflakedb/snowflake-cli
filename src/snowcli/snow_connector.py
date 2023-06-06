@@ -10,8 +10,6 @@ import snowflake.connector
 from jinja2 import Environment, FileSystemLoader
 from snowflake.connector.cursor import SnowflakeCursor
 
-from snowcli.snowsql_config import SnowsqlConfig
-
 TEMPLATES_PATH = Path(__file__).parent / "sql"
 
 
@@ -28,15 +26,10 @@ class SnowflakeConnector:
 
     def __init__(
         self,
-        snowsql_config: SnowsqlConfig,
-        connection_name: str,
+        connection_config: dict,
         overrides: Optional[dict] = None,
     ):
-        self.snowsql_config = snowsql_config
-        self.connection_name = connection_name
-        self.connection_config: dict = snowsql_config.get_connection(
-            connection_name,
-        )
+        self.connection_config = connection_config
         if overrides:
             for config, value in ((k, v) for k, v in overrides.items() if v):
                 self.connection_config[config] = value
