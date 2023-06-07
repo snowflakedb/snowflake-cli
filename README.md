@@ -270,11 +270,11 @@ We can build a coverage report:
 
 Under htmlcov/index.html we see a summary of the two files:
 
-![Coverage 1](./docs/images/coverage_1.png)
+![Coverage 1](https://github.com/Snowflake-Labs/snowcli/blob/main/docs/images/coverage_1.png?raw=true)
 
 and drilling into app.py:
 
-![Coverage 2](./docs/images/coverage_2.png)
+![Coverage 2](https://github.com/Snowflake-Labs/snowcli/blob/main/docs/images/coverage_2.png?raw=true)
 
 Then use a couple of other code paths:
 
@@ -284,15 +284,15 @@ Then use a couple of other code paths:
 
 If we run the report again, we're now up to 85%:
 
-![Coverage 3](./docs/images/coverage_3.png)
+![Coverage 3](https://github.com/Snowflake-Labs/snowcli/blob/main/docs/images/coverage_3.png?raw=true)
 
 With app.py showing a bit more green:
 
-![Coverage 4](./docs/images/coverage_4.png)
+![Coverage 4](https://github.com/Snowflake-Labs/snowcli/blob/main/docs/images/coverage_4.png?raw=true)
 
 and other_stuff.py fully covered:
 
-![Coverage 5](./docs/images/coverage_5.png)
+![Coverage 5](https://github.com/Snowflake-Labs/snowcli/blob/main/docs/images/coverage_5.png?raw=true)
 
 
 #### More code coverage tips:
