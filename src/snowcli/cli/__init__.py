@@ -16,21 +16,28 @@ from snowcli.cli import (
     streamlit,
 )
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.main.outside_typer_global_context import OutsideTyperGlobalContext
+from snowcli.cli.main.snow_cli_main_typer import SnowCliMainTyper
 from snowcli.cli.snowpark import app as snowpark_app
 from snowcli.config import AppConfig
 from snowcli.output.formats import OutputFormat
 from snowcli.connection_config import ConnectionConfigs
 
-app = typer.Typer(
-    context_settings=DEFAULT_CONTEXT_SETTINGS,
-    pretty_exceptions_show_locals=False,
+outside_typer_global_context = OutsideTyperGlobalContext(
+    debug_logs_and_tracebacks=False
 )
+
+app = SnowCliMainTyper(outside_typer_global_context)
 
 
 def version_callback(value: bool):
     if value:
         typer.echo(f"SnowCLI Version: {__about__.VERSION}")
         raise typer.Exit()
+
+
+def debug_callback(debug: bool):
+    outside_typer_global_context.debug_logs_and_tracebacks = debug
 
 
 @app.command()
@@ -152,13 +159,20 @@ def default(
         dir_okay=False,
         is_eager=True,
     ),
+    debug: bool = typer.Option(
+        None,
+        "--debug",
+        help="Turns on debug logs (including exception tracebacks)",
+        callback=debug_callback,
+        is_eager=True,
+    ),
 ) -> None:
     """
     SnowCLI - A CLI for Snowflake
     """
 
 
-MODULE_IGNORE_SET = frozenset(("procedure_coverage",))
+MODULE_IGNORE_SET = frozenset(("main", "procedure_coverage"))
 
 
 def register_cli_typers(ignore_container: Container[str] = MODULE_IGNORE_SET) -> None:
@@ -176,7 +190,6 @@ register_cli_typers()
 
 app.command("sql")(sql.execute_sql)
 app.add_typer(snowpark_app)
-
 
 if __name__ == "__main__":
     app()
