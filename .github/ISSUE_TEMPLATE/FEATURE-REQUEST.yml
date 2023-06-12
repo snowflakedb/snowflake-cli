@@ -1,0 +1,11 @@
+name: Feature Request
+description: Suggest a new idea for the project
+body:
+  - type: textarea
+    attributes:
+      label: "Description"
+      description: "Describe your feature"
+  - type: textarea
+    attributes:
+      label: "Context"
+      description: "Describe why would you like to have this feature"

@@ -1,0 +1,26 @@
+name: Bug Report
+description: File a bug report
+body:
+  - type: input
+    attributes:
+      label: "Python version"
+      description: "What version of Python are you using?"
+      placeholder: "Run `python --version --version`"
+  - type: input
+    attributes:
+      label: "Platform"
+      description: "What operating system and processor architecture are you using?"
+      placeholder: "Run `python -c 'import platform; print(platform.platform())'`"
+  - type: textarea
+    attributes:
+      label: "What happened"
+      description: "Describe what happened"
+  - type: textarea
+    attributes:
+      label: "Console output"
+      description: "What SnowCLI printed in console?"
+      render: Shell
+  - type: textarea
+    attributes:
+      label: "How to reproduce"
+      description: "How we can reproduce the problem?"
