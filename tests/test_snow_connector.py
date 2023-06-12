@@ -181,9 +181,7 @@ def test_list_stages(_, snapshot):
     assert query.getvalue() == snapshot
 
 
-@pytest.mark.parametrize(
-    "stage_name", [("namedStageValue"), ("snow://embeddedStageValue")]
-)
+@pytest.mark.parametrize("stage_name", ["namedStageValue", "snow://embeddedStageValue"])
 @mock.patch("snowflake.connector")
 def test_list_stage(_, snapshot, stage_name):
     connector = SnowflakeConnector(connection_config=mock.MagicMock())
@@ -201,9 +199,7 @@ def test_list_stage(_, snapshot, stage_name):
     assert query.getvalue() == snapshot
 
 
-@pytest.mark.parametrize(
-    "stage_name", [("namedStageValue"), ("snow://embeddedStageValue")]
-)
+@pytest.mark.parametrize("stage_name", ["namedStageValue", "snow://embeddedStageValue"])
 @mock.patch("snowflake.connector")
 def test_get_stage(_, snapshot, stage_name):
     connector = SnowflakeConnector(connection_config=mock.MagicMock())
@@ -241,9 +237,7 @@ def test_set_procedure_comment(_, snapshot):
     assert query.getvalue() == snapshot
 
 
-@pytest.mark.parametrize(
-    "stage_name", [("namedStageValue"), ("snow://embeddedStageValue")]
-)
+@pytest.mark.parametrize("stage_name", ["namedStageValue", "snow://embeddedStageValue"])
 @mock.patch("snowflake.connector")
 def test_put_stage(_, snapshot, stage_name):
     connector = SnowflakeConnector(connection_config=mock.MagicMock())
@@ -257,15 +251,13 @@ def test_put_stage(_, snapshot, stage_name):
         name=stage_name,
         path="pathValue",
         overwrite=True,
-        parallel="parallelValue",
+        parallel=42,
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
     assert textwrap.dedent(query.getvalue()) == snapshot
 
 
-@pytest.mark.parametrize(
-    "stage_name", [("namedStageValue"), ("snow://embeddedStageValue")]
-)
+@pytest.mark.parametrize("stage_name", ["namedStageValue", "snow://embeddedStageValue"])
 @mock.patch("snowflake.connector")
 def test_remove_from_stage(_, snapshot, stage_name):
     connector = SnowflakeConnector(connection_config=mock.MagicMock())
@@ -484,16 +476,12 @@ def test_deploy_streamlit(_, snapshot):
 
 @pytest.mark.parametrize(
     "create_stage",
-    [(True), (False)],
+    [True, False],
 )
-@pytest.mark.parametrize(
-    "stage_name", [("namedStageValue"), ("snow://embeddedStageValue")]
-)
+@pytest.mark.parametrize("stage_name", ["namedStageValue", "snow://embeddedStageValue"])
 @mock.patch("snowflake.connector")
 def test_upload_file_to_stage(_, snapshot, create_stage, stage_name):
-    connector = SnowflakeConnector(
-        connection_name="foo", snowsql_config=mock.MagicMock()
-    )
+    connector = SnowflakeConnector(connection_config={})
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.upload_file_to_stage(
