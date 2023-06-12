@@ -307,31 +307,6 @@ from information_schema.procedures
 where COVERAGE < 75;
 ```
 
-
-
-## Contributing
-If interested in contributing, you will want to instanstiate the pre-commit logic to help with formatting and linting of commits. To do this, run the following in the `snowcli` cloned folder on your development machine:
-
-```bash
-pip install pre-commit
-pre-commit
-```
-
-### Test dependencies
-Dependencies are defined as optional dependencies, to install them run
-
-```bash
-pip install ".[dev]"
-```
-
-### Integration tests
-
-Every integration test should have `integration` mark. By default, integration tests are not execute in `pytest`.
-
-To execute only unit tests run `pytest`
-
-To execute only integration tests run `pytest -m integration`
-
 ## Get involved
 
 Have a feature idea? Running into a bug? Want to contribute? We'd love to hear from you! Please open or review issues, open pull requests, or reach out to us on Twitter or LinkedIn [@jeffhollan](https://twitter.com/jeffhollan) and [@jroes](https://twitter.com/jroes).
