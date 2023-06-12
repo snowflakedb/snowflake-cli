@@ -1,14 +1,13 @@
 import pytest
 
 from unittest import mock
-
-from integration.snowflake_connector import snowflake_session
+from tests_integration.snowflake_connector import snowflake_session
 
 
 @pytest.mark.integration
 @mock.patch("snowcli.cli.warehouse.print_db_cursor")
 def test_warehouse_status_query(mock_print, runner, snowflake_session):
-    runner.invoke(["warehouse", "status"])
+    runner.invoke_with_config(["warehouse", "status"])
 
     expected_results = snowflake_session.execute_string("show warehouses")[-1]
     result_names = _get_name_values_from_cursor(mock_print.call_args.args[0])
