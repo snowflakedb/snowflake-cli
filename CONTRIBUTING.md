@@ -25,7 +25,7 @@ pip install -e .
 
 ## Integration tests
 
-Every integration test should have `integration` mark. By default, integration tests are not execute in `pytest`.
+Every integration test should have `integration` mark. By default, integration tests are not execute when running `pytest`.
 
 To execute only unit tests run `pytest`
 
