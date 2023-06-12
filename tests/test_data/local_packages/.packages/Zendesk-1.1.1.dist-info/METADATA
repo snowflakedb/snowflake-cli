@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: Zendesk
+Version: 1.1.1
+Summary: Python API Wrapper for Zendesk
+Home-page: https://github.com/maxeventbrite/zendesk/tree/master
+Author: Max Gutman, Stefan Tjarks
+Author-email: max@eventbrite.com
+License: LICENSE.txt
+Keywords: zendesk api helpdesk
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Internet
+License-File: LICENSE.txt
+Requires-Dist: httplib2
+Requires-Dist: simplejson
