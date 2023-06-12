@@ -143,6 +143,7 @@ def package_upload(
                 schema=env_conf["schema"],
                 overwrite=overwrite,
                 role=env_conf["role"],
+                warehouse=env_conf["warehouse"],
             )
         click.echo(f"Package {file} {deploy_response[6]} to Snowflake @{stage}/{file}.")
         if deploy_response[6] == "SKIPPED":
