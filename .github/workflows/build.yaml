@@ -11,6 +11,7 @@ on:
       - "**"
 
 jobs:
+
   lint:
     name: Check linting
     runs-on: ubuntu-latest
