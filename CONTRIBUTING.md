@@ -29,4 +29,4 @@ Every integration test should have `integration` mark. By default, integration t
 
 To execute only unit tests run `pytest`.
 
-To execute only integration tests run `pytest -m integration`
+To execute only integration tests run `pytest -m integration`.
