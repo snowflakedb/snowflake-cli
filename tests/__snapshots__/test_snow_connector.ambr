@@ -255,7 +255,7 @@
   
   
   
-  put file://pathValue @namedStageValue auto_compress=false parallel=parallelValue overwrite=True;
+  put file://pathValue @namedStageValue auto_compress=false parallel=42 overwrite=True;
   '''
 # ---
 # name: test_put_stage[snow://embeddedStageValue]
@@ -267,7 +267,7 @@
   
   
   
-  put file://pathValue snow://embeddedStageValue auto_compress=false parallel=parallelValue overwrite=True;
+  put file://pathValue snow://embeddedStageValue auto_compress=false parallel=42 overwrite=True;
   '''
 # ---
 # name: test_remove_from_stage[namedStageValue]
