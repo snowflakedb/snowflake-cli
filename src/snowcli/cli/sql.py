@@ -64,7 +64,7 @@ def execute_sql(
         readable=True,
         help="File to execute.",
     ),
-    connection: Optional[str] = typer.Option(
+    connection: str = typer.Option(
         None, "-c", "--connection", help="Connection to be used"
     ),
     account: Optional[str] = typer.Option(
@@ -122,8 +122,8 @@ def execute_sql(
     if not config.is_auth():
         raise UsageError("Not authenticated")
 
-    config.connect_to_snowflake(
-        connection,
+    conn = config.connect_to_snowflake(
+        connection_name=connection,
         account=account,
         user=user,
         role=role,
@@ -137,13 +137,13 @@ def execute_sql(
 
     if verbose:
         with Live(table, auto_refresh=False) as live:
-            config.snowflake_connection.ctx.execute_string(
+            conn.ctx.execute_string(
                 sql_text=sql,
                 remove_comments=True,
                 cursor_class=partial(LoggingCursor, LiveOutput(table, live)),
             )
     else:
-        config.snowflake_connection.ctx.execute_string(
+        conn.ctx.execute_string(
             sql_text=sql,
             remove_comments=True,
         )

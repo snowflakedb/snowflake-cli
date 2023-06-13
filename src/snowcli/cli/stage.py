@@ -6,7 +6,7 @@ import typer
 
 from snowcli import config
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
-from snowcli.config import AppConfig
+from snowcli.config import connect_to_snowflake
 from snowcli.output.printing import print_db_cursor
 
 app = typer.Typer(
@@ -25,25 +25,24 @@ def stage_list(
     """
     List stage contents
     """
-    env_conf = AppConfig().config.get(environment)
+    conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        config.connect_to_snowflake()
         if name:
-            results = config.snowflake_connection.list_stage(
-                database=env_conf.get("database"),
-                schema=env_conf.get("schema"),
-                role=env_conf.get("role"),
-                warehouse=env_conf.get("warehouse"),
+            results = conn.list_stage(
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
                 name=name,
             )
             print_db_cursor(results)
         else:
-            results = config.snowflake_connection.list_stages(
-                database=env_conf.get("database"),
-                schema=env_conf.get("schema"),
-                role=env_conf.get("role"),
-                warehouse=env_conf.get("warehouse"),
+            results = conn.list_stages(
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
             )
             print_db_cursor(results)
 
@@ -65,15 +64,14 @@ def stage_get(
     """
     Download files from a stage to a local client
     """
-    env_conf = AppConfig().config.get(environment)
+    conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        config.connect_to_snowflake()
-        results = config.snowflake_connection.get_stage(
-            database=env_conf.get("database"),
-            schema=env_conf.get("schema"),
-            role=env_conf.get("role"),
-            warehouse=env_conf.get("warehouse"),
+        results = conn.get_stage(
+            database=conn.ctx.database,
+            schema=conn.ctx.schema,
+            role=conn.ctx.role,
+            warehouse=conn.ctx.warehouse,
             name=name,
             path=str(path),
         )
@@ -105,19 +103,18 @@ def stage_put(
     """
     Upload files to a stage from a local client
     """
-    env_conf = AppConfig().config.get(environment)
+    conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        config.connect_to_snowflake()
         filepath = str(path)
         if path.is_dir():
             filepath = str(path) + "/*"
 
-        results = config.snowflake_connection.put_stage(
-            database=env_conf.get("database"),
-            schema=env_conf.get("schema"),
-            role=env_conf.get("role"),
-            warehouse=env_conf.get("warehouse"),
+        results = conn.put_stage(
+            database=conn.ctx.database,
+            schema=conn.ctx.schema,
+            role=conn.ctx.role,
+            warehouse=conn.ctx.warehouse,
             name=name,
             path=str(filepath),
             overwrite=overwrite,
@@ -134,15 +131,14 @@ def stage_create(
     """
     Create stage if not exists
     """
-    env_conf = AppConfig().config.get(environment)
+    conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        config.connect_to_snowflake()
-        results = config.snowflake_connection.create_stage(
-            database=env_conf.get("database"),
-            schema=env_conf.get("schema"),
-            role=env_conf.get("role"),
-            warehouse=env_conf.get("warehouse"),
+        results = conn.create_stage(
+            database=conn.ctx.database,
+            schema=conn.ctx.schema,
+            role=conn.ctx.role,
+            warehouse=conn.ctx.warehouse,
             name=name,
         )
         print_db_cursor(results)
@@ -156,15 +152,14 @@ def stage_drop(
     """
     Drop stage
     """
-    env_conf = AppConfig().config.get(environment)
+    conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        config.connect_to_snowflake()
-        results = config.snowflake_connection.drop_stage(
-            database=env_conf.get("database"),
-            schema=env_conf.get("schema"),
-            role=env_conf.get("role"),
-            warehouse=env_conf.get("warehouse"),
+        results = conn.drop_stage(
+            database=conn.ctx.database,
+            schema=conn.ctx.schema,
+            role=conn.ctx.role,
+            warehouse=conn.ctx.warehouse,
             name=name,
         )
         print_db_cursor(results)

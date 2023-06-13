@@ -1,67 +1,123 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 
+import tomlkit
+from tomlkit import dump, table, TOMLDocument
+from tomlkit.exceptions import NonExistentKey
 import click
 import logging
-import toml
 
+from snowcli.exception import MissingConfiguration
 from snowcli.snow_connector import SnowflakeConnector
-from snowcli.connection_config import ConnectionConfigs
+from snowflake.connector.constants import CONFIG_FILE
+from snowflake.connector.config_manager import ConfigManager
+
 
 log = logging.getLogger(__name__)
 snowflake_connection: SnowflakeConnector
 
 
-class AppConfig:
-    def __init__(self):
-        self.path = self._find_app_toml()
-        if self.path:
-            self.config = toml.load(self.path)
-        else:
-            self.path = Path.cwd().joinpath("app.toml")
-            self.config = {}
+class CliConfigManager(ConfigManager):
+    def __init__(self, file_path: Path = CONFIG_FILE):
+        super().__init__(name="SNOWCLI_PARSER", file_path=file_path)
+        self._add_options()
 
-    def _find_app_toml(self):
-        config_file_path_from_cli: Optional[str] = (
-            click.get_current_context().find_root().params.get("configuration_file")
+    def from_context(self, config_path_override: Path):
+        self.file_path = config_path_override
+        if not self.file_path.exists():
+            self.initialize_connection_section()
+            self._dump_config()
+            print(f"Created Snowflake configuration file at {cli_config.file_path}")
+        self.read_config()
+
+    def _add_options(self):
+        self.add_option(
+            name="options",
+            parse_str=tomlkit.parse,
         )
-        if config_file_path_from_cli:
-            return Path(config_file_path_from_cli).absolute()
+        self.add_option(
+            name="connections",
+            parse_str=tomlkit.parse,
+        )
 
-        # Find first app.toml by traversing parent dirs up to home dir
-        p = Path.cwd()
-        while not any(p.glob("app.toml")) and p != p.home():
-            p = p.parent
+    def get_section(self, *path) -> TOMLDocument:
+        section = self
+        idx = 0
+        while idx < len(path):
+            section = section[path[idx]]
+            idx += 1
+        return section
 
-        if p == p.home():
-            return None
-        else:
-            return next(p.glob("app.toml"))
+    def has_section(self, *path) -> bool:
+        try:
+            self.get_section(*path)
+            return True
+        except NonExistentKey:
+            return False
 
-    def save(self):
-        with open(self.path, "w") as f:
-            toml.dump(self.config, f)
+    def _get_from_env(self, *path, key: str):
+        env_variable_name = (
+            "SNOWFLAKE_" + "_".join(p.upper() for p in path) + f"_{key.upper()}"
+        )
+        return os.environ.get(env_variable_name)
+
+    def get(self, *path, key: str, default: Optional[Any] = None) -> Any:
+        """Looks for given key under nested path in toml file."""
+        env_variable = self._get_from_env(*path, key=key)
+        if env_variable:
+            return env_variable
+        try:
+            return self.get_section(*path)[key]
+        except NonExistentKey:
+            if default:
+                return default
+            raise
+
+    def initialize_connection_section(self):
+        self.conf_file_cache.add("connections", table())
+
+    def get_connection(self, connection_name: str) -> dict:
+        try:
+            return self.get("connections", key=connection_name)
+        except NonExistentKey:
+            raise MissingConfiguration(
+                f"Connection {connection_name} is not configured"
+            )
+
+    def add_connection(self, name: str, parameters: dict):
+        if not self.has_section("connections"):
+            self.initialize_connection_section()
+        self.get_section("connections").add(name, parameters)
+        self._dump_config()
+
+    def _dump_config(self):
+        with open(self.file_path, "w+") as fh:
+            dump(self.conf_file_cache, fh)
 
 
-def connect_to_snowflake(connection: Optional[str] = None, **overrides):  # type: ignore
-    global snowflake_connection
-    cfg = AppConfig()
-    connection_configs = ConnectionConfigs(
-        snowsql_config_path=cfg.config.get("snowsql_config_path")
+def config_init(config_file: Path):
+    """
+    Initializes the app configuration. Config provided via cli flag takes precedence.
+    If config file exists we create an empty one.
+    """
+    if config_file:
+        cli_config.from_context(config_path_override=config_file)
+
+
+def connect_to_snowflake(connection_name: str, **overrides):  # type: ignore
+    connection_name = connection_name if connection_name is not None else "dev"
+    return SnowflakeConnector(
+        connection_parameters=cli_config.get_connection(connection_name),
+        overrides=overrides,
     )
-
-    # If there's no user-provided connection then read
-    # the one specified by configuration file
-    connection_name = connection or cfg.config.get("snowsql_connection_name")
-    connection_config = connection_configs.get_connection(connection_name)
-    snowflake_connection = SnowflakeConnector(connection_config, overrides=overrides)
 
 
 def is_auth():
-    cfg = AppConfig()
-    if "snowsql_config_path" not in cfg.config:
-        log.info("You must login first with `snow login`")
-        return False
+    # To be removed. Added to simplify refactor
     return True
+
+
+cli_config: CliConfigManager = CliConfigManager()  # type: ignore

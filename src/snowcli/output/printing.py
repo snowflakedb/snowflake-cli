@@ -32,9 +32,6 @@ def print_db_cursor(
         not provided then all columns are returned
     :return:
     """
-    context = click.get_current_context()
-    output_format = OutputFormat(context.find_root().params.get("output_format"))
-
     result = cursor.fetchall()
     column_names = [col.name for col in cursor.description]
     columns_to_include = columns or column_names
@@ -44,8 +41,14 @@ def print_db_cursor(
         for row in result
     ]
 
+    _print_formatted(data, columns_to_include)
+
+
+def _print_formatted(data: List[Dict], columns: Optional[List[str]] = None):
+    context = click.get_current_context()
+    output_format = OutputFormat(context.find_root().params.get("output_format"))
     if output_format == OutputFormat.TABLE:
-        _print_table(data, columns_to_include)
+        _print_table(data, columns)
     elif output_format == OutputFormat.JSON:
         import json
 
@@ -54,8 +57,20 @@ def print_db_cursor(
         raise Exception(f"Unknown {output_format} format option")
 
 
-def _print_table(data: List[Dict], columns: List[str]):
+def print_data(data: List[Dict], columns: Optional[List[str]] = None) -> None:
+    if columns is not None:
+        data = [{k: v for k, v in raw.items() if k in columns} for raw in data]
+    _print_formatted(data, columns)
+
+
+def _print_table(data: List[Dict], columns: Optional[List[str]] = None):
     from rich.table import Table
+
+    if not data:
+        print("No data")
+        return
+
+    columns = columns or list(data[0].keys())
 
     table = Table(show_header=True, box=box.ASCII)
     for column in columns:
