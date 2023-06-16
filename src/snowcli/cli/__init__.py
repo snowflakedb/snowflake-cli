@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+import logging
 import pkgutil
 import sys
+import typer
 from collections.abc import Container
 from pathlib import Path
-
-import typer
-from rich import print
 
 from snowcli import __about__
 from snowcli.cli import (
@@ -16,6 +15,7 @@ from snowcli.cli import (
     streamlit,
 )
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli import loggers
 from snowcli.cli.snowpark import app as snowpark_app
 from snowcli.config import AppConfig
 from snowcli.output.formats import OutputFormat
@@ -25,9 +25,10 @@ app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     pretty_exceptions_show_locals=False,
 )
+log = logging.getLogger(__name__)
 
 
-def version_callback(value: bool):
+def _version_callback(value: bool):
     if value:
         typer.echo(f"SnowCLI Version: {__about__.VERSION}")
         raise typer.Exit()
@@ -54,14 +55,14 @@ def login(
     Select a Snowflake connection to use with SnowCLI.
     """
     if not snowsql_config_path.expanduser().exists():
-        print(f"Path to snowsql config does not exist: {snowsql_config_path}")
+        log.error(f"Path to snowsql config does not exist: {snowsql_config_path}")
         raise typer.Abort()
 
     connection_configs = ConnectionConfigs(snowsql_config_path)
     if not connection_configs.connection_exists(connection_name):
-        print(
-            "Connection not found in " f"{snowsql_config_path}: {connection_name}. ",
-            "You can add with `snow connection add`.",
+        log.error(
+            f"Connection not found in {snowsql_config_path}: {connection_name}. "
+            "You can add with `snow connection add`."
         )
         raise typer.Abort()
 
@@ -69,10 +70,8 @@ def login(
     cfg.config["snowsql_config_path"] = str(snowsql_config_path.expanduser())
     cfg.config["snowsql_connection_name"] = connection_name
     cfg.save()
-    print(
-        "Using connection name " f"{connection_name} in {snowsql_config_path}",
-    )
-    print(f"Wrote {cfg.path}")
+    log.info(f"Using connection name {connection_name} in {snowsql_config_path}")
+    log.info(f"Wrote {cfg.path}")
 
 
 @app.command()
@@ -111,12 +110,12 @@ def configure(
     """
     Configure an environment to use with your Snowflake connection.
     """
-    print(f"Configuring environment #{environment}...")
+    log.info(f"Configuring environment {environment}...")
     cfg = AppConfig()
     if environment in cfg.config and not typer.confirm(
         "Environment {environment} already exists. Overwrite?",
     ):
-        print("Cancelling...")
+        log.error("Cancelling...")
         raise typer.Abort()
 
     cfg.config[environment] = {}
@@ -125,7 +124,7 @@ def configure(
     cfg.config[environment]["role"] = role
     cfg.config[environment]["warehouse"] = warehouse
     cfg.save()
-    print(f"Wrote environment {environment} to {cfg.path}")
+    log.info(f"Wrote environment {environment} to {cfg.path}")
 
 
 @app.callback()
@@ -134,7 +133,7 @@ def default(
         None,
         "--version",
         help="Prints version of the snowcli",
-        callback=version_callback,
+        callback=_version_callback,
         is_eager=True,
     ),
     output_format: OutputFormat = typer.Option(
@@ -152,10 +151,22 @@ def default(
         dir_okay=False,
         is_eager=True,
     ),
+    verbose: bool = typer.Option(
+        None,
+        "--verbose",
+        "-v",
+        help="Print logs from level info and higher",
+    ),
+    debug: bool = typer.Option(
+        None,
+        "--debug",
+        help="Print logs from level debug and higher, logs contains additional information",
+    ),
 ) -> None:
     """
     SnowCLI - A CLI for Snowflake
     """
+    loggers.create_loggers(verbose, debug)
 
 
 MODULE_IGNORE_SET = frozenset(("procedure_coverage",))

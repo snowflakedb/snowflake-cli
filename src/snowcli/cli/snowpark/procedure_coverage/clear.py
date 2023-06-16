@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import typer
 
 from snowcli import config, utils
@@ -15,6 +16,7 @@ EnvironmentOption = typer.Option(
     callback=conf_callback,
     is_eager=True,
 )
+log = logging.getLogger(__name__)
 
 
 @app.command(
@@ -38,9 +40,9 @@ def procedure_coverage_clear(
 ):
     env_conf = AppConfig().config.get(environment)
     if env_conf is None:
-        print(
+        log.info(
             f"The {environment} environment is not configured in app.toml "
-            "yet, please run `snow configure -e dev` first before continuing.",
+            "yet, please run `snow configure -e dev` first before continuing."
         )
         raise typer.Abort()
     if config.is_auth():
@@ -62,5 +64,5 @@ def procedure_coverage_clear(
             name=deploy_dict["stage"],
             path=coverage_path,
         )
-        print("Deleted the following coverage results from the stage:")
+        log.info("Deleted the following coverage results from the stage:")
         print_db_cursor(results)

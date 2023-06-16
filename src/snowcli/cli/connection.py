@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import typer
 from rich import print
 from rich.table import Table
@@ -12,6 +13,7 @@ app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage connection to Snowflake",
 )
+log = logging.getLogger(__name__)
 
 
 @app.command()
@@ -24,9 +26,9 @@ def list():
     if "snowsql_config_path" not in app_cfg:
         # set snowsql_config_path to ~/.snowsql/config
         app_cfg["snowsql_config_path"] = "~/.snowsql/config"
-        print("No snowsql config path set. Using default...")
+        log.info("No snowsql config path set. Using default...")
 
-    print(f"Using {app_cfg['snowsql_config_path']}...")
+    log.info(f"Using {app_cfg['snowsql_config_path']}...")
 
     connection_configs = ConnectionConfigs(app_cfg["snowsql_config_path"])
     table = Table("Connection", "Account", "Username")
@@ -71,6 +73,6 @@ def add(
         "password": password,
     }
     connection_configs.add_connection(connection, connection_entry)
-    print(
+    log.info(
         f"Wrote new connection {connection} to {connection_configs.snowsql_config_path}"
     )

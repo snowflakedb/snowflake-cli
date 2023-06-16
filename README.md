@@ -307,6 +307,9 @@ from information_schema.procedures
 where COVERAGE < 75;
 ```
 
+### Logging
+SnowCLI print logs to console. By default, it will print only error level logs, if you need more information you can run command with parameter `-v/--verbose`, this will print logs with level info and higher. If it still not enough, there is `--debug` parameter which will print logs with level debug and higher with additional information.
+
 ## Get involved
 
 Have a feature idea? Running into a bug? Want to contribute? We'd love to hear from you! Please open or review issues, open pull requests, or reach out to us on Twitter or LinkedIn [@jeffhollan](https://twitter.com/jeffhollan) and [@jroes](https://twitter.com/jroes).

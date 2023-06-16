@@ -4,11 +4,13 @@ from pathlib import Path
 from typing import Optional
 
 import click
+import logging
 import toml
 
 from snowcli.snow_connector import SnowflakeConnector
 from snowcli.connection_config import ConnectionConfigs
 
+log = logging.getLogger(__name__)
 snowflake_connection: SnowflakeConnector
 
 
@@ -60,6 +62,6 @@ def connect_to_snowflake(connection: Optional[str] = None, **overrides):  # type
 def is_auth():
     cfg = AppConfig()
     if "snowsql_config_path" not in cfg.config:
-        click.echo("You must login first with `snow login`")
+        log.info("You must login first with `snow login`")
         return False
     return True

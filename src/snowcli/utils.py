@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 import glob
 import json
+import logging
 import os
 import pathlib
 import re
@@ -11,7 +12,7 @@ import subprocess
 import warnings
 import zipfile
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Dict, List, Literal, Optional
 
 import click
 import requests
@@ -19,7 +20,6 @@ import requirements
 from requirements.requirement import Requirement
 import typer
 from jinja2 import Environment, FileSystemLoader
-from rich import print
 
 from snowcli.config import AppConfig
 
@@ -31,6 +31,8 @@ YesNoAskOptionsType = Literal["yes", "no", "ask"]
 PIP_PATH = os.environ.get("SNOWCLI_PIP_PATH", "pip")
 
 templates_path = os.path.join(Path(__file__).parent, "python_templates")
+
+log = logging.getLogger(__name__)
 
 
 def yes_no_ask_callback(value: str):
@@ -95,7 +97,7 @@ def parse_requirements(
             for req in requirements.parse(f):
                 reqs.append(req)
     else:
-        click.echo(f"No {requirements_file} found")
+        log.info(f"No {requirements_file} found")
 
     return deduplicate_and_sort_reqs(reqs)
 
@@ -136,20 +138,21 @@ def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
             if package.name.lower() in channel_data["packages"]:
                 snowflake_packages.append(package)
             else:
-                click.echo(
-                    f'"{package.name}" not found in Snowflake anaconda channel...',
+                log.info(
+                    f"'{package.name}' not found in Snowflake anaconda channel...",
                 )
                 if package.name.lower() == "streamlit":
                     # As at April 2023, streamlit appears unavailable in the Snowflake Anaconda channel
                     # but actually works if specified in the environment
-                    click.echo(
-                        f'"{package.name}" is not available in the Snowflake anaconda channel but is supported in the environment.yml file',
+                    log.info(
+                        f"'{package.name}' is not available in the Snowflake anaconda channel "
+                        "but is supported in the environment.yml file",
                     )
                 else:
                     other_packages.append(package)
         return SplitRequirements(snowflake=snowflake_packages, other=other_packages)
     else:
-        click.echo(f"Error reading Anaconda channel data: {response.status_code}")
+        log.error(f"Error reading Anaconda channel data: {response.status_code}")
         raise typer.Abort()
 
 
@@ -166,7 +169,7 @@ def generate_streamlit_environment_file(
 
         # remove explicitly excluded anaconda dependencies
         if excluded_anaconda_deps is not None:
-            print(f"""Excluded dependencies: {','.join(excluded_anaconda_deps)}""")
+            log.info(f"Excluded dependencies: {','.join(excluded_anaconda_deps)}")
             snowflake_requirements = [
                 r
                 for r in snowflake_requirements
@@ -372,13 +375,13 @@ def install_packages(
                 universal_newlines=True,
             )
             for line in process.stdout:  # type: ignore
-                click.echo(line.strip())
+                log.info(line.strip())
             process.wait()
             pip_install_result = process.returncode
         except FileNotFoundError:
-            click.echo(
-                "\n\npip not found. Please install pip and try again.\nHINT: you can also set the environment variable 'SNOWCLI_PIP_PATH' to the path of pip.",
-                err=True,
+            log.error(
+                "pip not found. Please install pip and try again. "
+                "HINT: you can also set the environment variable 'SNOWCLI_PIP_PATH' to the path of pip.",
             )
             return False, None
     if package_name is not None:
@@ -389,28 +392,31 @@ def install_packages(
                 universal_newlines=True,
             )
             for line in process.stdout:  # type: ignore
-                click.echo(line.strip())
+                log.info(line.strip())
             process.wait()
             pip_install_result = process.returncode
         except FileNotFoundError:
-            click.echo(
-                "\n\npip not found. Please install pip and try again.\nHINT: you can also set the environment variable 'SNOWCLI_PIP_PATH' to the path of pip.",
-                err=True,
+            log.error(
+                "pip not found. Please install pip and try again. "
+                "HINT: you can also set the environment variable 'SNOWCLI_PIP_PATH' to the path of pip.",
             )
             return False, None
 
     if pip_install_result is not None and pip_install_result != 0:
-        print(
-            f"pip failed with return code {pip_install_result}. \n\nThis may happen when attempting to install a package that isn't compatible with the host architecture - and generally means it has native libraries."
+        log.info(
+            f"pip failed with return code {pip_install_result}. "
+            "This may happen when attempting to install a package "
+            "that isn't compatible with the host architecture - "
+            "and generally means it has native libraries."
         )
         return False, None
     if perform_anaconda_check:
-        click.echo("Checking for dependencies available in Anaconda...")
+        log.info("Checking for dependencies available in Anaconda...")
         # it's not over just yet. a non-Anaconda package may have brought in
         # a package available on Anaconda.
         # use each folder's METADATA file to determine its real name
         downloaded_packages_dict = get_downloaded_packages()
-        click.echo(f"Downloaded packages: {downloaded_packages_dict.keys()}")
+        log.info(f"Downloaded packages: {downloaded_packages_dict.keys()}")
         # look for all the downloaded packages on the Anaconda channel
         downloaded_package_requirements = [
             r.requirement for r in downloaded_packages_dict.values()
@@ -420,15 +426,13 @@ def install_packages(
         )
         second_chance_snowflake_packages = second_chance_results.snowflake
         if len(second_chance_snowflake_packages) > 0:
-            click.echo(
-                f"""Good news! The following package dependencies can be
-                imported directly from Anaconda, and will be excluded from
-                the zip: {second_chance_snowflake_packages}""",
+            log.info(
+                "Good news! The following package dependencies can be "
+                "imported directly from Anaconda, and will be excluded from "
+                f"the zip: {second_chance_snowflake_packages}"
             )
         else:
-            click.echo(
-                "None of the package dependencies were found on Anaconda",
-            )
+            log.info("None of the package dependencies were found on Anaconda")
         second_chance_snowflake_package_names = [
             p.name for p in second_chance_snowflake_packages
         ]
@@ -438,7 +442,7 @@ def install_packages(
             if k in second_chance_snowflake_package_names
         }
         for package, items in downloaded_packages_not_needed.items():
-            click.echo(f"Package {package}: deleting {len(items.files)} files")
+            log.info(f"Package {package}: deleting {len(items.files)} files")
             for item in items.files:
                 item_path = os.path.join(".packages", item)
                 if os.path.exists(item_path):
@@ -447,11 +451,11 @@ def install_packages(
                     else:
                         os.remove(item_path)
 
-    click.echo("Checking to see if packages have native libaries...\n")
+    log.info("Checking to see if packages have native libraries...")
     # use glob to see if any files in packages have a .so extension
     if glob.glob(".packages/**/*.so"):
         for path in glob.glob(".packages/**/*.so"):
-            click.echo(f"Potential native library: {path}")
+            log.info(f"Potential native library: {path}")
         continue_installation = (
             click.confirm(
                 "\n\nWARNING! Some packages appear to have native libraries!\n"
@@ -467,9 +471,7 @@ def install_packages(
             shutil.rmtree(".packages")
             return False, second_chance_results
     else:
-        click.echo(
-            "No non-supported native libraries found in packages (Good news!)..."
-        )
+        log.info("No non-supported native libraries found in packages (Good news!)...")
         return True, second_chance_results
 
 

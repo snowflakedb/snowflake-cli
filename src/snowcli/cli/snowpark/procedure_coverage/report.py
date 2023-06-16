@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 from enum import Enum
@@ -18,6 +19,7 @@ EnvironmentOption = typer.Option(
     callback=conf_callback,
     is_eager=True,
 )
+log = logging.getLogger(__name__)
 
 
 class ReportOutputOptions(str, Enum):
@@ -58,9 +60,9 @@ def procedure_coverage_report(
 ):
     env_conf = AppConfig().config.get(environment)
     if env_conf is None:
-        print(
+        log.info(
             f"The {environment} environment is not configured in app.toml "
-            "yet, please run `snow configure -e dev` first before continuing.",
+            "yet, please run `snow configure -e dev` first before continuing."
         )
         raise typer.Abort()
     if config.is_auth():
@@ -104,12 +106,14 @@ def procedure_coverage_report(
                 if database_error.errno == 253006:
                     results = []
             if len(results) == 0:
-                print(
-                    "No code coverage reports were found on the stage. Please ensure that you've invoked the procedure at least once and that you provided the correct inputs"
+                log.error(
+                    "No code coverage reports were found on the stage. "
+                    "Please ensure that you've invoked the procedure at least once "
+                    "and that you provided the correct inputs"
                 )
                 raise typer.Abort()
             else:
-                print(f"Combining data from {len(results)} reports")
+                log.info(f"Combining data from {len(results)} reports")
             combined_coverage.combine(
                 # the tuple contains the columns: | file ┃ size ┃ status ┃ message |
                 data_paths=[
@@ -119,19 +123,23 @@ def procedure_coverage_report(
             )
         if output_format == ReportOutputOptions.html:
             coverage_percentage = combined_coverage.html_report()
-            print(
+            log.info(
                 "Your HTML code coverage report is now available under the 'htmlcov' folder (htmlcov/index.html)."
             )
         elif output_format == ReportOutputOptions.json:
             coverage_percentage = combined_coverage.json_report()
-            print("Your JSON code coverage report is now available in 'coverage.json'.")
+            log.info(
+                "Your JSON code coverage report is now available in 'coverage.json'."
+            )
         elif output_format == ReportOutputOptions.lcov:
             coverage_percentage = combined_coverage.lcov_report()
-            print("Your lcov code coverage report is now available in 'coverage.lcov'.")
+            log.info(
+                "Your lcov code coverage report is now available in 'coverage.lcov'."
+            )
         else:
-            print(f"Unknown output format '{output_format}'")
+            log.error(f"Unknown output format '{output_format}'")
         if store_as_comment:
-            print(
+            log.info(
                 f"Storing total coverage value of {str(coverage_percentage)} as a procedure comment."
             )
             config.snowflake_connection.set_procedure_comment(

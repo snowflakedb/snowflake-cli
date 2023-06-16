@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import os
+import click
+import logging
 from io import StringIO
+from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 from typing import Optional
 
-import click
 import snowflake.connector
-from jinja2 import Environment, FileSystemLoader
 from snowflake.connector.cursor import SnowflakeCursor
 
+log = logging.getLogger(__name__)
 TEMPLATES_PATH = Path(__file__).parent / "sql"
 
 
@@ -673,8 +674,7 @@ class SnowflakeConnector:
         template = env.get_template(f"{command}.sql")
         sql = template.render(**context)
         try:
-            if os.getenv("DEBUG"):
-                print(f"Executing sql:\n{sql}")
+            log.debug(f"Executing sql:\n{sql}")
             results = self.ctx.execute_stream(StringIO(sql))
 
             # Return result from last cursor
@@ -682,8 +682,7 @@ class SnowflakeConnector:
             return last_result
         except snowflake.connector.errors.ProgrammingError as e:
             if show_exceptions:
-                print(f"Error executing sql:\n{sql}")
-                print(e)
+                log.error(f"Error executing sql:\n{sql}")
             raise (e)
 
     @staticmethod

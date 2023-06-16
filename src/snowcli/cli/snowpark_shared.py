@@ -5,8 +5,8 @@ import tempfile
 from pathlib import Path
 
 import click
+import logging
 import typer
-from rich import print
 
 from snowcli import config, utils
 from snowcli.config import AppConfig
@@ -17,7 +17,6 @@ from snowcli.utils import (
     yes_no_ask_callback,
 )
 
-# common CLI options
 PyPiDownloadOption = typer.Option(
     "ask",
     help="Download non-Anaconda packages from PyPi (yes/no/ask)",
@@ -35,6 +34,7 @@ CheckAnacondaForPyPiDependancies: bool = typer.Option(
     help="""When downloading missing Anaconda packages, check if any of
     their dependancies can be imported directly from Anaconda""",
 )
+log = logging.getLogger(__name__)
 
 
 def snowpark_create(
@@ -52,8 +52,8 @@ def snowpark_create(
     env_conf = AppConfig().config.get(environment)
     validate_configuration(env_conf, environment)
     if type == "function" and install_coverage_wrapper:
-        print(
-            """You cannot install a code coverage wrapper on a function, only a procedure."""
+        log.error(
+            "You cannot install a code coverage wrapper on a function, only a procedure."
         )
         raise typer.Abort()
     if config.is_auth():
@@ -66,7 +66,7 @@ def snowpark_create(
                 input_parameters,
             ),
         )
-        print("Uploading deployment file to stage...")
+        log.info("Uploading deployment file to stage...")
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
@@ -95,7 +95,7 @@ def snowpark_create(
             # if we're installing a coverage wrapper, ensure the coverage package included as a dependency
             if "coverage" not in packages:
                 packages.append("coverage")
-        print(f"Creating {type}...")
+        log.info(f"Creating {type}...")
         if type == "function":
             results = config.snowflake_connection.create_function(
                 name=name,
@@ -132,10 +132,10 @@ def snowpark_create(
 
 def validate_configuration(env_conf, environment):
     if env_conf is None:
-        print(
-            f"""The {environment} environment is not configured in app.toml
-            yet, please run `snow configure -e {environment}` first before
-            continuing.""",
+        log.error(
+            f"The {environment} environment is not configured in app.toml "
+            "yet, please run `snow configure -e {environment}` first before "
+            "continuing."
         )
         raise typer.Abort()
 
@@ -155,15 +155,15 @@ def snowpark_update(
     env_conf: dict = AppConfig().config.get(environment)  # type: ignore
     validate_configuration(env_conf, environment)
     if type == "function" and install_coverage_wrapper:
-        print(
-            """You cannot install a code coverage wrapper on a function, only a procedure."""
+        log.error(
+            "You cannot install a code coverage wrapper on a function, only a procedure."
         )
         raise typer.Abort()
     if config.is_auth():
         config.connect_to_snowflake()
         updated_package_list = []
         try:
-            print(f"Updating {type} {name}...")
+            log.info(f"Updating {type} {name}...")
             if type == "function":
                 resource_details = config.snowflake_connection.describe_function(
                     name=name,
@@ -184,18 +184,18 @@ def snowpark_update(
                     warehouse=env_conf["warehouse"],
                     show_exceptions=False,
                 )
-            print("Checking if any new packages to update...")
+            log.info("Checking if any new packages to update...")
             resource_json = utils.convert_resource_details_to_dict(
                 resource_details,
             )  # type: ignore
             anaconda_packages = resource_json["packages"]
-            print(
+            log.info(
                 f"Found {len(anaconda_packages)} defined Anaconda "
-                f"packages in deployed {type}...",
+                "packages in deployed {type}..."
             )
-            print(
+            log.info(
                 "Checking if any packages defined or missing from "
-                "requirements.snowflake.txt...",
+                "requirements.snowflake.txt..."
             )
             updated_package_list = utils.get_snowflake_packages_delta(
                 anaconda_packages,
@@ -207,20 +207,18 @@ def snowpark_update(
                     and "coverage" not in updated_package_list
                 ):
                     updated_package_list.append("coverage")
-            print(
-                "Checking if app configuration has changed...",
-            )
+            log.info("Checking if app configuration has changed...")
             if (
                 resource_json["handler"].lower() != handler.lower()
                 or resource_json["returns"].lower() != return_type.lower()
             ):
-                print(
-                    "Return type or handler types do not match. Replacing "
-                    "function configuration...",
+                log.info(
+                    "Return type or handler types do not match. Replacing"
+                    "function configuration..."
                 )
                 replace = True
         except Exception:
-            typer.echo(f"Existing {type} not found, creating new {type}...")
+            log.info(f"Existing {type} not found, creating new {type}...")
             replace = True
 
         finally:
@@ -252,13 +250,12 @@ def snowpark_update(
                     role=env_conf["role"],
                     warehouse=env_conf["warehouse"],
                 )
-            print(
-                f"{deploy_response[0]} uploaded to stage "
-                f'{deploy_dict["full_path"]}',
+            log.info(
+                f"{deploy_response[0]} uploaded to stage " f"{deploy_dict['full_path']}"
             )
 
             if updated_package_list or replace:
-                print(f"Replacing {type} with updated values...")
+                log.info(f"Replacing {type} with updated values...")
                 if type == "function":
                     config.snowflake_connection.create_function(
                         name=name,
@@ -288,12 +285,12 @@ def snowpark_update(
                         packages=utils.get_snowflake_packages(),
                         execute_as_caller=execute_as_caller,
                     )
-                print(
+                log.info(
                     f"{type.capitalize()} {name} updated with new packages. "
-                    "Deployment complete!",
+                    "Deployment complete!"
                 )
             else:
-                print("No packages to update. Deployment complete!")
+                log.info("No packages to update. Deployment complete!")
 
 
 def replace_handler_in_zip(
@@ -311,7 +308,7 @@ def replace_handler_in_zip(
     """
     handler_parts = handler.split(".")
     if len(handler_parts) != 2:
-        print(
+        log.error(
             "To install a code coverage wrapper, your handler must be in the format <module>.<function>"
         )
         raise typer.Abort()
@@ -334,16 +331,16 @@ def snowpark_package(
     check_anaconda_for_pypi_deps: bool,
     package_native_libraries: YesNoAskOptionsType,
 ):
-    print("Resolving any requirements from requirements.txt...")
+    log.info("Resolving any requirements from requirements.txt...")
     requirements = utils.parse_requirements()
     pack_dir: str = None  # type: ignore
     if requirements:
-        print("Comparing provided packages from Snowflake Anaconda...")
+        log.info("Comparing provided packages from Snowflake Anaconda...")
         split_requirements = utils.parse_anaconda_packages(requirements)
         if not split_requirements.other:
-            print("No packages to manually resolve")
+            log.info("No packages to manually resolve")
         if split_requirements.other:
-            print("Writing requirements.other.txt...")
+            log.info("Writing requirements.other.txt...")
             with open("requirements.other.txt", "w", encoding="utf-8") as f:
                 for package in split_requirements.other:
                     f.write(package.line + "\n")
@@ -358,7 +355,7 @@ def snowpark_package(
                 else pypi_download == "yes"
             )
             if do_download:
-                print("Installing non-Anaconda packages...")
+                log.info("Installing non-Anaconda packages...")
                 should_pack, second_chance_results = utils.install_packages(
                     "requirements.other.txt",
                     check_anaconda_for_pypi_deps,
@@ -375,7 +372,7 @@ def snowpark_package(
 
         # write requirements.snowflake.txt file
         if split_requirements.snowflake:
-            print("Writing requirements.snowflake.txt file...")
+            log.info("Writing requirements.snowflake.txt file...")
             with open(
                 "requirements.snowflake.txt",
                 "w",
@@ -391,7 +388,7 @@ def snowpark_package(
             utils.standard_zip_dir("app.zip")
     else:
         utils.standard_zip_dir("app.zip")
-    print("\n\nDeployment package now ready: app.zip")
+    log.info("Deployment package now ready: app.zip")
 
 
 def snowpark_execute(type: str, environment: str, select: str):
