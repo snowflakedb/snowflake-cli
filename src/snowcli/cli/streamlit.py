@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,11 +9,11 @@ from rich import print
 from snowcli import config
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.config import AppConfig
+from snowcli.output.printing import print_db_cursor
 from snowcli.utils import (
     generate_streamlit_environment_file,
     generate_streamlit_package_wrapper,
 )
-from snowcli.output.printing import print_db_cursor
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -234,7 +233,10 @@ def streamlit_deploy(
         schema = env_conf.get("schema")
         role = env_conf.get("role")
         database = env_conf.get("database")
+        warehouse = env_conf.get("warehouse")
+        # THIS WORKAROUND HAS NOT BEEN TESTETD WITH THE NEW STREAMLIT SYNTAX
         if use_packaging_workaround:
+            stage_name = f"snow://streamlit/{database}.{schema}.{name}/default_checkout"
             # package an app.zip file, same as the other snowpark package commands
             snowpark_package(
                 pypi_download,  # type: ignore[arg-type]
@@ -244,12 +246,14 @@ def streamlit_deploy(
             # upload the resulting app.zip file
             config.snowflake_connection.upload_file_to_stage(
                 "app.zip",
-                f"{name}_stage",
+                stage_name,
                 "/",
-                role,
-                database,
-                schema,
+                role=role,
+                database=database,
+                schema=schema,
+                warehouse=warehouse,
                 overwrite=True,
+                create_stage=False,
             )
             main_module = str(file).replace(".py", "")
             file = generate_streamlit_package_wrapper(
@@ -260,12 +264,14 @@ def streamlit_deploy(
             # upload the wrapper file
             config.snowflake_connection.upload_file_to_stage(
                 str(file),
-                f"{name}_stage",
+                stage_name,
                 "/",
-                role,
-                database,
-                schema,
+                role=role,
+                database=database,
+                schema=schema,
+                warehouse=warehouse,
                 overwrite=True,
+                create_stage=False,
             )
             # if the packaging process generated an environment.snowflake.txt
             # file, convert it into an environment.yml file
@@ -276,12 +282,14 @@ def streamlit_deploy(
             if env_file:
                 config.snowflake_connection.upload_file_to_stage(
                     str(env_file),
-                    f"{name}_stage",
+                    stage_name,
                     "/",
-                    role,
-                    database,
-                    schema,
+                    role=role,
+                    database=database,
+                    schema=schema,
+                    warehouse=warehouse,
                     overwrite=True,
+                    create_stage=False,
                 )
 
         base_url = config.snowflake_connection.deploy_streamlit(
@@ -291,6 +299,7 @@ def streamlit_deploy(
             role=role,
             database=database,
             schema=schema,
+            warehouse=warehouse,
             overwrite=True,
         )
 

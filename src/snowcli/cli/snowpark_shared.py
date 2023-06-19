@@ -10,12 +10,12 @@ from rich import print
 
 from snowcli import config, utils
 from snowcli.config import AppConfig
+from snowcli.output.printing import print_db_cursor
 from snowcli.utils import (
     YesNoAskOptionsType,
     generate_deploy_stage_name,
     yes_no_ask_callback,
 )
-from snowcli.output.printing import print_db_cursor
 
 # common CLI options
 PyPiDownloadOption = typer.Option(
@@ -88,6 +88,7 @@ def snowpark_create(
                 schema=env_conf["schema"],
                 overwrite=overwrite,
                 role=env_conf["role"],
+                warehouse=env_conf["warehouse"],
             )
         packages = utils.get_snowflake_packages()
         if install_coverage_wrapper:
@@ -249,6 +250,7 @@ def snowpark_update(
                     schema=env_conf["schema"],
                     overwrite=True,
                     role=env_conf["role"],
+                    warehouse=env_conf["warehouse"],
                 )
             print(
                 f"{deploy_response[0]} uploaded to stage "
@@ -337,14 +339,14 @@ def snowpark_package(
     pack_dir: str = None  # type: ignore
     if requirements:
         print("Comparing provided packages from Snowflake Anaconda...")
-        parsed_requirements = utils.parse_anaconda_packages(requirements)
-        if not parsed_requirements["other"]:
+        split_requirements = utils.parse_anaconda_packages(requirements)
+        if not split_requirements.other:
             print("No packages to manually resolve")
-        if parsed_requirements["other"]:
+        if split_requirements.other:
             print("Writing requirements.other.txt...")
             with open("requirements.other.txt", "w", encoding="utf-8") as f:
-                for package in parsed_requirements["other"]:
-                    f.write(package + "\n")
+                for package in split_requirements.other:
+                    f.write(package.line + "\n")
         # if requirements.other.txt exists
         if os.path.isfile("requirements.other.txt"):
             do_download = (
@@ -366,21 +368,23 @@ def snowpark_package(
                     pack_dir = ".packages"
                     # add the Anaconda packages discovered as dependancies
                     if second_chance_results is not None:
-                        parsed_requirements["snowflake"] = (
-                            parsed_requirements["snowflake"]
-                            + second_chance_results["snowflake"]
+                        split_requirements.snowflake = (
+                            split_requirements.snowflake
+                            + second_chance_results.snowflake
                         )
 
         # write requirements.snowflake.txt file
-        if parsed_requirements["snowflake"]:
+        if split_requirements.snowflake:
             print("Writing requirements.snowflake.txt file...")
             with open(
                 "requirements.snowflake.txt",
                 "w",
                 encoding="utf-8",
             ) as f:
-                for package in sorted(list(set(parsed_requirements["snowflake"]))):
-                    f.write(package + "\n")
+                for package in utils.deduplicate_and_sort_reqs(
+                    split_requirements.snowflake
+                ):
+                    f.write(package.line + "\n")
         if pack_dir:
             utils.recursive_zip_packages_dir(pack_dir, "app.zip")
         else:

@@ -109,5 +109,5 @@ def test_sql_overrides_connection_configuration(_, mock_conn, mock_app_config, r
         role="rolenameValue",
         database="dbnameValue",
         schema="schemanameValue",
-        application="SNOWCLI",
+        application="SNOWCLI.SQL",
     )

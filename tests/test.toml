@@ -1,4 +1,4 @@
-snowsql_config_path = "foo"
+snowsql_config_path = "snowsql.toml"
 snowsql_connection_name = "foo"
 
 [dev]

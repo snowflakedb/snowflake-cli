@@ -10,4 +10,4 @@ build/
 dist/
 .idea
 .tox
-.packages
+./.packages

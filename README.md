@@ -117,6 +117,27 @@ password = hunter2
 1. Create a `.snowsql` folder with a `config` file at the following path: `%USERPROFILE%\.snowsql\config`
 2. Add a new configuration for your Snowflake connection with SnowCLI. You must prefix the configuration with `connections.`.
 
+### Using environment variables
+
+Environment variables can only be replaced in connection parameters. Parameter values in config file have to start with `$SNOWCLI_` and will be searched as a name in environment variables, but without `$` at the beginning.
+
+For example connection config:
+
+```ini
+[connections.test]
+account = $SNOWCLI_ACCOUNT
+user = $SNOWCLI_USER
+password = $SNOWCLI_PASSWORD
+```
+
+will be replaced with environment variables:
+
+```ini
+SNOWCLI_ACCOUNT = "account"
+SNOWCLI_USER = "user"
+SNOWCLI_PASSWORD = "password"
+```
+
 ### Manage packages in Snowflake Stages
 
 You can use the Snowflake CLI to assist you in creating and uploading custom packages for Snowflake. This includes both full Python packages (and all needed dependencies) and Python packages that have native dependencies that are supported by Anaconda. All dependency evaluation is performed using `pip` on the machine the SnowCLI runs on and can create and help upload packages. Here's a flow to upload a custom package:
@@ -249,11 +270,11 @@ We can build a coverage report:
 
 Under htmlcov/index.html we see a summary of the two files:
 
-![Coverage 1](./docs/images/coverage_1.png)
+![Coverage 1](https://github.com/Snowflake-Labs/snowcli/blob/main/docs/images/coverage_1.png?raw=true)
 
 and drilling into app.py:
 
-![Coverage 2](./docs/images/coverage_2.png)
+![Coverage 2](https://github.com/Snowflake-Labs/snowcli/blob/main/docs/images/coverage_2.png?raw=true)
 
 Then use a couple of other code paths:
 
@@ -263,15 +284,15 @@ Then use a couple of other code paths:
 
 If we run the report again, we're now up to 85%:
 
-![Coverage 3](./docs/images/coverage_3.png)
+![Coverage 3](https://github.com/Snowflake-Labs/snowcli/blob/main/docs/images/coverage_3.png?raw=true)
 
 With app.py showing a bit more green:
 
-![Coverage 4](./docs/images/coverage_4.png)
+![Coverage 4](https://github.com/Snowflake-Labs/snowcli/blob/main/docs/images/coverage_4.png?raw=true)
 
 and other_stuff.py fully covered:
 
-![Coverage 5](./docs/images/coverage_5.png)
+![Coverage 5](https://github.com/Snowflake-Labs/snowcli/blob/main/docs/images/coverage_5.png?raw=true)
 
 
 #### More code coverage tips:
@@ -285,31 +306,6 @@ select COALESCE(COMMENT,0)::numeric(5,2) as COVERAGE, *
 from information_schema.procedures
 where COVERAGE < 75;
 ```
-
-
-
-## Contributing
-If interested in contributing, you will want to instanstiate the pre-commit logic to help with formatting and linting of commits. To do this, run the following in the `snowcli` cloned folder on your development machine:
-
-```bash
-pip install pre-commit
-pre-commit
-```
-
-### Test dependencies
-Dependencies are defined as optional dependencies, to install them run
-
-```bash
-pip install ".[dev]"
-```
-
-### Integration tests
-
-Every integration test should have `integration` mark. By default, integration tests are not execute in `pytest`.
-
-To execute only unit tests run `pytest`
-
-To execute only integration tests run `pytest -m integration`
 
 ## Get involved
 

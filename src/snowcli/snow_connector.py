@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 import os
-import pkgutil
 from io import StringIO
 from pathlib import Path
 from typing import Optional
 
+import click
 import snowflake.connector
 from jinja2 import Environment, FileSystemLoader
 from snowflake.connector.cursor import SnowflakeCursor
-
-from snowcli.snowsql_config import SnowsqlConfig
 
 TEMPLATES_PATH = Path(__file__).parent / "sql"
 
@@ -28,21 +26,24 @@ class SnowflakeConnector:
 
     def __init__(
         self,
-        snowsql_config: SnowsqlConfig,
-        connection_name: str,
+        connection_config: dict,
         overrides: Optional[dict] = None,
     ):
-        self.snowsql_config = snowsql_config
-        self.connection_name = connection_name
-        self.connection_config: dict = snowsql_config.get_connection(
-            connection_name,
-        )
+        self.connection_config = connection_config
         if overrides:
             for config, value in ((k, v) for k, v in overrides.items() if v):
                 self.connection_config[config] = value
-        self.connection_config["application"] = "SNOWCLI"
+        self.connection_config["application"] = self._find_command_path()
         self.ctx = snowflake.connector.connect(**self.connection_config)
         self.cs = self.ctx.cursor()
+
+    @staticmethod
+    def _find_command_path():
+        ctx = click.get_current_context(silent=True)
+        if ctx:
+            # Example: SNOWCLI.WAREHOUSE.STATUS
+            return ".".join(["SNOWCLI", *ctx.command_path.split(" ")[1:]]).upper()
+        return "SNOWCLI"
 
     def __del__(self):
         try:
@@ -132,22 +133,39 @@ class SnowflakeConnector:
         path,
         role,
         database,
+        warehouse,
         schema,
         overwrite,
+        parallel: int = 4,
+        create_stage: bool = True,
     ):
-        self.cs.execute(f"use role {role}")
-        self.cs.execute(f"use database {database}")
-        self.cs.execute(f"use schema {schema}")
-        self.cs.execute(
-            f"create stage if not exists {destination_stage} "
-            'comment="deployments managed by snowcli"',
+        create_stage_command = ""
+        if create_stage:
+            create_stage_command = (
+                f"create stage if not exists {destination_stage} "
+                "comment='deployments managed by snowcli'"
+            )
+
+        full_stage_name = (
+            f"@{destination_stage}"
+            if not destination_stage.startswith("snow://")
+            else destination_stage
         )
-        self.cs.execute(
-            f"PUT file://{file_path} @{destination_stage}{path} "
-            "auto_compress=false overwrite="
-            f'{"true" if overwrite else "false"}',
+        return self.run_sql(
+            "put_stage",
+            {
+                "role": role,
+                "database": database,
+                "schema": schema,
+                "warehouse": warehouse,
+                "path": file_path,
+                "destination_path": path,
+                "name": full_stage_name,
+                "create_stage_command": create_stage_command,
+                "parallel": parallel,
+                "overwrite": overwrite,
+            },
         )
-        return self.cs.fetchone()
 
     def execute_function(
         self,
@@ -352,8 +370,8 @@ class SnowflakeConnector:
         self,
         database,
         schema,
-        role,
         warehouse,
+        role,
         name,
         path,
         overwrite: bool = False,
@@ -593,19 +611,22 @@ class SnowflakeConnector:
         role,
         database,
         schema,
+        warehouse,
         overwrite,
     ):
         stage_name = f"snow://streamlit/{database}.{schema}.{name}/default_checkout"
 
         """Upload main python file to stage and return url of streamlit"""
         self.upload_file_to_stage(
-            file_path,
-            stage_name,
-            stage_path,
-            role,
-            database,
-            schema,
-            overwrite,
+            file_path=file_path,
+            destination_stage=stage_name,
+            path=stage_path,
+            role=role,
+            database=database,
+            schema=schema,
+            warehouse=warehouse,
+            overwrite=overwrite,
+            create_stage=False,
         )
 
         result = self.run_sql(

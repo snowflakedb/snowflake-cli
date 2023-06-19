@@ -1,0 +1,7 @@
+[connections.integration-tests]
+accountname = $SNOWCLI_LOCAL_ACCOUNT_NAME
+username = $SNOWCLI_LOCAL_USER
+password = $SNOWCLI_LOCAL_PASS
+host = $SNOWCLI_LOCAL_HOST
+port = $SNOWCLI_LOCAL_PORT
+protocol = $SNOWCLI_LOCAL_PROTOCOL

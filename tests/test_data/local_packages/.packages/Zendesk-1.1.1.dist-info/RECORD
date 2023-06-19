@@ -1,0 +1,15 @@
+Zendesk-1.1.1.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+Zendesk-1.1.1.dist-info/LICENSE.txt,sha256=88In5MqkrpFx7Sfe6rAwpJ8iMEIxZ2mukpsDNQhAmvk,1081
+Zendesk-1.1.1.dist-info/METADATA,sha256=ae3EiGUpzUleEPLgQHG-6kJzQFrDBMlvJAfk7aBgNhM,592
+Zendesk-1.1.1.dist-info/RECORD,,
+Zendesk-1.1.1.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+Zendesk-1.1.1.dist-info/WHEEL,sha256=2wepM1nk4DS4eFpYrW1TTqPcoGNfHhhO_i5m4cOimbo,92
+Zendesk-1.1.1.dist-info/top_level.txt,sha256=YwC2mr9kmp8hF2UVi3jhLZtbL_IngiQ3gkfUuu1Ui2U,8
+zendesk/__init__.py,sha256=aKuxvTLXzPkvG6CxKInZePuFA45qnpaSENrqkkaoWVA,46
+zendesk/__pycache__/__init__.cpython-38.pyc,,
+zendesk/__pycache__/endpoints.cpython-38.pyc,,
+zendesk/__pycache__/endpoints_v2.cpython-38.pyc,,
+zendesk/__pycache__/zendesk.cpython-38.pyc,,
+zendesk/endpoints.py,sha256=M-rlSCovlHFqEn37j9uu2VmaSQxy13ZfUKfQ3rACzgY,4792
+zendesk/endpoints_v2.py,sha256=ddbVWzBf15N1ehQQpXio1JxkZ3rUDHOHT0J23p1aKwA,17430
+zendesk/zendesk.py,sha256=Q263CjYWEm6z2fJpowmhInYi2HFdBVRYK9X1eOl9rso,9276
