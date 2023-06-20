@@ -8,6 +8,7 @@ import pkg_resources
 import typer
 
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.snow_cli_typer import SnowCliTyper
 from snowcli.cli.snowpark.procedure_coverage import app as procedure_coverage_app
 from snowcli.cli.snowpark_shared import (
     CheckAnacondaForPyPiDependancies,
@@ -23,7 +24,7 @@ from snowcli.cli.snowpark_shared import (
 )
 from snowcli.utils import conf_callback
 
-app = typer.Typer(
+app = SnowCliTyper(
     name="procedure",
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage stored procedures",

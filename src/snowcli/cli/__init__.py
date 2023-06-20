@@ -16,15 +16,28 @@ from snowcli.cli import (
     streamlit,
 )
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.snow_cli_global_context import (
+    snow_cli_global_context_holder,
+    SnowCliGlobalContext,
+)
+from snowcli.cli.common.snow_cli_typer import SnowCliTyper
 from snowcli.cli.snowpark import app as snowpark_app
 from snowcli.config import AppConfig
 from snowcli.output.formats import OutputFormat
 from snowcli.connection_config import ConnectionConfigs
 
-app = typer.Typer(
+app = SnowCliTyper(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     pretty_exceptions_show_locals=False,
 )
+
+
+def setup_global_context(debug: bool):
+    def modifications(context: SnowCliGlobalContext) -> SnowCliGlobalContext:
+        context.logging_and_exception_handling.enable_tracebacks = debug
+        return context
+
+    snow_cli_global_context_holder.update_global_context(modifications)
 
 
 def version_callback(value: bool):
@@ -152,10 +165,17 @@ def default(
         dir_okay=False,
         is_eager=True,
     ),
+    debug: bool = typer.Option(
+        None,
+        "--debug",
+        help="Turns on debug logs (including exception tracebacks)",
+        is_eager=True,
+    ),
 ) -> None:
     """
     SnowCLI - A CLI for Snowflake
     """
+    setup_global_context(debug=debug)
 
 
 MODULE_IGNORE_SET = frozenset(("procedure_coverage",))

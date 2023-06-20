@@ -8,6 +8,7 @@ from rich import print
 
 from snowcli import config
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.snow_cli_typer import SnowCliTyper
 from snowcli.config import AppConfig
 from snowcli.output.printing import print_db_cursor
 from snowcli.utils import (
@@ -15,7 +16,7 @@ from snowcli.utils import (
     generate_streamlit_package_wrapper,
 )
 
-app = typer.Typer(
+app = SnowCliTyper(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage Streamlit in Snowflake",
 )

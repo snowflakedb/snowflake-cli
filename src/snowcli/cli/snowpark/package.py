@@ -11,9 +11,10 @@ from requirements.requirement import Requirement
 
 from snowcli import config, utils
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.snow_cli_typer import SnowCliTyper
 from snowcli.config import AppConfig
 
-app = typer.Typer(
+app = SnowCliTyper(
     name="package",
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage custom Python packages for Snowpark",

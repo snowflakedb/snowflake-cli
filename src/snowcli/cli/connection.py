@@ -5,10 +5,11 @@ from rich import print
 from rich.table import Table
 
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.snow_cli_typer import SnowCliTyper
 from snowcli.config import AppConfig
 from snowcli.connection_config import ConnectionConfigs
 
-app = typer.Typer(
+app = SnowCliTyper(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage connection to Snowflake",
 )
