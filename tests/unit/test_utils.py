@@ -11,8 +11,6 @@ from snowcli import utils
 
 from tests.unit.test_data.test_data import *
 
-# TODO: check for consistency in using ' or "
-
 
 class TestUtils:
     APP_ZIP = "app.zip"

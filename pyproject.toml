@@ -39,7 +39,6 @@ dev = [
   "pytest==7.3.2",
   "syrupy==4.0.2",
   "tox==4.6.0",
-  "requests-mock==1.10.0"
 ]
 
 [project.urls]
