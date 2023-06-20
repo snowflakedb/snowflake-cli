@@ -1,15 +1,16 @@
 from pathlib import Path, PosixPath
+from requirements.requirement import Requirement
 from shutil import rmtree
-from typing import Generator, Tuple, List
+from typing import Generator, List
 from unittest.mock import MagicMock, patch
 from zipfile import ZipFile
 
 import os
 import pytest
 import typer
-from snowcli import utils
 
-from tests.unit.test_data.test_data import *
+from snowcli import utils
+import tests.unit.test_data.test_data as test_data
 
 
 class TestUtils:
@@ -30,7 +31,10 @@ class TestUtils:
 
         assert result == argument
 
-    @pytest.mark.parametrize("argument", bad_arguments_for_yesnoask)
+    @pytest.mark.parametrize(
+        "argument",
+        ["Yes", "No", "Ask", "yse", 42, "and_now_for_something_completely_different"],
+    )
     def test_yes_no_ask_callback_with_incorrect_argument(self, argument):
         with pytest.raises(typer.BadParameter) as e_info:
             utils.yes_no_ask_callback(argument)
@@ -40,13 +44,15 @@ class TestUtils:
             == f"Valid values: ['yes', 'no', 'ask']. You provided: {argument}"
         )
 
-    @pytest.mark.parametrize("arguments", positive_arguments_for_deploy_names)
-    def test_get_deploy_names_correct(
-        self, arguments: Tuple[Tuple[str, str, str], dict]
-    ):
-        result = utils.get_deploy_names(*arguments[0])
+    def test_get_deploy_names_correct(self):
+        result = utils.get_deploy_names("snowhouse_test", "test_schema", "jdoe")
 
-        assert result == arguments[1]
+        assert result == {
+            "stage": "snowhouse_test.test_schema.deployments",
+            "path": "/jdoe/app.zip",
+            "full_path": "@snowhouse_test.test_schema.deployments/jdoe/app.zip",
+            "directory": "/jdoe",
+        }
 
     def test_prepare_app_zip(
         self,
@@ -77,7 +83,7 @@ class TestUtils:
     def test_parse_requierements_with_correct_file(self, correct_requirements_txt: str):
         result = utils.parse_requirements(correct_requirements_txt)
 
-        assert len(result) == len(requirements)
+        assert len(result) == len(test_data.requirements)
 
     def test_parse_requirements_with_nonexistent_file(self, temp_test_directory: str):
         path = os.path.join(temp_test_directory, "non_existent.file")
@@ -89,10 +95,10 @@ class TestUtils:
     def test_anaconda_packages(self, mock_requests):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = anaconda_response
+        mock_response.json.return_value = test_data.anaconda_response
         mock_requests.get.return_value = mock_response
 
-        anaconda_packages = utils.parse_anaconda_packages(packages)
+        anaconda_packages = utils.parse_anaconda_packages(test_data.packages)
         assert (
             Requirement.parse_line("snowflake-connector-python")
             in anaconda_packages.snowflake
@@ -106,11 +112,11 @@ class TestUtils:
     def test_anaconda_packages_streamlit(self, mock_requests):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = anaconda_response
+        mock_response.json.return_value = test_data.anaconda_response
         mock_requests.get.return_value = mock_response
 
-        packages.append(Requirement.parse_line("streamlit"))
-        anaconda_packages = utils.parse_anaconda_packages(packages)
+        test_data.packages.append(Requirement.parse_line("streamlit"))
+        anaconda_packages = utils.parse_anaconda_packages(test_data.packages)
 
         assert Requirement.parse_line("streamlit") not in anaconda_packages.other
 
@@ -122,7 +128,7 @@ class TestUtils:
         mock_requests.get.return_value = mock_response
 
         with pytest.raises(typer.Abort) as abort:
-            result = utils.parse_anaconda_packages(packages)
+            result = utils.parse_anaconda_packages(test_data.packages)
 
     def test_generate_streamlit_environment_file_with_no_requirements(self):
         result = utils.generate_streamlit_environment_file([])
@@ -142,13 +148,15 @@ class TestUtils:
         self, streamlit_requirements_txt, temp_test_directory: str
     ):
         os.chdir(temp_test_directory)
-        result = utils.generate_streamlit_environment_file(excluded_anaconda_deps)
+        result = utils.generate_streamlit_environment_file(
+            test_data.excluded_anaconda_deps
+        )
         os.chdir("..")
         env_file = os.path.join(temp_test_directory, "environment.yml")
         assert result == PosixPath("environment.yml")
         assert os.path.isfile(env_file)
         with open(env_file, "r") as f:
-            for dep in excluded_anaconda_deps:
+            for dep in test_data.excluded_anaconda_deps:
                 assert dep not in f.read()
 
     def test_generate_streamlit_package_wrapper(self):
@@ -159,9 +167,6 @@ class TestUtils:
         assert os.path.exists(result)
         with open(result, "r") as f:
             assert 'importlib.reload(sys.modules["example_module"])' in f.read()
-
-    def test_get_downloaded_package_names(self):
-        pass  # todo: prepare a fixture to test it
 
     def test_get_package_name_from_metadata_using_correct_data(
         self, correct_metadata_file: str, tmp_path
@@ -209,7 +214,6 @@ class TestUtils:
 
         utils.recursive_zip_packages_dir(temp_test_directory, zip_file_path)
         zip_file = ZipFile(zip_file_path)
-        print(os.getenv("SNOWCLI_INCLUDE_PATHS"))
 
         assert os.path.isfile(zip_file_path)
         assert os.getenv("SNOWCLI_INCLUDE_PATHS") is None
@@ -252,20 +256,20 @@ class TestUtils:
         result = utils.get_snowflake_packages()
         os.chdir("..")
 
-        assert result == requirements
+        assert result == test_data.requirements
 
     def test_get_snowflake_packages_delta(self, streamlit_requirements_txt):
-        anaconda_package = requirements[-1]
+        anaconda_package = test_data.requirements[-1]
         os.chdir(".tests")
         result = utils.get_snowflake_packages_delta(anaconda_package)
         os.chdir("..")
 
-        assert result == requirements[:-1]
+        assert result == test_data.requirements[:-1]
 
     def test_convert_resource_details_to_dict(self):
         assert (
-            utils.convert_resource_details_to_dict(example_resource_details)
-            == expected_resource_dict
+            utils.convert_resource_details_to_dict(test_data.example_resource_details)
+            == test_data.expected_resource_dict
         )
 
     # Setup functions
@@ -295,19 +299,19 @@ class TestUtils:
     @pytest.fixture
     def correct_requirements_txt(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, self.REQUIREMENTS_TXT)
-        self.create_file(path, requirements)
+        self.create_file(path, test_data.requirements)
         yield path
 
     @pytest.fixture
     def streamlit_requirements_txt(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, self.REQUIREMENTS_SNOWFLAKE)
-        self.create_file(path, requirements)
+        self.create_file(path, test_data.requirements)
         yield path
 
     @pytest.fixture
     def correct_metadata_file(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, self.CORRECT_METADATA)
-        self.create_file(path, correct_package_metadata)
+        self.create_file(path, test_data.correct_package_metadata)
         yield path
 
     @pytest.fixture
