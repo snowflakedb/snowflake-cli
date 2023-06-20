@@ -1,11 +1,11 @@
 from pathlib import Path, PosixPath
 from shutil import rmtree
 from typing import Generator, Tuple, List
+from unittest.mock import MagicMock, patch
 from zipfile import ZipFile
 
 import os
 import pytest
-import requests_mock
 import typer
 from snowcli import utils
 
@@ -87,29 +87,44 @@ class TestUtils:
 
         assert result == []
 
-    def test_anaconda_packages(self):
+    @patch("tests.unit.test_utils.utils.requests")
+    def test_anaconda_packages(self, mock_requests):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = anaconda_response
+        mock_requests.get.return_value = mock_response
+
         anaconda_packages = utils.parse_anaconda_packages(packages)
-
-        assert "snowflake" in anaconda_packages.keys()
-        assert "other" in anaconda_packages.keys()
-        assert len(anaconda_packages.get("other")) == 1
-        assert len(anaconda_packages.get("snowflake")) == 2
-
-    def test_anaconda_packages_streamlit(self):
-        packages.append("streamlit==1.2.3")
-        anaconda_packages = utils.parse_anaconda_packages(packages)
-        assert "snowflake" in anaconda_packages.keys()
-        assert "other" in anaconda_packages.keys()
-        assert "streamlit" not in anaconda_packages.get("other")
-        # TODO: above tests rely on correct response from anaconda.com
-        #  - shouldn`t it be mocked?
-
-    def test_anaconda_packages_with_incorrect_response(self, requests_mock):
-        requests_mock.get(
-            "https://repo.anaconda.com/pkgs/snowflake/channeldata.json", status_code=404
+        assert (
+            Requirement.parse_line("snowflake-connector-python")
+            in anaconda_packages.snowflake
         )
-        result = utils.parse_anaconda_packages(packages)
-        assert result == {}
+        assert (
+            Requirement.parse_line("my-totally-awesome-package")
+            in anaconda_packages.other
+        )
+
+    @patch("tests.unit.test_utils.utils.requests")
+    def test_anaconda_packages_streamlit(self, mock_requests):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = anaconda_response
+        mock_requests.get.return_value = mock_response
+
+        packages.append(Requirement.parse_line("streamlit"))
+        anaconda_packages = utils.parse_anaconda_packages(packages)
+
+        assert Requirement.parse_line("streamlit") not in anaconda_packages.other
+
+    @patch("tests.unit.test_utils.utils.requests")
+    def test_anaconda_packages_with_incorrect_response(self, mock_requests):
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        mock_response.json.return_value = {}
+        mock_requests.get.return_value = mock_response
+
+        with pytest.raises(typer.Abort) as abort:
+            result = utils.parse_anaconda_packages(packages)
 
     def test_generate_streamlit_environment_file_with_no_requirements(self):
         result = utils.generate_streamlit_environment_file([])
@@ -154,7 +169,7 @@ class TestUtils:
         self, correct_metadata_file: str
     ):
         result = utils.get_package_name_from_metadata(correct_metadata_file)
-        assert result == "my-awesome-package"
+        assert result == Requirement.parse_line("my-awesome-package==0.0.1")
 
     def test_generate_snowpark_coverage_wrapper(self, temp_test_directory: str):
         path = os.path.join(temp_test_directory, "coverage.py")
@@ -261,7 +276,6 @@ class TestUtils:
 
     @pytest.fixture
     def temp_test_directory(self) -> Generator:
-        print(os.getcwd())
         path = os.path.join(os.getcwd(), self.TEMP_TEST_DIRECTORY).lower()
         os.mkdir(path)
         yield path
