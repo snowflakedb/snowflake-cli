@@ -164,7 +164,7 @@ class TestUtils:
         pass  # todo: prepare a fixture to test it
 
     def test_get_package_name_from_metadata_using_correct_data(
-        self, correct_metadata_file: str
+        self, correct_metadata_file: str, tmp_path
     ):
         result = utils.get_package_name_from_metadata(correct_metadata_file)
         assert result == Requirement.parse_line("my-awesome-package==0.0.1")
@@ -273,11 +273,11 @@ class TestUtils:
     # and delete them, after the tests are performed
 
     @pytest.fixture
-    def temp_test_directory(self) -> Generator:
-        path = os.path.join(os.getcwd(), self.TEMP_TEST_DIRECTORY).lower()
+    def temp_test_directory(self, tmp_path_factory) -> Generator:
+        path = os.path.join(os.getcwd(), self.TEMP_TEST_DIRECTORY)
         os.mkdir(path)
         yield path
-        rmtree(path)  # We delete whole directory in teardown -
+        rmtree(self.TEMP_TEST_DIRECTORY)  # We delete whole directory in teardown -
         # so, no need to delete any of the files separately
 
     @pytest.fixture
