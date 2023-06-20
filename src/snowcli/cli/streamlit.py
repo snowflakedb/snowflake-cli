@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+import logging
+import typer
 from pathlib import Path
 from typing import List, Optional
-
-import typer
-from rich import print
 
 from snowcli import config
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
@@ -14,19 +13,19 @@ from snowcli.utils import (
     generate_streamlit_environment_file,
     generate_streamlit_package_wrapper,
 )
-
-app = typer.Typer(
-    context_settings=DEFAULT_CONTEXT_SETTINGS,
-    help="Manage Streamlit in Snowflake",
-)
-EnvironmentOption = typer.Option("dev", help="Environment name")
-
 from snowcli.cli.snowpark_shared import (
     CheckAnacondaForPyPiDependancies,
     PackageNativeLibrariesOption,
     PyPiDownloadOption,
     snowpark_package,
 )
+
+app = typer.Typer(
+    context_settings=DEFAULT_CONTEXT_SETTINGS,
+    help="Manage Streamlit in Snowflake",
+)
+EnvironmentOption = typer.Option("dev", help="Environment name")
+log = logging.getLogger(__name__)
 
 
 def get_standard_stage_name(name: str) -> str:
@@ -312,10 +311,10 @@ def streamlit_deploy(
             host_parts = host.split(".")
 
             if len(host_parts) != 6:
-                print(
-                    f"""The connection host ({host}) was missing or not in
-                    the expected format
-                    (<account>.<deployment>.snowflakecomputing.com)"""
+                log.error(
+                    f"The connection host ({host}) was missing or not in "
+                    "the expected format "
+                    "(<account>.<deployment>.snowflakecomputing.com)"
                 )
                 raise typer.Exit()
             else:
@@ -337,4 +336,4 @@ def streamlit_deploy(
         if open_:
             typer.launch(url)
         else:
-            print(url)
+            log.info(url)

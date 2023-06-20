@@ -6,6 +6,7 @@ from pathlib import Path
 from shutil import rmtree
 
 import click
+import logging
 import typer
 from requirements.requirement import Requirement
 
@@ -19,6 +20,7 @@ app = typer.Typer(
     help="Manage custom Python packages for Snowpark",
 )
 EnvironmentOption = typer.Option("dev", help="Environment name")
+log = logging.getLogger(__name__)
 
 
 @app.command("lookup")
@@ -42,10 +44,10 @@ def package_lookup(
     ## if list has any items
 
     if len(package_response.snowflake) > 0:
-        click.echo(f"Package {name} is available on the Snowflake anaconda channel.")
+        log.info(f"Package {name} is available on the Snowflake anaconda channel.")
         if _run_nested:
-            click.echo(
-                f"No need to create a package. Just include in your `packages` declaration."
+            log.info(
+                "No need to create a package. Just include in your `packages` declaration."
             )
     else:
         if not install_packages:
@@ -64,7 +66,7 @@ def package_lookup(
             if not _run_nested and os.path.exists(".packages"):
                 rmtree(".packages")
             if packages_string is not None:
-                click.echo("\n\n" + packages_string)
+                log.info(packages_string)
             if _run_nested and packages_string is not None:
                 return packages_string
 
@@ -89,11 +91,11 @@ def package_create(
     if os.path.exists(".packages"):
         utils.recursive_zip_packages_dir(".packages", name + ".zip")
         rmtree(".packages")
-        click.echo(
-            f"\n\nPackage {name}.zip created. You can now upload it to a stage (`snow package upload -f {name}.zip -s packages`) and reference it in your procedure or function."
+        log.info(
+            f"Package {name}.zip created. You can now upload it to a stage (`snow package upload -f {name}.zip -s packages`) and reference it in your procedure or function."
         )
         if results_string is not None:
-            click.echo("\n" + results_string)
+            log.info(results_string)
 
 
 @app.command("upload")
@@ -124,14 +126,14 @@ def package_upload(
     """
     env_conf = AppConfig().config.get(environment)
     if env_conf is None:
-        click.echo(
+        log.error(
             f"The {environment} environment is not configured in app.toml "
             "yet, please run `snow configure` first before continuing.",
         )
         raise typer.Abort()
     if config.is_auth():
         config.connect_to_snowflake()
-        click.echo(f"Uploading {file} to Snowflake @{stage}/{file}...")
+        log.info(f"Uploading {file} to Snowflake @{stage}/{file}...")
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
             deploy_response = config.snowflake_connection.upload_file_to_stage(
@@ -144,8 +146,8 @@ def package_upload(
                 role=env_conf["role"],
                 warehouse=env_conf["warehouse"],
             )
-        click.echo(f"Package {file} {deploy_response[6]} to Snowflake @{stage}/{file}.")
+        log.info(f"Package {file} {deploy_response[6]} to Snowflake @{stage}/{file}.")
         if deploy_response[6] == "SKIPPED":
-            click.echo(
+            log.info(
                 "Package already exists on stage. Consider using --overwrite to overwrite the file."
             )
