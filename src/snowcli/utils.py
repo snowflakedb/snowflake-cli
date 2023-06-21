@@ -35,6 +35,7 @@ templates_path = os.path.join(Path(__file__).parent, "python_templates")
 log = logging.getLogger(__name__)
 
 
+# TODO: add typing to all functions
 def yes_no_ask_callback(value: str):
     """
     A typer callback to handle yes/no/ask parameters
@@ -63,6 +64,7 @@ def get_deploy_names(database, schema, name) -> dict:
 
 def prepare_app_zip(file_path, temp_dir) -> str:
     # get filename from file path (e.g. app.zip from /path/to/app.zip)
+    # TODO: think if no file exceptions are handled correctly
     file_name = os.path.basename(file_path)
     temp_path = temp_dir + "/" + file_name
     shutil.copy(file_path, temp_path)
@@ -476,6 +478,10 @@ def install_packages(
 
 
 def recursive_zip_packages_dir(pack_dir: str, dest_zip: str) -> bool:
+    # TODO:
+    # 1. why this is -> bool
+    # 2. Reformat it to with open...
+    # 3. Reformat it to get list od dirs and then iterate through it, adding files to zip
     # create a zip file object
     zipf = zipfile.ZipFile(dest_zip, "w", zipfile.ZIP_DEFLATED, allowZip64=True)
 

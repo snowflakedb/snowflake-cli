@@ -2,7 +2,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from unittest import mock
 
-from testing_utils.result_assertions import assert_that_result_is_usage_error
+from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
 
 CONFIG_MOCK = "snowcli.cli.sql.config"
 
