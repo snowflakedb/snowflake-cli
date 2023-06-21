@@ -21,16 +21,6 @@ correct_package_metadata = [
     "Requires-Dist: pytest; extra == 'dev'",
 ]
 
-example_resource_details = [
-    ("packages", "{'name': 'my-awesome-package','version': '1.2.3'}"),
-    ("handler", "handler_function"),
-]
-
-expected_resource_dict = {
-    "packages": {"name": "my-awesome-package", "version": "1.2.3"},
-    "handler": "handler_function",
-}
-
 anaconda_response = {
     "channeldata_version": 1,
     "packages": {
