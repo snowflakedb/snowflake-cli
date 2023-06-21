@@ -21,6 +21,11 @@ def _handle_exception(exception: Exception):
 
 
 class SnowCliMainTyper(Typer):
+    """
+    Top-level SnowCLI Typer.
+    It contains global exception handling.
+    """
+
     def __init__(self):
         super().__init__(
             context_settings=DEFAULT_CONTEXT_SETTINGS,

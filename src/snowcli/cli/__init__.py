@@ -37,6 +37,10 @@ def _version_callback(value: bool):
 
 
 def setup_global_context(debug: bool):
+    """
+    Setup global state (accessible in whole CLI code) using options passed in SNOW CLI invocation.
+    """
+
     def modifications(context: SnowCliGlobalContext) -> SnowCliGlobalContext:
         context.enable_tracebacks = debug
         return context
