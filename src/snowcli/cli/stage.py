@@ -168,3 +168,28 @@ def stage_drop(
             name=name,
         )
         print_db_cursor(results)
+
+
+@app.command("remove")
+def stage_remove(
+    environment: str = EnvironmentOption,
+    stage_name: str = typer.Argument(..., help="Stage name"),
+    file_name: str = typer.Argument(..., help="File name"),
+):
+    """
+    Remove file from stage
+    """
+
+    env_conf = AppConfig().config.get(environment)
+
+    if config.is_auth():
+        config.connect_to_snowflake()
+        results = config.snowflake_connection.remove_from_stage(
+            database=env_conf.get("database"),
+            schema=env_conf.get("schema"),
+            role=env_conf.get("role"),
+            warehouse=env_conf.get("warehouse"),
+            name=stage_name,
+            path=file_name,
+        )
+        print_db_cursor(results)
