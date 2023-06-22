@@ -29,7 +29,7 @@ UserOption = typer.Option(
 )
 
 PasswordOption = typer.Option(
-    ...,
+    None,
     prompt="Snowflake password",
     help="Snowflake password",
     hide_input=True,

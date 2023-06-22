@@ -21,6 +21,7 @@ from requirements.requirement import Requirement
 import typer
 from jinja2 import Environment, FileSystemLoader
 
+from snowcli.config import cli_config
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -571,12 +572,9 @@ def convert_resource_details_to_dict(function_details: list[tuple]) -> dict:
             function_dict[function[0]] = function[1]
     return function_dict
 
-
-def conf_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
-    if value:
-        pass
-    return value
-
+def check_for_connection(connection_name: str):
+    cli_config.get_connection(connection_name=connection_name)
+    return connection_name
 
 def generate_deploy_stage_name(name: str, input_parameters: str) -> str:
     return name + input_parameters.replace("(", "",).replace(")", "",).replace(

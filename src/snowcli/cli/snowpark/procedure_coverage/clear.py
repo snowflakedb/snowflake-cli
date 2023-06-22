@@ -5,11 +5,11 @@ import typer
 
 from snowcli import config, utils
 from snowcli.config import connect_to_snowflake
-from snowcli.utils import check_for_connection, generate_deploy_stage_name
+from snowcli.utils import generate_deploy_stage_name
 from snowcli.output.printing import print_db_cursor
 
-from . import app
-from ...sql import ConnectionOption
+from snowcli.cli.snowpark import app
+from snowcli.cli.common.flags import ConnectionOption
 
 log = logging.getLogger(__name__)
 
