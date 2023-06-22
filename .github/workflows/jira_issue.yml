@@ -7,11 +7,7 @@ on:
     types: [created]
 
 env:
-  MAINTAINERS:
-    - sfc-gh-turbaszek
-    - sfc-gh-astus
-    - sfc-gh-pjob
-    - sfc-gh-jsikorski
+  MAINTAINERS: [sfc-gh-turbaszek, sfc-gh-astus, sfc-gh-pjob, sfc-gh-jsikorski]
 
 jobs:
   create-issue:
