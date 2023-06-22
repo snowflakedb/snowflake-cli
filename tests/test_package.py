@@ -5,7 +5,7 @@ import shutil
 from unittest.mock import MagicMock, patch
 
 import pytest
-from src.snowcli.cli.snowpark import package
+from snowcli.cli.snowpark import package
 
 from tests.test_data import test_data
 
@@ -22,8 +22,8 @@ class TestPackage:
             ),
             (
                 "some-weird-package-we-dont-know",
-                "not found in Snowflake anaconda channel..."
-            )
+                "not found in Snowflake anaconda channel...",
+            ),
         ],
     )
     @patch("tests.test_package.package.utils.requests")
@@ -49,7 +49,10 @@ class TestPackage:
         with caplog.at_level(logging.DEBUG):
             result = package.package_create("totally-awesome-package")
 
-        assert f"Package totally-awesome-package.zip created. You can now upload it to a stage (`snow package upload -f totally-awesome-package.zip -s packages`) and reference it in your procedure or function." in caplog.text
+        assert (
+            f"Package totally-awesome-package.zip created. You can now upload it to a stage (`snow package upload -f totally-awesome-package.zip -s packages`) and reference it in your procedure or function."
+            in caplog.text
+        )
         os.remove("totally-awesome-package.zip")
 
     @pytest.fixture
@@ -57,4 +60,3 @@ class TestPackage:
         path = os.path.join(os.getcwd(), ".packages")
         os.mkdir(path)
         yield path
-
