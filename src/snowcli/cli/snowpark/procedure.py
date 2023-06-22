@@ -7,7 +7,7 @@ from shutil import copytree
 import pkg_resources
 import typer
 
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.cli.snowpark.procedure_coverage import app as procedure_coverage_app
 from snowcli.cli.snowpark_shared import (
     CheckAnacondaForPyPiDependancies,
@@ -21,18 +21,12 @@ from snowcli.cli.snowpark_shared import (
     snowpark_package,
     snowpark_update,
 )
-from snowcli.utils import conf_callback
+from snowcli.utils import check_for_connection
 
 app = typer.Typer(
     name="procedure",
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage stored procedures",
-)
-EnvironmentOption = typer.Option(
-    "dev",
-    help="Environment name",
-    callback=conf_callback,
-    is_eager=True,
 )
 app.add_typer(procedure_coverage_app)
 
@@ -54,7 +48,7 @@ def procedure_init():
 
 @app.command("create")
 def procedure_create(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
@@ -127,7 +121,7 @@ def procedure_create(
 
 @app.command("update")
 def procedure_update(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
@@ -213,7 +207,7 @@ def procedure_package(
 
 @app.command("execute")
 def procedure_execute(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     select: str = typer.Option(
         ...,
         "--procedure",
@@ -226,7 +220,7 @@ def procedure_execute(
 
 @app.command("describe")
 def procedure_describe(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Option("", "--name", "-n", help="Name of the procedure"),
     input_parameters: str = typer.Option(
         "",
@@ -252,7 +246,7 @@ def procedure_describe(
 
 @app.command("list")
 def procedure_list(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     like: str = typer.Option(
         "%%",
         "--like",
@@ -265,7 +259,7 @@ def procedure_list(
 
 @app.command("drop")
 def procedure_drop(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Option("", "--name", "-n", help="Name of the procedure"),
     input_parameters: str = typer.Option(
         "",

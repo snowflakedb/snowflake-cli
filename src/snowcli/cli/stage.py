@@ -5,7 +5,7 @@ from pathlib import Path
 import typer
 
 from snowcli import config
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.config import connect_to_snowflake
 from snowcli.output.printing import print_db_cursor
 
@@ -14,12 +14,11 @@ app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage stages",
 )
-EnvironmentOption = typer.Option("dev", help="Environment name")
 
 
 @app.command("list")
 def stage_list(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name=typer.Argument(None, help="Name of stage"),
 ):
     """
@@ -49,7 +48,7 @@ def stage_list(
 
 @app.command("get")
 def stage_get(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Argument(..., help="Stage name"),
     path: Path = typer.Argument(
         Path.cwd(),
@@ -80,7 +79,7 @@ def stage_get(
 
 @app.command("put")
 def stage_put(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     path: Path = typer.Argument(
         ...,
         exists=True,
@@ -125,7 +124,7 @@ def stage_put(
 
 @app.command("create")
 def stage_create(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Argument(..., help="Stage name"),
 ):
     """
@@ -146,7 +145,7 @@ def stage_create(
 
 @app.command("drop")
 def stage_drop(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Argument(..., help="Stage name"),
 ):
     """

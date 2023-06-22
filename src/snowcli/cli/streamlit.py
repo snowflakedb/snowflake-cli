@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from snowcli import config
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.config import connect_to_snowflake
 from snowcli.output.printing import print_db_cursor
 from snowcli.utils import (
@@ -24,7 +24,6 @@ app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage Streamlit in Snowflake",
 )
-EnvironmentOption = typer.Option("dev", help="Environment name")
 log = logging.getLogger(__name__)
 
 
@@ -38,7 +37,7 @@ def get_standard_stage_name(name: str) -> str:
 
 @app.command("list")
 def streamlit_list(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     only_cols: List[str] = typer.Option(list, help="Only show these columns"),
 ):
     """
@@ -62,7 +61,7 @@ def streamlit_list(
 
 @app.command("describe")
 def streamlit_describe(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Argument(..., help="Name of streamlit to be deployed."),
 ):
     """
@@ -84,7 +83,7 @@ def streamlit_describe(
 
 @app.command("create")
 def streamlit_create(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Argument(..., help="Name of streamlit to be created."),
     file: Path = typer.Option(
         "streamlit_app.py",
@@ -133,7 +132,7 @@ def streamlit_create(
 
 @app.command("share")
 def streamlit_share(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Argument(..., help="Name of streamlit to be shared."),
     to_role: str = typer.Argument(
         ..., help="Role that streamlit should be shared with."
@@ -158,7 +157,7 @@ def streamlit_share(
 
 @app.command("drop")
 def streamlit_drop(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Argument(..., help="Name of streamlit to be deleted."),
 ):
     """
@@ -179,7 +178,7 @@ def streamlit_drop(
 
 @app.command("deploy")
 def streamlit_deploy(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Argument(..., help="Name of streamlit to be deployed."),
     file: Path = typer.Option(
         "streamlit_app.py",

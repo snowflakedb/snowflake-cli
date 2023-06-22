@@ -5,17 +5,12 @@ import typer
 
 from snowcli import config, utils
 from snowcli.config import connect_to_snowflake
-from snowcli.utils import conf_callback, generate_deploy_stage_name
+from snowcli.utils import check_for_connection, generate_deploy_stage_name
 from snowcli.output.printing import print_db_cursor
 
 from . import app
+from ...sql import ConnectionOption
 
-EnvironmentOption = typer.Option(
-    "dev",
-    help="Environment name",
-    callback=conf_callback,
-    is_eager=True,
-)
 log = logging.getLogger(__name__)
 
 
@@ -24,7 +19,7 @@ log = logging.getLogger(__name__)
     help="Delete the code coverage reports from the stage, to start the measuring process over",
 )
 def procedure_coverage_clear(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Option(
         ...,
         "--name",

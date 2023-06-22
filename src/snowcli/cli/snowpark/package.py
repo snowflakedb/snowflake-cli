@@ -11,7 +11,7 @@ import typer
 from requirements.requirement import Requirement
 
 from snowcli import config, utils
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.config import connect_to_snowflake
 
 app = typer.Typer(
@@ -19,7 +19,6 @@ app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage custom Python packages for Snowpark",
 )
-EnvironmentOption = typer.Option("dev", help="Environment name")
 log = logging.getLogger(__name__)
 
 
@@ -119,7 +118,7 @@ def package_upload(
         "-o",
         help="Overwrite the file if it already exists",
     ),
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
 ):
     """
     Upload a python package zip file to a Snowflake stage so it can be referenced in the imports of a procedure or function.
