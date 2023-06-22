@@ -15,16 +15,18 @@ from snowcli.cli import (
     streamlit,
 )
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.snow_cli_global_context import (
+    snow_cli_global_context_manager,
+    SnowCliGlobalContext,
+)
+from snowcli.cli.main.snow_cli_main_typer import SnowCliMainTyper
 from snowcli.cli import loggers
 from snowcli.cli.snowpark import app as snowpark_app
 from snowcli.config import AppConfig
 from snowcli.output.formats import OutputFormat
 from snowcli.connection_config import ConnectionConfigs
 
-app = typer.Typer(
-    context_settings=DEFAULT_CONTEXT_SETTINGS,
-    pretty_exceptions_show_locals=False,
-)
+app = SnowCliMainTyper()
 log = logging.getLogger(__name__)
 
 
@@ -32,6 +34,18 @@ def _version_callback(value: bool):
     if value:
         typer.echo(f"SnowCLI Version: {__about__.VERSION}")
         raise typer.Exit()
+
+
+def setup_global_context(debug: bool):
+    """
+    Setup global state (accessible in whole CLI code) using options passed in SNOW CLI invocation.
+    """
+
+    def modifications(context: SnowCliGlobalContext) -> SnowCliGlobalContext:
+        context.enable_tracebacks = debug
+        return context
+
+    snow_cli_global_context_manager.update_global_context(modifications)
 
 
 @app.command()
@@ -167,9 +181,10 @@ def default(
     SnowCLI - A CLI for Snowflake
     """
     loggers.create_loggers(verbose, debug)
+    setup_global_context(debug=debug)
 
 
-MODULE_IGNORE_SET = frozenset(("procedure_coverage",))
+MODULE_IGNORE_SET = frozenset(("main", "procedure_coverage"))
 
 
 def register_cli_typers(ignore_container: Container[str] = MODULE_IGNORE_SET) -> None:
