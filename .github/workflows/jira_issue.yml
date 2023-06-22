@@ -11,7 +11,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
-    if: ((github.event_name == 'issue_comment' && github.event.comment.body == 'recreate jira' && github.event.comment.user.login == 'sfc-gh-turbaszek') || (github.event_name == 'issues' && github.event.pull_request.user.login != 'whitesource-for-github-com[bot]'))
+    if: |
+      (
+      (
+        github.event_name == 'issue_comment'
+        && github.event.comment.body == 'recreate jira'
+        && contains(["sfc-gh-turbaszek", "sfc-gh-astus", "sfc-gh-pjob", "sfc-gh-jsikorski"], github.event.comment.user.login)
+      )
+      || (github.event_name == 'issues' && github.event.pull_request.user.login != 'whitesource-for-github-com[bot]'))
     steps:
       - name: Checkout
         uses: actions/checkout@v3
