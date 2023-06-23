@@ -3,14 +3,19 @@ from __future__ import annotations
 import os
 from configparser import ConfigParser
 from pathlib import Path
+
 from snowcli.exception import EnvironmentVariableNotFoundError
+
+
+def get_absolute_path(str_path: str) -> Path:
+    return Path(str_path).expanduser().absolute()
 
 
 class ConnectionConfigs:
     def __init__(self, snowsql_config_path="~/.snowsql/config"):
         self.snowsql_config_path = snowsql_config_path
         self._config = ConfigParser(inline_comment_prefixes="#", interpolation=None)
-        p = Path(snowsql_config_path).absolute().expanduser()
+        p = get_absolute_path(snowsql_config_path)
         self._config.read(p)
 
     def connection_exists(self, connection_name: str):
@@ -28,7 +33,7 @@ class ConnectionConfigs:
     def add_connection(self, connection_name: str, entry: dict):
         self._config[f"connections.{connection_name}"] = {}
         connection = self._config[f"connections.{connection_name}"]
-        for (k, v) in entry.items():
+        for k, v in entry.items():
             connection[k] = v
 
         with open(os.path.expanduser(self.snowsql_config_path), "w+") as f:
@@ -44,10 +49,10 @@ class ConnectionConfigs:
         return self._replace_with_env_variables(connection_parameters)
 
     def _replace_with_env_variables(self, connection_parameters: dict):
-        for (name, value) in connection_parameters.items():
+        for name, value in connection_parameters.items():
             if value.startswith("$SNOWCLI_"):
                 try:
                     connection_parameters[name] = os.environ[value[1:]]
-                except (KeyError):
+                except KeyError:
                     raise EnvironmentVariableNotFoundError(value[1:])
         return connection_parameters

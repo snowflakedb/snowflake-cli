@@ -1,9 +1,9 @@
 import os
-import pytest
-
-from snowcli.connection_config import ConnectionConfigs
-from snowcli.exception import EnvironmentVariableNotFoundError
 from unittest import mock
+
+import pytest
+from snowcli.connection_config import ConnectionConfigs, get_absolute_path
+from snowcli.exception import EnvironmentVariableNotFoundError
 
 CONFIG_PATH = "tests/config/env_variables_config"
 
@@ -67,3 +67,10 @@ username = $SNOWCLI_USER
 
 """
     )
+
+
+@mock.patch.dict(os.environ, {"HOME": "/Users/demo_user"})
+def test_get_absolute_path():
+    path_str = "~/.snowsql/config"
+    path = get_absolute_path(path_str)
+    assert str(path) == "/Users/demo_user/.snowsql/config"
