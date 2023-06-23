@@ -2,6 +2,9 @@
 
 This is an open source and community supported tool. Support is provided on a best effort basis by project contributors.
 
+**Note**: Snowflake CLI is in Private Preview (PrPr). You must register for the PrPr to use Snowflake CLI by filling out the
+[SnowCLI  - PrPr Intake Form](https://forms.gle/HZNhPNbzn7oExjFu8).
+
 ## Overview
 
 SnowCLI is a command line interface for working with Snowflake. It lets you create, manage, update, and view apps running in Snowflake.
@@ -75,68 +78,101 @@ Use SnowCLI to build a function or stored procedure, or create a streamlit if yo
 
 ### Prerequisites
 
-You must add your credentials to connect to Snowflake before you can use SnowCLI.
+You must add your credentials to connect to Snowflake before you can use Snowflake CLI. You can add your Snowflake credentials using any of the following methods.
 
 #### Add credentials with SnowCLI
 
-SnowCLI uses the same configuration file as SnowSQL. If you don't have SnowSQL installed, [download SnowSQL](https://developers.snowflake.com/snowsql/) and install it. See [Installing SnowSQL](https://docs.snowflake.com/en/user-guide/snowsql-install-config.html). You do not need to set up SnowSQL to use SnowCLI.
+To add Snowflake credentials using the Snowflake CLI `connection add` command:
 
-After installing SnowSQL, use the following SnowCLI command to add your Snowflake account credentials:
+1. Enter the following shell command and supply the connection, account, username, and password when prompted:
 
-`snow connection add`
+   ```
+   $ snow connection add
+   Name for this connection: <connection-name>
+   Snowflake account: <account-name>
+   Snowflake username: <username>
+   Snowflake password: <password>
+   ```
 
-Provide a name for your connection, your account, username, and password for Snowflake.
+#### Add credentials using a configuration file
 
-#### Add credentials manually on *nix systems
+Snowflake CLI lets you add connection definitions to a configuration file.
+A connection definition refers to a collection of connection parameters.
 
-If you do not want to install SnowSQL, you can add Snowflake account credentials manually:
+To add credentials in a configuration file:
 
-1. In your home directory, make `.snowsql` directory with a `config` file:
+1. In your home directory, create a :file:`~/.snowflake` directory:
 
-   `mkdir .snowsql`
-   `cd .snowsql`
-   `touch config`
+   ```
+   $ mkdir ~/.snowflake
+   ```
 
-2. Open the config file for editing:
+1. Create a :file:`config.toml` file in that directory:
 
-   `vi config`
+   ```
+   $ cd ~/.snowflake
+   $ touch config.toml
+   ```
 
-3. Add a new configuration for your Snowflake connection with SnowCLI. You must prefix the configuration with `connections.`.
+1. In a text editor, open the :file:`config.toml` file for editing, such as the following for the Linux vi editor:
 
-For example, to add a Snowflake account `myaccount` for a user profile `johndoe` and a password of `hunter2`, add the following:
+   ```
+   $ vi config.toml
+   ```
 
-```ini
-[connections.connection_name]
-accountname = myaccount
-username = jondoe
-password = hunter2
-```
+1. Add a new Snowflake connection definition. You must prefix the configuration with **connections**.
 
-#### Add credentials manually using Windows
+   For example, to add a Snowflake connection called **myconnection** with the credentials: account **myaccount**,
+   user profile **johndoe**, and password **hunter2**,
+   add the following lines to the configuration file:
 
-1. Create a `.snowsql` folder with a `config` file at the following path: `%USERPROFILE%\.snowsql\config`
-2. Add a new configuration for your Snowflake connection with SnowCLI. You must prefix the configuration with `connections.`.
+   ```
+   [connections.myconnection]
+   accountname = myaccount
+   username = jondoe
+   password = hunter2
+   ```
 
-### Using environment variables
+1. If desired, you can add more connections, as shown:
 
-Environment variables can only be replaced in connection parameters. Parameter values in config file have to start with `$SNOWCLI_` and will be searched as a name in environment variables, but without `$` at the beginning.
+   ```
+   [connections.myconnection-test]
+   accountname = myaccount
+   username = jondoe-test
+    password = hunter2
+   ```
 
-For example connection config:
+1. Save changes to the file.
 
-```ini
-[connections.test]
-account = $SNOWCLI_ACCOUNT
-user = $SNOWCLI_USER
-password = $SNOWCLI_PASSWORD
-```
 
-will be replaced with environment variables:
+#### Use environment variables for Snowflake credentials
 
-```ini
-SNOWCLI_ACCOUNT = "account"
-SNOWCLI_USER = "user"
-SNOWCLI_PASSWORD = "password"
-```
+If you prefer, you can specify Snowflake credentials in system environment variables, instead of specifying them
+in configuration files. You can use environment variables only to replace connection parameters. Parameter values in
+config file have to start with **\$SNOWCLI_**, which identify environment variables,
+but without **$** at the beginning.
+
+To add credentials as environment variables:
+
+1. Define the following environment variables, as appropriate for your operating system:
+
+   ```
+   SNOWCLI_ACCOUNT = "account"
+   SNOWCLI_USER = "user"
+   SNOWCLI_PASSWORD = "password"
+   ```
+
+
+1. If you already specify your credentials in a configuration file, as shown, you can remove them from the
+   connection settings.
+
+   ```
+   [connections.test]
+   account = $SNOWCLI_ACCOUNT
+   user = $SNOWCLI_USER
+   password = $SNOWCLI_PASSWORD
+   ```
+
 
 ### Manage packages in Snowflake Stages
 
