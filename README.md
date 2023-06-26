@@ -3,7 +3,9 @@
 This is an open source and community supported tool. Support is provided on a best effort basis by project contributors.
 
 **Note**: Snowflake CLI is in Private Preview (PrPr). You must register for the PrPr to use Snowflake CLI by filling out the
-[SnowCLI  - PrPr Intake Form](https://forms.gle/HZNhPNbzn7oExjFu8).
+[SnowCLI  - PrPr Intake Form](https://forms.gle/HZNhPNbzn7oExjFu8). Also, if you want to access Snowflake Container
+Services through Snowflake CLI, you must register for its PrPr. For more information, you can contact a
+Snowflake sales representative.
 
 ## Overview
 
@@ -127,6 +129,7 @@ To add credentials in a configuration file:
    add the following lines to the configuration file:
 
    ```
+   [connections]
    [connections.myconnection]
    accountname = myaccount
    username = jondoe
@@ -136,10 +139,16 @@ To add credentials in a configuration file:
 1. If desired, you can add more connections, as shown:
 
    ```
+   [connections]
+   [connections.myconnection]
+   accountname = myaccount
+   username = jondoe
+   password = hunter2
+
    [connections.myconnection-test]
    accountname = myaccount
    username = jondoe-test
-    password = hunter2
+   password = hunter2
    ```
 
 1. Save changes to the file.
@@ -148,30 +157,35 @@ To add credentials in a configuration file:
 #### Use environment variables for Snowflake credentials
 
 If you prefer, you can specify Snowflake credentials in system environment variables, instead of specifying them
-in configuration files. You can use environment variables only to replace connection parameters. Parameter values in
-config file have to start with **\$SNOWCLI_**, which identify environment variables,
-but without **$** at the beginning.
+in configuration files. You can use environment variables only to replace connection parameters. Environment variables for
+the configuration must use the following formats:
+
+- SNOWFLAKE_\<section-name\>_\<key\>=\<value\>
+- SNOWFLAKE_\<section-name\>_\<option-name\>__\<key\>=\<value\>
+
+where:
+
+- \<section-name\> is the name of the section in the configuration file.
+- \<option-name\> is the name of the option in the configuration file.
+- \<key\> is the name of the key
+
+For example: SNOWFLAKE_CONNECTIONS_MYCONNECTION_ACCOUNT="my-account"
+
 
 To add credentials as environment variables:
 
 1. Define the following environment variables, as appropriate for your operating system:
 
    ```
-   SNOWCLI_ACCOUNT = "account"
-   SNOWCLI_USER = "user"
-   SNOWCLI_PASSWORD = "password"
+   [connections]
+   [connections.myconnection]
+   SNOWFLAKE_CONNECTIONS_MYCONNECTION_ACCOUNT
+   SNOWFLAKE_CONNECTIONS_MYCONNECTION_USER
+   SNOWFLAKE_CONNECTIONS_MYCONNECTION_PASSWORD
    ```
-
 
 1. If you already specify your credentials in a configuration file, as shown, you can remove them from the
    connection settings.
-
-   ```
-   [connections.test]
-   account = $SNOWCLI_ACCOUNT
-   user = $SNOWCLI_USER
-   password = $SNOWCLI_PASSWORD
-   ```
 
 
 ### Manage packages in Snowflake Stages
