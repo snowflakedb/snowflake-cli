@@ -22,9 +22,9 @@ from snowcli.cli.common.snow_cli_global_context import (
 from snowcli.cli.main.snow_cli_main_typer import SnowCliMainTyper
 from snowcli.cli import loggers
 from snowcli.cli.snowpark import app as snowpark_app
-from snowcli.config import AppConfig
+from snowcli.config import config_init
 from snowcli.output.formats import OutputFormat
-from snowcli.connection_config import ConnectionConfigs
+
 
 app = SnowCliMainTyper()
 log = logging.getLogger(__name__)
@@ -46,99 +46,6 @@ def setup_global_context(debug: bool):
         return context
 
     snow_cli_global_context_manager.update_global_context(modifications)
-
-
-@app.command()
-def login(
-    snowsql_config_path: Path = typer.Option(
-        "~/.snowsql/config",
-        "--config",
-        "-c",
-        prompt="Path to Snowsql config",
-        help="snowsql config file",
-    ),
-    connection_name: str = typer.Option(
-        ...,
-        "--connection",
-        "-C",
-        prompt="Connection name (for entry in snowsql config)",
-        help="connection name from snowsql config file",
-    ),
-):
-    """
-    Select a Snowflake connection to use with SnowCLI.
-    """
-    if not snowsql_config_path.expanduser().exists():
-        log.error(f"Path to snowsql config does not exist: {snowsql_config_path}")
-        raise typer.Abort()
-
-    connection_configs = ConnectionConfigs(snowsql_config_path)
-    if not connection_configs.connection_exists(connection_name):
-        log.error(
-            f"Connection not found in {snowsql_config_path}: {connection_name}. "
-            "You can add with `snow connection add`."
-        )
-        raise typer.Abort()
-
-    cfg = AppConfig()
-    cfg.config["snowsql_config_path"] = str(snowsql_config_path.expanduser())
-    cfg.config["snowsql_connection_name"] = connection_name
-    cfg.save()
-    log.info(f"Using connection name {connection_name} in {snowsql_config_path}")
-    log.info(f"Wrote {cfg.path}")
-
-
-@app.command()
-def configure(
-    environment: str = typer.Option(
-        "dev",
-        "-e",
-        "--environment",
-        help="Name of environment (e.g. dev, prod, staging)",
-    ),
-    database: str = typer.Option(
-        ...,
-        "--database",
-        prompt="Snowflake database",
-        help="Snowflake database",
-    ),
-    schema: str = typer.Option(
-        ...,
-        "--schema",
-        prompt="Snowflake schema",
-        help="Snowflake schema",
-    ),
-    role: str = typer.Option(
-        ...,
-        "--role",
-        prompt="Snowflake role",
-        help="Snowflake role",
-    ),
-    warehouse: str = typer.Option(
-        ...,
-        "--warehouse",
-        prompt="Snowflake warehouse",
-        help="Snowflake warehouse",
-    ),
-):
-    """
-    Configure an environment to use with your Snowflake connection.
-    """
-    log.info(f"Configuring environment {environment}...")
-    cfg = AppConfig()
-    if environment in cfg.config and not typer.confirm(
-        "Environment {environment} already exists. Overwrite?",
-    ):
-        log.error("Cancelling...")
-        raise typer.Abort()
-
-    cfg.config[environment] = {}
-    cfg.config[environment]["database"] = database
-    cfg.config[environment]["schema"] = schema
-    cfg.config[environment]["role"] = role
-    cfg.config[environment]["warehouse"] = warehouse
-    cfg.save()
-    log.info(f"Wrote environment {environment} to {cfg.path}")
 
 
 @app.callback()
@@ -180,6 +87,7 @@ def default(
     """
     SnowCLI - A CLI for Snowflake
     """
+    config_init(configuration_file)
     loggers.create_loggers(verbose, debug)
     setup_global_context(debug=debug)
 

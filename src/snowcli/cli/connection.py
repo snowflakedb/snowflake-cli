@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import logging
 import typer
-from rich import print
-from rich.table import Table
+from click import ClickException
+from tomlkit.exceptions import KeyAlreadyPresent
 
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
-from snowcli.config import AppConfig
-from snowcli.connection_config import ConnectionConfigs
+from snowcli.output.printing import print_data
+from snowcli.config import cli_config
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -21,21 +21,11 @@ def list():
     """
     List Snowflake connections.
     """
-    app_cfg = AppConfig().config
-    # if key 'snowsql_config_path' isn't defined in app_cfg
-    if "snowsql_config_path" not in app_cfg:
-        # set snowsql_config_path to ~/.snowsql/config
-        app_cfg["snowsql_config_path"] = "~/.snowsql/config"
-        log.info("No snowsql config path set. Using default...")
-
-    log.info(f"Using {app_cfg['snowsql_config_path']}...")
-
-    connection_configs = ConnectionConfigs(app_cfg["snowsql_config_path"])
-    table = Table("Connection", "Account", "Username")
-    for (connection_name, v) in connection_configs.get_connections().items():
-        connection_name = connection_name.replace("connections.", "")
-        table.add_row(connection_name, v["account"], v["user"])
-    print(table)
+    connections = cli_config.get_section("connections")
+    print_data(
+        [{"connection_name": k, "parameters": v} for k, v in connections.items()],
+        columns=["connection_name", "parameters"],
+    )
 
 
 @app.command()
@@ -62,17 +52,14 @@ def add(
         hide_input=True,
     ),
 ):
-    app_cfg = AppConfig().config
-    if "snowsql_config_path" not in app_cfg:
-        connection_configs = ConnectionConfigs()
-    else:
-        connection_configs = ConnectionConfigs(app_cfg["snowsql_config_path"])
     connection_entry = {
         "account": account,
         "username": username,
         "password": password,
     }
-    connection_configs.add_connection(connection, connection_entry)
-    log.info(
-        f"Wrote new connection {connection} to {connection_configs.snowsql_config_path}"
-    )
+    try:
+        cli_config.add_connection(name=connection, parameters=connection_entry)
+    except KeyAlreadyPresent:
+        raise ClickException(f"Connection {connection} already exists")
+
+    log.info(f"Wrote new connection {connection} to {cli_config.file_path}")

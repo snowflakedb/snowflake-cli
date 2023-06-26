@@ -8,7 +8,7 @@ import snowflake.connector
 import typer
 
 from snowcli import config, utils
-from snowcli.config import AppConfig
+from snowcli.config import connect_to_snowflake
 from snowcli.utils import conf_callback, generate_deploy_stage_name
 
 from . import app
@@ -58,18 +58,11 @@ def procedure_coverage_report(
         help="In addition to the local report, saves the percentage coverage (a decimal value) as a comment on the stored procedure so that a coverage threshold can be easily checked for a number of procedures.",
     ),
 ):
-    env_conf = AppConfig().config.get(environment)
-    if env_conf is None:
-        log.info(
-            f"The {environment} environment is not configured in app.toml "
-            "yet, please run `snow configure -e dev` first before continuing."
-        )
-        raise typer.Abort()
+    conn = connect_to_snowflake(connection_name=environment)
     if config.is_auth():
-        config.connect_to_snowflake()
         deploy_dict = utils.get_deploy_names(
-            env_conf["database"],
-            env_conf["schema"],
+            conn.ctx.database,
+            conn.ctx.schema,
             generate_deploy_stage_name(
                 name,
                 input_parameters,
@@ -94,11 +87,11 @@ def procedure_coverage_report(
             stage_path = deploy_dict["directory"]
             report_files = f"{stage_name}{stage_path}/coverage/"
             try:
-                results = config.snowflake_connection.get_stage(
-                    database=env_conf.get("database"),
-                    schema=env_conf.get("schema"),
-                    role=env_conf.get("role"),
-                    warehouse=env_conf.get("warehouse"),
+                results = conn.get_stage(
+                    database=conn.ctx.database,
+                    schema=conn.ctx.schema,
+                    role=conn.ctx.role,
+                    warehouse=conn.ctx.warehouse,
                     name=report_files,
                     path=str(temp_dir),
                 ).fetchall()
@@ -142,11 +135,11 @@ def procedure_coverage_report(
             log.info(
                 f"Storing total coverage value of {str(coverage_percentage)} as a procedure comment."
             )
-            config.snowflake_connection.set_procedure_comment(
-                env_conf["database"],
-                env_conf["schema"],
-                env_conf["role"],
-                env_conf["warehouse"],
+            conn.set_procedure_comment(
+                conn.ctx.database,
+                conn.ctx.schema,
+                conn.ctx.role,
+                conn.ctx.warehouse,
                 name=name,
                 input_parameters=input_parameters,
                 show_exceptions=True,
