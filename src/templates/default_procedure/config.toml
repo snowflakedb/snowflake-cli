@@ -1,0 +1,9 @@
+# The values in this file will be used if flags aren't given
+# in CLI commands. Can create multiple --environments (default 'dev')
+
+[connections]
+[connections.dev]
+database = "<DATABASE_NAME>"
+schema = "<SCHEMA_NAME>"
+warehouse = "<WAREHOUSE_NAME>"
+role = "<ROLE_NAME>"

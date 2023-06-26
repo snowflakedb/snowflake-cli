@@ -29,7 +29,7 @@ class CliConfigManager(ConfigManager):
         if not self.file_path.exists():
             self.initialize_connection_section()
             self._dump_config()
-            print(f"Created Snowflake configuration file at {cli_config.file_path}")
+            log.info(f"Created Snowflake configuration file at {cli_config.file_path}")
         self.read_config()
 
     def _add_options(self):
@@ -50,7 +50,7 @@ class CliConfigManager(ConfigManager):
             idx += 1
         return section
 
-    def has_section(self, *path) -> bool:
+    def section_exists(self, *path) -> bool:
         try:
             self.get_section(*path)
             return True
@@ -87,7 +87,7 @@ class CliConfigManager(ConfigManager):
             )
 
     def add_connection(self, name: str, parameters: dict):
-        if not self.has_section("connections"):
+        if not self.section_exists("connections"):
             self.initialize_connection_section()
         self.get_section("connections").add(name, parameters)
         self._dump_config()
