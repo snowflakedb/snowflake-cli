@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 @app.command()
 def list():
     """
-    List Snowflake connections.
+    List configured connections.
     """
     connections = cli_config.get_section("connections")
     print_data(
@@ -46,6 +46,7 @@ def add(
     username: str = UserOption,
     password: str = PasswordOption,
 ):
+    """Add connection to configuration file."""
     connection_entry = {
         "account": account,
         "username": username,
