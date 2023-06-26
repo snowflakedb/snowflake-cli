@@ -213,7 +213,10 @@ class TestUtils:
     ):
         zip_file_path = os.path.join(temp_test_directory, "packed.zip")
 
+        os.chdir(".tests")
         utils.recursive_zip_packages_dir(temp_test_directory, zip_file_path)
+        os.chdir("..")
+
         zip_file = ZipFile(zip_file_path)
 
         assert os.path.isfile(zip_file_path)
@@ -223,6 +226,7 @@ class TestUtils:
             os.path.join(self.SECOND_TEST_DIRECTORY, self.FILE_IN_SECOND_TEST_DIRECTORY)
             not in zip_file.namelist()
         )
+        assert zip_file_path not in zip_file.namelist()
 
     def test_recursive_zip_packages_with_env_variable(
         self,
@@ -251,6 +255,13 @@ class TestUtils:
             os.path.join("subdir", os.path.basename(file_in_a_subdir))
             not in zip_file.namelist()
         )
+
+    def test_standard_zip_dir_with_env_variable(
+        self, temp_test_directory: str, file_in_a_subdir: str
+    ):
+        pass
+
+    # TODO: add this
 
     def test_get_snowflake_packages(self, streamlit_requirements_txt):
         os.chdir(".tests")
@@ -363,7 +374,7 @@ class TestUtils:
     # and delete them, after the tests are performed
 
     @pytest.fixture
-    def temp_test_directory(self, tmp_path_factory) -> Generator:
+    def temp_test_directory(self) -> Generator:
         path = os.path.join(os.getcwd(), self.TEMP_TEST_DIRECTORY)
         os.mkdir(path)
         yield path
