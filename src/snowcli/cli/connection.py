@@ -5,7 +5,13 @@ import typer
 from click import ClickException
 from tomlkit.exceptions import KeyAlreadyPresent
 
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.flags import (
+    DEFAULT_CONTEXT_SETTINGS,
+    UserOption,
+    PasswordOption,
+    AccountOption,
+    ConnectionOption,
+)
 from snowcli.output.printing import print_data
 from snowcli.config import cli_config
 
@@ -31,26 +37,14 @@ def list():
 @app.command()
 def add(
     connection: str = typer.Option(
-        ...,
-        prompt="Name for this connection",
-        help="Snowflake connection name",
+        None,
+        "-n",
+        "--connection-name",
+        help="Name of the new connection",
     ),
-    account: str = typer.Option(
-        ...,
-        prompt="Snowflake account",
-        help="Snowflake account name",
-    ),
-    username: str = typer.Option(
-        ...,
-        prompt="Snowflake username",
-        help="Snowflake username",
-    ),
-    password: str = typer.Option(
-        ...,
-        prompt="Snowflake password",
-        help="Snowflake password",
-        hide_input=True,
-    ),
+    account: str = AccountOption,
+    username: str = UserOption,
+    password: str = PasswordOption,
 ):
     connection_entry = {
         "account": account,

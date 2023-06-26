@@ -34,13 +34,9 @@ def test_command_context_is_passed_to_snowflake_connection(
     mock_conn.return_value.execute_stream.return_value = (mock.MagicMock(),)
     result = runner.invoke_with_config(cmd)
     assert result.exit_code == 0, result.output
-    mock_conn.assert_called_once_with(
-        database=mock.ANY,
-        schema=mock.ANY,
-        warehouse=mock.ANY,
-        role=mock.ANY,
-        application=expected,
-    )
+    kwargs = mock_conn.call_args_list[-1][-1]
+    assert "application" in kwargs
+    assert kwargs["application"] == expected
 
 
 @mock.patch("snowflake.connector")

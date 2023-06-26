@@ -168,9 +168,10 @@ class TestUtils:
             "example_stage", "example_module", False
         )
 
-        assert os.path.exists(result)
+        assert result.exists()
         with open(result, "r") as f:
             assert 'importlib.reload(sys.modules["example_module"])' in f.read()
+        os.remove(result)
 
     def test_get_package_name_from_metadata_using_correct_data(
         self, correct_metadata_file: str, tmp_path

@@ -14,7 +14,7 @@ def test_new_connection_can_be_added(runner, snapshot):
                 tmp_file.name,
                 "connection",
                 "add",
-                "--connection",
+                "--connection-name",
                 "conn1",
                 "--username",
                 "user1",
@@ -47,7 +47,7 @@ def test_fails_if_existing_connection(runner):
                 tmp_file.name,
                 "connection",
                 "add",
-                "--connection",
+                "--connection-name",
                 "conn2",
                 "--username",
                 "user1",
@@ -57,7 +57,7 @@ def test_fails_if_existing_connection(runner):
                 "account1",
             ]
         )
-    assert result.exit_code == 1
+    assert result.exit_code == 1, result.output
     assert "Connection conn2 already exists  " in result.output
 
 

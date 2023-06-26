@@ -3,7 +3,7 @@ from __future__ import annotations
 import typer
 
 from snowcli import config
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.config import connect_to_snowflake
 from snowcli.output.printing import print_db_cursor
 
@@ -16,7 +16,7 @@ EnvironmentOption = typer.Option(None, help="Environment name")
 
 
 @app.command("status")
-def warehouse_status(environment: str = EnvironmentOption):
+def warehouse_status(environment: str = ConnectionOption):
     """
     Show the status of each warehouse in the configured environment.
     """

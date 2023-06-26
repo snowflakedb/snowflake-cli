@@ -9,16 +9,11 @@ import typer
 
 from snowcli import config, utils
 from snowcli.config import connect_to_snowflake
-from snowcli.utils import conf_callback, generate_deploy_stage_name
+from snowcli.utils import generate_deploy_stage_name
 
-from . import app
+from snowcli.cli.snowpark.procedure_coverage import app
+from snowcli.cli.common.flags import ConnectionOption
 
-EnvironmentOption = typer.Option(
-    "dev",
-    help="Environment name",
-    callback=conf_callback,
-    is_eager=True,
-)
 log = logging.getLogger(__name__)
 
 
@@ -33,7 +28,7 @@ class ReportOutputOptions(str, Enum):
     help="Generate a code coverage report by downloading and combining reports from the stage",
 )
 def procedure_coverage_report(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Option(
         ...,
         "--name",

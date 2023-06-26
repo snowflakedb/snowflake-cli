@@ -11,14 +11,16 @@ from rich.table import Table
 from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli import config
-from snowcli.utils import conf_callback
-
-EnvironmentOption = typer.Option(
-    "dev",
-    help="Environment name",
-    callback=conf_callback,
-    is_eager=True,
+from snowcli.cli.common.flags import (
+    ConnectionOption,
+    AccountOption,
+    UserOption,
+    DatabaseOption,
+    SchemaOption,
+    RoleOption,
+    WarehouseOption,
 )
+from snowcli.utils import check_for_connection
 
 
 class LiveOutput:
@@ -64,31 +66,13 @@ def execute_sql(
         readable=True,
         help="File to execute.",
     ),
-    connection: Optional[str] = typer.Option(
-        None, "-c", "--connection", help="Connection to be used"
-    ),
-    account: Optional[str] = typer.Option(
-        None,
-        "-a",
-        "--accountname",
-        "--account",
-        help="Name assigned to your Snowflake account.",
-    ),
-    user: Optional[str] = typer.Option(
-        None, "-u", "--username", "--user", help="Username to connect to Snowflake."
-    ),
-    database: Optional[str] = typer.Option(
-        None, "-d", "--dbname", "--database", help="Database to use."
-    ),
-    schema: Optional[str] = typer.Option(
-        None, "-s", "--schemaname", "--schema", help=" Schema in the database to use."
-    ),
-    role: Optional[str] = typer.Option(
-        None, "-r", "--rolename", "--role", help="Role to be used"
-    ),
-    warehouse: Optional[str] = typer.Option(
-        None, "-w", "--warehouse", help="Warehouse to use."
-    ),
+    connection: Optional[str] = ConnectionOption,
+    account: Optional[str] = AccountOption,
+    user: Optional[str] = UserOption,
+    database: Optional[str] = DatabaseOption,
+    schema: Optional[str] = SchemaOption,
+    role: Optional[str] = RoleOption,
+    warehouse: Optional[str] = WarehouseOption,
     verbose: Optional[bool] = typer.Option(
         True, "-v", "--verbose", help="Prints information about executed queries"
     ),
