@@ -44,7 +44,7 @@ SnowCLI has the following limitations:
 Requires [Homebrew](https://brew.sh/).
 
 ```bash
-brew tap sfc-gh-jhollan/snowcli
+brew tap Snowflake-Labs/snowcli
 brew install snowcli
 snow --help
 ```
