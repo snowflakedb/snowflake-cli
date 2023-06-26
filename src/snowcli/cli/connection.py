@@ -10,7 +10,10 @@ from snowcli.cli.common.flags import (
     UserOption,
     PasswordOption,
     AccountOption,
-    ConnectionOption,
+    DatabaseOption,
+    SchemaOption,
+    RoleOption,
+    WarehouseOption,
 )
 from snowcli.output.printing import print_data
 from snowcli.config import cli_config
@@ -40,17 +43,26 @@ def add(
         None,
         "-n",
         "--connection-name",
+        prompt="Name for this connection",
         help="Name of the new connection",
     ),
     account: str = AccountOption,
-    username: str = UserOption,
+    user: str = UserOption,
     password: str = PasswordOption,
+    database: str = DatabaseOption,
+    schema: str = SchemaOption,
+    role: str = RoleOption,
+    warehouse: str = WarehouseOption,
 ):
     """Add connection to configuration file."""
     connection_entry = {
         "account": account,
-        "username": username,
+        "user": user,
         "password": password,
+        "database": database,
+        "schema": schema,
+        "role": role,
+        "warehouse": warehouse,
     }
     try:
         cli_config.add_connection(name=connection, parameters=connection_entry)
