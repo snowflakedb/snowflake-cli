@@ -21,7 +21,7 @@ from requirements.requirement import Requirement
 import typer
 from jinja2 import Environment, FileSystemLoader
 
-from snowcli.config import AppConfig
+from snowcli.config import cli_config
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -573,26 +573,9 @@ def convert_resource_details_to_dict(function_details: list[tuple]) -> dict:
     return function_dict
 
 
-def conf_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
-    if value:
-        try:
-            app_config = AppConfig().config
-
-            # Initialize the default map
-            ctx.default_map = ctx.default_map or {}
-            # if app_config has key 'default'
-            config_section = os.getenv("SNOWCLI_CONFIG_SECTION", "default")
-            if config_section in app_config:
-                ctx.default_map.update(
-                    app_config.get(config_section),
-                )  # type: ignore
-            if value in app_config:
-                # TODO: Merge the config dict into default_map
-                # type: ignore
-                ctx.default_map.update(app_config.get(value))
-        except Exception as ex:
-            raise typer.BadParameter(str(ex))
-    return value
+def check_for_connection(connection_name: str):
+    cli_config.get_connection(connection_name=connection_name)
+    return connection_name
 
 
 def generate_deploy_stage_name(name: str, input_parameters: str) -> str:

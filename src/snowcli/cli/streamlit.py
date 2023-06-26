@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import List, Optional
 
 from snowcli import config
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
-from snowcli.config import AppConfig
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
+from snowcli.config import connect_to_snowflake
 from snowcli.output.printing import print_db_cursor
 from snowcli.utils import (
     generate_streamlit_environment_file,
@@ -24,7 +24,6 @@ app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage Streamlit in Snowflake",
 )
-EnvironmentOption = typer.Option("dev", help="Environment name")
 log = logging.getLogger(__name__)
 
 
@@ -38,21 +37,20 @@ def get_standard_stage_name(name: str) -> str:
 
 @app.command("list")
 def streamlit_list(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     only_cols: List[str] = typer.Option(list, help="Only show these columns"),
 ):
     """
     List streamlit apps.
     """
-    env_conf = AppConfig().config.get(environment)
+    conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        config.connect_to_snowflake()
-        results = config.snowflake_connection.list_streamlits(
-            database=env_conf.get("database"),
-            schema=env_conf.get("schema"),
-            role=env_conf.get("role"),
-            warehouse=env_conf.get("warehouse"),
+        results = conn.list_streamlits(
+            database=conn.ctx.database,
+            schema=conn.ctx.schema,
+            role=conn.ctx.role,
+            warehouse=conn.ctx.warehouse,
         )
 
         print_db_cursor(
@@ -63,22 +61,21 @@ def streamlit_list(
 
 @app.command("describe")
 def streamlit_describe(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Argument(..., help="Name of streamlit to be deployed."),
 ):
     """
     Describe a streamlit app.
     """
-    env_conf = AppConfig().config.get(environment)
+    conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        config.connect_to_snowflake()
-        description, url = config.snowflake_connection.describe_streamlit(
+        description, url = conn.describe_streamlit(
             name,
-            database=env_conf.get("database"),
-            schema=env_conf.get("schema"),
-            role=env_conf.get("role"),
-            warehouse=env_conf.get("warehouse"),
+            database=conn.ctx.database,
+            schema=conn.ctx.schema,
+            role=conn.ctx.role,
+            warehouse=conn.ctx.warehouse,
         )
         print_db_cursor(description)
         print_db_cursor(url)
@@ -86,7 +83,7 @@ def streamlit_describe(
 
 @app.command("create")
 def streamlit_create(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Argument(..., help="Name of streamlit to be created."),
     file: Path = typer.Option(
         "streamlit_app.py",
@@ -108,27 +105,24 @@ def streamlit_create(
     """
     Create a streamlit app named NAME.
     """
-    env_conf = AppConfig().config.get(environment)
+    conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        config.connect_to_snowflake()
         if from_stage:
             if "." in from_stage:
                 full_stage_name = from_stage
             else:
-                full_stage_name = (
-                    f"{env_conf.get('database')}.{env_conf.get('schema')}.{from_stage}"
-                )
+                full_stage_name = f"{conn.ctx.database}.{conn.ctx.schema}.{from_stage}"
             standard_page_name = get_standard_stage_name(full_stage_name)
             from_stage_command = f"FROM {standard_page_name}"
         else:
             from_stage_command = ""
 
-        results = config.snowflake_connection.create_streamlit(
-            database=env_conf.get("database"),
-            schema=env_conf.get("schema"),
-            role=env_conf.get("role"),
-            warehouse=env_conf.get("warehouse"),
+        results = conn.create_streamlit(
+            database=conn.ctx.database,
+            schema=conn.ctx.schema,
+            role=conn.ctx.role,
+            warehouse=conn.ctx.warehouse,
             name=name,
             file="streamlit_app_launcher.py" if use_packaging_workaround else file.name,
             from_stage_command=from_stage_command,
@@ -138,7 +132,7 @@ def streamlit_create(
 
 @app.command("share")
 def streamlit_share(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Argument(..., help="Name of streamlit to be shared."),
     to_role: str = typer.Argument(
         ..., help="Role that streamlit should be shared with."
@@ -147,15 +141,14 @@ def streamlit_share(
     """
     Create a streamlit app named NAME.
     """
-    env_conf = AppConfig().config.get(environment)
+    conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        config.connect_to_snowflake()
-        results = config.snowflake_connection.share_streamlit(
-            database=env_conf.get("database"),
-            schema=env_conf.get("schema"),
-            role=env_conf.get("role"),
-            warehouse=env_conf.get("warehouse"),
+        results = conn.share_streamlit(
+            database=conn.ctx.database,
+            schema=conn.ctx.schema,
+            role=conn.ctx.role,
+            warehouse=conn.ctx.warehouse,
             name=name,
             to_role=to_role,
         )
@@ -164,21 +157,20 @@ def streamlit_share(
 
 @app.command("drop")
 def streamlit_drop(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Argument(..., help="Name of streamlit to be deleted."),
 ):
     """
     Create a streamlit app named NAME.
     """
-    env_conf = AppConfig().config.get(environment)
+    conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        config.connect_to_snowflake()
-        results = config.snowflake_connection.drop_streamlit(
-            database=env_conf.get("database"),
-            schema=env_conf.get("schema"),
-            role=env_conf.get("role"),
-            warehouse=env_conf.get("warehouse"),
+        results = conn.drop_streamlit(
+            database=conn.ctx.database,
+            schema=conn.ctx.schema,
+            role=conn.ctx.role,
+            warehouse=conn.ctx.warehouse,
             name=name,
         )
         print_db_cursor(results)
@@ -186,7 +178,7 @@ def streamlit_drop(
 
 @app.command("deploy")
 def streamlit_deploy(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Argument(..., help="Name of streamlit to be deployed."),
     file: Path = typer.Option(
         "streamlit_app.py",
@@ -225,14 +217,13 @@ def streamlit_deploy(
     """
     Deploy streamlit with NAME.
     """
-    env_conf = AppConfig().config.get(environment)
+    conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        config.connect_to_snowflake()
-        schema = env_conf.get("schema")
-        role = env_conf.get("role")
-        database = env_conf.get("database")
-        warehouse = env_conf.get("warehouse")
+        schema = conn.ctx.schema
+        role = conn.ctx.role
+        database = conn.ctx.database
+        warehouse = conn.ctx.warehouse
         # THIS WORKAROUND HAS NOT BEEN TESTETD WITH THE NEW STREAMLIT SYNTAX
         if use_packaging_workaround:
             stage_name = f"snow://streamlit/{database}.{schema}.{name}/default_checkout"
@@ -243,7 +234,7 @@ def streamlit_deploy(
                 package_native_libraries,  # type: ignore[arg-type]
             )
             # upload the resulting app.zip file
-            config.snowflake_connection.upload_file_to_stage(
+            conn.upload_file_to_stage(
                 "app.zip",
                 stage_name,
                 "/",
@@ -261,7 +252,7 @@ def streamlit_deploy(
                 extract_zip=packaging_workaround_includes_content,
             )
             # upload the wrapper file
-            config.snowflake_connection.upload_file_to_stage(
+            conn.upload_file_to_stage(
                 str(file),
                 stage_name,
                 "/",
@@ -279,7 +270,7 @@ def streamlit_deploy(
                 excluded_anaconda_deps_list = excluded_anaconda_deps.split(",")
             env_file = generate_streamlit_environment_file(excluded_anaconda_deps_list)
             if env_file:
-                config.snowflake_connection.upload_file_to_stage(
+                conn.upload_file_to_stage(
                     str(env_file),
                     stage_name,
                     "/",
@@ -291,7 +282,7 @@ def streamlit_deploy(
                     create_stage=False,
                 )
 
-        base_url = config.snowflake_connection.deploy_streamlit(
+        base_url = conn.deploy_streamlit(
             name=name,
             file_path=str(file),
             stage_path="/",
@@ -304,7 +295,7 @@ def streamlit_deploy(
 
         def get_url() -> str:
             try:
-                host = config.snowflake_connection.connection_config["host"]
+                host = conn.ctx.host
             except KeyError:
                 return base_url
 
@@ -321,10 +312,7 @@ def streamlit_deploy(
                 account_name = host_parts[0]
                 deployment = ".".join(host_parts[1:4])
 
-            snowflake_host = env_conf.get(
-                "snowflake_host",
-                "app.snowflake.com",
-            )
+            snowflake_host = conn.ctx.host or "app.snowflake.com"
             uppercased_dsn = f"{database}.{schema}.{name}".upper()
             return (
                 f"https://{snowflake_host}/{deployment}/{account_name}/"

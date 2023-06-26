@@ -1,0 +1,10 @@
+# serializer version: 1
+# name: test_new_connection_can_be_added
+  '''
+  [connections.conn1]
+  account = "account1"
+  username = "user1"
+  password = "password1"
+  
+  '''
+# ---

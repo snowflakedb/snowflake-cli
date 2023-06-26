@@ -1,2 +1,2 @@
 snowflake-snowpark-python
-toml # for local development
+#snowcli  # for local development

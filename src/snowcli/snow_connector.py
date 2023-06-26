@@ -27,15 +27,17 @@ class SnowflakeConnector:
 
     def __init__(
         self,
-        connection_config: dict,
+        connection_parameters: dict,
         overrides: Optional[dict] = None,
     ):
-        self.connection_config = connection_config
         if overrides:
-            for config, value in ((k, v) for k, v in overrides.items() if v):
-                self.connection_config[config] = value
-        self.connection_config["application"] = self._find_command_path()
-        self.ctx = snowflake.connector.connect(**self.connection_config)
+            connection_parameters.update(
+                {k: v for k, v in overrides.items() if v is not None}
+            )
+        self.ctx = snowflake.connector.connect(
+            application=self._find_command_path(),
+            **connection_parameters,
+        )
         self.cs = self.ctx.cursor()
 
     @staticmethod

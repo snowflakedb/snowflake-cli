@@ -11,15 +11,14 @@ import typer
 from requirements.requirement import Requirement
 
 from snowcli import config, utils
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
-from snowcli.config import AppConfig
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
+from snowcli.config import connect_to_snowflake
 
 app = typer.Typer(
     name="package",
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage custom Python packages for Snowpark",
 )
-EnvironmentOption = typer.Option("dev", help="Environment name")
 log = logging.getLogger(__name__)
 
 
@@ -119,32 +118,25 @@ def package_upload(
         "-o",
         help="Overwrite the file if it already exists",
     ),
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
 ):
     """
     Upload a python package zip file to a Snowflake stage so it can be referenced in the imports of a procedure or function.
     """
-    env_conf = AppConfig().config.get(environment)
-    if env_conf is None:
-        log.error(
-            f"The {environment} environment is not configured in app.toml "
-            "yet, please run `snow configure` first before continuing.",
-        )
-        raise typer.Abort()
+    conn = connect_to_snowflake(connection_name=environment)
     if config.is_auth():
-        config.connect_to_snowflake()
-        log.info(f"Uploading {file} to Snowflake @{stage}/{file}...")
+        click.echo(f"Uploading {file} to Snowflake @{stage}/{file}...")
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
-            deploy_response = config.snowflake_connection.upload_file_to_stage(
+            deploy_response = conn.upload_file_to_stage(
                 file_path=temp_app_zip_path,
                 destination_stage=stage,
                 path="/",
-                database=env_conf["database"],
-                schema=env_conf["schema"],
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
                 overwrite=overwrite,
-                role=env_conf["role"],
-                warehouse=env_conf["warehouse"],
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
             )
         log.info(f"Package {file} {deploy_response[6]} to Snowflake @{stage}/{file}.")
         if deploy_response[6] == "SKIPPED":

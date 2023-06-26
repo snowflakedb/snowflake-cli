@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import functools
 import pytest
-import toml
 
 from pathlib import Path
 from snowcli.cli import app
@@ -15,11 +14,9 @@ TEST_DIR = Path(__file__).parent
 
 @pytest.fixture(scope="session")
 def test_snowcli_config():
-    test_config = TEST_DIR / "config/test.toml"
-    config = toml.load(test_config)
-    config["snowsql_config_path"] = str(TEST_DIR / "config/connection_configs.toml")
+    test_config = TEST_DIR / "test.toml"
     with NamedTemporaryFile(suffix=".toml", mode="w+") as fh:
-        toml.dump(config, fh)
+        fh.write(test_config.read_text())
         fh.flush()
         yield fh.name
 
