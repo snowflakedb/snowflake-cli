@@ -8,7 +8,7 @@ from snowcli.config import connect_to_snowflake
 from snowcli.utils import generate_deploy_stage_name
 from snowcli.output.printing import print_db_cursor
 
-from snowcli.cli.snowpark import app
+from snowcli.cli.snowpark.procedure_coverage import app
 from snowcli.cli.common.flags import ConnectionOption
 
 log = logging.getLogger(__name__)

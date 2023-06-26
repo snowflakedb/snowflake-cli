@@ -36,7 +36,12 @@ def list():
 
 @app.command()
 def add(
-    connection: str = ConnectionOption,
+    connection: str = typer.Option(
+        None,
+        "-n",
+        "--connection-name",
+        help="Name of the new connection",
+    ),
     account: str = AccountOption,
     username: str = UserOption,
     password: str = PasswordOption,
