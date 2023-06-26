@@ -21,8 +21,8 @@ def test_custom_config_path(mock_conn, runner):
     runner.invoke(["--config-file", str(config_file), "warehouse", "status"])
     mock_conn.assert_called_once_with(
         connection_parameters={
-            "account": "some_account",
-            "user": "userfoo",
+            "database": "db_for_test",
+            "schema": "test_public",
             "role": "test_role",
             "warehouse": "xs",
         },

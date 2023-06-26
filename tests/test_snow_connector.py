@@ -35,8 +35,8 @@ def test_command_context_is_passed_to_snowflake_connection(
     result = runner.invoke_with_config(cmd)
     assert result.exit_code == 0, result.output
     mock_conn.assert_called_once_with(
-        account=mock.ANY,
-        user=mock.ANY,
+        database=mock.ANY,
+        schema=mock.ANY,
         warehouse=mock.ANY,
         role=mock.ANY,
         application=expected,

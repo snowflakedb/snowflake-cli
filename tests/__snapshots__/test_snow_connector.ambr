@@ -253,7 +253,7 @@
   use database databaseValue;
   use schema schemaValue;
   
-  
+  ;
   
   put file://pathValue @namedStageValue auto_compress=false parallel=42 overwrite=True;
   '''
@@ -265,7 +265,7 @@
   use database databaseValue;
   use schema schemaValue;
   
-  
+  ;
   
   put file://pathValue snow://embeddedStageValue auto_compress=false parallel=42 overwrite=True;
   '''
@@ -325,7 +325,7 @@
   use database databaseValue;
   use schema schemaValue;
   
-  
+  ;
   
   put file://file_pathValue @namedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
   '''
@@ -337,7 +337,7 @@
   use database databaseValue;
   use schema schemaValue;
   
-  create stage if not exists namedStageValue comment='deployments managed by snowcli'
+  create stage if not exists namedStageValue comment='deployments managed by snowcli';
   
   put file://file_pathValue @namedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
   '''
@@ -349,7 +349,7 @@
   use database databaseValue;
   use schema schemaValue;
   
-  
+  ;
   
   put file://file_pathValue snow://embeddedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
   '''
@@ -361,7 +361,7 @@
   use database databaseValue;
   use schema schemaValue;
   
-  create stage if not exists snow://embeddedStageValue comment='deployments managed by snowcli'
+  create stage if not exists snow://embeddedStageValue comment='deployments managed by snowcli';
   
   put file://file_pathValue snow://embeddedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
   '''

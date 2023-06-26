@@ -48,7 +48,6 @@ def setup_global_context(debug: bool):
     snow_cli_global_context_manager.update_global_context(modifications)
 
 
-
 @app.callback()
 def default(
     version: bool = typer.Option(

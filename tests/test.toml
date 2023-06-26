@@ -1,15 +1,15 @@
 snowsql_config_path = "snowsql.toml"
 snowsql_connection_name = "foo"
 
-[dev]
-database = "db_for_test"
-schema = "test_public"
-role = "test_role"
-warehouse = "xs"
-
 [connections]
 [connections.default]
 account = "some_account"
 user = "userfoo"
+role = "test_role"
+warehouse = "xs"
+
+[connections.dev]
+database = "db_for_test"
+schema = "test_public"
 role = "test_role"
 warehouse = "xs"
