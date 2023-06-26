@@ -7,7 +7,6 @@ from typing import Optional, Any
 import tomlkit
 from tomlkit import dump, table, TOMLDocument
 from tomlkit.exceptions import NonExistentKey
-import click
 import logging
 
 from snowcli.exception import MissingConfiguration
@@ -101,13 +100,13 @@ class CliConfigManager(ConfigManager):
 def config_init(config_file: Path):
     """
     Initializes the app configuration. Config provided via cli flag takes precedence.
-    If config file exists we create an empty one.
+    If config file does not exist we create an empty one.
     """
     if config_file:
         cli_config.from_context(config_path_override=config_file)
 
 
-def connect_to_snowflake(connection_name: str, **overrides):  # type: ignore
+def connect_to_snowflake(connection_name: Optional[str] = None, **overrides):  # type: ignore
     connection_name = connection_name if connection_name is not None else "dev"
     return SnowflakeConnector(
         connection_parameters=cli_config.get_connection(connection_name),

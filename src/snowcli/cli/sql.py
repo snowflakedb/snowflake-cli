@@ -64,7 +64,7 @@ def execute_sql(
         readable=True,
         help="File to execute.",
     ),
-    connection: str = typer.Option(
+    connection: Optional[str] = typer.Option(
         None, "-c", "--connection", help="Connection to be used"
     ),
     account: Optional[str] = typer.Option(
