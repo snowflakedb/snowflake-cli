@@ -179,9 +179,9 @@ To add credentials as environment variables:
    ```
    [connections]
    [connections.myconnection]
-   SNOWFLAKE_CONNECTIONS_MYCONNECTION_ACCOUNT
-   SNOWFLAKE_CONNECTIONS_MYCONNECTION_USER
-   SNOWFLAKE_CONNECTIONS_MYCONNECTION_PASSWORD
+   accountname = SNOWFLAKE_CONNECTIONS_MYCONNECTION_ACCOUNT
+   username = SNOWFLAKE_CONNECTIONS_MYCONNECTION_USER
+   password = SNOWFLAKE_CONNECTIONS_MYCONNECTION_PASSWORD
    ```
 
 1. If you already specify your credentials in a configuration file, as shown, you can remove them from the
