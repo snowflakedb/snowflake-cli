@@ -498,7 +498,7 @@ def get_list_of_files_to_pack(
     pack_dir: Optional[str], is_recursive: bool
 ) -> List[Tuple[Path, Optional[str]]]:
 
-    files = []
+    files: List[Tuple[Path, Optional[str]]] = []
 
     def filenames_filter(file: Path) -> bool:
         return (
@@ -525,7 +525,7 @@ def get_list_of_files_to_pack(
     if is_recursive:
         files += [
             (file.absolute(), pack_dir) if filenames_filter(file) else (Path(), None)
-            for file in Path(pack_dir).glob("**/*")
+            for file in Path(str(pack_dir)).glob("**/*")
         ]
 
     return list(filter(lambda x: os.path.isfile(x[0]), files))
