@@ -252,16 +252,28 @@ class TestUtils:
 
         assert os.path.isfile(zip_file_path)
         assert (
-            os.path.join("subdir", os.path.basename(file_in_a_subdir))
+            os.path.join(self.SUBDIR, os.path.basename(file_in_a_subdir))
             not in zip_file.namelist()
         )
 
     def test_standard_zip_dir_with_env_variable(
-        self, temp_test_directory: str, file_in_a_subdir: str
+        self,
+        temp_test_directory: str,
+        file_in_a_subdir: str,
+        include_paths_env_variable,
+        other_directory: str,
+        file_in_other_directory: str,
     ):
-        pass
+        zip_file_path = os.path.join(temp_test_directory, "packed.zip")
+        utils.standard_zip_dir(zip_file_path)
+        zip_file = ZipFile(zip_file_path)
 
-    # TODO: add this
+        assert os.path.isfile(zip_file_path)
+        assert (
+            os.path.join("subdir", os.path.basename(file_in_a_subdir))
+            not in zip_file.namelist()
+        )
+        assert os.path.join(self.FILE_IN_SECOND_TEST_DIRECTORY) in zip_file.namelist()
 
     def test_get_snowflake_packages(self, streamlit_requirements_txt):
         os.chdir(".tests")

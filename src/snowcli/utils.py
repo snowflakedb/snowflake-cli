@@ -513,7 +513,9 @@ def get_list_of_files_to_pack(
         (file.absolute(), None) if filenames_filter(file) else (Path(), None)
         for file in Path(".").glob("**/*")
     ]
-
+    envs = os.getenv("SNOWCLI_INCLUDE_PATHS", "").split(":")
+    fie = list(Path(envs[0]).glob("**/*"))
+    ldir = os.listdir(envs[0])
     for include_dir in os.getenv("SNOWCLI_INCLUDE_PATHS", "").split(":"):
         files += [
             (file.absolute(), include_dir)
