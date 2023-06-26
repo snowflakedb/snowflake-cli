@@ -3,4 +3,4 @@ use warehouse {{ warehouse }};
 use database {{ database }};
 use schema {{ schema }};
 
-CALL SYSTEM$GET_JOB_STATUS('{{ name }}');
+CALL SYSTEM$GET_JOB_STATUS('{{ id }}');

@@ -31,9 +31,9 @@ else:
 @app.command()
 def create(
     environment: str = ConnectionOption,
-    name: str = typer.Option(..., "--name", "-n", help="Job Name"),
     compute_pool: str = typer.Option(..., "--compute_pool", "-c", help="Compute Pool"),
     spec_path: str = typer.Option(..., "--spec_path", "-s", help="Spec.yaml file path"),
+    stage: str = typer.Option("SOURCE_STAGE", "--stage", "-l", help="Stage name"),
 ):
     """
     Create Job
@@ -46,9 +46,9 @@ def create(
             schema=conn.ctx.schema,
             role=conn.ctx.role,
             warehouse=conn.ctx.warehouse,
-            name=name,
             compute_pool=compute_pool,
             spec_path=spec_path,
+            stage=stage,
         )
         print_db_cursor(results)
 
@@ -56,7 +56,7 @@ def create(
 @app.command()
 def desc(
     environment: str = ConnectionOption,
-    name: str = typer.Argument(..., help="Job Name"),
+    id: str = typer.Argument(..., help="Job id"),
 ):
     """
     Desc Service
@@ -69,7 +69,7 @@ def desc(
             schema=conn.ctx.schema,
             role=conn.ctx.role,
             warehouse=conn.ctx.warehouse,
-            name=name,
+            id=id,
         )
         print_db_cursor(results)
 
@@ -97,7 +97,7 @@ def print_log_lines(file: TextIO, name, id, logs):
 @app.command()
 def logs(
     environment: str = ConnectionOption,
-    name: str = typer.Argument(..., help="Job Name"),
+    id: str = typer.Argument(..., help="Job id"),
     container_name: str = typer.Option(
         ..., "--container-name", "-c", help="Container Name"
     ),
@@ -113,18 +113,18 @@ def logs(
             schema=conn.ctx.schema,
             role=conn.ctx.role,
             warehouse=conn.ctx.warehouse,
-            name=name,
+            id=id,
             container_name=container_name,
         )
         cursor = results.fetchone()
         logs = next(iter(cursor)).split("\n")
-        print_log_lines(sys.stdout, name, "0", logs)
+        print_log_lines(sys.stdout, id, "0", logs)
 
 
 @app.command()
 def status(
     environment: str = ConnectionOption,
-    name: str = typer.Argument(..., help="Job Name"),
+    id: str = typer.Argument(..., help="Job id"),
 ):
     """
     Logs Service
@@ -137,7 +137,7 @@ def status(
             schema=conn.ctx.schema,
             role=conn.ctx.role,
             warehouse=conn.ctx.warehouse,
-            name=name,
+            id=id,
         )
         print_db_cursor(results)
 
@@ -145,7 +145,7 @@ def status(
 @app.command()
 def drop(
     environment: str = ConnectionOption,
-    name: str = typer.Argument(..., help="Job Name"),
+    id: str = typer.Argument(..., help="Job id"),
 ):
     """
     Drop Service
@@ -158,6 +158,6 @@ def drop(
             schema=conn.ctx.schema,
             role=conn.ctx.role,
             warehouse=conn.ctx.warehouse,
-            name=name,
+            id=id,
         )
         print_db_cursor(results)

@@ -38,6 +38,7 @@ def create(
     num_instances: Annotated[
         int, typer.Option("--num_instances", "-num", help="Number of instances")
     ] = 1,
+    stage: str = typer.Option("SOURCE_STAGE", "--stage", "-l", help="Stage name"),
 ):
     """
     Create service
@@ -54,6 +55,7 @@ def create(
             compute_pool=compute_pool,
             num_instances=num_instances,
             spec_path=spec_path,
+            stage=stage,
         )
         print_db_cursor(results)
 

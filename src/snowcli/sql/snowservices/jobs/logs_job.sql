@@ -4,4 +4,4 @@ use database {{ database }};
 use schema {{ schema }};
 
 
-call SYSTEM$GET_JOB_LOGS('{{ name }}', '{{ container_name }}');
+call SYSTEM$GET_JOB_LOGS('{{ id }}', '{{ container_name }}');

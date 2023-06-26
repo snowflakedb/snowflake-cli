@@ -679,6 +679,7 @@ class SnowflakeConnector:
         database: str,
         num_instances: int,
         schema: str,
+        stage: str,
     ) -> SnowflakeCursor:
         spec_filename = os.path.basename(spec_path)
         file_hash = hashlib.md5(open(spec_path, "rb").read()).hexdigest()
@@ -696,6 +697,7 @@ class SnowflakeConnector:
                 "spec_path": spec_path,
                 "stage_dir": stage_dir,
                 "stage_filename": spec_filename,
+                "stage": stage,
             },
         )
 
@@ -779,13 +781,13 @@ class SnowflakeConnector:
 
     def create_job(
         self,
-        name: str,
         compute_pool: str,
         spec_path: str,
         role: str,
         warehouse: str,
         database: str,
         schema: str,
+        stage: str,
     ) -> SnowflakeCursor:
         spec_filename = os.path.basename(spec_path)
         file_hash = hashlib.md5(open(spec_path, "rb").read()).hexdigest()
@@ -797,16 +799,16 @@ class SnowflakeConnector:
                 "schema": schema,
                 "role": role,
                 "warehouse": warehouse,
-                "name": name,
                 "compute_pool": compute_pool,
                 "spec_path": spec_path,
                 "stage_dir": stage_dir,
                 "stage_filename": spec_filename,
+                "stage": stage,
             },
         )
 
     def desc_job(
-        self, name: str, role: str, warehouse: str, database: str, schema: str
+        self, id: str, role: str, warehouse: str, database: str, schema: str
     ) -> SnowflakeCursor:
         return self.run_sql(
             "snowservices/jobs/desc_job",
@@ -815,12 +817,12 @@ class SnowflakeConnector:
                 "schema": schema,
                 "role": role,
                 "warehouse": warehouse,
-                "name": name,
+                "id": id,
             },
         )
 
     def status_job(
-        self, name: str, role: str, warehouse: str, database: str, schema: str
+        self, id: str, role: str, warehouse: str, database: str, schema: str
     ) -> SnowflakeCursor:
         return self.run_sql(
             "snowservices/jobs/status_job",
@@ -829,12 +831,12 @@ class SnowflakeConnector:
                 "schema": schema,
                 "role": role,
                 "warehouse": warehouse,
-                "name": name,
+                "id": id,
             },
         )
 
     def drop_job(
-        self, name: str, role: str, warehouse: str, database: str, schema: str
+        self, id: str, role: str, warehouse: str, database: str, schema: str
     ) -> SnowflakeCursor:
         return self.run_sql(
             "snowservices/jobs/drop_job",
@@ -843,13 +845,13 @@ class SnowflakeConnector:
                 "schema": schema,
                 "role": role,
                 "warehouse": warehouse,
-                "name": name,
+                "id": id,
             },
         )
 
     def logs_job(
         self,
-        name: str,
+        id: str,
         container_name: str,
         role: str,
         warehouse: str,
@@ -863,7 +865,7 @@ class SnowflakeConnector:
                 "schema": schema,
                 "role": role,
                 "warehouse": warehouse,
-                "name": name,
+                "id": id,
                 "container_name": container_name,
             },
         )

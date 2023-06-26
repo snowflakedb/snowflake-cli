@@ -79,7 +79,7 @@ def test_render_metadata(runner):
                             "returns": "STRING",
                             "language": "PYTHON",
                             "runtime_version": "3.8",
-                            "packages": "snowflake-snowpark-python",
+                            "packages": "snowflake-snowpark_containers_cmds-python",
                             "imports": [
                                 "/module.zip",
                             ],
@@ -102,7 +102,7 @@ ARG1 STRING
 RETURNS STRING
 LANGUAGE PYTHON
 RUNTIME_VERSION = '3.8'
-PACKAGES = ('snowflake-snowpark-python')
+PACKAGES = ('snowflake-snowpark_containers_cmds-python')
 IMPORTS = ('/module.zip')
 HANDLER = 'module.procedures.python_hello'
 ;
