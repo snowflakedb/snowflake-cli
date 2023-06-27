@@ -1,9 +1,7 @@
 import sys
-import json
 import typer
 from snowcli import config
 from typing import TextIO
-from datetime import datetime
 
 from snowcli.cli import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.common.flags import ConnectionOption
