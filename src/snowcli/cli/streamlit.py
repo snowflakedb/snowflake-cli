@@ -226,8 +226,7 @@ def streamlit_deploy(
         warehouse = conn.ctx.warehouse
         # THIS WORKAROUND HAS NOT BEEN TESTETD WITH THE NEW STREAMLIT SYNTAX
         if use_packaging_workaround:
-            stage_name = f"snow://streamlit/{database}.{schema}.{name}/default_checkout"
-            # package an app.zip file, same as the other snowpark package commands
+            # package an app.zip file, same as the other snowpark_containers_cmds package commands
             snowpark_package(
                 pypi_download,  # type: ignore[arg-type]
                 check_anaconda_for_pypi_deps,
@@ -236,7 +235,7 @@ def streamlit_deploy(
             # upload the resulting app.zip file
             conn.upload_file_to_stage(
                 "app.zip",
-                stage_name,
+                f"{name}_stage",
                 "/",
                 role=role,
                 database=database,
@@ -254,7 +253,7 @@ def streamlit_deploy(
             # upload the wrapper file
             conn.upload_file_to_stage(
                 str(file),
-                stage_name,
+                f"{name}_stage",
                 "/",
                 role=role,
                 database=database,
@@ -272,7 +271,7 @@ def streamlit_deploy(
             if env_file:
                 conn.upload_file_to_stage(
                     str(env_file),
-                    stage_name,
+                    f"{name}_stage",
                     "/",
                     role=role,
                     database=database,
