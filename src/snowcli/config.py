@@ -25,7 +25,8 @@ class CliConfigManager(ConfigManager):
         self._add_options()
 
     def from_context(self, config_path_override: Path):
-        self.file_path = config_path_override
+        if config_path_override:
+            self.file_path = config_path_override
         if not self.file_path.exists():
             self.initialize_connection_section()
             self._dump_config()
@@ -76,7 +77,8 @@ class CliConfigManager(ConfigManager):
             raise
 
     def initialize_connection_section(self):
-        self.conf_file_cache.add("connections", table())
+        self.conf_file_cache = TOMLDocument()
+        self.conf_file_cache.append("connections", table())
 
     def get_connection(self, connection_name: str) -> dict:
         try:
@@ -102,8 +104,7 @@ def config_init(config_file: Path):
     Initializes the app configuration. Config provided via cli flag takes precedence.
     If config file does not exist we create an empty one.
     """
-    if config_file:
-        cli_config.from_context(config_path_override=config_file)
+    cli_config.from_context(config_path_override=config_file)
 
 
 def connect_to_snowflake(connection_name: Optional[str] = None, **overrides):  # type: ignore
