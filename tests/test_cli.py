@@ -1,52 +1,19 @@
-from typer.testing import CliRunner
-
-runner = CliRunner()
+import pytest
 
 
-def test_global(snapshot):
-    from snowcli.cli import app
-
-    result = runner.invoke(app, ["-h"])
+def test_global(runner, snapshot):
+    result = runner.invoke(["-h"])
 
     assert result.exit_code == 0
 
     assert result.output == snapshot
 
 
-def test_streamlit(snapshot):
-    from snowcli.cli.streamlit import app
-
-    result = runner.invoke(app, ["-h"])
-
-    assert result.exit_code == 0
-
-    assert result.output == snapshot
-
-
-def test_stage(snapshot):
-    from snowcli.cli.stage import app
-
-    result = runner.invoke(app, ["-h"])
-
-    assert result.exit_code == 0
-
-    assert result.output == snapshot
-
-
-def test_snowpark(snapshot):
-    from snowcli.cli.snowpark import app
-
-    result = runner.invoke(app, ["-h"])
-
-    assert result.exit_code == 0
-
-    assert result.output == snapshot
-
-
-def test_warehouse(snapshot):
-    from snowcli.cli.warehouse import app
-
-    result = runner.invoke(app, ["-h"])
+@pytest.mark.parametrize(
+    "namespace", [("warehouse"), ("streamlit"), ("stage"), ("snowpark")]
+)
+def test_namespace(namespace, runner, snapshot):
+    result = runner.invoke([namespace, "-h"])
 
     assert result.exit_code == 0
 
