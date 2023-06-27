@@ -24,12 +24,11 @@ class CliConfigManager(ConfigManager):
         super().__init__(name="SNOWCLI_PARSER", file_path=file_path)
         self._add_options()
 
-    def from_context(self, config_path_override: Path):
-        self.file_path = config_path_override
+    def from_context(self, config_path_override: Optional[Path]):
+        if config_path_override:
+            self.file_path = config_path_override
         if not self.file_path.exists():
-            self.initialize_connection_section()
-            self._dump_config()
-            log.info(f"Created Snowflake configuration file at {cli_config.file_path}")
+            self._initialise_config()
         self.read_config()
 
     def _add_options(self):
@@ -76,7 +75,14 @@ class CliConfigManager(ConfigManager):
             raise
 
     def initialize_connection_section(self):
-        self.conf_file_cache.add("connections", table())
+        self.conf_file_cache = TOMLDocument()
+        self.conf_file_cache.append("connections", table())
+
+    def _initialise_config(self):
+        os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
+        self.initialize_connection_section()
+        self._dump_config()
+        log.info(f"Created Snowflake configuration file at {cli_config.file_path}")
 
     def get_connection(self, connection_name: str) -> dict:
         try:
@@ -102,8 +108,7 @@ def config_init(config_file: Path):
     Initializes the app configuration. Config provided via cli flag takes precedence.
     If config file does not exist we create an empty one.
     """
-    if config_file:
-        cli_config.from_context(config_path_override=config_file)
+    cli_config.from_context(config_path_override=config_file)
 
 
 def connect_to_snowflake(connection_name: Optional[str] = None, **overrides):  # type: ignore
