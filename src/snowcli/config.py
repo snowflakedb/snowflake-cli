@@ -24,7 +24,7 @@ class CliConfigManager(ConfigManager):
         super().__init__(name="SNOWCLI_PARSER", file_path=file_path)
         self._add_options()
 
-    def from_context(self, config_path_override: Path):
+    def from_context(self, config_path_override: Optional[Path]):
         if config_path_override:
             self.file_path = config_path_override
         if not self.file_path.exists():
