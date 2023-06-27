@@ -41,7 +41,7 @@ def create(
     conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        results = config.snowflake_connection.create_job(
+        results = conn.create_job(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,
@@ -64,7 +64,7 @@ def desc(
     conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        results = config.snowflake_connection.desc_job(
+        results = conn.desc_job(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,
@@ -108,7 +108,7 @@ def logs(
     conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        results = config.snowflake_connection.logs_job(
+        results = conn.logs_job(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,
@@ -132,7 +132,7 @@ def status(
     conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        results = config.snowflake_connection.status_job(
+        results = conn.status_job(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,
@@ -140,28 +140,6 @@ def status(
             name=name,
         )
         print_db_cursor(results)
-
-
-@app.command()
-def list(environment: str = ConnectionOption):
-    """
-    List Service
-    """
-    conn = connect_to_snowflake(connection_name=environment)
-
-    if config.is_auth():
-        results = config.snowflake_connection.list_job(
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-        )
-        data = []
-        for row in results.fetchall():
-            data = json.loads(row[0])
-        for row in data:
-            row["name"] = f"{row['name']}_{row['run_id']}"
-        print_data(data=data)
 
 
 @app.command()
@@ -175,7 +153,7 @@ def drop(
     conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        results = config.snowflake_connection.drop_job(
+        results = conn.drop_job(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,

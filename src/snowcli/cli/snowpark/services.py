@@ -45,7 +45,7 @@ def create(
     conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        results = config.snowflake_connection.create_service(
+        results = conn.create_service(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,
@@ -69,7 +69,7 @@ def desc(
     conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        results = config.snowflake_connection.desc_service(
+        results = conn.desc_service(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,
@@ -113,7 +113,7 @@ def logs(
     conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        results = config.snowflake_connection.logs_service(
+        results = conn.logs_service(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,
@@ -138,7 +138,7 @@ def status(
     conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        results = config.snowflake_connection.status_service(
+        results = conn.status_service(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,
@@ -156,7 +156,7 @@ def list(environment: str = ConnectionOption):
     conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        results = config.snowflake_connection.list_service(
+        results = conn.list_service(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,
@@ -176,7 +176,7 @@ def drop(
     conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        results = config.snowflake_connection.drop_service(
+        results = conn.drop_service(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,

@@ -26,7 +26,7 @@ def create(
     conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        results = config.snowflake_connection.create_compute_pool(
+        results = conn.create_compute_pool(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,
@@ -46,7 +46,7 @@ def list(environment: str = ConnectionOption):
     conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        results = config.snowflake_connection.list_compute_pools(
+        results = conn.list_compute_pools(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,
@@ -66,7 +66,7 @@ def drop(
     conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        results = config.snowflake_connection.drop_compute_pool(
+        results = conn.drop_compute_pool(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,
@@ -87,7 +87,7 @@ def stop(
     conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        results = config.snowflake_connection.stop_compute_pool(
+        results = conn.stop_compute_pool(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,
