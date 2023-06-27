@@ -25,24 +25,35 @@ AccountOption = typer.Option(
 )
 
 UserOption = typer.Option(
-    None, "-u", "--username", "--user", help="Username to connect to Snowflake."
+    None,
+    "-u",
+    "--username",
+    "--user",
+    help="Username to connect to Snowflake.",
 )
 
 PasswordOption = typer.Option(
     None,
     "-p",
     "--password",
-    prompt="Snowflake password",
     help="Snowflake password",
     hide_input=True,
 )
 
 DatabaseOption = typer.Option(
-    None, "-d", "--dbname", "--database", help="Database to use."
+    None,
+    "-d",
+    "--dbname",
+    "--database",
+    help="Database to use.",
 )
 
 SchemaOption = typer.Option(
-    None, "-s", "--schemaname", "--schema", help=" Schema in the database to use."
+    None,
+    "-s",
+    "--schemaname",
+    "--schema",
+    help=" Schema in the database to use.",
 )
 
 RoleOption = typer.Option(None, "-r", "--rolename", "--role", help="Role to be used")

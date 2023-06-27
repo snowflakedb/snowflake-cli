@@ -3,7 +3,7 @@
   '''
   [connections.conn1]
   account = "account1"
-  username = "user1"
+  user = "user1"
   password = "password1"
   
   '''
