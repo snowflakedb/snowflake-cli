@@ -1,7 +1,4 @@
-use role {{ role }};
-use warehouse {{ warehouse }};
-use database {{ database }};
-use schema {{ schema }};
+{% include "set_env.sql" %}
 
 CREATE COMPUTE POOL {{ name }}
   MIN_NODES = {{ min_node }}

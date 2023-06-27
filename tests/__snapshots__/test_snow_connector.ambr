@@ -212,7 +212,6 @@
   use database databaseValue;
   use schema schemaValue;
   
-  
   DROP SERVICE nameValue;
   '''
 # ---
@@ -326,7 +325,6 @@
   use database databaseValue;
   use schema schemaValue;
   
-  
   show services;
   '''
 # ---
@@ -372,7 +370,6 @@
   use warehouse warehouseValue;
   use database databaseValue;
   use schema schemaValue;
-  
   
   call SYSTEM$GET_JOB_LOGS('idValue', 'container_nameValue');
   '''

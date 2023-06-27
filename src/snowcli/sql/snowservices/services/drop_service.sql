@@ -1,7 +1,3 @@
-use role {{ role }};
-use warehouse {{ warehouse }};
-use database {{ database }};
-use schema {{ schema }};
-
+{% include "set_env.sql" %}
 
 DROP SERVICE {{ name }};

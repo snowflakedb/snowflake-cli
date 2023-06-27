@@ -1,6 +1,3 @@
-use role {{ role }};
-use warehouse {{ warehouse }};
-use database {{ database }};
-use schema {{ schema }};
+{% include "set_env.sql" %}
 
 CALL SYSTEM$GET_SERVICE_STATUS('{{ name }}');

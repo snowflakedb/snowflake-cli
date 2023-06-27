@@ -1,6 +1,3 @@
-use role {{ role }};
-use warehouse {{ warehouse }};
-use database {{ database }};
-use schema {{ schema }};
+{% include "set_env.sql" %}
 
 call SYSTEM$GET_SERVICE_LOGS('{{ name }}', '{{ instance_id }}', '{{ container_name }}');
