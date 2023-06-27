@@ -1,6 +1,4 @@
-use database {{ database }};
-use schema {{ schema }};
-use warehouse {{ warehouse }};
+{% include "set_env.sql" %}
 CREATE {% if overwrite %}OR REPLACE {% endif %} FUNCTION {{ name }}{{ input_parameters }}
          RETURNS {{ return_type }}
          LANGUAGE PYTHON
