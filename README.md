@@ -18,10 +18,6 @@ This is an open source project and contributions are welcome (though the project
 
 We plan to incorporate some patterns and features of this CLI into the Snowflake CLI (SnowSQL) in the future. We hope this project starts a conversation about what a delightful developer experience could look like, and we'd love your help in shaping that with us!
 
-### Tour and quickstart
-
-[![Snowflake CLI overview and quickstart demo](https://i.imgur.com/tqLVPWnm.png)](https://youtu.be/WDuBeAgbTt4)
-
 ## Benefits of Snowflake CLI
 
 Snowflake CLI lets you locally run and debug Snowflake apps, and has the following benefits:
@@ -213,4 +209,5 @@ In these two examples, Snowflake CLI uses the password "pass1234".
 
 ## Get involved
 
-Have a feature idea? Running into a bug? Want to contribute? We'd love to hear from you! Please open or review issues, open pull requests, or reach out to us on Twitter or LinkedIn [@jeffhollan](https://twitter.com/jeffhollan) and [@jroes](https://twitter.com/jroes).
+Have a feature idea? Running into a bug? Want to contribute? We'd love to hear from you!
+Please open or review issues, open pull requests, or reach out to us on developers@snowflake.comHave a feature idea? Running into a bug? Want to contribute? We'd love to hear from you! Please open or review issues, open pull requests, or reach out to us on Twitter or LinkedIn [@jeffhollan](https://twitter.com/jeffhollan) and [@jroes](https://twitter.com/jroes).
