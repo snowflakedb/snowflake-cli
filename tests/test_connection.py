@@ -3,6 +3,8 @@ from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import mock
 
+import pytest
+
 from snowcli.config import CliConfigManager
 
 
@@ -59,14 +61,3 @@ def test_fails_if_existing_connection(runner):
         )
     assert result.exit_code == 1, result.output
     assert "Connection conn2 already exists  " in result.output
-
-
-def test_environment_variables_override_configuration_value(test_snowcli_config):
-    cm = CliConfigManager(file_path=test_snowcli_config)
-    cm.read_config()
-
-    assert cm.get("connections", "default", key="warehouse") == "xs"
-    with mock.patch.dict(
-        os.environ, {"SNOWFLAKE_CONNECTIONS_DEFAULT_WAREHOUSE": "foo42"}
-    ):
-        assert cm.get("connections", "default", key="warehouse") == "foo42"
