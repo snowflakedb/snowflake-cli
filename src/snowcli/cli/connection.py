@@ -5,16 +5,7 @@ import typer
 from click import ClickException
 from tomlkit.exceptions import KeyAlreadyPresent
 
-from snowcli.cli.common.flags import (
-    DEFAULT_CONTEXT_SETTINGS,
-    UserOption,
-    PasswordOption,
-    AccountOption,
-    DatabaseOption,
-    SchemaOption,
-    RoleOption,
-    WarehouseOption,
-)
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.output.printing import print_data
 from snowcli.config import cli_config
 
@@ -46,23 +37,36 @@ def add(
         prompt="Name for this connection",
         help="Name of the new connection",
     ),
-    account: str = AccountOption,
-    user: str = UserOption,
-    password: str = PasswordOption,
-    database: str = DatabaseOption,
-    schema: str = SchemaOption,
-    role: str = RoleOption,
-    warehouse: str = WarehouseOption,
+    account: str = typer.Option(
+        None,
+        "-a",
+        "--accountname",
+        "--account",
+        prompt="Snowflake account",
+        help="Name assigned to your Snowflake account.",
+    ),
+    user: str = typer.Option(
+        None,
+        "-u",
+        "--username",
+        "--user",
+        prompt="Snowflake username",
+        help="Username to connect to Snowflake.",
+    ),
+    password: str = typer.Option(
+        None,
+        "-p",
+        "--password",
+        prompt="Snowflake password",
+        help="Snowflake password",
+        hide_input=True,
+    ),
 ):
     """Add connection to configuration file."""
     connection_entry = {
         "account": account,
         "user": user,
         "password": password,
-        "database": database,
-        "schema": schema,
-        "role": role,
-        "warehouse": warehouse,
     }
     try:
         cli_config.add_connection(name=connection, parameters=connection_entry)

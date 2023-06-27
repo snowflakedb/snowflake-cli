@@ -21,7 +21,6 @@ AccountOption = typer.Option(
     "-a",
     "--accountname",
     "--account",
-    prompt="Snowflake account",
     help="Name assigned to your Snowflake account.",
 )
 
@@ -30,7 +29,6 @@ UserOption = typer.Option(
     "-u",
     "--username",
     "--user",
-    prompt="Snowflake username",
     help="Username to connect to Snowflake.",
 )
 
@@ -38,7 +36,6 @@ PasswordOption = typer.Option(
     None,
     "-p",
     "--password",
-    prompt="Snowflake password",
     help="Snowflake password",
     hide_input=True,
 )
@@ -48,7 +45,6 @@ DatabaseOption = typer.Option(
     "-d",
     "--dbname",
     "--database",
-    prompt="Database name",
     help="Database to use.",
 )
 
@@ -57,14 +53,9 @@ SchemaOption = typer.Option(
     "-s",
     "--schemaname",
     "--schema",
-    prompt="Database schema",
     help=" Schema in the database to use.",
 )
 
-RoleOption = typer.Option(
-    None, "-r", "--rolename", "--role", prompt="Role name", help="Role to be used"
-)
+RoleOption = typer.Option(None, "-r", "--rolename", "--role", help="Role to be used")
 
-WarehouseOption = typer.Option(
-    None, "-w", "--warehouse", prompt="Warehouse name", help="Warehouse to use."
-)
+WarehouseOption = typer.Option(None, "-w", "--warehouse", help="Warehouse to use.")
