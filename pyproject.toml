@@ -50,7 +50,7 @@ dev = [
 snow = "snowcli.cli:app"
 
 [tool.hatch.version]
-path = "src/__about__.py"
+path = "src/snowcli/__about__.py"
 
 [tool.hatch.build.targets.sdist]
 exclude = [
