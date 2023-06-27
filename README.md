@@ -7,7 +7,8 @@ This is an open source and community supported tool. Support is provided on a be
 Services through Snowflake CLI, you must register for its PrPr. For more information, you can contact a
 Snowflake sales representative.
 
-For complete installation and usage instructions, refer to https://docs.snowflake.com/LIMITEDACCESS/snowcli/snowcli-guide.
+For complete installation and usage instructions, refer to the
+[Snowflake CLI Guide](https://docs.snowflake.com/LIMITEDACCESS/snowcli/snowcli-guide).
 
 ## Overview
 
@@ -161,14 +162,14 @@ If you prefer, you can specify Snowflake credentials in system environment varia
 in configuration files. You can use environment variables only to replace connection parameters. Environment variables for
 the configuration must use the following formats:
 
-- SNOWFLAKE_\<section-name\>_\<key\>=\<value\>
-- SNOWFLAKE_\<section-name\>_\<option-name\>__\<key\>=\<value\>
+- ``SNOWFLAKE_<section-name>_<key>=<value>``
+- ``SNOWFLAKE_<section-name>_<option-name>_<key>=<value>``
 
 where:
 
-- \<section-name\> is the name of the section in the configuration file.
-- \<option-name\> is the name of the option in the configuration file.
-- \<key\> is the name of the key
+- ``<section-name>`` is the name of the section in the configuration file.
+- ``<option-name>`` is the name of the option in the configuration file.
+- ``<key>`` is the name of the key
 
 For example: SNOWFLAKE_CONNECTIONS_MYCONNECTION_ACCOUNT="my-account"
 
