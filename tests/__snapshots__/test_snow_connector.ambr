@@ -1,9 +1,10 @@
 # serializer version: 1
 # name: test_create_function
   '''
+  use role roleValue;
+  use warehouse warehouseValue;
   use database databaseValue;
   use schema schemaValue;
-  use warehouse warehouseValue;
   CREATE OR REPLACE  FUNCTION nameValue(string a, variant b)
            RETURNS returnTypeValue
            LANGUAGE PYTHON
@@ -16,10 +17,10 @@
 # ---
 # name: test_create_procedure
   '''
+  use role roleValue;
+  use warehouse warehouseValue;
   use database databaseValue;
   use schema schemaValue;
-  use warehouse warehouseValue;
-  
   CREATE OR REPLACE  PROCEDURE nameValue(string a, variant b)
            RETURNS returnTypeValue
            LANGUAGE PYTHON
@@ -46,10 +47,9 @@
 # name: test_create_streamlit
   '''
   use role roleValue;
+  use warehouse warehouseValue;
   use database databaseValue;
   use schema schemaValue;
-  use warehouse warehouseValue;
-  
   create streamlit nameValue
     
     MAIN_FILE = 'fileValue'
@@ -64,10 +64,9 @@
 # name: test_create_streamlit_from_stage
   '''
   use role roleValue;
+  use warehouse warehouseValue;
   use database databaseValue;
   use schema schemaValue;
-  use warehouse warehouseValue;
-  
   create streamlit nameValue
     FROM @stageValue
     MAIN_FILE = 'fileValue'
@@ -81,9 +80,10 @@
 # ---
 # name: test_deploy_streamlit
   '''
+  use role roleValue;
+  
   use database databaseValue;
   use schema schemaValue;
-  use role roleValue;
   
   CALL SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('nameValue');
   '''
@@ -108,9 +108,10 @@
 # ---
 # name: test_describe_streamlit
   '''
+  use role roleValue;
+  
   use database databaseValue;
   use schema schemaValue;
-  use role roleValue;
   
   CALL SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('nameValue');
   '''
@@ -146,9 +147,9 @@
 # name: test_drop_streamlit
   '''
   use role roleValue;
+  use warehouse warehouseValue;
   use database databaseValue;
   use schema schemaValue;
-  use warehouse warehouseValue;
   drop streamlit "nameValue";
   '''
 # ---

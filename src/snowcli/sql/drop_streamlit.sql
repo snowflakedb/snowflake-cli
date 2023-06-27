@@ -1,5 +1,2 @@
-use role {{ role }};
-use database {{ database }};
-use schema {{ schema }};
-use warehouse {{ warehouse }};
+{% include "set_env.sql" %}
 drop streamlit "{{ name }}";

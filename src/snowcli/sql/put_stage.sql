@@ -1,7 +1,4 @@
-use role {{ role }};
-use warehouse {{ warehouse }};
-use database {{ database }};
-use schema {{ schema }};
+{% include "set_env.sql" %}
 
 {% if create_stage_command %}
 {{ create_stage_command }};
