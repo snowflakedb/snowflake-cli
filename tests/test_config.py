@@ -1,5 +1,9 @@
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
+
+import pytest
 
 from snowcli.config import CliConfigManager
 
