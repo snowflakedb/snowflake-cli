@@ -28,9 +28,7 @@ class CliConfigManager(ConfigManager):
         if config_path_override:
             self.file_path = config_path_override
         if not self.file_path.exists():
-            self.initialize_connection_section()
-            self._dump_config()
-            log.info(f"Created Snowflake configuration file at {cli_config.file_path}")
+            self._initialise_config()
         self.read_config()
 
     def _add_options(self):
@@ -79,6 +77,12 @@ class CliConfigManager(ConfigManager):
     def initialize_connection_section(self):
         self.conf_file_cache = TOMLDocument()
         self.conf_file_cache.append("connections", table())
+
+    def _initialise_config(self):
+        os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
+        self.initialize_connection_section()
+        self._dump_config()
+        log.info(f"Created Snowflake configuration file at {cli_config.file_path}")
 
     def get_connection(self, connection_name: str) -> dict:
         try:
