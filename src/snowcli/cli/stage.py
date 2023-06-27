@@ -178,7 +178,7 @@ def stage_remove(
 
     if config.is_auth():
         config.connect_to_snowflake()
-        results = config.snowflake_connection.remove_from_stage(
+        results = conn.remove_from_stage(
             database=conn.ctx.database,
             schema=conn.ctx.schema,
             role=conn.ctx.role,
