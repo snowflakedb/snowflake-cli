@@ -3,13 +3,13 @@
 This is an open source and community supported tool. Support is provided on a best effort basis by project contributors.
 
 **Note**: Snowflake CLI is in Private Preview (PrPr). You must register for the PrPr to use Snowflake CLI by filling out the
-[SnowCLI  - PrPr Intake Form](https://forms.gle/HZNhPNbzn7oExjFu8). Also, if you want to access Snowflake Container
+[Snowflake CLI  - PrPr Intake Form](https://forms.gle/HZNhPNbzn7oExjFu8). Also, if you want to access Snowflake Container
 Services through Snowflake CLI, you must register for its PrPr. For more information, you can contact a
 Snowflake sales representative.
 
 ## Overview
 
-SnowCLI is a command line interface for working with Snowflake. It lets you create, manage, update, and view apps running in Snowflake.
+Snowflake CLI is a command line interface for working with Snowflake. It lets you create, manage, update, and view apps running in Snowflake.
 
 This is an open source project and contributions are welcome (though the project is maintained on a best-effort basis).
 
@@ -17,11 +17,11 @@ We plan to incorporate some patterns and features of this CLI into the Snowflake
 
 ### Tour and quickstart
 
-[![SnowCLI overview and quickstart demo](https://i.imgur.com/tqLVPWnm.png)](https://youtu.be/WDuBeAgbTt4)
+[![Snowflake CLI overview and quickstart demo](https://i.imgur.com/tqLVPWnm.png)](https://youtu.be/WDuBeAgbTt4)
 
-## Benefits of SnowCLI
+## Benefits of Snowflake CLI
 
-SnowCLI lets you locally run and debug Snowflake apps, and has the following benefits:
+Snowflake CLI lets you locally run and debug Snowflake apps, and has the following benefits:
 
 - Search, create, and upload python packages that may not be yet supported in Anaconda.
 - Has support for Snowpark Python **user defined functions** and **stored procedures**, **warehouses**, and **Streamlit** apps.
@@ -30,14 +30,13 @@ SnowCLI lets you locally run and debug Snowflake apps, and has the following ben
 - Update existing applications with code and dependencies automatically altered as needed.
 - Deployment artifacts are automatically managed and uploaded to Snowflake stages.
 
-## Limitations of SnowCLI
+## Limitations of Snowflake CLI
 
-SnowCLI has the following limitations:
+Snowflake CLI has the following limitation:
 
-- You must have the [SnowSQL](https://docs.snowflake.com/en/user-guide/snowsql.html) configuration file to authenticate to SnowCLI. See the [Prerequisites](#prerequisites) for more details.
-- To run Streamlit in Snowflake using SnowCLI, your Snowflake account must have access to the Streamlit private preview.
+- To run Streamlit in Snowflake using Snowflake CLI, your Snowflake account must have access to the Streamlit public preview.
 
-## Install SnowCLI
+## Install Snowflake CLI
 
 ### Install with Homebrew (Mac only)
 
@@ -74,15 +73,15 @@ snow --version
 
 You should now be able to run `snow` and get the CLI message.
 
-## Get started using SnowCLI
+## Get started using Snowflake CLI
 
-Use SnowCLI to build a function or stored procedure, or create a streamlit if you have access to the Streamlit in Snowflake private preview.
+Use Snowflake CLI to build a function or stored procedure, or create a streamlit if you have access to the Streamlit in Snowflake private preview.
 
 ### Prerequisites
 
 You must add your credentials to connect to Snowflake before you can use Snowflake CLI. You can add your Snowflake credentials using any of the following methods.
 
-#### Add credentials with SnowCLI
+#### Add credentials with Snowflake CLI
 
 To add Snowflake credentials using the Snowflake CLI `connection add` command:
 
@@ -131,8 +130,8 @@ To add credentials in a configuration file:
    ```
    [connections]
    [connections.myconnection]
-   accountname = myaccount
-   username = jondoe
+   account = myaccount
+   user = jondoe
    password = hunter2
    ```
 
@@ -141,13 +140,13 @@ To add credentials in a configuration file:
    ```
    [connections]
    [connections.myconnection]
-   accountname = myaccount
-   username = jondoe
+   account = myaccount
+   user = jondoe
    password = hunter2
 
    [connections.myconnection-test]
-   accountname = myaccount
-   username = jondoe-test
+   account = myaccount
+   user = jondoe-test
    password = hunter2
    ```
 
@@ -172,25 +171,46 @@ where:
 For example: SNOWFLAKE_CONNECTIONS_MYCONNECTION_ACCOUNT="my-account"
 
 
-To add credentials as environment variables:
+You specify some credentials, such as account and user, in the configuration file while specifying the password in an
+environment variables as follows:
 
 1. Define the following environment variables, as appropriate for your operating system:
 
    ```
    [connections]
    [connections.myconnection]
-   accountname = SNOWFLAKE_CONNECTIONS_MYCONNECTION_ACCOUNT
-   username = SNOWFLAKE_CONNECTIONS_MYCONNECTION_USER
-   password = SNOWFLAKE_CONNECTIONS_MYCONNECTION_PASSWORD
+   account = myaccount
+   user = jdoe
    ```
 
-1. If you already specify your credentials in a configuration file, as shown, you can remove them from the
-   connection settings.
+1. Create a system environment variable for the password using the appropriate naming convention:
 
+   ```
+   SNOWFLAKE_CONNECTIONS_MYCONNECTION_PASSWORD=pass1234
+   ```
+
+You can also override a value in the configuration file using a system environment variable. Assume the :file:`config.toml`
+file contains the following:
+
+```
+[connections]
+[connections.myconnection]
+account = myaccount
+user = jdoe
+password = xyz2000
+```
+
+You can supply a different password for that connection by creating the following environment variables:
+
+```
+SNOWFLAKE_CONNECTIONS_MYCONNECTION_PASSWORD=pass1234
+```
+
+In these two examples, Snowflake CLI uses the password "pass1234".
 
 ### Manage packages in Snowflake Stages
 
-You can use the Snowflake CLI to assist you in creating and uploading custom packages for Snowflake. This includes both full Python packages (and all needed dependencies) and Python packages that have native dependencies that are supported by Anaconda. All dependency evaluation is performed using `pip` on the machine the SnowCLI runs on and can create and help upload packages. Here's a flow to upload a custom package:
+You can use the Snowflake CLI to assist you in creating and uploading custom packages for Snowflake. This includes both full Python packages (and all needed dependencies) and Python packages that have native dependencies that are supported by Anaconda. All dependency evaluation is performed using `pip` on the machine the Snowflake CLI runs on and can create and help upload packages. Here's a flow to upload a custom package:
 
 1. Check to see if a package is supported: `snow package lookup <package-name>`
    - NOTE: if you see a WARNING! message, it means the package has likely has native libraries that are NOT supported by the Anaconda Snowflake channel.
@@ -201,18 +221,18 @@ You can use the Snowflake CLI to assist you in creating and uploading custom pac
 4. Upload to a stage (I'll upload to a stage called `packages` in the database / schema configured in previous step): `snow package upload -f <package-name>.zip -s packages --overwrite`
 5. You can now use the package in functions / procedures by adding an import to `@packages/<package-name>.zip`.
 
-It's worth noting that if you create and publish functions and procedures using the SnowCLI using the patterns below (`snow function` and `snow procedure`), SnowCLI will automatically bundle packages + code in a single zip that is created. But you can manage packages independently in stages as desired.
+It's worth noting that if you create and publish functions and procedures using the Snowflake CLI using the patterns below (`snow function` and `snow procedure`), Snowflake CLI will automatically bundle packages + code in a single zip that is created. But you can manage packages independently in stages as desired.
 
 ### Build a function
 
-To build a function or a stored procedure using SnowCLI, do the following:
+To build a function or a stored procedure using Snowflake CLI, do the following:
 
 1. Navigate to an empty directory to create your function.
 2. Run the command:
 
    `snow function init`
 
-    SnowCLI populates the directory with the files for a basic function. You can open `app.py` to see the files.
+    Snowflake CLI populates the directory with the files for a basic function. You can open `app.py` to see the files.
 3. Test the code by running the `app.py` script:
 
    `python app.py`
@@ -358,7 +378,7 @@ where COVERAGE < 75;
 ```
 
 ### Logging
-SnowCLI print logs to console. By default, it will print only error level logs, if you need more information you can run command with parameter `-v/--verbose`, this will print logs with level info and higher. If it still not enough, there is `--debug` parameter which will print logs with level debug and higher with additional information.
+Snowflake CLI print logs to console. By default, it will print only error level logs, if you need more information you can run command with parameter `-v/--verbose`, this will print logs with level info and higher. If it still not enough, there is `--debug` parameter which will print logs with level debug and higher with additional information.
 
 ## Get involved
 
