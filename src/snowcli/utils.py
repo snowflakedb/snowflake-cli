@@ -9,7 +9,7 @@ import re
 import shutil
 import subprocess
 import warnings
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Dict, List, Literal, Optional
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 
@@ -481,7 +481,7 @@ def recursive_zip_packages_dir(pack_dir: str, dest_zip: str) -> bool:
 
     with ZipFile(dest_zip, "w", ZIP_DEFLATED, allowZip64=True) as package_zip:
         for file in files_to_pack:
-            package_zip.write(file[0], arcname=os.path.relpath(file[0], file[1]))
+            package_zip.write(file.name, arcname=os.path.relpath(file.name, file.relpath))
     return True
 
 
@@ -490,44 +490,44 @@ def standard_zip_dir(dest_zip: str) -> bool:
 
     with ZipFile(dest_zip, "w", ZIP_DEFLATED, allowZip64=True) as package_zip:
         for file in files_to_pack:
-            package_zip.write(file[0], arcname=os.path.relpath(file[0], file[1]))
+            package_zip.write(file.name, arcname=os.path.relpath(file.name, file.relpath))
     return True
 
 
 def get_list_of_files_to_pack(
     pack_dir: Optional[str], is_recursive: bool
-) -> List[Tuple[Path, Optional[str]]]:
+) -> List[File]:
 
-    files: List[Tuple[Path, Optional[str]]] = []
+    files: List[File] = []
 
-    def filenames_filter(file: Path) -> bool:
+    def filenames_filter(filepath: Path) -> bool:
         return (
-            not file.name.startswith(".")
-            and not str(file).startswith(".")
-            and not file.match("*.pyc")
-            and not file.match("*__pycache__*")
-            and file not in map(lambda x: x[0], files)
+                not filepath.name.startswith(".")
+                and not str(filepath).startswith(".")
+                and not filepath.match("*.pyc")
+                and not filepath.match("*__pycache__*")
+                and filepath not in [file.name for file in files]
         )
 
     files += [
-        (file.absolute(), None) if filenames_filter(file) else (Path(), None)
-        for file in Path(".").glob("**/*")
+        File(filepath.absolute(), None) if filenames_filter(filepath) else File(Path(), None)
+        for filepath in Path(".").glob("**/*")
     ]
     for include_dir in os.getenv("SNOWCLI_INCLUDE_PATHS", "").split(":"):
         files += [
-            (file.absolute(), include_dir)
-            if (os.path.isdir(include_dir) and filenames_filter(file))
-            else (Path(), None)
-            for file in Path(include_dir).glob("**/*")
+            File(filepath.absolute(), include_dir)
+            if (os.path.isdir(include_dir) and filenames_filter(filepath))
+            else File(Path(), None)
+            for filepath in Path(include_dir).glob("**/*")
         ]
 
     if is_recursive:
         files += [
-            (file.absolute(), pack_dir) if filenames_filter(file) else (Path(), None)
-            for file in Path(str(pack_dir)).glob("**/*")
+            File(filepath.absolute(), pack_dir) if filenames_filter(filepath) else File(Path(), None)
+            for filepath in Path(str(pack_dir)).glob("**/*")
         ]
 
-    return list(filter(lambda x: os.path.isfile(x[0]), files))
+    return list(filter(lambda x: os.path.isfile(x.name), files))
 
 
 def get_snowflake_packages() -> list[str]:
@@ -595,3 +595,9 @@ def generate_deploy_stage_name(name: str, input_parameters: str) -> str:
         ",",
         "",
     )
+
+
+@dataclass()
+class File:
+    name: Path
+    relpath: Optional[str] = None
