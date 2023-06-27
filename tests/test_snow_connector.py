@@ -587,10 +587,13 @@ def test_stop_cp(_, snapshot):
     assert query.getvalue() == snapshot
 
 
+@mock.patch("snowcli.snow_connector.hashlib.md5")
+@mock.patch("snowcli.snow_connector.open")
 @mock.patch("snowflake.connector")
-def test_create_job(_, snapshot):
+def test_job_service(_, __, mock_md5, snapshot):
     connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
+    mock_md5.return_value.hexdigest.return_value = "4231"
 
     connector.create_job(
         database="databaseValue",
@@ -598,7 +601,7 @@ def test_create_job(_, snapshot):
         role="roleValue",
         warehouse="warehouseValue",
         compute_pool="compute_poolValue",
-        spec_path=str(Path(__file__).parent / "test_spec.yaml"),
+        spec_path="test_spec.yaml",
         stage="stageValue",
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
@@ -683,11 +686,13 @@ def test_registry_get_token(mock_conn, runner):
     assert result.stdout == '{"token": "token1234", "expires_in": 42}'
 
 
+@mock.patch("snowcli.snow_connector.hashlib.md5")
+@mock.patch("snowcli.snow_connector.open")
 @mock.patch("snowflake.connector")
-def test_create_services(_, snapshot):
+def test_create_service(_, __, mock_md5, snapshot):
     connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
-
+    mock_md5.return_value.hexdigest.return_value = "4231"
     connector.create_service(
         database="databaseValue",
         schema="schemaValue",
@@ -696,7 +701,7 @@ def test_create_services(_, snapshot):
         name="nameValue",
         compute_pool="compute_poolValue",
         num_instances=42,
-        spec_path=str(Path(__file__).parent / "test_spec.yaml"),
+        spec_path="test_spec.yaml",
         stage="stageValue",
     )
     query, *_ = connector.ctx.execute_stream.call_args.args

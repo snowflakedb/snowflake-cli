@@ -28,22 +28,6 @@
   describe function nameValue(a, b);
   '''
 # ---
-# name: test_create_job
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  
-  CREATE STAGE IF NOT EXISTS stageValue;
-  
-  put file:///Users/turbaszek/code/snowcli/tests/test_spec.yaml @stageValue/jobs/d41d8cd98f00b204e9800998ecf8427e auto_compress=false OVERWRITE = TRUE;
-  
-  EXECUTE SERVICE
-    COMPUTE_POOL =  compute_poolValue
-    spec=@stageValue/jobs/d41d8cd98f00b204e9800998ecf8427e/test_spec.yaml;
-  '''
-# ---
 # name: test_create_procedure
   '''
   use role roleValue;
@@ -63,7 +47,7 @@
   describe PROCEDURE nameValue(a, b);
   '''
 # ---
-# name: test_create_services
+# name: test_create_service
   '''
   use role roleValue;
   use warehouse warehouseValue;
@@ -72,13 +56,13 @@
   
   CREATE STAGE IF NOT EXISTS stageValue;
   
-  put file:///Users/turbaszek/code/snowcli/tests/test_spec.yaml @stageValue/services/d41d8cd98f00b204e9800998ecf8427e auto_compress=false OVERWRITE = TRUE;
+  put file://test_spec.yaml @stageValue/services/4231 auto_compress=false OVERWRITE = TRUE;
   
   CREATE SERVICE IF NOT EXISTS nameValue
     MIN_INSTANCES = 42
     MAX_INSTANCES = 42
     COMPUTE_POOL =  compute_poolValue
-    spec=@stageValue/services/d41d8cd98f00b204e9800998ecf8427e/test_spec.yaml;
+    spec=@stageValue/services/4231/test_spec.yaml;
   '''
 # ---
 # name: test_create_stage
@@ -287,6 +271,22 @@
   use schema schemaValue;
   
   get snow://embeddedStageValue file://pathValue/
+  '''
+# ---
+# name: test_job_service
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  CREATE STAGE IF NOT EXISTS stageValue;
+  
+  put file://test_spec.yaml @stageValue/jobs/4231 auto_compress=false OVERWRITE = TRUE;
+  
+  EXECUTE SERVICE
+    COMPUTE_POOL =  compute_poolValue
+    spec=@stageValue/jobs/4231/test_spec.yaml;
   '''
 # ---
 # name: test_list_cp
