@@ -481,7 +481,9 @@ def recursive_zip_packages_dir(pack_dir: str, dest_zip: str) -> bool:
 
     with ZipFile(dest_zip, "w", ZIP_DEFLATED, allowZip64=True) as package_zip:
         for file in files_to_pack:
-            package_zip.write(file.name, arcname=os.path.relpath(file.name, file.relpath))
+            package_zip.write(
+                file.name, arcname=os.path.relpath(file.name, file.relpath)
+            )
     return True
 
 
@@ -490,7 +492,9 @@ def standard_zip_dir(dest_zip: str) -> bool:
 
     with ZipFile(dest_zip, "w", ZIP_DEFLATED, allowZip64=True) as package_zip:
         for file in files_to_pack:
-            package_zip.write(file.name, arcname=os.path.relpath(file.name, file.relpath))
+            package_zip.write(
+                file.name, arcname=os.path.relpath(file.name, file.relpath)
+            )
     return True
 
 
@@ -502,15 +506,17 @@ def get_list_of_files_to_pack(
 
     def filenames_filter(filepath: Path) -> bool:
         return (
-                not filepath.name.startswith(".")
-                and not str(filepath).startswith(".")
-                and not filepath.match("*.pyc")
-                and not filepath.match("*__pycache__*")
-                and filepath not in [file.name for file in files]
+            not filepath.name.startswith(".")
+            and not str(filepath).startswith(".")
+            and not filepath.match("*.pyc")
+            and not filepath.match("*__pycache__*")
+            and filepath not in [file.name for file in files]
         )
 
     files += [
-        File(filepath.absolute(), None) if filenames_filter(filepath) else File(Path(), None)
+        File(filepath.absolute(), None)
+        if filenames_filter(filepath)
+        else File(Path(), None)
         for filepath in Path(".").glob("**/*")
     ]
     for include_dir in os.getenv("SNOWCLI_INCLUDE_PATHS", "").split(":"):
@@ -523,7 +529,9 @@ def get_list_of_files_to_pack(
 
     if is_recursive:
         files += [
-            File(filepath.absolute(), pack_dir) if filenames_filter(filepath) else File(Path(), None)
+            File(filepath.absolute(), pack_dir)
+            if filenames_filter(filepath)
+            else File(Path(), None)
             for filepath in Path(str(pack_dir)).glob("**/*")
         ]
 
