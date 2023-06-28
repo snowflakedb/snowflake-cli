@@ -40,7 +40,7 @@ def _create_snow_cli_global_context_manager_with_default_values() -> SnowCliGlob
     """
     Creates a manager with global state filled with default values.
     """
-    return SnowCliGlobalContextManager(SnowCliGlobalContext(enable_tracebacks=False))
+    return SnowCliGlobalContextManager(SnowCliGlobalContext(enable_tracebacks=True))
 
 
 snow_cli_global_context_manager = (

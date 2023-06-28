@@ -9,7 +9,7 @@ import logging
 import typer
 
 from snowcli import config, utils
-from snowcli.config import AppConfig
+from snowcli.config import connect_to_snowflake
 from snowcli.output.printing import print_db_cursor
 from snowcli.utils import (
     YesNoAskOptionsType,
@@ -49,18 +49,17 @@ def snowpark_create(
     execute_as_caller: bool = False,
     install_coverage_wrapper: bool = False,
 ):
-    env_conf = AppConfig().config.get(environment)
-    validate_configuration(env_conf, environment)
     if type == "function" and install_coverage_wrapper:
         log.error(
             "You cannot install a code coverage wrapper on a function, only a procedure."
         )
         raise typer.Abort()
+
+    conn = connect_to_snowflake(connection_name=environment)
     if config.is_auth():
-        config.connect_to_snowflake()
         deploy_dict = utils.get_deploy_names(
-            env_conf["database"],
-            env_conf["schema"],
+            conn.ctx.database,
+            conn.ctx.schema,
             generate_deploy_stage_name(
                 name,
                 input_parameters,
@@ -80,15 +79,15 @@ def snowpark_create(
                     temp_dir=temp_dir,
                     zip_file_path=temp_app_zip_path,
                 )
-            config.snowflake_connection.upload_file_to_stage(
+            conn.upload_file_to_stage(
                 file_path=temp_app_zip_path,
                 destination_stage=deploy_dict["stage"],
                 path=deploy_dict["directory"],
-                database=env_conf["database"],
-                schema=env_conf["schema"],
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
                 overwrite=overwrite,
-                role=env_conf["role"],
-                warehouse=env_conf["warehouse"],
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
             )
         packages = utils.get_snowflake_packages()
         if install_coverage_wrapper:
@@ -97,30 +96,30 @@ def snowpark_create(
                 packages.append("coverage")
         log.info(f"Creating {type}...")
         if type == "function":
-            results = config.snowflake_connection.create_function(
+            results = conn.create_function(
                 name=name,
                 input_parameters=input_parameters,
                 return_type=return_type,
                 handler=handler,
                 imports=deploy_dict["full_path"],
-                database=env_conf["database"],
-                schema=env_conf["schema"],
-                role=env_conf["role"],
-                warehouse=env_conf["warehouse"],
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
                 overwrite=overwrite,
                 packages=packages,
             )
         elif type == "procedure":
-            results = config.snowflake_connection.create_procedure(
+            results = conn.create_procedure(
                 name=name,
                 input_parameters=input_parameters,
                 return_type=return_type,
                 handler=handler,
                 imports=deploy_dict["full_path"],
-                database=env_conf["database"],
-                schema=env_conf["schema"],
-                role=env_conf["role"],
-                warehouse=env_conf["warehouse"],
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
                 overwrite=overwrite,
                 packages=packages,
                 execute_as_caller=execute_as_caller,
@@ -152,36 +151,34 @@ def snowpark_update(
     execute_as_caller: bool = False,
     install_coverage_wrapper: bool = False,
 ) -> None:
-    env_conf: dict = AppConfig().config.get(environment)  # type: ignore
-    validate_configuration(env_conf, environment)
+    conn = connect_to_snowflake(connection_name=environment)
     if type == "function" and install_coverage_wrapper:
         log.error(
             "You cannot install a code coverage wrapper on a function, only a procedure."
         )
         raise typer.Abort()
     if config.is_auth():
-        config.connect_to_snowflake()
         updated_package_list = []
         try:
             log.info(f"Updating {type} {name}...")
             if type == "function":
-                resource_details = config.snowflake_connection.describe_function(
+                resource_details = conn.describe_function(
                     name=name,
                     input_parameters=input_parameters,
-                    database=env_conf["database"],
-                    schema=env_conf["schema"],
-                    role=env_conf["role"],
-                    warehouse=env_conf["warehouse"],
+                    database=conn.ctx.database,
+                    schema=conn.ctx.schema,
+                    role=conn.ctx.role,
+                    warehouse=conn.ctx.warehouse,
                     show_exceptions=False,
                 )
             elif type == "procedure":
-                resource_details = config.snowflake_connection.describe_procedure(
+                resource_details = conn.describe_procedure(
                     name=name,
                     input_parameters=input_parameters,
-                    database=env_conf["database"],
-                    schema=env_conf["schema"],
-                    role=env_conf["role"],
-                    warehouse=env_conf["warehouse"],
+                    database=conn.ctx.database,
+                    schema=conn.ctx.schema,
+                    role=conn.ctx.role,
+                    warehouse=conn.ctx.warehouse,
                     show_exceptions=False,
                 )
             log.info("Checking if any new packages to update...")
@@ -223,8 +220,8 @@ def snowpark_update(
 
         finally:
             deploy_dict = utils.get_deploy_names(
-                env_conf["database"],
-                env_conf["schema"],
+                conn.ctx.database,
+                conn.ctx.schema,
                 generate_deploy_stage_name(name, input_parameters),
             )
             with tempfile.TemporaryDirectory() as temp_dir:
@@ -240,15 +237,15 @@ def snowpark_update(
                         temp_dir=temp_dir,
                         zip_file_path=temp_app_zip_path,
                     )
-                deploy_response = config.snowflake_connection.upload_file_to_stage(
+                deploy_response = conn.upload_file_to_stage(
                     file_path=temp_app_zip_path,
                     destination_stage=deploy_dict["stage"],
                     path=deploy_dict["directory"],
-                    database=env_conf["database"],
-                    schema=env_conf["schema"],
+                    database=conn.ctx.database,
+                    schema=conn.ctx.schema,
                     overwrite=True,
-                    role=env_conf["role"],
-                    warehouse=env_conf["warehouse"],
+                    role=conn.ctx.role,
+                    warehouse=conn.ctx.warehouse,
                 )
             log.info(
                 f"{deploy_response[0]} uploaded to stage " f"{deploy_dict['full_path']}"
@@ -257,30 +254,30 @@ def snowpark_update(
             if updated_package_list or replace:
                 log.info(f"Replacing {type} with updated values...")
                 if type == "function":
-                    config.snowflake_connection.create_function(
+                    conn.create_function(
                         name=name,
                         input_parameters=input_parameters,
                         return_type=return_type,
                         handler=handler,
                         imports=deploy_dict["full_path"],
-                        database=env_conf["database"],
-                        schema=env_conf["schema"],
-                        role=env_conf["role"],
-                        warehouse=env_conf["warehouse"],
+                        database=conn.ctx.database,
+                        schema=conn.ctx.schema,
+                        role=conn.ctx.role,
+                        warehouse=conn.ctx.warehouse,
                         overwrite=True,
                         packages=utils.get_snowflake_packages(),
                     )
                 elif type == "procedure":
-                    config.snowflake_connection.create_procedure(
+                    conn.create_procedure(
                         name=name,
                         input_parameters=input_parameters,
                         return_type=return_type,
                         handler=handler,
                         imports=deploy_dict["full_path"],
-                        database=env_conf["database"],
-                        schema=env_conf["schema"],
-                        role=env_conf["role"],
-                        warehouse=env_conf["warehouse"],
+                        database=conn.ctx.database,
+                        schema=conn.ctx.schema,
+                        role=conn.ctx.role,
+                        warehouse=conn.ctx.warehouse,
                         overwrite=True,
                         packages=utils.get_snowflake_packages(),
                         execute_as_caller=execute_as_caller,
@@ -392,25 +389,23 @@ def snowpark_package(
 
 
 def snowpark_execute(type: str, environment: str, select: str):
-    env_conf = AppConfig().config.get(environment)
-    validate_configuration(env_conf, environment)
+    conn = connect_to_snowflake(connection_name=environment)
     if config.is_auth():
-        config.connect_to_snowflake()
         if type == "function":
-            results = config.snowflake_connection.execute_function(
+            results = conn.execute_function(
                 function=select,
-                database=env_conf["database"],
-                schema=env_conf["schema"],
-                role=env_conf["role"],
-                warehouse=env_conf["warehouse"],
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
             )
         elif type == "procedure":
-            results = config.snowflake_connection.execute_procedure(
+            results = conn.execute_procedure(
                 procedure=select,
-                database=env_conf["database"],
-                schema=env_conf["schema"],
-                role=env_conf["role"],
-                warehouse=env_conf["warehouse"],
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
             )
         else:
             raise typer.Abort()
@@ -424,38 +419,33 @@ def snowpark_describe(
     input_parameters: str,
     signature: str,
 ):
-    env_conf = AppConfig().config.get(environment)
-    validate_configuration(env_conf, environment)
+    conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        config.connect_to_snowflake()
         if signature == "":
             if name == "" and input_parameters == "":
                 typer.BadParameter(
                     "Please provide either a function name and input "
                     "parameters or a function signature",
                 )
-            signature = (
-                name
-                + config.snowflake_connection.generate_signature_from_params(
-                    input_parameters,
-                )
+            signature = name + conn.generate_signature_from_params(
+                input_parameters,
             )
         if type == "function":
-            results = config.snowflake_connection.describe_function(
+            results = conn.describe_function(
                 signature=signature,
-                database=env_conf["database"],
-                schema=env_conf["schema"],
-                role=env_conf["role"],
-                warehouse=env_conf["warehouse"],
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
             )
         elif type == "procedure":
-            results = config.snowflake_connection.describe_procedure(
+            results = conn.describe_procedure(
                 signature=signature,
-                database=env_conf["database"],
-                schema=env_conf["schema"],
-                role=env_conf["role"],
-                warehouse=env_conf["warehouse"],
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
             )
         else:
             raise typer.Abort()
@@ -463,24 +453,22 @@ def snowpark_describe(
 
 
 def snowpark_list(type, environment, like):
-    env_conf = AppConfig().config.get(environment)
-    validate_configuration(env_conf, environment)
+    conn = connect_to_snowflake(connection_name=environment)
     if config.is_auth():
-        config.connect_to_snowflake()
         if type == "function":
-            results = config.snowflake_connection.list_functions(
-                database=env_conf["database"],
-                schema=env_conf["schema"],
-                role=env_conf["role"],
-                warehouse=env_conf["warehouse"],
+            results = conn.list_functions(
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
                 like=like,
             )
         elif type == "procedure":
-            results = config.snowflake_connection.list_procedures(
-                database=env_conf["database"],
-                schema=env_conf["schema"],
-                role=env_conf["role"],
-                warehouse=env_conf["warehouse"],
+            results = conn.list_procedures(
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
                 like=like,
             )
         else:
@@ -495,38 +483,33 @@ def snowpark_drop(
     input_parameters: str,
     signature: str,
 ):
-    env_conf = AppConfig().config.get(environment)
-    validate_configuration(env_conf, environment)
+    conn = connect_to_snowflake(connection_name=environment)
 
     if config.is_auth():
-        config.connect_to_snowflake()
         if signature == "":
             if name == "" and input_parameters == "":
                 typer.BadParameter(
                     "Please provide either a function name and input "
                     "parameters or a function signature",
                 )
-            signature = (
-                name
-                + config.snowflake_connection.generate_signature_from_params(
-                    input_parameters,
-                )
+            signature = name + conn.generate_signature_from_params(
+                input_parameters,
             )
         if type == "function":
-            results = config.snowflake_connection.drop_function(
+            results = conn.drop_function(
                 signature=signature,
-                database=env_conf["database"],
-                schema=env_conf["schema"],
-                role=env_conf["role"],
-                warehouse=env_conf["warehouse"],
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
             )
         elif type == "procedure":
-            results = config.snowflake_connection.drop_procedure(
+            results = conn.drop_procedure(
                 signature=signature,
-                database=env_conf["database"],
-                schema=env_conf["schema"],
-                role=env_conf["role"],
-                warehouse=env_conf["warehouse"],
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
             )
         else:
             raise typer.Abort()

@@ -1,8 +1,7 @@
-use role {{ role }};
-use warehouse {{ warehouse }};
-use database {{ database }};
-use schema {{ schema }};
+{% include "set_env.sql" %}
 
-{{ create_stage_command }}
+{% if create_stage_command %}
+{{ create_stage_command }};
+{% endif %}
 
 put file://{{ path }} {{ name }}{{ destination_path }} auto_compress=false parallel={{ parallel }} overwrite={{ overwrite }};

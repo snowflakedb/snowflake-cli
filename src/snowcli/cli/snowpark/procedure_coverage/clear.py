@@ -4,18 +4,13 @@ import logging
 import typer
 
 from snowcli import config, utils
-from snowcli.config import AppConfig
-from snowcli.utils import conf_callback, generate_deploy_stage_name
+from snowcli.config import connect_to_snowflake
+from snowcli.utils import generate_deploy_stage_name
 from snowcli.output.printing import print_db_cursor
 
-from . import app
+from snowcli.cli.snowpark.procedure_coverage import app
+from snowcli.cli.common.flags import ConnectionOption
 
-EnvironmentOption = typer.Option(
-    "dev",
-    help="Environment name",
-    callback=conf_callback,
-    is_eager=True,
-)
 log = logging.getLogger(__name__)
 
 
@@ -24,7 +19,7 @@ log = logging.getLogger(__name__)
     help="Delete the code coverage reports from the stage, to start the measuring process over",
 )
 def procedure_coverage_clear(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Option(
         ...,
         "--name",
@@ -38,29 +33,22 @@ def procedure_coverage_clear(
         help="Input parameters - such as (message string, count int). Must exactly match those provided when creating the procedure.",
     ),
 ):
-    env_conf = AppConfig().config.get(environment)
-    if env_conf is None:
-        log.info(
-            f"The {environment} environment is not configured in app.toml "
-            "yet, please run `snow configure -e dev` first before continuing."
-        )
-        raise typer.Abort()
+    conn = connect_to_snowflake(connection_name=environment)
     if config.is_auth():
-        config.connect_to_snowflake()
         deploy_dict = utils.get_deploy_names(
-            env_conf["database"],
-            env_conf["schema"],
+            conn.ctx.database,
+            conn.ctx.schema,
             generate_deploy_stage_name(
                 name,
                 input_parameters,
             ),
         )
         coverage_path = f"""{deploy_dict["directory"]}/coverage"""
-        results = config.snowflake_connection.remove_from_stage(
-            database=env_conf["database"],
-            schema=env_conf["schema"],
-            role=env_conf["role"],
-            warehouse=env_conf["warehouse"],
+        results = conn.remove_from_stage(
+            database=conn.ctx.database,
+            schema=conn.ctx.schema,
+            role=conn.ctx.role,
+            warehouse=conn.ctx.warehouse,
             name=deploy_dict["stage"],
             path=coverage_path,
         )

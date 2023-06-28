@@ -7,7 +7,7 @@ from shutil import copytree
 import pkg_resources
 import typer
 
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.cli.snowpark_shared import (
     CheckAnacondaForPyPiDependancies,
     PackageNativeLibrariesOption,
@@ -20,18 +20,32 @@ from snowcli.cli.snowpark_shared import (
     snowpark_package,
     snowpark_update,
 )
-from snowcli.utils import conf_callback
 
 app = typer.Typer(
     name="function",
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage user defined functions",
 )
-EnvironmentOption = typer.Option(
-    "dev",
-    help="Environment name",
-    callback=conf_callback,
-    is_eager=True,
+
+HandlerOption = typer.Option(
+    ...,
+    "--handler",
+    "-h",
+    help="Handler",
+)
+
+InputParametersOption = typer.Option(
+    ...,
+    "--input-parameters",
+    "-i",
+    help="Input parameters - such as (message string, count int)",
+)
+
+ReturnTypeOption = typer.Option(
+    ...,
+    "--return-type",
+    "-r",
+    help="Return type",
 )
 
 
@@ -52,7 +66,7 @@ def function_init():
 
 @app.command("create")
 def function_create(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     pypi_download: str = PyPiDownloadOption,
     package_native_libraries: str = PackageNativeLibrariesOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
@@ -69,24 +83,9 @@ def function_create(
         help="Path to the file or folder to deploy",
         exists=False,
     ),
-    handler: str = typer.Option(
-        ...,
-        "--handler",
-        "-h",
-        help="Handler",
-    ),
-    input_parameters: str = typer.Option(
-        ...,
-        "--input-parameters",
-        "-i",
-        help="Input parameters - such as (message string, count int)",
-    ),
-    return_type: str = typer.Option(
-        ...,
-        "--return-type",
-        "-r",
-        help="Return type",
-    ),
+    handler: str = HandlerOption,
+    input_parameters: str = InputParametersOption,
+    return_type: str = ReturnTypeOption,
     overwrite: bool = typer.Option(
         False,
         "--overwrite",
@@ -113,7 +112,7 @@ def function_create(
 
 @app.command("update")
 def function_update(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
@@ -125,24 +124,9 @@ def function_update(
         help="Path to the file to update",
         exists=False,
     ),
-    handler: str = typer.Option(
-        ...,
-        "--handler",
-        "-h",
-        help="Handler",
-    ),
-    input_parameters: str = typer.Option(
-        ...,
-        "--input-parameters",
-        "-i",
-        help="Input parameters - such as (message string, count int)",
-    ),
-    return_type: str = typer.Option(
-        ...,
-        "--return-type",
-        "-r",
-        help="Return type",
-    ),
+    handler: str = HandlerOption,
+    input_parameters: str = InputParametersOption,
+    return_type: str = ReturnTypeOption,
     replace: bool = typer.Option(
         False,
         "--replace-always",
@@ -182,7 +166,7 @@ def function_package(
 
 @app.command("execute")
 def function_execute(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     function: str = typer.Option(
         ...,
         "--function",
@@ -195,14 +179,9 @@ def function_execute(
 
 @app.command("describe")
 def function_describe(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Option("", "--name", "-n", help="Name of the function"),
-    input_parameters: str = typer.Option(
-        "",
-        "--input-parameters",
-        "-i",
-        help="Input parameters - such as (message string, count int)",
-    ),
+    input_parameters: str = InputParametersOption,
     function: str = typer.Option(
         "",
         "--function",
@@ -221,7 +200,7 @@ def function_describe(
 
 @app.command("list")
 def function_list(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     like: str = typer.Option(
         "%%",
         "--like",
@@ -234,14 +213,9 @@ def function_list(
 
 @app.command("drop")
 def function_drop(
-    environment: str = EnvironmentOption,
+    environment: str = ConnectionOption,
     name: str = typer.Option("", "--name", "-n", help="Name of the function"),
-    input_parameters: str = typer.Option(
-        "",
-        "--input-parameters",
-        "-i",
-        help="Input parameters - such as (message string, count int)",
-    ),
+    input_parameters: str = InputParametersOption,
     signature: str = typer.Option(
         "",
         "--procedure",

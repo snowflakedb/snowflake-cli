@@ -1,9 +1,23 @@
 # serializer version: 1
-# name: test_create_function
+# name: test_create_cp
   '''
+  use role roleValue;
+  use warehouse warehouseValue;
   use database databaseValue;
   use schema schemaValue;
+  
+  CREATE COMPUTE POOL nameValue
+    MIN_NODES = 42
+    MAX_NODES = 42
+    INSTANCE_FAMILY = instance_familyValue;
+  '''
+# ---
+# name: test_create_function
+  '''
+  use role roleValue;
   use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
   CREATE OR REPLACE  FUNCTION nameValue(string a, variant b)
            RETURNS returnTypeValue
            LANGUAGE PYTHON
@@ -16,10 +30,10 @@
 # ---
 # name: test_create_procedure
   '''
+  use role roleValue;
+  use warehouse warehouseValue;
   use database databaseValue;
   use schema schemaValue;
-  use warehouse warehouseValue;
-  
   CREATE OR REPLACE  PROCEDURE nameValue(string a, variant b)
            RETURNS returnTypeValue
            LANGUAGE PYTHON
@@ -31,6 +45,24 @@
   
   
   describe PROCEDURE nameValue(a, b);
+  '''
+# ---
+# name: test_create_service
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  CREATE STAGE IF NOT EXISTS stageValue;
+  
+  put file://test_spec.yaml @stageValue/services/4231 auto_compress=false OVERWRITE = TRUE;
+  
+  CREATE SERVICE IF NOT EXISTS nameValue
+    MIN_INSTANCES = 42
+    MAX_INSTANCES = 42
+    COMPUTE_POOL =  compute_poolValue
+    spec=@stageValue/services/4231/test_spec.yaml;
   '''
 # ---
 # name: test_create_stage
@@ -46,10 +78,9 @@
 # name: test_create_streamlit
   '''
   use role roleValue;
+  use warehouse warehouseValue;
   use database databaseValue;
   use schema schemaValue;
-  use warehouse warehouseValue;
-  
   create streamlit nameValue
     
     MAIN_FILE = 'fileValue'
@@ -64,10 +95,9 @@
 # name: test_create_streamlit_from_stage
   '''
   use role roleValue;
+  use warehouse warehouseValue;
   use database databaseValue;
   use schema schemaValue;
-  use warehouse warehouseValue;
-  
   create streamlit nameValue
     FROM @stageValue
     MAIN_FILE = 'fileValue'
@@ -81,11 +111,32 @@
 # ---
 # name: test_deploy_streamlit
   '''
-  use database databaseValue;
-  use schema schemaValue;
   use role roleValue;
   
+  use database databaseValue;
+  use schema schemaValue;
+  
   CALL SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('nameValue');
+  '''
+# ---
+# name: test_desc_job
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  desc service idValue;
+  '''
+# ---
+# name: test_desc_services
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  desc service nameValue;
   '''
 # ---
 # name: test_describe_function
@@ -108,11 +159,22 @@
 # ---
 # name: test_describe_streamlit
   '''
-  use database databaseValue;
-  use schema schemaValue;
   use role roleValue;
   
+  use database databaseValue;
+  use schema schemaValue;
+  
   CALL SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('nameValue');
+  '''
+# ---
+# name: test_drop_cp
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  drop compute pool nameValue;
   '''
 # ---
 # name: test_drop_function
@@ -124,6 +186,16 @@
   drop function signatureValue;
   '''
 # ---
+# name: test_drop_job
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  call SYSTEM$CANCEL_JOB('idValue');
+  '''
+# ---
 # name: test_drop_procedure
   '''
   use role roleValue;
@@ -131,6 +203,16 @@
   use database databaseValue;
   use schema schemaValue;
   drop procedure signatureValue;
+  '''
+# ---
+# name: test_drop_services
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  DROP SERVICE nameValue;
   '''
 # ---
 # name: test_drop_stage
@@ -146,9 +228,9 @@
 # name: test_drop_streamlit
   '''
   use role roleValue;
+  use warehouse warehouseValue;
   use database databaseValue;
   use schema schemaValue;
-  use warehouse warehouseValue;
   drop streamlit "nameValue";
   '''
 # ---
@@ -190,6 +272,32 @@
   get snow://embeddedStageValue file://pathValue/
   '''
 # ---
+# name: test_job_service
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  CREATE STAGE IF NOT EXISTS stageValue;
+  
+  put file://test_spec.yaml @stageValue/jobs/4231 auto_compress=false OVERWRITE = TRUE;
+  
+  EXECUTE SERVICE
+    COMPUTE_POOL =  compute_poolValue
+    spec=@stageValue/jobs/4231/test_spec.yaml;
+  '''
+# ---
+# name: test_list_cp
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  show compute pools;
+  '''
+# ---
 # name: test_list_functions
   '''
   use role roleValue;
@@ -208,6 +316,16 @@
   use schema schemaValue;
   show user procedures like 'likeValue';
   select "name", "created_on", "arguments" from table(result_scan(last_query_id()));
+  '''
+# ---
+# name: test_list_services
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  show services;
   '''
 # ---
 # name: test_list_stage[namedStageValue]
@@ -244,6 +362,26 @@
   use database databaseValue;
   use schema schemaValue;
   show streamlits;
+  '''
+# ---
+# name: test_logs_job
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  call SYSTEM$GET_JOB_LOGS('idValue', 'container_nameValue');
+  '''
+# ---
+# name: test_logs_services
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  call SYSTEM$GET_SERVICE_LOGS('nameValue', '0', 'container_nameValue');
   '''
 # ---
 # name: test_put_stage[namedStageValue]
@@ -318,6 +456,36 @@
   show warehouses;
   '''
 # ---
+# name: test_status_job
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  CALL SYSTEM$GET_JOB_STATUS('idValue');
+  '''
+# ---
+# name: test_status_services
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  CALL SYSTEM$GET_SERVICE_STATUS('nameValue');
+  '''
+# ---
+# name: test_stop_cp
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  alter compute pool nameValue stop all services;
+  '''
+# ---
 # name: test_upload_file_to_stage[namedStageValue-False]
   '''
   use role roleValue;
@@ -337,7 +505,9 @@
   use database databaseValue;
   use schema schemaValue;
   
-  create stage if not exists namedStageValue comment='deployments managed by snowcli'
+  
+  create stage if not exists namedStageValue comment='deployments managed by snowcli';
+  
   
   put file://file_pathValue @namedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
   '''
@@ -361,7 +531,9 @@
   use database databaseValue;
   use schema schemaValue;
   
-  create stage if not exists snow://embeddedStageValue comment='deployments managed by snowcli'
+  
+  create stage if not exists snow://embeddedStageValue comment='deployments managed by snowcli';
+  
   
   put file://file_pathValue snow://embeddedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
   '''

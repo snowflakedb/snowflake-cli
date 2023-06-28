@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import os
+
 import click
 import logging
+import hashlib
 from io import StringIO
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
@@ -27,15 +30,17 @@ class SnowflakeConnector:
 
     def __init__(
         self,
-        connection_config: dict,
+        connection_parameters: dict,
         overrides: Optional[dict] = None,
     ):
-        self.connection_config = connection_config
         if overrides:
-            for config, value in ((k, v) for k, v in overrides.items() if v):
-                self.connection_config[config] = value
-        self.connection_config["application"] = self._find_command_path()
-        self.ctx = snowflake.connector.connect(**self.connection_config)
+            connection_parameters.update(
+                {k: v for k, v in overrides.items() if v is not None}
+            )
+        self.ctx = snowflake.connector.connect(
+            application=self._find_command_path(),
+            **connection_parameters,
+        )
         self.cs = self.ctx.cursor()
 
     @staticmethod
@@ -664,6 +669,272 @@ class SnowflakeConnector:
         )
         return (description, url)
 
+    def create_service(
+        self,
+        name: str,
+        compute_pool: str,
+        spec_path: str,
+        role: str,
+        warehouse: str,
+        database: str,
+        num_instances: int,
+        schema: str,
+        stage: str,
+    ) -> SnowflakeCursor:
+        spec_filename = os.path.basename(spec_path)
+        file_hash = hashlib.md5(open(spec_path, "rb").read()).hexdigest()
+        stage_dir = os.path.join("services", file_hash)
+        return self.run_sql(
+            "snowservices/services/create_service",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "name": name,
+                "num_instances": num_instances,
+                "compute_pool": compute_pool,
+                "spec_path": spec_path,
+                "stage_dir": stage_dir,
+                "stage_filename": spec_filename,
+                "stage": stage,
+            },
+        )
+
+    def desc_service(
+        self, name: str, role: str, warehouse: str, database: str, schema: str
+    ) -> SnowflakeCursor:
+        return self.run_sql(
+            "snowservices/services/desc_service",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "name": name,
+            },
+        )
+
+    def status_service(
+        self, name: str, role: str, warehouse: str, database: str, schema: str
+    ) -> SnowflakeCursor:
+        return self.run_sql(
+            "snowservices/services/status_service",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "name": name,
+            },
+        )
+
+    def list_service(
+        self, role: str, warehouse: str, database: str, schema: str
+    ) -> SnowflakeCursor:
+        return self.run_sql(
+            "snowservices/services/list_service",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+            },
+        )
+
+    def drop_service(
+        self, name: str, role: str, warehouse: str, database: str, schema: str
+    ) -> SnowflakeCursor:
+        return self.run_sql(
+            "snowservices/services/drop_service",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "name": name,
+            },
+        )
+
+    def logs_service(
+        self,
+        name: str,
+        instance_id: str,
+        container_name: str,
+        role: str,
+        warehouse: str,
+        database: str,
+        schema: str,
+    ) -> SnowflakeCursor:
+        return self.run_sql(
+            "snowservices/services/logs_service",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "name": name,
+                "instance_id": instance_id,
+                "container_name": container_name,
+            },
+        )
+
+    def create_job(
+        self,
+        compute_pool: str,
+        spec_path: str,
+        role: str,
+        warehouse: str,
+        database: str,
+        schema: str,
+        stage: str,
+    ) -> SnowflakeCursor:
+        spec_filename = os.path.basename(spec_path)
+        file_hash = hashlib.md5(open(spec_path, "rb").read()).hexdigest()
+        stage_dir = os.path.join("jobs", file_hash)
+        return self.run_sql(
+            "snowservices/jobs/create_job",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "compute_pool": compute_pool,
+                "spec_path": spec_path,
+                "stage_dir": stage_dir,
+                "stage_filename": spec_filename,
+                "stage": stage,
+            },
+        )
+
+    def desc_job(
+        self, id: str, role: str, warehouse: str, database: str, schema: str
+    ) -> SnowflakeCursor:
+        return self.run_sql(
+            "snowservices/jobs/desc_job",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "id": id,
+            },
+        )
+
+    def status_job(
+        self, id: str, role: str, warehouse: str, database: str, schema: str
+    ) -> SnowflakeCursor:
+        return self.run_sql(
+            "snowservices/jobs/status_job",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "id": id,
+            },
+        )
+
+    def drop_job(
+        self, id: str, role: str, warehouse: str, database: str, schema: str
+    ) -> SnowflakeCursor:
+        return self.run_sql(
+            "snowservices/jobs/drop_job",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "id": id,
+            },
+        )
+
+    def logs_job(
+        self,
+        id: str,
+        container_name: str,
+        role: str,
+        warehouse: str,
+        database: str,
+        schema: str,
+    ) -> SnowflakeCursor:
+        return self.run_sql(
+            "snowservices/jobs/logs_job",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "id": id,
+                "container_name": container_name,
+            },
+        )
+
+    def create_compute_pool(
+        self,
+        name: str,
+        num_instances: int,
+        instance_family: str,
+        role: str,
+        warehouse: str,
+        database: str,
+        schema: str,
+    ) -> SnowflakeCursor:
+        return self.run_sql(
+            "snowservices/compute_pool/create_compute_pool",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "name": name,
+                "min_node": num_instances,
+                "max_node": num_instances,
+                "instance_family": instance_family,
+            },
+        )
+
+    def stop_compute_pool(
+        self, role: str, warehouse: str, database: str, schema: str, name: str
+    ) -> SnowflakeCursor:
+        return self.run_sql(
+            "snowservices/compute_pool/stop_compute_pools",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "name": name,
+            },
+        )
+
+    def drop_compute_pool(
+        self, name: str, role: str, warehouse: str, database: str, schema: str
+    ) -> SnowflakeCursor:
+        return self.run_sql(
+            "snowservices/compute_pool/drop_compute_pool",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+                "name": name,
+            },
+        )
+
+    def list_compute_pools(
+        self, role: str, warehouse: str, database: str, schema: str
+    ) -> SnowflakeCursor:
+        return self.run_sql(
+            "snowservices/compute_pool/list_compute_pools",
+            {
+                "database": database,
+                "schema": schema,
+                "role": role,
+                "warehouse": warehouse,
+            },
+        )
+
     def run_sql(
         self,
         command,
@@ -683,7 +954,7 @@ class SnowflakeConnector:
         except snowflake.connector.errors.ProgrammingError as e:
             if show_exceptions:
                 log.error(f"Error executing sql:\n{sql}")
-            raise (e)
+            raise e
 
     @staticmethod
     def generate_signature_from_params(params: str) -> str:

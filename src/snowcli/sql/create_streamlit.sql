@@ -1,8 +1,4 @@
-use role {{ role }};
-use database {{ database }};
-use schema {{ schema }};
-use warehouse {{ warehouse }};
-
+{% include "set_env.sql" %}
 create streamlit {{ name }}
   {{ from_stage_command }}
   MAIN_FILE = '{{ file_name }}'

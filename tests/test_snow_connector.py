@@ -1,4 +1,5 @@
 import textwrap
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -12,6 +13,14 @@ class CustomStr(str):
         return str(self)
 
 
+MOCK_CONNECTION = {
+    "database": "databaseValue",
+    "schema": "schemaValue",
+    "role": "roleValue",
+    "warehouse": "warehouseValue",
+}
+
+
 @pytest.mark.parametrize(
     "cmd,expected",
     [
@@ -23,19 +32,17 @@ class CustomStr(str):
 def test_command_context_is_passed_to_snowflake_connection(
     mock_conn, runner, cmd, expected
 ):
-    runner.invoke_with_config(cmd)
-    mock_conn.assert_called_once_with(
-        account=mock.ANY,
-        user=mock.ANY,
-        warehouse=mock.ANY,
-        role=mock.ANY,
-        application=expected,
-    )
+    mock_conn.return_value.execute_stream.return_value = (mock.MagicMock(),)
+    result = runner.invoke_with_config(cmd)
+    assert result.exit_code == 0, result.output
+    kwargs = mock_conn.call_args_list[-1][-1]
+    assert "application" in kwargs
+    assert kwargs["application"] == expected
 
 
 @mock.patch("snowflake.connector")
 def test_create_function(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.create_function(
@@ -58,7 +65,7 @@ def test_create_function(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_create_procedure(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.create_procedure(
@@ -81,7 +88,7 @@ def test_create_procedure(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_execute_function(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.execute_function(
@@ -97,7 +104,7 @@ def test_execute_function(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_execute_procedure(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.execute_procedure(
@@ -113,7 +120,7 @@ def test_execute_procedure(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_describe_function(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.describe_function(
@@ -132,7 +139,7 @@ def test_describe_function(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_describe_procedure(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.describe_procedure(
@@ -151,7 +158,7 @@ def test_describe_procedure(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_list_functions(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.list_functions(
@@ -167,7 +174,7 @@ def test_list_functions(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_list_stages(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.list_stages(
@@ -184,7 +191,7 @@ def test_list_stages(_, snapshot):
 @pytest.mark.parametrize("stage_name", ["namedStageValue", "snow://embeddedStageValue"])
 @mock.patch("snowflake.connector")
 def test_list_stage(_, snapshot, stage_name):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.list_stage(
@@ -202,7 +209,7 @@ def test_list_stage(_, snapshot, stage_name):
 @pytest.mark.parametrize("stage_name", ["namedStageValue", "snow://embeddedStageValue"])
 @mock.patch("snowflake.connector")
 def test_get_stage(_, snapshot, stage_name):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.get_stage(
@@ -219,7 +226,7 @@ def test_get_stage(_, snapshot, stage_name):
 
 @mock.patch("snowflake.connector")
 def test_set_procedure_comment(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.set_procedure_comment(
@@ -240,7 +247,7 @@ def test_set_procedure_comment(_, snapshot):
 @pytest.mark.parametrize("stage_name", ["namedStageValue", "snow://embeddedStageValue"])
 @mock.patch("snowflake.connector")
 def test_put_stage(_, snapshot, stage_name):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.put_stage(
@@ -260,7 +267,7 @@ def test_put_stage(_, snapshot, stage_name):
 @pytest.mark.parametrize("stage_name", ["namedStageValue", "snow://embeddedStageValue"])
 @mock.patch("snowflake.connector")
 def test_remove_from_stage(_, snapshot, stage_name):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.remove_from_stage(
@@ -277,7 +284,7 @@ def test_remove_from_stage(_, snapshot, stage_name):
 
 @mock.patch("snowflake.connector")
 def test_create_stage(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.create_stage(
@@ -293,7 +300,7 @@ def test_create_stage(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_drop_stage(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.drop_stage(
@@ -309,7 +316,7 @@ def test_drop_stage(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_list_procedures(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.list_procedures(
@@ -325,7 +332,7 @@ def test_list_procedures(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_drop_function(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.drop_function(
@@ -341,7 +348,7 @@ def test_drop_function(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_drop_procedure(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.drop_procedure(
@@ -357,7 +364,7 @@ def test_drop_procedure(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_list_streamlits(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.list_streamlits(
@@ -372,7 +379,7 @@ def test_list_streamlits(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_show_warehouses(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.show_warehouses(
@@ -388,7 +395,7 @@ def test_show_warehouses(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_create_streamlit(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.create_streamlit(
@@ -405,7 +412,7 @@ def test_create_streamlit(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_create_streamlit_from_stage(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.create_streamlit(
@@ -423,7 +430,7 @@ def test_create_streamlit_from_stage(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_share_streamlit(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.share_streamlit(
@@ -440,7 +447,7 @@ def test_share_streamlit(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_drop_streamlit(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.drop_streamlit(
@@ -456,7 +463,7 @@ def test_drop_streamlit(_, snapshot):
 
 @mock.patch("snowflake.connector")
 def test_deploy_streamlit(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (mock.MagicMock(),)
     connector.upload_file_to_stage = mock.MagicMock()
 
@@ -481,7 +488,7 @@ def test_deploy_streamlit(_, snapshot):
 @pytest.mark.parametrize("stage_name", ["namedStageValue", "snow://embeddedStageValue"])
 @mock.patch("snowflake.connector")
 def test_upload_file_to_stage(_, snapshot, create_stage, stage_name):
-    connector = SnowflakeConnector(connection_config={})
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.upload_file_to_stage(
@@ -501,7 +508,7 @@ def test_upload_file_to_stage(_, snapshot, create_stage, stage_name):
 
 @mock.patch("snowflake.connector")
 def test_describe_streamlit(_, snapshot):
-    connector = SnowflakeConnector(connection_config=mock.MagicMock())
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
 
     connector.describe_streamlit(
@@ -510,6 +517,273 @@ def test_describe_streamlit(_, snapshot):
         schema="schemaValue",
         role="roleValue",
         warehouse="warehouseValue",
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@mock.patch("snowflake.connector")
+def test_create_cp(_, snapshot):
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
+    connector.ctx.execute_stream.return_value = (None, None)
+
+    connector.create_compute_pool(
+        database="databaseValue",
+        schema="schemaValue",
+        role="roleValue",
+        warehouse="warehouseValue",
+        name="nameValue",
+        num_instances=42,
+        instance_family="instance_familyValue",
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@mock.patch("snowflake.connector")
+def test_list_cp(_, snapshot):
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
+    connector.ctx.execute_stream.return_value = (None, None)
+
+    connector.list_compute_pools(
+        database="databaseValue",
+        schema="schemaValue",
+        role="roleValue",
+        warehouse="warehouseValue",
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@mock.patch("snowflake.connector")
+def test_drop_cp(_, snapshot):
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
+    connector.ctx.execute_stream.return_value = (None, None)
+
+    connector.drop_compute_pool(
+        database="databaseValue",
+        schema="schemaValue",
+        role="roleValue",
+        warehouse="warehouseValue",
+        name="nameValue",
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@mock.patch("snowflake.connector")
+def test_stop_cp(_, snapshot):
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
+    connector.ctx.execute_stream.return_value = (None, None)
+
+    connector.stop_compute_pool(
+        database="databaseValue",
+        schema="schemaValue",
+        role="roleValue",
+        warehouse="warehouseValue",
+        name="nameValue",
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@mock.patch("snowcli.snow_connector.hashlib.md5")
+@mock.patch("snowcli.snow_connector.open")
+@mock.patch("snowflake.connector")
+def test_job_service(_, __, mock_md5, snapshot):
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
+    connector.ctx.execute_stream.return_value = (None, None)
+    mock_md5.return_value.hexdigest.return_value = "4231"
+
+    connector.create_job(
+        database="databaseValue",
+        schema="schemaValue",
+        role="roleValue",
+        warehouse="warehouseValue",
+        compute_pool="compute_poolValue",
+        spec_path="test_spec.yaml",
+        stage="stageValue",
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@mock.patch("snowflake.connector")
+def test_desc_job(_, snapshot):
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
+    connector.ctx.execute_stream.return_value = (None, None)
+
+    connector.desc_job(
+        database="databaseValue",
+        schema="schemaValue",
+        role="roleValue",
+        warehouse="warehouseValue",
+        id="idValue",
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@mock.patch("snowflake.connector")
+def test_logs_job(_, snapshot):
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
+    connector.ctx.execute_stream.return_value = (None, None)
+
+    connector.logs_job(
+        database="databaseValue",
+        schema="schemaValue",
+        role="roleValue",
+        warehouse="warehouseValue",
+        id="idValue",
+        container_name="container_nameValue",
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@mock.patch("snowflake.connector")
+def test_status_job(_, snapshot):
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
+    connector.ctx.execute_stream.return_value = (None, None)
+
+    connector.status_job(
+        database="databaseValue",
+        schema="schemaValue",
+        role="roleValue",
+        warehouse="warehouseValue",
+        id="idValue",
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@mock.patch("snowflake.connector")
+def test_drop_job(_, snapshot):
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
+    connector.ctx.execute_stream.return_value = (None, None)
+
+    connector.drop_job(
+        database="databaseValue",
+        schema="schemaValue",
+        role="roleValue",
+        warehouse="warehouseValue",
+        id="idValue",
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@mock.patch("snowcli.cli.snowpark.registry.connect_to_snowflake")
+def test_registry_get_token(mock_conn, runner):
+    mock_conn.return_value.ctx._rest._token_request.return_value = {
+        "data": {
+            "sessionToken": "token1234",
+            "validityInSecondsST": 42,
+        }
+    }
+    result = runner.invoke(["snowpark", "registry", "token"])
+    assert result.exit_code == 0, result.output
+    assert result.stdout == '{"token": "token1234", "expires_in": 42}'
+
+
+@mock.patch("snowcli.snow_connector.hashlib.md5")
+@mock.patch("snowcli.snow_connector.open")
+@mock.patch("snowflake.connector")
+def test_create_service(_, __, mock_md5, snapshot):
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
+    connector.ctx.execute_stream.return_value = (None, None)
+    mock_md5.return_value.hexdigest.return_value = "4231"
+    connector.create_service(
+        database="databaseValue",
+        schema="schemaValue",
+        role="roleValue",
+        warehouse="warehouseValue",
+        name="nameValue",
+        compute_pool="compute_poolValue",
+        num_instances=42,
+        spec_path="test_spec.yaml",
+        stage="stageValue",
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@mock.patch("snowflake.connector")
+def test_desc_services(_, snapshot):
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
+    connector.ctx.execute_stream.return_value = (None, None)
+
+    connector.desc_service(
+        database="databaseValue",
+        schema="schemaValue",
+        role="roleValue",
+        warehouse="warehouseValue",
+        name="nameValue",
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@mock.patch("snowflake.connector")
+def test_logs_services(_, snapshot):
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
+    connector.ctx.execute_stream.return_value = (None, None)
+
+    connector.logs_service(
+        database="databaseValue",
+        schema="schemaValue",
+        role="roleValue",
+        warehouse="warehouseValue",
+        name="nameValue",
+        instance_id="0",
+        container_name="container_nameValue",
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@mock.patch("snowflake.connector")
+def test_status_services(_, snapshot):
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
+    connector.ctx.execute_stream.return_value = (None, None)
+
+    connector.status_service(
+        database="databaseValue",
+        schema="schemaValue",
+        role="roleValue",
+        warehouse="warehouseValue",
+        name="nameValue",
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@mock.patch("snowflake.connector")
+def test_list_services(_, snapshot):
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
+    connector.ctx.execute_stream.return_value = (None, None)
+
+    connector.list_service(
+        database="databaseValue",
+        schema="schemaValue",
+        role="roleValue",
+        warehouse="warehouseValue",
+    )
+    query, *_ = connector.ctx.execute_stream.call_args.args
+    assert query.getvalue() == snapshot
+
+
+@mock.patch("snowflake.connector")
+def test_drop_services(_, snapshot):
+    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
+    connector.ctx.execute_stream.return_value = (None, None)
+
+    connector.drop_service(
+        database="databaseValue",
+        schema="schemaValue",
+        role="roleValue",
+        warehouse="warehouseValue",
+        name="nameValue",
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
     assert query.getvalue() == snapshot

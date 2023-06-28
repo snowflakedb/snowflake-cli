@@ -5,9 +5,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 import pytest
-import toml
 
-from snowcli.cli import app
 from typer import Typer
 from typer.testing import CliRunner
 
@@ -17,12 +15,10 @@ TEST_DIR = Path(__file__).parent
 @pytest.fixture(scope="session")
 def test_snowcli_config():
     test_config = TEST_DIR / "test.toml"
-    config = toml.load(test_config)
-    config["snowsql_config_path"] = str(TEST_DIR / "snowsql.toml")
     with NamedTemporaryFile(suffix=".toml", mode="w+") as fh:
-        toml.dump(config, fh)
+        fh.write(test_config.read_text())
         fh.flush()
-        yield fh.name
+        yield Path(fh.name)
 
 
 class SnowCLIRunner(CliRunner):
@@ -41,6 +37,8 @@ class SnowCLIRunner(CliRunner):
         )
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def runner(test_snowcli_config):
+    from snowcli.cli import app
+
     return SnowCLIRunner(app, test_snowcli_config)

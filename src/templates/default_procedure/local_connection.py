@@ -22,6 +22,6 @@ def get_dev_config(
         return session_config_dict
     except Exception:
         raise Exception(
-            "Error creating snowpark session - be sure you've logged into "
+            "Error creating snowpark_containers_cmds session - be sure you've logged into "
             "the SnowCLI and have a valid app.toml file",
         )
