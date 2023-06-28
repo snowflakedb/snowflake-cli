@@ -1,5 +1,4 @@
 import textwrap
-from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -787,3 +786,10 @@ def test_drop_services(_, snapshot):
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
     assert query.getvalue() == snapshot
+
+
+def test_returns_nice_error_in_case_of_connectivity_error(runner):
+    result = runner.invoke_with_config(["sql", "-q", "select 1"])
+    assert result.exit_code == 1
+    assert "Invalid connection configuration" in result.output
+    assert "User is empty" in result.output

@@ -4,7 +4,7 @@ from unittest import mock
 
 from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
 
-MOCK_CONNECTION = "snowcli.cli.sql.config.connect_to_snowflake"
+MOCK_CONNECTION = "snowcli.cli.sql.connect_to_snowflake"
 
 
 @mock.patch(MOCK_CONNECTION)
@@ -61,14 +61,6 @@ def test_sql_fails_for_both_query_and_file(runner):
         result = runner.invoke(["sql", "-f", tmp_file.name, "-q", "query"])
 
     assert_that_result_is_usage_error(result, "Both query and file provided")
-
-
-@mock.patch("snowcli.cli.sql.config.is_auth")
-def test_sql_fails_if_user_not_authenticated(mock_is_auth, runner):
-    mock_is_auth.return_value = False
-    result = runner.invoke(["sql", "-q", "select 1"])
-
-    assert_that_result_is_usage_error(result, "Not authenticated")
 
 
 @mock.patch("snowflake.connector.connect")

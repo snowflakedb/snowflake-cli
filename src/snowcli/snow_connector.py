@@ -6,12 +6,18 @@ import click
 import logging
 import hashlib
 from io import StringIO
+
+import typer
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 from typing import Optional
 
 import snowflake.connector
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.errors import ForbiddenError, DatabaseError
+
+from snowcli.config import cli_config
+from snowcli.exception import SnowflakeConnectionError, InvalidConnectionConfiguration
 
 log = logging.getLogger(__name__)
 TEMPLATES_PATH = Path(__file__).parent / "sql"
@@ -961,3 +967,16 @@ class SnowflakeConnector:
         if params == "()":
             return "()"
         return "(" + " ".join(params.split()[1::2])
+
+
+def connect_to_snowflake(connection_name: Optional[str] = None, **overrides):  # type: ignore
+    connection_name = connection_name if connection_name is not None else "dev"
+    try:
+        return SnowflakeConnector(
+            connection_parameters=cli_config.get_connection(connection_name),
+            overrides=overrides,
+        )
+    except ForbiddenError as err:
+        raise SnowflakeConnectionError(err)
+    except DatabaseError as err:
+        raise InvalidConnectionConfiguration(err.msg)

@@ -4,7 +4,7 @@ import logging
 import typer
 
 from snowcli import config, utils
-from snowcli.config import connect_to_snowflake
+from snowcli.snow_connector import connect_to_snowflake
 from snowcli.utils import generate_deploy_stage_name
 from snowcli.output.printing import print_db_cursor
 
@@ -34,23 +34,22 @@ def procedure_coverage_clear(
     ),
 ):
     conn = connect_to_snowflake(connection_name=environment)
-    if config.is_auth():
-        deploy_dict = utils.get_deploy_names(
-            conn.ctx.database,
-            conn.ctx.schema,
-            generate_deploy_stage_name(
-                name,
-                input_parameters,
-            ),
-        )
-        coverage_path = f"""{deploy_dict["directory"]}/coverage"""
-        results = conn.remove_from_stage(
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-            name=deploy_dict["stage"],
-            path=coverage_path,
-        )
-        log.info("Deleted the following coverage results from the stage:")
-        print_db_cursor(results)
+    deploy_dict = utils.get_deploy_names(
+        conn.ctx.database,
+        conn.ctx.schema,
+        generate_deploy_stage_name(
+            name,
+            input_parameters,
+        ),
+    )
+    coverage_path = f"""{deploy_dict["directory"]}/coverage"""
+    results = conn.remove_from_stage(
+        database=conn.ctx.database,
+        schema=conn.ctx.schema,
+        role=conn.ctx.role,
+        warehouse=conn.ctx.warehouse,
+        name=deploy_dict["stage"],
+        path=coverage_path,
+    )
+    log.info("Deleted the following coverage results from the stage:")
+    print_db_cursor(results)
