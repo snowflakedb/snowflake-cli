@@ -478,24 +478,22 @@ def install_packages(
 
 def recursive_zip_packages_dir(pack_dir: str, dest_zip: str) -> bool:
     files_to_pack = get_list_of_files_to_pack(pack_dir, True)
-
-    with ZipFile(dest_zip, "w", ZIP_DEFLATED, allowZip64=True) as package_zip:
-        for file in files_to_pack:
-            package_zip.write(
-                file.name, arcname=os.path.relpath(file.name, file.relpath)
-            )
+    add_files_to_zip(dest_zip, files_to_pack)
     return True
 
 
 def standard_zip_dir(dest_zip: str) -> bool:
     files_to_pack = get_list_of_files_to_pack(None, False)
+    add_files_to_zip(dest_zip, files_to_pack)
+    return True
 
+
+def add_files_to_zip(dest_zip: str, files_to_pack: List[File]) -> None:
     with ZipFile(dest_zip, "w", ZIP_DEFLATED, allowZip64=True) as package_zip:
         for file in files_to_pack:
             package_zip.write(
                 file.name, arcname=os.path.relpath(file.name, file.relpath)
             )
-    return True
 
 
 def get_list_of_files_to_pack(
