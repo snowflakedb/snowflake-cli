@@ -21,12 +21,12 @@ class TestPackage:
             (
                 "snowflake-connector-python",
                 "Package snowflake-connector-python is available on the Snowflake anaconda channel.",
-                "snowcli.cli.snowpark.package"
+                "snowcli.cli.snowpark.package",
             ),
             (
                 "some-weird-package-we-dont-know",
                 "not found in Snowflake anaconda channel...",
-                "snowcli.utils"
+                "snowcli.utils",
             ),
         ],
     )
