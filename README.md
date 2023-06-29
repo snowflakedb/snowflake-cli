@@ -210,4 +210,4 @@ In these two examples, Snowflake CLI uses the password "pass1234".
 ## Get involved
 
 Have a feature idea? Running into a bug? Want to contribute? We'd love to hear from you!
-Please open or review issues, open pull requests, or reach out to us on developers@snowflake.comHave a feature idea? Running into a bug? Want to contribute? We'd love to hear from you! Please open or review issues, open pull requests, or reach out to us on Twitter or LinkedIn [@jeffhollan](https://twitter.com/jeffhollan) and [@jroes](https://twitter.com/jroes).
+Please open or review issues, open pull requests, or reach out to us on developers@snowflake.com
