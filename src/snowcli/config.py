@@ -10,13 +10,11 @@ from tomlkit.exceptions import NonExistentKey
 import logging
 
 from snowcli.exception import MissingConfiguration
-from snowcli.snow_connector import SnowflakeConnector
 from snowflake.connector.constants import CONFIG_FILE
 from snowflake.connector.config_manager import ConfigManager
 
 
 log = logging.getLogger(__name__)
-snowflake_connection: SnowflakeConnector
 
 
 class CliConfigManager(ConfigManager):
@@ -109,19 +107,6 @@ def config_init(config_file: Path):
     If config file does not exist we create an empty one.
     """
     cli_config.from_context(config_path_override=config_file)
-
-
-def connect_to_snowflake(connection_name: Optional[str] = None, **overrides):  # type: ignore
-    connection_name = connection_name if connection_name is not None else "dev"
-    return SnowflakeConnector(
-        connection_parameters=cli_config.get_connection(connection_name),
-        overrides=overrides,
-    )
-
-
-def is_auth():
-    # To be removed. Added to simplify refactor
-    return True
 
 
 cli_config: CliConfigManager = CliConfigManager()  # type: ignore

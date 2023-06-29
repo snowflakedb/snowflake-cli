@@ -1,11 +1,5 @@
-import os
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
-from unittest import mock
-
-import pytest
-
-from snowcli.config import CliConfigManager
 
 
 def test_new_connection_can_be_added(runner, snapshot):
