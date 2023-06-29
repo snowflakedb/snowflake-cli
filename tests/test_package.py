@@ -55,7 +55,6 @@ class TestPackage:
         with caplog.at_level(logging.DEBUG, logger="snowcli.cli.snowpark.package"):
             result = package.package_create("totally-awesome-package")
 
-        print("*******************" + caplog.text.__str__() + "\n\n\n\n\n\n\n\n")
         assert (
             f"Package totally-awesome-package.zip created. You can now upload it to a stage (`snow package upload -f totally-awesome-package.zip -s packages`) and reference it in your procedure or function."
             in caplog.text
