@@ -2,9 +2,12 @@ import io
 import logging
 import os
 import shutil
+from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
+from _pytest.logging import _remove_ansi_escape_sequences, LogCaptureHandler
+
 from snowcli.cli.snowpark import package
 
 from tests.test_data import test_data
@@ -34,9 +37,11 @@ class TestPackage:
         mock_requests.get.return_value = mock_response
 
         monkeypatch.setattr("sys.stdin", io.StringIO("N"))
+
         with caplog.at_level(logging.DEBUG):
             result = package.package_lookup(argument[0], install_packages=True)
 
+        assert caplog.records
         assert argument[1] in caplog.text
 
     @patch("tests.test_package.package.utils.requests")
@@ -60,3 +65,4 @@ class TestPackage:
         path = os.path.join(os.getcwd(), ".packages")
         os.mkdir(path)
         yield path
+
