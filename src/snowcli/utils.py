@@ -5,14 +5,13 @@ import glob
 import json
 import logging
 import os
-import pathlib
 import re
 import shutil
 import subprocess
 import warnings
-import zipfile
-from pathlib import Path
 from typing import Dict, List, Literal, Optional
+from pathlib import Path
+from zipfile import ZipFile, ZIP_DEFLATED
 
 import click
 import requests
@@ -346,7 +345,7 @@ def add_file_to_existing_zip(zip_file: str, other_file: str):
         zip_file (str): The existing zip file
         other_file (str): The new file to add
     """
-    with zipfile.ZipFile(zip_file, mode="a") as myzip:
+    with ZipFile(zip_file, mode="a") as myzip:
         myzip.write(other_file, os.path.basename(other_file))
 
 
@@ -478,64 +477,63 @@ def install_packages(
 
 
 def recursive_zip_packages_dir(pack_dir: str, dest_zip: str) -> bool:
-    # TODO:
-    # 1. why this is -> bool
-    # 2. Reformat it to with open...
-    # 3. Reformat it to get list od dirs and then iterate through it, adding files to zip
-    # create a zip file object
-    zipf = zipfile.ZipFile(dest_zip, "w", zipfile.ZIP_DEFLATED, allowZip64=True)
-
-    # for every file in the relative path pack_dir, add it to the zip file
-    for file in pathlib.Path(pack_dir).glob("**/*"):
-        zipf.write(file, arcname=os.path.relpath(file, pack_dir))
-
-    # zip all files in the current directory except the ones that start with "." or are in the pack_dir
-    for file in pathlib.Path(".").glob("**/*"):
-        if (
-            not str(file).startswith(".")
-            and not file.match(f"{pack_dir}/*")
-            and not file.match(dest_zip)
-        ):
-            zipf.write(os.path.relpath(file))
-
-    if os.getenv("SNOWCLI_INCLUDE_PATHS") is not None:
-        for dir_path in os.getenv("SNOWCLI_INCLUDE_PATHS", "").split(":"):
-            directory = pathlib.Path(dir_path)
-            if directory.is_dir():
-                for file in pathlib.Path(directory).glob("**/*"):
-                    if (
-                        not str(file).startswith(".")
-                        and not file.match("*.pyc")
-                        and not file.match("*__pycache__*")
-                    ):
-                        zipf.write(file, arcname=os.path.relpath(file, directory))
-
-    # close the zip file object
-    zipf.close()
+    files_to_pack = get_list_of_files_to_pack(pack_dir, True)
+    add_files_to_zip(dest_zip, files_to_pack)
     return True
 
 
 def standard_zip_dir(dest_zip: str) -> bool:
-    zipf = zipfile.ZipFile(dest_zip, "w", zipfile.ZIP_DEFLATED, allowZip64=True)
-    for file in pathlib.Path(".").glob("*"):
-        if not file.match(".*"):
-            zipf.write(os.path.relpath(file))
-
-    if os.getenv("SNOWCLI_INCLUDE_PATHS") is not None:
-        for dir_path in os.getenv("SNOWCLI_INCLUDE_PATHS", "").split(":"):
-            directory = pathlib.Path(dir_path)
-            if directory.is_dir():
-                for file in pathlib.Path(directory).glob("**/*"):
-                    if (
-                        not str(file).startswith(".")
-                        and not file.match("*.pyc")
-                        and not file.match("*__pycache__*")
-                    ):
-                        zipf.write(file, arcname=os.path.relpath(file, directory))
-
-    # close the zip file object
-    zipf.close()
+    files_to_pack = get_list_of_files_to_pack(None, False)
+    add_files_to_zip(dest_zip, files_to_pack)
     return True
+
+
+def add_files_to_zip(dest_zip: str, files_to_pack: List[File]) -> None:
+    with ZipFile(dest_zip, "w", ZIP_DEFLATED, allowZip64=True) as package_zip:
+        for file in files_to_pack:
+            package_zip.write(
+                file.name, arcname=os.path.relpath(file.name, file.relpath)
+            )
+
+
+def get_list_of_files_to_pack(
+    pack_dir: Optional[str], is_recursive: bool
+) -> List[File]:
+
+    files: List[File] = []
+
+    def filenames_filter(filepath: Path) -> bool:
+        return (
+            not filepath.name.startswith(".")
+            and not str(filepath).startswith(".")
+            and not filepath.match("*.pyc")
+            and not filepath.match("*__pycache__*")
+            and filepath not in [file.name for file in files]
+        )
+
+    files += [
+        File(filepath.absolute(), None)
+        if filenames_filter(filepath)
+        else File(Path(), None)
+        for filepath in Path(".").glob("**/*")
+    ]
+    for include_dir in os.getenv("SNOWCLI_INCLUDE_PATHS", "").split(":"):
+        files += [
+            File(filepath.absolute(), include_dir)
+            if (os.path.isdir(include_dir) and filenames_filter(filepath))
+            else File(Path(), None)
+            for filepath in Path(include_dir).glob("**/*")
+        ]
+
+    if is_recursive:
+        files += [
+            File(filepath.absolute(), pack_dir)
+            if filenames_filter(filepath)
+            else File(Path(), None)
+            for filepath in Path(str(pack_dir)).glob("**/*")
+        ]
+
+    return list(filter(lambda x: os.path.isfile(x.name), files))
 
 
 def get_snowflake_packages() -> list[str]:
@@ -586,3 +584,9 @@ def generate_deploy_stage_name(name: str, input_parameters: str) -> str:
         ",",
         "",
     )
+
+
+@dataclass()
+class File:
+    name: Path
+    relpath: Optional[str] = None
