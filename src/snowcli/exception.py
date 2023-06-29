@@ -8,3 +8,13 @@ class EnvironmentVariableNotFoundError(ClickException):
 
 class MissingConfiguration(ClickException):
     pass
+
+
+class InvalidConnectionConfiguration(ClickException):
+    def format_message(self):
+        return f"Invalid connection configuration. {self.message}"
+
+
+class SnowflakeConnectionError(ClickException):
+    def __init__(self, snowflake_err: Exception):
+        super().__init__(f"Could not connect to Snowflake. Reason: {snowflake_err}")

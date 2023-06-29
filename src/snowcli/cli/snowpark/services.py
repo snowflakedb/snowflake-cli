@@ -7,13 +7,12 @@ from typing import TextIO
 from typing_extensions import Annotated
 
 from snowcli.cli.common.flags import ConnectionOption
-from snowcli.config import connect_to_snowflake
+from snowcli.snow_connector import connect_to_snowflake
 from snowcli.output.printing import print_db_cursor
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS, name="services", help="Manage services"
 )
-
 
 if not sys.stdout.closed and sys.stdout.isatty():
     GREEN = "\033[32m"
@@ -45,19 +44,18 @@ def create(
     """
     conn = connect_to_snowflake(connection_name=environment)
 
-    if config.is_auth():
-        results = conn.create_service(
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-            name=name,
-            compute_pool=compute_pool,
-            num_instances=num_instances,
-            spec_path=spec_path,
-            stage=stage,
-        )
-        print_db_cursor(results)
+    results = conn.create_service(
+        database=conn.ctx.database,
+        schema=conn.ctx.schema,
+        role=conn.ctx.role,
+        warehouse=conn.ctx.warehouse,
+        name=name,
+        compute_pool=compute_pool,
+        num_instances=num_instances,
+        spec_path=spec_path,
+        stage=stage,
+    )
+    print_db_cursor(results)
 
 
 @app.command()
@@ -70,15 +68,14 @@ def desc(
     """
     conn = connect_to_snowflake(connection_name=environment)
 
-    if config.is_auth():
-        results = conn.desc_service(
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-            name=name,
-        )
-        print_db_cursor(results)
+    results = conn.desc_service(
+        database=conn.ctx.database,
+        schema=conn.ctx.schema,
+        role=conn.ctx.role,
+        warehouse=conn.ctx.warehouse,
+        name=name,
+    )
+    print_db_cursor(results)
 
 
 def _prefix_line(prefix: str, line: str) -> str:
@@ -114,19 +111,18 @@ def logs(
     """
     conn = connect_to_snowflake(connection_name=environment)
 
-    if config.is_auth():
-        results = conn.logs_service(
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-            name=name,
-            instance_id="0",
-            container_name=container_name,
-        )
-        cursor = results.fetchone()
-        logs = next(iter(cursor)).split("\n")
-        print_log_lines(sys.stdout, name, "0", logs)
+    results = conn.logs_service(
+        database=conn.ctx.database,
+        schema=conn.ctx.schema,
+        role=conn.ctx.role,
+        warehouse=conn.ctx.warehouse,
+        name=name,
+        instance_id="0",
+        container_name=container_name,
+    )
+    cursor = results.fetchone()
+    logs = next(iter(cursor)).split("\n")
+    print_log_lines(sys.stdout, name, "0", logs)
 
 
 @app.command()
@@ -139,15 +135,14 @@ def status(
     """
     conn = connect_to_snowflake(connection_name=environment)
 
-    if config.is_auth():
-        results = conn.status_service(
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-            name=name,
-        )
-        print_db_cursor(results)
+    results = conn.status_service(
+        database=conn.ctx.database,
+        schema=conn.ctx.schema,
+        role=conn.ctx.role,
+        warehouse=conn.ctx.warehouse,
+        name=name,
+    )
+    print_db_cursor(results)
 
 
 @app.command()
@@ -157,14 +152,13 @@ def list(environment: str = ConnectionOption):
     """
     conn = connect_to_snowflake(connection_name=environment)
 
-    if config.is_auth():
-        results = conn.list_service(
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-        )
-        print_db_cursor(results)
+    results = conn.list_service(
+        database=conn.ctx.database,
+        schema=conn.ctx.schema,
+        role=conn.ctx.role,
+        warehouse=conn.ctx.warehouse,
+    )
+    print_db_cursor(results)
 
 
 @app.command()
@@ -177,12 +171,11 @@ def drop(
     """
     conn = connect_to_snowflake(connection_name=environment)
 
-    if config.is_auth():
-        results = conn.drop_service(
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-            name=name,
-        )
-        print_db_cursor(results)
+    results = conn.drop_service(
+        database=conn.ctx.database,
+        schema=conn.ctx.schema,
+        role=conn.ctx.role,
+        warehouse=conn.ctx.warehouse,
+        name=name,
+    )
+    print_db_cursor(results)

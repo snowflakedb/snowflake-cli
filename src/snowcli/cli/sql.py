@@ -10,7 +10,7 @@ from rich.live import Live
 from rich.table import Table
 from snowflake.connector.cursor import SnowflakeCursor
 
-from snowcli import config
+from snowcli.snow_connector import connect_to_snowflake
 from snowcli.cli.common.flags import (
     ConnectionOption,
     AccountOption,
@@ -102,10 +102,7 @@ def execute_sql(
     else:
         sql = query if query else file.read_text()  # type: ignore
 
-    if not config.is_auth():
-        raise UsageError("Not authenticated")
-
-    conn = config.connect_to_snowflake(
+    conn = connect_to_snowflake(
         connection_name=connection,
         account=account,
         user=user,
