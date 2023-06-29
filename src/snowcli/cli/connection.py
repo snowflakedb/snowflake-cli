@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import logging
+
 import typer
 from click import ClickException
+from click.types import StringParamType
 from tomlkit.exceptions import KeyAlreadyPresent
 
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
@@ -16,8 +18,18 @@ app = typer.Typer(
 log = logging.getLogger(__name__)
 
 
-@app.command()
-def list():
+class EmptyInput:
+    def __repr__(self):
+        return "optional"
+
+
+class OptionalPrompt(StringParamType):
+    def convert(self, value, param, ctx):
+        return None if isinstance(value, EmptyInput) else value
+
+
+@app.command(name="list")
+def list_connections():
     """
     List configured connections.
     """
@@ -36,14 +48,15 @@ def add(
         "--connection-name",
         prompt="Name for this connection",
         help="Name of the new connection",
+        show_default=False,
     ),
     account: str = typer.Option(
         None,
         "-a",
         "--accountname",
         "--account",
-        prompt="Snowflake account",
-        help="Name assigned to your Snowflake account.",
+        help="Account name to be used to authenticate with Snowflake.",
+        show_default=False,
     ),
     user: str = typer.Option(
         None,
@@ -51,15 +64,57 @@ def add(
         "--username",
         "--user",
         prompt="Snowflake username",
+        show_default=False,
         help="Username to connect to Snowflake.",
     ),
     password: str = typer.Option(
-        None,
+        EmptyInput(),
         "-p",
         "--password",
+        click_type=OptionalPrompt(),
         prompt="Snowflake password",
         help="Snowflake password",
         hide_input=True,
+    ),
+    database: str = typer.Option(
+        EmptyInput(),
+        "-d",
+        "--database",
+        click_type=OptionalPrompt(),
+        prompt="Database for the connection",
+        help="Database to use on Snowflake.",
+    ),
+    schema: str = typer.Option(
+        EmptyInput(),
+        "-s",
+        "--schema",
+        click_type=OptionalPrompt(),
+        prompt="Connection port",
+        help="Schema in use on Snowflake.",
+    ),
+    host: str = typer.Option(
+        EmptyInput(),
+        "-h",
+        "--host",
+        click_type=OptionalPrompt(),
+        prompt="Connection host",
+        help="The host name the connection attempts to connect to.",
+    ),
+    port: int = typer.Option(
+        EmptyInput(),
+        "-P",
+        "--port",
+        click_type=OptionalPrompt(),
+        prompt="Connection port",
+        help="The port to communicate with on the host.",
+    ),
+    region: str = typer.Option(
+        EmptyInput(),
+        "-r",
+        "--region",
+        click_type=OptionalPrompt(),
+        prompt="Snowflake region",
+        help="Region name if not the default Snowflake Database deployment.",
     ),
 ):
     """Add connection to configuration file."""
@@ -67,7 +122,15 @@ def add(
         "account": account,
         "user": user,
         "password": password,
+        "host": host,
+        "region": region,
+        "port": port,
+        "database": database,
+        "schema": schema,
     }
+    print(connection_entry)
+    connection_entry = {k: v for k, v in connection_entry.items() if v is not None}
+
     try:
         cli_config.add_connection(name=connection, parameters=connection_entry)
     except KeyAlreadyPresent:
