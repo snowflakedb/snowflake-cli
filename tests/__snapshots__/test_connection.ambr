@@ -2,17 +2,17 @@
 # name: test_new_connection_add_prompt_handles_default_values
   '''
   [connections.connName]
-  user = "accName"
-  password = "userName"
+  account = "accName"
+  user = "userName"
   
   '''
 # ---
 # name: test_new_connection_add_prompt_handles_prompt_override
   '''
   [connections.connName]
-  user = "accName"
-  password = "userName"
-  database = "dbName"
+  account = "accName"
+  user = "userName"
+  password = "dbName"
   
   '''
 # ---

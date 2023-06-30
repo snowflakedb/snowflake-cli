@@ -55,6 +55,7 @@ def add(
         "-a",
         "--accountname",
         "--account",
+        prompt="Snowflake account name",
         help="Account name to be used to authenticate with Snowflake.",
         show_default=False,
     ),
@@ -76,6 +77,22 @@ def add(
         help="Snowflake password",
         hide_input=True,
     ),
+    role: str = typer.Option(
+        EmptyInput(),
+        "-r",
+        "--role",
+        click_type=OptionalPrompt(),
+        prompt="Role for the connection",
+        help="Role to use on Snowflake.",
+    ),
+    warehouse: str = typer.Option(
+        EmptyInput(),
+        "-w",
+        "--warehouse",
+        click_type=OptionalPrompt(),
+        prompt="Warehouse for the connection",
+        help="Warehouse to use on Snowflake.",
+    ),
     database: str = typer.Option(
         EmptyInput(),
         "-d",
@@ -89,8 +106,8 @@ def add(
         "-s",
         "--schema",
         click_type=OptionalPrompt(),
-        prompt="Connection port",
-        help="Schema in use on Snowflake.",
+        prompt="Schema for the connection",
+        help="Schema to use on Snowflake.",
     ),
     host: str = typer.Option(
         EmptyInput(),
@@ -110,11 +127,11 @@ def add(
     ),
     region: str = typer.Option(
         EmptyInput(),
-        "-r",
+        "-R",
         "--region",
         click_type=OptionalPrompt(),
         prompt="Snowflake region",
-        help="Region name if not the default Snowflake Database deployment.",
+        help="Region name if not the default Snowflake deployment.",
     ),
 ):
     """Add connection to configuration file."""
@@ -127,8 +144,9 @@ def add(
         "port": port,
         "database": database,
         "schema": schema,
+        "warehouse": warehouse,
+        "role": role,
     }
-    print(connection_entry)
     connection_entry = {k: v for k, v in connection_entry.items() if v is not None}
 
     try:
