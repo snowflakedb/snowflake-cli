@@ -9,6 +9,7 @@ repos:
       - id: check-yaml
         exclude: .github/repo_meta.yaml
       - id: debug-statements
+        exclude: src/snowcli/pycharm_remote_debug.py
       - id: check-ast
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     rev: "v0.0.217"

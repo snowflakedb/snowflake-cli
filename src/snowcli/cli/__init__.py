@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import pkgutil
 import sys
+
 import typer
 from collections.abc import Container
 from pathlib import Path
@@ -24,7 +25,7 @@ from snowcli.cli import loggers
 from snowcli.cli.snowpark import app as snowpark_app
 from snowcli.config import config_init
 from snowcli.output.formats import OutputFormat
-
+from snowcli.pycharm_remote_debug import setup_pycharm_remote_debugger_if_provided
 
 app: SnowCliMainTyper = SnowCliMainTyper()
 log = logging.getLogger(__name__)
@@ -83,10 +84,30 @@ def default(
         "--debug",
         help="Print logs from level debug and higher, logs contains additional information",
     ),
+    pycharm_debug_library_path: str = typer.Option(
+        None,
+        "--pycharm-debug-library-path",
+        hidden=True,
+    ),
+    pycharm_debug_server_host: str = typer.Option(
+        "localhost",
+        "--pycharm-debug-server-host",
+        hidden=True,
+    ),
+    pycharm_debug_server_port: int = typer.Option(
+        12345,
+        "--pycharm-debug-server-port",
+        hidden=True,
+    ),
 ) -> None:
     """
     SnowCLI - A CLI for Snowflake
     """
+    setup_pycharm_remote_debugger_if_provided(
+        pycharm_debug_library_path=pycharm_debug_library_path,
+        pycharm_debug_server_host=pycharm_debug_server_host,
+        pycharm_debug_server_port=pycharm_debug_server_port,
+    )
     config_init(configuration_file)
     loggers.create_loggers(verbose, debug)
     setup_global_context(debug=debug)
@@ -110,7 +131,6 @@ register_cli_typers()
 
 app.command("sql")(sql.execute_sql)
 app.add_typer(snowpark_app)  # type: ignore
-
 
 if __name__ == "__main__":
     app()
