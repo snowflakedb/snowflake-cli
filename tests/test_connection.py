@@ -25,6 +25,38 @@ def test_new_connection_can_be_added(runner, snapshot):
     assert content == snapshot
 
 
+def test_new_connection_add_prompt_handles_default_values(runner, snapshot):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke(
+            [
+                "--config-file",
+                tmp_file.name,
+                "connection",
+                "add",
+            ],
+            input="connName\naccName\nuserName",
+        )
+        content = tmp_file.read()
+    assert result.exit_code == 0, result.output
+    assert content == snapshot
+
+
+def test_new_connection_add_prompt_handles_prompt_override(runner, snapshot):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke(
+            [
+                "--config-file",
+                tmp_file.name,
+                "connection",
+                "add",
+            ],
+            input="connName\naccName\nuserName\ndbName",
+        )
+        content = tmp_file.read()
+    assert result.exit_code == 0, result.output
+    assert content == snapshot
+
+
 def test_fails_if_existing_connection(runner):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         tmp_file.write(

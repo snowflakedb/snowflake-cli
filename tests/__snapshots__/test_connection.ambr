@@ -1,4 +1,21 @@
 # serializer version: 1
+# name: test_new_connection_add_prompt_handles_default_values
+  '''
+  [connections.connName]
+  account = "accName"
+  user = "userName"
+  
+  '''
+# ---
+# name: test_new_connection_add_prompt_handles_prompt_override
+  '''
+  [connections.connName]
+  account = "accName"
+  user = "userName"
+  password = "dbName"
+  
+  '''
+# ---
 # name: test_new_connection_can_be_added
   '''
   [connections.conn1]
