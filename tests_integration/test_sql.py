@@ -21,6 +21,7 @@ def test_multi_queries_from_file(mock_print, runner, snowflake_session, test_roo
     )
 
     assert extract_list_of_data(mock_print) == [
-        [{"PI()": 3.141592654}],
-        [{"CURRENT_USER": "ADMIN"}],
+        [{"LN(1)": 0}],
+        [{"LN(10)": 2.302585093}],
+        [{"LN(100)": 4.605170186}],
     ]

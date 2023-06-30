@@ -1,7 +1,6 @@
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from unittest import mock
-from unittest.mock import ANY
 
 from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
 
@@ -64,7 +63,7 @@ def test_sql_fails_for_both_query_and_file(runner):
     assert_that_result_is_usage_error(result, "Both query and file provided")
 
 
-@mock.patch("snowflake.connector.connect")
+@mock.patch(MOCK_CONNECTION)
 @mock.patch("snowcli.config.cli_config")
 def test_sql_overrides_connection_configuration(mock_config, mock_conn, runner):
     mock_config.get_connection.return_value = {}
@@ -90,13 +89,9 @@ def test_sql_overrides_connection_configuration(mock_config, mock_conn, runner):
 
     assert result.exit_code == 0
     mock_conn.assert_called_once_with(
-        application="SNOWCLI.SQL",
+        connection_name="dev",
         account="accountnameValue",
         user="usernameValue",
-        password=ANY,
-        host=ANY,
-        port=ANY,
-        protocol=ANY,
         warehouse="warehouseValue",
         database="dbnameValue",
         schema="schemanameValue",
