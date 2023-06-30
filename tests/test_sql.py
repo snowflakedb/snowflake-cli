@@ -1,6 +1,7 @@
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from unittest import mock
+from unittest.mock import ANY
 
 from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
 
@@ -13,7 +14,7 @@ def test_sql_execute_query(mock_conn, runner):
 
     assert result.exit_code == 0
     mock_conn.return_value.ctx.execute_string.assert_called_once_with(
-        sql_text="query", remove_comments=True, cursor_class=mock.ANY
+        sql_text="query", remove_comments=True
     )
 
 
@@ -25,7 +26,7 @@ def test_sql_execute_file(mock_conn, runner):
 
     assert result.exit_code == 0
     mock_conn.return_value.ctx.execute_string.assert_called_once_with(
-        sql_text="query from file", remove_comments=True, cursor_class=mock.ANY
+        sql_text="query from file", remove_comments=True
     )
 
 
@@ -35,7 +36,7 @@ def test_sql_execute_from_stdin(mock_conn, runner):
 
     assert result.exit_code == 0
     mock_conn.return_value.ctx.execute_string.assert_called_once_with(
-        sql_text="query from input", remove_comments=True, cursor_class=mock.ANY
+        sql_text="query from input", remove_comments=True
     )
 
 
@@ -92,6 +93,10 @@ def test_sql_overrides_connection_configuration(mock_config, mock_conn, runner):
         application="SNOWCLI.SQL",
         account="accountnameValue",
         user="usernameValue",
+        password=ANY,
+        host=ANY,
+        port=ANY,
+        protocol=ANY,
         warehouse="warehouseValue",
         database="dbnameValue",
         schema="schemanameValue",
