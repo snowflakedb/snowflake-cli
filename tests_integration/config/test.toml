@@ -1,8 +1,0 @@
-snowsql_config_path = "connection_configs.toml"
-snowsql_connection_name = "integration-tests"
-
-[dev]
-database = "test"
-schema = "public"
-role = "accountadmin"
-warehouse = "regress"
