@@ -12,7 +12,7 @@ from requirements.requirement import Requirement
 
 from snowcli import config, utils
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
-from snowcli.config import connect_to_snowflake
+from snowcli.snow_connector import connect_to_snowflake
 
 app = typer.Typer(
     name="package",
@@ -124,22 +124,21 @@ def package_upload(
     Upload a python package zip file to a Snowflake stage so it can be referenced in the imports of a procedure or function.
     """
     conn = connect_to_snowflake(connection_name=environment)
-    if config.is_auth():
-        click.echo(f"Uploading {file} to Snowflake @{stage}/{file}...")
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
-            deploy_response = conn.upload_file_to_stage(
-                file_path=temp_app_zip_path,
-                destination_stage=stage,
-                path="/",
-                database=conn.ctx.database,
-                schema=conn.ctx.schema,
-                overwrite=overwrite,
-                role=conn.ctx.role,
-                warehouse=conn.ctx.warehouse,
-            )
-        log.info(f"Package {file} {deploy_response[6]} to Snowflake @{stage}/{file}.")
-        if deploy_response[6] == "SKIPPED":
-            log.info(
-                "Package already exists on stage. Consider using --overwrite to overwrite the file."
-            )
+    click.echo(f"Uploading {file} to Snowflake @{stage}/{file}...")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
+        deploy_response = conn.upload_file_to_stage(
+            file_path=temp_app_zip_path,
+            destination_stage=stage,
+            path="/",
+            database=conn.ctx.database,
+            schema=conn.ctx.schema,
+            overwrite=overwrite,
+            role=conn.ctx.role,
+            warehouse=conn.ctx.warehouse,
+        )
+    log.info(f"Package {file} {deploy_response[6]} to Snowflake @{stage}/{file}.")
+    if deploy_response[6] == "SKIPPED":
+        log.info(
+            "Package already exists on stage. Consider using --overwrite to overwrite the file."
+        )

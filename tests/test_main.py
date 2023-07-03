@@ -15,7 +15,7 @@ def test_streamlit_help(runner):
     assert result.exit_code == 0, result.output
 
 
-@mock.patch("snowcli.config.SnowflakeConnector")
+@mock.patch("snowcli.snow_connector.SnowflakeConnector")
 def test_custom_config_path(mock_conn, runner):
     config_file = Path(__file__).parent / "test.toml"
     runner.invoke(["--config-file", str(config_file), "warehouse", "status"])
