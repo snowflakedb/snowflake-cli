@@ -1,6 +1,7 @@
 """These tests verify that the CLI runs work as expected."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from unittest import mock
 
@@ -16,6 +17,7 @@ def test_streamlit_help(runner):
 
 
 @mock.patch("snowcli.snow_connector.SnowflakeConnector")
+@mock.patch.dict(os.environ, {}, clear=True)
 def test_custom_config_path(mock_conn, runner):
     config_file = Path(__file__).parent / "test.toml"
     runner.invoke(["--config-file", str(config_file), "warehouse", "status"])

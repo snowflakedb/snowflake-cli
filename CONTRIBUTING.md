@@ -31,6 +31,30 @@ To execute only unit tests run `pytest`.
 
 To execute only integration tests run `pytest -m integration`.
 
+### Connection parameters for integration tests
+
+Parameters have to be set in environment parameters and must use the following format:
+
+``SNOWFLAKE_CONNECTIONS_INTEGRATION_<key>=<value>``
+
+where ``<key>`` is the name of the key
+
+For example: SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT="my-account"
+
+List of required parameter keys:
+- account
+- user
+- password
+- host
+- port
+- protocol
+
+Optional parameter keys:
+- db
+- schema
+- warehouse
+- role
+
 ## Remote debugging with PyCharm or IntelliJ
 
 Snowflake CLI can connect to a remote debug server started in PyCharm or Intellij.
