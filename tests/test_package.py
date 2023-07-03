@@ -13,8 +13,6 @@ from tests.test_data import test_data
 
 
 class TestPackage:
-    LOGGER = logging.getLogger(__name__)
-
     @pytest.mark.parametrize(
         "argument",
         [
