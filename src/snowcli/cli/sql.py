@@ -1,14 +1,9 @@
 import sys
-from functools import partial
 from pathlib import Path
 from typing import Optional
 
 import typer
 from click import UsageError
-from rich import box
-from rich.live import Live
-from rich.table import Table
-from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.snow_connector import connect_to_snowflake
 from snowcli.cli.common.flags import (
@@ -20,32 +15,7 @@ from snowcli.cli.common.flags import (
     RoleOption,
     WarehouseOption,
 )
-
-
-class LiveOutput:
-    def __init__(self, table: Table, live: Live):
-        self.table = table
-        self.live = live
-
-    def add_row(self, *args):
-        self.table.add_row(*args)
-        self.live.refresh()
-
-    def add_result_row(self, result):
-        self.table.add_row(str(result))
-        self.live.refresh()
-
-
-class LoggingCursor(SnowflakeCursor):
-    def __init__(self, live_output: LiveOutput, *args, **kwargs):
-        super().__init__(*args, use_dict_result=True, **kwargs)
-        self.live_output = live_output
-
-    def execute(self, command: str, *args, **kwargs):
-        self.live_output.add_row(command)
-        result = super(LoggingCursor, self).execute(command, *args, **kwargs)
-        for result in result.fetchall():
-            self.live_output.add_result_row(result)
+from snowcli.output.printing import print_db_cursor
 
 
 def execute_sql(
@@ -72,9 +42,6 @@ def execute_sql(
     schema: Optional[str] = SchemaOption,
     role: Optional[str] = RoleOption,
     warehouse: Optional[str] = WarehouseOption,
-    verbose: Optional[bool] = typer.Option(
-        True, "-v", "--verbose", help="Prints information about executed queries"
-    ),
 ):
     """
     Executes Snowflake query.
@@ -112,18 +79,9 @@ def execute_sql(
         schema=schema,
     )
 
-    table = Table(show_lines=True, box=box.ASCII, width=120)
-    table.add_column("Query")
-
-    if verbose:
-        with Live(table, auto_refresh=False) as live:
-            conn.ctx.execute_string(
-                sql_text=sql,
-                remove_comments=True,
-                cursor_class=partial(LoggingCursor, LiveOutput(table, live)),
-            )
-    else:
-        conn.ctx.execute_string(
-            sql_text=sql,
-            remove_comments=True,
-        )
+    results = conn.ctx.execute_string(
+        sql_text=sql,
+        remove_comments=True,
+    )
+    for result in results:
+        print_db_cursor(result)

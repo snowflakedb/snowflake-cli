@@ -14,11 +14,16 @@ TEST_DIR = Path(__file__).parent
 
 @pytest.fixture(scope="session")
 def test_snowcli_config():
-    test_config = TEST_DIR / "test.toml"
+    test_config = TEST_DIR / "config/connection_configs.toml"
     with NamedTemporaryFile(suffix=".toml", mode="w+") as fh:
         fh.write(test_config.read_text())
         fh.flush()
         yield fh.name
+
+
+@pytest.fixture(scope="session")
+def test_root_path():
+    return TEST_DIR
 
 
 class SnowCLIRunner(CliRunner):
