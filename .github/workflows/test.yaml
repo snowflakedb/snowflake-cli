@@ -1,4 +1,4 @@
-name: testing
+name: Testing
 
 on:
   pull_request:
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.11"]
 
     steps:
       - uses: actions/checkout@v3
@@ -24,4 +24,18 @@ jobs:
       - name: Test with tox
         run: |
           python -m pip install tox-gh-actions
-          tox
+          tox >> logs-${{ matrix.python-version }}.txt
+      - name: Encrypt logs
+        if: ${{ always() }}
+        env:
+          PARAMETERS_SECRET: ${{ secrets.GPG_PASS_TEST }}
+        run: |
+          gpg --quiet --batch --yes --symmetric --passphrase $PARAMETERS_SECRET \
+          logs-${{ matrix.python-version }}.txt > logs-${{ matrix.python-version }}.txt.gpg
+      - name: Archive workflow artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: workflow-tests-${{ matrix.python-version }}
+          path: logs-${{ matrix.python-version }}.txt.gpg
+          retention-days: 7

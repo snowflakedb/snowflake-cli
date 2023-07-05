@@ -9,7 +9,7 @@ MOCK_CONNECTION = "snowcli.cli.sql.connect_to_snowflake"
 
 @mock.patch(MOCK_CONNECTION)
 def test_sql_execute_query(mock_conn, runner):
-    result = runner.invoke(["sql", "-q", "query"])
+    result = runner.invoke(["sql", "-w", "query"])
 
     assert result.exit_code == 0
     mock_conn.return_value.ctx.execute_string.assert_called_once_with(
