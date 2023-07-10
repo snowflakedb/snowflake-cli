@@ -3,8 +3,7 @@ import pytest
 from unittest import mock
 from tests_integration.snowflake_connector import snowflake_session
 
-
-@pytest.mark.integration
+#@pytest.mark.integration
 @mock.patch("snowcli.cli.warehouse.print_db_cursor")
 def test_warehouse_status_query(mock_print, runner, snowflake_session):
     runner.invoke_with_config(["warehouse", "status"])
@@ -13,6 +12,13 @@ def test_warehouse_status_query(mock_print, runner, snowflake_session):
     result_names = _get_name_values_from_cursor(mock_print.call_args.args[0])
     expected_names = _get_name_values_from_cursor(expected_results)
     assert result_names == expected_names
+
+
+@mock.patch("snowcli.cli.warehouse.print_db_cursor")
+def test_warehouse_list(mock_print, runner):
+    runner.invoke(["--debug", "warehouse", "status"])
+    results = _get_name_values_from_cursor(mock_print.call_args.args[0])
+    assert "XS" in results
 
 
 def _get_name_values_from_cursor(cursor):
