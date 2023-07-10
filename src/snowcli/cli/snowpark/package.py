@@ -137,8 +137,10 @@ def package_upload(
             role=conn.ctx.role,
             warehouse=conn.ctx.warehouse,
         )
-    log.info(f"Package {file} {deploy_response[6]} to Snowflake @{stage}/{file}.")
-    if deploy_response[6] == "SKIPPED":
+    log.info(
+        f"Package {file} {deploy_response.description[6]} to Snowflake @{stage}/{file}."
+    )
+    if deploy_response.description[6] == "SKIPPED":
         log.info(
             "Package already exists on stage. Consider using --overwrite to overwrite the file."
         )
