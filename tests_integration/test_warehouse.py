@@ -3,7 +3,7 @@ import pytest
 from unittest import mock
 from tests_integration.snowflake_connector import snowflake_session
 
-#@pytest.mark.integration
+# @pytest.mark.integration
 @mock.patch("snowcli.cli.warehouse.print_db_cursor")
 def test_warehouse_status_query(mock_print, runner, snowflake_session):
     runner.invoke_with_config(["warehouse", "status"])
