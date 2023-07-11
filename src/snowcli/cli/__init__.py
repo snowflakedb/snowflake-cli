@@ -23,6 +23,7 @@ from snowcli.cli.common.snow_cli_global_context import (
 from snowcli.cli.main.snow_cli_main_typer import SnowCliMainTyper
 from snowcli.cli import loggers
 from snowcli.cli.snowpark import app as snowpark_app
+from snowcli.cli.nativeapps import app as nativeapp_app
 from snowcli.config import config_init
 from snowcli.output.formats import OutputFormat
 from snowcli.pycharm_remote_debug import setup_pycharm_remote_debugger_if_provided
@@ -131,6 +132,7 @@ register_cli_typers()
 
 app.command("sql")(sql.execute_sql)
 app.add_typer(snowpark_app)  # type: ignore
+app.add_typer(nativeapp_app)
 
 if __name__ == "__main__":
     app()
