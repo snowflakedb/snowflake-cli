@@ -15,6 +15,7 @@ jobs:
           ref: jira_v1
           token: ${{ secrets.SNOWFLAKE_GITHUB_TOKEN }} # stored in GitHub secrets
           path: .
+          persist-credentials: false
       - name: Jira login
         uses: atlassian/gajira-login@master
         env:
