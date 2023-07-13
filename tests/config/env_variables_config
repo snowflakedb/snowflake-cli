@@ -1,7 +1,0 @@
-[connections.test]
-accountname = $SNOWCLI_ACCOUNT_NAME
-username = $SNOWCLI_USER
-password = $SNOWCLI_PASS
-host = $SNOWCLI_HOST
-port = $SNOWCLI_PORT
-protocol = $SNOWCLI_PROTOCOL

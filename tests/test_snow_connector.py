@@ -1,3 +1,4 @@
+import os
 import textwrap
 from unittest import mock
 
@@ -788,6 +789,7 @@ def test_drop_services(_, snapshot):
     assert query.getvalue() == snapshot
 
 
+@mock.patch.dict(os.environ, {}, clear=True)
 def test_returns_nice_error_in_case_of_connectivity_error(runner):
     result = runner.invoke_with_config(["sql", "-q", "select 1"])
     assert result.exit_code == 1
