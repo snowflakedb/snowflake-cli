@@ -38,7 +38,8 @@ class SnowCLIRunner(CliRunner):
 
     def invoke_with_config(self, *args, **kwargs):
         return self.invoke(
-            ["--config-file", self.test_snowcli_config, *args[0]], **kwargs
+            ["--config-file", self.test_snowcli_config, *args[0], "-c", "integration"],
+            **kwargs,
         )
 
 

@@ -1,11 +1,2 @@
 [connections.dev]
-account = ""
-user = ""
-password = ""
-host = ""
-port = 0
-protocol = ""
-role = ""
-schema = ""
-database = ""
-warehouse = ""
+[connections.integration]
