@@ -1,0 +1,96 @@
+{
+  "nodes": {
+    "flake-parts": {
+      "inputs": {
+        "nixpkgs-lib": "nixpkgs-lib"
+      },
+      "locked": {
+        "lastModified": 1688466019,
+        "narHash": "sha256-VeM2akYrBYMsb4W/MmBo1zmaMfgbL4cH3Pu8PGyIwJ0=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "8e8d955c22df93dbe24f19ea04f47a74adbdc5ec",
+        "type": "github"
+      },
+      "original": {
+        "id": "flake-parts",
+        "type": "indirect"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1689008574,
+        "narHash": "sha256-VFMgyHDiqsGDkRg73alv6OdHJAqhybryWHv77bSCGIw=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "4a729ce4b1fe5ec4fffc71c67c96aa5184ebb462",
+        "type": "github"
+      },
+      "original": {
+        "id": "nixpkgs",
+        "ref": "nixos-unstable",
+        "type": "indirect"
+      }
+    },
+    "nixpkgs-lib": {
+      "locked": {
+        "dir": "lib",
+        "lastModified": 1688049487,
+        "narHash": "sha256-100g4iaKC9MalDjUW9iN6Jl/OocTDtXdeAj7pEGIRh4=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "4bc72cae107788bf3f24f30db2e2f685c9298dc9",
+        "type": "github"
+      },
+      "original": {
+        "dir": "lib",
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "flake-parts": "flake-parts",
+        "nixpkgs": "nixpkgs",
+        "snowflake-connector-python-src": "snowflake-connector-python-src",
+        "src": "src"
+      }
+    },
+    "snowflake-connector-python-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1689091751,
+        "narHash": "sha256-ffSPo3iJyG8YLslru211mGuV15Xdnt3gxMgPInY0TIY=",
+        "owner": "snowflakedb",
+        "repo": "snowflake-connector-python",
+        "rev": "398d1ea770ebd506edef7218943f3a971b19f48f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "snowflakedb",
+        "repo": "snowflake-connector-python",
+        "type": "github"
+      }
+    },
+    "src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1689080577,
+        "narHash": "sha256-cVvsvQkeAraUXSd6lu9I5U3eIGcUJD30egncaggxxss=",
+        "owner": "Snowflake-Labs",
+        "repo": "snowcli",
+        "rev": "0cc7d3d3ff2969e56b7fed9297a71d9f572dde14",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Snowflake-Labs",
+        "repo": "snowcli",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

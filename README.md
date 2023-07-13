@@ -45,6 +45,10 @@ snow --version
 
 You should now be able to run `snow` and get the CLI message.
 
+### Install using Nix (MacOS and Linux)
+
+Use the flake from [`contrib/nix`](contrib/nix) directory.
+
 ## Get involved
 
 Have a feature idea? Running into a bug? Want to contribute? We'd love to hear from you!
