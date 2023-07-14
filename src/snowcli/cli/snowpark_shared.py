@@ -246,7 +246,7 @@ def snowpark_update(
                     warehouse=conn.ctx.warehouse,
                 )
             log.info(
-                f"{deploy_response[0]} uploaded to stage " f"{deploy_dict['full_path']}"
+                f"{deploy_response[0]} uploaded to stage {deploy_dict['full_path']}"
             )
 
             if updated_package_list or replace:
