@@ -29,7 +29,9 @@ class TestPackage:
     )
     @patch("tests.test_package.package.utils.requests")
     def test_package_lookup(self, mock_requests, caplog, argument, monkeypatch):
-        mock_requests.get.return_value = self.mocked_anaconda_response(test_data.anaconda_response)
+        mock_requests.get.return_value = self.mocked_anaconda_response(
+            test_data.anaconda_response
+        )
 
         monkeypatch.setattr("sys.stdin", io.StringIO("N"))
 
@@ -41,15 +43,25 @@ class TestPackage:
 
     @patch("tests.test_package.package.utils.install_packages")
     @patch("tests.test_package.package.utils.parse_anaconda_packages")
-    def test_package_lookup_with_install_packages(self, mock_package, mock_install, caplog):
+    def test_package_lookup_with_install_packages(
+            self, mock_package, mock_install, caplog
+    ):
         mock_package = MagicMock(return_value=SplitRequirements([], []))
         mock_install.return_value = (
-        True, SplitRequirements([Requirement("snowflake-snowpark-python")], [Requirement("some-other-package")]))
+            True,
+            SplitRequirements(
+                [Requirement("snowflake-snowpark-python")],
+                [Requirement("some-other-package")],
+            ),
+        )
 
         with caplog.at_level(logging.DEBUG, logger="snowcli.cli.snowpark.package"):
             result = package.package_lookup("some-other-package", install_packages=True)
 
-        assert 'The package some-other-package is supported, but does depend on the following Snowflake supported native libraries you should include the following in your packages: [<Requirement: "snowflake-snowpark-python">]' in caplog.messages
+        assert (
+                'The package some-other-package is supported, but does depend on the following Snowflake supported native libraries you should include the following in your packages: [<Requirement: "snowflake-snowpark-python">]'
+                in caplog.messages
+        )
 
     @patch("tests.test_package.package.utils.requests")
     def test_package_create(self, mock_requests, caplog, packages_directory):
