@@ -5,7 +5,7 @@ import sys
 from snowflake.snowpark import Session
 
 
-def hello(session: Session) -> str:
+def hello() -> str:
     return "Hello World!"
 
 
@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
     session = Session.builder.configs(**cli_config.get_connection("dev")).create()
     if len(sys.argv) > 1:
-        print(hello(session, *sys.argv[1:]))  # type: ignore
+        print(hello(*sys.argv[1:]))  # type: ignore
     else:
-        print(hello(session))  # type: ignore
+        print(hello())  # type: ignore
     session.close()

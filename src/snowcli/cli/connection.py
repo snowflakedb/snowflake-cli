@@ -42,7 +42,7 @@ def list_connections():
 
 @app.command()
 def add(
-    connection: str = typer.Option(
+    connection_name: str = typer.Option(
         None,
         "-n",
         "--connection-name",
@@ -150,8 +150,8 @@ def add(
     connection_entry = {k: v for k, v in connection_entry.items() if v is not None}
 
     try:
-        cli_config.add_connection(name=connection, parameters=connection_entry)
+        cli_config.add_connection(name=connection_name, parameters=connection_entry)
     except KeyAlreadyPresent:
-        raise ClickException(f"Connection {connection} already exists")
+        raise ClickException(f"Connection {connection_name} already exists")
 
-    log.info(f"Wrote new connection {connection} to {cli_config.file_path}")
+    log.info(f"Wrote new connection {connection_name} to {cli_config.file_path}")
