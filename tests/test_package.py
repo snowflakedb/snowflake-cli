@@ -21,9 +21,9 @@ class TestPackage:
                 "snowcli.cli.snowpark.package",
             ),
             (
-                    "some-weird-package-we-dont-know",
-                    "not found in Snowflake anaconda channel...",
-                    "snowcli.utils",
+                "some-weird-package-we-dont-know",
+                "not found in Snowflake anaconda channel...",
+                "snowcli.utils",
             ),
         ],
     )
@@ -44,7 +44,7 @@ class TestPackage:
     @patch("tests.test_package.package.utils.install_packages")
     @patch("tests.test_package.package.utils.parse_anaconda_packages")
     def test_package_lookup_with_install_packages(
-            self, mock_package, mock_install, caplog
+        self, mock_package, mock_install, caplog
     ):
         mock_package = MagicMock(return_value=SplitRequirements([], []))
         mock_install.return_value = (
@@ -59,9 +59,9 @@ class TestPackage:
             result = package.package_lookup("some-other-package", install_packages=True)
 
         assert (
-                "The package some-other-package is supported, but does depend on the following Snowflake supported native "
-                'libraries you should include the following in your packages: [<Requirement: "snowflake-snowpark-python">]'
-                in caplog.messages
+            "The package some-other-package is supported, but does depend on the following Snowflake supported native "
+            'libraries you should include the following in your packages: [<Requirement: "snowflake-snowpark-python">]'
+            in caplog.messages
         )
 
     @patch("tests.test_package.package.utils.requests")
