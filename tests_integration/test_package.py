@@ -1,4 +1,3 @@
-
 import os
 
 from pathlib import Path
@@ -40,7 +39,6 @@ class TestPackage:
         )
 
         snowflake_session.execute_string(f"DROP STAGE IF EXISTS {self.STAGE_NAME};")
-
 
     @pytest.fixture
     def example_file(self):
