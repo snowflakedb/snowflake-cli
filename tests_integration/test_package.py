@@ -4,7 +4,7 @@ from pathlib import Path
 
 from unittest.mock import MagicMock, patch
 from tests_integration.snowflake_connector import snowflake_session
-from tests_integration.test_utils import extract_data_from_cursor
+from tests_integration.test_utils import row_from_cursor
 
 import pytest
 
@@ -35,7 +35,7 @@ class TestPackage:
         )
 
         assert f"{self.STAGE_NAME.lower()}/{example_file.name}" in map(
-            lambda x: x["name"], extract_data_from_cursor(result[-1])
+            lambda x: x["name"], row_from_cursor(result[-1])
         )
 
         snowflake_session.execute_string(f"DROP STAGE IF EXISTS {self.STAGE_NAME};")
