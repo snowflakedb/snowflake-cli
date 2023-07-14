@@ -57,6 +57,7 @@ class TestPackage:
             f"Package totally-awesome-package.zip created. You can now upload it to a stage (`snow package upload -f totally-awesome-package.zip -s packages`) and reference it in your procedure or function."
             in caplog.text
         )
+        assert os.path.isfile("totally-awesome-package.zip")
         os.remove("totally-awesome-package.zip")
 
     @pytest.fixture
@@ -64,3 +65,5 @@ class TestPackage:
         path = os.path.join(os.getcwd(), ".packages")
         os.mkdir(path)
         yield path
+
+        # TODO add tests for lookup with mocked utils.install_packages
