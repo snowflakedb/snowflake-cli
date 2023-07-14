@@ -59,7 +59,8 @@ class TestPackage:
             result = package.package_lookup("some-other-package", install_packages=True)
 
         assert (
-                'The package some-other-package is supported, but does depend on the following Snowflake supported native libraries you should include the following in your packages: [<Requirement: "snowflake-snowpark-python">]'
+                "The package some-other-package is supported, but does depend on the following Snowflake supported native "
+                'libraries you should include the following in your packages: [<Requirement: "snowflake-snowpark-python">]'
                 in caplog.messages
         )
 
