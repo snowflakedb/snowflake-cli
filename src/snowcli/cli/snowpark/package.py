@@ -124,7 +124,7 @@ def package_upload(
     Upload a python package zip file to a Snowflake stage so it can be referenced in the imports of a procedure or function.
     """
     conn = connect_to_snowflake(connection_name=environment)
-    click.echo(f"Uploading {file} to Snowflake @{stage}/{file}...")
+    log.info(f"Uploading {file} to Snowflake @{stage}/{file}...")
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
         deploy_response = conn.upload_file_to_stage(
