@@ -172,7 +172,6 @@ def stage_remove(
 
     conn = connect_to_snowflake(connection_name=environment)
 
-    snowcli.snow_connector.connect_to_snowflake()
     results = conn.remove_from_stage(
         database=conn.ctx.database,
         schema=conn.ctx.schema,
