@@ -5,8 +5,12 @@ import sys
 from snowcli.cli.app import app
 
 
+def main(*args):
+    app(*args)
+
+
 if __name__ == "__main__":
-    app()
+    main()
 
 if getattr(sys, "frozen", False):
-    app(sys.argv[1:])
+    main(sys.argv[1:])
