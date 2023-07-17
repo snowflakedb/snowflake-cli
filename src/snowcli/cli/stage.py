@@ -5,7 +5,6 @@ from pathlib import Path
 import typer
 
 import snowcli.snow_connector
-from snowcli import config
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.snow_connector import connect_to_snowflake
 from snowcli.output.printing import print_db_cursor
