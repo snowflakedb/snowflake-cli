@@ -2,25 +2,21 @@
 
 
 ## Setup a development environment
-If interested in contributing, you will want to instantiate the pre-commit logic to help with formatting and linting of commits. To do this, run the following in the `snowcli` cloned folder on your development machine:
+If you are interested in contributing, you will need to instantiate the pre-commit logic to help with formatting and linting of commits.
+To do this, run the following in the `snowcli` cloned folder on your development machine:
 
 ```bash
 pip install pre-commit
 pre-commit
 ```
 
-Required Python version 3.8+
+Currently, the required Python version for development is Python 3.8+. For locall development we recommend to use
+a wrapper for virtual environments like [pyenv](https://github.com/pyenv/pyenv).
 
-Install all required dependencies
-
-```bash
-pip install ".[dev]"
-```
-
-Install SnowCLI
+Once you created a dedicated virtual environment you can install SnowCLI in editable mode with all required dependencies:
 
 ```bash
-pip install -e .
+pip install -e ".[dev]"
 ```
 
 ## Integration tests
