@@ -14,7 +14,7 @@ import pytest
 class TestPackage:
     STAGE_NAME = "PACKAGE_TEST"
 
-    # @pytest.mark.integration
+    @pytest.mark.integration
     def test_package_upload(self, runner, example_file, snowflake_session):
 
         runner.invoke_with_config(
