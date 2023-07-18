@@ -10,7 +10,7 @@ import typer
 
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 
-app = typer.Typer(context_settings=DEFAULT_CONTEXT_SETTINGS, hidden=True)
+app = typer.Typer(context_settings=DEFAULT_CONTEXT_SETTINGS, hidden=True, name="render")
 
 
 def read_file_content(file_name: str):
