@@ -13,6 +13,7 @@ from snowcli.config import cli_config
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
+    name="connection",
     help="Manage connection to Snowflake",
 )
 log = logging.getLogger(__name__)

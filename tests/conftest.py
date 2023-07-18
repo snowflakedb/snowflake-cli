@@ -40,6 +40,6 @@ class SnowCLIRunner(CliRunner):
 
 @pytest.fixture(scope="function")
 def runner(test_snowcli_config):
-    from snowcli.cli import app
+    from snowcli.cli.app import app
 
     return SnowCLIRunner(app, test_snowcli_config)

@@ -4,10 +4,7 @@ import json
 import sys
 
 import typer
-from rich import print
-from snowcli import config
-from snowcli.cli import DEFAULT_CONTEXT_SETTINGS
-from snowcli.cli.common.flags import ConnectionOption
+from snowcli.cli.common.flags import ConnectionOption, DEFAULT_CONTEXT_SETTINGS
 from snowcli.snow_connector import connect_to_snowflake
 
 app = typer.Typer(

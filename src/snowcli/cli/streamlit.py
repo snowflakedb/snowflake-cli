@@ -5,7 +5,6 @@ import typer
 from pathlib import Path
 from typing import List, Optional
 
-from snowcli import config
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.snow_connector import connect_to_snowflake
 from snowcli.output.printing import print_db_cursor
@@ -22,6 +21,7 @@ from snowcli.cli.snowpark_shared import (
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
+    name="streamlit",
     help="Manage Streamlit in Snowflake",
 )
 log = logging.getLogger(__name__)
