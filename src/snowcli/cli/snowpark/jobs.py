@@ -1,12 +1,11 @@
 import sys
 import typer
-from snowcli import config
 from typing import TextIO
 
-from snowcli.cli import DEFAULT_CONTEXT_SETTINGS
-from snowcli.cli.common.flags import ConnectionOption
+
+from snowcli.cli.common.flags import ConnectionOption, DEFAULT_CONTEXT_SETTINGS
 from snowcli.snow_connector import connect_to_snowflake
-from snowcli.output.printing import print_db_cursor, print_data
+from snowcli.output.printing import print_db_cursor
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS, name="jobs", help="Manage jobs"

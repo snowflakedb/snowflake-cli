@@ -3,16 +3,13 @@ import pytest
 import os
 from unittest import mock
 from tempfile import NamedTemporaryFile
-from tests_integration.snowflake_connector import snowflake_session
+from tests_integration.snowflake_connector import create_database, snowflake_session
 from tests_integration.test_utils import (
     row_from_mock,
     row_from_snowflake_session,
     contains_row_with,
     not_contains_row_with,
 )
-
-# TODO add database when we will have one
-DATABASE_NAME = ""
 
 
 @pytest.mark.integration
@@ -27,9 +24,7 @@ def test_stage(mock_print, runner, snowflake_session, tmp_path):
     )
 
     runner.invoke_with_config(["stage", "list"])
-    expect = snowflake_session.execute_string(
-        f"show stages like '{stage_name}' in database {DATABASE_NAME}"
-    )
+    expect = snowflake_session.execute_string(f"show stages like '{stage_name}'")
     assert contains_row_with(
         row_from_mock(mock_print), row_from_snowflake_session(expect)[0]
     )
@@ -43,9 +38,7 @@ def test_stage(mock_print, runner, snowflake_session, tmp_path):
         )
 
     runner.invoke_with_config(["stage", "list", stage_name])
-    result = snowflake_session.execute_string(
-        f"use database {DATABASE_NAME}; list @{stage_name}"
-    )
+    result = snowflake_session.execute_string(f"list @{stage_name}")
     assert row_from_mock(mock_print) == row_from_snowflake_session(result)
 
     runner.invoke_with_config(["stage", "get", stage_name, tmp_path.parent.__str__()])
@@ -59,9 +52,7 @@ def test_stage(mock_print, runner, snowflake_session, tmp_path):
         row_from_mock(mock_print),
         {"name": f"{stage_name}/{filename}", "result": "removed"},
     )
-    result = snowflake_session.execute_string(
-        f"use database {DATABASE_NAME}; list @{stage_name}"
-    )
+    result = snowflake_session.execute_string(f"list @{stage_name}")
     assert not_contains_row_with(
         row_from_snowflake_session(result), {"name": f"{stage_name}/{filename}"}
     )
@@ -71,7 +62,5 @@ def test_stage(mock_print, runner, snowflake_session, tmp_path):
         row_from_mock(mock_print),
         {"status": f"{stage_name.upper()} successfully dropped."},
     )
-    result = snowflake_session.execute_string(
-        f"show stages like '%{stage_name}%' in database {DATABASE_NAME}"
-    )
+    result = snowflake_session.execute_string(f"show stages like '%{stage_name}%'")
     assert row_from_snowflake_session(result) == []

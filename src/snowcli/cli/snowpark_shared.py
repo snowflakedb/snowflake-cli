@@ -8,7 +8,7 @@ import click
 import logging
 import typer
 
-from snowcli import config, utils
+from snowcli import utils
 from snowcli.snow_connector import connect_to_snowflake
 from snowcli.output.printing import print_db_cursor
 from snowcli.utils import (

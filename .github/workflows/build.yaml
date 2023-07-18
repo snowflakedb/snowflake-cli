@@ -94,3 +94,4 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
           pip check
+          snow --help

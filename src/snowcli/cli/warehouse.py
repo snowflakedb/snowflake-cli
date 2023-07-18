@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import typer
 
-from snowcli import config
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.snow_connector import connect_to_snowflake
 from snowcli.output.printing import print_db_cursor
