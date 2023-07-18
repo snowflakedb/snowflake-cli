@@ -29,3 +29,4 @@ def create_loggers(verbose: bool, debug: bool):
     console.setFormatter(logging.Formatter(log_format, "%Y-%m-%d %H:%M:%S"))
     logger.addHandler(console)
     logger.setLevel(log_level)
+    logging.getLogger("snowflake").setLevel(log_level)
