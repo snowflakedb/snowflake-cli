@@ -19,7 +19,7 @@ def snowflake_session():
         "host": _get_from_env("HOST", True),
         "port": _get_from_env("PORT", True),
         "protocol": _get_from_env("PROTOCOL", True),
-        "db": _get_from_env("DATABASE", False),
+        "database": _get_from_env("DATABASE", False),
         "schema": _get_from_env("SCHEMA", False),
         "warehouse": _get_from_env("WAREHOUSE", False),
         "role": _get_from_env("ROLE", False),
