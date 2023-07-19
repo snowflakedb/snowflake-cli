@@ -1,0 +1,19 @@
+name: "Nix-related checks"
+on:
+  push:
+    paths:
+      # Nix pins everything, so this action only needs to run if any Nix files change
+      # A more robust solution would be to use a Nix cache
+      - contrib/nix/**
+jobs:
+  nix-checks:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: cachix/install-nix-action@v22
+      # with:
+      #   github_access_token: ${{ secrets.GITHUB_TOKEN }}
+    # - run: nix flake check
+    #   working-directory: contrib/nix
+    - run: nix build
+      working-directory: contrib/nix
