@@ -5,7 +5,7 @@ from pathlib import Path
 from snowcli.cli.snowpark import package
 from unittest.mock import MagicMock, patch
 from tests_integration.snowflake_connector import snowflake_session, create_database
-from tests_integration.test_utils import contains_row_with, row_from_cursor
+from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
 from tempfile import NamedTemporaryFile
 
 import pytest
@@ -33,7 +33,7 @@ class TestPackage:
         result = snowflake_session.execute_string(f"LIST @{self.STAGE_NAME}")
 
         assert contains_row_with(
-            row_from_cursor(result[0]),
+            row_from_snowflake_session(result),
             {"name": f"{self.STAGE_NAME.lower()}/{example_file.name}"},
         )
 
