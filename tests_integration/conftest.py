@@ -4,7 +4,7 @@ import functools
 import pytest
 
 from pathlib import Path
-from snowcli.cli import app
+from snowcli.cli.app import app
 from tempfile import NamedTemporaryFile
 from typer import Typer
 from typer.testing import CliRunner

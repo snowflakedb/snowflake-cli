@@ -1,6 +1,6 @@
 import pytest
-
 import os
+
 from unittest import mock
 from tempfile import NamedTemporaryFile
 from tests_integration.snowflake_connector import create_database, snowflake_session
