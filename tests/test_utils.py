@@ -27,7 +27,7 @@ class TestUtils:
     SECOND_TEST_DIRECTORY = "other_test_dir"
     SUBDIR = "subdir"
     TEMP_DIR_FOR_APP_ZIP = "temp_dir"
-    TEMP_TEST_DIRECTORY = ".tests"
+    TEMP_TEST_DIRECTORY = "tests"
 
     @pytest.mark.parametrize("argument", utils.YesNoAskOptions)
     def test_yes_no_ask_callback_with_correct_argument(self, argument: str):
