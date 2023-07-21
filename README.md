@@ -1,7 +1,5 @@
 # Snowflake Developer CLI
 
-This is an open source and community supported tool. Support is provided on a best effort basis by project contributors.
-
 **Note**: Snowflake CLI is in Private Preview (PrPr). You must register for the PrPr to use Snowflake CLI by filling out the
 [Snowflake CLI  - PrPr Intake Form](https://forms.gle/HZNhPNbzn7oExjFu8). Also, if you want to access Snowflake Container
 Services through Snowflake CLI, you must register for its PrPr. For more information, you can contact a
