@@ -3,7 +3,7 @@ from __future__ import annotations
 import typer
 from snowcli.utils import check_for_connection
 
-DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
+DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
 
 ConnectionOption = typer.Option(
