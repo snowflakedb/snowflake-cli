@@ -20,12 +20,10 @@ class TestProcedure:
     def test_procedure_init(self, temp_directory):
         os.chdir(temp_directory)
         procedure.procedure_init()
-        result = os.listdir()
-        print(result)
         assert os.listdir() == self.DIR_INITIAL_CONTENTS
         os.chdir("..")
 
-    @pytest.fixture()
+    @pytest.fixture(scope="module")
     def temp_directory(self):
         current_path = Path(os.getcwd())
         path = os.path.join(current_path, self.TEMP_DIRECTORY_NAME)
