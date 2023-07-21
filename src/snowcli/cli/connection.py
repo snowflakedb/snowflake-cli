@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from functools import wraps
 
 import typer
 from click import ClickException
@@ -8,6 +9,7 @@ from click.types import StringParamType
 from tomlkit.exceptions import KeyAlreadyPresent
 
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.snow_cli_global_context import process_context
 from snowcli.output.printing import print_data
 from snowcli.config import cli_config
 
@@ -29,7 +31,17 @@ class OptionalPrompt(StringParamType):
         return None if isinstance(value, EmptyInput) else value
 
 
-@app.command(name="list")
+def with_context(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        process_context()
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
+@app.command(name="list", context_settings=DEFAULT_CONTEXT_SETTINGS)
+@with_context
 def list_connections():
     """
     List configured connections.

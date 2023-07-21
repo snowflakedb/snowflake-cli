@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import typer
+
 from snowcli.utils import check_for_connection
 
-DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
+DEFAULT_CONTEXT_SETTINGS = {
+    "help_option_names": ["-h", "--help"],
+    "ignore_unknown_options": True,
+    "allow_extra_args": True,
+}
 
 
 ConnectionOption = typer.Option(
@@ -59,3 +64,18 @@ SchemaOption = typer.Option(
 RoleOption = typer.Option(None, "-r", "--rolename", "--role", help="Role to be used")
 
 WarehouseOption = typer.Option(None, "-w", "--warehouse", help="Warehouse to use.")
+
+FormatOption = typer.Option(None, "--format", help="Format of the result output")
+
+Verbose = typer.Option(
+    False,
+    "--verbose",
+    "-v",
+    help="Print logs from level info and higher",
+)
+
+Debug = typer.Option(
+    False,
+    "--debug",
+    help="Print logs from level debug and higher, logs contains additional information",
+)

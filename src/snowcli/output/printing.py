@@ -8,6 +8,10 @@ from rich import box, print, print_json
 import click
 from snowflake.connector.cursor import SnowflakeCursor
 
+from snowcli.cli.common.snow_cli_global_context import (
+    snow_cli_global_context_manager,
+    SnowCliGlobalContext,
+)
 from snowcli.output.formats import OutputFormat
 
 
@@ -45,8 +49,9 @@ def print_db_cursor(
 
 
 def _print_formatted(data: List[Dict], columns: Optional[List[str]] = None):
-    context = click.get_current_context()
-    output_format = OutputFormat(context.find_root().params.get("output_format"))
+    global_state = snow_cli_global_context_manager.get_global_context_copy()
+    output_format = OutputFormat(global_state.output_format.upper())
+
     if output_format == OutputFormat.TABLE:
         _print_table(data, columns)
     elif output_format == OutputFormat.JSON:

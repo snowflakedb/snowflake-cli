@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import sys
 
+import typer
+
 from snowcli.cli.app import app
 
 

@@ -27,20 +27,27 @@ def _version_callback(value: bool):
         raise typer.Exit()
 
 
-def setup_global_context(debug: bool):
+def setup_global_context(
+    debug: bool,
+    output_format: OutputFormat,
+    verbose: bool,
+):
     """
     Setup global state (accessible in whole CLI code) using options passed in SNOW CLI invocation.
     """
 
     def modifications(context: SnowCliGlobalContext) -> SnowCliGlobalContext:
         context.enable_tracebacks = debug
+        context.output_format = output_format
         return context
 
+    loggers.create_loggers(verbose, debug)
     snow_cli_global_context_manager.update_global_context(modifications)
 
 
 @app.callback()
 def default(
+    ctx: typer.Context,
     version: bool = typer.Option(
         None,
         "--version",
@@ -99,8 +106,11 @@ def default(
         pycharm_debug_server_port=pycharm_debug_server_port,
     )
     config_init(configuration_file)
-    loggers.create_loggers(verbose, debug)
-    setup_global_context(debug=debug)
+    setup_global_context(
+        debug=debug,
+        output_format=output_format,
+        verbose=verbose,
+    )
 
 
 def _add_typer_from_path(path: str):
