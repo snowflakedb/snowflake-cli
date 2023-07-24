@@ -60,7 +60,7 @@ def package_lookup(
                 perform_anaconda_check=True, package_name=name, file_name=None
             )
             if status and results is not None and len(results.snowflake) > 0:
-                packages_string = f"The package {name} is supported, but does depend on the following Snowflake supported native libraries you should include the following in your packages: {results.snowflake}"
+                packages_string = f"The package {name} is supported, but does depend on the following Snowflake supported native libraries. You should include the following in your packages: {results.snowflake}"
             # if .packages subfolder exists, delete it
             if not _run_nested and os.path.exists(".packages"):
                 rmtree(".packages")
