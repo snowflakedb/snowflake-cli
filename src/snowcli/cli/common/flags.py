@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 import typer
+
+from snowcli.config import DEFAULT_CONNECTION
 from snowcli.utils import check_for_connection
 
-DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
+DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
 
 ConnectionOption = typer.Option(
-    "dev",
+    DEFAULT_CONNECTION,
     "-c",
     "--connection",
     "--environment",
-    help="Connection / environment name",
+    help=f"Connection / environment name. Defaults to {DEFAULT_CONNECTION}.",
     callback=check_for_connection,
-    is_eager=True,
 )
 
 AccountOption = typer.Option(
