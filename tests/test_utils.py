@@ -28,6 +28,7 @@ class TestUtils:
     SUBDIR = "subdir"
     TEMP_DIR_FOR_APP_ZIP = "temp_dir"
     TEMP_TEST_DIRECTORY = "tests_tmp_dir"
+    CURRENT_DIR = Path(__file__).parent
 
     @pytest.mark.parametrize("argument", utils.YesNoAskOptions)
     def test_yes_no_ask_callback_with_correct_argument(self, argument: str):
@@ -394,7 +395,7 @@ class TestUtils:
 
     @pytest.fixture(scope="class")
     def temp_test_directory(self) -> Generator:
-        path = os.path.join(os.getcwd(), self.TEMP_TEST_DIRECTORY)
+        path = os.path.join(self.CURRENT_DIR, self.TEMP_TEST_DIRECTORY)
         os.mkdir(path)
         yield path
         rmtree(self.TEMP_TEST_DIRECTORY)  # We delete whole directory in teardown -
