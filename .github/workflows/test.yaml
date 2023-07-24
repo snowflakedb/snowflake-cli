@@ -27,3 +27,4 @@ jobs:
         run: |
           python -m pip install tox-gh-actions
           tox
+      - uses: codecov/codecov-action@v3
