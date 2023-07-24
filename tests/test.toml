@@ -15,5 +15,6 @@ database = "db_for_test"
 schema = "test_public"
 role = "test_role"
 warehouse = "xs"
+password = "dummy_password"
 
 [connections.empty]

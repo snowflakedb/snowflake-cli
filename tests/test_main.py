@@ -27,6 +27,7 @@ def test_custom_config_path(mock_conn, runner):
             "schema": "test_public",
             "role": "test_role",
             "warehouse": "xs",
+            "password": "dummy_password",
         },
         overrides={},
     )

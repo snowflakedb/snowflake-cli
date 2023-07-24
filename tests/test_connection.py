@@ -1,3 +1,4 @@
+import json
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 
@@ -87,3 +88,36 @@ def test_fails_if_existing_connection(runner):
         )
     assert result.exit_code == 1, result.output
     assert "Connection conn2 already exists  " in result.output
+
+
+def test_lists_connection_information(runner):
+    result = runner.invoke_with_config(["--format", "json", "connection", "list"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload == [
+        {
+            "connection_name": "full",
+            "parameters": {
+                "account": "dev_account",
+                "database": "dev_database",
+                "host": "dev_host",
+                "port": 8000,
+                "protocol": "dev_protocol",
+                "role": "dev_role",
+                "schema": "dev_schema",
+                "user": "dev_user",
+                "warehouse": "dev_warehouse",
+            },
+        },
+        {
+            "connection_name": "dev",
+            "parameters": {
+                "database": "db_for_test",
+                "password": "****",  # masked
+                "role": "test_role",
+                "schema": "test_public",
+                "warehouse": "xs",
+            },
+        },
+        {"connection_name": "empty", "parameters": {}},
+    ]
