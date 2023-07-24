@@ -29,6 +29,12 @@ class OptionalPrompt(StringParamType):
         return None if isinstance(value, EmptyInput) else value
 
 
+def _mask_password(connection_params: dict):
+    if "password" in connection_params:
+        connection_params["password"] = "****"
+    return connection_params
+
+
 @app.command(name="list")
 def list_connections():
     """
@@ -36,7 +42,10 @@ def list_connections():
     """
     connections = cli_config.get_section("connections")
     print_data(
-        [{"connection_name": k, "parameters": v} for k, v in connections.items()],
+        [
+            {"connection_name": k, "parameters": _mask_password(v)}
+            for k, v in connections.items()
+        ],
         columns=["connection_name", "parameters"],
     )
 

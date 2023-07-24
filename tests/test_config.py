@@ -40,6 +40,8 @@ def test_get_connection_from_file(test_snowcli_config):
     {
         "SNOWFLAKE_CONNECTIONS_DEV_DATABASE": "database_foo",
         "SNOWFLAKE_CONNECTIONS_DEV_WAREHOUSE": "large",
+        "SNOWFLAKE_CONNECTIONS_DEV_ACCOUNT": "my_account_123",
+        "SNOWFLAKE_CONNECTIONS_DEV_PASSWORD": "my_pass",
     },
     clear=True,
 )
@@ -52,6 +54,8 @@ def test_environment_variables_override_configuration_value(test_snowcli_config)
         "schema": "test_public",
         "role": "test_role",
         "warehouse": "large",
+        "account": "my_account_123",
+        "password": "my_pass",
     }
 
 
@@ -94,6 +98,7 @@ def test_get_all_connections(test_snowcli_config):
             "role": "test_role",
             "schema": "test_public",
             "warehouse": "large",
+            "password": "dummy_password",
         },
         "empty": {"account": "some_account"},
         "full": {
