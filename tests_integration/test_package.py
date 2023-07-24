@@ -1,14 +1,10 @@
-import logging
 import os
-import shutil
+import pytest
 from pathlib import Path
-from snowcli.cli.snowpark import package
-from unittest.mock import MagicMock, patch
-from tests_integration.snowflake_connector import snowflake_session, create_database
-from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
 from tempfile import NamedTemporaryFile
 
-import pytest
+from tests_integration.snowflake_connector import snowflake_session, create_database
+from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
 
 
 class TestPackage:

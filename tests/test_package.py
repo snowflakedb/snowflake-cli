@@ -60,7 +60,7 @@ class TestPackage:
 
         assert (
             "The package some-other-package is supported, but does depend on the following Snowflake supported native "
-            'libraries you should include the following in your packages: [<Requirement: "snowflake-snowpark-python">]'
+            'libraries. You should include the following in your packages: [<Requirement: "snowflake-snowpark-python">]'
             in caplog.messages
         )
 
