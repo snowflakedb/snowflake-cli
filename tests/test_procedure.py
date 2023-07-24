@@ -18,6 +18,7 @@ class TestProcedure:
     ]
 
     def test_procedure_init(self, procedure_temp):
+        os.chdir(procedure_temp)
         procedure.procedure_init()
         assert os.listdir() == self.DIR_INITIAL_CONTENTS
         os.chdir("..")
