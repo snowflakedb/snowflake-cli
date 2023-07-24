@@ -214,9 +214,8 @@ class TestUtils:
     ):
         zip_file_path = os.path.join(temp_test_directory, "packed.zip")
 
-        os.chdir(".tests")
+        os.chdir(temp_test_directory)
         utils.recursive_zip_packages_dir(temp_test_directory, zip_file_path)
-        os.chdir("..")
 
         zip_file = ZipFile(zip_file_path)
 
@@ -276,18 +275,16 @@ class TestUtils:
         )
         assert os.path.join(self.FILE_IN_SECOND_TEST_DIRECTORY) in zip_file.namelist()
 
-    def test_get_snowflake_packages(self, streamlit_requirements_txt):
-        os.chdir(".tests")
+    def test_get_snowflake_packages(self,temp_test_directory, streamlit_requirements_txt):
+        os.chdir(temp_test_directory)
         result = utils.get_snowflake_packages()
-        os.chdir("..")
 
         assert result == test_data.requirements
 
-    def test_get_snowflake_packages_delta(self, streamlit_requirements_txt):
+    def test_get_snowflake_packages_delta(self,temp_test_directory, streamlit_requirements_txt):
         anaconda_package = test_data.requirements[-1]
-        os.chdir(".tests")
+        os.chdir(temp_test_directory)
         result = utils.get_snowflake_packages_delta(anaconda_package)
-        os.chdir("..")
 
         assert result == test_data.requirements[:-1]
 
@@ -388,10 +385,10 @@ class TestUtils:
 
     @pytest.fixture
     def temp_test_directory(self) -> Generator:
-        path = os.path.join(os.getcwd(), self.TEMP_TEST_DIRECTORY)
-        os.mkdir(path)
-        yield path
-        rmtree(self.TEMP_TEST_DIRECTORY)  # We delete whole directory in teardown -
+        temp_dir = tempfile.TemporaryDirectory()
+
+        yield temp_dir.name
+        rmtree(temp_dir.name)  # We delete whole directory in teardown -
         # so, no need to delete any of the files separately
 
     @pytest.fixture
