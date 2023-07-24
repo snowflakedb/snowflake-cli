@@ -23,7 +23,7 @@ class TestProcedure:
         assert os.listdir() == self.DIR_INITIAL_CONTENTS
         os.chdir("..")
 
-    @pytest.fixture(scope="module")
+    @pytest.fixture(scope="class")
     def procedure_temp(self):
         current_path = Path(os.getcwd())
         path = os.path.join(current_path, self.TEMP_DIRECTORY_NAME)
