@@ -15,6 +15,7 @@ from snowcli.exception import MissingConfiguration, UnsupportedConfigSectionType
 from snowflake.connector.constants import CONFIG_FILE
 from snowflake.connector.config_manager import ConfigManager
 
+DEFAULT_CONNECTION = "dev"
 
 log = logging.getLogger(__name__)
 
@@ -64,9 +65,11 @@ class CliConfigManager(ConfigManager):
         try:
             return self.get_section("connections", connection_name)
         except NonExistentKey:
-            raise MissingConfiguration(
-                f"Connection {connection_name} is not configured"
-            )
+            if connection_name == DEFAULT_CONNECTION:
+                msg = f"Using default connection. Connection {connection_name} is not configured"
+            else:
+                msg = f"Connection {connection_name} is not configured"
+            raise MissingConfiguration(msg)
 
     def add_connection(self, name: str, parameters: dict):
         if not self.section_exists("connections"):
