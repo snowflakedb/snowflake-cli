@@ -392,7 +392,7 @@ class TestUtils:
     # These functions are used to set up files and directories used in tests
     # and delete them, after the tests are performed
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def temp_test_directory(self) -> Generator:
         path = os.path.join(os.getcwd(), self.TEMP_TEST_DIRECTORY)
         os.mkdir(path)
@@ -400,37 +400,37 @@ class TestUtils:
         rmtree(self.TEMP_TEST_DIRECTORY)  # We delete whole directory in teardown -
         # so, no need to delete any of the files separately
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def temp_directory_for_app_zip(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, self.TEMP_DIR_FOR_APP_ZIP)
         os.mkdir(path)
         yield path
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def correct_app_zip(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, self.APP_ZIP)
         self.create_file(path, [])
         yield path
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def correct_requirements_txt(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, self.REQUIREMENTS_TXT)
         self.create_file(path, test_data.requirements)
         yield path
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def streamlit_requirements_txt(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, self.REQUIREMENTS_SNOWFLAKE)
         self.create_file(path, test_data.requirements)
         yield path
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def correct_metadata_file(self, temp_test_directory: str) -> Generator:
         path = os.path.join(temp_test_directory, self.CORRECT_METADATA)
         self.create_file(path, test_data.correct_package_metadata)
         yield path
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def file_in_a_subdir(self, temp_test_directory: str) -> Generator:
         dir_path = os.path.join(temp_test_directory, self.SUBDIR)
         os.mkdir(dir_path)
@@ -439,7 +439,7 @@ class TestUtils:
         self.create_file(path, [])
         yield path
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def other_directory(self) -> Generator:
         current_path = Path(os.getcwd())
         path = os.path.join(
@@ -449,13 +449,13 @@ class TestUtils:
         yield path
         rmtree(path)
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def file_in_other_directory(self, other_directory: str) -> Generator:
         path = os.path.join(other_directory, self.FILE_IN_SECOND_TEST_DIRECTORY)
         self.create_file(path, [])
         yield path
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def include_paths_env_variable(self, other_directory: str) -> Generator:
         os.environ["SNOWCLI_INCLUDE_PATHS"] = other_directory
         yield os.environ["SNOWCLI_INCLUDE_PATHS"]
