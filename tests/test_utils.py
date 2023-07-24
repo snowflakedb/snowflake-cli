@@ -243,7 +243,9 @@ class TestUtils:
         zip_file = ZipFile(zip_file_path)
 
         assert os.path.isfile(zip_file_path)
-        assert (os.path.join(self.TEMP_TEST_DIRECTORY, self.SUBDIR, self.FILE_IN_A_SUBDIR)) in zip_file.namelist()
+        assert (
+            os.path.join(self.TEMP_TEST_DIRECTORY, self.SUBDIR, self.FILE_IN_A_SUBDIR)
+        ) in zip_file.namelist()
         assert os.path.join(self.FILE_IN_SECOND_TEST_DIRECTORY) in zip_file.namelist()
 
     def test_standard_zip_dir(self, temp_test_directory: str, file_in_a_subdir: str):
@@ -276,14 +278,18 @@ class TestUtils:
         )
         assert os.path.join(self.FILE_IN_SECOND_TEST_DIRECTORY) in zip_file.namelist()
 
-    def test_get_snowflake_packages(self, temp_test_directory: str, streamlit_requirements_txt):
+    def test_get_snowflake_packages(
+        self, temp_test_directory: str, streamlit_requirements_txt
+    ):
         os.chdir(temp_test_directory)
         result = utils.get_snowflake_packages()
         os.chdir("..")
 
         assert result == test_data.requirements
 
-    def test_get_snowflake_packages_delta(self,temp_test_directory: str, streamlit_requirements_txt):
+    def test_get_snowflake_packages_delta(
+        self, temp_test_directory: str, streamlit_requirements_txt
+    ):
         anaconda_package = test_data.requirements[-1]
         os.chdir(temp_test_directory)
         result = utils.get_snowflake_packages_delta(anaconda_package)
