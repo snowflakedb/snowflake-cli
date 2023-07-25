@@ -101,7 +101,7 @@ def streamlit_create(
     ),
 ):
     """
-    Create a streamlit app named NAME.
+    Create a streamlit app.
     """
     conn = connect_to_snowflake(connection_name=environment)
 
@@ -136,7 +136,7 @@ def streamlit_share(
     ),
 ):
     """
-    Create a streamlit app named NAME.
+    Share a streamlit app with a role.
     """
     conn = connect_to_snowflake(connection_name=environment)
 
@@ -157,7 +157,7 @@ def streamlit_drop(
     name: str = typer.Argument(..., help="Name of streamlit to be deleted."),
 ):
     """
-    Create a streamlit app named NAME.
+    Drop a streamlit app.
     """
     conn = connect_to_snowflake(connection_name=environment)
 
@@ -210,7 +210,7 @@ def streamlit_deploy(
     ),
 ):
     """
-    Deploy streamlit with NAME.
+    Deploy a streamlit app.
     """
     conn = connect_to_snowflake(connection_name=environment)
 

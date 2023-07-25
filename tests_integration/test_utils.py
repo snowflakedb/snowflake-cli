@@ -16,6 +16,12 @@ def row_from_snowflake_session(
     return row_from_cursor(result[-1])
 
 
+def rows_from_snowflake_session(
+    result: List[SnowflakeCursor],
+) -> List[List[Dict[str, str]]]:
+    return [row_from_cursor(cursor) for cursor in result]
+
+
 def row_from_cursor(cursor: SnowflakeCursor) -> List[Dict[str, str]]:
     column_names = [column.name for column in cursor.description]
     return [dict(zip(column_names, row)) for row in cursor.fetchall()]
