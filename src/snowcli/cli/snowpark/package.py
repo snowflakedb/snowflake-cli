@@ -4,14 +4,26 @@ import os
 import tempfile
 from pathlib import Path
 from shutil import rmtree
+from typing import Optional
 
 import click
 import logging
 import typer
 from requirements.requirement import Requirement
 
-from snowcli import config, utils
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
+from snowcli import utils
+from snowcli.cli.common.flags import (
+    DEFAULT_CONTEXT_SETTINGS,
+    ConnectionOption,
+    AccountOption,
+    UserOption,
+    DatabaseOption,
+    SchemaOption,
+    RoleOption,
+    WarehouseOption,
+)
+from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 from snowcli.snow_connector import connect_to_snowflake
 
 app = typer.Typer(
@@ -70,6 +82,57 @@ def package_lookup(
                 return packages_string
 
 
+@app.command("upload")
+@global_options
+def package_upload(
+    file: Path = typer.Option(
+        ...,
+        "--file",
+        "-f",
+        help="Path to the file to update",
+        exists=False,
+    ),
+    stage: str = typer.Option(
+        ...,
+        "--stage",
+        "-s",
+        help="The stage to upload the file to, NOT including @ symbol",
+    ),
+    overwrite: bool = typer.Option(
+        False,
+        "--overwrite",
+        "-o",
+        help="Overwrite the file if it already exists",
+    ),
+    **kwargs,
+):
+    """
+    Upload a python package zip file to a Snowflake stage, so it can be referenced in the imports of a procedure or function.
+    """
+    conn = snow_cli_global_context_manager.get_connection()
+
+    log.info(f"Uploading {file} to Snowflake @{stage}/{file}...")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
+        deploy_response = conn.upload_file_to_stage(
+            file_path=temp_app_zip_path,
+            destination_stage=stage,
+            path="/",
+            database=conn.ctx.database,
+            schema=conn.ctx.schema,
+            overwrite=overwrite,
+            role=conn.ctx.role,
+            warehouse=conn.ctx.warehouse,
+        )
+    log.info(
+        f"Package {file} {deploy_response.description[6]} to Snowflake @{stage}/{file}."
+    )
+    if deploy_response.description[6] == "SKIPPED":
+        log.info(
+            "Package already exists on stage. Consider using --overwrite to overwrite the file."
+        )
+
+
 @app.command("create")
 def package_create(
     name: str = typer.Argument(
@@ -95,52 +158,3 @@ def package_create(
         )
         if results_string is not None:
             log.info(results_string)
-
-
-@app.command("upload")
-def package_upload(
-    file: Path = typer.Option(
-        ...,
-        "--file",
-        "-f",
-        help="Path to the file to update",
-        exists=False,
-    ),
-    stage: str = typer.Option(
-        ...,
-        "--stage",
-        "-s",
-        help="The stage to upload the file to, NOT including @ symbol",
-    ),
-    overwrite: bool = typer.Option(
-        False,
-        "--overwrite",
-        "-o",
-        help="Overwrite the file if it already exists",
-    ),
-    environment: str = ConnectionOption,
-):
-    """
-    Upload a python package zip file to a Snowflake stage so it can be referenced in the imports of a procedure or function.
-    """
-    conn = connect_to_snowflake(connection_name=environment)
-    log.info(f"Uploading {file} to Snowflake @{stage}/{file}...")
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
-        deploy_response = conn.upload_file_to_stage(
-            file_path=temp_app_zip_path,
-            destination_stage=stage,
-            path="/",
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            overwrite=overwrite,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-        )
-    log.info(
-        f"Package {file} {deploy_response.description[6]} to Snowflake @{stage}/{file}."
-    )
-    if deploy_response.description[6] == "SKIPPED":
-        log.info(
-            "Package already exists on stage. Consider using --overwrite to overwrite the file."
-        )

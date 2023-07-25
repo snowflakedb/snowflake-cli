@@ -5,19 +5,12 @@ from typing import Optional
 import typer
 from click import UsageError
 
-from snowcli.snow_connector import connect_to_snowflake
-from snowcli.cli.common.flags import (
-    ConnectionOption,
-    AccountOption,
-    UserOption,
-    DatabaseOption,
-    SchemaOption,
-    RoleOption,
-    WarehouseOption,
-)
+from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
+from snowcli.cli.common.decorators import global_options
 from snowcli.output.printing import print_db_cursor
 
 
+@global_options
 def execute_sql(
     query: Optional[str] = typer.Option(
         None,
@@ -35,13 +28,7 @@ def execute_sql(
         readable=True,
         help="File to execute.",
     ),
-    connection: Optional[str] = ConnectionOption,
-    account: Optional[str] = AccountOption,
-    user: Optional[str] = UserOption,
-    database: Optional[str] = DatabaseOption,
-    schema: Optional[str] = SchemaOption,
-    role: Optional[str] = RoleOption,
-    warehouse: Optional[str] = WarehouseOption,
+    **options
 ):
     """
     Executes Snowflake query.
@@ -69,15 +56,7 @@ def execute_sql(
     else:
         sql = query if query else file.read_text()  # type: ignore
 
-    conn = connect_to_snowflake(
-        connection_name=connection,
-        account=account,
-        user=user,
-        role=role,
-        warehouse=warehouse,
-        database=database,
-        schema=schema,
-    )
+    conn = snow_cli_global_context_manager.get_connection()
 
     results = conn.ctx.execute_string(
         sql_text=sql,
