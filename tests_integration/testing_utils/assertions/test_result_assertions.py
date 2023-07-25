@@ -80,12 +80,3 @@ def assert_that_result_is_successful_and_json_output_contains_value_at_path(
     assert_that_json_output_contains_value_at_path(
         result=result, path=path, expected_value=expected_value
     )
-
-
-def assert_that_result_is_usage_error(
-    result: Result, expected_error_message: str
-) -> None:
-    assert result.exit_code == 2
-    assert expected_error_message in result.output
-    assert isinstance(result.exception, SystemExit)
-    assert "traceback" not in result.output.lower()

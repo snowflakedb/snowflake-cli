@@ -91,7 +91,6 @@ def test_snowpark_function_flow(_test_steps):
         arguments="()",
     )
     _test_steps.assert_that_no_functions_are_in_snowflake()
-    # I'm not sure if it is expected behavior to leave staged files belonging to the removed function.
     _test_steps.assert_that_only_these_files_are_staged_in_snowflake(
         f"deployments/{function_name}/app.zip"
     )
