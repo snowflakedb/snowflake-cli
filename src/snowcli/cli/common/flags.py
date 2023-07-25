@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import typer
 
-from snowcli.config import get_default_connection
 from snowcli.utils import check_for_connection
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
 
 ConnectionOption = typer.Option(
-    get_default_connection(),
+    None,
     "-c",
     "--connection",
     "--environment",

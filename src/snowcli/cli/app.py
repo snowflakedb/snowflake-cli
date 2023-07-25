@@ -27,6 +27,11 @@ def _version_callback(value: bool):
         raise typer.Exit()
 
 
+def _info_callback(value: bool):
+    if not value:
+        return
+
+
 def setup_global_context(debug: bool):
     """
     Setup global state (accessible in whole CLI code) using options passed in SNOW CLI invocation.
@@ -46,6 +51,13 @@ def default(
         "--version",
         help="Prints version of the snowcli",
         callback=_version_callback,
+        is_eager=True,
+    ),
+    info: bool = typer.Option(
+        None,
+        "--info",
+        help="Prints information about the snowcli",
+        callback=_info_callback,
         is_eager=True,
     ),
     output_format: OutputFormat = typer.Option(

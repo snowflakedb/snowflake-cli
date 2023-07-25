@@ -7,7 +7,6 @@ import logging
 import hashlib
 from io import StringIO
 
-import typer
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 from typing import Optional
