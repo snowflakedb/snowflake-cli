@@ -16,7 +16,7 @@ import snowflake.connector
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ForbiddenError, DatabaseError
 
-from snowcli.config import cli_config, DEFAULT_CONNECTION
+from snowcli.config import cli_config, get_default_connection
 from snowcli.exception import SnowflakeConnectionError, InvalidConnectionConfiguration
 
 log = logging.getLogger(__name__)
@@ -971,7 +971,7 @@ class SnowflakeConnector:
 
 def connect_to_snowflake(connection_name: Optional[str] = None, **overrides):  # type: ignore
     connection_name = (
-        connection_name if connection_name is not None else DEFAULT_CONNECTION
+        connection_name if connection_name is not None else get_default_connection()
     )
     try:
         return SnowflakeConnector(

@@ -2,18 +2,18 @@ from __future__ import annotations
 
 import typer
 
-from snowcli.config import DEFAULT_CONNECTION
+from snowcli.config import get_default_connection
 from snowcli.utils import check_for_connection
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
 
 ConnectionOption = typer.Option(
-    DEFAULT_CONNECTION,
+    get_default_connection(),
     "-c",
     "--connection",
     "--environment",
-    help=f"Connection / environment name. Defaults to {DEFAULT_CONNECTION}.",
+    help=f"Connection / environment name. If not provided then default connection will be used.",
     callback=check_for_connection,
 )
 
@@ -37,7 +37,7 @@ PasswordOption = typer.Option(
     None,
     "-p",
     "--password",
-    help="Snowflake password",
+    help="Snowflake password.",
     hide_input=True,
 )
 
@@ -57,6 +57,6 @@ SchemaOption = typer.Option(
     help=" Schema in the database to use.",
 )
 
-RoleOption = typer.Option(None, "-r", "--rolename", "--role", help="Role to be used")
+RoleOption = typer.Option(None, "-r", "--rolename", "--role", help="Role to be used.")
 
 WarehouseOption = typer.Option(None, "-w", "--warehouse", help="Warehouse to use.")
