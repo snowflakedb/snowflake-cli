@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, Union
 
 import tomlkit
 from tomlkit import dump, table, TOMLDocument
@@ -14,8 +14,6 @@ import logging
 from snowcli.exception import MissingConfiguration, UnsupportedConfigSectionTypeError
 from snowflake.connector.constants import CONFIG_FILE
 from snowflake.connector.config_manager import ConfigManager
-
-DEFAULT_CONNECTION = "dev"
 
 log = logging.getLogger(__name__)
 
@@ -65,11 +63,9 @@ class CliConfigManager(ConfigManager):
         try:
             return self.get_section("connections", connection_name)
         except NonExistentKey:
-            if connection_name == DEFAULT_CONNECTION:
-                msg = f"Using default connection. Connection {connection_name} is not configured"
-            else:
-                msg = f"Connection {connection_name} is not configured"
-            raise MissingConfiguration(msg)
+            raise MissingConfiguration(
+                f"Connection {connection_name} is not configured"
+            )
 
     def add_connection(self, name: str, parameters: dict):
         if not self.section_exists("connections"):
@@ -95,11 +91,16 @@ class CliConfigManager(ConfigManager):
             idx += 1
         return section
 
-    def _merge_section_with_env(self, section: Table, *path) -> Dict[str, str]:
-        section_copy = section.copy()
-        env_variables = self._get_envs_for_path(*path)
-        section_copy.update(env_variables)
-        return section_copy
+    def _merge_section_with_env(
+        self, section: Union[Table, Any], *path
+    ) -> Dict[str, str]:
+        if isinstance(section, Table):
+            env_variables = self._get_envs_for_path(*path)
+            section_copy = section.copy()
+            section_copy.update(env_variables)
+            return section_copy
+        # It's a atomic value
+        return section
 
     def _get_env_value(self, *path, key: str):
         env_variable_name = (
@@ -139,3 +140,12 @@ def config_init(config_file: Path):
 
 
 cli_config: CliConfigManager = CliConfigManager()  # type: ignore
+
+
+_DEFAULT_CONNECTION = "dev"
+
+
+def get_default_connection():
+    return cli_config.get(
+        "options", key="default_connection", default=_DEFAULT_CONNECTION
+    )
