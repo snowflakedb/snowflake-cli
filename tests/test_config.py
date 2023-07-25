@@ -3,7 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from snowcli.config import CliConfigManager
+from snowcli.config import CliConfigManager, get_default_connection, config_init
 
 
 def test_empty_config_file_is_created_if_not_present():
@@ -113,3 +113,21 @@ def test_get_all_connections(test_snowcli_config):
             "warehouse": "dev_warehouse",
         },
     }
+
+
+@mock.patch.dict(
+    os.environ,
+    {
+        "SNOWFLAKE_OPTIONS_DEFAULT_CONNECTION": "fooBarConn",
+    },
+    clear=True,
+)
+def test_get_default_connection_from_env(runner):
+    result = get_default_connection()
+    assert result == "fooBarConn"
+
+
+def test_get_default_connection_if_not_present_in_config(test_snowcli_config):
+    config_init(test_snowcli_config)
+    result = get_default_connection()
+    assert result == "dev"

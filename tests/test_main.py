@@ -20,7 +20,11 @@ def test_streamlit_help(runner):
 @mock.patch.dict(os.environ, {}, clear=True)
 def test_custom_config_path(mock_conn, runner):
     config_file = Path(__file__).parent / "test.toml"
-    runner.invoke(["--config-file", str(config_file), "warehouse", "status"])
+    result = runner.invoke(
+        ["--config-file", str(config_file), "warehouse", "status"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
     mock_conn.assert_called_once_with(
         connection_parameters={
             "database": "db_for_test",
