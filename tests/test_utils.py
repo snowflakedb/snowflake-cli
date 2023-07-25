@@ -4,7 +4,6 @@ import json
 
 from pathlib import Path, PosixPath
 from requirements.requirement import Requirement
-from shutil import rmtree
 from typing import Generator, List
 from unittest.mock import MagicMock, patch
 from zipfile import ZipFile
@@ -61,12 +60,12 @@ class TestUtils:
     def test_prepare_app_zip(
         self,
         temp_test_directory: str,
-        correct_app_zip: str,
+        app_zip: str,
         temp_directory_for_app_zip: str,
     ):
-        result = utils.prepare_app_zip(correct_app_zip, temp_directory_for_app_zip)
+        result = utils.prepare_app_zip(app_zip, temp_directory_for_app_zip)
         assert result == os.path.join(
-            temp_directory_for_app_zip, Path(correct_app_zip).name
+            temp_directory_for_app_zip, Path(app_zip).name
         )
 
     def test_prepare_app_zip_if_exception_is_raised_if_no_source(
@@ -78,9 +77,9 @@ class TestUtils:
         assert expected_error.value.errno == 2
         assert expected_error.type == FileNotFoundError
 
-    def test_prepare_app_zip_if_exception_is_raised_if_no_dst(self, correct_app_zip):
+    def test_prepare_app_zip_if_exception_is_raised_if_no_dst(self, app_zip):
         with pytest.raises(FileNotFoundError) as expected_error:
-            utils.prepare_app_zip(correct_app_zip, "/non/existent/path")
+            utils.prepare_app_zip(app_zip, "/non/existent/path")
 
         assert expected_error.value.errno == 2
         assert expected_error.type == FileNotFoundError
@@ -142,11 +141,11 @@ class TestUtils:
         assert result is None
 
     def test_generate_streamlit_file(
-        self, streamlit_requirements_txt, temp_test_directory: str
+        self, correct_requirements_txt, temp_test_directory: str
     ):
         os.chdir(temp_test_directory)
         result = utils.generate_streamlit_environment_file(
-            [], streamlit_requirements_txt
+            [], correct_requirements_txt
         )
         os.chdir("..")
 
@@ -154,11 +153,11 @@ class TestUtils:
         assert os.path.isfile(os.path.join(temp_test_directory, "environment.yml"))
 
     def test_generate_streamlit_environment_file_with_excluded_dependencies(
-        self, streamlit_requirements_txt, temp_test_directory: str
+        self, correct_requirements_txt, temp_test_directory: str
     ):
         os.chdir(temp_test_directory)
         result = utils.generate_streamlit_environment_file(
-            test_data.excluded_anaconda_deps, streamlit_requirements_txt
+            test_data.excluded_anaconda_deps, correct_requirements_txt
         )
         os.chdir("..")
         env_file = os.path.join(temp_test_directory, "environment.yml")
@@ -204,18 +203,18 @@ class TestUtils:
             )
 
     def test_add_file_to_existing_zip(
-        self, correct_app_zip: str, correct_requirements_txt: str
+        self, app_zip, correct_requirements_txt: str
     ):
-        utils.add_file_to_existing_zip(correct_app_zip, correct_requirements_txt)
-        zip_file = ZipFile(correct_app_zip)
+        utils.add_file_to_existing_zip(app_zip, correct_requirements_txt)
+        zip_file = ZipFile(app_zip)
 
         assert os.path.basename(correct_requirements_txt) in zip_file.namelist()
 
     def test_recursive_zip_packages(
         self,
         temp_test_directory: str,
-        file_in_a_subdir: str,
-        file_in_other_directory: str,
+        txt_file_in_a_subdir: str,
+            temp_file_in_other_directory,
     ):
         zip_file_path = os.path.join(temp_test_directory, "packed.zip")
 
@@ -227,18 +226,18 @@ class TestUtils:
         assert os.path.isfile(zip_file_path)
         assert os.getenv("SNOWCLI_INCLUDE_PATHS") is None
         assert (
-            str(Path(file_in_a_subdir).relative_to(temp_test_directory))
+            str(Path(txt_file_in_a_subdir).relative_to(temp_test_directory))
             in zip_file.namelist()
         )
-        assert Path(file_in_other_directory).name not in zip_file.namelist()
+        assert Path(temp_file_in_other_directory).name not in zip_file.namelist()
         assert zip_file_path not in zip_file.namelist()
 
     def test_recursive_zip_packages_with_env_variable(
         self,
         temp_test_directory: str,
-        file_in_a_subdir: str,
+        txt_file_in_a_subdir: str,
         other_directory: str,
-        file_in_other_directory: str,
+        temp_file_in_other_directory,
         include_paths_env_variable,
     ):
         zip_file_path = os.path.join(temp_test_directory, "packed.zip")
@@ -248,29 +247,29 @@ class TestUtils:
 
         assert os.path.isfile(zip_file_path)
         assert (
-            str(Path(file_in_a_subdir).relative_to(temp_test_directory))
+            str(Path(txt_file_in_a_subdir).relative_to(temp_test_directory))
             in zip_file.namelist()
         )
-        assert str(Path(file_in_other_directory).name) in zip_file.namelist()
+        assert str(Path(temp_file_in_other_directory).name) in zip_file.namelist()
 
-    def test_standard_zip_dir(self, temp_test_directory: str, file_in_a_subdir: str):
+    def test_standard_zip_dir(self, temp_test_directory: str, txt_file_in_a_subdir: str):
         zip_file_path = os.path.join(temp_test_directory, "packed.zip")
         utils.standard_zip_dir(zip_file_path)
         zip_file = ZipFile(zip_file_path)
 
         assert os.path.isfile(zip_file_path)
         assert (
-            os.path.join(self.SUBDIR, os.path.basename(file_in_a_subdir))
+            os.path.join(self.SUBDIR, os.path.basename(txt_file_in_a_subdir))
             not in zip_file.namelist()
         )
 
     def test_standard_zip_dir_with_env_variable(
         self,
         temp_test_directory: str,
-        file_in_a_subdir: str,
+        txt_file_in_a_subdir: str,
         include_paths_env_variable,
         other_directory: str,
-        file_in_other_directory: str,
+        temp_file_in_other_directory,
     ):
         zip_file_path = os.path.join(temp_test_directory, "packed.zip")
         utils.standard_zip_dir(zip_file_path)
@@ -278,26 +277,26 @@ class TestUtils:
 
         assert os.path.isfile(zip_file_path)
         assert (
-            os.path.join("subdir", os.path.basename(file_in_a_subdir))
+            os.path.join("subdir", os.path.basename(txt_file_in_a_subdir))
             not in zip_file.namelist()
         )
-        assert Path(file_in_other_directory).name in zip_file.namelist()
+        assert Path(temp_file_in_other_directory).name in zip_file.namelist()
 
     def test_get_snowflake_packages(
-        self, temp_test_directory: str, streamlit_requirements_txt
+        self, temp_test_directory: str, correct_requirements_txt
     ):
         os.chdir(temp_test_directory)
-        os.rename(streamlit_requirements_txt, self.REQUIREMENTS_SNOWFLAKE)
+        os.rename(correct_requirements_txt, self.REQUIREMENTS_SNOWFLAKE)
         result = utils.get_snowflake_packages()
 
         assert result == test_data.requirements
 
     def test_get_snowflake_packages_delta(
-        self, temp_test_directory: str, streamlit_requirements_txt
+        self, temp_test_directory: str, correct_requirements_txt
     ):
         anaconda_package = test_data.requirements[-1]
         os.chdir(temp_test_directory)
-        os.rename(streamlit_requirements_txt, self.REQUIREMENTS_SNOWFLAKE)
+        os.rename(correct_requirements_txt, self.REQUIREMENTS_SNOWFLAKE)
         result = utils.get_snowflake_packages_delta(anaconda_package)
 
         assert result == test_data.requirements[:-1]
@@ -399,10 +398,8 @@ class TestUtils:
 
     @pytest.fixture
     def temp_test_directory(self) -> Generator:
-        temp_dir = tempfile.TemporaryDirectory()
-        yield temp_dir.name
-        rmtree(temp_dir.name)  # We delete whole directory in teardown -
-        # so, no need to delete any of the files separately
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            yield tmp_dir
 
     @pytest.fixture
     def temp_directory_for_app_zip(self, temp_test_directory: str) -> Generator:
@@ -410,37 +407,32 @@ class TestUtils:
         yield temp_dir.name
 
     @pytest.fixture
-    def correct_app_zip(self, temp_test_directory: str) -> Generator:
-        yield self.create_file(".zip", temp_test_directory, [])
+    def app_zip(self, temp_test_directory: str) -> Generator:
+        yield self.create_temp_file(".zip", temp_test_directory, [])
 
     @pytest.fixture
     def correct_requirements_txt(self, temp_test_directory: str) -> Generator:
-        yield self.create_file(".txt", temp_test_directory, test_data.requirements)
-
-    @pytest.fixture
-    def streamlit_requirements_txt(self, temp_test_directory: str) -> Generator:
-        yield self.create_file(".txt", temp_test_directory, test_data.requirements)
+        yield self.create_temp_file(".txt", temp_test_directory, test_data.requirements)
 
     @pytest.fixture
     def correct_metadata_file(self, temp_test_directory: str) -> Generator:
-        yield self.create_file(
+        yield self.create_temp_file(
             ".yaml", temp_test_directory, test_data.correct_package_metadata
         )
 
     @pytest.fixture
-    def file_in_a_subdir(self, temp_test_directory: str) -> Generator:
+    def txt_file_in_a_subdir(self, temp_test_directory: str) -> Generator:
         subdir = tempfile.TemporaryDirectory(dir=temp_test_directory)
-        yield self.create_file(".txt", subdir.name, [])
+        yield self.create_temp_file(".txt", subdir.name, [])
 
     @pytest.fixture
     def other_directory(self) -> Generator:
-        other_dir = tempfile.TemporaryDirectory()
-        yield other_dir.name
-        rmtree(other_dir.name)
+        with tempfile.TemporaryDirectory() as tmp:
+            yield tmp
 
     @pytest.fixture
-    def file_in_other_directory(self, other_directory: str) -> Generator:
-        yield self.create_file(".txt", other_directory, [])
+    def temp_file_in_other_directory(self, other_directory: str) -> Generator:
+        yield self.create_temp_file(".txt", other_directory, [])
 
     @pytest.fixture
     def include_paths_env_variable(self, other_directory: str) -> Generator:
@@ -449,7 +441,7 @@ class TestUtils:
         os.environ.pop("SNOWCLI_INCLUDE_PATHS")
 
     @staticmethod
-    def create_file(suffix: str, dir: str, contents: List[str]) -> str:
+    def create_temp_file(suffix: str, dir: str, contents: List[str]) -> str:
         with tempfile.NamedTemporaryFile(suffix=suffix, dir=dir, delete=False) as tmp:
             with open(tmp.name, "w") as new_file:
                 for line in contents:
