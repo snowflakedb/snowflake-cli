@@ -1,4 +1,6 @@
 import os
+import tempfile
+
 import pytest
 from pathlib import Path
 from shutil import rmtree
@@ -17,16 +19,16 @@ class TestProcedure:
         "config.toml",
     ]
 
-    def test_procedure_init(self, procedure_temp):
-        os.chdir(procedure_temp)
+    def test_procedure_init(self, tmp_dir_for_procedure_tests):
+        os.chdir(tmp_dir_for_procedure_tests)
         procedure.procedure_init()
         assert os.listdir() == self.DIR_INITIAL_CONTENTS
-        os.chdir("..")
+
+    def test_procedure_create(self):
+        result =
 
     @pytest.fixture(scope="class")
-    def procedure_temp(self):
-        current_path = Path(os.getcwd())
-        path = os.path.join(current_path, self.TEMP_DIRECTORY_NAME)
-        os.mkdir(path)
-        yield path
-        rmtree(path)
+    def tmp_dir_for_procedure_tests(self):
+        temp_dir = tempfile.TemporaryDirectory()
+        yield temp_dir.name
+        temp_dir.cleanup()
