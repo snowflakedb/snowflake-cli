@@ -65,8 +65,10 @@ class TestUtils:
         temp_directory_for_app_zip: str,
     ):
         result = utils.prepare_app_zip(correct_app_zip, temp_directory_for_app_zip)
-
-        assert result == temp_directory_for_app_zip + "/app.zip"
+        print(result)
+        assert result == os.path.join(
+            temp_directory_for_app_zip, Path(correct_app_zip).name
+        )
 
     def test_prepare_app_zip_if_exception_is_raised_if_no_source(
         self, temp_directory_for_app_zip
@@ -135,14 +137,18 @@ class TestUtils:
             result = utils.parse_anaconda_packages(test_data.packages)
 
     def test_generate_streamlit_environment_file_with_no_requirements(self):
-        result = utils.generate_streamlit_environment_file([])
+        result = utils.generate_streamlit_environment_file(
+            [],
+        )
         assert result is None
 
     def test_generate_streamlit_file(
         self, streamlit_requirements_txt, temp_test_directory: str
     ):
         os.chdir(temp_test_directory)
-        result = utils.generate_streamlit_environment_file([])
+        result = utils.generate_streamlit_environment_file(
+            [], streamlit_requirements_txt
+        )
         os.chdir("..")
 
         assert result == PosixPath("environment.yml")
@@ -153,7 +159,7 @@ class TestUtils:
     ):
         os.chdir(temp_test_directory)
         result = utils.generate_streamlit_environment_file(
-            test_data.excluded_anaconda_deps
+            test_data.excluded_anaconda_deps, streamlit_requirements_txt
         )
         os.chdir("..")
         env_file = os.path.join(temp_test_directory, "environment.yml")
@@ -218,14 +224,16 @@ class TestUtils:
         utils.recursive_zip_packages_dir(temp_test_directory, zip_file_path)
 
         zip_file = ZipFile(zip_file_path)
+        result = zip_file.namelist()
+        print("hello")
 
         assert os.path.isfile(zip_file_path)
         assert os.getenv("SNOWCLI_INCLUDE_PATHS") is None
-        assert (os.path.join(self.SUBDIR, self.FILE_IN_A_SUBDIR)) in zip_file.namelist()
         assert (
-            os.path.join(self.SECOND_TEST_DIRECTORY, self.FILE_IN_SECOND_TEST_DIRECTORY)
-            not in zip_file.namelist()
+            str(Path(file_in_a_subdir).relative_to(temp_test_directory))
+            in zip_file.namelist()
         )
+        assert Path(file_in_other_directory).name not in zip_file.namelist()
         assert zip_file_path not in zip_file.namelist()
 
     def test_recursive_zip_packages_with_env_variable(
@@ -242,8 +250,11 @@ class TestUtils:
         zip_file = ZipFile(zip_file_path)
 
         assert os.path.isfile(zip_file_path)
-        assert (os.path.join(self.SUBDIR, self.FILE_IN_A_SUBDIR)) in zip_file.namelist()
-        assert os.path.join(self.FILE_IN_SECOND_TEST_DIRECTORY) in zip_file.namelist()
+        assert (
+            str(Path(file_in_a_subdir).relative_to(temp_test_directory))
+            in zip_file.namelist()
+        )
+        assert str(Path(file_in_other_directory).name) in zip_file.namelist()
 
     def test_standard_zip_dir(self, temp_test_directory: str, file_in_a_subdir: str):
         zip_file_path = os.path.join(temp_test_directory, "packed.zip")
@@ -273,17 +284,23 @@ class TestUtils:
             os.path.join("subdir", os.path.basename(file_in_a_subdir))
             not in zip_file.namelist()
         )
-        assert os.path.join(self.FILE_IN_SECOND_TEST_DIRECTORY) in zip_file.namelist()
+        assert Path(file_in_other_directory).name in zip_file.namelist()
 
-    def test_get_snowflake_packages(self,temp_test_directory, streamlit_requirements_txt):
+    def test_get_snowflake_packages(
+        self, temp_test_directory: str, streamlit_requirements_txt
+    ):
         os.chdir(temp_test_directory)
+        os.rename(streamlit_requirements_txt, self.REQUIREMENTS_SNOWFLAKE)
         result = utils.get_snowflake_packages()
 
         assert result == test_data.requirements
 
-    def test_get_snowflake_packages_delta(self,temp_test_directory, streamlit_requirements_txt):
+    def test_get_snowflake_packages_delta(
+        self, temp_test_directory: str, streamlit_requirements_txt
+    ):
         anaconda_package = test_data.requirements[-1]
         os.chdir(temp_test_directory)
+        os.rename(streamlit_requirements_txt, self.REQUIREMENTS_SNOWFLAKE)
         result = utils.get_snowflake_packages_delta(anaconda_package)
 
         assert result == test_data.requirements[:-1]
@@ -386,65 +403,47 @@ class TestUtils:
     @pytest.fixture
     def temp_test_directory(self) -> Generator:
         temp_dir = tempfile.TemporaryDirectory()
-
         yield temp_dir.name
         rmtree(temp_dir.name)  # We delete whole directory in teardown -
         # so, no need to delete any of the files separately
 
     @pytest.fixture
     def temp_directory_for_app_zip(self, temp_test_directory: str) -> Generator:
-        path = os.path.join(temp_test_directory, self.TEMP_DIR_FOR_APP_ZIP)
-        os.mkdir(path)
-        yield path
+        temp_dir = tempfile.TemporaryDirectory(dir=temp_test_directory)
+        yield temp_dir.name
 
     @pytest.fixture
     def correct_app_zip(self, temp_test_directory: str) -> Generator:
-        path = os.path.join(temp_test_directory, self.APP_ZIP)
-        self.create_file(path, [])
-        yield path
+        yield self.create_file(".zip", temp_test_directory, [])
 
     @pytest.fixture
     def correct_requirements_txt(self, temp_test_directory: str) -> Generator:
-        path = os.path.join(temp_test_directory, self.REQUIREMENTS_TXT)
-        self.create_file(path, test_data.requirements)
-        yield path
+        yield self.create_file(".txt", temp_test_directory, test_data.requirements)
 
     @pytest.fixture
     def streamlit_requirements_txt(self, temp_test_directory: str) -> Generator:
-        path = os.path.join(temp_test_directory, self.REQUIREMENTS_SNOWFLAKE)
-        self.create_file(path, test_data.requirements)
-        yield path
+        yield self.create_file(".txt", temp_test_directory, test_data.requirements)
 
     @pytest.fixture
     def correct_metadata_file(self, temp_test_directory: str) -> Generator:
-        path = os.path.join(temp_test_directory, self.CORRECT_METADATA)
-        self.create_file(path, test_data.correct_package_metadata)
-        yield path
+        yield self.create_file(
+            ".yaml", temp_test_directory, test_data.correct_package_metadata
+        )
 
     @pytest.fixture
     def file_in_a_subdir(self, temp_test_directory: str) -> Generator:
-        dir_path = os.path.join(temp_test_directory, self.SUBDIR)
-        os.mkdir(dir_path)
-
-        path = os.path.join(dir_path, self.FILE_IN_A_SUBDIR)
-        self.create_file(path, [])
-        yield path
+        subdir = tempfile.TemporaryDirectory(dir=temp_test_directory)
+        yield self.create_file(".txt", subdir.name, [])
 
     @pytest.fixture
     def other_directory(self) -> Generator:
-        current_path = Path(os.getcwd())
-        path = os.path.join(
-            current_path.parent.absolute(), self.SECOND_TEST_DIRECTORY
-        ).lower()
-        os.mkdir(path)
-        yield path
-        rmtree(path)
+        other_dir = tempfile.TemporaryDirectory()
+        yield other_dir.name
+        rmtree(other_dir.name)
 
     @pytest.fixture
     def file_in_other_directory(self, other_directory: str) -> Generator:
-        path = os.path.join(other_directory, self.FILE_IN_SECOND_TEST_DIRECTORY)
-        self.create_file(path, [])
-        yield path
+        yield self.create_file(".txt", other_directory, [])
 
     @pytest.fixture
     def include_paths_env_variable(self, other_directory: str) -> Generator:
@@ -453,7 +452,9 @@ class TestUtils:
         os.environ.pop("SNOWCLI_INCLUDE_PATHS")
 
     @staticmethod
-    def create_file(filepath: str, contents: List[str]) -> None:
-        with open(filepath, "w") as new_file:
-            for line in contents:
-                new_file.write(line + "\n")
+    def create_file(suffix: str, dir: str, contents: List[str]) -> str:
+        with tempfile.NamedTemporaryFile(suffix=suffix, dir=dir, delete=False) as tmp:
+            with open(tmp.name, "w") as new_file:
+                for line in contents:
+                    new_file.write(line + "\n")
+        return tmp.name
