@@ -8,7 +8,7 @@ from tests_integration.snowflake_connector import create_database, snowflake_ses
 @pytest.mark.integration
 @mock.patch("snowcli.cli.sql.print_db_cursor")
 def test_query_parameter(mock_print, runner, snowflake_session):
-    runner.invoke_with_config(["sql", "-q", "select pi()"])
+    runner.invoke_with_config_and_integration_connection(["sql", "-q", "select pi()"])
 
     assert row_from_mock(mock_print) == [{"PI()": 3.141592654}]
 
@@ -16,7 +16,7 @@ def test_query_parameter(mock_print, runner, snowflake_session):
 @pytest.mark.integration
 @mock.patch("snowcli.cli.sql.print_db_cursor")
 def test_multi_queries_from_file(mock_print, runner, snowflake_session, test_root_path):
-    runner.invoke_with_config(
+    runner.invoke_with_config_and_integration_connection(
         ["sql", "-f", f"{test_root_path}/test_files/sql_multi_queries.sql"]
     )
 
