@@ -1,2 +1,2 @@
 {% include "set_env.sql" %}
-drop streamlit "{{ name }}";
+drop streamlit {{ name }};

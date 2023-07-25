@@ -231,7 +231,7 @@
   use warehouse warehouseValue;
   use database databaseValue;
   use schema schemaValue;
-  drop streamlit "nameValue";
+  drop streamlit nameValue;
   '''
 # ---
 # name: test_execute_function
