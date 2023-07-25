@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from json import JSONEncoder
+from pathlib import Path
 from typing import List, Optional, Dict
 
 from rich import box, print, print_json
@@ -17,6 +18,8 @@ class CustomJSONEncoder(JSONEncoder):
     def default(self, o):
         if isinstance(o, datetime):
             return o.isoformat()
+        if isinstance(o, Path):
+            return str(o)
         return super().default(o)
 
 
@@ -44,9 +47,16 @@ def print_db_cursor(
     _print_formatted(data, columns_to_include)
 
 
-def _print_formatted(data: List[Dict], columns: Optional[List[str]] = None):
+def _get_format_type():
     context = click.get_current_context()
-    output_format = OutputFormat(context.find_root().params.get("output_format"))
+    format_from_ctx = context.find_root().params.get("output_format")
+    if format_from_ctx:
+        return OutputFormat(format_from_ctx)
+    return OutputFormat.TABLE
+
+
+def _print_formatted(data: List[Dict], columns: Optional[List[str]] = None):
+    output_format = _get_format_type()
     if output_format == OutputFormat.TABLE:
         _print_table(data, columns)
     elif output_format == OutputFormat.JSON:
