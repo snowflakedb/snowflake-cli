@@ -65,7 +65,6 @@ class TestUtils:
         temp_directory_for_app_zip: str,
     ):
         result = utils.prepare_app_zip(correct_app_zip, temp_directory_for_app_zip)
-        print(result)
         assert result == os.path.join(
             temp_directory_for_app_zip, Path(correct_app_zip).name
         )
@@ -224,8 +223,6 @@ class TestUtils:
         utils.recursive_zip_packages_dir(temp_test_directory, zip_file_path)
 
         zip_file = ZipFile(zip_file_path)
-        result = zip_file.namelist()
-        print("hello")
 
         assert os.path.isfile(zip_file_path)
         assert os.getenv("SNOWCLI_INCLUDE_PATHS") is None
