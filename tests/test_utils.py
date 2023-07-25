@@ -64,9 +64,7 @@ class TestUtils:
         temp_directory_for_app_zip: str,
     ):
         result = utils.prepare_app_zip(app_zip, temp_directory_for_app_zip)
-        assert result == os.path.join(
-            temp_directory_for_app_zip, Path(app_zip).name
-        )
+        assert result == os.path.join(temp_directory_for_app_zip, Path(app_zip).name)
 
     def test_prepare_app_zip_if_exception_is_raised_if_no_source(
         self, temp_directory_for_app_zip
@@ -144,9 +142,7 @@ class TestUtils:
         self, correct_requirements_txt, temp_test_directory: str
     ):
         os.chdir(temp_test_directory)
-        result = utils.generate_streamlit_environment_file(
-            [], correct_requirements_txt
-        )
+        result = utils.generate_streamlit_environment_file([], correct_requirements_txt)
         os.chdir("..")
 
         assert result == PosixPath("environment.yml")
@@ -202,9 +198,7 @@ class TestUtils:
                 in coverage_file.read()
             )
 
-    def test_add_file_to_existing_zip(
-        self, app_zip, correct_requirements_txt: str
-    ):
+    def test_add_file_to_existing_zip(self, app_zip, correct_requirements_txt: str):
         utils.add_file_to_existing_zip(app_zip, correct_requirements_txt)
         zip_file = ZipFile(app_zip)
 
@@ -214,7 +208,7 @@ class TestUtils:
         self,
         temp_test_directory: str,
         txt_file_in_a_subdir: str,
-            temp_file_in_other_directory,
+        temp_file_in_other_directory,
     ):
         zip_file_path = os.path.join(temp_test_directory, "packed.zip")
 
@@ -252,7 +246,9 @@ class TestUtils:
         )
         assert str(Path(temp_file_in_other_directory).name) in zip_file.namelist()
 
-    def test_standard_zip_dir(self, temp_test_directory: str, txt_file_in_a_subdir: str):
+    def test_standard_zip_dir(
+        self, temp_test_directory: str, txt_file_in_a_subdir: str
+    ):
         zip_file_path = os.path.join(temp_test_directory, "packed.zip")
         utils.standard_zip_dir(zip_file_path)
         zip_file = ZipFile(zip_file_path)
