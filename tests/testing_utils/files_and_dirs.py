@@ -18,7 +18,6 @@ def create_named_file(file_name: str, dir: str, contents: List[str]):
 
 
 def _write_to_file(path: str, contents: List[str]) -> None:
-    with open(path,'w') as new_file:
+    with open(path, "w") as new_file:
         for line in contents:
             new_file.write(line + "\n")
-
