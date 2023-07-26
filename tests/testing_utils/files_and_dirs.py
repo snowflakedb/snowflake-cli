@@ -5,9 +5,7 @@ from typing import List
 
 def create_temp_file(suffix: str, dir: str, contents: List[str]) -> str:
     with tempfile.NamedTemporaryFile(suffix=suffix, dir=dir, delete=False) as tmp:
-        with open(tmp.name, "w") as new_file:
-            for line in contents:
-                new_file.write(line + "\n")
+        _write_to_file(tmp.name, contents)
     return tmp.name
 
 

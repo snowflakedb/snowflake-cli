@@ -407,7 +407,9 @@ class TestUtils:
 
     @pytest.fixture
     def correct_requirements_txt(self, temp_test_directory: str) -> Generator:
-        yield create_named_file(self.REQUIREMENTS_SNOWFLAKE, temp_test_directory, test_data.requirements)
+        yield create_named_file(
+            self.REQUIREMENTS_SNOWFLAKE, temp_test_directory, test_data.requirements
+        )
 
     @pytest.fixture
     def correct_metadata_file(self, temp_test_directory: str) -> Generator:
@@ -434,5 +436,3 @@ class TestUtils:
         os.environ["SNOWCLI_INCLUDE_PATHS"] = other_directory
         yield os.environ["SNOWCLI_INCLUDE_PATHS"]
         os.environ.pop("SNOWCLI_INCLUDE_PATHS")
-
-
