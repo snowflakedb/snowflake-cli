@@ -4,7 +4,7 @@ import json
 
 from pathlib import Path, PosixPath
 from requirements.requirement import Requirement
-from typing import Generator, List
+from typing import Generator
 from unittest.mock import MagicMock, patch
 from zipfile import ZipFile
 
@@ -14,6 +14,7 @@ import typer
 
 from snowcli import utils
 import tests.test_data.test_data as test_data
+from tests.testing_utils.files_and_dirs import create_temp_file, create_named_file
 
 
 class TestUtils:
@@ -282,7 +283,6 @@ class TestUtils:
         self, temp_test_directory: str, correct_requirements_txt
     ):
         os.chdir(temp_test_directory)
-        os.rename(correct_requirements_txt, self.REQUIREMENTS_SNOWFLAKE)
         result = utils.get_snowflake_packages()
 
         assert result == test_data.requirements
@@ -292,7 +292,6 @@ class TestUtils:
     ):
         anaconda_package = test_data.requirements[-1]
         os.chdir(temp_test_directory)
-        os.rename(correct_requirements_txt, self.REQUIREMENTS_SNOWFLAKE)
         result = utils.get_snowflake_packages_delta(anaconda_package)
 
         assert result == test_data.requirements[:-1]
@@ -404,22 +403,22 @@ class TestUtils:
 
     @pytest.fixture
     def app_zip(self, temp_test_directory: str) -> Generator:
-        yield self.create_temp_file(".zip", temp_test_directory, [])
+        yield create_temp_file(".zip", temp_test_directory, [])
 
     @pytest.fixture
     def correct_requirements_txt(self, temp_test_directory: str) -> Generator:
-        yield self.create_temp_file(".txt", temp_test_directory, test_data.requirements)
+        yield create_named_file(self.REQUIREMENTS_SNOWFLAKE, temp_test_directory, test_data.requirements)
 
     @pytest.fixture
     def correct_metadata_file(self, temp_test_directory: str) -> Generator:
-        yield self.create_temp_file(
+        yield create_temp_file(
             ".yaml", temp_test_directory, test_data.correct_package_metadata
         )
 
     @pytest.fixture
     def txt_file_in_a_subdir(self, temp_test_directory: str) -> Generator:
         subdir = tempfile.TemporaryDirectory(dir=temp_test_directory)
-        yield self.create_temp_file(".txt", subdir.name, [])
+        yield create_temp_file(".txt", subdir.name, [])
 
     @pytest.fixture
     def other_directory(self) -> Generator:
@@ -428,7 +427,7 @@ class TestUtils:
 
     @pytest.fixture
     def temp_file_in_other_directory(self, other_directory: str) -> Generator:
-        yield self.create_temp_file(".txt", other_directory, [])
+        yield create_temp_file(".txt", other_directory, [])
 
     @pytest.fixture
     def include_paths_env_variable(self, other_directory: str) -> Generator:
@@ -436,10 +435,4 @@ class TestUtils:
         yield os.environ["SNOWCLI_INCLUDE_PATHS"]
         os.environ.pop("SNOWCLI_INCLUDE_PATHS")
 
-    @staticmethod
-    def create_temp_file(suffix: str, dir: str, contents: List[str]) -> str:
-        with tempfile.NamedTemporaryFile(suffix=suffix, dir=dir, delete=False) as tmp:
-            with open(tmp.name, "w") as new_file:
-                for line in contents:
-                    new_file.write(line + "\n")
-        return tmp.name
+
