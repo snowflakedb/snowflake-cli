@@ -4,9 +4,8 @@ from pathlib import Path
 
 import typer
 
-import snowcli.snow_connector
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
-from snowcli.snow_connector import connect_to_snowflake
+from snowcli.snow_connector import SqlExecutionMixin
 from snowcli.output.printing import print_db_cursor
 
 app = typer.Typer(
@@ -15,40 +14,68 @@ app = typer.Typer(
     help="Manage stages",
 )
 
+StageNameOption = typer.Argument(..., help="Stage name.")
+
+
+class StageManager(SqlExecutionMixin):
+    @staticmethod
+    def get_standard_stage_name(name: str) -> str:
+        # Handle embedded stages
+        if name.startswith("snow://"):
+            return name
+
+        return f"@{name}"
+
+    def list(self, stage_name: str):
+        stage_name = self.get_standard_stage_name(stage_name)
+        return self._execute_query(f"ls {stage_name}")
+
+    def get(self, stage_name: str, dest_path: str):
+        stage_name = self.get_standard_stage_name(stage_name)
+        return self._execute_query(f"get {stage_name} file://{dest_path}/")
+
+    def put(self, local_path: str, stage_name: str, parallel: int, overwrite: bool):
+        stage_name = self.get_standard_stage_name(stage_name)
+        return self._execute_query(
+            f"put file://{local_path} {stage_name}"
+            f"auto_compress=false parallel={parallel} overwrite={overwrite};"
+        )
+
+    def remove(self, stage_name: str, path: str):
+        stage_name = self.get_standard_stage_name(stage_name)
+        return self._execute_query(f"remove {stage_name}{path}")
+
+    def show(self):
+        return self._execute_query("show stages")
+
+    def create(self, stage_name: str):
+        return self._execute_query(f"create stage if not exists {stage_name};")
+
+    def drop(self, stage_name: str):
+        return self._execute_query(f"drop stage {stage_name};")
+
 
 @app.command("list")
 def stage_list(
-    environment: str = ConnectionOption,
-    name=typer.Argument(None, help="Name of stage"),
+    connection_name: str = ConnectionOption,
+    stage_name=typer.Argument(None, help="Name of stage"),
 ):
     """
-    List stage contents
+    List stage contents or shows available stages if stage name not provided.
     """
-    conn = connect_to_snowflake(connection_name=environment)
+    manager = StageManager.from_connection(connection_name=connection_name)
 
-    if name:
-        results = conn.list_stage(
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-            name=name,
-        )
-        print_db_cursor(results)
+    if stage_name:
+        results = manager.list(stage_name=stage_name)
     else:
-        results = conn.list_stages(
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-        )
-        print_db_cursor(results)
+        results = manager.show()
+    print_db_cursor(results)
 
 
 @app.command("get")
 def stage_get(
-    environment: str = ConnectionOption,
-    name: str = typer.Argument(..., help="Stage name"),
+    connection_name: str = ConnectionOption,
+    stage_name: str = StageNameOption,
     path: Path = typer.Argument(
         Path.cwd(),
         exists=False,
@@ -60,24 +87,17 @@ def stage_get(
     ),
 ):
     """
-    Download files from a stage to a local client
+    Download all files from a stage to a local directory.
     """
-    conn = connect_to_snowflake(connection_name=environment)
-
-    results = conn.get_stage(
-        database=conn.ctx.database,
-        schema=conn.ctx.schema,
-        role=conn.ctx.role,
-        warehouse=conn.ctx.warehouse,
-        name=name,
-        path=str(path),
+    results = StageManager.from_connection(connection_name=connection_name).get(
+        stage_name=stage_name, dest_path=path
     )
     print_db_cursor(results)
 
 
 @app.command("put")
 def stage_put(
-    environment: str = ConnectionOption,
+    connection_name: str = ConnectionOption,
     path: Path = typer.Argument(
         ...,
         exists=True,
@@ -87,7 +107,7 @@ def stage_put(
         resolve_path=True,
         help="File or directory to upload to stage",
     ),
-    name: str = typer.Argument(..., help="Stage name"),
+    name: str = StageNameOption,
     overwrite: bool = typer.Option(
         False,
         help="Overwrite existing files in stage",
@@ -100,83 +120,54 @@ def stage_put(
     """
     Upload files to a stage from a local client
     """
-    conn = connect_to_snowflake(connection_name=environment)
+    manager = StageManager.from_connection(connection_name=connection_name)
+    local_path = str(path) + "/*" if path.is_dir() else str(path)
 
-    filepath = str(path)
-    if path.is_dir():
-        filepath = str(path) + "/*"
-
-    results = conn.put_stage(
-        database=conn.ctx.database,
-        schema=conn.ctx.schema,
-        role=conn.ctx.role,
-        warehouse=conn.ctx.warehouse,
-        name=name,
-        path=str(filepath),
-        overwrite=overwrite,
-        parallel=parallel,
+    results = manager.put(
+        local_path=local_path, stage_name=name, overwrite=overwrite, parallel=parallel
     )
     print_db_cursor(results)
 
 
 @app.command("create")
 def stage_create(
-    environment: str = ConnectionOption,
-    name: str = typer.Argument(..., help="Stage name"),
+    connection_name: str = ConnectionOption,
+    name: str = StageNameOption,
 ):
     """
-    Create stage if not exists
+    Create stage if not exists.
     """
-    conn = connect_to_snowflake(connection_name=environment)
-
-    results = conn.create_stage(
-        database=conn.ctx.database,
-        schema=conn.ctx.schema,
-        role=conn.ctx.role,
-        warehouse=conn.ctx.warehouse,
-        name=name,
+    results = StageManager.from_connection(connection_name=connection_name).create(
+        stage_name=name
     )
     print_db_cursor(results)
 
 
 @app.command("drop")
 def stage_drop(
-    environment: str = ConnectionOption,
-    name: str = typer.Argument(..., help="Stage name"),
+    connection_name: str = ConnectionOption,
+    name: str = StageNameOption,
 ):
     """
     Drop stage
     """
-    conn = connect_to_snowflake(connection_name=environment)
-
-    results = conn.drop_stage(
-        database=conn.ctx.database,
-        schema=conn.ctx.schema,
-        role=conn.ctx.role,
-        warehouse=conn.ctx.warehouse,
-        name=name,
+    results = StageManager.from_connection(connection_name=connection_name).drop(
+        stage_name=name
     )
     print_db_cursor(results)
 
 
 @app.command("remove")
 def stage_remove(
-    environment: str = ConnectionOption,
-    stage_name: str = typer.Argument(..., help="Stage name"),
+    connection_name: str = ConnectionOption,
+    stage_name: str = StageNameOption,
     file_name: str = typer.Argument(..., help="File name"),
 ):
     """
     Remove file from stage
     """
 
-    conn = connect_to_snowflake(connection_name=environment)
-
-    results = conn.remove_from_stage(
-        database=conn.ctx.database,
-        schema=conn.ctx.schema,
-        role=conn.ctx.role,
-        warehouse=conn.ctx.warehouse,
-        name=stage_name,
-        path=file_name,
+    results = StageManager.from_connection(connection_name=connection_name).remove(
+        stage_name=stage_name, path=file_name
     )
     print_db_cursor(results)

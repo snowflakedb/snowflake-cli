@@ -65,16 +65,6 @@
     spec=@stageValue/services/4231/test_spec.yaml;
   '''
 # ---
-# name: test_create_stage
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  
-  create stage if not exists nameValue;
-  '''
-# ---
 # name: test_create_streamlit
   '''
   use role roleValue;
@@ -215,16 +205,6 @@
   DROP SERVICE nameValue;
   '''
 # ---
-# name: test_drop_stage
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  
-  drop stage nameValue;
-  '''
-# ---
 # name: test_drop_streamlit
   '''
   use role roleValue;
@@ -250,26 +230,6 @@
   use database databaseValue;
   use schema schemaValue;
   call procedureValue;
-  '''
-# ---
-# name: test_get_stage[namedStageValue]
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  
-  get @namedStageValue file://pathValue/
-  '''
-# ---
-# name: test_get_stage[snow://embeddedStageValue]
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  
-  get snow://embeddedStageValue file://pathValue/
   '''
 # ---
 # name: test_job_service
@@ -328,33 +288,6 @@
   show services;
   '''
 # ---
-# name: test_list_stage[namedStageValue]
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  ls @namedStageValue;
-  '''
-# ---
-# name: test_list_stage[snow://embeddedStageValue]
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  ls snow://embeddedStageValue;
-  '''
-# ---
-# name: test_list_stages
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  show stages;
-  '''
-# ---
 # name: test_list_streamlits
   '''
   use role roleValue;
@@ -384,50 +317,6 @@
   call SYSTEM$GET_SERVICE_LOGS('nameValue', '0', 'container_nameValue');
   '''
 # ---
-# name: test_put_stage[namedStageValue]
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  
-  
-  
-  put file://pathValue @namedStageValue auto_compress=false parallel=42 overwrite=True;
-  '''
-# ---
-# name: test_put_stage[snow://embeddedStageValue]
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  
-  
-  
-  put file://pathValue snow://embeddedStageValue auto_compress=false parallel=42 overwrite=True;
-  '''
-# ---
-# name: test_remove_from_stage[namedStageValue]
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  
-  remove @namedStageValue/pathValue
-  '''
-# ---
-# name: test_remove_from_stage[snow://embeddedStageValue]
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  
-  remove snow://embeddedStageValue/pathValue
-  '''
-# ---
 # name: test_set_procedure_comment
   '''
   use role roleValue;
@@ -445,15 +334,6 @@
   use schema schemaValue;
   
   grant usage on streamlit nameValue to role to_roleValue;
-  '''
-# ---
-# name: test_show_warehouses
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  show warehouses;
   '''
 # ---
 # name: test_status_job
@@ -484,57 +364,5 @@
   use schema schemaValue;
   
   alter compute pool nameValue stop all services;
-  '''
-# ---
-# name: test_upload_file_to_stage[namedStageValue-False]
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  
-  
-  
-  put file://file_pathValue @namedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
-  '''
-# ---
-# name: test_upload_file_to_stage[namedStageValue-True]
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  
-  
-  create stage if not exists namedStageValue comment='deployments managed by snowcli';
-  
-  
-  put file://file_pathValue @namedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
-  '''
-# ---
-# name: test_upload_file_to_stage[snow://embeddedStageValue-False]
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  
-  
-  
-  put file://file_pathValue snow://embeddedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
-  '''
-# ---
-# name: test_upload_file_to_stage[snow://embeddedStageValue-True]
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  
-  
-  create stage if not exists snow://embeddedStageValue comment='deployments managed by snowcli';
-  
-  
-  put file://file_pathValue snow://embeddedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
   '''
 # ---
