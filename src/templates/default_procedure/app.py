@@ -5,7 +5,7 @@ import sys
 from snowflake.snowpark import Session
 
 
-def hello() -> str:
+def hello(session: Session) -> str:
     return "Hello World!"
 
 

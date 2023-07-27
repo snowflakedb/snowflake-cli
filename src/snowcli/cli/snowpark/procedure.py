@@ -159,7 +159,6 @@ def procedure_update(
     replace: bool = typer.Option(
         False,
         "--replace-always",
-        "-r",
         help="Replace procedure, even if no detected changes to metadata",
     ),
     execute_as_caller: bool = typer.Option(

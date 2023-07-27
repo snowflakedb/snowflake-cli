@@ -41,12 +41,10 @@ List of required parameter keys:
 - account
 - user
 - password
-- host
-- port
-- protocol
 
 Optional parameter keys:
-- db
+- database
+- host
 - schema
 - warehouse
 - role

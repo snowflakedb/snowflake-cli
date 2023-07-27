@@ -1,2 +1,3 @@
 [connections.dev]
 [connections.integration]
+schema = "public"
