@@ -1,0 +1,48 @@
+# serializer version: 1
+# name: test_snowpark_function_flow[app.py]
+  '''
+  from __future__ import annotations
+  
+  import sys
+  
+  
+  def hello() -> str:
+      return "Hello World!"
+  
+  
+  # For local debugging. Be aware you may need to type-convert arguments if
+  # you add input parameters
+  if __name__ == "__main__":
+      if len(sys.argv) > 1:
+          print(hello(sys.argv[1:]))  # type: ignore
+      else:
+          print(hello())  # type: ignore
+  
+  '''
+# ---
+# name: test_snowpark_function_flow[config.toml]
+  '''
+  # The values in this file will be used if flags aren't given
+  # in CLI commands. Can create multiple --environments (default 'dev')
+  
+  [connections]
+  [connections.dev]
+  database = "<DATABASE_NAME>"
+  schema = "<SCHEMA_NAME>"
+  warehouse = "<WAREHOUSE_NAME>"
+  role = "<ROLE_NAME>"
+  
+  '''
+# ---
+# name: test_snowpark_function_flow[gitignore]
+  '''
+  .packages/
+  .venv/
+  app.zip
+  __pycache__
+  
+  '''
+# ---
+# name: test_snowpark_function_flow[requirements.txt]
+  ''
+# ---
