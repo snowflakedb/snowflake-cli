@@ -3,8 +3,8 @@ from __future__ import annotations
 import sys
 
 
-def hello() -> str:
-    return "Hello World!"
+def hello(name: str) -> str:
+    return f"Hello {name}!"
 
 
 # For local debugging. Be aware you may need to type-convert arguments if
