@@ -20,17 +20,17 @@ def test_streamlit_create_and_deploy(
     streamlit_name = "test_streamlit_create_and_deploy_snowcli"
     streamlit_app_path = test_root_path / "test_files/streamlit.py"
 
-    result = runner.invoke_with_config(
+    result = runner.invoke_with_config_and_integration_connection(
         ["streamlit", "create", streamlit_name, "--file", streamlit_app_path]
     )
     assert result.exit_code == 0
 
-    result = runner.invoke_with_config(
+    result = runner.invoke_with_config_and_integration_connection(
         ["streamlit", "deploy", streamlit_name, "--file", streamlit_app_path]
     )
     assert result.exit_code == 0
 
-    runner.invoke_with_config(["streamlit", "list"])
+    runner.invoke_with_config_and_integration_connection(["streamlit", "list"])
     expect = snowflake_session.execute_string(
         f"show streamlits like '{streamlit_name}'"
     )
@@ -38,7 +38,9 @@ def test_streamlit_create_and_deploy(
         row_from_mock(mock_print), row_from_snowflake_session(expect)[0]
     )
 
-    runner.invoke_with_config(["streamlit", "describe", streamlit_name])
+    runner.invoke_with_config_and_integration_connection(
+        ["streamlit", "describe", streamlit_name]
+    )
     mock_rows = rows_from_mock(mock_print)
     expect = snowflake_session.execute_string(f"describe streamlit {streamlit_name}")
     assert contains_row_with(mock_rows[-2], row_from_snowflake_session(expect)[0])
@@ -47,7 +49,7 @@ def test_streamlit_create_and_deploy(
     )
     assert contains_row_with(mock_rows[-1], row_from_snowflake_session(expect)[0])
 
-    runner.invoke_with_config(
+    runner.invoke_with_config_and_integration_connection(
         ["streamlit", "share", streamlit_name, _new_streamlit_role]
     )
     assert contains_row_with(
@@ -61,7 +63,9 @@ def test_streamlit_create_and_deploy(
         rows_from_snowflake_session(result)[1], {"name": streamlit_name.upper()}
     )
 
-    runner.invoke_with_config(["streamlit", "drop", streamlit_name])
+    runner.invoke_with_config_and_integration_connection(
+        ["streamlit", "drop", streamlit_name]
+    )
     assert contains_row_with(
         row_from_mock(mock_print),
         {"status": f"{streamlit_name.upper()} successfully dropped."},
@@ -94,7 +98,7 @@ def test_streamlit_create_from_stage(
         },
     )
 
-    result = runner.invoke_with_config(
+    result = runner.invoke_with_config_and_integration_connection(
         [
             "streamlit",
             "create",
@@ -107,7 +111,7 @@ def test_streamlit_create_from_stage(
     )
     assert result.exit_code == 0
 
-    runner.invoke_with_config(["streamlit", "list"])
+    runner.invoke_with_config_and_integration_connection(["streamlit", "list"])
     expect = snowflake_session.execute_string(
         f"show streamlits like '{streamlit_name}'"
     )
@@ -115,7 +119,9 @@ def test_streamlit_create_from_stage(
         row_from_mock(mock_print), row_from_snowflake_session(expect)[0]
     )
 
-    runner.invoke_with_config(["streamlit", "describe", streamlit_name])
+    runner.invoke_with_config_and_integration_connection(
+        ["streamlit", "describe", streamlit_name]
+    )
     mock_rows = rows_from_mock(mock_print)
     expect = snowflake_session.execute_string(f"describe streamlit {streamlit_name}")
     assert contains_row_with(mock_rows[-2], row_from_snowflake_session(expect)[0])
@@ -124,7 +130,9 @@ def test_streamlit_create_from_stage(
     )
     assert contains_row_with(mock_rows[-1], row_from_snowflake_session(expect)[0])
 
-    runner.invoke_with_config(["streamlit", "share", streamlit_name, "public"])
+    runner.invoke_with_config_and_integration_connection(
+        ["streamlit", "share", streamlit_name, "public"]
+    )
     assert contains_row_with(
         row_from_mock(mock_print),
         {"status": "Statement executed successfully."},
@@ -136,7 +144,9 @@ def test_streamlit_create_from_stage(
         rows_from_snowflake_session(result)[1], {"name": streamlit_name.upper()}
     )
 
-    runner.invoke_with_config(["streamlit", "drop", streamlit_name])
+    runner.invoke_with_config_and_integration_connection(
+        ["streamlit", "drop", streamlit_name]
+    )
     assert contains_row_with(
         row_from_mock(mock_print),
         {"status": f"{streamlit_name.upper()} successfully dropped."},

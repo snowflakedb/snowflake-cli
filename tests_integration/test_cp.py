@@ -16,7 +16,7 @@ from tests_integration.test_utils import (
 def test_cp(mock_print, runner, snowflake_session):
     cp_name = "test_compute_pool_snowcli"
 
-    runner.invoke_with_config(
+    runner.invoke_with_config_and_integration_connection(
         [
             "snowpark",
             "compute-pool",
@@ -34,19 +34,23 @@ def test_cp(mock_print, runner, snowflake_session):
         {"status": f"Compute Pool {cp_name.upper()} successfully created."},
     )
 
-    runner.invoke_with_config(["snowpark", "cp", "list"])
+    runner.invoke_with_config_and_integration_connection(["snowpark", "cp", "list"])
     expect = snowflake_session.execute_string(f"show compute pools like '{cp_name}'")
     assert contains_row_with(
         row_from_mock(mock_print), row_from_snowflake_session(expect)[0]
     )
 
-    runner.invoke_with_config(["snowpark", "compute-pool", "stop", cp_name])
+    runner.invoke_with_config_and_integration_connection(
+        ["snowpark", "compute-pool", "stop", cp_name]
+    )
     assert contains_row_with(
         row_from_mock(mock_print),
         {"status": "Statement executed successfully."},
     )
 
-    runner.invoke_with_config(["snowpark", "cp", "drop", cp_name])
+    runner.invoke_with_config_and_integration_connection(
+        ["snowpark", "cp", "drop", cp_name]
+    )
     assert contains_row_with(
         row_from_mock(mock_print),
         {"status": f"{cp_name.upper()} successfully dropped."},
