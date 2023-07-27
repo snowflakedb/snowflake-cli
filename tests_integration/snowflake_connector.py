@@ -12,7 +12,7 @@ _ENV_PARAMETER_PREFIX = "SNOWFLAKE_CONNECTIONS_INTEGRATION"
 
 @pytest.fixture(scope="session")
 def create_database():
-    database_name = f"snowcli_integration_tests_db_{uuid.uuid4().hex}"
+    database_name = f"db_{uuid.uuid4().hex}"
 
     config = {
         "application": "INTEGRATION_TEST",
