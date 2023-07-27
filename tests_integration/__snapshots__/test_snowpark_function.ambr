@@ -22,11 +22,11 @@
 # ---
 # name: test_snowpark_function_flow[config.toml]
   '''
-  # The values in this file will be used if flags aren't given
-  # in CLI commands. Can create multiple --environments (default 'dev')
+  # Can create multiple --environments (default 'dev')
   
   [connections]
   [connections.dev]
+  account = "<ACCOUNT_NAME>"
   database = "<DATABASE_NAME>"
   schema = "<SCHEMA_NAME>"
   warehouse = "<WAREHOUSE_NAME>"
@@ -44,5 +44,8 @@
   '''
 # ---
 # name: test_snowpark_function_flow[requirements.txt]
-  ''
+  '''
+  snowflake-snowpark-python
+  
+  '''
 # ---
