@@ -140,24 +140,24 @@ class TestUtils:
         assert result is None
 
     def test_generate_streamlit_file(
-        self, correct_requirements_txt, temp_test_directory: str
+        self, correct_requirements_txt: str, temp_test_directory_with_chdir: str
     ):
-        os.chdir(temp_test_directory)
         result = utils.generate_streamlit_environment_file([], correct_requirements_txt)
-        os.chdir("..")
 
         assert result == PosixPath("environment.yml")
-        assert os.path.isfile(os.path.join(temp_test_directory, "environment.yml"))
+        assert os.path.isfile(
+            os.path.join(temp_test_directory_with_chdir, "environment.yml")
+        )
 
     def test_generate_streamlit_environment_file_with_excluded_dependencies(
-        self, correct_requirements_txt, temp_test_directory: str
+        self, correct_requirements_txt: str, temp_test_directory_with_chdir: str
     ):
-        os.chdir(temp_test_directory)
+
         result = utils.generate_streamlit_environment_file(
             test_data.excluded_anaconda_deps, correct_requirements_txt
         )
-        os.chdir("..")
-        env_file = os.path.join(temp_test_directory, "environment.yml")
+
+        env_file = os.path.join(temp_test_directory_with_chdir, "environment.yml")
         assert result == PosixPath("environment.yml")
         assert os.path.isfile(env_file)
         with open(env_file, "r") as f:
@@ -207,21 +207,20 @@ class TestUtils:
 
     def test_recursive_zip_packages(
         self,
-        temp_test_directory: str,
+        temp_test_directory_with_chdir: str,
         txt_file_in_a_subdir: str,
-        temp_file_in_other_directory,
+        temp_file_in_other_directory: str,
     ):
-        zip_file_path = os.path.join(temp_test_directory, "packed.zip")
+        zip_file_path = os.path.join(temp_test_directory_with_chdir, "packed.zip")
 
-        os.chdir(temp_test_directory)
-        utils.recursive_zip_packages_dir(temp_test_directory, zip_file_path)
+        utils.recursive_zip_packages_dir(temp_test_directory_with_chdir, zip_file_path)
 
         zip_file = ZipFile(zip_file_path)
 
         assert os.path.isfile(zip_file_path)
         assert os.getenv("SNOWCLI_INCLUDE_PATHS") is None
         assert (
-            str(Path(txt_file_in_a_subdir).relative_to(temp_test_directory))
+            str(Path(txt_file_in_a_subdir).relative_to(temp_test_directory_with_chdir))
             in zip_file.namelist()
         )
         assert Path(temp_file_in_other_directory).name not in zip_file.namelist()
@@ -280,18 +279,18 @@ class TestUtils:
         assert Path(temp_file_in_other_directory).name in zip_file.namelist()
 
     def test_get_snowflake_packages(
-        self, temp_test_directory: str, correct_requirements_txt
+        self, temp_test_directory_with_chdir, correct_requirements_txt
     ):
-        os.chdir(temp_test_directory)
+
         result = utils.get_snowflake_packages()
 
         assert result == test_data.requirements
 
     def test_get_snowflake_packages_delta(
-        self, temp_test_directory: str, correct_requirements_txt
+        self, temp_test_directory_with_chdir, correct_requirements_txt
     ):
         anaconda_package = test_data.requirements[-1]
-        os.chdir(temp_test_directory)
+
         result = utils.get_snowflake_packages_delta(anaconda_package)
 
         assert result == test_data.requirements[:-1]
@@ -395,6 +394,13 @@ class TestUtils:
     def temp_test_directory(self) -> Generator:
         with tempfile.TemporaryDirectory() as tmp_dir:
             yield tmp_dir
+
+    @pytest.fixture
+    def temp_test_directory_with_chdir(self, temp_test_directory) -> Generator:
+        initial_dir = os.getcwd()
+        os.chdir(temp_test_directory)
+        yield temp_test_directory
+        os.chdir(initial_dir)
 
     @pytest.fixture
     def temp_directory_for_app_zip(self, temp_test_directory: str) -> Generator:
