@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 
 import typer
+import click
 
 from snowcli import __about__
 from snowcli.cli import loggers
@@ -14,12 +15,20 @@ from snowcli.cli.common.snow_cli_global_context import (
 )
 from snowcli.cli.main.snow_cli_main_typer import SnowCliMainTyper
 from snowcli.config import config_init, cli_config
+from snowcli.docs.generator import generate_docs
 from snowcli.output.formats import OutputFormat
 from snowcli.output.printing import print_data
 from snowcli.pycharm_remote_debug import setup_pycharm_remote_debugger_if_provided
 
 app: SnowCliMainTyper = SnowCliMainTyper()
 log = logging.getLogger(__name__)
+
+
+def _docs_callback(value: bool):
+    if value:
+        info = click.get_current_context().to_info_dict()  # type: ignore
+        generate_docs(Path("gen_docs"), info["command"])
+        raise typer.Exit()
 
 
 def _version_callback(value: bool):
@@ -58,6 +67,14 @@ def default(
         "--version",
         help="Shows version of the snowcli",
         callback=_version_callback,
+        is_eager=True,
+    ),
+    docs: bool = typer.Option(
+        None,
+        "--docs",
+        hidden=True,
+        help="Prints version of the snowcli",
+        callback=_docs_callback,
         is_eager=True,
     ),
     info: bool = typer.Option(
