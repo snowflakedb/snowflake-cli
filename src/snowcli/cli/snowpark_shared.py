@@ -150,142 +150,142 @@ def snowpark_update(
     execute_as_caller: bool = False,
     install_coverage_wrapper: bool = False,
 ) -> None:
-    conn = connect_to_snowflake(connection_name=environment)
+
     if type == "function" and install_coverage_wrapper:
         log.error(
             "You cannot install a code coverage wrapper on a function, only a procedure."
         )
         raise typer.Abort()
-        updated_package_list = []
-        try:
-            log.info(f"Updating {type} {name}...")
+
+    conn = connect_to_snowflake(connection_name=environment)
+    updated_package_list = []
+    try:
+        log.info(f"Updating {type} {name}...")
+        if type == "function":
+            resource_details = conn.describe_function(
+                name=name,
+                input_parameters=input_parameters,
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
+                show_exceptions=False,
+            )
+        elif type == "procedure":
+            resource_details = conn.describe_procedure(
+                name=name,
+                input_parameters=input_parameters,
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
+                show_exceptions=False,
+            )
+        log.info("Checking if any new packages to update...")
+        resource_json = utils.convert_resource_details_to_dict(
+            resource_details,
+        )  # type: ignore
+        anaconda_packages = resource_json["packages"]
+        log.info(
+            f"Found {len(anaconda_packages)} defined Anaconda "
+            "packages in deployed {type}..."
+        )
+        log.info(
+            "Checking if any packages defined or missing from "
+            "requirements.snowflake.txt..."
+        )
+        updated_package_list = utils.get_snowflake_packages_delta(
+            anaconda_packages,
+        )
+        if install_coverage_wrapper:
+            # if we're installing a coverage wrapper, ensure the coverage package included as a dependency
+            if (
+                "coverage" not in anaconda_packages
+                and "coverage" not in updated_package_list
+            ):
+                updated_package_list.append("coverage")
+        log.info("Checking if app configuration has changed...")
+        if (
+            resource_json["handler"].lower() != handler.lower()
+            or resource_json["returns"].lower() != return_type.lower()
+        ):
+            log.info(
+                "Return type or handler types do not match. Replacing"
+                "function configuration..."
+            )
+            replace = True
+    except Exception:
+        log.info(f"Existing {type} not found, creating new {type}...")
+        replace = True
+
+    finally:
+        deploy_dict = utils.get_deploy_names(
+            conn.ctx.database,
+            conn.ctx.schema,
+            generate_deploy_stage_name(name, input_parameters),
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
+            stage_path = deploy_dict["directory"] + "/coverage"
+            if install_coverage_wrapper:
+                handler = replace_handler_in_zip(
+                    proc_name=name,
+                    proc_signature=input_parameters,
+                    handler=handler,
+                    coverage_reports_stage=deploy_dict["stage"],
+                    coverage_reports_stage_path=stage_path,
+                    temp_dir=temp_dir,
+                    zip_file_path=temp_app_zip_path,
+                )
+            deploy_response = conn.upload_file_to_stage(
+                file_path=temp_app_zip_path,
+                destination_stage=deploy_dict["stage"],
+                path=deploy_dict["directory"],
+                database=conn.ctx.database,
+                schema=conn.ctx.schema,
+                overwrite=True,
+                role=conn.ctx.role,
+                warehouse=conn.ctx.warehouse,
+            )
+        log.info(f"{file.name} uploaded to stage {deploy_dict['full_path']}")
+
+        if updated_package_list or replace:
+            log.info(f"Replacing {type} with updated values...")
             if type == "function":
-                resource_details = conn.describe_function(
+                conn.create_function(
                     name=name,
                     input_parameters=input_parameters,
+                    return_type=return_type,
+                    handler=handler,
+                    imports=deploy_dict["full_path"],
                     database=conn.ctx.database,
                     schema=conn.ctx.schema,
                     role=conn.ctx.role,
                     warehouse=conn.ctx.warehouse,
-                    show_exceptions=False,
+                    overwrite=True,
+                    packages=utils.get_snowflake_packages(),
                 )
             elif type == "procedure":
-                resource_details = conn.describe_procedure(
+                conn.create_procedure(
                     name=name,
                     input_parameters=input_parameters,
+                    return_type=return_type,
+                    handler=handler,
+                    imports=deploy_dict["full_path"],
                     database=conn.ctx.database,
                     schema=conn.ctx.schema,
                     role=conn.ctx.role,
                     warehouse=conn.ctx.warehouse,
-                    show_exceptions=False,
-                )
-            log.info("Checking if any new packages to update...")
-            resource_json = utils.convert_resource_details_to_dict(
-                resource_details,
-            )  # type: ignore
-            anaconda_packages = resource_json["packages"]
-            log.info(
-                f"Found {len(anaconda_packages)} defined Anaconda "
-                "packages in deployed {type}..."
-            )
-            log.info(
-                "Checking if any packages defined or missing from "
-                "requirements.snowflake.txt..."
-            )
-            updated_package_list = utils.get_snowflake_packages_delta(
-                anaconda_packages,
-            )
-            if install_coverage_wrapper:
-                # if we're installing a coverage wrapper, ensure the coverage package included as a dependency
-                if (
-                    "coverage" not in anaconda_packages
-                    and "coverage" not in updated_package_list
-                ):
-                    updated_package_list.append("coverage")
-            log.info("Checking if app configuration has changed...")
-            if (
-                resource_json["handler"].lower() != handler.lower()
-                or resource_json["returns"].lower() != return_type.lower()
-            ):
-                log.info(
-                    "Return type or handler types do not match. Replacing"
-                    "function configuration..."
-                )
-                replace = True
-        except Exception:
-            log.info(f"Existing {type} not found, creating new {type}...")
-            replace = True
-
-        finally:
-            deploy_dict = utils.get_deploy_names(
-                conn.ctx.database,
-                conn.ctx.schema,
-                generate_deploy_stage_name(name, input_parameters),
-            )
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
-                stage_path = deploy_dict["directory"] + "/coverage"
-                if install_coverage_wrapper:
-                    handler = replace_handler_in_zip(
-                        proc_name=name,
-                        proc_signature=input_parameters,
-                        handler=handler,
-                        coverage_reports_stage=deploy_dict["stage"],
-                        coverage_reports_stage_path=stage_path,
-                        temp_dir=temp_dir,
-                        zip_file_path=temp_app_zip_path,
-                    )
-                deploy_response = conn.upload_file_to_stage(
-                    file_path=temp_app_zip_path,
-                    destination_stage=deploy_dict["stage"],
-                    path=deploy_dict["directory"],
-                    database=conn.ctx.database,
-                    schema=conn.ctx.schema,
                     overwrite=True,
-                    role=conn.ctx.role,
-                    warehouse=conn.ctx.warehouse,
+                    packages=utils.get_snowflake_packages(),
+                    execute_as_caller=execute_as_caller,
                 )
             log.info(
-                f"{deploy_response[0]} uploaded to stage {deploy_dict['full_path']}"
+                f"{type.capitalize()} {name} updated with new packages. "
+                "Deployment complete!"
             )
-
-            if updated_package_list or replace:
-                log.info(f"Replacing {type} with updated values...")
-                if type == "function":
-                    conn.create_function(
-                        name=name,
-                        input_parameters=input_parameters,
-                        return_type=return_type,
-                        handler=handler,
-                        imports=deploy_dict["full_path"],
-                        database=conn.ctx.database,
-                        schema=conn.ctx.schema,
-                        role=conn.ctx.role,
-                        warehouse=conn.ctx.warehouse,
-                        overwrite=True,
-                        packages=utils.get_snowflake_packages(),
-                    )
-                elif type == "procedure":
-                    conn.create_procedure(
-                        name=name,
-                        input_parameters=input_parameters,
-                        return_type=return_type,
-                        handler=handler,
-                        imports=deploy_dict["full_path"],
-                        database=conn.ctx.database,
-                        schema=conn.ctx.schema,
-                        role=conn.ctx.role,
-                        warehouse=conn.ctx.warehouse,
-                        overwrite=True,
-                        packages=utils.get_snowflake_packages(),
-                        execute_as_caller=execute_as_caller,
-                    )
-                log.info(
-                    f"{type.capitalize()} {name} updated with new packages. "
-                    "Deployment complete!"
-                )
-            else:
-                log.info("No packages to update. Deployment complete!")
+        else:
+            log.info("No packages to update. Deployment complete!")
 
 
 def replace_handler_in_zip(

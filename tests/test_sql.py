@@ -66,6 +66,7 @@ def test_sql_fails_for_both_query_and_file(runner):
 @mock.patch(MOCK_CONNECTION)
 @mock.patch("snowcli.config.cli_config")
 def test_sql_overrides_connection_configuration(mock_config, mock_conn, runner):
+    mock_config.get.return_value = "dev"  # mock of get_default_connection
     mock_config.get_connection.return_value = {}
     result = runner.invoke(
         [
@@ -87,7 +88,7 @@ def test_sql_overrides_connection_configuration(mock_config, mock_conn, runner):
         ]
     )
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     mock_conn.assert_called_once_with(
         connection_name="dev",
         account="accountnameValue",

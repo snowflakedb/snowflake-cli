@@ -1,6 +1,7 @@
 import json
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
+from unittest import mock
 
 
 def test_new_connection_can_be_added(runner, snapshot):
@@ -121,3 +122,10 @@ def test_lists_connection_information(runner):
         },
         {"connection_name": "empty", "parameters": {}},
     ]
+
+
+@mock.patch("snowcli.cli.connection.connect_to_snowflake")
+def test_connection_test(mock_connect, runner):
+    result = runner.invoke_with_config(["connection", "test", "-c", "full"])
+    assert result.exit_code == 0, result.output
+    mock_connect.assert_called_once_with(connection_name="full")

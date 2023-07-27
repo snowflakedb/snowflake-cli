@@ -39,8 +39,7 @@ dev = [
   "coverage==7.2.7",
   "pre-commit==3.3.3",
   "pytest==7.4.0",
-  "pytest-cov==4.1.0",
-  "syrupy==4.0.6",
+  "syrupy==4.0.8",
   "tox==4.6.3",
 ]
 
@@ -70,7 +69,7 @@ select = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-m 'not integration' --cov=snowcli"
+addopts = "-m 'not integration'"
 markers = [
   "integration: mark test as integration test",
 ]

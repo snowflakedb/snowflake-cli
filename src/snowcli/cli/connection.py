@@ -7,9 +7,10 @@ from click import ClickException
 from click.types import StringParamType
 from tomlkit.exceptions import KeyAlreadyPresent
 
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.output.printing import print_data
 from snowcli.config import cli_config
+from snowcli.snow_connector import connect_to_snowflake
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -165,3 +166,12 @@ def add(
         raise ClickException(f"Connection {connection_name} already exists")
 
     log.info(f"Wrote new connection {connection_name} to {cli_config.file_path}")
+
+
+@app.command()
+def test(connection: str = ConnectionOption):
+    """
+    Tests connection to Snowflake.
+    """
+    connect_to_snowflake(connection_name=connection)
+    print("OK")

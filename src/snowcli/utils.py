@@ -20,7 +20,7 @@ from requirements.requirement import Requirement
 import typer
 from jinja2 import Environment, FileSystemLoader
 
-from snowcli.config import cli_config
+from snowcli.config import cli_config, get_default_connection
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -572,6 +572,8 @@ def convert_resource_details_to_dict(function_details: list[tuple]) -> dict:
 
 
 def check_for_connection(connection_name: str):
+    if not connection_name:
+        connection_name = get_default_connection()
     cli_config.get_connection(connection_name=connection_name)
     return connection_name
 
