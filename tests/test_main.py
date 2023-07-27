@@ -1,9 +1,13 @@
 """These tests verify that the CLI runs work as expected."""
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from unittest import mock
+
+from snowcli.__about__ import VERSION
+from snowcli.config import cli_config
 
 
 def test_help_option(runner):
@@ -35,3 +39,12 @@ def test_custom_config_path(mock_conn, runner):
         },
         overrides={},
     )
+
+
+def test_info_callback(runner):
+    result = runner.invoke(["--info", "--format", "json"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == [
+        {"key": "version", "value": VERSION},
+        {"key": "default_config_file_path", "value": str(cli_config.file_path)},
+    ]

@@ -310,7 +310,12 @@ class SnowparkFunctionTestSteps:
         )
         assert_that_result_is_successful_and_has_no_output(result)
         assert_that_current_working_directory_contains_only_following_files(
-            ".gitignore", "app.py", "config.toml", "requirements.txt", "app.zip"
+            ".gitignore",
+            "app.py",
+            "config.toml",
+            "requirements.snowflake.txt",
+            "requirements.txt",
+            "app.zip",
         )
 
     def snowpark_function_create_should_finish_successfully(

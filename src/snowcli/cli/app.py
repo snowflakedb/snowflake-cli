@@ -13,8 +13,9 @@ from snowcli.cli.common.snow_cli_global_context import (
     snow_cli_global_context_manager,
 )
 from snowcli.cli.main.snow_cli_main_typer import SnowCliMainTyper
-from snowcli.config import config_init
+from snowcli.config import config_init, cli_config
 from snowcli.output.formats import OutputFormat
+from snowcli.output.printing import print_data
 from snowcli.pycharm_remote_debug import setup_pycharm_remote_debugger_if_provided
 
 app: SnowCliMainTyper = SnowCliMainTyper()
@@ -24,6 +25,17 @@ log = logging.getLogger(__name__)
 def _version_callback(value: bool):
     if value:
         typer.echo(f"SnowCLI Version: {__about__.VERSION}")
+        raise typer.Exit()
+
+
+def _info_callback(value: bool):
+    if value:
+        print_data(
+            [
+                {"key": "version", "value": __about__.VERSION},
+                {"key": "default_config_file_path", "value": cli_config.file_path},
+            ]
+        )
         raise typer.Exit()
 
 
@@ -44,9 +56,15 @@ def default(
     version: bool = typer.Option(
         None,
         "--version",
-        help="Prints version of the snowcli",
+        help="Shows version of the snowcli",
         callback=_version_callback,
         is_eager=True,
+    ),
+    info: bool = typer.Option(
+        None,
+        "--info",
+        help="Shows information about the snowcli",
+        callback=_info_callback,
     ),
     output_format: OutputFormat = typer.Option(
         OutputFormat.TABLE.value,
