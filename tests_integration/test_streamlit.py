@@ -2,7 +2,7 @@ import uuid
 import pytest
 
 from unittest import mock
-from tests_integration.snowflake_connector import create_database, snowflake_session
+from tests_integration.snowflake_connector import test_database, snowflake_session
 from tests_integration.test_utils import (
     row_from_mock,
     rows_from_mock,
@@ -15,7 +15,12 @@ from tests_integration.test_utils import (
 @pytest.mark.integration
 @mock.patch("snowcli.cli.streamlit.print_db_cursor")
 def test_streamlit_create_and_deploy(
-    mock_print, runner, snowflake_session, _new_streamlit_role, test_root_path
+    mock_print,
+    runner,
+    snowflake_session,
+    test_database,
+    _new_streamlit_role,
+    test_root_path,
 ):
     streamlit_name = "test_streamlit_create_and_deploy_snowcli"
     streamlit_app_path = test_root_path / "test_files/streamlit.py"
@@ -158,13 +163,13 @@ def test_streamlit_create_from_stage(
 
 
 @pytest.fixture
-def _new_streamlit_role(snowflake_session, create_database):
+def _new_streamlit_role(snowflake_session, test_database):
     role_name = f"snowcli_streamlit_role_{uuid.uuid4().hex}"
     result = snowflake_session.execute_string(
         f"set user = (select current_user()); "
         f"create role {role_name}; "
-        f"grant all on database {create_database} to role {role_name};"
-        f"grant usage on schema {create_database}.public to role {role_name}; "
+        f"grant all on database {test_database} to role {role_name};"
+        f"grant usage on schema {test_database}.public to role {role_name}; "
         f"grant role {role_name} to user IDENTIFIER($USER)"
     )
     assert contains_row_with(
