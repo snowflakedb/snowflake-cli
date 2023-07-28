@@ -38,16 +38,10 @@ where ``<key>`` is the name of the key
 For example: SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT="my-account"
 
 List of required parameter keys:
+- host
 - account
 - user
 - password
-
-Optional parameter keys:
-- database
-- host
-- schema
-- warehouse
-- role
 
 ## Remote debugging with PyCharm or IntelliJ
 

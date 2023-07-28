@@ -12,6 +12,7 @@ from tests_integration.test_utils import (
 )
 
 
+@pytest.mark.skip(reason="Not yet enabled on our account")
 @pytest.mark.integration
 @mock.patch("snowcli.cli.streamlit.print_db_cursor")
 def test_streamlit_create_and_deploy(
@@ -81,6 +82,7 @@ def test_streamlit_create_and_deploy(
     assert row_from_snowflake_session(result) == []
 
 
+@pytest.mark.skip(reason="Not yet enabled on our account")
 @pytest.mark.integration
 @mock.patch("snowcli.cli.streamlit.print_db_cursor")
 def test_streamlit_create_from_stage(

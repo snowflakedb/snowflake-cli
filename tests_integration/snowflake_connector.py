@@ -28,12 +28,10 @@ def test_database(snowflake_session):
 def snowflake_session():
     config = {
         "application": "INTEGRATION_TEST",
-        "account": _get_from_env("ACCOUNT", True),
-        "user": _get_from_env("USER", True),
-        "password": _get_from_env("PASSWORD", True),
-        "host": _get_from_env("HOST", True),
-        "role": _get_from_env("ROLE", True),
-        "warehouse": _get_from_env("WAREHOUSE", False),
+        "account": _get_from_env("ACCOUNT"),
+        "user": _get_from_env("USER"),
+        "password": _get_from_env("PASSWORD"),
+        "host": _get_from_env("HOST"),
     }
     config = {k: v for k, v in config.items() if v is not None}
     connection = connector.connect(**config)
@@ -41,9 +39,9 @@ def snowflake_session():
     connection.close()
 
 
-def _get_from_env(parameter_name: str, required: bool, default=None) -> str | None:
+def _get_from_env(parameter_name: str, default=None) -> str | None:
     env_value = os.environ.get(f"{_ENV_PARAMETER_PREFIX}_{parameter_name}")
-    if required and not env_value:
+    if not env_value:
         if default is None:
             raise EnvironmentVariableNotFoundError(
                 f"{_ENV_PARAMETER_PREFIX}_{parameter_name}"
