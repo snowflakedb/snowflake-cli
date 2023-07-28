@@ -12,7 +12,6 @@ from tests_integration.test_utils import (
 )
 
 
-@pytest.mark.skip(reason="Not yet enabled on our account")
 @pytest.mark.integration
 @mock.patch("snowcli.cli.streamlit.print_db_cursor")
 def test_streamlit_create_and_deploy(
@@ -63,7 +62,7 @@ def test_streamlit_create_and_deploy(
         {"status": "Statement executed successfully."},
     )
     result = snowflake_session.execute_string(
-        f"use role {_new_streamlit_role}; show streamlits like '{streamlit_name}'; use role accountadmin"
+        f"use role {_new_streamlit_role}; show streamlits like '{streamlit_name}'; use role integration_tests;"
     )
     assert contains_row_with(
         rows_from_snowflake_session(result)[1], {"name": streamlit_name.upper()}
@@ -82,7 +81,6 @@ def test_streamlit_create_and_deploy(
     assert row_from_snowflake_session(result) == []
 
 
-@pytest.mark.skip(reason="Not yet enabled on our account")
 @pytest.mark.integration
 @mock.patch("snowcli.cli.streamlit.print_db_cursor")
 def test_streamlit_create_from_stage(
@@ -145,7 +143,7 @@ def test_streamlit_create_from_stage(
         {"status": "Statement executed successfully."},
     )
     result = snowflake_session.execute_string(
-        f"use role {_new_streamlit_role}; show streamlits like '{streamlit_name}'; use role accountadmin"
+        f"use role {_new_streamlit_role}; show streamlits like '{streamlit_name}'; use role integration_tests;"
     )
     assert contains_row_with(
         rows_from_snowflake_session(result)[1], {"name": streamlit_name.upper()}
