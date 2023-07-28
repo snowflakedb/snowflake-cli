@@ -10,7 +10,7 @@ from tests_integration.test_utils import (
 )
 
 
-@pytest.mark.skip(reason="This feature is currently not in production")
+@pytest.mark.skip(reason="Not yet enabled on our account")
 @pytest.mark.integration
 @mock.patch("snowcli.cli.snowpark.cp.print_db_cursor")
 def test_cp(mock_print, runner, snowflake_session):
