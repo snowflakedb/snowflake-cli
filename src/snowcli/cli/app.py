@@ -26,8 +26,8 @@ log = logging.getLogger(__name__)
 
 def _docs_callback(value: bool):
     if value:
-        info = click.get_current_context().to_info_dict()  # type: ignore
-        generate_docs(Path("gen_docs"), info["command"])
+        ctx = click.get_current_context()
+        generate_docs(Path("gen_docs"), ctx.command)
         raise typer.Exit()
 
 
