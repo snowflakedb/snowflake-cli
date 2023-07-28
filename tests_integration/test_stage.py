@@ -13,7 +13,7 @@ from tests_integration.test_utils import (
 
 
 @pytest.mark.integration
-@mock.patch("snowcli.cli.stage.print_db_cursor")
+@mock.patch("snowcli.output.decorators.print_db_cursor")
 def test_stage(mock_print, runner, snowflake_session, test_database, tmp_path):
     stage_name = "test_stage"
 
