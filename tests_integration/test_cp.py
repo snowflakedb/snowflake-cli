@@ -1,7 +1,7 @@
 import pytest
 
 from unittest import mock
-from tests_integration.snowflake_connector import create_database, snowflake_session
+from tests_integration.snowflake_connector import snowflake_session
 from tests_integration.test_utils import (
     row_from_mock,
     row_from_snowflake_session,
