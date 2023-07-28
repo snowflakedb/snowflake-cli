@@ -24,6 +24,7 @@ def test_streamlit_help(runner):
 @mock.patch.dict(os.environ, {}, clear=True)
 def test_custom_config_path(mock_conn, runner):
     config_file = Path(__file__).parent / "test.toml"
+    mock_conn.return_value.ctx.execute_string.return_value = [None, mock.MagicMock()]
     result = runner.invoke(
         ["--config-file", str(config_file), "warehouse", "status"],
         catch_exceptions=False,

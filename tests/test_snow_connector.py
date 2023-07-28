@@ -33,6 +33,7 @@ def test_command_context_is_passed_to_snowflake_connection(
     mock_conn, runner, cmd, expected
 ):
     mock_conn.return_value.execute_stream.return_value = (mock.MagicMock(),)
+    mock_conn.return_value.execute_string.return_value = (mock.MagicMock(),)
     result = runner.invoke_with_config(cmd)
     assert result.exit_code == 0, result.output
     kwargs = mock_conn.call_args_list[-1][-1]

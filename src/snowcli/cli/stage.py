@@ -5,8 +5,8 @@ from pathlib import Path
 import typer
 
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
+from snowcli.output.decorators import with_output
 from snowcli.snow_connector import SqlExecutionMixin
-from snowcli.output.printing import print_db_cursor
 
 app = typer.Typer(
     name="stage",
@@ -43,6 +43,7 @@ class StageManager(SqlExecutionMixin):
 
     def remove(self, stage_name: str, path: str):
         stage_name = self.get_standard_stage_name(stage_name)
+        path = path if path.startswith("/") else "/" + path
         return self._execute_query(f"remove {stage_name}{path}")
 
     def show(self):
@@ -56,6 +57,7 @@ class StageManager(SqlExecutionMixin):
 
 
 @app.command("list")
+@with_output
 def stage_list(
     connection_name: str = ConnectionOption,
     stage_name=typer.Argument(None, help="Name of stage"),
@@ -66,13 +68,12 @@ def stage_list(
     manager = StageManager.from_connection(connection_name=connection_name)
 
     if stage_name:
-        results = manager.list(stage_name=stage_name)
-    else:
-        results = manager.show()
-    print_db_cursor(results)
+        return manager.list(stage_name=stage_name)
+    return manager.show()
 
 
 @app.command("get")
+@with_output
 def stage_get(
     connection_name: str = ConnectionOption,
     stage_name: str = StageNameOption,
@@ -89,13 +90,13 @@ def stage_get(
     """
     Download all files from a stage to a local directory.
     """
-    results = StageManager.from_connection(connection_name=connection_name).get(
+    return StageManager.from_connection(connection_name=connection_name).get(
         stage_name=stage_name, dest_path=path
     )
-    print_db_cursor(results)
 
 
 @app.command("put")
+@with_output
 def stage_put(
     connection_name: str = ConnectionOption,
     path: Path = typer.Argument(
@@ -123,14 +124,13 @@ def stage_put(
     manager = StageManager.from_connection(connection_name=connection_name)
     local_path = str(path) + "/*" if path.is_dir() else str(path)
 
-    results = manager.put(
+    return manager.put(
         local_path=local_path, stage_name=name, overwrite=overwrite, parallel=parallel
     )
-    print(results)
-    print_db_cursor(results)
 
 
 @app.command("create")
+@with_output
 def stage_create(
     connection_name: str = ConnectionOption,
     name: str = StageNameOption,
@@ -138,13 +138,13 @@ def stage_create(
     """
     Create stage if not exists.
     """
-    results = StageManager.from_connection(connection_name=connection_name).create(
+    return StageManager.from_connection(connection_name=connection_name).create(
         stage_name=name
     )
-    print_db_cursor(results)
 
 
 @app.command("drop")
+@with_output
 def stage_drop(
     connection_name: str = ConnectionOption,
     name: str = StageNameOption,
@@ -152,13 +152,13 @@ def stage_drop(
     """
     Drop stage
     """
-    results = StageManager.from_connection(connection_name=connection_name).drop(
+    return StageManager.from_connection(connection_name=connection_name).drop(
         stage_name=name
     )
-    print_db_cursor(results)
 
 
 @app.command("remove")
+@with_output
 def stage_remove(
     connection_name: str = ConnectionOption,
     stage_name: str = StageNameOption,
@@ -168,7 +168,6 @@ def stage_remove(
     Remove file from stage
     """
 
-    results = StageManager.from_connection(connection_name=connection_name).remove(
+    return StageManager.from_connection(connection_name=connection_name).remove(
         stage_name=stage_name, path=file_name
     )
-    print_db_cursor(results)

@@ -366,3 +366,55 @@
   alter compute pool nameValue stop all services;
   '''
 # ---
+# name: test_upload_file_to_stage[namedStageValue-False]
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  
+  
+  put file://file_pathValue @namedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
+  '''
+# ---
+# name: test_upload_file_to_stage[namedStageValue-True]
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  
+  create stage if not exists namedStageValue comment='deployments managed by snowcli';
+  
+  
+  put file://file_pathValue @namedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
+  '''
+# ---
+# name: test_upload_file_to_stage[snow://embeddedStageValue-False]
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  
+  
+  put file://file_pathValue snow://embeddedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
+  '''
+# ---
+# name: test_upload_file_to_stage[snow://embeddedStageValue-True]
+  '''
+  use role roleValue;
+  use warehouse warehouseValue;
+  use database databaseValue;
+  use schema schemaValue;
+  
+  
+  create stage if not exists snow://embeddedStageValue comment='deployments managed by snowcli';
+  
+  
+  put file://file_pathValue snow://embeddedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
+  '''
+# ---
