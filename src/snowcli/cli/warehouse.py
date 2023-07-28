@@ -25,5 +25,4 @@ def warehouse_status(connection_name: str = ConnectionOption):
     """
     Show the status of each warehouse in the configured environment.
     """
-    results = WarehouseManager.from_connection(connection_name=connection_name).show()
-    return results
+    return WarehouseManager.from_connection(connection_name=connection_name).show()
