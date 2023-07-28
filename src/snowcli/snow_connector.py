@@ -285,71 +285,6 @@ class SnowflakeConnector:
             },
         )
 
-    def list_stages(
-        self,
-        database,
-        schema,
-        role,
-        warehouse,
-        like="%%",
-    ) -> SnowflakeCursor:
-        return self.run_sql(
-            "list_stages",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "like": like,
-            },
-        )
-
-    def list_stage(
-        self,
-        database,
-        schema,
-        role,
-        warehouse,
-        name,
-        like="%%",
-    ) -> SnowflakeCursor:
-        name = get_standard_stage_name(name)
-
-        return self.run_sql(
-            "list_stage",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "name": name,
-                "like": like,
-            },
-        )
-
-    def get_stage(
-        self,
-        database,
-        schema,
-        role,
-        warehouse,
-        name,
-        path,
-    ) -> SnowflakeCursor:
-        name = get_standard_stage_name(name)
-
-        return self.run_sql(
-            "get_stage",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "name": name,
-                "path": path,
-            },
-        )
-
     def set_procedure_comment(
         self,
         database,
@@ -375,88 +310,6 @@ class SnowflakeConnector:
                 "comment": comment,
             },
             show_exceptions,
-        )
-
-    def put_stage(
-        self,
-        database,
-        schema,
-        warehouse,
-        role,
-        name,
-        path,
-        overwrite: bool = False,
-        parallel: int = 4,
-    ) -> SnowflakeCursor:
-        name = get_standard_stage_name(name)
-
-        return self.run_sql(
-            "put_stage",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "name": name,
-                "path": path,
-                "overwrite": overwrite,
-                "parallel": parallel,
-            },
-        )
-
-    def remove_from_stage(
-        self, database, schema, role, warehouse, name, path
-    ) -> SnowflakeCursor:
-        name = get_standard_stage_name(name)
-
-        return self.run_sql(
-            "remove_from_stage",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "name": name,
-                "path": path,
-            },
-        )
-
-    def create_stage(
-        self,
-        database,
-        schema,
-        role,
-        warehouse,
-        name,
-    ) -> SnowflakeCursor:
-        return self.run_sql(
-            "create_stage",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "name": name,
-            },
-        )
-
-    def drop_stage(
-        self,
-        database,
-        schema,
-        role,
-        warehouse,
-        name,
-    ) -> SnowflakeCursor:
-        return self.run_sql(
-            "drop_stage",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "name": name,
-            },
         )
 
     def list_procedures(
@@ -525,24 +378,6 @@ class SnowflakeConnector:
     ) -> SnowflakeCursor:
         return self.run_sql(
             "list_streamlits",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-            },
-        )
-
-    def show_warehouses(
-        self,
-        database="",
-        schema="",
-        role="",
-        warehouse="",
-        like="%%",
-    ) -> SnowflakeCursor:
-        return self.run_sql(
-            "show_warehouses",
             {
                 "database": database,
                 "schema": schema,
@@ -968,7 +803,7 @@ class SnowflakeConnector:
         return "(" + " ".join(params.split()[1::2])
 
 
-def connect_to_snowflake(connection_name: Optional[str] = None, **overrides):  # type: ignore
+def connect_to_snowflake(connection_name: Optional[str] = None, **overrides) -> SnowflakeConnector:  # type: ignore
     connection_name = (
         connection_name if connection_name is not None else get_default_connection()
     )
@@ -981,3 +816,21 @@ def connect_to_snowflake(connection_name: Optional[str] = None, **overrides):  #
         raise SnowflakeConnectionError(err)
     except DatabaseError as err:
         raise InvalidConnectionConfiguration(err.msg)
+
+
+class SqlExecutionMixin:
+    def __init__(self, connection: SnowflakeConnector):
+        self._conn = connection
+
+    @classmethod
+    def from_connection(cls, connection_name: str):
+        conn = connect_to_snowflake(connection_name=connection_name)
+        return cls(connection=conn)
+
+    def _execute_template(self, template_name: str, payload: dict):
+        return self._conn.run_sql(template_name, payload)
+
+    def _execute_query(self, query: str):
+        results = self._conn.ctx.execute_string(query)
+        *_, last_result = results
+        return last_result
