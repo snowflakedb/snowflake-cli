@@ -37,8 +37,8 @@ class StageManager(SqlExecutionMixin):
     def put(self, local_path: str, stage_name: str, parallel: int, overwrite: bool):
         stage_name = self.get_standard_stage_name(stage_name)
         return self._execute_query(
-            f"put file://{local_path} {stage_name}"
-            f"auto_compress=false parallel={parallel} overwrite={overwrite};"
+            f"put file://{local_path} {stage_name} "
+            f"auto_compress=false parallel={parallel} overwrite={overwrite}"
         )
 
     def remove(self, stage_name: str, path: str):
@@ -49,10 +49,10 @@ class StageManager(SqlExecutionMixin):
         return self._execute_query("show stages")
 
     def create(self, stage_name: str):
-        return self._execute_query(f"create stage if not exists {stage_name};")
+        return self._execute_query(f"create stage if not exists {stage_name}")
 
     def drop(self, stage_name: str):
-        return self._execute_query(f"drop stage {stage_name};")
+        return self._execute_query(f"drop stage {stage_name}")
 
 
 @app.command("list")
@@ -126,6 +126,7 @@ def stage_put(
     results = manager.put(
         local_path=local_path, stage_name=name, overwrite=overwrite, parallel=parallel
     )
+    print(results)
     print_db_cursor(results)
 
 

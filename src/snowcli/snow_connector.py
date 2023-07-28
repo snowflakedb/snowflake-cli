@@ -831,4 +831,6 @@ class SqlExecutionMixin:
         return self._conn.run_sql(template_name, payload)
 
     def _execute_query(self, query: str):
-        return self._conn.ctx.execute_string(query)
+        results = self._conn.ctx.execute_string(query)
+        *_, last_result = results
+        return last_result
