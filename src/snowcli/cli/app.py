@@ -73,7 +73,7 @@ def default(
         None,
         "--docs",
         hidden=True,
-        help="Prints version of the snowcli",
+        help="Generates Snowflake CLI documentation",
         callback=_docs_callback,
         is_eager=True,
     ),
