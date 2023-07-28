@@ -10,42 +10,29 @@ from snowcli.exception import EnvironmentVariableNotFoundError
 _ENV_PARAMETER_PREFIX = "SNOWFLAKE_CONNECTIONS_INTEGRATION"
 
 
-@pytest.fixture(scope="session")
-def create_database():
+@pytest.fixture(scope="function")
+def test_database(snowflake_session):
     database_name = f"db_{uuid.uuid4().hex}"
-
-    config = {
-        "application": "INTEGRATION_TEST",
-        "account": _get_from_env("ACCOUNT", True),
-        "user": _get_from_env("USER", True),
-        "password": _get_from_env("PASSWORD", True),
-        "schema": _get_from_env("SCHEMA", False, "PUBLIC"),
-        "host": _get_from_env("HOST", False),
-        "role": _get_from_env("ROLE", False),
-    }
-    config = {k: v for k, v in config.items() if v is not None}
-    connection = connector.connect(**config)
-
-    connection.execute_string(f"create database {database_name}")
+    snowflake_session.execute_string(
+        f"create database {database_name}; use database {database_name}; use schema public;"
+    )
     os.environ[f"{_ENV_PARAMETER_PREFIX}_DATABASE"] = database_name
 
     yield database_name
 
-    connection.execute_string(f"drop database {database_name}")
+    snowflake_session.execute_string(f"drop database {database_name}")
     del os.environ[f"{_ENV_PARAMETER_PREFIX}_DATABASE"]
 
 
 @pytest.fixture(scope="session")
-def snowflake_session(create_database):
+def snowflake_session():
     config = {
         "application": "INTEGRATION_TEST",
         "account": _get_from_env("ACCOUNT", True),
         "user": _get_from_env("USER", True),
         "password": _get_from_env("PASSWORD", True),
-        "host": _get_from_env("HOST", False),
-        "database": _get_from_env("DATABASE", False),
-        "role": _get_from_env("ROLE", False),
-        "schema": "PUBLIC",
+        "host": _get_from_env("HOST", True),
+        "role": _get_from_env("ROLE", True),
         "warehouse": _get_from_env("WAREHOUSE", False),
     }
     config = {k: v for k, v in config.items() if v is not None}
