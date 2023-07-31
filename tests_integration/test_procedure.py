@@ -10,7 +10,10 @@ from syrupy import SnapshotAssertion
 from tests_integration.testing_utils.file_utils import replace_text_in_file
 from tests_integration.conftest import runner
 from tests_integration.snowflake_connector import create_database, snowflake_session
-from tests_integration.testing_utils.snowpark_utils import SnowparkTestSteps, SnowparkTestSetup
+from tests_integration.testing_utils.snowpark_utils import (
+    SnowparkTestSteps,
+    SnowparkTestSetup,
+)
 from tests_integration.testing_utils.sql_utils import sql_test_helper
 from tests_integration.testing_utils.naming_utils import object_name_provider
 from tests_integration.testing_utils.working_directory_utils import (
@@ -122,4 +125,3 @@ def _test_setup(
 @pytest.fixture
 def _test_steps(_test_setup):
     yield SnowparkTestSteps(_test_setup)
-

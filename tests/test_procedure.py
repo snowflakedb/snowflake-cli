@@ -12,7 +12,7 @@ class TestProcedure:
     TEMP_DIRECTORY_NAME = "test_procedure_tmp"
     DIR_INITIAL_CONTENTS = [
         "requirements.txt",
-        #"__pycache__",
+        # "__pycache__",
         "local_connection.py",
         ".gitignore",
         "app.py",

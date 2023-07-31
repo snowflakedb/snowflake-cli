@@ -14,7 +14,8 @@ from tests_integration.testing_utils.assertions.test_file_assertions import (
 from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_is_successful_and_output_contains,
     assert_that_result_is_successful_and_json_output_contains_value_at_path,
-    assert_that_result_is_successful_and_has_no_output, assert_that_result_is_successful,
+    assert_that_result_is_successful_and_has_no_output,
+    assert_that_result_is_successful,
 )
 from tests_integration.testing_utils.file_utils import replace_text_in_file
 from tests_integration.testing_utils.naming_utils import ObjectNameProvider
@@ -22,6 +23,7 @@ from tests_integration.testing_utils.sql_utils import SqlTestHelper
 
 # TODO name 'object' for both function and procedure does not seem to be perfect.
 #  But i can`t come up with anything better
+
 
 class TestType(Enum):
     FUNCTION = "function"
@@ -181,14 +183,11 @@ class SnowparkTestSteps:
         file_list = self.dir_contents[self.test_type.value]
 
         assert_that_result_is_successful_and_has_no_output(result)
-        assert_that_current_working_directory_contains_only_following_files(
-            file_list
-        )
+        assert_that_current_working_directory_contains_only_following_files(file_list)
 
         for file in file_list:
             assert_that_file_content_is_equal_to_snapshot(
-                actual_file_path=file,
-                snapshot=self._setup.snapshot(name=file)
+                actual_file_path=file, snapshot=self._setup.snapshot(name=file)
             )
 
     def snowpark_package_should_zip_files(self) -> None:
@@ -254,9 +253,9 @@ class SnowparkTestSteps:
         assert_that_result_is_successful(result)
 
     def snowpark_drop_should_finish_successfully(
-            self,
-            object_name: str,
-            arguments: str,
+        self,
+        object_name: str,
+        arguments: str,
     ) -> None:
         result = self._setup.runner.invoke_with_config_and_integration_connection(
             [
