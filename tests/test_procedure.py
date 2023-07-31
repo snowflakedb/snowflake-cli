@@ -12,7 +12,7 @@ class TestProcedure:
     TEMP_DIRECTORY_NAME = "test_procedure_tmp"
     DIR_INITIAL_CONTENTS = [
         "requirements.txt",
-        "__pycache__",
+        #"__pycache__",
         "local_connection.py",
         ".gitignore",
         "app.py",
@@ -25,7 +25,7 @@ class TestProcedure:
         assert os.listdir() == self.DIR_INITIAL_CONTENTS
 
     def test_procedure_create(self):
-        result =
+        result = procedure.procedure_create()
 
     @pytest.fixture(scope="class")
     def tmp_dir_for_procedure_tests(self):
