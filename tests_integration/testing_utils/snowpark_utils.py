@@ -183,7 +183,7 @@ class SnowparkTestSteps:
         file_list = self.dir_contents[self.test_type.value]
 
         assert_that_result_is_successful_and_has_no_output(result)
-        assert_that_current_working_directory_contains_only_following_files(file_list)
+        assert_that_current_working_directory_contains_only_following_files(*file_list)
 
         for file in file_list:
             assert_that_file_content_is_equal_to_snapshot(
@@ -196,7 +196,7 @@ class SnowparkTestSteps:
         )
         assert_that_result_is_successful_and_has_no_output(result)
         assert_that_current_working_directory_contains_only_following_files(
-            self.dir_contents[self.test_type.value] + ["app.zip"]
+            *self.dir_contents[self.test_type.value], "app.zip"
         )
 
     def snowpark_create_should_finish_successfully(self) -> str:
