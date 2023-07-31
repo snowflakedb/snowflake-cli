@@ -1,7 +1,7 @@
 import pytest
 
 from unittest import mock
-from tests_integration.snowflake_connector import create_database, snowflake_session
+from tests_integration.snowflake_connector import snowflake_session
 from tests_integration.test_utils import (
     row_from_mock,
     row_from_snowflake_session,
@@ -10,7 +10,7 @@ from tests_integration.test_utils import (
 )
 
 
-@pytest.mark.skip(reason="This feature is currently not in production")
+@pytest.mark.skip(reason="Not yet enabled on our account")
 @pytest.mark.integration
 @mock.patch("snowcli.cli.snowpark.cp.print_db_cursor")
 def test_cp(mock_print, runner, snowflake_session):

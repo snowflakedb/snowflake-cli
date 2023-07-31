@@ -3,7 +3,7 @@ import os
 
 from unittest import mock
 from tempfile import NamedTemporaryFile
-from tests_integration.snowflake_connector import create_database, snowflake_session
+from tests_integration.snowflake_connector import test_database, snowflake_session
 from tests_integration.test_utils import (
     row_from_mock,
     row_from_snowflake_session,
@@ -13,8 +13,8 @@ from tests_integration.test_utils import (
 
 
 @pytest.mark.integration
-@mock.patch("snowcli.cli.stage.print_db_cursor")
-def test_stage(mock_print, runner, snowflake_session, tmp_path):
+@mock.patch("snowcli.output.decorators.print_db_cursor")
+def test_stage(mock_print, runner, snowflake_session, test_database, tmp_path):
     stage_name = "test_stage"
 
     runner.invoke_with_config_and_integration_connection(

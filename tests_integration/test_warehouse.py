@@ -1,11 +1,11 @@
 import pytest
 
 from unittest import mock
-from tests_integration.snowflake_connector import create_database, snowflake_session
+from tests_integration.snowflake_connector import snowflake_session
 
 
 @pytest.mark.integration
-@mock.patch("snowcli.cli.warehouse.print_db_cursor")
+@mock.patch("snowcli.output.decorators.print_db_cursor")
 def test_warehouse_status_query(mock_print, runner, snowflake_session):
     runner.invoke_with_config_and_integration_connection(["warehouse", "status"])
 

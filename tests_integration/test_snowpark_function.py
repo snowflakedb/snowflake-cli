@@ -9,7 +9,7 @@ from syrupy import SnapshotAssertion
 
 from tests_integration.testing_utils.file_utils import replace_text_in_file
 from tests_integration.conftest import runner
-from tests_integration.snowflake_connector import create_database, snowflake_session
+from tests_integration.snowflake_connector import test_database, snowflake_session
 from tests_integration.testing_utils.sql_utils import sql_test_helper
 from tests_integration.testing_utils.naming_utils import object_name_provider
 from tests_integration.testing_utils.working_directory_utils import (
@@ -102,6 +102,7 @@ def test_snowpark_function_flow(_test_steps):
 def _test_setup(
     runner,
     snowflake_session,
+    test_database,
     sql_test_helper,
     object_name_provider,
     temporary_working_directory,
@@ -310,7 +311,12 @@ class SnowparkFunctionTestSteps:
         )
         assert_that_result_is_successful_and_has_no_output(result)
         assert_that_current_working_directory_contains_only_following_files(
-            ".gitignore", "app.py", "config.toml", "requirements.txt", "app.zip"
+            ".gitignore",
+            "app.py",
+            "config.toml",
+            "requirements.snowflake.txt",
+            "requirements.txt",
+            "app.zip",
         )
 
     def snowpark_function_create_should_finish_successfully(

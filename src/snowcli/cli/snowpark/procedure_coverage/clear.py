@@ -4,6 +4,7 @@ import logging
 import typer
 
 from snowcli import config, utils
+from snowcli.cli.stage import StageManager
 from snowcli.snow_connector import connect_to_snowflake
 from snowcli.utils import generate_deploy_stage_name
 from snowcli.output.printing import print_db_cursor
@@ -43,13 +44,8 @@ def procedure_coverage_clear(
         ),
     )
     coverage_path = f"""{deploy_dict["directory"]}/coverage"""
-    results = conn.remove_from_stage(
-        database=conn.ctx.database,
-        schema=conn.ctx.schema,
-        role=conn.ctx.role,
-        warehouse=conn.ctx.warehouse,
-        name=deploy_dict["stage"],
-        path=coverage_path,
+    results = StageManager(connection=conn).remove(
+        stage_name=deploy_dict["stage"], path=coverage_path
     )
     log.info("Deleted the following coverage results from the stage:")
     print_db_cursor(results)

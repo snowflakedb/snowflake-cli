@@ -8,6 +8,7 @@ import snowflake.connector
 import typer
 
 from snowcli import config, utils
+from snowcli.cli.stage import StageManager
 from snowcli.snow_connector import connect_to_snowflake
 from snowcli.utils import generate_deploy_stage_name
 
@@ -81,14 +82,11 @@ def procedure_coverage_report(
         stage_path = deploy_dict["directory"]
         report_files = f"{stage_name}{stage_path}/coverage/"
         try:
-            results = conn.get_stage(
-                database=conn.ctx.database,
-                schema=conn.ctx.schema,
-                role=conn.ctx.role,
-                warehouse=conn.ctx.warehouse,
-                name=report_files,
-                path=str(temp_dir),
-            ).fetchall()
+            results = (
+                StageManager(connection=conn)
+                .get(stage_name=report_files, dest_path=str(temp_dir))
+                .fetchall()
+            )
         except snowflake.connector.errors.DatabaseError as database_error:
             if database_error.errno == 253006:
                 results = []
