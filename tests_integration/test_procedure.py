@@ -18,7 +18,7 @@ from tests_integration.testing_utils.working_directory_utils import (
 @pytest.mark.integration
 def test_snowpark_procedure_flow(_test_steps):
     _test_steps.assert_that_no_entities_are_in_snowflake()
-    _test_steps.assert_that_no_files_are_staged_in_snowflake()
+    _test_steps.assert_that_no_files_are_staged_in_test_db()
 
     _test_steps.snowpark_list_should_return_no_data()
 
@@ -29,7 +29,7 @@ def test_snowpark_procedure_flow(_test_steps):
     _test_steps.assert_that_only_these_entities_are_in_snowflake(
         f"{procedure_name}() RETURN VARCHAR"
     )
-    _test_steps.assert_that_only_these_files_are_staged_in_snowflake(
+    _test_steps.assert_that_only_these_files_are_staged_in_test_db(
         f"deployments/{procedure_name}/app.zip"
     )
 
@@ -54,7 +54,7 @@ def test_snowpark_procedure_flow(_test_steps):
     _test_steps.assert_that_only_these_entities_are_in_snowflake(
         f"{procedure_name}() RETURN NUMBER"
     )
-    _test_steps.assert_that_only_these_files_are_staged_in_snowflake(
+    _test_steps.assert_that_only_these_files_are_staged_in_test_db(
         f"deployments/{procedure_name}/app.zip"
     )
 
@@ -75,7 +75,7 @@ def test_snowpark_procedure_flow(_test_steps):
         arguments="()",
     )
     _test_steps.assert_that_no_entities_are_in_snowflake()
-    _test_steps.assert_that_only_these_files_are_staged_in_snowflake(
+    _test_steps.assert_that_only_these_files_are_staged_in_test_db(
         f"deployments/{procedure_name}/app.zip"
     )
 

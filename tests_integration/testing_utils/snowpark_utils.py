@@ -331,10 +331,10 @@ class SnowparkTestSteps:
             adjusted_expected_full_function_signatures
         )
 
-    def assert_that_no_files_are_staged_in_snowflake(self) -> None:
-        self.assert_that_only_these_files_are_staged_in_snowflake()
+    def assert_that_no_files_are_staged_in_test_db(self) -> None:
+        self.assert_that_only_these_files_are_staged_in_test_db()
 
-    def assert_that_only_these_files_are_staged_in_snowflake(
+    def assert_that_only_these_files_are_staged_in_test_db(
         self, *expected_file_paths: str
     ) -> None:
         actual_file_paths = [

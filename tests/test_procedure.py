@@ -21,15 +21,18 @@ class TestProcedure:
         "config.toml",
     }
 
-    def test_procedure_init(self, tmp_dir_for_procedure_tests):
-        procedure.procedure_init()
+    def test_procedure_init(self, tmp_dir_for_procedure_tests, runner):
+        runner.invoke(["snowpark", "procedure", "init"])
         assert self.DIR_INITIAL_CONTENTS.issubset(os.listdir(os.getcwd()))
 
     @mock.patch("snowcli.utils.parse_anaconda_packages")
-    def test_procedure_package(self, tmp_dir_for_procedure_tests):
-        mock_parse = MagicMock(return_value=SplitRequirements([], []))
-        procedure.procedure_init()
-        procedure.procedure_package()
+    def test_procedure_package(
+        self, mock_anaconda, tmp_dir_for_procedure_tests, runner
+    ):
+        mock_anaconda = MagicMock(return_value=SplitRequirements([], []))
+
+        runner.invoke(["snowpark", "procedure", "init"])
+        runner.invoke(["snowpark", "procedure", "package"])
 
         zip_file = ZipFile("app.zip")
 
