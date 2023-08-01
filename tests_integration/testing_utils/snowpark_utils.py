@@ -21,7 +21,7 @@ from tests_integration.testing_utils.file_utils import replace_text_in_file
 from tests_integration.testing_utils.naming_utils import ObjectNameProvider
 from tests_integration.testing_utils.sql_utils import SqlTestHelper
 
-# TODO name 'object' for both function and procedure does not seem to be perfect.
+# TODO name 'entity' for both function and procedure does not seem to be perfect.
 #  But i can`t come up with anything better
 
 
@@ -37,6 +37,7 @@ class SnowparkTestSetup:
         snowflake_session: SnowflakeConnection,
         sql_test_helper: SqlTestHelper,
         object_name_provider: ObjectNameProvider,
+        test_database,
         test_type: TestType,
         snapshot: SnapshotAssertion,
     ):
@@ -48,7 +49,7 @@ class SnowparkTestSetup:
         self.test_type = test_type
         self.snapshot = snapshot
 
-    def query_objects_created_in_this_test_case(self) -> List[Dict[str, Any]]:
+    def query_entities_created_in_this_test_case(self) -> List[Dict[str, Any]]:
         if self.test_type == TestType.FUNCTION:
             query_string = (
                 f"SHOW USER FUNCTIONS LIKE '{self.object_name_prefix.upper()}%'"
@@ -83,12 +84,12 @@ class SnowparkTestSetup:
             return []
 
     def clean_after_test_case(self) -> None:
-        self.delete_objects_created_in_this_test_case()
+        self.delete_entities_created_in_this_test_case()
         self.delete_files_uploaded_in_this_test_case()
 
-    def delete_objects_created_in_this_test_case(self) -> None:
-        objects_to_delete = self.query_objects_created_in_this_test_case()
-        for obj in objects_to_delete:
+    def delete_entities_created_in_this_test_case(self) -> None:
+        entities_to_delete = self.query_entities_created_in_this_test_case()
+        for obj in entities_to_delete:
             name_with_args = re.sub(r" RETURN .*", "", obj["arguments"])
             self.sql_test_helper.execute_single_sql(
                 f"DROP {self.test_type.value.upper()} {name_with_args}"
@@ -129,8 +130,8 @@ class SnowparkTestSteps:
         )
         assert_that_result_is_successful_and_output_contains(result, "No data")
 
-    def snowpark_list_should_return_object_at_first_place(
-        self, object_name: str, arguments: str, result_type: str
+    def snowpark_list_should_return_entity_at_first_place(
+        self, entity_name: str, arguments: str, result_type: str
     ) -> None:
         result = self._setup.runner.invoke_with_config_and_integration_connection(
             [
@@ -143,22 +144,25 @@ class SnowparkTestSteps:
                 f"{self._setup.object_name_prefix}%",
             ]
         )
+
         assert_that_result_is_successful_and_json_output_contains_value_at_path(
-            result=result, path=[0, "name"], expected_value=object_name.upper()
+            result=result, path=[0, "name"], expected_value=entity_name.upper()
         )
         assert_that_result_is_successful_and_json_output_contains_value_at_path(
             result=result,
             path=[0, "arguments"],
-            expected_value=f"{object_name}{arguments} RETURN {result_type}".upper(),
-        )
-        assert_that_result_is_successful_and_json_output_contains_value_at_path(
-            result=result, path=[0, "language"], expected_value="PYTHON"
+            expected_value=f"{entity_name}{arguments} RETURN {result_type}".upper(),
         )
 
+        if self.test_type == TestType.FUNCTION:
+            assert_that_result_is_successful_and_json_output_contains_value_at_path(
+                result=result, path=[0, "language"], expected_value="PYTHON"
+            )
+
     def snowpark_execute_should_return_expected_value(
-        self, object_name: str, arguments: str, expected_value: Any
+        self, entity_name: str, arguments: str, expected_value: Any
     ) -> None:
-        name_with_arguments = f"{object_name}{arguments}"
+        name_with_arguments = f"{entity_name}{arguments}"
         result = self._setup.runner.invoke_with_config_and_integration_connection(
             [
                 "--format",
@@ -166,20 +170,58 @@ class SnowparkTestSteps:
                 "snowpark",
                 self.test_type.value,
                 "execute",
-                "--function",
+                f"--{self.test_type.value}",
                 name_with_arguments,
+            ]
+        )
+
+        assert_that_result_is_successful_and_json_output_contains_value_at_path(
+            result=result,
+            path=[
+                0,
+                name_with_arguments.upper()
+                if self.test_type == TestType.FUNCTION
+                else entity_name.upper(),
+            ],
+            expected_value=expected_value,
+        )
+
+    def snowpark_describe_should_return_entity_description(
+        self, entity_name: str, arguments: str
+    ) -> None:
+        result = self._setup.runner.invoke_with_config_and_integration_connection(
+            [
+                "--format",
+                "json",
+                "snowpark",
+                self.test_type.value,
+                "describe",
+                "--name",
+                entity_name,
+                "--input-parameters",
+                arguments,
             ]
         )
         assert_that_result_is_successful_and_json_output_contains_value_at_path(
             result=result,
-            path=[0, name_with_arguments.upper()],
-            expected_value=expected_value,
+            path=[0, "property"],
+            expected_value="signature",
+        )
+        assert_that_result_is_successful_and_json_output_contains_value_at_path(
+            result=result,
+            path=[0, "value"],
+            expected_value=arguments,
+        )
+        assert_that_result_is_successful_and_output_contains(
+            result=result, expected_output=entity_name, ignore_case=True
         )
 
-    def snowpark_function_init_should_initialize_files_with_default_content(
+    def snowpark_init_should_initialize_files_with_default_content(
         self,
     ) -> None:
-        result = self._setup.runner.invoke_with_config(["snowpark", "function", "init"])
+        result = self._setup.runner.invoke_with_config(
+            ["snowpark", self.test_type.value, "init"]
+        )
         file_list = self.dir_contents[self.test_type.value]
 
         assert_that_result_is_successful_and_has_no_output(result)
@@ -196,11 +238,13 @@ class SnowparkTestSteps:
         )
         assert_that_result_is_successful_and_has_no_output(result)
         assert_that_current_working_directory_contains_only_following_files(
-            *self.dir_contents[self.test_type.value], "app.zip"
+            *self.dir_contents[self.test_type.value],
+            "app.zip",
+            "requirements.snowflake.txt",
         )
 
     def snowpark_create_should_finish_successfully(self) -> str:
-        object_name = (
+        entity_name = (
             self._setup.test_object_name_provider.create_and_get_next_object_name()
         )
         result = self._setup.runner.invoke_with_config_and_integration_connection(
@@ -209,7 +253,7 @@ class SnowparkTestSteps:
                 self.test_type.value,
                 "create",
                 "--name",
-                object_name,
+                entity_name,
                 "--handler",
                 "app.hello",
                 "--input-parameters",
@@ -219,11 +263,11 @@ class SnowparkTestSteps:
             ]
         )
         assert_that_result_is_successful(result)
-        return object_name
+        return entity_name
 
     def snowpark_update_should_finish_successfully(
         self,
-        object_name: str,
+        entity_name: str,
     ) -> None:
         replace_text_in_file(
             file_path="app.py",
@@ -241,7 +285,7 @@ class SnowparkTestSteps:
                 self.test_type.value,
                 "update",
                 "--name",
-                object_name,
+                entity_name,
                 "--handler",
                 "app.hello",
                 "--input-parameters",
@@ -254,7 +298,7 @@ class SnowparkTestSteps:
 
     def snowpark_drop_should_finish_successfully(
         self,
-        object_name: str,
+        entity_name: str,
         arguments: str,
     ) -> None:
         result = self._setup.runner.invoke_with_config_and_integration_connection(
@@ -263,27 +307,27 @@ class SnowparkTestSteps:
                 self.test_type.value,
                 "drop",
                 "--name",
-                object_name,
+                entity_name,
                 "--input-parameters",
                 arguments,
             ]
         )
         assert_that_result_is_successful(result)
 
-    def assert_that_no_objects_are_in_snowflake(self) -> None:
-        self.assert_that_only_these_objects_are_in_snowflake()
+    def assert_that_no_entities_are_in_snowflake(self) -> None:
+        self.assert_that_only_these_entities_are_in_snowflake()
 
-    def assert_that_only_these_objects_are_in_snowflake(
-        self, *expected_full_object_signatures: str
+    def assert_that_only_these_entities_are_in_snowflake(
+        self, *expected_full_entity_signatures: str
     ) -> None:
-        actual_object_signatures = [
-            object["arguments"]
-            for object in self._setup.query_objects_created_in_this_test_case()
+        actual_entity_signatures = [
+            entity["arguments"]
+            for entity in self._setup.query_entities_created_in_this_test_case()
         ]
         adjusted_expected_full_function_signatures = [
-            object.upper() for object in expected_full_object_signatures
+            entity.upper() for entity in expected_full_entity_signatures
         ]
-        assert set(actual_object_signatures) == set(
+        assert set(actual_entity_signatures) == set(
             adjusted_expected_full_function_signatures
         )
 
