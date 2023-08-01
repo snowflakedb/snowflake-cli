@@ -235,21 +235,23 @@ class TestUtils:
 
     def test_recursive_zip_packages_with_env_variable(
         self,
-        temp_test_directory: str,
+        temp_test_directory_with_chdir: str,
         txt_file_in_a_subdir: str,
         other_directory: str,
         temp_file_in_other_directory: str,
         include_paths_env_variable: str,
     ):
-        zip_file_path = os.path.join(temp_test_directory, "packed.zip")
+        zip_file_path = os.path.join(temp_test_directory_with_chdir, "packed.zip")
 
-        utils.recursive_zip_packages_dir(temp_test_directory, zip_file_path)
+        utils.recursive_zip_packages_dir(temp_test_directory_with_chdir, zip_file_path)
         zip_file = ZipFile(zip_file_path)
 
-        path = str(Path(txt_file_in_a_subdir).relative_to(temp_test_directory))
+        path = str(
+            Path(txt_file_in_a_subdir).relative_to(temp_test_directory_with_chdir)
+        )
         assert os.path.isfile(zip_file_path)
         assert (
-            str(Path(txt_file_in_a_subdir).relative_to(temp_test_directory))
+            str(Path(txt_file_in_a_subdir).relative_to(temp_test_directory_with_chdir))
             in zip_file.namelist()
         )
         assert str(Path(temp_file_in_other_directory).name) in zip_file.namelist()
@@ -269,13 +271,13 @@ class TestUtils:
 
     def test_standard_zip_dir_with_env_variable(
         self,
-        temp_test_directory: str,
+        temp_test_directory_with_chdir: str,
         txt_file_in_a_subdir: str,
         include_paths_env_variable,
         other_directory: str,
-        temp_file_in_other_directory,
+        temp_file_in_other_directory: str,
     ):
-        zip_file_path = os.path.join(temp_test_directory, "packed.zip")
+        zip_file_path = os.path.join(temp_test_directory_with_chdir, "packed.zip")
         utils.standard_zip_dir(zip_file_path)
         zip_file = ZipFile(zip_file_path)
 

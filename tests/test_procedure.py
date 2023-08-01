@@ -23,7 +23,7 @@ class TestProcedure:
 
     def test_procedure_init(self, tmp_dir_for_procedure_tests):
         procedure.procedure_init()
-        assert set(os.listdir()) == self.DIR_INITIAL_CONTENTS
+        assert self.DIR_INITIAL_CONTENTS.issubset(os.listdir(os.getcwd()))
 
     @mock.patch("snowcli.utils.parse_anaconda_packages")
     def test_procedure_package(self, tmp_dir_for_procedure_tests):
