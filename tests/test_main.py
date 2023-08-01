@@ -70,6 +70,11 @@ def test_all_commands_has_proper_documentation():
                 _check(command_info, [*path, command_name])
         else:
             # This is end command
+            if not command.help:
+                errors.append(
+                    f"Command `snow {' '.join(path)}` is missing help in docstring"
+                )
+
             for param in command.params:
                 if not param.help:  # type: ignore
                     if isinstance(param, TyperArgument):

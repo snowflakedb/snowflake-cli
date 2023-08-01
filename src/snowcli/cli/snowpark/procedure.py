@@ -21,7 +21,6 @@ from snowcli.cli.snowpark_shared import (
     snowpark_package,
     snowpark_update,
 )
-from snowcli.utils import check_for_connection
 
 app = typer.Typer(
     name="procedure",
@@ -100,6 +99,7 @@ def procedure_create(
         help="Wraps the procedure with a code coverage measurement tool, so that a coverage report can be later retrieved.",
     ),
 ):
+    """Creates a python procedure using local artifact."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps,
@@ -172,6 +172,7 @@ def procedure_update(
         help="Wraps the procedure with a code coverage measurement tool, so that a coverage report can be later retrieved.",
     ),
 ):
+    """Updates an existing python procedure using local artifact."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps,
@@ -197,6 +198,7 @@ def procedure_package(
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
 ):
+    """Packages procedure code into zip file."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps,
@@ -214,6 +216,7 @@ def procedure_execute(
         help="Procedure with inputs. E.g. 'hello(int, string)'. Must exactly match those provided when creating the procedure.",
     ),
 ):
+    """Executes a Snowflake procedure."""
     snowpark_execute("procedure", environment, select)
 
 
@@ -234,6 +237,7 @@ def procedure_describe(
         help="Procedure signature with inputs. E.g. 'hello(int, string)'",
     ),
 ):
+    """Describes a Snowflake procedure."""
     snowpark_describe(
         "procedure",
         environment,
@@ -253,6 +257,7 @@ def procedure_list(
         help='Filter procedures by name - e.g. "hello%"',
     ),
 ):
+    """Lists Snowflake procedures."""
     snowpark_list("procedure", environment, like=like)
 
 
@@ -273,4 +278,5 @@ def procedure_drop(
         help="Procedure signature with inputs. E.g. 'hello(int, string)'",
     ),
 ):
+    """Drops a Snowflake procedure."""
     snowpark_drop("procedure", environment, name, input_parameters, signature)
