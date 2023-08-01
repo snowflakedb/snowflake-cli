@@ -20,6 +20,7 @@ dependencies = [
 #  "snowflake-connector-python==3.0.4",
   "snowflake-connector-python-nightly[secure-local-storage]==2023.6.24",
   "tomlkit==0.11.8",
+  "urllib3<1.27,>=1.21.1",
   "typer==0.9.0",
 ]
 classifiers = [
