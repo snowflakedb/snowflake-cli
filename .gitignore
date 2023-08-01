@@ -12,3 +12,4 @@ dist/
 .tox
 ./.packages
 .coverage
+gen_docs/
