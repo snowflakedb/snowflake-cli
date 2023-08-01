@@ -8,13 +8,18 @@ from snowcli.snow_connector import connect_to_snowflake
 
 @dataclass
 class ConnectionDetails:
-    connection: str
+    _connection: Optional[str] = None
     account: Optional[str] = None
     database: Optional[str] = None
     role: Optional[str] = None
     schema: Optional[str] = None
     user: Optional[str] = None
     warehouse: Optional[str] = None
+
+    @property
+    def connection(self):
+        self._connection = get_default_connection()
+        return self._connection
 
     def connection_params(self):
         from snowcli.cli.common.decorators import GLOBAL_CONNECTION_OPTIONS
@@ -92,7 +97,7 @@ def _create_snow_cli_global_context_manager_with_default_values() -> SnowCliGlob
     return SnowCliGlobalContextManager(
         SnowCliGlobalContext(
             enable_tracebacks=True,
-            connection=ConnectionDetails(connection=get_default_connection()),
+            connection=ConnectionDetails(),
         )
     )
 
