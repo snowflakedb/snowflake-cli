@@ -14,6 +14,7 @@ from tests_integration.testing_utils.working_directory_utils import (
     temporary_working_directory,
 )
 
+
 @pytest.mark.integration
 def test_snowpark_procedure_flow(_test_steps):
     _test_steps.assert_that_no_entities_are_in_snowflake()
