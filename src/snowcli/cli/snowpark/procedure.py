@@ -21,7 +21,6 @@ from snowcli.cli.snowpark_shared import (
     snowpark_package,
     snowpark_update,
 )
-from snowcli.utils import check_for_connection
 
 app = typer.Typer(
     name="procedure",

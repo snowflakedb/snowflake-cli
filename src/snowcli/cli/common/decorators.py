@@ -11,6 +11,7 @@ from snowcli.cli.common.flags import (
     SchemaOption,
     RoleOption,
     WarehouseOption,
+    PasswordOption,
 )
 
 
@@ -29,7 +30,7 @@ def global_options(func: Callable):
     return wrapper
 
 
-_GLOBAL_CONNECTION_OPTIONS = [
+GLOBAL_CONNECTION_OPTIONS = [
     inspect.Parameter(
         "connection",
         inspect.Parameter.KEYWORD_ONLY,
@@ -47,6 +48,12 @@ _GLOBAL_CONNECTION_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[str],
         default=UserOption,
+    ),
+    inspect.Parameter(
+        "password",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=PasswordOption,
     ),
     inspect.Parameter(
         "database",
@@ -95,7 +102,7 @@ def _extend_signature_with_global_options(func):
     sig = sig.replace(
         parameters=[
             *existing_parameters_with_evaluated_types,
-            *_GLOBAL_CONNECTION_OPTIONS,
+            *GLOBAL_CONNECTION_OPTIONS,
         ]
     )
     return sig
