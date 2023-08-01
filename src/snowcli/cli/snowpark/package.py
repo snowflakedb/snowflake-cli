@@ -34,13 +34,14 @@ def package_lookup(
         "-y",
         help="Install packages that are not available on the Snowflake anaconda channel",
     ),
-    _run_nested: bool = False,
+    _run_nested: bool = typer.Option(
+        False, hidden=True, help="Used for internal purposes"
+    ),
 ):
     """
     Check to see if a package is available on the Snowflake anaconda channel.
     """
     package_response = utils.parse_anaconda_packages([Requirement.parse(name)])
-    ## if list has any items
 
     if len(package_response.snowflake) > 0:
         log.info(f"Package {name} is available on the Snowflake anaconda channel.")
@@ -51,7 +52,8 @@ def package_lookup(
     else:
         if not install_packages:
             install_packages = click.confirm(
-                "The package is not in Anaconda. Do you want to try to see if it's supported as a custom package (requires pip)?",
+                "The package is not in Anaconda. Do you want to try to see "
+                "if it's supported as a custom package (requires pip)?",
                 default=True,
             )
         if install_packages:
@@ -60,7 +62,11 @@ def package_lookup(
                 perform_anaconda_check=True, package_name=name, file_name=None
             )
             if status and results is not None and len(results.snowflake) > 0:
-                packages_string = f"The package {name} is supported, but does depend on the following Snowflake supported native libraries. You should include the following in your packages: {results.snowflake}"
+                packages_string = (
+                    f"The package {name} is supported, but does depend on the "
+                    f"following Snowflake supported native libraries. You should "
+                    f"include the following in your packages: {results.snowflake}"
+                )
             # if .packages subfolder exists, delete it
             if not _run_nested and os.path.exists(".packages"):
                 rmtree(".packages")

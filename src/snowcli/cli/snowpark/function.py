@@ -93,6 +93,7 @@ def function_create(
         help="Replace if existing function",
     ),
 ):
+    """Creates a python UDF/UDTF using local artifact."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps,
@@ -134,6 +135,7 @@ def function_update(
         help="Replace function, even if no detected changes to metadata",
     ),
 ):
+    """Updates an existing python UDF/UDTF using local artifact."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps,
@@ -157,6 +159,7 @@ def function_package(
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
 ):
+    """Packages function code into zip file."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps,
@@ -174,6 +177,7 @@ def function_execute(
         help="Function with inputs. E.g. 'hello(int, string)'",
     ),
 ):
+    """Executes a Snowflake function."""
     snowpark_execute(type="function", environment=environment, select=function)
 
 
@@ -189,6 +193,7 @@ def function_describe(
         help="Function signature with inputs. E.g. 'hello(int, string)'",
     ),
 ):
+    """Describes a Snowflake function."""
     snowpark_describe(
         type="function",
         environment=environment,
@@ -208,6 +213,7 @@ def function_list(
         help='Filter functions by name - e.g. "hello%"',
     ),
 ):
+    """Lists Snowflake functions."""
     snowpark_list("function", environment, like=like)
 
 
@@ -223,4 +229,5 @@ def function_drop(
         help="Function signature with inputs. E.g. 'hello(int, string)'",
     ),
 ):
+    """Drops a Snowflake function."""
     snowpark_drop("function", environment, name, input_parameters, signature)
