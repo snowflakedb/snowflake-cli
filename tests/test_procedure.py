@@ -27,8 +27,8 @@ class TestProcedure:
     @pytest.fixture(scope="class")
     def tmp_dir_for_procedure_tests(self):
         initial_dir = os.getcwd()
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            os.chdir(tmp_dir)
-            yield tmp_dir.name
-            tmp_dir.cleanup()
-            os.chdir(initial_dir)
+        tmp_dir = tempfile.TemporaryDirectory()
+        os.chdir(tmp_dir.name)
+        yield tmp_dir
+        tmp_dir.cleanup()
+        os.chdir(initial_dir)
