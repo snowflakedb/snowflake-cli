@@ -1,1 +1,2 @@
 snowflake-snowpark-python
+toml # For local development
