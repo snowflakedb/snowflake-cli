@@ -119,7 +119,6 @@ def procedure_create(
     )
 
 
-
 @app.command("update")
 def procedure_update(
     environment: str = ConnectionOption,

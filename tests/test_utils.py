@@ -84,7 +84,9 @@ class TestUtils:
         assert expected_error.value.errno == 2
         assert expected_error.type == FileNotFoundError
 
-    def test_parse_requierements_with_correct_file(self, correct_requirements_txt: str):
+    def test_parse_requierements_with_correct_file(
+        self, correct_requirements_txt: str, temp_test_directory_with_chdir
+    ):
         result = utils.parse_requirements(correct_requirements_txt)
 
         assert len(result) == len(test_data.requirements)
@@ -134,7 +136,11 @@ class TestUtils:
         with pytest.raises(typer.Abort) as abort:
             result = utils.parse_anaconda_packages(test_data.packages)
 
-    def test_generate_streamlit_environment_file_with_no_requirements(self):
+    def test_generate_streamlit_environment_file_with_no_requirements(
+        self, other_directory_with_chdir: str
+    ):
+        file_list = os.listdir(other_directory_with_chdir)
+
         result = utils.generate_streamlit_environment_file(
             [],
         )
@@ -232,14 +238,15 @@ class TestUtils:
         temp_test_directory: str,
         txt_file_in_a_subdir: str,
         other_directory: str,
-        temp_file_in_other_directory,
-        include_paths_env_variable,
+        temp_file_in_other_directory: str,
+        include_paths_env_variable: str,
     ):
         zip_file_path = os.path.join(temp_test_directory, "packed.zip")
 
         utils.recursive_zip_packages_dir(temp_test_directory, zip_file_path)
         zip_file = ZipFile(zip_file_path)
 
+        path = str(Path(txt_file_in_a_subdir).relative_to(temp_test_directory))
         assert os.path.isfile(zip_file_path)
         assert (
             str(Path(txt_file_in_a_subdir).relative_to(temp_test_directory))
@@ -397,7 +404,7 @@ class TestUtils:
             yield tmp_dir
 
     @pytest.fixture
-    def temp_test_directory_with_chdir(self, temp_test_directory) -> Generator:
+    def temp_test_directory_with_chdir(self, temp_test_directory: str) -> Generator:
         initial_dir = os.getcwd()
         os.chdir(temp_test_directory)
         yield temp_test_directory
@@ -414,9 +421,11 @@ class TestUtils:
 
     @pytest.fixture(scope="class")
     def correct_requirements_txt(self, temp_test_directory: str) -> Generator:
-        yield create_named_file(
+        req_txt = create_named_file(
             self.REQUIREMENTS_SNOWFLAKE, temp_test_directory, test_data.requirements
         )
+        yield req_txt
+        os.remove(req_txt)
 
     @pytest.fixture(scope="class")
     def correct_metadata_file(self, temp_test_directory: str) -> Generator:
@@ -431,8 +440,16 @@ class TestUtils:
 
     @pytest.fixture(scope="class")
     def other_directory(self) -> Generator:
-        with tempfile.TemporaryDirectory() as tmp:
-            yield tmp
+        tmp_dir = tempfile.TemporaryDirectory()
+        yield tmp_dir.name
+        tmp_dir.cleanup()
+
+    @pytest.fixture
+    def other_directory_with_chdir(self, other_directory: str) -> Generator:
+        initial_dir = os.getcwd()
+        os.chdir(other_directory)
+        yield other_directory
+        os.chdir(initial_dir)
 
     @pytest.fixture(scope="class")
     def temp_file_in_other_directory(self, other_directory: str) -> Generator:

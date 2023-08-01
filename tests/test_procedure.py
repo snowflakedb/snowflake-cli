@@ -26,7 +26,7 @@ class TestProcedure:
         assert set(os.listdir()) == self.DIR_INITIAL_CONTENTS
 
     @mock.patch("snowcli.utils.parse_anaconda_packages")
-    def test_procedure_package(self,  tmp_dir_for_procedure_tests):
+    def test_procedure_package(self, tmp_dir_for_procedure_tests):
         mock_parse = MagicMock(return_value=SplitRequirements([], []))
         procedure.procedure_init()
         procedure.procedure_package()
@@ -36,12 +36,9 @@ class TestProcedure:
         assert os.path.isfile("app.zip")
         assert "requirements.txt" in zip_file.namelist()
         assert "requirements.snowflake.txt" in zip_file.namelist()
-        assert"local_connection.py" in zip_file.namelist()
-        assert"app.py" in zip_file.namelist()
-        assert"config.toml" in zip_file.namelist()
-
-
-
+        assert "local_connection.py" in zip_file.namelist()
+        assert "app.py" in zip_file.namelist()
+        assert "config.toml" in zip_file.namelist()
 
     @pytest.fixture(scope="class")
     def tmp_dir_for_procedure_tests(self):
