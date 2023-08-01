@@ -117,7 +117,7 @@ def procedure_create(
         execute_as_caller,
         install_coverage_wrapper,
     )
-    # TODO this seems really similiato to function_create - maybe we can abstract it in any way?
+
 
 
 @app.command("update")
