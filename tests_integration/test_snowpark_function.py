@@ -3,7 +3,11 @@ from __future__ import annotations
 import pytest
 
 from tests_integration.snowflake_connector import test_database, snowflake_session
-from tests_integration.testing_utils.snowpark_utils import TestType, SnowparkTestSetup, SnowparkTestSteps
+from tests_integration.testing_utils.snowpark_utils import (
+    TestType,
+    SnowparkTestSetup,
+    SnowparkTestSteps,
+)
 from tests_integration.testing_utils.sql_utils import sql_test_helper
 from tests_integration.testing_utils.naming_utils import object_name_provider
 from tests_integration.testing_utils.working_directory_utils import (
@@ -96,7 +100,7 @@ def _test_setup(
         object_name_provider=object_name_provider,
         snapshot=snapshot,
         test_database=test_database,
-        test_type=TestType.FUNCTION
+        test_type=TestType.FUNCTION,
     )
     yield snowpark_function_test_setup
     snowpark_function_test_setup.clean_after_test_case()
@@ -105,5 +109,3 @@ def _test_setup(
 @pytest.fixture
 def _test_steps(_test_setup):
     yield SnowparkTestSteps(_test_setup, TestType.FUNCTION)
-
-
