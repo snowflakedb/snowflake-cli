@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional, Any, Dict, Union
 
 import tomlkit
+from snowflake.connector.errors import MissingConfigOptionError
 from tomlkit import dump, table, TOMLDocument
 from tomlkit.exceptions import NonExistentKey
 from tomlkit.items import Table
@@ -44,7 +45,7 @@ class CliConfigManager(ConfigManager):
         try:
             self._find_section(*path)
             return True
-        except NonExistentKey:
+        except (NonExistentKey, MissingConfigOptionError):
             return False
 
     def get(self, *path, key: str, default: Optional[Any] = None) -> Any:
@@ -54,7 +55,7 @@ class CliConfigManager(ConfigManager):
             return env_variable
         try:
             return self.get_section(*path)[key]
-        except NonExistentKey:
+        except (NonExistentKey, MissingConfigOptionError):
             if default:
                 return default
             raise
