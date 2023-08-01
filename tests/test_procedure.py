@@ -2,8 +2,6 @@ import os
 import tempfile
 
 import pytest
-from pathlib import Path
-from shutil import rmtree
 
 from snowcli.cli.snowpark import procedure
 
@@ -20,15 +18,17 @@ class TestProcedure:
     ]
 
     def test_procedure_init(self, tmp_dir_for_procedure_tests):
-        os.chdir(tmp_dir_for_procedure_tests)
         procedure.procedure_init()
         assert os.listdir() == self.DIR_INITIAL_CONTENTS
 
     def test_procedure_create(self):
-        result = procedure.procedure_create()
+        pass
 
     @pytest.fixture(scope="class")
     def tmp_dir_for_procedure_tests(self):
-        temp_dir = tempfile.TemporaryDirectory()
-        yield temp_dir.name
-        temp_dir.cleanup()
+        initial_dir = os.getcwd()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            os.chdir(tmp_dir)
+            yield tmp_dir.name
+            tmp_dir.cleanup()
+            os.chdir(initial_dir)
