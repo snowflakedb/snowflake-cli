@@ -4,7 +4,6 @@ import typer
 
 
 from snowcli.cli.common.snow_cli_global_context import ConnectionDetails
-from snowcli.utils import check_for_connection
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
@@ -15,7 +14,7 @@ ConnectionOption = typer.Option(
     "--connection",
     "--environment",
     help=f"Connection / environment name. If not provided then default connection will be used.",
-    callback=check_for_connection,
+    callback=ConnectionDetails.update_callback("connection_name"),
 )
 
 AccountOption = typer.Option(

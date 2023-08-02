@@ -8,7 +8,7 @@ from snowcli.snow_connector import connect_to_snowflake
 
 @dataclass
 class ConnectionDetails:
-    _connection: Optional[str] = None
+    connection_name: Optional[str] = None
     account: Optional[str] = None
     database: Optional[str] = None
     role: Optional[str] = None
@@ -16,15 +16,10 @@ class ConnectionDetails:
     user: Optional[str] = None
     warehouse: Optional[str] = None
 
-    @property
-    def connection(self):
-        self._connection = get_default_connection()
-        return self._connection
-
-    def connection_params(self):
+    def _resolve_connection_params(self):
         from snowcli.cli.common.decorators import GLOBAL_CONNECTION_OPTIONS
 
-        params = cli_config.get_connection(self.connection)
+        params = {}
         for option in GLOBAL_CONNECTION_OPTIONS:
             override = option.name
             if override == "connection":
@@ -33,6 +28,11 @@ class ConnectionDetails:
             if override_value is not None:
                 params[override] = override_value
         return params
+
+    def build_connection(self):
+        return connect_to_snowflake(
+            connection_name=self.connection_name, **self._resolve_connection_params()
+        )
 
     @staticmethod
     def _connection_update(param_name: str, value: str):
@@ -84,10 +84,7 @@ class SnowCliGlobalContextManager:
         self._global_context = deepcopy(update(self.get_global_context_copy()))
 
     def get_connection(self):
-        connection = self.get_global_context_copy().connection
-        return connect_to_snowflake(
-            connection_name=connection.connection, **connection.connection_params()
-        )
+        return self.get_global_context_copy().connection.build_connection()
 
 
 def _create_snow_cli_global_context_manager_with_default_values() -> SnowCliGlobalContextManager:
