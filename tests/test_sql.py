@@ -70,6 +70,8 @@ def test_sql_overrides_connection_configuration(mock_conn, runner):
             "sql",
             "-q",
             "select 1",
+            "--connection",
+            "connectionName",
             "--accountname",
             "accountnameValue",
             "--username",
@@ -90,7 +92,7 @@ def test_sql_overrides_connection_configuration(mock_conn, runner):
 
     assert result.exit_code == 0, result.output
     mock_conn.assert_called_once_with(
-        connection_name="dev",
+        connection_name="connectionName",
         account="accountnameValue",
         user="usernameValue",
         warehouse="warehouseValue",
