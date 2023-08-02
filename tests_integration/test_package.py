@@ -14,24 +14,24 @@ class TestPackage:
     def test_package_upload(
         self, runner, example_file, snowflake_session, test_database
     ):
-
-        runner.invoke_with_config_and_integration_connection(
+        result = runner.invoke_with_config_and_integration_connection(
             [
                 "--debug",
                 "snowpark",
                 "package",
                 "upload",
-                "-f",
+                "--file",
                 f"{example_file}",
-                "-s",
+                "--stage",
                 f"{self.STAGE_NAME}",
             ]
         )
 
-        result = snowflake_session.execute_string(f"LIST @{self.STAGE_NAME}")
+        stage_list = snowflake_session.execute_string(f"LIST @{self.STAGE_NAME}")
 
+        assert result.exit_code == 0
         assert contains_row_with(
-            row_from_snowflake_session(result),
+            row_from_snowflake_session(stage_list),
             {"name": f"{self.STAGE_NAME.lower()}/{example_file.name}"},
         )
 
@@ -41,4 +41,4 @@ class TestPackage:
     def example_file(self):
         file = NamedTemporaryFile("r", suffix=".py")
         yield Path(file.name)
-        os.remove(file.name)
+
