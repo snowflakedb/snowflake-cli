@@ -41,4 +41,3 @@ class TestPackage:
     def example_file(self):
         file = NamedTemporaryFile("r", suffix=".py")
         yield Path(file.name)
-
