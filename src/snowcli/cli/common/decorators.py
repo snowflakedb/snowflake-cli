@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+from functools import wraps
 from typing import Callable, Optional, get_type_hints
 
 from snowcli.cli.common.flags import (
@@ -23,6 +24,7 @@ def global_options(func: Callable):
     To use this decorator your command needs to accept **kwargs as last argument.
     """
 
+    @wraps(func)
     def wrapper(**kwargs):
         return func(**kwargs)
 
