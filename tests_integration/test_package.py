@@ -15,7 +15,7 @@ class TestPackage:
         self, runner, example_file, snowflake_session, test_database
     ):
 
-        runner.invoke_with_config_and_integration_connection(
+        result = runner.invoke_with_config_and_integration_connection(
             [
                 "--debug",
                 "snowpark",
@@ -27,6 +27,7 @@ class TestPackage:
                 f"{self.STAGE_NAME}",
             ]
         )
+        assert result.exit_code == 0, result.output
 
         result = snowflake_session.execute_string(f"LIST @{self.STAGE_NAME}")
 

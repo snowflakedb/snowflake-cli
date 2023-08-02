@@ -19,7 +19,6 @@ ConnectionOption = typer.Option(
 
 AccountOption = typer.Option(
     None,
-    "-a",
     "--accountname",
     "--account",
     help="Name assigned to your Snowflake account.",
@@ -28,7 +27,6 @@ AccountOption = typer.Option(
 
 UserOption = typer.Option(
     None,
-    "-u",
     "--username",
     "--user",
     help="Username to connect to Snowflake.",
@@ -37,7 +35,6 @@ UserOption = typer.Option(
 
 PasswordOption = typer.Option(
     None,
-    "-p",
     "--password",
     help="Snowflake password.",
     hide_input=True,
@@ -46,7 +43,6 @@ PasswordOption = typer.Option(
 
 DatabaseOption = typer.Option(
     None,
-    "-d",
     "--dbname",
     "--database",
     help="Database to use.",
@@ -55,7 +51,6 @@ DatabaseOption = typer.Option(
 
 SchemaOption = typer.Option(
     None,
-    "-s",
     "--schemaname",
     "--schema",
     help=" Schema in the database to use.",
@@ -65,7 +60,6 @@ SchemaOption = typer.Option(
 
 RoleOption = typer.Option(
     None,
-    "-r",
     "--rolename",
     "--role",
     help="Role to be used.",
@@ -74,7 +68,6 @@ RoleOption = typer.Option(
 
 WarehouseOption = typer.Option(
     None,
-    "-w",
     "--warehouse",
     help="Warehouse to use.",
     callback=ConnectionDetails.update_callback("warehouse"),
