@@ -7,8 +7,8 @@ import coverage
 import snowflake.connector
 import typer
 
-from snowcli import config, utils
-from snowcli.cli.stage import StageManager
+from snowcli import utils
+from snowcli.cli.stage.manager import StageManager
 from snowcli.snow_connector import connect_to_snowflake
 from snowcli.utils import generate_deploy_stage_name
 

@@ -96,7 +96,7 @@ def _extend_signature_with_global_options(func):
         inspect.Parameter(
             name=p.name,
             kind=p.kind,
-            annotation=type_hints[p.name],
+            annotation=type_hints.get(p.name),
             default=p.default,
         )
         for p in existing_parameters

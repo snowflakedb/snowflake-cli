@@ -3,9 +3,10 @@ from __future__ import annotations
 import typer
 from snowflake.connector.cursor import SnowflakeCursor
 
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
+from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.output.decorators import with_output
-from snowcli.snow_connector import SqlExecutionMixin
+from snowcli.cli.common.sql_execution import SqlExecutionMixin
 
 app = typer.Typer(
     name="warehouse",
@@ -21,8 +22,9 @@ class WarehouseManager(SqlExecutionMixin):
 
 @app.command("status")
 @with_output
-def warehouse_status(connection_name: str = ConnectionOption):
+@global_options
+def warehouse_status(**options):
     """
     Show the status of each warehouse in the configured environment.
     """
-    return WarehouseManager.from_connection(connection_name=connection_name).show()
+    return WarehouseManager().show()
