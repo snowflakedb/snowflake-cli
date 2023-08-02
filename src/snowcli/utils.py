@@ -571,13 +571,6 @@ def convert_resource_details_to_dict(function_details: list[tuple]) -> dict:
     return function_dict
 
 
-def check_for_connection(connection_name: str):
-    if not connection_name:
-        connection_name = get_default_connection()
-    cli_config.get_connection(connection_name=connection_name)
-    return connection_name
-
-
 def generate_deploy_stage_name(name: str, input_parameters: str) -> str:
     return name + input_parameters.replace("(", "",).replace(")", "",).replace(
         " ",
