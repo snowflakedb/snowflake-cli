@@ -312,13 +312,13 @@ class TestUtils:
         assert len(result) == 3
         assert result[0].name == "Django"
         assert result[0].specifier is True
-        assert result[0].specs == [('==', '3.2.1')]
-        assert result[1].name == 'awesome_lib'
+        assert result[0].specs == [("==", "3.2.1")]
+        assert result[1].name == "awesome_lib"
         assert result[1].specifier is True
-        assert result[1].specs == [('==', '3.3.3')]
-        assert result[2].name == 'pytest'
+        assert result[1].specs == [("==", "3.3.3")]
+        assert result[2].name == "pytest"
         assert result[2].specifier is True
-        assert result[2].specs == [('==', '1.0.0')]
+        assert result[2].specs == [("==", "1.0.0")]
 
     @mock.patch("requests.get")
     def test_parse_anaconda_packages(self, mock_get):
