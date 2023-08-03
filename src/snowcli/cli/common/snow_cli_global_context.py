@@ -2,7 +2,6 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-from snowcli.config import cli_config, get_default_connection
 from snowcli.snow_connector import connect_to_snowflake
 
 
