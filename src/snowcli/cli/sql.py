@@ -7,7 +7,7 @@ from click import UsageError
 
 from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 from snowcli.cli.common.decorators import global_options
-from snowcli.output.printing import print_db_cursor
+from snowcli.output.printing import print_output, OutputData
 
 
 @global_options
@@ -62,5 +62,7 @@ def execute_sql(
         sql_text=sql,
         remove_comments=True,
     )
+    output_data = OutputData()
     for result in results:
-        print_db_cursor(result)
+        output_data.add_data(result)
+    print_output(output_data)
