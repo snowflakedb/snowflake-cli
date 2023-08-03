@@ -816,21 +816,3 @@ def connect_to_snowflake(connection_name: Optional[str] = None, **overrides) -> 
         raise SnowflakeConnectionError(err)
     except DatabaseError as err:
         raise InvalidConnectionConfiguration(err.msg)
-
-
-class SqlExecutionMixin:
-    def __init__(self, connection: SnowflakeConnector):
-        self._conn = connection
-
-    @classmethod
-    def from_connection(cls, connection_name: str):
-        conn = connect_to_snowflake(connection_name=connection_name)
-        return cls(connection=conn)
-
-    def _execute_template(self, template_name: str, payload: dict):
-        return self._conn.run_sql(template_name, payload)
-
-    def _execute_query(self, query: str):
-        results = self._conn.ctx.execute_string(query)
-        *_, last_result = results
-        return last_result

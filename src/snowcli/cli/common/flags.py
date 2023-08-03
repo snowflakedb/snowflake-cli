@@ -15,60 +15,69 @@ ConnectionOption = typer.Option(
     "--environment",
     help=f"Connection / environment name. If not provided then default connection will be used.",
     callback=ConnectionDetails.update_callback("connection_name"),
+    show_default=False,
 )
 
 AccountOption = typer.Option(
     None,
-    "--accountname",
     "--account",
-    help="Name assigned to your Snowflake account.",
+    "--accountname",
+    help="Name assigned to your Snowflake account. Overrides value from connection.",
     callback=ConnectionDetails.update_callback("account"),
+    show_default=False,
 )
 
 UserOption = typer.Option(
     None,
+    "-user",
     "--username",
-    "--user",
-    help="Username to connect to Snowflake.",
+    help="Username to connect to Snowflake. Overrides value from connection.",
     callback=ConnectionDetails.update_callback("user"),
+    show_default=False,
 )
 
 PasswordOption = typer.Option(
     None,
+    "-p",
     "--password",
-    help="Snowflake password.",
+    help="Snowflake password. Overrides value from connection.",
     hide_input=True,
     callback=ConnectionDetails.update_callback("password"),
+    show_default=False,
 )
 
 DatabaseOption = typer.Option(
     None,
-    "--dbname",
     "--database",
-    help="Database to use.",
+    "--dbname",
+    help="Database to use. Overrides value from connection.",
     callback=ConnectionDetails.update_callback("database"),
+    show_default=False,
 )
 
 SchemaOption = typer.Option(
     None,
-    "--schemaname",
     "--schema",
-    help=" Schema in the database to use.",
+    "--schemaname",
+    help=" Schema in the database to use. Overrides value from connection.",
     callback=ConnectionDetails.update_callback("schema"),
+    show_default=False,
 )
 
 
 RoleOption = typer.Option(
     None,
-    "--rolename",
     "--role",
-    help="Role to be used.",
+    "--rolename",
+    help="Role to be used. Overrides value from connection.",
     callback=ConnectionDetails.update_callback("role"),
+    show_default=False,
 )
 
 WarehouseOption = typer.Option(
     None,
     "--warehouse",
-    help="Warehouse to use.",
+    help="Warehouse to use. Overrides value from connection.",
     callback=ConnectionDetails.update_callback("warehouse"),
+    show_default=False,
 )
