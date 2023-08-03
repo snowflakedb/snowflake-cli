@@ -36,7 +36,9 @@ class TestPackage:
         monkeypatch.setattr("sys.stdin", io.StringIO("N"))
 
         with caplog.at_level(logging.DEBUG, logger=argument[2]):
-            result = runner.invoke(["snowpark", "package", "lookup", argument[0], "--yes"])
+            result = runner.invoke(
+                ["snowpark", "package", "lookup", argument[0], "--yes"]
+            )
 
         assert result.exit_code == 0
         assert caplog.text
@@ -57,7 +59,9 @@ class TestPackage:
         )
 
         with caplog.at_level(logging.DEBUG, logger="snowcli.cli.snowpark.package"):
-            result = runner.invoke(["snowpark", "package", "lookup", "some-other-package", "--yes"])
+            result = runner.invoke(
+                ["snowpark", "package", "lookup", "some-other-package", "--yes"]
+            )
 
         assert result.exit_code == 0
         assert (
@@ -74,7 +78,9 @@ class TestPackage:
         mock_requests.get.return_value = mock_response
 
         with caplog.at_level(logging.DEBUG, logger="snowcli.cli.snowpark.package"):
-            result = runner.invoke(["snowpark", "package", "create", "totally-awesome-package"])
+            result = runner.invoke(
+                ["snowpark", "package", "create", "totally-awesome-package"]
+            )
 
         assert result.exit_code == 0
         assert (
