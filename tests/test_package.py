@@ -1,14 +1,15 @@
 import io
 import logging
 import os
-from unittest.mock import MagicMock, patch
-
 import pytest
+import tempfile
 from requirements.requirement import Requirement
+from unittest.mock import ANY, MagicMock, patch
 
 from snowcli.cli.snowpark import package
 from snowcli.utils import SplitRequirements
 from tests.test_data import test_data
+from tests.testing_utils.files_and_dirs import create_named_file
 
 
 class TestPackage:
@@ -28,7 +29,9 @@ class TestPackage:
         ],
     )
     @patch("tests.test_package.package.utils.requests")
-    def test_package_lookup(self, mock_requests, caplog, argument, monkeypatch, runner):
+    def test_package_lookup(
+        self, mock_requests, caplog, argument, monkeypatch, runner
+    ) -> None:
         mock_requests.get.return_value = self.mocked_anaconda_response(
             test_data.anaconda_response
         )
@@ -48,7 +51,7 @@ class TestPackage:
     @patch("tests.test_package.package.utils.parse_anaconda_packages")
     def test_package_lookup_with_install_packages(
         self, mock_package, mock_install, caplog, runner
-    ):
+    ) -> None:
         mock_package = MagicMock(return_value=SplitRequirements([], []))
         mock_install.return_value = (
             True,
@@ -71,7 +74,9 @@ class TestPackage:
         )
 
     @patch("tests.test_package.package.utils.requests")
-    def test_package_create(self, mock_requests, caplog, packages_directory, runner):
+    def test_package_create(
+        self, mock_requests, caplog, packages_directory, runner
+    ) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = test_data.anaconda_response
@@ -90,11 +95,34 @@ class TestPackage:
         assert os.path.isfile("totally-awesome-package.zip")
         os.remove("totally-awesome-package.zip")
 
+    @patch("snowcli.cli.sql.snow_cli_global_context_manager.get_connection")
+    def test_package_upload(self, mock_conn, package_file: str, runner) -> None:
+        result = runner.invoke(
+            ["snowpark", "package", "upload", "-f", package_file, "-s", "stageName"]
+        )
+
+        assert result.exit_code == 0
+        mock_conn.return_value.upload_file_to_stage.assert_called_with(
+            file_path=ANY,
+            destination_stage="stageName",
+            path="/",
+            database=ANY,
+            schema=ANY,
+            overwrite=False,
+            role=ANY,
+            warehouse=ANY,
+        )
+
     @pytest.fixture
     def packages_directory(self):
         path = os.path.join(os.getcwd(), ".packages")
         os.mkdir(path)
         yield path
+
+    @pytest.fixture
+    def package_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            yield create_named_file("app.zip", tmp, [])
 
     @staticmethod
     def mocked_anaconda_response(response: dict):
