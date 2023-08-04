@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime
 from json import JSONEncoder
 from pathlib import Path
-from typing import List, Optional, Dict
+import typing as t
 
 from rich import box, print, print_json
 import click
@@ -25,7 +26,7 @@ class CustomJSONEncoder(JSONEncoder):
 
 def print_db_cursor(
     cursor: SnowflakeCursor,
-    columns: Optional[List[str]] = None,
+    columns: t.Optional[t.List[str]] = None,
 ) -> None:
     """
     Prints results fetched by cursor using specified format.
@@ -55,7 +56,7 @@ def _get_format_type():
     return OutputFormat.TABLE
 
 
-def _print_formatted(data: List[Dict], columns: Optional[List[str]] = None):
+def _print_formatted(data: t.Iterable[t.Dict], columns: t.Optional[t.List[str]] = None):
     output_format = _get_format_type()
     if output_format == OutputFormat.TABLE:
         _print_table(data, columns)
@@ -67,24 +68,51 @@ def _print_formatted(data: List[Dict], columns: Optional[List[str]] = None):
         raise Exception(f"Unknown {output_format} format option")
 
 
-def print_data(data: List[Dict], columns: Optional[List[str]] = None) -> None:
+def print_data(
+    data: t.Iterable[t.Dict], columns: t.Optional[t.List[str]] = None
+) -> None:
     if columns is not None:
         data = [{k: v for k, v in raw.items() if k in columns} for raw in data]
     _print_formatted(data, columns)
 
 
-def _print_table(data: List[Dict], columns: Optional[List[str]] = None):
+def _print_table(data: t.Iterable[t.Dict], columns: t.Optional[t.List[str]] = None):
     from rich.table import Table
 
     if not data:
         print("No data")
         return
 
-    columns = columns or list(data[0].keys())
-
     table = Table(show_header=True, box=box.ASCII)
-    for column in columns:
-        table.add_column(column)
     for row in data:
+        if not columns:
+            columns = list(row.keys())
         table.add_row(*[str(i) for i in row.values()])
+
+    for column in columns:  # type: ignore
+        table.add_column(column)
     print(table)
+
+
+def _print_string(text: str):
+    output_format = _get_format_type()
+    if output_format == OutputFormat.JSON:
+        print_data([{"result": text}])
+    else:
+        print(text)
+
+
+def print_output(
+    payload: t.Union[str, t.Iterable[t.Dict], SnowflakeCursor],
+    columns: t.Optional[t.List[str]] = None,
+):
+    if payload is None:
+        print("Done")
+    elif isinstance(payload, str):
+        _print_string(payload)
+    elif isinstance(payload, SnowflakeCursor):
+        print_db_cursor(cursor=payload, columns=columns)
+    elif isinstance(payload, Iterable):
+        print_data(data=payload, columns=columns)  # type: ignore
+    else:
+        raise ValueError(f"Unsupported output type: {type(payload)}")
