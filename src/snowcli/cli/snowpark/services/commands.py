@@ -1,5 +1,3 @@
-import hashlib
-import os
 import sys
 from pathlib import Path
 
@@ -9,11 +7,9 @@ from typing_extensions import Annotated
 
 from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import ConnectionOption, DEFAULT_CONTEXT_SETTINGS
-from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.cli.snowpark.services.manager import ServiceManager
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
-from snowcli.snow_connector import connect_to_snowflake
-from snowcli.output.printing import print_db_cursor
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS, name="services", help="Manage services"
@@ -31,46 +27,6 @@ else:
     BLUE = ""
     GRAY = ""
     ENDC = ""
-
-
-class ServiceManager(SqlExecutionMixin):
-    def create(
-        self,
-        service_name: str,
-        compute_pool: str,
-        spec_path: Path,
-        num_instances: int,
-        stage: str,
-    ):
-        spec_filename = os.path.basename(spec_path)
-        file_hash = hashlib.md5(open(spec_path, "rb").read()).hexdigest()
-        stage_dir = os.path.join("jobs", file_hash)
-        return self._execute_query(
-            f"""\
-            CREATE SERVICE IF NOT EXISTS {service_name}
-            MIN_INSTANCES = {num_instances}
-            MAX_INSTANCES = {num_instances}
-            COMPUTE_POOL =  {compute_pool}
-            spec=@{stage}/{stage_dir}/{spec_filename};
-            """
-        )
-
-    def desc(self, service_name: str):
-        return self._execute_query(f"desc service {service_name}")
-
-    def show(self):
-        return self._execute_query("show services")
-
-    def status(self, service_name: str):
-        return self._execute_query(f"CALL SYSTEM$GET_SERVICE_STATUS(('{service_name}')")
-
-    def drop(self, service_name: str):
-        return self._execute_query(f"drop service {service_name}")
-
-    def logs(self, service_name: str, container_name: str):
-        return self._execute_query(
-            f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '0', '{container_name}');"
-        )
 
 
 @app.command()
@@ -121,6 +77,36 @@ def desc(
     return ServiceManager().desc(service_name=name)
 
 
+@app.command()
+@with_output
+@global_options
+def status(name: str = typer.Argument(..., help="Service Name"), **options):
+    """
+    Logs Service
+    """
+    return ServiceManager().status(service_name=name)
+
+
+@app.command()
+@with_output
+@global_options
+def list(**options):
+    """
+    List Service
+    """
+    return ServiceManager().show()
+
+
+@app.command()
+@with_output
+@global_options
+def drop(name: str = typer.Argument(..., help="Service Name"), **options):
+    """
+    Drop Service
+    """
+    return ServiceManager().drop(service_name=name)
+
+
 def _prefix_line(prefix: str, line: str) -> str:
     """
     _prefix_line ensure the prefix is still present even when dealing with return characters
@@ -157,33 +143,3 @@ def logs(
     cursor = results.fetchone()
     logs = next(iter(cursor)).split("\n")
     print_log_lines(sys.stdout, name, "0", logs)
-
-
-@app.command()
-@with_output
-@global_options
-def status(name: str = typer.Argument(..., help="Service Name"), **options):
-    """
-    Logs Service
-    """
-    return ServiceManager().status(service_name=name)
-
-
-@app.command()
-@with_output
-@global_options
-def list(**options):
-    """
-    List Service
-    """
-    return ServiceManager().show()
-
-
-@app.command()
-@with_output
-@global_options
-def drop(name: str = typer.Argument(..., help="Service Name"), **options):
-    """
-    Drop Service
-    """
-    return ServiceManager().drop(service_name=name)

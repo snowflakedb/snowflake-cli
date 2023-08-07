@@ -3,7 +3,7 @@ import typer
 from snowcli.cli.common.alias import build_alias
 from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
-from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.cli.snowpark.compute_pool.manager import ComputePoolManager
 from snowcli.output.decorators import with_output
 
 
@@ -12,30 +12,6 @@ app = typer.Typer(
     name="compute-pool",
     help="Manage compute pools. You can also use cp as alias for this command",
 )
-
-
-class ComputePoolManager(SqlExecutionMixin):
-    def create(self, pool_name: str, num_instances: int, instance_family: str):
-        return self._execute_query(
-            f"""\
-            CREATE COMPUTE POOL {pool_name}
-            MIN_NODES = {num_instances}
-            MAX_NODES = {num_instances}
-            INSTANCE_FAMILY = {instance_family};
-        """
-        )
-
-    def show(self):
-        return self._execute_query("show compute pools;")
-
-    def drop(
-        self,
-        pool_name: str,
-    ):
-        return self._execute_query(f"drop compute pool {pool_name};")
-
-    def stop(self, pool_name: str):
-        return self._execute_query(f"alter compute pool {pool_name} stop all services;")
 
 
 @app.command()
