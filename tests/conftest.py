@@ -30,6 +30,7 @@ class SnowCLIRunner(CliRunner):
 
     @functools.wraps(CliRunner.invoke)
     def invoke(self, *a, **kw):
+        kw.update(catch_exceptions=False)
         return super().invoke(self.app, *a, **kw)
 
     def invoke_with_config(self, *args, **kwargs):
