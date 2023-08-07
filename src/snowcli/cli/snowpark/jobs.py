@@ -1,4 +1,6 @@
 import sys
+from pathlib import Path
+
 import typer
 from typing import TextIO
 
@@ -28,8 +30,16 @@ else:
 @app.command()
 def create(
     environment: str = ConnectionOption,
-    compute_pool: str = typer.Option(..., "--compute_pool", "-c", help="Compute Pool"),
-    spec_path: str = typer.Option(..., "--spec_path", "-s", help="Spec.yaml file path"),
+    compute_pool: str = typer.Option(..., "--compute-pool", "-c", help="Compute Pool"),
+    spec_path: Path = typer.Option(
+        ...,
+        "--spec-path",
+        "-s",
+        help="Spec.yaml file path",
+        file_okay=True,
+        dir_okay=False,
+        exists=True,
+    ),
     stage: str = typer.Option("SOURCE_STAGE", "--stage", "-l", help="Stage name"),
 ):
     """

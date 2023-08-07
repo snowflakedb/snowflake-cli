@@ -622,7 +622,7 @@ class SnowflakeConnector:
     def create_job(
         self,
         compute_pool: str,
-        spec_path: str,
+        spec_path: Path,
         role: str,
         warehouse: str,
         database: str,
@@ -640,7 +640,7 @@ class SnowflakeConnector:
                 "role": role,
                 "warehouse": warehouse,
                 "compute_pool": compute_pool,
-                "spec_path": spec_path,
+                "spec_path": str(spec_path),
                 "stage_dir": stage_dir,
                 "stage_filename": spec_filename,
                 "stage": stage,

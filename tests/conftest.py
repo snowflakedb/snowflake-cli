@@ -59,6 +59,9 @@ def mock_cursor():
             self._rows = rows
             self._columns = [MockResultMetadata(c) for c in columns]
 
+        def fetchone(self):
+            return self.fetchall()
+
         def fetchall(self):
             yield from self._rows
 
@@ -74,7 +77,7 @@ def mock_cursor():
 
 
 @pytest.fixture()
-def mock_ctx():
+def mock_ctx(mock_cursor):
     class _MockConnectionCtx(mock.MagicMock):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -101,7 +104,7 @@ def mock_ctx():
 
         def execute_string(self, query: str):
             self.queries.append(query)
-            return (mock.MagicMock(),)
+            return (mock_cursor(["row"], []),)
 
         def execute_stream(self, query: StringIO):
             return self.execute_string(query.read())

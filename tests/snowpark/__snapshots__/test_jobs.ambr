@@ -1,0 +1,57 @@
+# serializer version: 1
+# name: test_create_job
+  '''
+  use role mockRole;
+  use warehouse MockWarehouse;
+  use database MockDatabase;
+  use schema MockSchema;
+  
+  CREATE STAGE IF NOT EXISTS stageValue;
+  
+  put file:///var/folders/1b/6450dkj56wx01kj9ls9vj6y00000gn/T/tmpmtmh6582yaml @stageValue/jobs/d41d8cd98f00b204e9800998ecf8427e auto_compress=false OVERWRITE = TRUE;
+  
+  EXECUTE SERVICE
+    COMPUTE_POOL =  jobName
+    spec=@stageValue/jobs/d41d8cd98f00b204e9800998ecf8427e/tmpmtmh6582yaml;
+  '''
+# ---
+# name: test_desc_job
+  '''
+  use role mockRole;
+  use warehouse MockWarehouse;
+  use database MockDatabase;
+  use schema MockSchema;
+  
+  desc service jobName;
+  '''
+# ---
+# name: test_drop_job
+  '''
+  use role mockRole;
+  use warehouse MockWarehouse;
+  use database MockDatabase;
+  use schema MockSchema;
+  
+  call SYSTEM$CANCEL_JOB('cpNameToDrop');
+  '''
+# ---
+# name: test_job_logs
+  '''
+  use role mockRole;
+  use warehouse MockWarehouse;
+  use database MockDatabase;
+  use schema MockSchema;
+  
+  call SYSTEM$GET_JOB_LOGS('jobName', 'containerName');
+  '''
+# ---
+# name: test_job_status
+  '''
+  use role mockRole;
+  use warehouse MockWarehouse;
+  use database MockDatabase;
+  use schema MockSchema;
+  
+  CALL SYSTEM$GET_JOB_STATUS('jobName');
+  '''
+# ---
