@@ -22,7 +22,13 @@ class StageManager(SqlExecutionMixin):
         stage_name = self.get_standard_stage_name(stage_name)
         return self._execute_query(f"get {stage_name} file://{dest_path}/")
 
-    def put(self, local_path: str, stage_name: str, parallel: int, overwrite: bool):
+    def put(
+        self,
+        local_path: str,
+        stage_name: str,
+        parallel: int = 4,
+        overwrite: bool = False,
+    ):
         stage_name = self.get_standard_stage_name(stage_name)
         return self._execute_query(
             f"put file://{local_path} {stage_name} "

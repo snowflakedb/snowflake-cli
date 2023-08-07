@@ -84,7 +84,7 @@ def mock_ctx(mock_cursor):
             self.queries: List[str] = []
 
         def get_query(self):
-            return self.queries[0]
+            return "\n".join(self.queries)
 
         @property
         def warehouse(self):
