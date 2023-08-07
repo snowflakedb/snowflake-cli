@@ -44,9 +44,9 @@ def create(
         dir_okay=False,
         exists=True,
     ),
-    num_instances: Annotated[
-        int, typer.Option("--num_instances", "-num", help="Number of instances")
-    ] = 1,
+    num_instances: int = typer.Option(
+        1, "--num_instances", "-num", help="Number of instances"
+    ),
     stage: str = typer.Option("SOURCE_STAGE", "--stage", "-l", help="Stage name"),
     **options,
 ):
