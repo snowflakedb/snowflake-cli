@@ -1,10 +1,17 @@
+import hashlib
+import os
 import sys
+from pathlib import Path
 
 import typer
 from typing import TextIO
 from typing_extensions import Annotated
 
+from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import ConnectionOption, DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.cli.stage.manager import StageManager
+from snowcli.output.decorators import with_output
 from snowcli.snow_connector import connect_to_snowflake
 from snowcli.output.printing import print_db_cursor
 
@@ -26,34 +33,81 @@ else:
     ENDC = ""
 
 
+class ServiceManager(SqlExecutionMixin):
+    def create(
+        self,
+        service_name: str,
+        compute_pool: str,
+        spec_path: Path,
+        num_instances: int,
+        stage: str,
+    ):
+        spec_filename = os.path.basename(spec_path)
+        file_hash = hashlib.md5(open(spec_path, "rb").read()).hexdigest()
+        stage_dir = os.path.join("jobs", file_hash)
+        return self._execute_query(
+            f"""\
+            CREATE SERVICE IF NOT EXISTS {service_name}
+            MIN_INSTANCES = {num_instances}
+            MAX_INSTANCES = {num_instances}
+            COMPUTE_POOL =  {compute_pool}
+            spec=@{stage}/{stage_dir}/{spec_filename};
+            """
+        )
+
+    def desc(self, service_name: str):
+        return self._execute_query(f"desc service {service_name}")
+
+    def show(self):
+        return self._execute_query("show services")
+
+    def status(self, service_name: str):
+        return self._execute_query(f"CALL SYSTEM$GET_SERVICE_STATUS(('{service_name}')")
+
+    def drop(self, service_name: str):
+        return self._execute_query(f"drop service {service_name}")
+
+    def logs(self, service_name: str, container_name: str):
+        return self._execute_query(
+            f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '0', '{container_name}');"
+        )
+
+
 @app.command()
+@with_output
+@global_options
 def create(
-    environment: str = ConnectionOption,
     name: str = typer.Option(..., "--name", "-n", help="Job Name"),
     compute_pool: str = typer.Option(..., "--compute_pool", "-c", help="Compute Pool"),
-    spec_path: str = typer.Option(..., "--spec_path", "-s", help="Spec Path"),
+    spec_path: Path = typer.Option(
+        ...,
+        "--spec_path",
+        "-s",
+        help="Spec Path",
+        file_okay=True,
+        dir_okay=False,
+        exists=True,
+    ),
     num_instances: Annotated[
         int, typer.Option("--num_instances", "-num", help="Number of instances")
     ] = 1,
     stage: str = typer.Option("SOURCE_STAGE", "--stage", "-l", help="Stage name"),
+    **options,
 ):
     """
     Create service
     """
-    conn = connect_to_snowflake(connection_name=environment)
+    stage_manager = StageManager()
+    stage_manager.create(stage_name=stage)
+    stage_manager.put(local_path=str(spec_path), stage_name=stage, overwrite=True)
 
-    results = conn.create_service(
-        database=conn.ctx.database,
-        schema=conn.ctx.schema,
-        role=conn.ctx.role,
-        warehouse=conn.ctx.warehouse,
-        name=name,
-        compute_pool=compute_pool,
+    return ServiceManager().create(
+        service_name=name,
         num_instances=num_instances,
+        compute_pool=compute_pool,
         spec_path=spec_path,
         stage=stage,
     )
-    print_db_cursor(results)
 
 
 @app.command()
@@ -64,16 +118,7 @@ def desc(
     """
     Desc Service
     """
-    conn = connect_to_snowflake(connection_name=environment)
-
-    results = conn.desc_service(
-        database=conn.ctx.database,
-        schema=conn.ctx.schema,
-        role=conn.ctx.role,
-        warehouse=conn.ctx.warehouse,
-        name=name,
-    )
-    print_db_cursor(results)
+    return ServiceManager().desc(service_name=name)
 
 
 def _prefix_line(prefix: str, line: str) -> str:
@@ -97,83 +142,48 @@ def print_log_lines(file: TextIO, name, id, logs):
 
 
 @app.command()
+@global_options
 def logs(
-    environment: str = ConnectionOption,
     name: str = typer.Argument(..., help="Service Name"),
     container_name: str = typer.Option(
         ..., "--container_name", "-c", help="Container Name"
     ),
+    **options,
 ):
     """
     Logs Service
     """
-    conn = connect_to_snowflake(connection_name=environment)
-
-    results = conn.logs_service(
-        database=conn.ctx.database,
-        schema=conn.ctx.schema,
-        role=conn.ctx.role,
-        warehouse=conn.ctx.warehouse,
-        name=name,
-        instance_id="0",
-        container_name=container_name,
-    )
+    results = ServiceManager().logs(service_name=name, container_name=container_name)
     cursor = results.fetchone()
     logs = next(iter(cursor)).split("\n")
     print_log_lines(sys.stdout, name, "0", logs)
 
 
 @app.command()
-def status(
-    environment: str = ConnectionOption,
-    name: str = typer.Argument(..., help="Service Name"),
-):
+@with_output
+@global_options
+def status(name: str = typer.Argument(..., help="Service Name"), **options):
     """
     Logs Service
     """
-    conn = connect_to_snowflake(connection_name=environment)
-
-    results = conn.status_service(
-        database=conn.ctx.database,
-        schema=conn.ctx.schema,
-        role=conn.ctx.role,
-        warehouse=conn.ctx.warehouse,
-        name=name,
-    )
-    print_db_cursor(results)
+    return ServiceManager().status(service_name=name)
 
 
 @app.command()
-def list(environment: str = ConnectionOption):
+@with_output
+@global_options
+def list(**options):
     """
     List Service
     """
-    conn = connect_to_snowflake(connection_name=environment)
-
-    results = conn.list_service(
-        database=conn.ctx.database,
-        schema=conn.ctx.schema,
-        role=conn.ctx.role,
-        warehouse=conn.ctx.warehouse,
-    )
-    print_db_cursor(results)
+    return ServiceManager().show()
 
 
 @app.command()
-def drop(
-    environment: str = ConnectionOption,
-    name: str = typer.Argument(..., help="Service Name"),
-):
+@with_output
+@global_options
+def drop(name: str = typer.Argument(..., help="Service Name"), **options):
     """
     Drop Service
     """
-    conn = connect_to_snowflake(connection_name=environment)
-
-    results = conn.drop_service(
-        database=conn.ctx.database,
-        schema=conn.ctx.schema,
-        role=conn.ctx.role,
-        warehouse=conn.ctx.warehouse,
-        name=name,
-    )
-    print_db_cursor(results)
+    return ServiceManager().drop(service_name=name)
