@@ -1,0 +1,59 @@
+# serializer version: 1
+# name: test_create_service
+  '''
+  use role mockRole;
+  use warehouse MockWarehouse;
+  use database MockDatabase;
+  use schema MockSchema;
+  
+  CREATE STAGE IF NOT EXISTS stagName;
+  
+  put file:///var/folders/1b/6450dkj56wx01kj9ls9vj6y00000gn/T/tmpltyd8jde @stagName/services/d41d8cd98f00b204e9800998ecf8427e auto_compress=false OVERWRITE = TRUE;
+  
+  CREATE SERVICE IF NOT EXISTS serviceName
+    MIN_INSTANCES = 42
+    MAX_INSTANCES = 42
+    COMPUTE_POOL =  computePoolValue
+    spec=@stagName/services/d41d8cd98f00b204e9800998ecf8427e/tmpltyd8jde;
+  '''
+# ---
+# name: test_drop_service
+  '''
+  use role mockRole;
+  use warehouse MockWarehouse;
+  use database MockDatabase;
+  use schema MockSchema;
+  
+  DROP SERVICE serviceName;
+  '''
+# ---
+# name: test_list_service
+  '''
+  use role mockRole;
+  use warehouse MockWarehouse;
+  use database MockDatabase;
+  use schema MockSchema;
+  
+  show services;
+  '''
+# ---
+# name: test_service_logs
+  '''
+  use role mockRole;
+  use warehouse MockWarehouse;
+  use database MockDatabase;
+  use schema MockSchema;
+  
+  call SYSTEM$GET_SERVICE_LOGS('serviceName', '0', 'containerName');
+  '''
+# ---
+# name: test_service_status
+  '''
+  use role mockRole;
+  use warehouse MockWarehouse;
+  use database MockDatabase;
+  use schema MockSchema;
+  
+  CALL SYSTEM$GET_SERVICE_STATUS('serviceName');
+  '''
+# ---
