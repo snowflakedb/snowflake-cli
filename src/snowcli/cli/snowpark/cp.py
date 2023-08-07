@@ -1,9 +1,11 @@
 import typer
 
 from snowcli.cli.common.alias import build_alias
-from snowcli.cli.common.flags import ConnectionOption, DEFAULT_CONTEXT_SETTINGS
-from snowcli.snow_connector import connect_to_snowflake
-from snowcli.output.printing import print_db_cursor
+from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.output.decorators import with_output
+
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -12,84 +14,75 @@ app = typer.Typer(
 )
 
 
+class ComputePoolManager(SqlExecutionMixin):
+    def create(self, pool_name: str, num_instances: int, instance_family: str):
+        return self._execute_query(
+            f"""\
+            CREATE COMPUTE POOL {pool_name}
+            MIN_NODES = {num_instances}
+            MAX_NODES = {num_instances}
+            INSTANCE_FAMILY = {instance_family};
+        """
+        )
+
+    def show(self):
+        return self._execute_query("show compute pools;")
+
+    def drop(
+        self,
+        pool_name: str,
+    ):
+        return self._execute_query(f"drop compute pool {pool_name};")
+
+    def stop(self, pool_name: str):
+        return self._execute_query(f"alter compute pool {pool_name} stop all services;")
+
+
 @app.command()
+@with_output
+@global_options
 def create(
-    environment: str = ConnectionOption,
     name: str = typer.Option(..., "--name", "-n", help="Compute pool name"),
     num_instances: int = typer.Option(..., "--num", "-d", help="Number of instances"),
     instance_family: str = typer.Option(..., "--family", "-f", help="Instance family"),
+    **options,
 ):
     """
     Create compute pool
     """
-    conn = connect_to_snowflake(connection_name=environment)
-
-    results = conn.create_compute_pool(
-        database=conn.ctx.database,
-        schema=conn.ctx.schema,
-        role=conn.ctx.role,
-        warehouse=conn.ctx.warehouse,
-        name=name,
-        num_instances=num_instances,
-        instance_family=instance_family,
+    return ComputePoolManager().create(
+        pool_name=name, num_instances=num_instances, instance_family=instance_family
     )
-    print_db_cursor(results)
 
 
 @app.command()
-def list(environment: str = ConnectionOption):
+@with_output
+@global_options
+def list(**options):
     """
     List compute pools
     """
-    conn = connect_to_snowflake(connection_name=environment)
-
-    results = conn.list_compute_pools(
-        database=conn.ctx.database,
-        schema=conn.ctx.schema,
-        role=conn.ctx.role,
-        warehouse=conn.ctx.warehouse,
-    )
-    print_db_cursor(results)
+    return ComputePoolManager().show()
 
 
 @app.command()
-def drop(
-    environment: str = ConnectionOption,
-    name: str = typer.Argument(..., help="Compute Pool Name"),
-):
+@with_output
+@global_options
+def drop(name: str = typer.Argument(..., help="Compute Pool Name"), **options):
     """
     Drop compute pool
     """
-    conn = connect_to_snowflake(connection_name=environment)
-
-    results = conn.drop_compute_pool(
-        database=conn.ctx.database,
-        schema=conn.ctx.schema,
-        role=conn.ctx.role,
-        warehouse=conn.ctx.warehouse,
-        name=name,
-    )
-    print_db_cursor(results)
+    return ComputePoolManager().drop(pool_name=name)
 
 
 @app.command()
-def stop(
-    environment: str = ConnectionOption,
-    name: str = typer.Argument(..., help="Compute Pool Name"),
-):
+@with_output
+@global_options
+def stop(name: str = typer.Argument(..., help="Compute Pool Name"), **options):
     """
     Stop and delete all services running on Compute Pool
     """
-    conn = connect_to_snowflake(connection_name=environment)
-
-    results = conn.stop_compute_pool(
-        database=conn.ctx.database,
-        schema=conn.ctx.schema,
-        role=conn.ctx.role,
-        warehouse=conn.ctx.warehouse,
-        name=name,
-    )
-    print_db_cursor(results)
+    return ComputePoolManager().stop(pool_name=name)
 
 
 app_cp = build_alias(

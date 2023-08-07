@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import functools
+from io import StringIO
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import List, NamedTuple
+from unittest import mock
 
 import pytest
 
@@ -69,3 +71,39 @@ def mock_cursor():
             return cls(rows, columns)
 
     return _MockCursor.from_input
+
+
+@pytest.fixture()
+def mock_ctx():
+    class _MockConnectionCtx(mock.MagicMock):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.queries: List[str] = []
+
+        def get_query(self):
+            return self.queries[0]
+
+        @property
+        def warehouse(self):
+            return "MockWarehouse"
+
+        @property
+        def database(self):
+            return "MockDatabase"
+
+        @property
+        def schema(self):
+            return "MockSchema"
+
+        @property
+        def role(self):
+            return "mockRole"
+
+        def execute_string(self, query: str):
+            self.queries.append(query)
+            return (mock.MagicMock(),)
+
+        def execute_stream(self, query: StringIO):
+            return self.execute_string(query.read())
+
+    return _MockConnectionCtx()

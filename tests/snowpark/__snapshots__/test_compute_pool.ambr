@@ -1,44 +1,19 @@
 # serializer version: 1
 # name: test_create_cp
   '''
-  use role mockRole;
-  use warehouse MockWarehouse;
-  use database MockDatabase;
-  use schema MockSchema;
-  
   CREATE COMPUTE POOL cpName
-    MIN_NODES = 42
-    MAX_NODES = 42
-    INSTANCE_FAMILY = familyValue;
+  MIN_NODES = 42
+  MAX_NODES = 42
+  INSTANCE_FAMILY = familyValue;
+  
   '''
 # ---
 # name: test_drop_cp
-  '''
-  use role mockRole;
-  use warehouse MockWarehouse;
-  use database MockDatabase;
-  use schema MockSchema;
-  
-  drop compute pool cpNameToDrop;
-  '''
+  'drop compute pool cpNameToDrop;'
 # ---
 # name: test_list_cp
-  '''
-  use role mockRole;
-  use warehouse MockWarehouse;
-  use database MockDatabase;
-  use schema MockSchema;
-  
-  show compute pools;
-  '''
+  'show compute pools;'
 # ---
 # name: test_stop_cp
-  '''
-  use role mockRole;
-  use warehouse MockWarehouse;
-  use database MockDatabase;
-  use schema MockSchema;
-  
-  alter compute pool cpNameToStop stop all services;
-  '''
+  'alter compute pool cpNameToStop stop all services;'
 # ---
