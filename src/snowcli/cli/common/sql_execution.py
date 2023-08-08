@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
+from textwrap import dedent
 
 from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 
@@ -17,6 +18,6 @@ class SqlExecutionMixin:
         return self._conn.run_sql(template_name, payload)
 
     def _execute_query(self, query: str):
-        results = self._conn.ctx.execute_string(query)
+        results = self._conn.ctx.execute_string(dedent(query))
         *_, last_result = results
         return last_result
