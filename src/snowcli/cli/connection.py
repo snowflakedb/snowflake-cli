@@ -51,6 +51,17 @@ def list_connections():
     )
 
 
+def require_integer(field_name: str):
+    def callback(value: str):
+        if value is None:
+            return None
+        if value.isdigit():
+            return value
+        raise ClickException(f"Value of {field_name} must be integer")
+
+    return callback
+
+
 @app.command()
 def add(
     connection_name: str = typer.Option(
@@ -135,6 +146,7 @@ def add(
         click_type=OptionalPrompt(),
         prompt="Connection port",
         help="The port to communicate with on the host.",
+        callback=require_integer(field_name="port"),
     ),
     region: str = typer.Option(
         EmptyInput(),
