@@ -27,7 +27,7 @@ def package_lookup(
         "-y",
         help="Install packages that are not available on the Snowflake anaconda channel",
     ),
-    **kwargs
+    **kwargs,
 ):
     """
     Checks if a package is available on the Snowflake anaconda channel.
@@ -80,7 +80,7 @@ def package_create(
         "-y",
         help="Install packages that are not available on the Snowflake anaconda channel",
     ),
-    **kwargs
+    **kwargs,
 ):
     """
     Create a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
