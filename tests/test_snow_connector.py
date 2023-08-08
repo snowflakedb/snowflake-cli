@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from snowcli.snow_connector import SnowflakeConnector
+from snowcli.snow_connector import SnowflakeConnector, SnowflakeCursor
 
 
 # Used as a solution to syrupy having some problems with comparing multilines string
@@ -32,8 +32,12 @@ MOCK_CONNECTION = {
 def test_command_context_is_passed_to_snowflake_connection(
     mock_conn, runner, cmd, expected
 ):
-    mock_conn.return_value.execute_stream.return_value = (mock.MagicMock(),)
-    mock_conn.return_value.execute_string.return_value = (mock.MagicMock(),)
+    mock_cursor = mock.Mock(spec=SnowflakeCursor)
+    mock_cursor.description = []
+    mock_cursor.fetchall.return_value = []
+
+    mock_conn.return_value.execute_stream.return_value = [mock_cursor]
+    mock_conn.return_value.execute_string.return_value = [mock_cursor]
     result = runner.invoke_with_config(cmd)
     assert result.exit_code == 0, result.output
     kwargs = mock_conn.call_args_list[-1][-1]

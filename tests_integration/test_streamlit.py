@@ -1,3 +1,4 @@
+import json
 import uuid
 import pytest
 
@@ -5,7 +6,6 @@ from unittest import mock
 from tests_integration.snowflake_connector import test_database, snowflake_session
 from tests_integration.test_utils import (
     row_from_mock,
-    rows_from_mock,
     row_from_snowflake_session,
     rows_from_snowflake_session,
     contains_row_with,
@@ -43,16 +43,16 @@ def test_streamlit_create_and_deploy(
         row_from_mock(mock_print), row_from_snowflake_session(expect)[0]
     )
 
-    runner.invoke_with_config_and_integration_connection(
-        ["streamlit", "describe", streamlit_name]
+    result = runner.invoke_with_config_and_integration_connection(
+        ["--format", "JSON", "streamlit", "describe", streamlit_name]
     )
-    mock_rows = rows_from_mock(mock_print)
+    result = json.loads(result.output)
     expect = snowflake_session.execute_string(f"describe streamlit {streamlit_name}")
-    assert contains_row_with(mock_rows[-2], row_from_snowflake_session(expect)[0])
+    assert contains_row_with(result[0], row_from_snowflake_session(expect)[0])
     expect = snowflake_session.execute_string(
         f"call system$generate_streamlit_url_from_name('{streamlit_name}')"
     )
-    assert contains_row_with(mock_rows[-1], row_from_snowflake_session(expect)[0])
+    assert contains_row_with(result[1], row_from_snowflake_session(expect)[0])
 
     runner.invoke_with_config_and_integration_connection(
         ["streamlit", "share", streamlit_name, _new_streamlit_role]
@@ -124,16 +124,16 @@ def test_streamlit_create_from_stage(
         row_from_mock(mock_print), row_from_snowflake_session(expect)[0]
     )
 
-    runner.invoke_with_config_and_integration_connection(
-        ["streamlit", "describe", streamlit_name]
+    result = runner.invoke_with_config_and_integration_connection(
+        ["--format", "JSON", "streamlit", "describe", streamlit_name]
     )
-    mock_rows = rows_from_mock(mock_print)
+    result = json.loads(result.output)
     expect = snowflake_session.execute_string(f"describe streamlit {streamlit_name}")
-    assert contains_row_with(mock_rows[-2], row_from_snowflake_session(expect)[0])
+    assert contains_row_with(result[0], row_from_snowflake_session(expect)[0])
     expect = snowflake_session.execute_string(
         f"call system$generate_streamlit_url_from_name('{streamlit_name}')"
     )
-    assert contains_row_with(mock_rows[-1], row_from_snowflake_session(expect)[0])
+    assert contains_row_with(result[1], row_from_snowflake_session(expect)[0])
 
     runner.invoke_with_config_and_integration_connection(
         ["streamlit", "share", streamlit_name, "public"]
