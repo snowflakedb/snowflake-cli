@@ -40,7 +40,7 @@ dev = [
   "pre-commit==3.3.3",
   "pytest==7.4.0",
   "syrupy==4.0.8",
-  "tox==4.6.3",
+  "tox==4.6.4",
 ]
 
 [project.urls]
