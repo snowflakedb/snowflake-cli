@@ -2,11 +2,10 @@ import sys
 from pathlib import Path
 
 import typer
-from typing import TextIO
-from typing_extensions import Annotated
 
 from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import ConnectionOption, DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.snowpark.common import print_log_lines
 from snowcli.cli.snowpark.services.manager import ServiceManager
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
@@ -14,19 +13,6 @@ from snowcli.output.decorators import with_output
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS, name="services", help="Manage services"
 )
-
-if not sys.stdout.closed and sys.stdout.isatty():
-    GREEN = "\033[32m"
-    BLUE = "\033[34m"
-    ORANGE = "\033[38:2:238:76:44m"
-    GRAY = "\033[2m"
-    ENDC = "\033[0m"
-else:
-    GREEN = ""
-    ORANGE = ""
-    BLUE = ""
-    GRAY = ""
-    ENDC = ""
 
 
 @app.command()
@@ -105,26 +91,6 @@ def drop(name: str = typer.Argument(..., help="Service Name"), **options):
     Drop Service
     """
     return ServiceManager().drop(service_name=name)
-
-
-def _prefix_line(prefix: str, line: str) -> str:
-    """
-    _prefix_line ensure the prefix is still present even when dealing with return characters
-    """
-    if "\r" in line:
-        line = line.replace("\r", f"\r{prefix}")
-    if "\n" in line[:-1]:
-        line = line[:-1].replace("\n", f"\n{prefix}") + line[-1:]
-    if not line.startswith("\r"):
-        line = f"{prefix}{line}"
-    return line
-
-
-def print_log_lines(file: TextIO, name, id, logs):
-    prefix = f"{GREEN}{name}/{id}{ENDC} "
-    logs = logs[0:-1]
-    for log in logs:
-        print(_prefix_line(prefix, log + "\n"), file=file, end="", flush=True)
 
 
 @app.command()
