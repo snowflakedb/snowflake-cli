@@ -13,11 +13,11 @@ from snowcli.cli.snowpark_shared import (
     CheckAnacondaForPyPiDependancies,
     PackageNativeLibrariesOption,
     PyPiDownloadOption,
-    snowpark_create,
-    snowpark_describe,
-    snowpark_drop,
-    snowpark_execute,
-    snowpark_list,
+    snowpark_create_procedure,
+    snowpark_describe_procedure,
+    snowpark_drop_procedure,
+    snowpark_execute_procedure,
+    snowpark_list_procedure,
     snowpark_package,
     snowpark_update,
 )
@@ -105,7 +105,7 @@ def procedure_create(
         check_anaconda_for_pypi_deps,
         package_native_libraries,  # type: ignore[arg-type]
     )
-    snowpark_create(
+    snowpark_create_procedure(
         "procedure",
         environment,
         name,
@@ -217,7 +217,7 @@ def procedure_execute(
     ),
 ):
     """Executes a Snowflake procedure."""
-    snowpark_execute("procedure", environment, select)
+    snowpark_execute_procedure("procedure", environment, select)
 
 
 @app.command("describe")
@@ -238,7 +238,7 @@ def procedure_describe(
     ),
 ):
     """Describes a Snowflake procedure."""
-    snowpark_describe(
+    snowpark_describe_procedure(
         "procedure",
         environment,
         name,
@@ -258,7 +258,7 @@ def procedure_list(
     ),
 ):
     """Lists Snowflake procedures."""
-    snowpark_list("procedure", environment, like=like)
+    snowpark_list_procedure("procedure", environment, like=like)
 
 
 @app.command("drop")
@@ -279,4 +279,4 @@ def procedure_drop(
     ),
 ):
     """Drops a Snowflake procedure."""
-    snowpark_drop("procedure", environment, name, input_parameters, signature)
+    snowpark_drop_procedure("procedure", environment, name, input_parameters, signature)

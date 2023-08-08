@@ -1,15 +1,22 @@
-from tempfile import NamedTemporaryFile
+import contextlib
+from pathlib import Path
+from tempfile import NamedTemporaryFile, TemporaryDirectory
+from textwrap import dedent
 from unittest import mock
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.function.snowpark_package")
+@mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
+@mock.patch("snowcli.cli.snowpark.function.commands.TemporaryDirectory")
 def test_create_function(
-    mock_package_create, mock_connector, runner, mock_ctx, snapshot
+    mock_tmp_dir, mock_package_create, mock_connector, runner, mock_ctx
 ):
+    tmp_dir = TemporaryDirectory()
+    mock_tmp_dir.return_value = tmp_dir
+
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    with NamedTemporaryFile() as fh:
+    with NamedTemporaryFile(suffix=".py") as fh:
         result = runner.invoke(
             [
                 "snowpark",
@@ -24,20 +31,40 @@ def test_create_function(
                 "--return-type",
                 "table(variant)",
                 "--input-parameters",
-                "(a string, b number)" "--overwrite",
+                "(a string, b number)",
+                "--overwrite",
             ]
         )
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_query() == snapshot
+    assert ctx.get_queries() == [
+        "create stage if not exists deployments comment='deployments managed by snowcli'",
+        f"put file://{tmp_dir.name}/{Path(fh.name).name} @deployments/functionnamea_string_b_number"
+        f" auto_compress=false parallel=4 overwrite=False",
+        dedent(
+            """\
+            create or replace function functionName(a string, b number)
+            returns table(variant)
+            language python
+            runtime_version=3.8
+            imports=('deployments/functionnamea_string_b_number/app.zip')
+            handler='main.py:app'
+            packages=()
+            """
+        ),
+    ]
     mock_package_create.assert_called_once_with("ask", True, "ask")
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.function.snowpark_package")
+@mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
+@mock.patch("snowcli.cli.snowpark_shared.tempfile.TemporaryDirectory")
 def test_update_function(
-    mock_package_create, mock_connector, runner, mock_ctx, snapshot
+    mock_tmp_dir, mock_package_create, mock_connector, runner, mock_ctx, snapshot
 ):
+    tmp_dir = TemporaryDirectory()
+    mock_tmp_dir.return_value = tmp_dir
+
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     with NamedTemporaryFile() as fh:
@@ -45,7 +72,7 @@ def test_update_function(
             [
                 "snowpark",
                 "function",
-                "create",
+                "update",
                 "--name",
                 "functionName",
                 "--file",
@@ -55,17 +82,55 @@ def test_update_function(
                 "--return-type",
                 "table(variant)",
                 "--input-parameters",
-                "(a string, b number)" "--replace-always",
+                "(a string, b number)",
+                "--replace-always",
             ]
         )
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_query() == snapshot
+    assert ctx.get_queries() == [
+        dedent(
+            f"""\
+use role mockRole;
+use warehouse MockWarehouse;
+use database MockDatabase;
+use schema MockSchema;
+desc FUNCTION functionName(string, number);"""
+        ),
+        dedent(
+            f"""\
+use role mockRole;
+use warehouse MockWarehouse;
+use database MockDatabase;
+use schema MockSchema;
+
+
+create stage if not exists MockDatabase.MockSchema.deployments comment='deployments managed by snowcli';
+
+
+put file://{tmp_dir.name}/{Path(fh.name).name} @MockDatabase.MockSchema.deployments/functionnamea_string_b_number auto_compress=false parallel=4 overwrite=True;"""
+        ),
+        dedent(
+            f"""\
+use role mockRole;
+use warehouse MockWarehouse;
+use database MockDatabase;
+use schema MockSchema;
+CREATE OR REPLACE  FUNCTION functionName(a string, b number)
+         RETURNS table(variant)
+         LANGUAGE PYTHON
+         RUNTIME_VERSION=3.8
+         IMPORTS=('@MockDatabase.MockSchema.deployments/functionnamea_string_b_number/app.zip')
+         HANDLER='main.py:app'
+         PACKAGES=();
+describe function functionName(string, number);"""
+        ),
+    ]
     mock_package_create.assert_called_once_with("ask", True, "ask")
 
 
 @mock.patch("snowflake.connector.connect")
-def test_execute_function(mock_connector, runner, mock_ctx, snapshot):
+def test_execute_function(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     result = runner.invoke(
@@ -79,11 +144,11 @@ def test_execute_function(mock_connector, runner, mock_ctx, snapshot):
     )
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_query() == snapshot
+    assert ctx.get_query() == "select functionName(42, 'string')"
 
 
 @mock.patch("snowflake.connector.connect")
-def test_describe_function_from_signature(mock_connector, runner, mock_ctx, snapshot):
+def test_describe_function_from_signature(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     result = runner.invoke(
@@ -97,11 +162,11 @@ def test_describe_function_from_signature(mock_connector, runner, mock_ctx, snap
     )
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_query() == snapshot
+    assert ctx.get_query() == "describe function functionName(int, string, variant)"
 
 
 @mock.patch("snowflake.connector.connect")
-def test_describe_function_from_name(mock_connector, runner, mock_ctx, snapshot):
+def test_describe_function_from_name(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     result = runner.invoke(
@@ -117,11 +182,11 @@ def test_describe_function_from_name(mock_connector, runner, mock_ctx, snapshot)
     )
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_query() == snapshot
+    assert ctx.get_query() == "describe function functionName(int, string, variant)"
 
 
 @mock.patch("snowflake.connector.connect")
-def test_list_function(mock_connector, runner, mock_ctx, snapshot):
+def test_list_function(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     result = runner.invoke(
@@ -135,11 +200,11 @@ def test_list_function(mock_connector, runner, mock_ctx, snapshot):
     )
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_query() == snapshot
+    assert ctx.get_query() == "show user functions like 'foo_bar%'"
 
 
 @mock.patch("snowflake.connector.connect")
-def test_drop_function_from_signature(mock_connector, runner, mock_ctx, snapshot):
+def test_drop_function_from_signature(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     result = runner.invoke(
@@ -153,11 +218,11 @@ def test_drop_function_from_signature(mock_connector, runner, mock_ctx, snapshot
     )
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_query() == snapshot
+    assert ctx.get_query() == "drop function functionName(int, string, variant)"
 
 
 @mock.patch("snowflake.connector.connect")
-def test_drop_function_from_name(mock_connector, runner, mock_ctx, snapshot):
+def test_drop_function_from_name(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     result = runner.invoke(
@@ -173,4 +238,4 @@ def test_drop_function_from_name(mock_connector, runner, mock_ctx, snapshot):
     )
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_query() == snapshot
+    assert ctx.get_query() == "drop function functionName(int, string, variant)"

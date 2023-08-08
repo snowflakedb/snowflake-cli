@@ -1,20 +1,4 @@
 # serializer version: 1
-# name: test_create_function
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  CREATE OR REPLACE  FUNCTION nameValue(string a, variant b)
-           RETURNS returnTypeValue
-           LANGUAGE PYTHON
-           RUNTIME_VERSION=3.8
-           IMPORTS=('import1, import2')
-           HANDLER='handlerValue'
-           PACKAGES=('aaa','bbb');
-  describe function nameValue(a, b);
-  '''
-# ---
 # name: test_create_procedure
   '''
   use role roleValue;
@@ -78,15 +62,6 @@
   CALL SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('nameValue');
   '''
 # ---
-# name: test_describe_function
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  desc FUNCTION signatureValue;
-  '''
-# ---
 # name: test_describe_procedure
   '''
   use role roleValue;
@@ -104,15 +79,6 @@
   use schema schemaValue;
   
   CALL SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('nameValue');
-  '''
-# ---
-# name: test_drop_function
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  drop function signatureValue;
   '''
 # ---
 # name: test_drop_procedure
@@ -133,15 +99,6 @@
   drop streamlit nameValue;
   '''
 # ---
-# name: test_execute_function
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  select functionValue;
-  '''
-# ---
 # name: test_execute_procedure
   '''
   use role roleValue;
@@ -149,16 +106,6 @@
   use database databaseValue;
   use schema schemaValue;
   call procedureValue;
-  '''
-# ---
-# name: test_list_functions
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  show user functions like 'likeValue';
-  select "name", "created_on", "arguments", "language" from table(result_scan(last_query_id()));
   '''
 # ---
 # name: test_list_procedures

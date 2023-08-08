@@ -85,7 +85,7 @@ def stage_put(
     local_path = str(path) + "/*" if path.is_dir() else str(path)
 
     return manager.put(
-        local_path=local_path, stage_name=name, overwrite=overwrite, parallel=parallel
+        local_path=local_path, stage_path=name, overwrite=overwrite, parallel=parallel
     )
 
 

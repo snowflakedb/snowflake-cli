@@ -26,13 +26,13 @@ class StageManager(SqlExecutionMixin):
     def put(
         self,
         local_path: Union[str, Path],
-        stage_name: str,
+        stage_path: str,
         parallel: int = 4,
         overwrite: bool = False,
     ):
-        stage_name = self.get_standard_stage_name(stage_name)
+        stage_path = self.get_standard_stage_name(stage_path)
         return self._execute_query(
-            f"put file://{local_path} {stage_name} "
+            f"put file://{local_path} {stage_path} "
             f"auto_compress=false parallel={parallel} overwrite={overwrite}"
         )
 

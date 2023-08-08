@@ -37,7 +37,7 @@ CheckAnacondaForPyPiDependancies: bool = typer.Option(
 log = logging.getLogger(__name__)
 
 
-def snowpark_create(
+def snowpark_create_procedure(
     type: str,
     environment: str,
     name: str,
@@ -49,12 +49,6 @@ def snowpark_create(
     execute_as_caller: bool = False,
     install_coverage_wrapper: bool = False,
 ):
-    if type == "function" and install_coverage_wrapper:
-        log.error(
-            "You cannot install a code coverage wrapper on a function, only a procedure."
-        )
-        raise typer.Abort()
-
     conn = connect_to_snowflake(connection_name=environment)
     deploy_dict = utils.get_deploy_names(
         conn.ctx.database,
@@ -94,37 +88,20 @@ def snowpark_create(
         if "coverage" not in packages:
             packages.append("coverage")
     log.info(f"Creating {type}...")
-    if type == "function":
-        results = conn.create_function(
-            name=name,
-            input_parameters=input_parameters,
-            return_type=return_type,
-            handler=handler,
-            imports=deploy_dict["full_path"],
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-            overwrite=overwrite,
-            packages=packages,
-        )
-    elif type == "procedure":
-        results = conn.create_procedure(
-            name=name,
-            input_parameters=input_parameters,
-            return_type=return_type,
-            handler=handler,
-            imports=deploy_dict["full_path"],
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-            overwrite=overwrite,
-            packages=packages,
-            execute_as_caller=execute_as_caller,
-        )
-    else:
-        raise typer.Abort()
+    results = conn.create_procedure(
+        name=name,
+        input_parameters=input_parameters,
+        return_type=return_type,
+        handler=handler,
+        imports=deploy_dict["full_path"],
+        database=conn.ctx.database,
+        schema=conn.ctx.schema,
+        role=conn.ctx.role,
+        warehouse=conn.ctx.warehouse,
+        overwrite=overwrite,
+        packages=packages,
+        execute_as_caller=execute_as_caller,
+    )
     print_db_cursor(results)
 
 
@@ -386,30 +363,19 @@ def snowpark_package(
     log.info("Deployment package now ready: app.zip")
 
 
-def snowpark_execute(type: str, environment: str, select: str):
+def snowpark_execute_procedure(type: str, environment: str, select: str):
     conn = connect_to_snowflake(connection_name=environment)
-    if type == "function":
-        results = conn.execute_function(
-            function=select,
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-        )
-    elif type == "procedure":
-        results = conn.execute_procedure(
-            procedure=select,
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-        )
-    else:
-        raise typer.Abort()
+    results = conn.execute_procedure(
+        procedure=select,
+        database=conn.ctx.database,
+        schema=conn.ctx.schema,
+        role=conn.ctx.role,
+        warehouse=conn.ctx.warehouse,
+    )
     print_db_cursor(results)
 
 
-def snowpark_describe(
+def snowpark_describe_procedure(
     type: str,
     environment: str,
     name: str,
@@ -427,51 +393,29 @@ def snowpark_describe(
         signature = name + conn.generate_signature_from_params(
             input_parameters,
         )
-    if type == "function":
-        results = conn.describe_function(
-            signature=signature,
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-        )
-    elif type == "procedure":
-        results = conn.describe_procedure(
-            signature=signature,
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-        )
-    else:
-        raise typer.Abort()
+    results = conn.describe_procedure(
+        signature=signature,
+        database=conn.ctx.database,
+        schema=conn.ctx.schema,
+        role=conn.ctx.role,
+        warehouse=conn.ctx.warehouse,
+    )
     print_db_cursor(results)
 
 
-def snowpark_list(type, environment, like):
+def snowpark_list_procedure(type, environment, like):
     conn = connect_to_snowflake(connection_name=environment)
-    if type == "function":
-        results = conn.list_functions(
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-            like=like,
-        )
-    elif type == "procedure":
-        results = conn.list_procedures(
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-            like=like,
-        )
-    else:
-        raise typer.Abort()
+    results = conn.list_procedures(
+        database=conn.ctx.database,
+        schema=conn.ctx.schema,
+        role=conn.ctx.role,
+        warehouse=conn.ctx.warehouse,
+        like=like,
+    )
     print_db_cursor(results)
 
 
-def snowpark_drop(
+def snowpark_drop_procedure(
     type: str,
     environment: str,
     name: str,
@@ -489,22 +433,11 @@ def snowpark_drop(
         signature = name + conn.generate_signature_from_params(
             input_parameters,
         )
-    if type == "function":
-        results = conn.drop_function(
-            signature=signature,
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-        )
-    elif type == "procedure":
-        results = conn.drop_procedure(
-            signature=signature,
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-        )
-    else:
-        raise typer.Abort()
+    results = conn.drop_procedure(
+        signature=signature,
+        database=conn.ctx.database,
+        schema=conn.ctx.schema,
+        role=conn.ctx.role,
+        warehouse=conn.ctx.warehouse,
+    )
     print_db_cursor(results)
