@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.snow_connector import connect_to_snowflake
-from snowcli.output.printing import print_db_cursor
+from snowcli.output.printing import print_db_cursor, print_output, OutputData
 from snowcli.utils import (
     generate_streamlit_environment_file,
     generate_streamlit_package_wrapper,
@@ -75,8 +75,8 @@ def streamlit_describe(
         role=conn.ctx.role,
         warehouse=conn.ctx.warehouse,
     )
-    print_db_cursor(description)
-    print_db_cursor(url)
+    output_data = OutputData().add_data(description).add_data(url)
+    print_output(output_data)
 
 
 @app.command("create")
