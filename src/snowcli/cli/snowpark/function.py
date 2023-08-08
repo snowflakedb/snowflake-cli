@@ -20,6 +20,9 @@ from snowcli.cli.snowpark_shared import (
     snowpark_package,
     snowpark_update,
 )
+from snowcli.cli.stage.manager import StageManager
+
+DEPLOYMENT_STAGE = "deployments"
 
 app = typer.Typer(
     name="function",
@@ -36,6 +39,13 @@ HandlerOption = typer.Option(
 
 InputParametersOption = typer.Option(
     ...,
+    "--input-parameters",
+    "-i",
+    help="Input parameters - such as (message string, count int)",
+)
+
+OptionalInputParametersOption = typer.Option(
+    None,
     "--input-parameters",
     "-i",
     help="Input parameters - such as (message string, count int)",
@@ -185,7 +195,7 @@ def function_execute(
 def function_describe(
     environment: str = ConnectionOption,
     name: str = typer.Option("", "--name", "-n", help="Name of the function"),
-    input_parameters: str = InputParametersOption,
+    input_parameters: str = OptionalInputParametersOption,
     function: str = typer.Option(
         "",
         "--function",
@@ -221,11 +231,11 @@ def function_list(
 def function_drop(
     environment: str = ConnectionOption,
     name: str = typer.Option("", "--name", "-n", help="Name of the function"),
-    input_parameters: str = InputParametersOption,
+    input_parameters: str = OptionalInputParametersOption,
     signature: str = typer.Option(
         "",
-        "--procedure",
-        "-p",
+        "--function",
+        "-f",
         help="Function signature with inputs. E.g. 'hello(int, string)'",
     ),
 ):

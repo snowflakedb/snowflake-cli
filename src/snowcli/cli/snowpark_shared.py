@@ -418,8 +418,8 @@ def snowpark_describe(
 ):
     conn = connect_to_snowflake(connection_name=environment)
 
-    if signature == "":
-        if name == "" and input_parameters == "":
+    if not signature:
+        if not name and not input_parameters:
             typer.BadParameter(
                 "Please provide either a function name and input "
                 "parameters or a function signature",
@@ -480,8 +480,8 @@ def snowpark_drop(
 ):
     conn = connect_to_snowflake(connection_name=environment)
 
-    if signature == "":
-        if name == "" and input_parameters == "":
+    if not signature:
+        if not name and not input_parameters:
             typer.BadParameter(
                 "Please provide either a function name and input "
                 "parameters or a function signature",
