@@ -18,7 +18,7 @@ class TestPackage:
         [
             (
                 "snowflake-connector-python",
-                "Package snowflake-connector-python is available on the Snowflake anaconda channel.",
+                "Package snowflake-connector-python is available on the Snowflake Anaconda channel.",
                 "snowcli.cli.snowpark.package",
             ),
             (
@@ -28,7 +28,7 @@ class TestPackage:
             ),
         ],
     )
-    @patch("tests.test_package.package.utils.requests")
+    @patch("tests.test_package.package.manager.utils.requests")
     def test_package_lookup(
         self, mock_requests, caplog, argument, monkeypatch, runner
     ) -> None:
@@ -47,8 +47,8 @@ class TestPackage:
         assert caplog.text
         assert argument[1] in caplog.text
 
-    @patch("tests.test_package.package.utils.install_packages")
-    @patch("tests.test_package.package.utils.parse_anaconda_packages")
+    @patch("tests.test_package.package.manager.utils.install_packages")
+    @patch("tests.test_package.package.manager.utils.parse_anaconda_packages")
     def test_package_lookup_with_install_packages(
         self, mock_package, mock_install, caplog, runner
     ) -> None:

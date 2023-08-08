@@ -2,7 +2,7 @@ import typer
 
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark.function import app as function_app
-from snowcli.cli.snowpark.package import app as package_app
+from snowcli.cli.snowpark.package.commands import app as package_app
 from snowcli.cli.snowpark.procedure import app as procedure_app
 from snowcli.cli.snowpark.cp import app as compute_pools_app, app_cp as cp_app
 from snowcli.cli.snowpark.services import app as services_app

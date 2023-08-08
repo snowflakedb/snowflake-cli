@@ -503,9 +503,10 @@ def get_list_of_files_to_pack(
     files: List[File] = []
 
     def filenames_filter(filepath: Path) -> bool:
+
         return (
             not filepath.name.startswith(".")
-            and not str(filepath).startswith(".")
+            # and not str(filepath).startswith(".")
             and not filepath.match("*.pyc")
             and not filepath.match("*__pycache__*")
             and filepath not in [file.name for file in files]
