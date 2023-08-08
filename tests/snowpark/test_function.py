@@ -1,4 +1,5 @@
 import contextlib
+import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from textwrap import dedent
@@ -47,7 +48,7 @@ def test_create_function(
             returns table(variant)
             language python
             runtime_version=3.8
-            imports=('deployments/functionnamea_string_b_number/app.zip')
+            imports=('@deployments/functionnamea_string_b_number/app.zip')
             handler='main.py:app'
             packages=()
             """
@@ -67,7 +68,14 @@ def test_update_function(
 
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    with NamedTemporaryFile() as fh:
+    with TemporaryDirectory() as tmp_dir_2:
+        local_dir = Path(tmp_dir_2)
+        (local_dir / "requirements.snowflake.txt").write_text("foo=1.2.3\nbar>=3.0.0")
+
+        app = local_dir / "app.py"
+        app.touch()
+
+        os.chdir(local_dir)
         result = runner.invoke(
             [
                 "snowpark",
@@ -76,7 +84,7 @@ def test_update_function(
                 "--name",
                 "functionName",
                 "--file",
-                fh.name,
+                str(app),
                 "--handler",
                 "main.py:app",
                 "--return-type",
@@ -108,7 +116,7 @@ use schema MockSchema;
 create stage if not exists MockDatabase.MockSchema.deployments comment='deployments managed by snowcli';
 
 
-put file://{tmp_dir.name}/{Path(fh.name).name} @MockDatabase.MockSchema.deployments/functionnamea_string_b_number auto_compress=false parallel=4 overwrite=True;"""
+put file://{tmp_dir.name}/{app.name} @MockDatabase.MockSchema.deployments/functionnamea_string_b_number auto_compress=false parallel=4 overwrite=True;"""
         ),
         dedent(
             f"""\
@@ -122,7 +130,7 @@ CREATE OR REPLACE  FUNCTION functionName(a string, b number)
          RUNTIME_VERSION=3.8
          IMPORTS=('@MockDatabase.MockSchema.deployments/functionnamea_string_b_number/app.zip')
          HANDLER='main.py:app'
-         PACKAGES=();
+         PACKAGES=('foo=1.2.3','bar>=3.0.0');
 describe function functionName(string, number);"""
         ),
     ]
