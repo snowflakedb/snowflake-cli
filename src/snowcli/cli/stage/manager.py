@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional, Union
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 
@@ -24,14 +25,14 @@ class StageManager(SqlExecutionMixin):
 
     def put(
         self,
-        local_path: str,
-        stage_name: str,
+        local_path: Union[str, Path],
+        stage_path: str,
         parallel: int = 4,
         overwrite: bool = False,
     ):
-        stage_name = self.get_standard_stage_name(stage_name)
+        stage_path = self.get_standard_stage_name(stage_path)
         return self._execute_query(
-            f"put file://{local_path} {stage_name} "
+            f"put file://{local_path} {stage_path} "
             f"auto_compress=false parallel={parallel} overwrite={overwrite}"
         )
 
@@ -43,8 +44,11 @@ class StageManager(SqlExecutionMixin):
     def show(self):
         return self._execute_query("show stages")
 
-    def create(self, stage_name: str):
-        return self._execute_query(f"create stage if not exists {stage_name}")
+    def create(self, stage_name: str, comment: Optional[str] = None):
+        query = f"create stage if not exists {stage_name}"
+        if comment:
+            query += f" comment='{comment}'"
+        return self._execute_query(query)
 
     def drop(self, stage_name: str):
         return self._execute_query(f"drop stage {stage_name}")

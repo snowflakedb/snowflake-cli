@@ -86,6 +86,9 @@ def mock_ctx(mock_cursor):
         def get_query(self):
             return "\n".join(self.queries)
 
+        def get_queries(self):
+            return self.queries
+
         @property
         def warehouse(self):
             return "MockWarehouse"

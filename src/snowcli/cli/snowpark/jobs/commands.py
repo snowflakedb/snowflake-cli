@@ -37,7 +37,7 @@ def create(
     """
     stage_manager = StageManager()
     stage_manager.create(stage_name=stage)
-    stage_manager.put(local_path=str(spec_path), stage_name=stage, overwrite=True)
+    stage_manager.put(local_path=str(spec_path), stage_path=stage, overwrite=True)
 
     return JobManager().create(
         compute_pool=compute_pool, spec_path=spec_path, stage=stage
