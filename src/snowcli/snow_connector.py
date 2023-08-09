@@ -178,25 +178,6 @@ class SnowflakeConnector:
             },
         )
 
-    def execute_function(
-        self,
-        function,
-        database,
-        schema,
-        role,
-        warehouse,
-    ) -> SnowflakeCursor:
-        return self.run_sql(
-            "execute_function",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "function": function,
-            },
-        )
-
     def execute_procedure(
         self,
         procedure,
@@ -266,25 +247,6 @@ class SnowflakeConnector:
             show_exceptions,
         )
 
-    def list_functions(
-        self,
-        database,
-        schema,
-        role,
-        warehouse,
-        like="%%",
-    ) -> SnowflakeCursor:
-        return self.run_sql(
-            "list_functions",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "like": like,
-            },
-        )
-
     def set_procedure_comment(
         self,
         database,
@@ -328,25 +290,6 @@ class SnowflakeConnector:
                 "role": role,
                 "warehouse": warehouse,
                 "like": like,
-            },
-        )
-
-    def drop_function(
-        self,
-        database,
-        schema,
-        role,
-        warehouse,
-        signature,
-    ) -> SnowflakeCursor:
-        return self.run_sql(
-            "drop_function",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "signature": signature,
             },
         )
 
