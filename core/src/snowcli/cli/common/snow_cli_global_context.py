@@ -2,6 +2,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable, Optional
 
+from snowcli.plugin import PluginLoadingMode
 from snowcli.snow_connector import connect_to_snowflake
 
 
@@ -55,8 +56,9 @@ class SnowCliGlobalContext:
     Global state accessible in whole CLI code.
     """
 
-    enable_tracebacks: bool
     connection: ConnectionDetails
+    debug: bool
+    plugin_loading_mode: PluginLoadingMode
 
 
 class SnowCliGlobalContextManager:
@@ -92,8 +94,9 @@ def _create_snow_cli_global_context_manager_with_default_values() -> SnowCliGlob
     """
     return SnowCliGlobalContextManager(
         SnowCliGlobalContext(
-            enable_tracebacks=True,
             connection=ConnectionDetails(),
+            debug=True,
+            plugin_loading_mode=PluginLoadingMode.ONLY_ENABLED_PLUGINS,
         )
     )
 
@@ -101,3 +104,7 @@ def _create_snow_cli_global_context_manager_with_default_values() -> SnowCliGlob
 snow_cli_global_context_manager = (
     _create_snow_cli_global_context_manager_with_default_values()
 )
+
+
+def global_context_copy() -> SnowCliGlobalContext:
+    return snow_cli_global_context_manager.get_global_context_copy()

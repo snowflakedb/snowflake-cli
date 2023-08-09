@@ -6,7 +6,7 @@ import tempfile
 from requirements.requirement import Requirement
 from unittest.mock import ANY, MagicMock, patch
 
-from snowcli.cli.snowpark import package
+from snowcli_package_plugin import package
 from snowcli.utils import SplitRequirements
 from tests.test_data import test_data
 from tests.testing_utils.files_and_dirs import create_named_file
@@ -19,7 +19,7 @@ class TestPackage:
             (
                 "snowflake-connector-python",
                 "Package snowflake-connector-python is available on the Snowflake anaconda channel.",
-                "snowcli.cli.snowpark.package",
+                "snowcli_package_plugin.package",
             ),
             (
                 "some-weird-package-we-dont-know",
@@ -61,7 +61,7 @@ class TestPackage:
             ),
         )
 
-        with caplog.at_level(logging.DEBUG, logger="snowcli.cli.snowpark.package"):
+        with caplog.at_level(logging.DEBUG, logger="snowcli_package_plugin.package"):
             result = runner.invoke(
                 ["snowpark", "package", "lookup", "some-other-package", "--yes"]
             )
@@ -82,7 +82,7 @@ class TestPackage:
         mock_response.json.return_value = test_data.anaconda_response
         mock_requests.get.return_value = mock_response
 
-        with caplog.at_level(logging.DEBUG, logger="snowcli.cli.snowpark.package"):
+        with caplog.at_level(logging.DEBUG, logger="snowcli_package_plugin.package"):
             result = runner.invoke(
                 ["snowpark", "package", "create", "totally-awesome-package"]
             )

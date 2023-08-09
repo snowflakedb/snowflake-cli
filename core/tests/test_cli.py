@@ -2,7 +2,8 @@ import pytest
 
 
 def test_global(runner):
-    result = runner.invoke(["-h"])
+    result = runner.invoke(["plugin", "list-enabled"])
+    x = result
 
     assert result.exit_code == 0
 

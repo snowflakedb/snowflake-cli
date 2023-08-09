@@ -2,6 +2,7 @@ import logging
 import os
 import tempfile
 from enum import Enum
+from pathlib import Path
 
 import coverage
 import snowflake.connector
@@ -83,8 +84,8 @@ def procedure_coverage_report(
         report_files = f"{stage_name}{stage_path}/coverage/"
         try:
             results = (
-                StageManager(connection=conn)
-                .get(stage_name=report_files, dest_path=str(temp_dir))
+                StageManager()
+                .get(stage_name=report_files, dest_path=Path(str(temp_dir)))
                 .fetchall()
             )
         except snowflake.connector.errors.DatabaseError as database_error:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional, Any, Dict, Union
+from typing import Optional, Any, Dict, Union, List
 
 import tomlkit
 from snowflake.connector.errors import MissingConfigOptionError
@@ -74,9 +74,41 @@ class CliConfigManager(ConfigManager):
         self._find_section("connections").add(name, parameters)
         self._dump_config()
 
+    # TODO: think about extracting plugin specific methods to another layer
+    def enable_plugin(self, name: str):
+        enabled_plugins = self.get_enabled_plugins()
+        if name not in enabled_plugins:
+            enabled_plugins.append(name)
+        self._replace_enabled_plugins(enabled_plugins)
+
+    def disable_plugin(self, name: str):
+        enabled_plugins = self.get_enabled_plugins()
+        if name in enabled_plugins:
+            enabled_plugins.remove(name)
+        self._replace_enabled_plugins(enabled_plugins)
+
+    def _replace_enabled_plugins(self, new_enabled_plugins: List[str]):
+        plugins_section = self._find_section("plugins")
+        plugins_section.remove("enabled")
+        plugins_section.add("enabled", new_enabled_plugins)
+        self._dump_config()
+
+    def get_enabled_plugins(self) -> List[str]:
+        if not self.section_exists("plugins"):
+            self._initialize_plugins_section()
+        plugins_section = self.get_section("plugins")
+        if "enabled" in plugins_section:
+            return plugins_section["enabled"]
+        else:
+            return []
+
     def _add_options(self):
         self.add_option(
             name="options",
+            parse_str=tomlkit.parse,
+        )
+        self.add_option(
+            name="plugins",
             parse_str=tomlkit.parse,
         )
         self.add_option(
@@ -121,9 +153,13 @@ class CliConfigManager(ConfigManager):
         self.conf_file_cache = TOMLDocument()
         self.conf_file_cache.append("connections", table())
 
+    def _initialize_plugins_section(self):
+        self.conf_file_cache.append("plugins", table())
+
     def _initialise_config(self):
         os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
         self._initialize_connection_section()
+        self._initialize_plugins_section()
         self._dump_config()
         log.info(f"Created Snowflake configuration file at {cli_config.file_path}")
 
@@ -141,7 +177,6 @@ def config_init(config_file: Path):
 
 
 cli_config: CliConfigManager = CliConfigManager()  # type: ignore
-
 
 _DEFAULT_CONNECTION = "dev"
 

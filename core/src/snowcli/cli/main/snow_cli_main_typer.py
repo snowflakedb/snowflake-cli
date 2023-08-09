@@ -6,9 +6,7 @@ from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_m
 
 
 def _handle_exception(exception: Exception):
-    enable_tracebacks = (
-        snow_cli_global_context_manager.get_global_context_copy().enable_tracebacks
-    )
+    enable_tracebacks = snow_cli_global_context_manager.get_global_context_copy().debug
     if enable_tracebacks:
         raise exception from None
     else:

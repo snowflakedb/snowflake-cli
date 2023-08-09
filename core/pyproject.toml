@@ -14,6 +14,7 @@ readme = "README.md"
 dependencies = [
   "coverage==7.2.7",
   "jinja2==3.1.2",
+  "pluggy==1.2.0",
   "rich==13.5.1",
   "requests==2.31.0",
   "requirements-parser==0.5.0",
@@ -41,6 +42,8 @@ dev = [
   "pytest==7.4.0",
   "syrupy==4.0.8",
   "tox==4.6.3",
+  "snowflake-cli-connection-plugin @ {root:uri}/../plugins/connection",
+  "snowflake-cli-snowpark-extensions-plugin @ {root:uri}/../plugins/snowpark-extensions"
 ]
 
 [project.urls]
@@ -49,6 +52,9 @@ dev = [
 
 [project.scripts]
 snow = "snowcli.__main__:main"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.version]
 path = "src/snowcli/__about__.py"

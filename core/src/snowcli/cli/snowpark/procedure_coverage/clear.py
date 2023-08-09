@@ -44,8 +44,6 @@ def procedure_coverage_clear(
         ),
     )
     coverage_path = f"""{deploy_dict["directory"]}/coverage"""
-    results = StageManager(connection=conn).remove(
-        stage_name=deploy_dict["stage"], path=coverage_path
-    )
+    results = StageManager().remove(stage_name=deploy_dict["stage"], path=coverage_path)
     log.info("Deleted the following coverage results from the stage:")
     print_db_cursor(results)

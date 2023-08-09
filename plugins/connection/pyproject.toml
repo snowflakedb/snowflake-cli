@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "snowflake-cli-connection-plugin"
+requires-python = ">=3.8"
+dependencies = [
+  "snowflake-cli-labs>=1.0.1"
+]
+version = "0.0.1"
+
+[project.entry-points."snowcli.plugin"]
+connection = "snowcli_connection_plugin.connection_plugin_hook_impl"
