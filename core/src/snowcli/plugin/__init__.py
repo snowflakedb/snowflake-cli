@@ -5,29 +5,38 @@ from typing import List, Optional
 from snowcli.plugin.api import PluginCommandGroupSpec
 
 
-class PluginLoadingMode(Enum):
-    ALL_INSTALLED_PLUGINS = 1
-    ONLY_ENABLED_PLUGINS = 2
+@dataclass
+class LoadedPlugin:
+    plugin_name: str
+    command_group_spec: PluginCommandGroupSpec
 
 
 @dataclass
-class PluginPackageInfo:
+class BuiltInLoadedPlugin(LoadedPlugin):
+    pass
+
+
+class ExternalPluginsLoadingMode(Enum):
+    ALL_INSTALLED_EXTERNAL_PLUGINS = 1
+    ONLY_ENABLED_EXTERNAL_PLUGINS = 2
+
+
+@dataclass
+class ExternalPluginPackageInfo:
     package_name: str
     package_version: str
     dependencies: List[str]
 
 
 @dataclass
-class LoadedPlugin:
-    plugin_name: str
+class ExternalLoadedPlugin(LoadedPlugin):
     is_enabled: bool
-    plugin_package_info: PluginPackageInfo
-    command_group_spec: PluginCommandGroupSpec
+    plugin_package_info: ExternalPluginPackageInfo
 
 
 @dataclass
-class PluginAfterVerification:
-    plugin: LoadedPlugin
+class ExternalPluginAfterVerification:
+    plugin: ExternalLoadedPlugin
     verification_error: Optional[Exception]
 
     def is_ok(self) -> bool:

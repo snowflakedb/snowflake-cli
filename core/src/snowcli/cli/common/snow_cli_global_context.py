@@ -2,7 +2,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-from snowcli.plugin import PluginLoadingMode
+from snowcli.plugin import ExternalPluginsLoadingMode
 from snowcli.snow_connector import connect_to_snowflake
 
 
@@ -58,7 +58,7 @@ class SnowCliGlobalContext:
 
     connection: ConnectionDetails
     debug: bool
-    plugin_loading_mode: PluginLoadingMode
+    plugin_loading_mode: ExternalPluginsLoadingMode
 
 
 class SnowCliGlobalContextManager:
@@ -96,7 +96,7 @@ def _create_snow_cli_global_context_manager_with_default_values() -> SnowCliGlob
         SnowCliGlobalContext(
             connection=ConnectionDetails(),
             debug=True,
-            plugin_loading_mode=PluginLoadingMode.ONLY_ENABLED_PLUGINS,
+            plugin_loading_mode=ExternalPluginsLoadingMode.ONLY_ENABLED_EXTERNAL_PLUGINS,
         )
     )
 

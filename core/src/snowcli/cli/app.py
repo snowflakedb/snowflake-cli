@@ -19,8 +19,8 @@ from snowcli.config import config_init, cli_config
 from snowcli.docs.generator import generate_docs
 from snowcli.output.formats import OutputFormat
 from snowcli.output.printing import print_data
-from snowcli.plugin.load_plugins import PluginLoadingMode
-from snowcli.plugin.plugin_registration import load_and_register_plugins_in_typer
+from snowcli.plugin.load_external_plugins import ExternalPluginsLoadingMode
+from snowcli.plugin.plugins_registration import load_and_register_plugins_in_typer
 from snowcli.pycharm_remote_debug import setup_pycharm_remote_debugger_if_provided
 
 app: SnowCliMainTyper = SnowCliMainTyper()
@@ -62,9 +62,9 @@ def _debug_callback(debug: bool):
 def _load_all_plugins_mode_callback(load_all_plugins_mode: bool):
     def modifications(context: SnowCliGlobalContext) -> SnowCliGlobalContext:
         context.plugin_loading_mode = (
-            PluginLoadingMode.ALL_INSTALLED_PLUGINS
+            ExternalPluginsLoadingMode.ALL_INSTALLED_EXTERNAL_PLUGINS
             if load_all_plugins_mode
-            else PluginLoadingMode.ONLY_ENABLED_PLUGINS
+            else ExternalPluginsLoadingMode.ONLY_ENABLED_EXTERNAL_PLUGINS
         )
         return context
 
@@ -185,8 +185,7 @@ def _register_internal_cli_typers() -> None:
         "snowcli.cli.render",
         "snowcli.cli.streamlit",
         "snowcli.cli.warehouse",
-        "snowcli.cli.stage.commands",
-        "snowcli.cli.plugin_management",
+        "snowcli.cli.external_plugin_management",
     ]
     for cmd in known_sub_commands:
         _add_typer_from_path(cmd)

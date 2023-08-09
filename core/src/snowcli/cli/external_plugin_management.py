@@ -10,20 +10,20 @@ from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.common.snow_cli_global_context import global_context_copy
 from snowcli.config import cli_config
 from snowcli.output.printing import print_data
-from snowcli.plugin import PluginLoadingMode, LoadedPlugin, PluginAfterVerification
-from snowcli.plugin.load_plugins import LoadPlugins
-from snowcli.plugin.verify_plugins import VerifyPlugins
+from snowcli.plugin import ExternalPluginsLoadingMode, ExternalPluginAfterVerification
+from snowcli.plugin.load_external_plugins import LoadExternalPlugins
+from snowcli.plugin.verify_external_plugins import VerifyExternalPlugins
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     name="plugin",
-    help="Manage plugins",
+    help="Manage external plugins",
 )
 log = logging.getLogger(__name__)
 
 
 def _info_about_plugin(
-    plugin_after_verification: PluginAfterVerification,
+    plugin_after_verification: ExternalPluginAfterVerification,
 ) -> Dict[str, Any]:
     plugin = plugin_after_verification.plugin
     command_group = " ".join(
@@ -40,7 +40,9 @@ def _info_about_plugin(
     }
 
 
-def _print_info_about_plugins(plugins_to_list: List[PluginAfterVerification]) -> None:
+def _print_info_about_plugins(
+    plugins_to_list: List[ExternalPluginAfterVerification],
+) -> None:
     data_to_print = [_info_about_plugin(plugin) for plugin in plugins_to_list]
     sorted_data_to_print = sorted(data_to_print, key=lambda p: p["plugin_name"])
     print_data(
@@ -66,12 +68,12 @@ def list_plugins(
     List installed plugins.
     """
     plugin_loading_mode = (
-        PluginLoadingMode.ONLY_ENABLED_PLUGINS
+        ExternalPluginsLoadingMode.ONLY_ENABLED_EXTERNAL_PLUGINS
         if only_enabled
-        else PluginLoadingMode.ALL_INSTALLED_PLUGINS
+        else ExternalPluginsLoadingMode.ALL_INSTALLED_EXTERNAL_PLUGINS
     )
-    plugins_to_list = LoadPlugins(plugin_loading_mode)()
-    verified_plugins_to_list = VerifyPlugins(plugins_to_list)()
+    plugins_to_list = LoadExternalPlugins(plugin_loading_mode)()
+    verified_plugins_to_list = VerifyExternalPlugins(plugins_to_list)()
     _print_info_about_plugins(verified_plugins_to_list)
 
 
@@ -80,7 +82,9 @@ def _verify_that_plugin_is_installed(plugin_name: str) -> None:
     try:
         all_installed_plugin_names = [
             plugin.plugin_name
-            for plugin in LoadPlugins(PluginLoadingMode.ALL_INSTALLED_PLUGINS)()
+            for plugin in LoadExternalPlugins(
+                ExternalPluginsLoadingMode.ALL_INSTALLED_EXTERNAL_PLUGINS
+            )()
         ]
     except Exception:
         log.debug(
