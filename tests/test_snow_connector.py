@@ -1,5 +1,4 @@
 import os
-import textwrap
 from unittest import mock
 
 import pytest
@@ -69,22 +68,6 @@ def test_create_procedure(_, snapshot):
 
 
 @mock.patch("snowflake.connector")
-def test_execute_procedure(_, snapshot):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (None, None)
-
-    connector.execute_procedure(
-        procedure="procedureValue",
-        database="databaseValue",
-        schema="schemaValue",
-        role="roleValue",
-        warehouse="warehouseValue",
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
-@mock.patch("snowflake.connector")
 def test_describe_procedure(_, snapshot):
     connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)
@@ -118,38 +101,6 @@ def test_set_procedure_comment(_, snapshot):
         input_parameters="(string a, variant b)",
         show_exceptions="show_exceptionsValue",
         comment="commentValue",
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
-@mock.patch("snowflake.connector")
-def test_list_procedures(_, snapshot):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (None, None)
-
-    connector.list_procedures(
-        database="databaseValue",
-        schema="schemaValue",
-        role="roleValue",
-        warehouse="warehouseValue",
-        like="likeValue",
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
-@mock.patch("snowflake.connector")
-def test_drop_procedure(_, snapshot):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (None, None)
-
-    connector.drop_procedure(
-        database="databaseValue",
-        schema="schemaValue",
-        role="roleValue",
-        warehouse="warehouseValue",
-        signature="signatureValue",
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
     assert query.getvalue() == snapshot

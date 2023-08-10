@@ -10,6 +10,7 @@ import typer
 
 from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
+from snowcli.cli.constants import DEPLOYMENT_STAGE
 from snowcli.cli.snowpark.function.manager import FunctionManager
 from snowcli.cli.snowpark_shared import (
     CheckAnacondaForPyPiDependancies,
@@ -21,8 +22,6 @@ from snowcli.cli.snowpark_shared import (
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
 from snowcli.utils import prepare_app_zip, get_snowflake_packages
-
-DEPLOYMENT_STAGE = "deployments"
 
 app = typer.Typer(
     name="function",
@@ -125,7 +124,11 @@ def function_create(
 
     with TemporaryDirectory() as temp_dir:
         temp_app_zip_path = prepare_app_zip(file, temp_dir)
-        sm.put(local_path=temp_app_zip_path, stage_path=str(artifact_location))
+        sm.put(
+            local_path=temp_app_zip_path,
+            stage_path=str(artifact_location),
+            overwrite=overwrite,
+        )
 
     packages = get_snowflake_packages()
 

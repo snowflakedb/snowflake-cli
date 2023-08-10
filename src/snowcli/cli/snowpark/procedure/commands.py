@@ -3,24 +3,27 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from shutil import copytree
+from tempfile import TemporaryDirectory
 
 import pkg_resources
 import typer
 
+from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
+from snowcli.cli.constants import DEPLOYMENT_STAGE
+from snowcli.cli.snowpark.procedure.manager import ProcedureManager
 from snowcli.cli.snowpark.procedure_coverage import app as procedure_coverage_app
 from snowcli.cli.snowpark_shared import (
     CheckAnacondaForPyPiDependancies,
     PackageNativeLibrariesOption,
     PyPiDownloadOption,
-    snowpark_create_procedure,
-    snowpark_describe_procedure,
-    snowpark_drop_procedure,
-    snowpark_execute_procedure,
-    snowpark_list_procedure,
     snowpark_package,
     snowpark_update,
+    replace_handler_in_zip,
 )
+from snowcli.cli.stage.manager import StageManager
+from snowcli.output.decorators import with_output
+from snowcli.utils import prepare_app_zip, get_snowflake_packages
 
 app = typer.Typer(
     name="procedure",
@@ -46,8 +49,9 @@ def procedure_init() -> None:
 
 
 @app.command("create")
+@with_output
+@global_options
 def procedure_create(
-    environment: str = ConnectionOption,
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
@@ -98,6 +102,7 @@ def procedure_create(
         "--install-coverage-wrapper",
         help="Wraps the procedure with a code coverage measurement tool, so that a coverage report can be later retrieved.",
     ),
+    **options,
 ):
     """Creates a python procedure using local artifact."""
     snowpark_package(
@@ -105,17 +110,44 @@ def procedure_create(
         check_anaconda_for_pypi_deps,
         package_native_libraries,  # type: ignore[arg-type]
     )
-    snowpark_create_procedure(
-        "procedure",
-        environment,
-        name,
-        file,
-        handler,
-        input_parameters,
-        return_type,
-        overwrite,
-        execute_as_caller,
-        install_coverage_wrapper,
+    sm = StageManager()
+    pm = ProcedureManager()
+
+    procedure_identifier = pm.identifier(name=name, signature=input_parameters)
+    sm.create(stage_name=DEPLOYMENT_STAGE, comment="deployments managed by snowcli")
+
+    artifact_stage_path = pm.artifact_stage_path(procedure_identifier)
+    artifact_location = Path(DEPLOYMENT_STAGE) / artifact_stage_path
+    artifact_file = artifact_location / "app.zip"
+
+    with TemporaryDirectory() as temp_dir:
+        temp_app_zip_path = prepare_app_zip(file, temp_dir)
+        if install_coverage_wrapper:
+            handler = replace_handler_in_zip(
+                proc_name=name,
+                proc_signature=input_parameters,
+                handler=handler,
+                coverage_reports_stage=DEPLOYMENT_STAGE,
+                coverage_reports_stage_path=f"/{artifact_stage_path}/coverage",
+                temp_dir=temp_dir,
+                zip_file_path=temp_app_zip_path,
+            )
+        sm.put(
+            local_path=temp_app_zip_path,
+            stage_path=str(artifact_location),
+            overwrite=overwrite,
+        )
+
+    packages = get_snowflake_packages()
+
+    return pm.create(
+        identifier=procedure_identifier,
+        handler=handler,
+        return_type=return_type,
+        artifact_file=str(artifact_file),
+        packages=packages,
+        overwrite=overwrite,
+        execute_as_caller=execute_as_caller,
     )
 
 
@@ -207,22 +239,25 @@ def procedure_package(
 
 
 @app.command("execute")
+@with_output
+@global_options
 def procedure_execute(
-    environment: str = ConnectionOption,
-    select: str = typer.Option(
+    signature: str = typer.Option(
         ...,
         "--procedure",
         "-p",
         help="Procedure with inputs. E.g. 'hello(int, string)'. Must exactly match those provided when creating the procedure.",
     ),
+    **options,
 ):
     """Executes a Snowflake procedure."""
-    snowpark_execute_procedure("procedure", environment, select)
+    return ProcedureManager().execute(expression=signature)
 
 
 @app.command("describe")
+@with_output
+@global_options
 def procedure_describe(
-    environment: str = ConnectionOption,
     name: str = typer.Option("", "--name", "-n", help="Name of the procedure"),
     input_parameters: str = typer.Option(
         "",
@@ -236,34 +271,38 @@ def procedure_describe(
         "-p",
         help="Procedure signature with inputs. E.g. 'hello(int, string)'",
     ),
+    **options,
 ):
     """Describes a Snowflake procedure."""
-    snowpark_describe_procedure(
-        "procedure",
-        environment,
-        name,
-        input_parameters,
-        signature,
+    return ProcedureManager().describe(
+        ProcedureManager.identifier(
+            name=name,
+            signature=input_parameters,
+            name_and_signature=signature,
+        )
     )
 
 
 @app.command("list")
+@with_output
+@global_options
 def procedure_list(
-    environment: str = ConnectionOption,
     like: str = typer.Option(
         "%%",
         "--like",
         "-l",
         help='Filter procedures by name - e.g. "hello%"',
     ),
+    **options,
 ):
     """Lists Snowflake procedures."""
-    snowpark_list_procedure("procedure", environment, like=like)
+    return ProcedureManager().show(like=like)
 
 
 @app.command("drop")
+@with_output
+@global_options
 def procedure_drop(
-    environment: str = ConnectionOption,
     name: str = typer.Option("", "--name", "-n", help="Name of the procedure"),
     input_parameters: str = typer.Option(
         "",
@@ -277,6 +316,13 @@ def procedure_drop(
         "-p",
         help="Procedure signature with inputs. E.g. 'hello(int, string)'",
     ),
+    **options,
 ):
     """Drops a Snowflake procedure."""
-    snowpark_drop_procedure("procedure", environment, name, input_parameters, signature)
+    return ProcedureManager().drop(
+        ProcedureManager.identifier(
+            name=name,
+            signature=input_parameters,
+            name_and_signature=signature,
+        )
+    )

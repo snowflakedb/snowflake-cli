@@ -170,25 +170,6 @@ class SnowflakeConnector:
             },
         )
 
-    def execute_procedure(
-        self,
-        procedure,
-        database,
-        schema,
-        role,
-        warehouse,
-    ) -> SnowflakeCursor:
-        return self.run_sql(
-            "call_procedure",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "procedure": procedure,
-            },
-        )
-
     def describe_function(
         self,
         database,
