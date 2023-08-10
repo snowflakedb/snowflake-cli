@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import functools
+from io import StringIO
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import List, NamedTuple
+from unittest import mock
 
 import pytest
 
@@ -30,6 +32,7 @@ class SnowCLIRunner(CliRunner):
 
     @functools.wraps(CliRunner.invoke)
     def invoke(self, *a, **kw):
+        kw.update(catch_exceptions=False)
         return super().invoke(self.app, *a, **kw)
 
     def invoke_with_config(self, *args, **kwargs):
@@ -56,6 +59,9 @@ def mock_cursor():
             self._rows = rows
             self._columns = [MockResultMetadata(c) for c in columns]
 
+        def fetchone(self):
+            return self.fetchall()
+
         def fetchall(self):
             yield from self._rows
 
@@ -68,3 +74,42 @@ def mock_cursor():
             return cls(rows, columns)
 
     return _MockCursor.from_input
+
+
+@pytest.fixture()
+def mock_ctx(mock_cursor):
+    class _MockConnectionCtx(mock.MagicMock):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.queries: List[str] = []
+
+        def get_query(self):
+            return "\n".join(self.queries)
+
+        def get_queries(self):
+            return self.queries
+
+        @property
+        def warehouse(self):
+            return "MockWarehouse"
+
+        @property
+        def database(self):
+            return "MockDatabase"
+
+        @property
+        def schema(self):
+            return "MockSchema"
+
+        @property
+        def role(self):
+            return "mockRole"
+
+        def execute_string(self, query: str):
+            self.queries.append(query)
+            return (mock_cursor(["row"], []),)
+
+        def execute_stream(self, query: StringIO):
+            return self.execute_string(query.read())
+
+    return _MockConnectionCtx()

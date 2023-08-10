@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import typer
 
-from snowcli.utils import check_for_connection
+
+from snowcli.cli.common.snow_cli_global_context import ConnectionDetails
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
@@ -13,49 +14,70 @@ ConnectionOption = typer.Option(
     "--connection",
     "--environment",
     help=f"Connection / environment name. If not provided then default connection will be used.",
-    callback=check_for_connection,
+    callback=ConnectionDetails.update_callback("connection_name"),
+    show_default=False,
 )
 
 AccountOption = typer.Option(
     None,
-    "-a",
-    "--accountname",
     "--account",
-    help="Name assigned to your Snowflake account.",
+    "--accountname",
+    help="Name assigned to your Snowflake account. Overrides value from connection.",
+    callback=ConnectionDetails.update_callback("account"),
+    show_default=False,
 )
 
 UserOption = typer.Option(
     None,
-    "-u",
+    "-user",
     "--username",
-    "--user",
-    help="Username to connect to Snowflake.",
+    help="Username to connect to Snowflake. Overrides value from connection.",
+    callback=ConnectionDetails.update_callback("user"),
+    show_default=False,
 )
 
 PasswordOption = typer.Option(
     None,
     "-p",
     "--password",
-    help="Snowflake password.",
+    help="Snowflake password. Overrides value from connection.",
     hide_input=True,
+    callback=ConnectionDetails.update_callback("password"),
+    show_default=False,
 )
 
 DatabaseOption = typer.Option(
     None,
-    "-d",
-    "--dbname",
     "--database",
-    help="Database to use.",
+    "--dbname",
+    help="Database to use. Overrides value from connection.",
+    callback=ConnectionDetails.update_callback("database"),
+    show_default=False,
 )
 
 SchemaOption = typer.Option(
     None,
-    "-s",
-    "--schemaname",
     "--schema",
-    help=" Schema in the database to use.",
+    "--schemaname",
+    help=" Schema in the database to use. Overrides value from connection.",
+    callback=ConnectionDetails.update_callback("schema"),
+    show_default=False,
 )
 
-RoleOption = typer.Option(None, "-r", "--rolename", "--role", help="Role to be used.")
 
-WarehouseOption = typer.Option(None, "-w", "--warehouse", help="Warehouse to use.")
+RoleOption = typer.Option(
+    None,
+    "--role",
+    "--rolename",
+    help="Role to be used. Overrides value from connection.",
+    callback=ConnectionDetails.update_callback("role"),
+    show_default=False,
+)
+
+WarehouseOption = typer.Option(
+    None,
+    "--warehouse",
+    help="Warehouse to use. Overrides value from connection.",
+    callback=ConnectionDetails.update_callback("warehouse"),
+    show_default=False,
+)

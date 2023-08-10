@@ -3,23 +3,26 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from shutil import copytree
+from tempfile import TemporaryDirectory
 
 import pkg_resources
 import typer
 
+from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
+from snowcli.cli.snowpark.function.manager import FunctionManager
 from snowcli.cli.snowpark_shared import (
     CheckAnacondaForPyPiDependancies,
     PackageNativeLibrariesOption,
     PyPiDownloadOption,
-    snowpark_create,
-    snowpark_describe,
-    snowpark_drop,
-    snowpark_execute,
-    snowpark_list,
     snowpark_package,
     snowpark_update,
 )
+from snowcli.cli.stage.manager import StageManager
+from snowcli.output.decorators import with_output
+from snowcli.utils import prepare_app_zip, get_snowflake_packages
+
+DEPLOYMENT_STAGE = "deployments"
 
 app = typer.Typer(
     name="function",
@@ -36,6 +39,13 @@ HandlerOption = typer.Option(
 
 InputParametersOption = typer.Option(
     ...,
+    "--input-parameters",
+    "-i",
+    help="Input parameters - such as (message string, count int)",
+)
+
+OptionalInputParametersOption = typer.Option(
+    None,
     "--input-parameters",
     "-i",
     help="Input parameters - such as (message string, count int)",
@@ -65,8 +75,9 @@ def function_init():
 
 
 @app.command("create")
+@with_output
+@global_options
 def function_create(
-    environment: str = ConnectionOption,
     pypi_download: str = PyPiDownloadOption,
     package_native_libraries: str = PackageNativeLibrariesOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
@@ -92,6 +103,7 @@ def function_create(
         "-o",
         help="Replace if existing function",
     ),
+    **options,
 ):
     """Creates a python UDF/UDTF using local artifact."""
     snowpark_package(
@@ -99,14 +111,30 @@ def function_create(
         check_anaconda_for_pypi_deps,
         package_native_libraries,  # type: ignore[arg-type]
     )
-    snowpark_create(
-        type="function",
-        environment=environment,
-        name=name,
-        file=file,
+
+    sm = StageManager()
+    fm = FunctionManager()
+
+    function_identifier = fm.identifier(name=name, signature=input_parameters)
+    sm.create(stage_name=DEPLOYMENT_STAGE, comment="deployments managed by snowcli")
+
+    artifact_location = Path(DEPLOYMENT_STAGE) / fm.artifact_stage_path(
+        function_identifier
+    )
+    artifact_file = artifact_location / "app.zip"
+
+    with TemporaryDirectory() as temp_dir:
+        temp_app_zip_path = prepare_app_zip(file, temp_dir)
+        sm.put(local_path=temp_app_zip_path, stage_path=str(artifact_location))
+
+    packages = get_snowflake_packages()
+
+    return fm.create(
+        identifier=function_identifier,
         handler=handler,
-        input_parameters=input_parameters,
         return_type=return_type,
+        artifact_file=str(artifact_file),
+        packages=packages,
         overwrite=overwrite,
     )
 
@@ -168,66 +196,76 @@ def function_package(
 
 
 @app.command("execute")
+@with_output
+@global_options
 def function_execute(
-    environment: str = ConnectionOption,
     function: str = typer.Option(
         ...,
         "--function",
         "-f",
         help="Function with inputs. E.g. 'hello(int, string)'",
     ),
+    **options,
 ):
     """Executes a Snowflake function."""
-    snowpark_execute(type="function", environment=environment, select=function)
+    return FunctionManager().execute(expression=function)
 
 
 @app.command("describe")
+@with_output
+@global_options
 def function_describe(
-    environment: str = ConnectionOption,
     name: str = typer.Option("", "--name", "-n", help="Name of the function"),
-    input_parameters: str = InputParametersOption,
+    input_parameters: str = OptionalInputParametersOption,
     function: str = typer.Option(
         "",
         "--function",
         "-f",
         help="Function signature with inputs. E.g. 'hello(int, string)'",
     ),
+    **options,
 ):
     """Describes a Snowflake function."""
-    snowpark_describe(
-        type="function",
-        environment=environment,
-        name=name,
-        input_parameters=input_parameters,
-        signature=function,
+    return FunctionManager().describe(
+        identifier=FunctionManager.identifier(
+            name=name, signature=input_parameters, name_and_signature=function
+        )
     )
 
 
 @app.command("list")
+@with_output
+@global_options
 def function_list(
-    environment: str = ConnectionOption,
     like: str = typer.Option(
         "%%",
         "--like",
         "-l",
         help='Filter functions by name - e.g. "hello%"',
     ),
+    **options,
 ):
     """Lists Snowflake functions."""
-    snowpark_list("function", environment, like=like)
+    return FunctionManager().show(like=like)
 
 
 @app.command("drop")
+@with_output
+@global_options
 def function_drop(
-    environment: str = ConnectionOption,
     name: str = typer.Option("", "--name", "-n", help="Name of the function"),
-    input_parameters: str = InputParametersOption,
+    input_parameters: str = OptionalInputParametersOption,
     signature: str = typer.Option(
         "",
-        "--procedure",
-        "-p",
+        "--function",
+        "-f",
         help="Function signature with inputs. E.g. 'hello(int, string)'",
     ),
+    **options,
 ):
     """Drops a Snowflake function."""
-    snowpark_drop("function", environment, name, input_parameters, signature)
+    return FunctionManager().drop(
+        identifier=FunctionManager.identifier(
+            name=name, signature=input_parameters, name_and_signature=signature
+        )
+    )

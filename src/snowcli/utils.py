@@ -536,7 +536,7 @@ def get_list_of_files_to_pack(
     return list(filter(lambda x: os.path.isfile(x.name), files))
 
 
-def get_snowflake_packages() -> list[str]:
+def get_snowflake_packages() -> List[str]:
     if os.path.exists("requirements.snowflake.txt"):
         with open("requirements.snowflake.txt", encoding="utf-8") as f:
             return [line.strip() for line in f]
@@ -544,7 +544,7 @@ def get_snowflake_packages() -> list[str]:
         return []
 
 
-def get_snowflake_packages_delta(anaconda_packages) -> list[str]:
+def get_snowflake_packages_delta(anaconda_packages) -> List[str]:
     updated_package_list = []
     if os.path.exists("requirements.snowflake.txt"):
         with open("requirements.snowflake.txt", encoding="utf-8") as f:
@@ -558,7 +558,7 @@ def get_snowflake_packages_delta(anaconda_packages) -> list[str]:
         return updated_package_list
 
 
-def convert_resource_details_to_dict(function_details: list[tuple]) -> dict:
+def convert_resource_details_to_dict(function_details: List[tuple]) -> dict:
     function_dict = {}
     json_properties = ["packages", "installed_packages"]
     for function in function_details:
@@ -569,13 +569,6 @@ def convert_resource_details_to_dict(function_details: list[tuple]) -> dict:
         else:
             function_dict[function[0]] = function[1]
     return function_dict
-
-
-def check_for_connection(connection_name: str):
-    if not connection_name:
-        connection_name = get_default_connection()
-    cli_config.get_connection(connection_name=connection_name)
-    return connection_name
 
 
 def generate_deploy_stage_name(name: str, input_parameters: str) -> str:

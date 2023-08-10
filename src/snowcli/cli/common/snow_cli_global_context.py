@@ -1,6 +1,52 @@
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Optional
+
+from snowcli.snow_connector import connect_to_snowflake
+
+
+@dataclass
+class ConnectionDetails:
+    connection_name: Optional[str] = None
+    account: Optional[str] = None
+    database: Optional[str] = None
+    role: Optional[str] = None
+    schema: Optional[str] = None
+    user: Optional[str] = None
+    warehouse: Optional[str] = None
+
+    def _resolve_connection_params(self):
+        from snowcli.cli.common.decorators import GLOBAL_CONNECTION_OPTIONS
+
+        params = {}
+        for option in GLOBAL_CONNECTION_OPTIONS:
+            override = option.name
+            if override == "connection":
+                continue
+            override_value = getattr(self, override)
+            if override_value is not None:
+                params[override] = override_value
+        return params
+
+    def build_connection(self):
+        return connect_to_snowflake(
+            connection_name=self.connection_name, **self._resolve_connection_params()
+        )
+
+    @staticmethod
+    def _connection_update(param_name: str, value: str):
+        def modifications(context: SnowCliGlobalContext) -> SnowCliGlobalContext:
+            setattr(context.connection, param_name, value)
+            return context
+
+        snow_cli_global_context_manager.update_global_context(modifications)
+        return value
+
+    @staticmethod
+    def update_callback(param_name: str):
+        return lambda value: ConnectionDetails._connection_update(
+            param_name=param_name, value=value
+        )
 
 
 @dataclass
@@ -10,6 +56,7 @@ class SnowCliGlobalContext:
     """
 
     enable_tracebacks: bool
+    connection: ConnectionDetails
 
 
 class SnowCliGlobalContextManager:
@@ -35,12 +82,20 @@ class SnowCliGlobalContextManager:
         """
         self._global_context = deepcopy(update(self.get_global_context_copy()))
 
+    def get_connection(self):
+        return self.get_global_context_copy().connection.build_connection()
+
 
 def _create_snow_cli_global_context_manager_with_default_values() -> SnowCliGlobalContextManager:
     """
     Creates a manager with global state filled with default values.
     """
-    return SnowCliGlobalContextManager(SnowCliGlobalContext(enable_tracebacks=True))
+    return SnowCliGlobalContextManager(
+        SnowCliGlobalContext(
+            enable_tracebacks=True,
+            connection=ConnectionDetails(),
+        )
+    )
 
 
 snow_cli_global_context_manager = (
