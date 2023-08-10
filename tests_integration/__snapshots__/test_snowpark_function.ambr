@@ -34,7 +34,7 @@
   
   '''
 # ---
-# name: test_snowpark_function_flow[gitignore]
+# name: test_snowpark_function_flow[.gitignore]
   '''
   .packages/
   .venv/
