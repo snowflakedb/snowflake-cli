@@ -31,7 +31,7 @@ app.add_typer(procedure_coverage_app)
 
 
 @app.command("init")
-def procedure_init():
+def procedure_init() -> None:
     """
     Initialize this directory with a sample set of files to create a procedure.
     """
