@@ -13,7 +13,7 @@ from tests_integration.test_utils import contains_row_with, row_from_snowflake_s
 class TestPackage:
     STAGE_NAME = "PACKAGE_TEST"
 
-    #@pytest.mark.integration
+    # @pytest.mark.integration
     def test_package_upload(
         self, runner, example_file, snowflake_session, test_database
     ):
@@ -40,7 +40,6 @@ class TestPackage:
         )
 
         snowflake_session.execute_string(f"DROP STAGE IF EXISTS {self.STAGE_NAME};")
-
 
     def test_package_create_with_non_anaconda_package(self, directory_for_test, runner):
         result = runner.invoke_with_config_and_integration_connection(
