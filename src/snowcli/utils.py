@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import importlib
 from dataclasses import dataclass
 
 import glob
@@ -20,7 +22,6 @@ from requirements.requirement import Requirement
 import typer
 from jinja2 import Environment, FileSystemLoader
 
-from snowcli.config import cli_config, get_default_connection
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -585,3 +586,12 @@ def generate_deploy_stage_name(name: str, input_parameters: str) -> str:
 class File:
     name: Path
     relpath: Optional[str] = None
+
+
+def create_project_template(template_name: str):
+    with importlib.resources.path("templates", template_name) as file:  # type: ignore
+        shutil.copytree(
+            file,
+            f"{os.getcwd()}",
+            dirs_exist_ok=True,
+        )
