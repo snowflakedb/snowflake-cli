@@ -27,7 +27,8 @@ class TestUtils:
     SECOND_TEST_DIRECTORY = "other_test_dir"
     SUBDIR = "subdir"
     TEMP_DIR_FOR_APP_ZIP = "temp_dir"
-    TEMP_TEST_DIRECTORY = ".tests"
+    TEMP_TEST_DIRECTORY = "tests_tmp_dir"
+    CURRENT_DIR = Path(__file__).parent
 
     @pytest.mark.parametrize("argument", utils.YesNoAskOptions)
     def test_yes_no_ask_callback_with_correct_argument(self, argument: str):
@@ -83,7 +84,9 @@ class TestUtils:
         assert expected_error.value.errno == 2
         assert expected_error.type == FileNotFoundError
 
-    def test_parse_requierements_with_correct_file(self, correct_requirements_txt: str):
+    def test_parse_requierements_with_correct_file(
+        self, correct_requirements_txt: str, temp_test_directory_with_chdir
+    ):
         result = utils.parse_requirements(correct_requirements_txt)
 
         assert len(result) == len(test_data.requirements)
@@ -133,7 +136,11 @@ class TestUtils:
         with pytest.raises(typer.Abort) as abort:
             result = utils.parse_anaconda_packages(test_data.packages)
 
-    def test_generate_streamlit_environment_file_with_no_requirements(self):
+    def test_generate_streamlit_environment_file_with_no_requirements(
+        self, other_directory_with_chdir: str
+    ):
+        file_list = os.listdir(other_directory_with_chdir)
+
         result = utils.generate_streamlit_environment_file(
             [],
         )
@@ -228,20 +235,23 @@ class TestUtils:
 
     def test_recursive_zip_packages_with_env_variable(
         self,
-        temp_test_directory: str,
+        temp_test_directory_with_chdir: str,
         txt_file_in_a_subdir: str,
         other_directory: str,
-        temp_file_in_other_directory,
-        include_paths_env_variable,
+        temp_file_in_other_directory: str,
+        include_paths_env_variable: str,
     ):
-        zip_file_path = os.path.join(temp_test_directory, "packed.zip")
+        zip_file_path = os.path.join(temp_test_directory_with_chdir, "packed.zip")
 
-        utils.recursive_zip_packages_dir(temp_test_directory, zip_file_path)
+        utils.recursive_zip_packages_dir(temp_test_directory_with_chdir, zip_file_path)
         zip_file = ZipFile(zip_file_path)
 
+        path = str(
+            Path(txt_file_in_a_subdir).relative_to(temp_test_directory_with_chdir)
+        )
         assert os.path.isfile(zip_file_path)
         assert (
-            str(Path(txt_file_in_a_subdir).relative_to(temp_test_directory))
+            str(Path(txt_file_in_a_subdir).relative_to(temp_test_directory_with_chdir))
             in zip_file.namelist()
         )
         assert str(Path(temp_file_in_other_directory).name) in zip_file.namelist()
@@ -261,13 +271,13 @@ class TestUtils:
 
     def test_standard_zip_dir_with_env_variable(
         self,
-        temp_test_directory: str,
+        temp_test_directory_with_chdir: str,
         txt_file_in_a_subdir: str,
         include_paths_env_variable,
         other_directory: str,
-        temp_file_in_other_directory,
+        temp_file_in_other_directory: str,
     ):
-        zip_file_path = os.path.join(temp_test_directory, "packed.zip")
+        zip_file_path = os.path.join(temp_test_directory_with_chdir, "packed.zip")
         utils.standard_zip_dir(zip_file_path)
         zip_file = ZipFile(zip_file_path)
 
@@ -389,54 +399,64 @@ class TestUtils:
     # These functions are used to set up files and directories used in tests
     # and delete them, after the tests are performed
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def temp_test_directory(self) -> Generator:
         with tempfile.TemporaryDirectory() as tmp_dir:
             yield tmp_dir
 
     @pytest.fixture
-    def temp_test_directory_with_chdir(self, temp_test_directory) -> Generator:
+    def temp_test_directory_with_chdir(self, temp_test_directory: str) -> Generator:
         initial_dir = os.getcwd()
         os.chdir(temp_test_directory)
         yield temp_test_directory
         os.chdir(initial_dir)
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def temp_directory_for_app_zip(self, temp_test_directory: str) -> Generator:
         temp_dir = tempfile.TemporaryDirectory(dir=temp_test_directory)
         yield temp_dir.name
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def app_zip(self, temp_test_directory: str) -> Generator:
         yield create_temp_file(".zip", temp_test_directory, [])
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def correct_requirements_txt(self, temp_test_directory: str) -> Generator:
-        yield create_named_file(
+        req_txt = create_named_file(
             self.REQUIREMENTS_SNOWFLAKE, temp_test_directory, test_data.requirements
         )
+        yield req_txt
+        os.remove(req_txt)
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def correct_metadata_file(self, temp_test_directory: str) -> Generator:
         yield create_temp_file(
             ".yaml", temp_test_directory, test_data.correct_package_metadata
         )
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def txt_file_in_a_subdir(self, temp_test_directory: str) -> Generator:
         subdir = tempfile.TemporaryDirectory(dir=temp_test_directory)
         yield create_temp_file(".txt", subdir.name, [])
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def other_directory(self) -> Generator:
-        with tempfile.TemporaryDirectory() as tmp:
-            yield tmp
+        tmp_dir = tempfile.TemporaryDirectory()
+        yield tmp_dir.name
+        tmp_dir.cleanup()
 
     @pytest.fixture
+    def other_directory_with_chdir(self, other_directory: str) -> Generator:
+        initial_dir = os.getcwd()
+        os.chdir(other_directory)
+        yield other_directory
+        os.chdir(initial_dir)
+
+    @pytest.fixture(scope="class")
     def temp_file_in_other_directory(self, other_directory: str) -> Generator:
         yield create_temp_file(".txt", other_directory, [])
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def include_paths_env_variable(self, other_directory: str) -> Generator:
         os.environ["SNOWCLI_INCLUDE_PATHS"] = other_directory
         yield os.environ["SNOWCLI_INCLUDE_PATHS"]
