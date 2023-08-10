@@ -57,10 +57,11 @@ class PackageManager:
                 "Package already exists on stage. Consider using --overwrite to overwrite the file."
             )
 
-    def create(self, name: str, install_packages):
+    def create(self, name: str):
         if os.path.exists(".packages"):
 
             utils.recursive_zip_packages_dir(".packages", name + ".zip")
+
             self._cleanup_after_install(False)
         return f"Package {name}.zip created. You can now upload it to a stage (`snow package upload -f {name}.zip -s packages`) and reference it in your procedure or function."
 
@@ -70,9 +71,9 @@ class PackageManager:
     ) -> str:
         if status and reqs and reqs.snowflake:
             return f"""
-                The package {name} is supported, but does depend on the "
-                following Snowflake supported native libraries. You should "
-                include the following in your packages: {reqs.snowflake}"
+                The package {name} is supported, but does depend on the
+                following Snowflake supported native libraries. You should
+                include the following in your packages: {reqs.snowflake}
                 """
         return ""
 

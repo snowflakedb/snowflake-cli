@@ -86,4 +86,4 @@ def package_create(
     Create a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
     """
     PackageManager().lookup(name, install_packages, True)
-    log.info(PackageManager().create(name, install_packages))
+    PackageManager().create(name)
