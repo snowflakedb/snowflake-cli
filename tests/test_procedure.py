@@ -21,14 +21,12 @@ class TestProcedure:
         "config.toml",
     }
 
-    def test_procedure_init(self, tmp_dir_for_procedure_tests, runner):
+    def test_procedure_init(self, execute_in_tmp_dir, runner):
         runner.invoke(["snowpark", "procedure", "init"])
         assert self.DIR_INITIAL_CONTENTS.issubset(os.listdir(os.getcwd()))
 
     @mock.patch("snowcli.utils.parse_anaconda_packages")
-    def test_procedure_package(
-        self, mock_anaconda, tmp_dir_for_procedure_tests, runner
-    ):
+    def test_procedure_package(self, mock_anaconda, execute_in_tmp_dir, runner):
         mock_anaconda = MagicMock(return_value=SplitRequirements([], []))
 
         runner.invoke(["snowpark", "procedure", "init"])
@@ -42,12 +40,3 @@ class TestProcedure:
         assert "local_connection.py" in zip_file.namelist()
         assert "app.py" in zip_file.namelist()
         assert "config.toml" in zip_file.namelist()
-
-    @pytest.fixture(scope="class")
-    def tmp_dir_for_procedure_tests(self):
-        initial_dir = os.getcwd()
-        tmp_dir = tempfile.TemporaryDirectory()
-        os.chdir(tmp_dir.name)
-        yield tmp_dir
-        tmp_dir.cleanup()
-        os.chdir(initial_dir)

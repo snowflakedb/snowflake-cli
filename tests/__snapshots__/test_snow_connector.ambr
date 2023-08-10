@@ -18,50 +18,6 @@
   describe PROCEDURE nameValue(a, b);
   '''
 # ---
-# name: test_create_streamlit
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  create streamlit nameValue
-    
-    MAIN_FILE = 'fileValue'
-    QUERY_WAREHOUSE = warehouseValue;
-  
-  show streamlits;
-  describe streamlit nameValue;
-  
-  alter streamlit nameValue checkout;
-  '''
-# ---
-# name: test_create_streamlit_from_stage
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  create streamlit nameValue
-    FROM @stageValue
-    MAIN_FILE = 'fileValue'
-    QUERY_WAREHOUSE = warehouseValue;
-  
-  show streamlits;
-  describe streamlit nameValue;
-  
-  alter streamlit nameValue checkout;
-  '''
-# ---
-# name: test_deploy_streamlit
-  '''
-  use role roleValue;
-  
-  use database databaseValue;
-  use schema schemaValue;
-  
-  CALL SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('nameValue');
-  '''
-# ---
 # name: test_describe_procedure
   '''
   use role roleValue;
@@ -71,16 +27,6 @@
   desc PROCEDURE signatureValue;
   '''
 # ---
-# name: test_describe_streamlit
-  '''
-  use role roleValue;
-  
-  use database databaseValue;
-  use schema schemaValue;
-  
-  CALL SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('nameValue');
-  '''
-# ---
 # name: test_drop_procedure
   '''
   use role roleValue;
@@ -88,15 +34,6 @@
   use database databaseValue;
   use schema schemaValue;
   drop procedure signatureValue;
-  '''
-# ---
-# name: test_drop_streamlit
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  drop streamlit nameValue;
   '''
 # ---
 # name: test_execute_procedure
@@ -118,15 +55,6 @@
   select "name", "created_on", "arguments" from table(result_scan(last_query_id()));
   '''
 # ---
-# name: test_list_streamlits
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  show streamlits;
-  '''
-# ---
 # name: test_set_procedure_comment
   '''
   use role roleValue;
@@ -134,16 +62,6 @@
   use database databaseValue;
   use schema schemaValue;
   alter PROCEDURE signatureValue SET COMMENT = $$commentValue$$;
-  '''
-# ---
-# name: test_share_streamlit
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  
-  grant usage on streamlit nameValue to role to_roleValue;
   '''
 # ---
 # name: test_upload_file_to_stage[namedStageValue-False]
