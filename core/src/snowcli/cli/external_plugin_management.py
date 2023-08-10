@@ -5,6 +5,7 @@ from typing import Dict, List, Any
 
 import typer
 from click import UsageError
+from typer.main import get_command
 
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.common.snow_cli_global_context import global_context_copy
@@ -26,14 +27,14 @@ def _info_about_plugin(
     plugin_after_verification: ExternalPluginAfterVerification,
 ) -> Dict[str, Any]:
     plugin = plugin_after_verification.plugin
-    command_group = " ".join(
-        plugin.command_group_spec.path.path_segments
-        + [plugin.command_group_spec.command_group.info.name]
+    command = " ".join(
+        plugin.plugin_spec.path.path_segments
+        + [get_command(plugin.plugin_spec.typer_instance).name]
     )
     return {
         "plugin_name": plugin.plugin_name,
         "enabled": plugin.is_enabled,
-        "command_group": command_group,
+        "command": command,
         "package_name": plugin.plugin_package_info.package_name,
         "package_version": plugin.plugin_package_info.package_version,
         "verification_error": plugin_after_verification.error_str(),
@@ -50,7 +51,7 @@ def _print_info_about_plugins(
         columns=[
             "plugin_name",
             "enabled",
-            "command_group",
+            "command",
             "package_name",
             "package_version",
             "verification_error",

@@ -5,7 +5,7 @@ import pluggy
 
 import snowcli.cli.stage.manager
 from snowcli.cli.common.snow_cli_global_context import global_context_copy
-from snowcli.cli.stage.stage_builtin_plugin_hook_impl import plugin_command_group_spec
+from snowcli.cli.stage.stage_builtin_plugin_hook_impl import plugin_spec
 from snowcli.plugin import BuiltInLoadedPlugin
 from snowcli.plugin.api import plugin_hook_specs
 
@@ -38,7 +38,7 @@ class LoadBuiltInPlugins:
                 plugins.append(
                     BuiltInLoadedPlugin(
                         plugin_name=plugin_name,
-                        command_group_spec=plugin.plugin_command_group_spec(),
+                        plugin_spec=plugin.plugin_spec(),
                     )
                 )
             except Exception as ex:

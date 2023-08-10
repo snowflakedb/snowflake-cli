@@ -9,11 +9,11 @@ plugin_hook_impl = pluggy.HookimplMarker("snowcli.plugin")
 
 
 @dataclass
-class PluginCommandGroupPath:
+class PluginPath:
     path_segments: List[str]
 
 
 @dataclass
-class PluginCommandGroupSpec:
-    path: PluginCommandGroupPath
-    command_group: Typer
+class PluginSpec:
+    path: PluginPath
+    typer_instance: Typer

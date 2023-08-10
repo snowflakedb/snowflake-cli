@@ -2,13 +2,13 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import List, Optional
 
-from snowcli.plugin.api import PluginCommandGroupSpec
+from snowcli.plugin.api import PluginSpec
 
 
 @dataclass
 class LoadedPlugin:
     plugin_name: str
-    command_group_spec: PluginCommandGroupSpec
+    plugin_spec: PluginSpec
 
 
 @dataclass

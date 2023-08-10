@@ -7,7 +7,7 @@ from typer.core import TyperGroup
 
 from snowcli.cli.common.snow_cli_global_context import global_context_copy
 from snowcli.plugin import LoadedPlugin
-from snowcli.plugin.api import PluginCommandGroupSpec, PluginCommandGroupPath
+from snowcli.plugin.api import PluginSpec, PluginPath
 
 log = logging.getLogger(__name__)
 
@@ -22,10 +22,10 @@ class AddPluginsToTyper:
     def __call__(self, *args, **kwargs):
         for plugin in self._plugins:
             try:
-                self._add_plugin_command_group(plugin.command_group_spec)
+                self._add_plugin_to_typer(plugin.plugin_spec)
             except Exception as ex:
                 log.error(
-                    f"Cannot register command group from plugin [{plugin.plugin_name}]: {ex.__str__()}",
+                    f"Cannot register plugin [{plugin.plugin_name}]: {ex.__str__()}",
                     exc_info=global_context_copy().debug,
                 )
 
@@ -39,23 +39,23 @@ class AddPluginsToTyper:
                 "Invalid main top-level command type. It should be a TyperGroup but it is not."
             )
 
-    def _add_plugin_command_group(
+    def _add_plugin_to_typer(
         self,
-        command_group_spec: PluginCommandGroupSpec,
+        plugin_spec: PluginSpec,
     ) -> None:
         parent_group = self._find_typer_group_at_path(
             current_level_group=self._main_typer_command_group,
-            remaining_path_segments=command_group_spec.path.path_segments,
-            full_plugin_path=command_group_spec.path,
+            remaining_path_segments=plugin_spec.path.path_segments,
+            full_plugin_path=plugin_spec.path,
         )
-        plugin_group = typer.main.get_group(command_group_spec.command_group)
-        parent_group.add_command(plugin_group)
+        plugin_typer = typer.main.get_command(plugin_spec.typer_instance)
+        parent_group.add_command(plugin_typer)
 
     def _find_typer_group_at_path(
         self,
         current_level_group: TyperGroup,
         remaining_path_segments: List[str],
-        full_plugin_path: PluginCommandGroupPath,
+        full_plugin_path: PluginPath,
     ) -> TyperGroup:
         if remaining_path_segments:
             expected_name = remaining_path_segments[0]

@@ -63,7 +63,7 @@ class LoadExternalPlugins:
                         plugin_name=plugin_name,
                         is_enabled=plugin_name in self._enabled_plugins,
                         plugin_package_info=plugins_to_package_info[plugin],
-                        command_group_spec=plugin.plugin_command_group_spec(),
+                        plugin_spec=plugin.plugin_spec(),
                     )
                 )
             except Exception as ex:

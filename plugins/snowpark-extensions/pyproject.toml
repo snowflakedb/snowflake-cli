@@ -13,3 +13,4 @@ version = "0.0.1"
 [project.entry-points."snowcli.plugin"]
 snowpark-function = "snowcli_function_plugin.function_plugin_hook_impl"
 snowpark-package = "snowcli_package_plugin.package_plugin_hook_impl"
+snowpark-say-hello = "snowcli_say_hello_plugin.say_hello_plugin_hook_impl"
