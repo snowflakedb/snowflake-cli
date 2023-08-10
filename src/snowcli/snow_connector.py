@@ -178,25 +178,6 @@ class SnowflakeConnector:
             },
         )
 
-    def execute_procedure(
-        self,
-        procedure,
-        database,
-        schema,
-        role,
-        warehouse,
-    ) -> SnowflakeCursor:
-        return self.run_sql(
-            "call_procedure",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "procedure": procedure,
-            },
-        )
-
     def describe_function(
         self,
         database,
@@ -272,44 +253,6 @@ class SnowflakeConnector:
                 "comment": comment,
             },
             show_exceptions,
-        )
-
-    def list_procedures(
-        self,
-        database,
-        schema,
-        role,
-        warehouse,
-        like="%%",
-    ) -> SnowflakeCursor:
-        return self.run_sql(
-            "list_procedures",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "like": like,
-            },
-        )
-
-    def drop_procedure(
-        self,
-        database,
-        schema,
-        role,
-        warehouse,
-        signature,
-    ) -> SnowflakeCursor:
-        return self.run_sql(
-            "drop_procedure",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "signature": signature,
-            },
         )
 
     def list_streamlits(
