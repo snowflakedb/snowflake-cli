@@ -61,45 +61,50 @@ def test_create_function(
 @mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
 @mock.patch("snowcli.cli.snowpark_shared.tempfile.TemporaryDirectory")
 def test_update_function(
-    mock_tmp_dir, mock_package_create, mock_connector, runner, mock_ctx, snapshot
+    mock_tmp_dir,
+    mock_package_create,
+    mock_connector,
+    runner,
+    mock_ctx,
+    snapshot,
+    execute_in_tmp_dir,
 ):
     tmp_dir = TemporaryDirectory()
     mock_tmp_dir.return_value = tmp_dir
 
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    with TemporaryDirectory() as tmp_dir_2:
-        local_dir = Path(tmp_dir_2)
-        (local_dir / "requirements.snowflake.txt").write_text("foo=1.2.3\nbar>=3.0.0")
+    (Path(execute_in_tmp_dir.name) / "requirements.snowflake.txt").write_text(
+        "foo=1.2.3\nbar>=3.0.0"
+    )
 
-        app = local_dir / "app.py"
-        app.touch()
+    app = Path(execute_in_tmp_dir.name) / "app.py"
+    app.touch()
 
-        os.chdir(local_dir)
-        result = runner.invoke(
-            [
-                "snowpark",
-                "function",
-                "update",
-                "--name",
-                "functionName",
-                "--file",
-                str(app),
-                "--handler",
-                "main.py:app",
-                "--return-type",
-                "table(variant)",
-                "--input-parameters",
-                "(a string, b number)",
-                "--replace-always",
-            ]
-        )
+    result = runner.invoke(
+        [
+            "snowpark",
+            "function",
+            "update",
+            "--name",
+            "functionName",
+            "--file",
+            str(app),
+            "--handler",
+            "main.py:app",
+            "--return-type",
+            "table(variant)",
+            "--input-parameters",
+            "(a string, b number)",
+            "--replace-always",
+        ]
+    )
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         dedent(
             f"""\
-use role mockRole;
+use role MockRole;
 use warehouse MockWarehouse;
 use database MockDatabase;
 use schema MockSchema;
@@ -107,7 +112,7 @@ desc FUNCTION functionName(string, number);"""
         ),
         dedent(
             f"""\
-use role mockRole;
+use role MockRole;
 use warehouse MockWarehouse;
 use database MockDatabase;
 use schema MockSchema;
@@ -120,7 +125,7 @@ put file://{tmp_dir.name}/{app.name} @MockDatabase.MockSchema.deployments/functi
         ),
         dedent(
             f"""\
-use role mockRole;
+use role MockRole;
 use warehouse MockWarehouse;
 use database MockDatabase;
 use schema MockSchema;

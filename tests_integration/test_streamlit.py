@@ -13,7 +13,7 @@ from tests_integration.test_utils import (
 
 
 @pytest.mark.integration
-@mock.patch("snowcli.cli.streamlit.print_db_cursor")
+@mock.patch("snowcli.output.decorators.print_db_cursor")
 def test_streamlit_create_and_deploy(
     mock_print,
     runner,
@@ -82,7 +82,7 @@ def test_streamlit_create_and_deploy(
 
 
 @pytest.mark.integration
-@mock.patch("snowcli.cli.streamlit.print_db_cursor")
+@mock.patch("snowcli.output.decorators.print_db_cursor")
 def test_streamlit_create_from_stage(
     mock_print, runner, snowflake_session, _new_streamlit_role, test_root_path
 ):

@@ -2,6 +2,7 @@ from unittest import mock
 import tempfile
 import json
 
+from distutils.dir_util import copy_tree
 from pathlib import Path, PosixPath
 from requirements.requirement import Requirement
 from typing import Generator
@@ -358,11 +359,14 @@ class TestUtils:
         assert split_requirements.other[0].specifier is True
         assert split_requirements.other[0].specs == [(">=", "0.9.3")]
 
-    def test_get_downloaded_packages(self):
+    def test_get_downloaded_packages(
+        self, test_root_path, temp_test_directory_with_chdir
+    ):
         # In this test, we parse some real package metadata downloaded by pip
         # only the dist-info directories are available, we don't need the actual files
-        os.chdir(
-            Path(os.path.join(Path(__file__).parent, "test_data", "local_packages"))
+        copy_tree(
+            os.path.join(test_root_path, "test_data", "local_packages"),
+            temp_test_directory_with_chdir,
         )
         requirements_with_files = utils.get_downloaded_packages()
         assert len(requirements_with_files) == 2
