@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import functools
+import os
+import tempfile
 from io import StringIO
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -8,11 +10,17 @@ from typing import List, NamedTuple
 from unittest import mock
 
 import pytest
+from snowflake.connector.cursor import SnowflakeCursor
 
 from typer import Typer
 from typer.testing import CliRunner
 
 TEST_DIR = Path(__file__).parent
+
+
+@pytest.fixture(scope="session")
+def test_root_path():
+    return TEST_DIR
 
 
 @pytest.fixture(scope="session")
@@ -54,8 +62,9 @@ def mock_cursor():
     class MockResultMetadata(NamedTuple):
         name: str
 
-    class _MockCursor:
+    class _MockCursor(SnowflakeCursor):
         def __init__(self, rows: List[tuple], columns: List[str]):
+            super().__init__(mock.Mock())
             self._rows = rows
             self._columns = [MockResultMetadata(c) for c in columns]
 
@@ -63,7 +72,7 @@ def mock_cursor():
             return self.fetchall()
 
         def fetchall(self):
-            yield from self._rows
+            return self._rows
 
         @property
         def description(self):
@@ -79,9 +88,10 @@ def mock_cursor():
 @pytest.fixture()
 def mock_ctx(mock_cursor):
     class _MockConnectionCtx(mock.MagicMock):
-        def __init__(self, *args, **kwargs):
+        def __init__(self, cursor=None, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.queries: List[str] = []
+            self.cs = cursor
 
         def get_query(self):
             return "\n".join(self.queries)
@@ -103,13 +113,30 @@ def mock_ctx(mock_cursor):
 
         @property
         def role(self):
-            return "mockRole"
+            return "MockRole"
+
+        @property
+        def host(self):
+            return "account.test.region.aws.snowflakecomputing.com"
 
         def execute_string(self, query: str):
             self.queries.append(query)
-            return (mock_cursor(["row"], []),)
+            if self.cs:
+                return (self.cs,)
+            else:
+                return (mock_cursor(["row"], []),)
 
         def execute_stream(self, query: StringIO):
             return self.execute_string(query.read())
 
-    return _MockConnectionCtx()
+    return lambda cursor=None: _MockConnectionCtx(cursor)
+
+
+@pytest.fixture
+def execute_in_tmp_dir():
+    initial_dir = os.getcwd()
+    tmp_dir = tempfile.TemporaryDirectory()
+    os.chdir(tmp_dir.name)
+    yield tmp_dir
+    tmp_dir.cleanup()
+    os.chdir(initial_dir)
