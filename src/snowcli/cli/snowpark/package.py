@@ -160,7 +160,7 @@ def package_create(
         utils.recursive_zip_packages_dir(".packages", name + ".zip")
         rmtree(".packages")
         log.info(
-            f"Package {name}.zip created. You can now upload it to a stage (`snow package upload -f {name}.zip -s packages`) and reference it in your procedure or function."
+            f"Package {name}.zip created. You can now upload it to a stage (`snow snowpark package upload -f {name}.zip -s packages`) and reference it in your procedure or function."
         )
         if results_string is not None:
             log.info(results_string)
