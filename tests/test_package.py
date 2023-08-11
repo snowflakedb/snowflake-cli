@@ -89,7 +89,7 @@ class TestPackage:
 
         assert result.exit_code == 0
         assert (
-            f"Package totally-awesome-package.zip created. You can now upload it to a stage (`snow package upload -f totally-awesome-package.zip -s packages`) and reference it in your procedure or function."
+            f"Package totally-awesome-package.zip created. You can now upload it to a stage (`snow snowpark package upload -f totally-awesome-package.zip -s packages`) and reference it in your procedure or function."
             in caplog.text
         )
         assert os.path.isfile("totally-awesome-package.zip")
