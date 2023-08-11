@@ -155,109 +155,6 @@ def test_drop_procedure(_, snapshot):
     assert query.getvalue() == snapshot
 
 
-@mock.patch("snowflake.connector")
-def test_list_streamlits(_, snapshot):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (None, None)
-
-    connector.list_streamlits(
-        database="databaseValue",
-        schema="schemaValue",
-        role="roleValue",
-        warehouse="warehouseValue",
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
-@mock.patch("snowflake.connector")
-def test_create_streamlit(_, snapshot):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (None, None)
-
-    connector.create_streamlit(
-        database="databaseValue",
-        schema="schemaValue",
-        role="roleValue",
-        warehouse="warehouseValue",
-        name="nameValue",
-        file="fileValue",
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
-@mock.patch("snowflake.connector")
-def test_create_streamlit_from_stage(_, snapshot):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (None, None)
-
-    connector.create_streamlit(
-        database="databaseValue",
-        schema="schemaValue",
-        role="roleValue",
-        warehouse="warehouseValue",
-        name="nameValue",
-        file="fileValue",
-        from_stage_command="FROM @stageValue",
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
-@mock.patch("snowflake.connector")
-def test_share_streamlit(_, snapshot):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (None, None)
-
-    connector.share_streamlit(
-        database="databaseValue",
-        schema="schemaValue",
-        role="roleValue",
-        warehouse="warehouseValue",
-        name="nameValue",
-        to_role="to_roleValue",
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
-@mock.patch("snowflake.connector")
-def test_drop_streamlit(_, snapshot):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (None, None)
-
-    connector.drop_streamlit(
-        database="databaseValue",
-        schema="schemaValue",
-        role="roleValue",
-        warehouse="warehouseValue",
-        name="nameValue",
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
-@mock.patch("snowflake.connector")
-def test_deploy_streamlit(_, snapshot):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (mock.MagicMock(),)
-    connector.upload_file_to_stage = mock.MagicMock()
-
-    connector.deploy_streamlit(
-        name="nameValue",
-        file_path="file_pathValue",
-        stage_path="stage_pathValue",
-        role="roleValue",
-        database="databaseValue",
-        schema="schemaValue",
-        warehouse="warehouseValue",
-        overwrite=True,
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
 @pytest.mark.parametrize(
     "create_stage",
     [True, False],
@@ -278,22 +175,6 @@ def test_upload_file_to_stage(_, snapshot, create_stage, stage_name):
         warehouse="warehouseValue",
         overwrite="overwriteValue",
         create_stage=create_stage,
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
-@mock.patch("snowflake.connector")
-def test_describe_streamlit(_, snapshot):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (None, None)
-
-    connector.describe_streamlit(
-        name="nameValue",
-        database="databaseValue",
-        schema="schemaValue",
-        role="roleValue",
-        warehouse="warehouseValue",
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
     assert query.getvalue() == snapshot

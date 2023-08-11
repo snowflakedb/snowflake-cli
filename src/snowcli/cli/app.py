@@ -148,7 +148,7 @@ def _register_cli_typers() -> None:
         "snowcli.cli.snowpark",
         "snowcli.cli.connection",
         "snowcli.cli.render",
-        "snowcli.cli.streamlit",
+        "snowcli.cli.streamlit.commands",
         "snowcli.cli.warehouse",
         "snowcli.cli.stage.commands",
     ]
