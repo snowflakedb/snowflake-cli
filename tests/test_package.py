@@ -76,6 +76,13 @@ class TestPackage:
             in caplog.text
         )
 
+    def test_something(self):
+        from snowcli.utils import parse_anaconda_packages
+
+        result = parse_anaconda_packages([Requirement("PyRTF3")])
+        print(result)
+        assert False
+
     @patch("tests.test_package.package.manager.utils.requests")
     def test_package_create(
         self, mock_requests, caplog, temp_dir, dot_packages_directory, runner

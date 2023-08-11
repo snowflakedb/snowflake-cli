@@ -8,6 +8,13 @@ import typer
 from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark.package.manager import PackageManager
+from snowcli.cli.snowpark.package.utils import (
+    InAnaconda,
+    Unsupported,
+    RequiresPackages,
+    NothingFound,
+)
+from snowcli.output.decorators import with_output
 
 app = typer.Typer(
     name="package",
@@ -19,6 +26,7 @@ log = logging.getLogger(__name__)
 
 @app.command("lookup")
 @global_options
+@with_output
 def package_lookup(
     name: str = typer.Argument(..., help="Name of the package"),
     install_packages: bool = typer.Option(
@@ -34,7 +42,14 @@ def package_lookup(
     In install_packages flag is set to True, command will check all the dependencies of the packages
     outside snowflake channel.
     """
-    log.info(PackageManager().lookup(name, install_packages))
+    result = PackageManager().lookup(name=name, install_packages=install_packages)
+
+    if type(result) == InAnaconda:
+        return f"Package {name} is available on the Snowflake anaconda channel."
+    elif type(result) == RequiresPackages:
+        return f"""The package {name} is supported, but does depend on the
+                following Snowflake supported native libraries. You should
+                include the following in your packages: {result.requirements.snowflake}"""
 
 
 @app.command("upload")
@@ -60,7 +75,7 @@ def package_upload(
         help="Overwrite the file if it already exists",
     ),
     **kwargs,
-):
+) -> str:
     """
     Upload a python package zip file to a Snowflake stage, so it can be referenced in the imports of a procedure or function.
     """

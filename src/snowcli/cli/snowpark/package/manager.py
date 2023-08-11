@@ -10,6 +10,13 @@ from shutil import rmtree
 
 from snowcli import utils
 from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
+from snowcli.cli.snowpark.package.utils import (
+    LookupResult,
+    InAnaconda,
+    RequiresPackages,
+    Unsupported,
+    NothingFound,
+)
 from snowcli.utils import SplitRequirements
 
 log = logging.getLogger(__name__)
@@ -18,20 +25,25 @@ log = logging.getLogger(__name__)
 class PackageManager:
     def lookup(
         self, name: str, install_packages: bool, _run_nested: bool = False
-    ) -> str:
+    ) -> LookupResult:
 
         package_response = utils.parse_anaconda_packages([Requirement.parse(name)])
 
-        if package_response.snowflake:
-            return f"Package {name} is available on the Snowflake Anaconda channel. You can just include it in your 'packages' declaration"
+        if package_response.snowflake and not package_response.other:
+            return InAnaconda(package_response)
         else:
             if install_packages:
                 status, result = utils.install_packages(
                     perform_anaconda_check=True, package_name=name, file_name=None
                 )
-                self._cleanup_after_install(_run_nested)
-                return self._determine_lookup_result(status, result, name)
-        return ""
+
+                if status:
+                    if result.snowflake:
+                        return RequiresPackages(result)
+                    else:
+                        return Unsupported(result)
+
+        return NothingFound()
 
     def upload(self, file: Path, stage: str, overwrite: bool):
         conn = snow_cli_global_context_manager.get_connection()
@@ -62,7 +74,7 @@ class PackageManager:
 
             utils.recursive_zip_packages_dir(".packages", name + ".zip")
 
-            self._cleanup_after_install(False)
+            self._cleanup_after_install()
         return f"Package {name}.zip created. You can now upload it to a stage (`snow package upload -f {name}.zip -s packages`) and reference it in your procedure or function."
 
     @staticmethod
@@ -78,6 +90,6 @@ class PackageManager:
         return ""
 
     @staticmethod
-    def _cleanup_after_install(run_nested: bool):
-        if not run_nested and os.path.exists(".packages"):
+    def _cleanup_after_install():
+        if os.path.exists(".packages"):
             rmtree(".packages")
