@@ -9,6 +9,7 @@ from rich import box, print, print_json
 from snowflake.connector.cursor import SnowflakeCursor
 from typing import List, Optional, Dict, Union
 
+from snowcli.exception import OutputDataTypeError
 from snowcli.output.formats import OutputFormat
 
 
@@ -24,28 +25,59 @@ class CustomJSONEncoder(JSONEncoder):
 
 
 class OutputData:
-    def __init__(self, format: Optional[OutputFormat] = None) -> None:
-        self.output: List[Union[SnowflakeCursor, str, List[Dict]]] = []
-        self.counter = 0
+    def __init__(
+        self,
+        output: Optional[Union[SnowflakeCursor, str, List[Dict]]] = None,
+        format: Optional[OutputFormat] = None,
+    ) -> None:
+        if output is not None:
+            self.output = [output]
+            self.counter = 1
+        else:
+            self.output = []
+            self.counter = 0
         self._format = format
+
+    @staticmethod
+    def from_cursor(
+        cursor: SnowflakeCursor, format: Optional[OutputFormat] = None
+    ) -> OutputData:
+        check_if_is_cursor(cursor)
+        return OutputData(cursor, format)
+
+    @staticmethod
+    def from_string(message: str, format: Optional[OutputFormat] = None) -> OutputData:
+        check_if_is_string(message)
+        return OutputData(message, format)
+
+    @staticmethod
+    def from_list(data: List[Dict], format: Optional[OutputFormat] = None):
+        check_if_is_list(data)
+        return OutputData(data, format)
+
+    def add_cursor(self, cursor: SnowflakeCursor) -> OutputData:
+        check_if_is_cursor(cursor)
+        self.output.append(cursor)
+        self.counter += 1
+        return self
+
+    def add_string(self, message: str) -> OutputData:
+        check_if_is_string(message)
+        self.output.append(message)
+        self.counter += 1
+        return self
+
+    def add_list(self, data: List[Dict]):
+        check_if_is_list(data)
+        self.output.append(data)
+        self.counter += 1
+        return self
 
     @property
     def format(self):
         if not self._format:
             self._format = _get_format_type()
         return self._format
-
-    def add_data(self, data: Union[str, List[Dict], SnowflakeCursor]):
-        if (
-            isinstance(data, str)
-            or isinstance(data, list)
-            or isinstance(data, SnowflakeCursor)
-        ):
-            self.output.append(data)
-            self.counter += 1
-            return self
-        else:
-            raise TypeError(f"unsupported data type {type(data)}")
 
     def get_data(self) -> Union[str, Dict, Iterable[List[Dict]]]:
         for output in self.output:
@@ -63,8 +95,23 @@ class OutputData:
         return self.counter
 
 
-def print_output(output_data: OutputData) -> None:
-    if output_data.size() == 0:
+def check_if_is_cursor(cursor: SnowflakeCursor) -> None:
+    if not isinstance(cursor, SnowflakeCursor):
+        raise OutputDataTypeError(type(cursor), SnowflakeCursor)
+
+
+def check_if_is_string(message: str) -> None:
+    if not isinstance(message, str):
+        raise OutputDataTypeError(type(message), str)
+
+
+def check_if_is_list(data: List[Dict]) -> None:
+    if not isinstance(data, list) or (len(data) > 0 and not isinstance(data[0], dict)):
+        raise OutputDataTypeError(type(data), List[dict])
+
+
+def print_output(output_data: Optional[OutputData] = None) -> None:
+    if output_data is None or output_data.size() == 0:
         print("Done")
         return
 

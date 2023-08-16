@@ -1,8 +1,12 @@
+from snowflake.connector.cursor import SnowflakeCursor
+
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 
 
 class ComputePoolManager(SqlExecutionMixin):
-    def create(self, pool_name: str, num_instances: int, instance_family: str):
+    def create(
+        self, pool_name: str, num_instances: int, instance_family: str
+    ) -> SnowflakeCursor:
         return self._execute_query(
             f"""\
             CREATE COMPUTE POOL {pool_name}
@@ -12,14 +16,14 @@ class ComputePoolManager(SqlExecutionMixin):
         """
         )
 
-    def show(self):
+    def show(self) -> SnowflakeCursor:
         return self._execute_query("show compute pools;")
 
     def drop(
         self,
         pool_name: str,
-    ):
+    ) -> SnowflakeCursor:
         return self._execute_query(f"drop compute pool {pool_name};")
 
-    def stop(self, pool_name: str):
-        return self._execute_query(f"alter compute pool {pool_name} stop all services;")
+    def stop(self, pool_name: str) -> SnowflakeCursor:
+        return self._execute_query(f"alter compute pool {pool_name} stop all;")

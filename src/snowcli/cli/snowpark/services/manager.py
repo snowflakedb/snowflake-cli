@@ -2,6 +2,8 @@ import hashlib
 import os
 from pathlib import Path
 
+from snowflake.connector.cursor import SnowflakeCursor
+
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 
 
@@ -13,7 +15,7 @@ class ServiceManager(SqlExecutionMixin):
         spec_path: Path,
         num_instances: int,
         stage: str,
-    ):
+    ) -> SnowflakeCursor:
         spec_filename = os.path.basename(spec_path)
         file_hash = hashlib.md5(open(spec_path, "rb").read()).hexdigest()
         stage_dir = os.path.join("jobs", file_hash)
@@ -27,16 +29,16 @@ class ServiceManager(SqlExecutionMixin):
             """
         )
 
-    def desc(self, service_name: str):
+    def desc(self, service_name: str) -> SnowflakeCursor:
         return self._execute_query(f"desc service {service_name}")
 
-    def show(self):
+    def show(self) -> SnowflakeCursor:
         return self._execute_query("show services")
 
-    def status(self, service_name: str):
+    def status(self, service_name: str) -> SnowflakeCursor:
         return self._execute_query(f"CALL SYSTEM$GET_SERVICE_STATUS(('{service_name}')")
 
-    def drop(self, service_name: str):
+    def drop(self, service_name: str) -> SnowflakeCursor:
         return self._execute_query(f"drop service {service_name}")
 
     def logs(self, service_name: str, container_name: str):

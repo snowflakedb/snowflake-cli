@@ -4,7 +4,6 @@ import os
 import tempfile
 from pathlib import Path
 from shutil import rmtree
-from typing import Optional
 
 import click
 import logging
@@ -12,19 +11,9 @@ import typer
 from requirements.requirement import Requirement
 
 from snowcli import utils
-from snowcli.cli.common.flags import (
-    DEFAULT_CONTEXT_SETTINGS,
-    ConnectionOption,
-    AccountOption,
-    UserOption,
-    DatabaseOption,
-    SchemaOption,
-    RoleOption,
-    WarehouseOption,
-)
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
-from snowcli.snow_connector import connect_to_snowflake
 
 app = typer.Typer(
     name="package",

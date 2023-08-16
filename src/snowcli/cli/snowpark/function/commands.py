@@ -18,6 +18,7 @@ from snowcli.cli.snowpark_shared import (
 )
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
+from snowcli.output.printing import OutputData
 from snowcli.utils import (
     prepare_app_zip,
     get_snowflake_packages,
@@ -97,7 +98,7 @@ def function_create(
         help="Replace if existing function",
     ),
     **options,
-):
+) -> OutputData:
     """Creates a python UDF/UDTF using local artifact."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
@@ -126,7 +127,7 @@ def function_create(
 
     packages = get_snowflake_packages()
 
-    return fm.create(
+    cursor = fm.create(
         identifier=function_identifier,
         handler=handler,
         return_type=return_type,
@@ -134,6 +135,7 @@ def function_create(
         packages=packages,
         overwrite=overwrite,
     )
+    return OutputData.from_cursor(cursor)
 
 
 @app.command("update")
@@ -183,7 +185,7 @@ def function_package(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
-):
+) -> None:
     """Packages function code into zip file."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
@@ -203,9 +205,10 @@ def function_execute(
         help="Function with inputs. E.g. 'hello(int, string)'",
     ),
     **options,
-):
+) -> OutputData:
     """Executes a Snowflake function."""
-    return FunctionManager().execute(expression=function)
+    cursor = FunctionManager().execute(expression=function)
+    return OutputData.from_cursor(cursor)
 
 
 @app.command("describe")
@@ -221,13 +224,14 @@ def function_describe(
         help="Function signature with inputs. E.g. 'hello(int, string)'",
     ),
     **options,
-):
+) -> OutputData:
     """Describes a Snowflake function."""
-    return FunctionManager().describe(
+    cursor = FunctionManager().describe(
         identifier=FunctionManager.identifier(
             name=name, signature=input_parameters, name_and_signature=function
         )
     )
+    return OutputData.from_cursor(cursor)
 
 
 @app.command("list")
@@ -241,9 +245,10 @@ def function_list(
         help='Filter functions by name - e.g. "hello%"',
     ),
     **options,
-):
+) -> OutputData:
     """Lists Snowflake functions."""
-    return FunctionManager().show(like=like)
+    cursor = FunctionManager().show(like=like)
+    return OutputData.from_cursor(cursor)
 
 
 @app.command("drop")
@@ -259,10 +264,11 @@ def function_drop(
         help="Function signature with inputs. E.g. 'hello(int, string)'",
     ),
     **options,
-):
+) -> OutputData:
     """Drops a Snowflake function."""
-    return FunctionManager().drop(
+    cursor = FunctionManager().drop(
         identifier=FunctionManager.identifier(
             name=name, signature=input_parameters, name_and_signature=signature
         )
     )
+    return OutputData.from_cursor(cursor)

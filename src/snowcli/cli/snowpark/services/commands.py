@@ -9,6 +9,7 @@ from snowcli.cli.snowpark.common import print_log_lines
 from snowcli.cli.snowpark.services.manager import ServiceManager
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
+from snowcli.output.printing import OutputData
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS, name="services", help="Manage services"
@@ -35,7 +36,7 @@ def create(
     ),
     stage: str = typer.Option("SOURCE_STAGE", "--stage", "-l", help="Stage name"),
     **options,
-):
+) -> OutputData:
     """
     Create service
     """
@@ -43,20 +44,21 @@ def create(
     stage_manager.create(stage_name=stage)
     stage_manager.put(local_path=str(spec_path), stage_path=stage, overwrite=True)
 
-    return ServiceManager().create(
+    cursor = ServiceManager().create(
         service_name=name,
         num_instances=num_instances,
         compute_pool=compute_pool,
         spec_path=spec_path,
         stage=stage,
     )
+    return OutputData.from_cursor(cursor)
 
 
 @app.command()
 def desc(
     environment: str = ConnectionOption,
     name: str = typer.Argument(..., help="Service Name"),
-):
+) -> OutputData:
     """
     Desc Service
     """
@@ -66,31 +68,36 @@ def desc(
 @app.command()
 @with_output
 @global_options
-def status(name: str = typer.Argument(..., help="Service Name"), **options):
+def status(
+    name: str = typer.Argument(..., help="Service Name"), **options
+) -> OutputData:
     """
     Logs Service
     """
-    return ServiceManager().status(service_name=name)
+    cursor = ServiceManager().status(service_name=name)
+    return OutputData.from_cursor(cursor)
 
 
 @app.command()
 @with_output
 @global_options
-def list(**options):
+def list(**options) -> OutputData:
     """
     List Service
     """
-    return ServiceManager().show()
+    cursor = ServiceManager().show()
+    return OutputData.from_cursor(cursor)
 
 
 @app.command()
 @with_output
 @global_options
-def drop(name: str = typer.Argument(..., help="Service Name"), **options):
+def drop(name: str = typer.Argument(..., help="Service Name"), **options) -> OutputData:
     """
     Drop Service
     """
-    return ServiceManager().drop(service_name=name)
+    cursor = ServiceManager().drop(service_name=name)
+    return OutputData.from_cursor(cursor)
 
 
 @app.command()

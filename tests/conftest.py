@@ -124,7 +124,7 @@ def mock_ctx(mock_cursor):
             if self.cs:
                 return (self.cs,)
             else:
-                return (mock_cursor(["row"], []),)
+                return [mock_cursor(["row"], [])]
 
         def execute_stream(self, query: StringIO):
             return self.execute_string(query.read())
