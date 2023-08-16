@@ -20,13 +20,13 @@ class TestPackage:
         [
             (
                 "snowflake-connector-python",
-                "Package snowflake-connector-python is available on the Snowflake Anaconda channel.",
-                "snowcli.cli.snowpark.package",
+                "Package snowflake-connector-python is available on the Snowflake anaconda channel.",
+                "snowcli.cli.snowpark.package.commands",
             ),
             (
                 "some-weird-package-we-dont-know",
-                "not found in Snowflake anaconda channel...",
-                "snowcli.utils",
+                "Lookup for package some-weird-package-we-dont-know resulted in some error. Please check the package name and try again",
+                "snowcli.cli.snowpark.package.commands"
             ),
         ],
     )
@@ -38,16 +38,14 @@ class TestPackage:
             test_data.anaconda_response
         )
 
-        monkeypatch.setattr("sys.stdin", io.StringIO("N"))
-
         with caplog.at_level(logging.DEBUG, logger=argument[2]):
             result = runner.invoke(
                 ["snowpark", "package", "lookup", argument[0], "--yes"]
             )
-
+        print(caplog.text)
         assert result.exit_code == 0
         assert caplog.text
-        assert argument[1] in caplog.text
+        assert argument[1] in caplog.messages
 
     @patch("tests.test_package.package.manager.utils.install_packages")
     @patch("tests.test_package.package.manager.utils.parse_anaconda_packages")
@@ -75,13 +73,6 @@ class TestPackage:
             'include the following in your packages: [<Requirement: "snowflake-snowpark-python">]'
             in caplog.text
         )
-
-    def test_something(self):
-        from snowcli.utils import parse_anaconda_packages
-
-        result = parse_anaconda_packages([Requirement("PyRTF3")])
-        print(result)
-        assert False
 
     @patch("tests.test_package.package.manager.utils.requests")
     def test_package_create(

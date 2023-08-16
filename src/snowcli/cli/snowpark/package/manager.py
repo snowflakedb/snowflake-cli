@@ -14,7 +14,7 @@ from snowcli.cli.snowpark.package.utils import (
     LookupResult,
     InAnaconda,
     RequiresPackages,
-    Unsupported,
+    NotInAnaconda,
     NothingFound,
 )
 from snowcli.utils import SplitRequirements
@@ -41,9 +41,9 @@ class PackageManager:
                     if result.snowflake:
                         return RequiresPackages(result)
                     else:
-                        return Unsupported(result)
+                        return NotInAnaconda(result)
 
-        return NothingFound()
+        return NothingFound(SplitRequirements([], []))
 
     def upload(self, file: Path, stage: str, overwrite: bool):
         conn = snow_cli_global_context_manager.get_connection()

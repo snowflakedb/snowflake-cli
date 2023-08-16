@@ -3,23 +3,21 @@ from dataclasses import dataclass
 from snowcli.utils import SplitRequirements
 
 
+@dataclass
 class LookupResult:
+    requirements: SplitRequirements
+
+
+class InAnaconda(LookupResult):
     pass
 
 
-@dataclass
-class InAnaconda(LookupResult):
-    requirements: SplitRequirements
-
-
-@dataclass
 class RequiresPackages(LookupResult):
-    requirements: SplitRequirements
+    pass
 
 
-@dataclass
-class Unsupported(LookupResult):
-    requirements: SplitRequirements
+class NotInAnaconda(LookupResult):
+    pass
 
 
 class NothingFound(LookupResult):

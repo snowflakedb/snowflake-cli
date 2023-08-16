@@ -10,7 +10,7 @@ from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark.package.manager import PackageManager
 from snowcli.cli.snowpark.package.utils import (
     InAnaconda,
-    Unsupported,
+    NotInAnaconda,
     RequiresPackages,
     NothingFound,
 )
@@ -26,7 +26,6 @@ log = logging.getLogger(__name__)
 
 @app.command("lookup")
 @global_options
-@with_output
 def package_lookup(
     name: str = typer.Argument(..., help="Name of the package"),
     install_packages: bool = typer.Option(
@@ -42,14 +41,25 @@ def package_lookup(
     In install_packages flag is set to True, command will check all the dependencies of the packages
     outside snowflake channel.
     """
-    result = PackageManager().lookup(name=name, install_packages=install_packages)
+    lookup_result = PackageManager().lookup(name=name, install_packages=install_packages)
 
-    if type(result) == InAnaconda:
-        return f"Package {name} is available on the Snowflake anaconda channel."
-    elif type(result) == RequiresPackages:
-        return f"""The package {name} is supported, but does depend on the
+    if type(lookup_result) == InAnaconda:
+        message = f"Package {name} is available on the Snowflake anaconda channel."
+    elif type(lookup_result) == RequiresPackages:
+        message = f"""The package {name} is supported, but does depend on the
                 following Snowflake supported native libraries. You should
-                include the following in your packages: {result.requirements.snowflake}"""
+                include the following in your packages: {lookup_result.requirements.snowflake}"""
+    elif type(lookup_result) == NotInAnaconda:
+        message = f"""The package {name} is avaiable through PIP. You can create a zip using:\n
+                snow snowpark package create {name} -y"""
+    elif type(lookup_result) == NothingFound:
+        message = f"Lookup for package {name} resulted in some error. Please check the package name and try again"
+    q = log.name
+    log.info(message)
+    return message
+
+
+
 
 
 @app.command("upload")
