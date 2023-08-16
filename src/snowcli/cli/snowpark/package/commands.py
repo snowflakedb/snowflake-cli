@@ -41,7 +41,9 @@ def package_lookup(
     In install_packages flag is set to True, command will check all the dependencies of the packages
     outside snowflake channel.
     """
-    lookup_result = PackageManager().lookup(name=name, install_packages=install_packages)
+    lookup_result = PackageManager().lookup(
+        name=name, install_packages=install_packages
+    )
 
     if type(lookup_result) == InAnaconda:
         message = f"Package {name} is available on the Snowflake anaconda channel."
@@ -57,9 +59,6 @@ def package_lookup(
     q = log.name
     log.info(message)
     return message
-
-
-
 
 
 @app.command("upload")
