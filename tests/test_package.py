@@ -9,6 +9,7 @@ from requirements.requirement import Requirement
 from unittest.mock import ANY, MagicMock, patch
 
 from snowcli.cli.snowpark import package
+from snowcli.cli.snowpark.package.utils import NotInAnaconda
 from snowcli.utils import SplitRequirements
 from tests.test_data import test_data
 from tests.testing_utils.files_and_dirs import create_named_file
@@ -74,23 +75,25 @@ class TestPackage:
             in caplog.text
         )
 
-    @patch("tests.test_package.package.manager.utils.requests")
+    @patch("tests.test_package.package.manager.PackageManager.lookup")
     def test_package_create(
-        self, mock_requests, caplog, temp_dir, dot_packages_directory, runner
+        self, mock_lookup, caplog, temp_dir, dot_packages_directory, runner
     ) -> None:
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = test_data.anaconda_response
-        mock_requests.get.return_value = mock_response
+
+        mock_lookup.return_value = NotInAnaconda(
+            SplitRequirements([], ["some-other-package"])
+        )
 
         with caplog.at_level(logging.DEBUG, logger="snowcli.cli.snowpark.package"):
             result = runner.invoke(
                 ["snowpark", "package", "create", "totally-awesome-package", "--yes"]
             )
-        zip_file = ZipFile("totally-awesome-package.zip", "r")
 
         assert result.exit_code == 0
         assert os.path.isfile("totally-awesome-package.zip")
+
+        zip_file = ZipFile("totally-awesome-package.zip", "r")
+
         assert (
             ".packages/totally-awesome-package/totally-awesome-module.py"
             in zip_file.namelist()

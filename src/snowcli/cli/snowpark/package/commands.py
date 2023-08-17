@@ -103,6 +103,8 @@ def package_create(
     """
     Create a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
     """
+    q = PackageManager().lookup(name, install_packages)
+    print(q)
     if type(
         lookup_result := PackageManager().lookup(
             name=name, install_packages=install_packages
