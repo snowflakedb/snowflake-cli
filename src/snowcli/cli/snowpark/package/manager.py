@@ -16,6 +16,8 @@ from snowcli.cli.snowpark.package.utils import (
     RequiresPackages,
     NotInAnaconda,
     NothingFound,
+    CreatedSuccessfully,
+    CreationError,
 )
 from snowcli.utils import SplitRequirements
 
@@ -23,9 +25,8 @@ log = logging.getLogger(__name__)
 
 
 class PackageManager:
-    def lookup(
-        self, name: str, install_packages: bool, _run_nested: bool = False
-    ) -> LookupResult:
+    @staticmethod
+    def lookup(name: str, install_packages: bool) -> LookupResult:
 
         package_response = utils.parse_anaconda_packages([Requirement.parse(name)])
 
@@ -70,26 +71,31 @@ class PackageManager:
             )
 
     def create(self, name: str):
+        file_name = name + ".zip"
         if os.path.exists(".packages"):
+            utils.recursive_zip_packages_dir(pack_dir=".packages", dest_zip=file_name)
 
-            utils.recursive_zip_packages_dir(".packages", name + ".zip")
-
-            self._cleanup_after_install()
-        return f"Package {name}.zip created. You can now upload it to a stage (`snow package upload -f {name}.zip -s packages`) and reference it in your procedure or function."
-
-    @staticmethod
-    def _determine_lookup_result(
-        status: bool, reqs: SplitRequirements, name: str
-    ) -> str:
-        if status and reqs and reqs.snowflake:
-            return f"""
-                The package {name} is supported, but does depend on the
-                following Snowflake supported native libraries. You should
-                include the following in your packages: {reqs.snowflake}
-                """
-        return ""
+        if os.path.exists(file_name):
+            return CreatedSuccessfully(Path(file_name))
+        else:
+            return CreationError()
 
     @staticmethod
-    def _cleanup_after_install():
+    def cleanup_after_install():
         if os.path.exists(".packages"):
             rmtree(".packages")
+
+    @staticmethod
+    def create_lookup_message(lookup_result: LookupResult, name: str):
+
+        if type(lookup_result) == InAnaconda:
+            return f"Package {name} is available on the Snowflake anaconda channel."
+        elif type(lookup_result) == RequiresPackages:
+            return f"""The package {name} is supported, but does depend on the
+                    following Snowflake supported native libraries. You should
+                    include the following in your packages: {lookup_result.requirements.snowflake}"""
+        elif type(lookup_result) == NotInAnaconda:
+            return f"""The package {name} is avaiable through PIP. You can create a zip using:\n
+                    snow snowpark package create {name} -y"""
+        else:
+            return f"Lookup for package {name} resulted in some error. Please check the package name and try again"

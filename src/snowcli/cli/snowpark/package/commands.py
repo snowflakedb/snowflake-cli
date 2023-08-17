@@ -13,8 +13,9 @@ from snowcli.cli.snowpark.package.utils import (
     NotInAnaconda,
     RequiresPackages,
     NothingFound,
+    CreatedSuccessfully,
 )
-from snowcli.output.decorators import with_output
+
 
 app = typer.Typer(
     name="package",
@@ -44,20 +45,13 @@ def package_lookup(
     lookup_result = PackageManager().lookup(
         name=name, install_packages=install_packages
     )
+    PackageManager().cleanup_after_install()
+    log.info(
+        message := PackageManager().create_lookup_message(
+            lookup_result=lookup_result, name=name
+        )
+    )
 
-    if type(lookup_result) == InAnaconda:
-        message = f"Package {name} is available on the Snowflake anaconda channel."
-    elif type(lookup_result) == RequiresPackages:
-        message = f"""The package {name} is supported, but does depend on the
-                following Snowflake supported native libraries. You should
-                include the following in your packages: {lookup_result.requirements.snowflake}"""
-    elif type(lookup_result) == NotInAnaconda:
-        message = f"""The package {name} is avaiable through PIP. You can create a zip using:\n
-                snow snowpark package create {name} -y"""
-    elif type(lookup_result) == NothingFound:
-        message = f"Lookup for package {name} resulted in some error. Please check the package name and try again"
-    q = log.name
-    log.info(message)
     return message
 
 
@@ -88,7 +82,7 @@ def package_upload(
     """
     Upload a python package zip file to a Snowflake stage, so it can be referenced in the imports of a procedure or function.
     """
-    return PackageManager().upload(file, stage, overwrite)
+    return PackageManager().upload(file=file, stage=stage, overwrite=overwrite)
 
 
 @app.command("create")
@@ -109,5 +103,24 @@ def package_create(
     """
     Create a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
     """
-    PackageManager().lookup(name, install_packages, True)
-    PackageManager().create(name)
+    if type(
+        lookup_result := PackageManager().lookup(
+            name=name, install_packages=install_packages
+        )
+    ) in [NotInAnaconda, RequiresPackages]:
+
+        if (
+            type(creation_result := PackageManager().create(name))
+            == CreatedSuccessfully
+        ):
+            message = f"Package {name}.zip created. You can now upload it to a stage (`snow snowpark package upload -f {name}.zip -s packages`) and reference it in your procedure or function."
+            if type(lookup_result) == RequiresPackages:
+                message += PackageManager().create_lookup_message(
+                    lookup_result=lookup_result, name=name
+                )
+        else:
+            message = PackageManager().create_lookup_message(
+                lookup_result=lookup_result, name=name
+            )
+        PackageManager().cleanup_after_install()
+        return message
