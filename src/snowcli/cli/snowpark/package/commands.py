@@ -52,7 +52,7 @@ def package_lookup(
         )
     )
 
-    return message
+    print(message)
 
 
 @app.command("upload")
@@ -103,8 +103,7 @@ def package_create(
     """
     Create a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
     """
-    q = PackageManager().lookup(name, install_packages)
-    print(q)
+
     if type(
         lookup_result := PackageManager().lookup(
             name=name, install_packages=install_packages
@@ -125,4 +124,5 @@ def package_create(
                 lookup_result=lookup_result, name=name
             )
         PackageManager().cleanup_after_install()
-        return message
+        log.info(message)
+        print(message)
