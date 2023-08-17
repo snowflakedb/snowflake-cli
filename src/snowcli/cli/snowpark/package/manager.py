@@ -62,13 +62,13 @@ class PackageManager:
                 role=conn.ctx.role,
                 warehouse=conn.ctx.warehouse,
             )
-        log.info(
-            f"Package {file} {deploy_response.description[6]} to Snowflake @{stage}/{file}."
-        )
+
+        message = f"Package {file} {deploy_response.description[6]} to Snowflake @{stage}/{file}."
+
         if deploy_response.description[6] == "SKIPPED":
-            log.info(
-                "Package already exists on stage. Consider using --overwrite to overwrite the file."
-            )
+            message = "Package already exists on stage. Consider using --overwrite to overwrite the file."
+
+        return message
 
     def create(self, name: str):
         file_name = name + ".zip"

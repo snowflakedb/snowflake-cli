@@ -78,11 +78,14 @@ def package_upload(
         help="Overwrite the file if it already exists",
     ),
     **kwargs,
-) -> str:
+) -> None:
     """
     Upload a python package zip file to a Snowflake stage, so it can be referenced in the imports of a procedure or function.
     """
-    return PackageManager().upload(file=file, stage=stage, overwrite=overwrite)
+    log.info(
+        message := PackageManager().upload(file=file, stage=stage, overwrite=overwrite)
+    )
+    print(message)
 
 
 @app.command("create")
