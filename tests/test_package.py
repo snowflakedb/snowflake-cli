@@ -14,7 +14,7 @@ from snowcli.cli.snowpark.package.utils import NotInAnaconda
 from snowcli.utils import SplitRequirements
 from tests.test_data import test_data
 from tests.testing_utils.files_and_dirs import create_named_file
-from tests.testing_utils.fixtures import dot_packages_directory, package_file, temp_dir
+from tests.testing_utils.fixtures import *
 
 
 class TestPackage:

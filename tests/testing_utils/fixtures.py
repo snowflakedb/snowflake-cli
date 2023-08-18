@@ -32,6 +32,12 @@ def correct_requirements_txt(temp_dir) -> Generator:
 
 
 @pytest.fixture
+def dot_packages_directory(temp_dir):
+    dir_path = ".packages/totally-awesome-package"
+    os.makedirs(dir_path)
+    create_named_file("totally-awesome-module.py",dir_path, [])
+
+@pytest.fixture
 def include_paths_env_variable(other_directory: str) -> Generator:
     os.environ["SNOWCLI_INCLUDE_PATHS"] = other_directory
     yield os.environ["SNOWCLI_INCLUDE_PATHS"]
@@ -52,6 +58,11 @@ def other_directory_with_chdir(other_directory: str) -> Generator:
     yield other_directory
     os.chdir(initial_dir)
 
+
+@pytest.fixture
+def package_file():
+    with tempfile.TemporaryDirectory() as tmp:
+        yield create_named_file("app.zip", tmp, [])
 
 @pytest.fixture
 def temp_dir():
@@ -78,16 +89,3 @@ def temp_file_in_other_directory(other_directory: str) -> Generator:
 def txt_file_in_a_subdir(temp_dir: str) -> Generator:
     subdir = tempfile.TemporaryDirectory(dir=temp_dir)
     yield create_temp_file(".txt", subdir.name, [])
-
-
-@pytest.fixture
-def package_file(self):
-    with tempfile.TemporaryDirectory() as tmp:
-        yield create_named_file("app.zip", tmp, [])
-
-
-@pytest.fixture
-def dot_packages_directory(self, temp_dir):
-    dir_path = Path(".packages/totally-awesome-package")
-    os.makedirs(dir_path)
-    create_named_file("totally-awesome-module.py", dir_path, [])
