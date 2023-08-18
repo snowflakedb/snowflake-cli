@@ -1,6 +1,7 @@
 import io
 import logging
 import os
+from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
@@ -43,7 +44,7 @@ class TestPackage:
             result = runner.invoke(
                 ["snowpark", "package", "lookup", argument[0], "--yes"]
             )
-        print(caplog.text)
+
         assert result.exit_code == 0
         assert caplog.text
         assert argument[1] in caplog.messages
@@ -134,12 +135,10 @@ class TestPackage:
 
     @pytest.fixture
     def dot_packages_directory(self, temp_dir):
-        os.mkdir(".packages")
-        os.chdir(".packages")
-        os.mkdir("totally-awesome-package")
-        os.chdir("totally-awesome-package")
-        create_named_file("totally-awesome-module.py", os.getcwd(), [])
-        os.chdir(temp_dir.name)
+        dir_path = Path(".packages/totally-awesome-package")
+        os.makedirs(dir_path)
+        create_named_file("totally-awesome-module.py",dir_path, [])
+
 
     @staticmethod
     def mocked_anaconda_response(response: dict):
