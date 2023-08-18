@@ -14,6 +14,7 @@ from snowcli.cli.snowpark.package.utils import NotInAnaconda
 from snowcli.utils import SplitRequirements
 from tests.test_data import test_data
 from tests.testing_utils.files_and_dirs import create_named_file
+from tests.testing_utils.fixtures import dot_packages_directory, package_file, temp_dir
 
 
 class TestPackage:
@@ -118,27 +119,6 @@ class TestPackage:
             role=ANY,
             warehouse=ANY,
         )
-
-    @pytest.fixture
-    def temp_dir(self):
-        initial_dir = os.getcwd()
-        tmp = tempfile.TemporaryDirectory()
-        os.chdir(tmp.name)
-        yield tmp
-        os.chdir(initial_dir)
-        tmp.cleanup()
-
-    @pytest.fixture
-    def package_file(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            yield create_named_file("app.zip", tmp, [])
-
-    @pytest.fixture
-    def dot_packages_directory(self, temp_dir):
-        dir_path = Path(".packages/totally-awesome-package")
-        os.makedirs(dir_path)
-        create_named_file("totally-awesome-module.py",dir_path, [])
-
 
     @staticmethod
     def mocked_anaconda_response(response: dict):
