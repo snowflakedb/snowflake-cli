@@ -35,7 +35,8 @@ def correct_requirements_txt(temp_dir) -> Generator:
 def dot_packages_directory(temp_dir):
     dir_path = ".packages/totally-awesome-package"
     os.makedirs(dir_path)
-    create_named_file("totally-awesome-module.py",dir_path, [])
+    create_named_file("totally-awesome-module.py", dir_path, [])
+
 
 @pytest.fixture
 def include_paths_env_variable(other_directory: str) -> Generator:
@@ -63,6 +64,7 @@ def other_directory_with_chdir(other_directory: str) -> Generator:
 def package_file():
     with tempfile.TemporaryDirectory() as tmp:
         yield create_named_file("app.zip", tmp, [])
+
 
 @pytest.fixture
 def temp_dir():

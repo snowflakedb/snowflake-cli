@@ -14,22 +14,23 @@ from snowflake.connector.cursor import SnowflakeCursor
 
 from typer import Typer
 from typer.testing import CliRunner
+from tests.testing_utils.fixtures import *
 
 TEST_DIR = Path(__file__).parent
 
 
 @pytest.fixture(scope="session")
-def test_root_path():
-    return TEST_DIR
-
-
-@pytest.fixture(scope="session")
 def test_snowcli_config():
     test_config = TEST_DIR / "test.toml"
-    with NamedTemporaryFile(suffix=".toml", mode="w+") as fh:
+    with tempfile.NamedTemporaryFile(suffix=".toml", mode="w+") as fh:
         fh.write(test_config.read_text())
         fh.flush()
         yield Path(fh.name)
+
+
+@pytest.fixture(scope="session")
+def test_root_path():
+    return TEST_DIR
 
 
 class SnowCLIRunner(CliRunner):
@@ -130,13 +131,3 @@ def mock_ctx(mock_cursor):
             return self.execute_string(query.read())
 
     return lambda cursor=None: _MockConnectionCtx(cursor)
-
-
-@pytest.fixture
-def execute_in_tmp_dir():
-    initial_dir = os.getcwd()
-    tmp_dir = tempfile.TemporaryDirectory()
-    os.chdir(tmp_dir.name)
-    yield tmp_dir
-    tmp_dir.cleanup()
-    os.chdir(initial_dir)

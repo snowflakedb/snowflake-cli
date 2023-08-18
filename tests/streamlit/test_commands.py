@@ -5,6 +5,8 @@ from textwrap import dedent
 from unittest import mock
 from unittest.mock import call
 
+from tests.testing_utils.fixtures import temp_dir
+
 STREAMLIT_NAME = "test_streamlit"
 
 
@@ -172,7 +174,7 @@ def test_deploy_streamlit_with_packaging_workaround(
     mock_cursor,
     runner,
     mock_ctx,
-    execute_in_tmp_dir,
+    temp_dir,
 ):
     ctx = mock_ctx(
         mock_cursor(
