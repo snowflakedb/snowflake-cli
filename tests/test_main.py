@@ -14,6 +14,7 @@ from typer.main import get_command
 
 from snowcli.__about__ import VERSION
 from snowcli.config import cli_config
+from tests.testing_utils.fixtures import *
 
 
 def test_help_option(runner):

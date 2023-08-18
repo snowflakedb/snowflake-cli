@@ -2,7 +2,9 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from unittest import mock
 
+from tests.testing_utils.fixtures import *
 from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
+
 
 MOCK_CONNECTION = "snowcli.cli.sql.snow_cli_global_context_manager.get_connection"
 

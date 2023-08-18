@@ -2,6 +2,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
+from tests.testing_utils.fixtures import *
+
 STAGE_MANAGER = "snowcli.cli.stage.manager.StageManager"
 
 

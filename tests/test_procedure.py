@@ -9,7 +9,7 @@ import pytest
 import snowcli.utils
 from snowcli.cli.snowpark import procedure
 from snowcli.utils import SplitRequirements
-from tests.testing_utils.fixtures import temp_dir
+from tests.testing_utils.fixtures import *
 
 
 class TestProcedure:

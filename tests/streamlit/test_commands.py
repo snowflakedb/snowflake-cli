@@ -5,7 +5,7 @@ from textwrap import dedent
 from unittest import mock
 from unittest.mock import call
 
-from tests.testing_utils.fixtures import temp_dir
+from tests.testing_utils.fixtures import *
 
 STREAMLIT_NAME = "test_streamlit"
 
