@@ -27,34 +27,6 @@
   desc PROCEDURE signatureValue;
   '''
 # ---
-# name: test_drop_procedure
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  drop procedure signatureValue;
-  '''
-# ---
-# name: test_execute_procedure
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  call procedureValue;
-  '''
-# ---
-# name: test_list_procedures
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  show user procedures like 'likeValue';
-  select "name", "created_on", "arguments" from table(result_scan(last_query_id()));
-  '''
-# ---
 # name: test_set_procedure_comment
   '''
   use role roleValue;

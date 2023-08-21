@@ -20,7 +20,11 @@ from snowcli.cli.snowpark_shared import (
 )
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
-from snowcli.utils import create_project_template, prepare_app_zip, get_snowflake_packages
+from snowcli.utils import (
+    create_project_template,
+    prepare_app_zip,
+    get_snowflake_packages,
+)
 
 app = typer.Typer(
     name="procedure",
