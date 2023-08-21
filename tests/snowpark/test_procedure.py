@@ -10,39 +10,45 @@ from unittest import mock
 @mock.patch("snowcli.cli.snowpark.procedure.commands.snowpark_package")
 @mock.patch("snowcli.cli.snowpark.procedure.commands.TemporaryDirectory")
 def test_create_procedure(
-    mock_tmp_dir, mock_package_create, mock_connector, runner, mock_ctx, snapshot
+    mock_tmp_dir,
+    mock_package_create,
+    mock_connector,
+    runner,
+    mock_ctx,
+    snapshot,
+    execute_in_tmp_dir,
 ):
     tmp_dir = TemporaryDirectory()
     mock_tmp_dir.return_value = tmp_dir
 
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    with TemporaryDirectory() as tmp_dir_2:
-        local_dir = Path(tmp_dir_2)
-        (local_dir / "requirements.snowflake.txt").write_text("foo=1.2.3\nbar>=3.0.0")
 
-        app = local_dir / "app.py"
-        app.touch()
+    tmp_dir_2 = execute_in_tmp_dir.name
+    local_dir = Path(tmp_dir_2)
+    (local_dir / "requirements.snowflake.txt").write_text("foo=1.2.3\nbar>=3.0.0")
 
-        os.chdir(local_dir)
-        result = runner.invoke_with_config(
-            [
-                "snowpark",
-                "procedure",
-                "create",
-                "--name",
-                "procedureName",
-                "--file",
-                str(app),
-                "--handler",
-                "main.py:app",
-                "--return-type",
-                "table(variant)",
-                "--input-parameters",
-                "(a string, b number)",
-                "--overwrite",
-            ]
-        )
+    app = local_dir / "app.py"
+    app.touch()
+
+    result = runner.invoke_with_config(
+        [
+            "snowpark",
+            "procedure",
+            "create",
+            "--name",
+            "procedureName",
+            "--file",
+            str(app),
+            "--handler",
+            "main.py:app",
+            "--return-type",
+            "table(variant)",
+            "--input-parameters",
+            "(a string, b number)",
+            "--overwrite",
+        ]
+    )
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
@@ -76,6 +82,7 @@ def test_create_procedure_with_coverage(
     runner,
     mock_ctx,
     snapshot,
+    execute_in_tmp_dir,
 ):
     tmp_dir = TemporaryDirectory()
     mock_tmp_dir.return_value = tmp_dir
@@ -84,33 +91,33 @@ def test_create_procedure_with_coverage(
 
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    with TemporaryDirectory() as tmp_dir_2:
-        local_dir = Path(tmp_dir_2)
-        (local_dir / "requirements.snowflake.txt").write_text("foo=1.2.3\nbar>=3.0.0")
 
-        app = local_dir / "app.py"
-        app.touch()
+    tmp_dir_2 = execute_in_tmp_dir.name
+    local_dir = Path(tmp_dir_2)
+    (local_dir / "requirements.snowflake.txt").write_text("foo=1.2.3\nbar>=3.0.0")
 
-        os.chdir(local_dir)
-        result = runner.invoke_with_config(
-            [
-                "snowpark",
-                "procedure",
-                "create",
-                "--name",
-                "procedureName",
-                "--file",
-                str(app),
-                "--handler",
-                "main.py:app",
-                "--return-type",
-                "table(variant)",
-                "--input-parameters",
-                "(a string, b number)",
-                "--overwrite",
-                "--install-coverage-wrapper",
-            ]
-        )
+    app = local_dir / "app.py"
+    app.touch()
+
+    result = runner.invoke_with_config(
+        [
+            "snowpark",
+            "procedure",
+            "create",
+            "--name",
+            "procedureName",
+            "--file",
+            str(app),
+            "--handler",
+            "main.py:app",
+            "--return-type",
+            "table(variant)",
+            "--input-parameters",
+            "(a string, b number)",
+            "--overwrite",
+            "--install-coverage-wrapper",
+        ]
+    )
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
@@ -145,39 +152,45 @@ def test_create_procedure_with_coverage(
 @mock.patch("snowcli.cli.snowpark.procedure.commands.snowpark_package")
 @mock.patch("snowcli.cli.snowpark_shared.tempfile.TemporaryDirectory")
 def test_update_procedure(
-    mock_tmp_dir, mock_package_create, mock_connector, runner, mock_ctx, snapshot
+    mock_tmp_dir,
+    mock_package_create,
+    mock_connector,
+    runner,
+    mock_ctx,
+    snapshot,
+    execute_in_tmp_dir,
 ):
     tmp_dir = TemporaryDirectory()
     mock_tmp_dir.return_value = tmp_dir
 
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    with TemporaryDirectory() as tmp_dir_2:
-        local_dir = Path(tmp_dir_2)
-        (local_dir / "requirements.snowflake.txt").write_text("foo=1.2.3\nbar>=3.0.0")
+    tmp_dir_2 = execute_in_tmp_dir.name
+    local_dir = Path(tmp_dir_2)
+    (local_dir / "requirements.snowflake.txt").write_text("foo=1.2.3\nbar>=3.0.0")
 
-        app = local_dir / "app.py"
-        app.touch()
+    app = local_dir / "app.py"
+    app.touch()
 
-        os.chdir(local_dir)
-        result = runner.invoke_with_config(
-            [
-                "snowpark",
-                "procedure",
-                "update",
-                "--name",
-                "functionName",
-                "--file",
-                str(app),
-                "--handler",
-                "main.py:app",
-                "--return-type",
-                "table(variant)",
-                "--input-parameters",
-                "(a string, b number)",
-                "--replace-always",
-            ]
-        )
+    os.chdir(local_dir)
+    result = runner.invoke_with_config(
+        [
+            "snowpark",
+            "procedure",
+            "update",
+            "--name",
+            "functionName",
+            "--file",
+            str(app),
+            "--handler",
+            "main.py:app",
+            "--return-type",
+            "table(variant)",
+            "--input-parameters",
+            "(a string, b number)",
+            "--replace-always",
+        ]
+    )
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
