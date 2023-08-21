@@ -6,8 +6,6 @@ from zipfile import ZipFile
 
 import pytest
 
-import snowcli.utils
-from snowcli.cli.snowpark import procedure
 from snowcli.utils import SplitRequirements
 
 
