@@ -7,7 +7,7 @@ import click
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 
 
-class FunctionManager(SqlExecutionMixin):
+class ProcedureManager(SqlExecutionMixin):
     @staticmethod
     def identifier(
         name: Optional[str] = None,
@@ -30,19 +30,19 @@ class FunctionManager(SqlExecutionMixin):
         return name_and_signature
 
     def drop(self, identifier: str):
-        return self._execute_query(f"drop function {identifier}")
+        return self._execute_query(f"drop procedure {identifier}")
 
     def show(self, like: Optional[str] = None):
-        query = "show user functions"
+        query = "show user procedures"
         if like:
             query += f" like '{like}'"
         return self._execute_query(query)
 
     def describe(self, identifier: str):
-        return self._execute_query(f"describe function {identifier}")
+        return self._execute_query(f"describe procedure {identifier}")
 
     def execute(self, expression: str):
-        return self._execute_query(f"select {expression}")
+        return self._execute_query(f"call {expression}")
 
     @staticmethod
     def artifact_stage_path(identifier: str):
@@ -74,12 +74,12 @@ class FunctionManager(SqlExecutionMixin):
         artifact_file: str,
         packages: List[str],
         overwrite: bool,
+        execute_as_caller: bool,
     ):
         create_stmt = "create or replace" if overwrite else "create"
         packages_list = ",".join(f"'{p}'" for p in packages)
-        return self._execute_query(
-            f"""\
-            {create_stmt} function {identifier}
+        query = f"""\
+            {create_stmt} procedure {identifier}
             returns {return_type}
             language python
             runtime_version=3.8
@@ -87,4 +87,6 @@ class FunctionManager(SqlExecutionMixin):
             handler='{handler}'
             packages=({packages_list})
         """
-        )
+        if execute_as_caller:
+            query += "\nexecute as caller"
+        return self._execute_query(query)
