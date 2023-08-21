@@ -39,7 +39,7 @@ def test_create_streamlit_with_use_packaging_workaround(
     mock_connector.return_value = ctx
 
     with NamedTemporaryFile(suffix=".py") as file:
-        result = runner.invoke(
+        result = runner.invoke_with_config(
             [
                 "streamlit",
                 "create",

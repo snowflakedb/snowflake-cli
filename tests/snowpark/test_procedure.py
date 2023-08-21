@@ -183,7 +183,7 @@ def test_update_procedure(
     assert ctx.get_queries() == [
         dedent(
             f"""\
-use role mockRole;
+use role MockRole;
 use warehouse MockWarehouse;
 use database MockDatabase;
 use schema MockSchema;
@@ -191,7 +191,7 @@ desc PROCEDURE functionName(string, number);"""
         ),
         dedent(
             f"""\
-use role mockRole;
+use role MockRole;
 use warehouse MockWarehouse;
 use database MockDatabase;
 use schema MockSchema;
@@ -204,7 +204,7 @@ put file://{tmp_dir.name}/{app.name} @MockDatabase.MockSchema.deployments/functi
         ),
         dedent(
             f"""\
-use role mockRole;
+use role MockRole;
 use warehouse MockWarehouse;
 use database MockDatabase;
 use schema MockSchema;
