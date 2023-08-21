@@ -129,9 +129,7 @@ def test_anaconda_packages_with_incorrect_response(mock_requests):
         result = utils.parse_anaconda_packages(test_data.packages)
 
 
-def test_generate_streamlit_environment_file_with_no_requirements(
-    other_directory_with_chdir: str,
-):
+def test_generate_streamlit_environment_file_with_no_requirements():
     result = utils.generate_streamlit_environment_file(
         [],
     )
