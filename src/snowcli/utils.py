@@ -589,9 +589,8 @@ class File:
 
 
 def create_project_template(template_name: str):
-    with importlib.resources.path("templates", template_name) as file:  # type: ignore
-        shutil.copytree(
-            file,
-            f"{os.getcwd()}",
-            dirs_exist_ok=True,
-        )
+    shutil.copytree(
+        Path(importlib.util.find_spec("templates").origin).parent / template_name,  # type: ignore
+        f"{os.getcwd()}",
+        dirs_exist_ok=True,
+    )
