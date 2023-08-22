@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from shutil import copytree
 from tempfile import TemporaryDirectory
 
-import pkg_resources
 import typer
 
 from snowcli.cli.common.decorators import global_options
@@ -21,7 +18,11 @@ from snowcli.cli.snowpark_shared import (
 )
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
-from snowcli.utils import prepare_app_zip, get_snowflake_packages
+from snowcli.utils import (
+    prepare_app_zip,
+    get_snowflake_packages,
+    create_project_template,
+)
 
 app = typer.Typer(
     name="function",
@@ -63,14 +64,7 @@ def function_init():
     """
     Initialize this directory with a sample set of files to create a function.
     """
-    copytree(
-        pkg_resources.resource_filename(
-            "templates",
-            "default_function",
-        ),
-        f"{os.getcwd()}",
-        dirs_exist_ok=True,
-    )
+    create_project_template("default_function")
 
 
 @app.command("create")
