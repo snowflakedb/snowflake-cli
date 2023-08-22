@@ -18,6 +18,8 @@ class SqlExecutionMixin:
         return self._conn.run_sql(template_name, payload)
 
     def _execute_query(self, query: str):
-        results = self._conn.ctx.execute_string(dedent(query))
-        *_, last_result = results
+        *_, last_result = self._conn.ctx.execute_string(dedent(query))
         return last_result
+
+    def _execute_queries(self, queries: str):
+        return self._conn.ctx.execute_string(dedent(queries))

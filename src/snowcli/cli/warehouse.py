@@ -7,6 +7,7 @@ from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.output.decorators import with_output
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.output.printing import OutputData
 
 app = typer.Typer(
     name="warehouse",
@@ -27,4 +28,5 @@ def warehouse_status(**options):
     """
     Show the status of each warehouse in the configured environment.
     """
-    return WarehouseManager().show()
+    cursor = WarehouseManager().show()
+    return OutputData.from_cursor(cursor)

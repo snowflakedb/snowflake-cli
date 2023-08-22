@@ -9,6 +9,7 @@ from snowcli.cli.snowpark.common import print_log_lines
 from snowcli.cli.snowpark.jobs.manager import JobManager
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
+from snowcli.output.printing import OutputData
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS, name="jobs", help="Manage jobs"
@@ -31,7 +32,7 @@ def create(
     ),
     stage: str = typer.Option("SOURCE_STAGE", "--stage", "-l", help="Stage name"),
     **options,
-):
+) -> OutputData:
     """
     Create Job
     """
@@ -39,19 +40,21 @@ def create(
     stage_manager.create(stage_name=stage)
     stage_manager.put(local_path=str(spec_path), stage_path=stage, overwrite=True)
 
-    return JobManager().create(
+    cursor = JobManager().create(
         compute_pool=compute_pool, spec_path=spec_path, stage=stage
     )
+    return OutputData.from_cursor(cursor)
 
 
 @app.command()
 @with_output
 @global_options
-def desc(id: str = typer.Argument(..., help="Job id"), **options):
+def desc(id: str = typer.Argument(..., help="Job id"), **options) -> OutputData:
     """
     Desc Service
     """
-    return JobManager().desc(job_name=id)
+    cursor = JobManager().desc(job_name=id)
+    return OutputData.from_cursor(cursor)
 
 
 @app.command()
@@ -75,18 +78,20 @@ def logs(
 @app.command()
 @with_output
 @global_options
-def status(id: str = typer.Argument(..., help="Job id"), **options):
+def status(id: str = typer.Argument(..., help="Job id"), **options) -> OutputData:
     """
     Returns status of a job.
     """
-    return JobManager().status(job_name=id)
+    cursor = JobManager().status(job_name=id)
+    return OutputData.from_cursor(cursor)
 
 
 @app.command()
 @with_output
 @global_options
-def drop(id: str = typer.Argument(..., help="Job id"), **options):
+def drop(id: str = typer.Argument(..., help="Job id"), **options) -> OutputData:
     """
     Drop Service
     """
-    return JobManager().drop(job_name=id)
+    cursor = JobManager().drop(job_name=id)
+    return OutputData.from_cursor(cursor)
