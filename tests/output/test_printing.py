@@ -2,14 +2,15 @@ import json
 from datetime import datetime
 from textwrap import dedent
 from typing import NamedTuple
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 from click import Context, Command
 from snowflake.connector.cursor import SnowflakeCursor
 
+from snowcli.exception import OutputDataTypeError
 from snowcli.output.formats import OutputFormat
-from snowcli.output.printing import print_output, OutputData, print_db_cursor
+from snowcli.output.printing import print_output, OutputData
 
 
 class MockResultMetadata(NamedTuple):
@@ -17,7 +18,8 @@ class MockResultMetadata(NamedTuple):
 
 
 def test_print_db_cursor_table(capsys):
-    print_output(OutputData(OutputFormat.TABLE).add_data(_create_mock_cursor()))
+    output_data = OutputData.from_cursor(_create_mock_cursor(), OutputFormat.TABLE)
+    print_output(output_data)
 
     assert _get_output(capsys) == dedent(
         """\
@@ -35,7 +37,9 @@ def test_print_multi_cursors_table(capsys):
     mock_cursor = _create_mock_cursor()
 
     output_data = (
-        OutputData(OutputFormat.TABLE).add_data(mock_cursor).add_data(mock_cursor)
+        OutputData(format=OutputFormat.TABLE)
+        .add_cursor(mock_cursor)
+        .add_cursor(mock_cursor)
     )
 
     print_output(output_data)
@@ -60,10 +64,10 @@ def test_print_multi_cursors_table(capsys):
 
 def test_print_different_data_sources_table(capsys):
     output_data = (
-        OutputData(OutputFormat.TABLE)
-        .add_data(_create_mock_cursor())
-        .add_data("Command done")
-        .add_data([{"key": "value"}])
+        OutputData(format=OutputFormat.TABLE)
+        .add_cursor(_create_mock_cursor())
+        .add_string("Command done")
+        .add_list([{"key": "value"}])
     )
 
     print_output(output_data)
@@ -87,7 +91,7 @@ def test_print_different_data_sources_table(capsys):
 
 
 def test_print_db_cursor_json(capsys):
-    print_output(OutputData(OutputFormat.JSON).add_data(_create_mock_cursor()))
+    print_output(OutputData(format=OutputFormat.JSON).add_cursor(_create_mock_cursor()))
 
     assert _get_output_as_json(capsys) == [
         {
@@ -111,7 +115,9 @@ def test_print_multi_db_cursor_json(capsys):
     mock_cursor = _create_mock_cursor()
 
     output_data = (
-        OutputData(OutputFormat.JSON).add_data(mock_cursor).add_data(mock_cursor)
+        OutputData(format=OutputFormat.JSON)
+        .add_cursor(mock_cursor)
+        .add_cursor(mock_cursor)
     )
     print_output(output_data)
 
@@ -153,10 +159,10 @@ def test_print_multi_db_cursor_json(capsys):
 
 def test_print_different_data_sources_json(capsys):
     output_data = (
-        OutputData(OutputFormat.JSON)
-        .add_data(_create_mock_cursor())
-        .add_data("Command done")
-        .add_data([{"key": "value"}])
+        OutputData(format=OutputFormat.JSON)
+        .add_cursor(_create_mock_cursor())
+        .add_string("Command done")
+        .add_list([{"key": "value"}])
     )
 
     print_output(output_data)
@@ -184,7 +190,7 @@ def test_print_different_data_sources_json(capsys):
 
 
 def test_print_with_no_data_table(capsys):
-    output_data = OutputData(OutputFormat.TABLE)
+    output_data = OutputData(format=OutputFormat.TABLE)
 
     print_output(output_data)
 
@@ -192,30 +198,69 @@ def test_print_with_no_data_table(capsys):
 
 
 def test_print_with_no_data_json(capsys):
-    output_data = OutputData(OutputFormat.JSON)
+    output_data = OutputData(format=OutputFormat.JSON)
 
     print_output(output_data)
 
     assert _get_output(capsys) == "Done\n"
 
 
-@patch("snowcli.output.printing.click.get_current_context")
-def test_print_db_cursor_filters_columns(mock_context, capsys):
-    _mock_output_format(mock_context, "JSON")
+def test_raise_error_when_try_add_wrong_data_type_to_from_cursor():
+    with pytest.raises(OutputDataTypeError) as exception:
+        OutputData.from_cursor("")
 
-    print_db_cursor(_create_mock_cursor(), columns=["string", "object"])
-
-    assert _get_output_as_json(capsys) == [
-        {"string": "string", "object": {"k": "object"}},
-        {"string": "string", "object": {"k": "object"}},
-    ]
+    assert (
+        exception.value.args[0]
+        == "Got <class 'str'> type but expected <class 'snowflake.connector.cursor.SnowflakeCursor'>"
+    )
 
 
-def test_raise_error_when_add_not_supported_data_type():
-    with pytest.raises(TypeError) as exception:
-        OutputData().add_data(None)
+def test_raise_error_when_try_add_wrong_data_type_to_from_string():
+    with pytest.raises(OutputDataTypeError) as exception:
+        OutputData.from_string(0)
 
-    assert exception.value.args[0] == "unsupported data type <class 'NoneType'>"
+    assert (
+        exception.value.args[0] == "Got <class 'int'> type but expected <class 'str'>"
+    )
+
+
+def test_raise_error_when_try_add_wrong_data_type_to_from_list():
+    with pytest.raises(OutputDataTypeError) as exception:
+        OutputData.from_list("")
+
+    assert (
+        exception.value.args[0]
+        == "Got <class 'str'> type but expected typing.List[dict]"
+    )
+
+
+def test_raise_error_when_try_add_wrong_data_type_to_add_cursor():
+    with pytest.raises(OutputDataTypeError) as exception:
+        OutputData().add_cursor("")
+
+    assert (
+        exception.value.args[0]
+        == "Got <class 'str'> type but expected <class 'snowflake.connector.cursor.SnowflakeCursor'>"
+    )
+
+
+def test_raise_error_when_try_add_wrong_data_type_to_add_string():
+    with pytest.raises(OutputDataTypeError) as exception:
+        OutputData().add_string(0)
+
+    assert (
+        exception.value.args[0] == "Got <class 'int'> type but expected <class 'str'>"
+    )
+
+
+def test_raise_error_when_try_add_wrong_data_type_to_add_list():
+    with pytest.raises(OutputDataTypeError) as exception:
+        OutputData().add_list("")
+
+    assert (
+        exception.value.args[0]
+        == "Got <class 'str'> type but expected typing.List[dict]"
+    )
 
 
 def _mock_output_format(mock_context, format):

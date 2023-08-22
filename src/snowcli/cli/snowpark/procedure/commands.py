@@ -20,6 +20,7 @@ from snowcli.cli.snowpark_shared import (
 )
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
+from snowcli.output.printing import OutputData
 from snowcli.utils import (
     create_project_template,
     prepare_app_zip,
@@ -97,7 +98,7 @@ def procedure_create(
         help="Wraps the procedure with a code coverage measurement tool, so that a coverage report can be later retrieved.",
     ),
     **options,
-):
+) -> OutputData:
     """Creates a python procedure using local artifact."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
@@ -134,7 +135,7 @@ def procedure_create(
 
     packages = get_snowflake_packages()
 
-    return pm.create(
+    cursor = pm.create(
         identifier=procedure_identifier,
         handler=handler,
         return_type=return_type,
@@ -143,6 +144,7 @@ def procedure_create(
         overwrite=overwrite,
         execute_as_caller=execute_as_caller,
     )
+    return OutputData.from_cursor(cursor)
 
 
 @app.command("update")
@@ -243,9 +245,10 @@ def procedure_execute(
         help="Procedure with inputs. E.g. 'hello(int, string)'. Must exactly match those provided when creating the procedure.",
     ),
     **options,
-):
+) -> OutputData:
     """Executes a Snowflake procedure."""
-    return ProcedureManager().execute(expression=signature)
+    cursor = ProcedureManager().execute(expression=signature)
+    return OutputData.from_cursor(cursor)
 
 
 @app.command("describe")
@@ -266,15 +269,16 @@ def procedure_describe(
         help="Procedure signature with inputs. E.g. 'hello(int, string)'",
     ),
     **options,
-):
+) -> OutputData:
     """Describes a Snowflake procedure."""
-    return ProcedureManager().describe(
+    cursor = ProcedureManager().describe(
         ProcedureManager.identifier(
             name=name,
             signature=input_parameters,
             name_and_signature=signature,
         )
     )
+    return OutputData.from_cursor(cursor)
 
 
 @app.command("list")
@@ -288,9 +292,10 @@ def procedure_list(
         help='Filter procedures by name - e.g. "hello%"',
     ),
     **options,
-):
+) -> OutputData:
     """Lists Snowflake procedures."""
-    return ProcedureManager().show(like=like)
+    cursor = ProcedureManager().show(like=like)
+    return OutputData.from_cursor(cursor)
 
 
 @app.command("drop")
@@ -311,12 +316,13 @@ def procedure_drop(
         help="Procedure signature with inputs. E.g. 'hello(int, string)'",
     ),
     **options,
-):
+) -> OutputData:
     """Drops a Snowflake procedure."""
-    return ProcedureManager().drop(
+    cursor = ProcedureManager().drop(
         ProcedureManager.identifier(
             name=name,
             signature=input_parameters,
             name_and_signature=signature,
         )
     )
+    return OutputData.from_cursor(cursor)

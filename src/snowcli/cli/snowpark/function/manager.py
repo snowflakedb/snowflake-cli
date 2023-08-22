@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Optional, List
 
 import click
+from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 
@@ -29,19 +30,19 @@ class FunctionManager(SqlExecutionMixin):
 
         return name_and_signature
 
-    def drop(self, identifier: str):
+    def drop(self, identifier: str) -> SnowflakeCursor:
         return self._execute_query(f"drop function {identifier}")
 
-    def show(self, like: Optional[str] = None):
+    def show(self, like: Optional[str] = None) -> SnowflakeCursor:
         query = "show user functions"
         if like:
             query += f" like '{like}'"
         return self._execute_query(query)
 
-    def describe(self, identifier: str):
+    def describe(self, identifier: str) -> SnowflakeCursor:
         return self._execute_query(f"describe function {identifier}")
 
-    def execute(self, expression: str):
+    def execute(self, expression: str) -> SnowflakeCursor:
         return self._execute_query(f"select {expression}")
 
     @staticmethod
@@ -74,7 +75,7 @@ class FunctionManager(SqlExecutionMixin):
         artifact_file: str,
         packages: List[str],
         overwrite: bool,
-    ):
+    ) -> SnowflakeCursor:
         create_stmt = "create or replace" if overwrite else "create"
         packages_list = ",".join(f"'{p}'" for p in packages)
         return self._execute_query(

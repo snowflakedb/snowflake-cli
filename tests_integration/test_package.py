@@ -15,9 +15,8 @@ class TestPackage:
         self, runner, example_file, snowflake_session, test_database
     ):
 
-        result = runner.invoke_with_config_and_integration_connection(
+        result = runner.invoke_integration(
             [
-                "--debug",
                 "snowpark",
                 "package",
                 "upload",
@@ -27,12 +26,12 @@ class TestPackage:
                 f"{self.STAGE_NAME}",
             ]
         )
-        assert result.exit_code == 0, result.output
+        assert result.exit_code == 0
 
-        result = snowflake_session.execute_string(f"LIST @{self.STAGE_NAME}")
+        expect = snowflake_session.execute_string(f"LIST @{self.STAGE_NAME}")
 
         assert contains_row_with(
-            row_from_snowflake_session(result),
+            row_from_snowflake_session(expect),
             {"name": f"{self.STAGE_NAME.lower()}/{example_file.name}"},
         )
 
