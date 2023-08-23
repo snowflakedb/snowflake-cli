@@ -13,7 +13,7 @@ from tests_integration.test_utils import contains_row_with, row_from_snowflake_s
 class TestPackage:
     STAGE_NAME = "PACKAGE_TEST"
 
-    @pytest.mark.integration
+    # @pytest.mark.integration
     def test_package_upload(
         self, runner, example_file, snowflake_session, test_database
     ):

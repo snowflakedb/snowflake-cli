@@ -20,7 +20,8 @@ from snowcli.cli.snowpark.package.utils import (
     NothingFound,
     CreatedSuccessfully,
 )
-
+from snowcli.output.decorators import with_output
+from snowcli.output.printing import OutputData
 
 app = typer.Typer(
     name="package",
@@ -54,6 +55,7 @@ def package_lookup(
 
 @app.command("upload")
 @global_options
+@with_output
 def package_upload(
     file: Path = typer.Option(
         ...,
@@ -75,11 +77,11 @@ def package_upload(
         help="Overwrite the file if it already exists",
     ),
     **kwargs,
-) -> None:
+) -> OutputData:
     """
     Upload a python package zip file to a Snowflake stage, so it can be referenced in the imports of a procedure or function.
     """
-    print(upload(file=file, stage=stage, overwrite=overwrite))
+    return OutputData.from_string(upload(file=file, stage=stage, overwrite=overwrite))
 
 
 @app.command("create")
