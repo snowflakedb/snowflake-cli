@@ -43,7 +43,7 @@ def test_create_function(
     assert ctx.get_queries() == [
         "create stage if not exists deployments comment='deployments managed by snowcli'",
         f"put file://{tmp_dir.name}/{Path(fh.name).name} @deployments/functionnamea_string_b_number"
-        f" auto_compress=false parallel=4 overwrite=False",
+        f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
             create or replace function functionName(a string, b number)
@@ -81,7 +81,7 @@ def test_update_function(
     app = Path(temp_dir) / "app.py"
     app.touch()
 
-    result = runner.invoke(
+    result = runner.invoke_with_config(
         [
             "snowpark",
             "function",

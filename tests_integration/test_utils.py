@@ -1,3 +1,4 @@
+import datetime
 from typing import List, Dict
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -17,14 +18,19 @@ def row_from_snowflake_session(
 
 
 def rows_from_snowflake_session(
-    result: List[SnowflakeCursor],
+    results: List[SnowflakeCursor],
 ) -> List[List[Dict[str, str]]]:
-    return [row_from_cursor(cursor) for cursor in result]
+    return [row_from_cursor(cursor) for cursor in results]
 
 
 def row_from_cursor(cursor: SnowflakeCursor) -> List[Dict[str, str]]:
     column_names = [column.name for column in cursor.description]
-    return [dict(zip(column_names, row)) for row in cursor.fetchall()]
+    rows = [dict(zip(column_names, row)) for row in cursor.fetchall()]
+    for row in rows:
+        for column in row:
+            if isinstance(row[column], datetime.datetime):
+                row[column] = row[column].isoformat()
+    return rows
 
 
 def contains_row_with(rows: List[Dict[str, str]], values: Dict[str, str]) -> bool:

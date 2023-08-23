@@ -29,9 +29,12 @@ def test_streamlit_help(runner):
 
 @mock.patch("snowcli.snow_connector.SnowflakeConnector")
 @mock.patch.dict(os.environ, {}, clear=True)
-def test_custom_config_path(mock_conn, runner):
+def test_custom_config_path(mock_conn, runner, mock_cursor):
     config_file = Path(__file__).parent / "test.toml"
-    mock_conn.return_value.ctx.execute_string.return_value = [None, mock.MagicMock()]
+    mock_conn.return_value.ctx.execute_string.return_value = [
+        None,
+        mock_cursor(["row"], []),
+    ]
     result = runner.invoke(
         ["--config-file", str(config_file), "warehouse", "status"],
         catch_exceptions=False,

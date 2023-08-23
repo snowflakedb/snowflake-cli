@@ -1,15 +1,44 @@
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Union
 
 import typer
 from click import UsageError
+from snowflake.connector.cursor import SnowflakeCursor
 
-from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 from snowcli.cli.common.decorators import global_options
-from snowcli.output.printing import print_output, OutputData
+from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.output.decorators import with_output
+from snowcli.output.printing import OutputData
 
 
+class SqlManager(SqlExecutionMixin):
+    def execute(
+        self, query: Optional[str], file: Optional[Path]
+    ) -> List[SnowflakeCursor]:
+        sys_input = None
+
+        if query and file:
+            raise UsageError("Both query and file provided, please specify only one.")
+
+        if not sys.stdin.isatty():
+            sys_input = sys.stdin.read()
+
+        if sys_input and (query or file):
+            raise UsageError(
+                "Can't use stdin input together with query or filename option."
+            )
+
+        if not query and not file and not sys_input:
+            raise UsageError("Provide either query or filename argument")
+        elif sys_input:
+            sql = sys_input
+        else:
+            sql = query if query else file.read_text()  # type: ignore
+        return self._execute_queries(sql)
+
+
+@with_output
 @global_options
 def execute_sql(
     query: Optional[str] = typer.Option(
@@ -29,40 +58,15 @@ def execute_sql(
         help="File to execute.",
     ),
     **options
-):
+) -> OutputData:
     """
     Executes Snowflake query.
 
     Query to execute can be specified using query option, filename option (all queries from file will be executed)
     or via stdin by piping output from other command. For example `cat my.sql | snow sql`.
     """
-    sys_input = None
-
-    if query and file:
-        raise UsageError("Both query and file provided, please specify only one.")
-
-    if not sys.stdin.isatty():
-        sys_input = sys.stdin.read()
-
-    if sys_input and (query or file):
-        raise UsageError(
-            "Can't use stdin input together with query or filename option."
-        )
-
-    if not query and not file and not sys_input:
-        raise UsageError("Provide either query or filename argument")
-    elif sys_input:
-        sql = sys_input
-    else:
-        sql = query if query else file.read_text()  # type: ignore
-
-    conn = snow_cli_global_context_manager.get_connection()
-
-    results = conn.ctx.execute_string(
-        sql_text=sql,
-        remove_comments=True,
-    )
+    cursors = SqlManager().execute(query, file)
     output_data = OutputData()
-    for result in results:
-        output_data.add_data(result)
-    print_output(output_data)
+    for cursor in cursors:
+        output_data.add_cursor(cursor)
+    return output_data

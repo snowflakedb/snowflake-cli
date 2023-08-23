@@ -94,14 +94,14 @@ class TestPackage:
         )
         os.remove("totally-awesome-package.zip")
 
-    @patch("snowcli.cli.sql.snow_cli_global_context_manager.get_connection")
-    def test_package_upload(self, mock_conn, package_file: str, runner) -> None:
+    @patch("snowcli.cli.snowpark.package.snow_cli_global_context_manager")
+    def test_package_upload(self, mock_ctx_manager, package_file: str, runner) -> None:
         result = runner.invoke(
             ["snowpark", "package", "upload", "-f", package_file, "-s", "stageName"]
         )
 
         assert result.exit_code == 0
-        mock_conn.return_value.upload_file_to_stage.assert_called_with(
+        mock_ctx_manager.get_connection.return_value.upload_file_to_stage.assert_called_with(
             file_path=ANY,
             destination_stage="stageName",
             path="/",

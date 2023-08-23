@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from shutil import copytree
 from tempfile import TemporaryDirectory
 
-import pkg_resources
 import typer
 
 from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
+from snowcli.cli.constants import DEPLOYMENT_STAGE
 from snowcli.cli.snowpark.function.manager import FunctionManager
 from snowcli.cli.snowpark_shared import (
     CheckAnacondaForPyPiDependancies,
@@ -20,9 +18,12 @@ from snowcli.cli.snowpark_shared import (
 )
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
-from snowcli.utils import prepare_app_zip, get_snowflake_packages
-
-DEPLOYMENT_STAGE = "deployments"
+from snowcli.output.printing import OutputData
+from snowcli.utils import (
+    prepare_app_zip,
+    get_snowflake_packages,
+    create_project_template,
+)
 
 app = typer.Typer(
     name="function",
@@ -64,14 +65,7 @@ def function_init():
     """
     Initialize this directory with a sample set of files to create a function.
     """
-    copytree(
-        pkg_resources.resource_filename(
-            "templates",
-            "default_function",
-        ),
-        f"{os.getcwd()}",
-        dirs_exist_ok=True,
-    )
+    create_project_template("default_function")
 
 
 @app.command("create")
@@ -104,7 +98,7 @@ def function_create(
         help="Replace if existing function",
     ),
     **options,
-):
+) -> OutputData:
     """Creates a python UDF/UDTF using local artifact."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
@@ -125,11 +119,15 @@ def function_create(
 
     with TemporaryDirectory() as temp_dir:
         temp_app_zip_path = prepare_app_zip(file, temp_dir)
-        sm.put(local_path=temp_app_zip_path, stage_path=str(artifact_location))
+        sm.put(
+            local_path=temp_app_zip_path,
+            stage_path=str(artifact_location),
+            overwrite=overwrite,
+        )
 
     packages = get_snowflake_packages()
 
-    return fm.create(
+    cursor = fm.create(
         identifier=function_identifier,
         handler=handler,
         return_type=return_type,
@@ -137,6 +135,7 @@ def function_create(
         packages=packages,
         overwrite=overwrite,
     )
+    return OutputData.from_cursor(cursor)
 
 
 @app.command("update")
@@ -186,7 +185,7 @@ def function_package(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
-):
+) -> None:
     """Packages function code into zip file."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
@@ -206,9 +205,10 @@ def function_execute(
         help="Function with inputs. E.g. 'hello(int, string)'",
     ),
     **options,
-):
+) -> OutputData:
     """Executes a Snowflake function."""
-    return FunctionManager().execute(expression=function)
+    cursor = FunctionManager().execute(expression=function)
+    return OutputData.from_cursor(cursor)
 
 
 @app.command("describe")
@@ -224,13 +224,14 @@ def function_describe(
         help="Function signature with inputs. E.g. 'hello(int, string)'",
     ),
     **options,
-):
+) -> OutputData:
     """Describes a Snowflake function."""
-    return FunctionManager().describe(
+    cursor = FunctionManager().describe(
         identifier=FunctionManager.identifier(
             name=name, signature=input_parameters, name_and_signature=function
         )
     )
+    return OutputData.from_cursor(cursor)
 
 
 @app.command("list")
@@ -244,9 +245,10 @@ def function_list(
         help='Filter functions by name - e.g. "hello%"',
     ),
     **options,
-):
+) -> OutputData:
     """Lists Snowflake functions."""
-    return FunctionManager().show(like=like)
+    cursor = FunctionManager().show(like=like)
+    return OutputData.from_cursor(cursor)
 
 
 @app.command("drop")
@@ -262,10 +264,11 @@ def function_drop(
         help="Function signature with inputs. E.g. 'hello(int, string)'",
     ),
     **options,
-):
+) -> OutputData:
     """Drops a Snowflake function."""
-    return FunctionManager().drop(
+    cursor = FunctionManager().drop(
         identifier=FunctionManager.identifier(
             name=name, signature=input_parameters, name_and_signature=signature
         )
     )
+    return OutputData.from_cursor(cursor)
