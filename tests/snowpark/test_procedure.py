@@ -4,6 +4,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from textwrap import dedent
 from unittest import mock
+from tests.testing_utils.fixtures import *
 
 
 @mock.patch("snowflake.connector.connect")
@@ -16,7 +17,7 @@ def test_create_procedure(
     runner,
     mock_ctx,
     snapshot,
-    execute_in_tmp_dir,
+    temp_dir,
 ):
     tmp_dir = TemporaryDirectory()
     mock_tmp_dir.return_value = tmp_dir
@@ -24,7 +25,7 @@ def test_create_procedure(
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    tmp_dir_2 = execute_in_tmp_dir.name
+    tmp_dir_2 = temp_dir
     local_dir = Path(tmp_dir_2)
     (local_dir / "requirements.snowflake.txt").write_text("foo=1.2.3\nbar>=3.0.0")
 
@@ -82,7 +83,7 @@ def test_create_procedure_with_coverage(
     runner,
     mock_ctx,
     snapshot,
-    execute_in_tmp_dir,
+    temp_dir,
 ):
     tmp_dir = TemporaryDirectory()
     mock_tmp_dir.return_value = tmp_dir
@@ -92,7 +93,7 @@ def test_create_procedure_with_coverage(
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    tmp_dir_2 = execute_in_tmp_dir.name
+    tmp_dir_2 = temp_dir
     local_dir = Path(tmp_dir_2)
     (local_dir / "requirements.snowflake.txt").write_text("foo=1.2.3\nbar>=3.0.0")
 
@@ -158,14 +159,14 @@ def test_update_procedure(
     runner,
     mock_ctx,
     snapshot,
-    execute_in_tmp_dir,
+    temp_dir,
 ):
     tmp_dir = TemporaryDirectory()
     mock_tmp_dir.return_value = tmp_dir
 
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    tmp_dir_2 = execute_in_tmp_dir.name
+    tmp_dir_2 = temp_dir
     local_dir = Path(tmp_dir_2)
     (local_dir / "requirements.snowflake.txt").write_text("foo=1.2.3\nbar>=3.0.0")
 

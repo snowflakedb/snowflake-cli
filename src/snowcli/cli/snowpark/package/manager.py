@@ -85,18 +85,3 @@ def create(name: str):
 def cleanup_after_install():
     if os.path.exists(".packages"):
         rmtree(".packages")
-
-
-def create_lookup_message(lookup_result: LookupResult, name: str):
-
-    if type(lookup_result) == InAnaconda:
-        return f"Package {name} is available on the Snowflake anaconda channel."
-    elif type(lookup_result) == RequiresPackages:
-        return f"""The package {name} is supported, but does depend on the
-                following Snowflake supported native libraries. You should
-                include the following in your packages: {lookup_result.requirements.snowflake}"""
-    elif type(lookup_result) == NotInAnaconda:
-        return f"""The package {name} is avaiable through PIP. You can create a zip using:\n
-                snow snowpark package create {name} -y"""
-    else:
-        return f"Lookup for package {name} resulted in some error. Please check the package name and try again"

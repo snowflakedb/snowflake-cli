@@ -11,7 +11,6 @@ from snowcli.cli.snowpark.package.manager import (
     lookup,
     create,
     cleanup_after_install,
-    create_lookup_message,
     upload,
 )
 from snowcli.cli.snowpark.package.utils import (

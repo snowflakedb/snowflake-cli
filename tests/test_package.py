@@ -94,7 +94,7 @@ class TestPackage:
         )
         os.remove("totally-awesome-package.zip")
 
-    @patch("snowcli.cli.snowpark.package.snow_cli_global_context_manager")
+    @patch("snowcli.cli.snowpark.package.manager.snow_cli_global_context_manager")
     def test_package_upload(self, mock_ctx_manager, package_file: str, runner) -> None:
         result = runner.invoke(
             ["snowpark", "package", "upload", "-f", package_file, "-s", "stageName"]
