@@ -7,7 +7,13 @@ import typer
 
 from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
-from snowcli.cli.snowpark.package.manager import PackageManager
+from snowcli.cli.snowpark.package.manager import (
+    lookup,
+    create,
+    cleanup_after_install,
+    create_lookup_message,
+    upload,
+)
 from snowcli.cli.snowpark.package.utils import (
     InAnaconda,
     NotInAnaconda,
@@ -42,17 +48,9 @@ def package_lookup(
     In install_packages flag is set to True, command will check all the dependencies of the packages
     outside snowflake channel.
     """
-    lookup_result = PackageManager().lookup(
-        name=name, install_packages=install_packages
-    )
-    PackageManager().cleanup_after_install()
-    log.info(
-        message := PackageManager().create_lookup_message(
-            lookup_result=lookup_result, name=name
-        )
-    )
-
-    print(message)
+    lookup_result = lookup(name=name, install_packages=install_packages)
+    cleanup_after_install()
+    print(lookup_result.message)
 
 
 @app.command("upload")
@@ -82,10 +80,7 @@ def package_upload(
     """
     Upload a python package zip file to a Snowflake stage, so it can be referenced in the imports of a procedure or function.
     """
-    log.info(
-        message := PackageManager().upload(file=file, stage=stage, overwrite=overwrite)
-    )
-    print(message)
+    print(upload(file=file, stage=stage, overwrite=overwrite))
 
 
 @app.command("create")
@@ -107,25 +102,17 @@ def package_create(
     Create a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
     """
 
-    if type(
-        lookup_result := PackageManager().lookup(
-            name=name, install_packages=install_packages
-        )
-    ) in [NotInAnaconda, RequiresPackages]:
+    if type(lookup_result := lookup(name=name, install_packages=install_packages)) in [
+        NotInAnaconda,
+        RequiresPackages,
+    ]:
 
-        if (
-            type(creation_result := PackageManager().create(name))
-            == CreatedSuccessfully
-        ):
+        if type(creation_result := create(name)) == CreatedSuccessfully:
             message = f"Package {name}.zip created. You can now upload it to a stage (`snow snowpark package upload -f {name}.zip -s packages`) and reference it in your procedure or function."
             if type(lookup_result) == RequiresPackages:
-                message += PackageManager().create_lookup_message(
-                    lookup_result=lookup_result, name=name
-                )
+                message += lookup_result.message
         else:
-            message = PackageManager().create_lookup_message(
-                lookup_result=lookup_result, name=name
-            )
-        PackageManager().cleanup_after_install()
-        log.info(message)
+            message = lookup_result.message
+
+        cleanup_after_install()
         print(message)

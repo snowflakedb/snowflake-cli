@@ -34,26 +34,20 @@ class TestPackage:
         ],
     )
     @patch("tests.test_package.package.manager.utils.requests")
-    def test_package_lookup(
-        self, mock_requests, caplog, argument, monkeypatch, runner
-    ) -> None:
+    def test_package_lookup(self, mock_requests, argument, monkeypatch, runner) -> None:
         mock_requests.get.return_value = self.mocked_anaconda_response(
             test_data.anaconda_response
         )
 
-        with caplog.at_level(logging.DEBUG, logger=argument[2]):
-            result = runner.invoke(
-                ["snowpark", "package", "lookup", argument[0], "--yes"]
-            )
+        result = runner.invoke(["snowpark", "package", "lookup", argument[0], "--yes"])
 
         assert result.exit_code == 0
-        assert caplog.text
-        assert argument[1] in caplog.messages
+        assert argument[1] in result.output
 
     @patch("tests.test_package.package.manager.utils.install_packages")
     @patch("tests.test_package.package.manager.utils.parse_anaconda_packages")
     def test_package_lookup_with_install_packages(
-        self, mock_package, mock_install, caplog, runner
+        self, mock_package, mock_install, runner, capfd
     ) -> None:
         mock_package.return_value = SplitRequirements(
             [], [Requirement("some-other-package")]
@@ -66,24 +60,22 @@ class TestPackage:
             ),
         )
 
-        with caplog.at_level(logging.DEBUG, logger="snowcli.cli.snowpark.package"):
-            result = runner.invoke(
-                ["snowpark", "package", "lookup", "some-other-package", "--yes"]
-            )
-
+        result = runner.invoke(
+            ["snowpark", "package", "lookup", "some-other-package", "--yes"]
+        )
         assert result.exit_code == 0
         assert (
             'include the following in your packages: [<Requirement: "snowflake-snowpark-python">]'
-            in caplog.text
+            in result.output
         )
 
-    @patch("tests.test_package.package.manager.PackageManager.lookup")
+    @patch("tests.test_package.package.commands.lookup")
     def test_package_create(
         self, mock_lookup, caplog, temp_dir, dot_packages_directory, runner
     ) -> None:
 
         mock_lookup.return_value = NotInAnaconda(
-            SplitRequirements([], ["some-other-package"])
+            SplitRequirements([], ["some-other-package"]), "totally-awesome-package"
         )
 
         with caplog.at_level(logging.DEBUG, logger="snowcli.cli.snowpark.package"):
