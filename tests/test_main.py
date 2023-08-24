@@ -14,6 +14,7 @@ from typer.main import get_command
 
 from snowcli.__about__ import VERSION
 from snowcli.config import cli_config
+from tests.testing_utils.fixtures import *
 
 
 def test_help_option(runner):
@@ -28,9 +29,12 @@ def test_streamlit_help(runner):
 
 @mock.patch("snowcli.snow_connector.SnowflakeConnector")
 @mock.patch.dict(os.environ, {}, clear=True)
-def test_custom_config_path(mock_conn, runner):
+def test_custom_config_path(mock_conn, runner, mock_cursor):
     config_file = Path(__file__).parent / "test.toml"
-    mock_conn.return_value.ctx.execute_string.return_value = [None, mock.MagicMock()]
+    mock_conn.return_value.ctx.execute_string.return_value = [
+        None,
+        mock_cursor(["row"], []),
+    ]
     result = runner.invoke(
         ["--config-file", str(config_file), "warehouse", "status"],
         catch_exceptions=False,

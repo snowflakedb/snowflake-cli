@@ -39,7 +39,7 @@ dev = [
   "coverage==7.3.0",
   "pre-commit==3.3.3",
   "pytest==7.4.0",
-  "syrupy==4.0.8",
+  "syrupy==4.2.0",
   "tox==4.6.4",
 ]
 

@@ -1,15 +1,23 @@
 from __future__ import annotations
 
 import functools
+import json
 import pytest
-
+from dataclasses import dataclass
 from pathlib import Path
 from snowcli.cli.app import app
 from tempfile import NamedTemporaryFile
 from typer import Typer
 from typer.testing import CliRunner
+from typing import List, Dict, Any
 
 TEST_DIR = Path(__file__).parent
+
+
+@dataclass
+class CommandResult:
+    exit_code: int
+    json: List[Dict[str, Any]]
 
 
 @pytest.fixture(scope="session")
@@ -47,6 +55,23 @@ class SnowCLIRunner(CliRunner):
             ["--config-file", self.test_snowcli_config, *args[0], "-c", "integration"],
             **kwargs,
         )
+
+    def invoke_integration(self, *args, **kwargs) -> CommandResult:
+        result = self.invoke(
+            [
+                "--format",
+                "JSON",
+                "--config-file",
+                self.test_snowcli_config,
+                *args[0],
+                "-c",
+                "integration",
+            ],
+            **kwargs,
+        )
+        if result.output == "":
+            return CommandResult(result.exit_code, [])
+        return CommandResult(result.exit_code, json.loads(result.output))
 
 
 @pytest.fixture

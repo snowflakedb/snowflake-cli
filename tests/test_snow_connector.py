@@ -1,10 +1,10 @@
 import os
-import textwrap
-from unittest import mock
-
 import pytest
 
 from snowcli.snow_connector import SnowflakeConnector, SnowflakeCursor
+from tests.testing_utils.fixtures import *
+from unittest import mock
+from snowcli.snow_connector import SnowflakeConnector
 
 
 # Used as a solution to syrupy having some problems with comparing multilines string
@@ -24,25 +24,22 @@ MOCK_CONNECTION = {
 @pytest.mark.parametrize(
     "cmd,expected",
     [
-        (["sql", "-q", "foo"], "SNOWCLI.SQL"),
-        (["warehouse", "status"], "SNOWCLI.WAREHOUSE.STATUS"),
+        ("snow sql", "SNOWCLI.SQL"),
+        ("snow warehouse status", "SNOWCLI.WAREHOUSE.STATUS"),
     ],
 )
-@mock.patch("snowcli.snow_connector.snowflake.connector.connect")
+@mock.patch("snowcli.snow_connector.snowflake.connector")
+@mock.patch("snowcli.snow_connector.click")
 def test_command_context_is_passed_to_snowflake_connection(
-    mock_conn, runner, cmd, expected
+    mock_click, mock_connector, runner, cmd, expected, mock_cursor
 ):
-    mock_cursor = mock.Mock(spec=SnowflakeCursor)
-    mock_cursor.description = []
-    mock_cursor.fetchall.return_value = []
+    mock_ctx = mock.Mock()
+    mock_ctx.command_path = cmd
+    mock_click.get_current_context.return_value = mock_ctx
 
-    mock_conn.return_value.execute_stream.return_value = [mock_cursor]
-    mock_conn.return_value.execute_string.return_value = [mock_cursor]
-    result = runner.invoke_with_config(cmd)
-    assert result.exit_code == 0, result.output
-    kwargs = mock_conn.call_args_list[-1][-1]
-    assert "application" in kwargs
-    assert kwargs["application"] == expected
+    SnowflakeConnector({})
+
+    mock_connector.connect.assert_called_once_with(application=expected)
 
 
 @mock.patch("snowflake.connector")
@@ -63,22 +60,6 @@ def test_create_procedure(_, snapshot):
         overwrite=True,
         packages=["aaa", "bbb"],
         execute_as_caller=True,
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
-@mock.patch("snowflake.connector")
-def test_execute_procedure(_, snapshot):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (None, None)
-
-    connector.execute_procedure(
-        procedure="procedureValue",
-        database="databaseValue",
-        schema="schemaValue",
-        role="roleValue",
-        warehouse="warehouseValue",
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
     assert query.getvalue() == snapshot
@@ -118,38 +99,6 @@ def test_set_procedure_comment(_, snapshot):
         input_parameters="(string a, variant b)",
         show_exceptions="show_exceptionsValue",
         comment="commentValue",
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
-@mock.patch("snowflake.connector")
-def test_list_procedures(_, snapshot):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (None, None)
-
-    connector.list_procedures(
-        database="databaseValue",
-        schema="schemaValue",
-        role="roleValue",
-        warehouse="warehouseValue",
-        like="likeValue",
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
-@mock.patch("snowflake.connector")
-def test_drop_procedure(_, snapshot):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (None, None)
-
-    connector.drop_procedure(
-        database="databaseValue",
-        schema="schemaValue",
-        role="roleValue",
-        warehouse="warehouseValue",
-        signature="signatureValue",
     )
     query, *_ = connector.ctx.execute_stream.call_args.args
     assert query.getvalue() == snapshot

@@ -133,14 +133,6 @@ def other_directory() -> Generator:
 
 
 @pytest.fixture
-def other_directory_with_chdir(other_directory: str) -> Generator:
-    initial_dir = os.getcwd()
-    os.chdir(other_directory)
-    yield other_directory
-    os.chdir(initial_dir)
-
-
-@pytest.fixture
 def package_file():
     with tempfile.TemporaryDirectory() as tmp:
         yield create_named_file("app.zip", tmp, [])

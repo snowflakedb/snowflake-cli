@@ -99,13 +99,12 @@ class StreamlitManager(SqlExecutionMixin):
             f"call SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('{streamlit_name}')"
         )
         base_url = query_result.fetchone()[0]
-
         url = self._get_url(base_url, qualified_name)
 
         if open_in_browser:
             typer.launch(url)
         else:
-            log.info(url)
+            return url
 
     def _packaging_workaround(
         self,
@@ -154,6 +153,9 @@ class StreamlitManager(SqlExecutionMixin):
             return base_url
 
         host_parts = connection_ctx.host.split(".")
+
+        if len(host_parts) == 3:
+            return base_url
 
         if len(host_parts) != 6:
             log.error(

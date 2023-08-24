@@ -5,7 +5,7 @@ from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark.compute_pool.manager import ComputePoolManager
 from snowcli.output.decorators import with_output
-
+from snowcli.output.printing import OutputData
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -22,43 +22,51 @@ def create(
     num_instances: int = typer.Option(..., "--num", "-d", help="Number of instances"),
     instance_family: str = typer.Option(..., "--family", "-f", help="Instance family"),
     **options,
-):
+) -> OutputData:
     """
     Create compute pool
     """
-    return ComputePoolManager().create(
+    cursor = ComputePoolManager().create(
         pool_name=name, num_instances=num_instances, instance_family=instance_family
     )
+    return OutputData.from_cursor(cursor)
 
 
 @app.command()
 @with_output
 @global_options
-def list(**options):
+def list(**options) -> OutputData:
     """
     List compute pools
     """
-    return ComputePoolManager().show()
+    cursor = ComputePoolManager().show()
+    return OutputData.from_cursor(cursor)
 
 
 @app.command()
 @with_output
 @global_options
-def drop(name: str = typer.Argument(..., help="Compute Pool Name"), **options):
+def drop(
+    name: str = typer.Argument(..., help="Compute Pool Name"), **options
+) -> OutputData:
     """
     Drop compute pool
     """
-    return ComputePoolManager().drop(pool_name=name)
+    cursor = ComputePoolManager().drop(pool_name=name)
+    return OutputData.from_cursor(cursor)
 
 
 @app.command()
 @with_output
 @global_options
-def stop(name: str = typer.Argument(..., help="Compute Pool Name"), **options):
+def stop(
+    name: str = typer.Argument(..., help="Compute Pool Name"), **options
+) -> OutputData:
     """
     Stop and delete all services running on Compute Pool
     """
-    return ComputePoolManager().stop(pool_name=name)
+    cursor = ComputePoolManager().stop(pool_name=name)
+    return OutputData.from_cursor(cursor)
 
 
 app_cp = build_alias(

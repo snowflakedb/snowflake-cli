@@ -5,6 +5,8 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 from textwrap import dedent
 from unittest import mock
 
+from tests.testing_utils.fixtures import *
+
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
@@ -41,7 +43,7 @@ def test_create_function(
     assert ctx.get_queries() == [
         "create stage if not exists deployments comment='deployments managed by snowcli'",
         f"put file://{tmp_dir.name}/{Path(fh.name).name} @deployments/functionnamea_string_b_number"
-        f" auto_compress=false parallel=4 overwrite=False",
+        f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
             create or replace function functionName(a string, b number)
@@ -67,21 +69,19 @@ def test_update_function(
     runner,
     mock_ctx,
     snapshot,
-    execute_in_tmp_dir,
+    temp_dir,
 ):
     tmp_dir = TemporaryDirectory()
     mock_tmp_dir.return_value = tmp_dir
 
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    (Path(execute_in_tmp_dir.name) / "requirements.snowflake.txt").write_text(
-        "foo=1.2.3\nbar>=3.0.0"
-    )
+    (Path(temp_dir) / "requirements.snowflake.txt").write_text("foo=1.2.3\nbar>=3.0.0")
 
-    app = Path(execute_in_tmp_dir.name) / "app.py"
+    app = Path(temp_dir) / "app.py"
     app.touch()
 
-    result = runner.invoke(
+    result = runner.invoke_with_config(
         [
             "snowpark",
             "function",

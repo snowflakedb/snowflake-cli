@@ -1,5 +1,7 @@
 from unittest import mock
 
+from tests.testing_utils.fixtures import *
+
 
 @mock.patch("snowflake.connector.connect")
 def test_create_cp(mock_connector, runner, mock_ctx, snapshot):
@@ -62,4 +64,4 @@ def test_stop_cp(mock_connector, runner, mock_ctx):
     result = runner.invoke(["snowpark", "cp", "stop", "cpNameToStop"])
 
     assert result.exit_code == 0
-    assert ctx.get_query() == "alter compute pool cpNameToStop stop all services;"
+    assert ctx.get_query() == "alter compute pool cpNameToStop stop all;"

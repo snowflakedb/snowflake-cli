@@ -5,6 +5,8 @@ from textwrap import dedent
 from unittest import mock
 from unittest.mock import call
 
+from tests.testing_utils.fixtures import *
+
 STREAMLIT_NAME = "test_streamlit"
 
 
@@ -14,7 +16,7 @@ def test_create_streamlit(mock_connector, runner, mock_ctx):
     mock_connector.return_value = ctx
 
     with NamedTemporaryFile(suffix=".py") as file:
-        result = runner.invoke(
+        result = runner.invoke_with_config(
             ["streamlit", "create", STREAMLIT_NAME, "--file", file.name]
         )
 
@@ -39,7 +41,7 @@ def test_create_streamlit_with_use_packaging_workaround(
     mock_connector.return_value = ctx
 
     with NamedTemporaryFile(suffix=".py") as file:
-        result = runner.invoke(
+        result = runner.invoke_with_config(
             [
                 "streamlit",
                 "create",
@@ -172,7 +174,7 @@ def test_deploy_streamlit_with_packaging_workaround(
     mock_cursor,
     runner,
     mock_ctx,
-    execute_in_tmp_dir,
+    temp_dir,
 ):
     ctx = mock_ctx(
         mock_cursor(
@@ -182,7 +184,7 @@ def test_deploy_streamlit_with_packaging_workaround(
     mock_connector.return_value = ctx
 
     with NamedTemporaryFile(suffix=".py") as file:
-        result = runner.invoke(
+        result = runner.invoke_with_config(
             [
                 "streamlit",
                 "deploy",
