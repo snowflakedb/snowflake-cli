@@ -2,12 +2,10 @@ import logging
 from pathlib import Path
 from requirements.requirement import Requirement
 from unittest import mock
-from unittest.mock import MagicMock, ANY
 from zipfile import ZipFile
 
 import pytest
 import typer
-
 
 import snowcli.cli.snowpark_shared as shared
 import tests.snowpark.test_snowpark_shared
@@ -16,15 +14,19 @@ from tests.testing_utils.fixtures import *
 
 
 @mock.patch("tests.snowpark.test_snowpark_shared.shared.utils.parse_anaconda_packages")
-def test_snowpark_package(mock_parse, temp_dir, correct_requirements_txt, caplog):
+@mock.patch("tests.snowpark.test_snowpark_shared.shared.utils.install_packages")
+def test_snowpark_package(mock_install, mock_parse, temp_dir, correct_requirements_txt, caplog):
 
     mock_parse.return_value = SplitRequirements(
         [], [Requirement.parse("totally-awesome-package")]
     )
+
+    mock_install.return_value = (True, None)
+
     with caplog.at_level(logging.INFO):
         result = shared.snowpark_package("yes", False, "yes")
-    q = tests.snowpark.test_snowpark_shared.shared.utils.parse_anaconda_packages()
-    assert caplog.text
+
+    assert "Comparing provided packages from Snowflake Anaconda..." in caplog.text
 
     zip_path = os.path.join(temp_dir, "app.zip")
     assert os.path.isfile(zip_path)
