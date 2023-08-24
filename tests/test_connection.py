@@ -1,9 +1,11 @@
 import json
+import pytest
+
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import mock
 
-import pytest
+from tests.testing_utils.fixtures import *
 
 
 def test_new_connection_can_be_added(runner, snapshot):

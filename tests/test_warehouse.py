@@ -1,5 +1,7 @@
 from unittest import mock
 
+from tests.testing_utils.fixtures import *
+
 
 @mock.patch("snowflake.connector")
 def test_show_warehouses(mock_connector, mock_cursor, runner, snapshot):

@@ -1,5 +1,8 @@
 import os
 import pytest
+
+from snowcli.snow_connector import SnowflakeConnector, SnowflakeCursor
+from tests.testing_utils.fixtures import *
 from unittest import mock
 from snowcli.snow_connector import SnowflakeConnector
 

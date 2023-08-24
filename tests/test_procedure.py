@@ -7,6 +7,7 @@ from zipfile import ZipFile
 import pytest
 
 from snowcli.utils import SplitRequirements
+from tests.testing_utils.fixtures import *
 
 
 class TestProcedure:
@@ -19,12 +20,12 @@ class TestProcedure:
         "config.toml",
     }
 
-    def test_procedure_init(self, execute_in_tmp_dir, runner):
+    def test_procedure_init(self, temp_dir, runner):
         runner.invoke(["snowpark", "procedure", "init"])
         assert self.DIR_INITIAL_CONTENTS.issubset(os.listdir(os.getcwd()))
 
     @mock.patch("snowcli.utils.parse_anaconda_packages")
-    def test_procedure_package(self, mock_anaconda, execute_in_tmp_dir, runner):
+    def test_procedure_package(self, mock_anaconda, temp_dir, runner):
         mock_anaconda = MagicMock(return_value=SplitRequirements([], []))
 
         runner.invoke(["snowpark", "procedure", "init"])
