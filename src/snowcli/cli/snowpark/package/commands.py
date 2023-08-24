@@ -43,7 +43,7 @@ def package_lookup(
         help="Install packages that are not available on the Snowflake anaconda channel",
     ),
     **kwargs,
-):
+) -> OutputData:
     """
     Checks if a package is available on the Snowflake anaconda channel.
     In install_packages flag is set to True, command will check all the dependencies of the packages
@@ -100,7 +100,7 @@ def package_create(
         help="Install packages that are not available on the Snowflake anaconda channel",
     ),
     **kwargs,
-):
+) -> OutputData:
     """
     Create a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
     """
