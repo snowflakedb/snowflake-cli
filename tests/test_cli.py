@@ -1,5 +1,7 @@
 import pytest
 
+from tests.testing_utils.fixtures import *
+
 
 def test_global(runner):
     result = runner.invoke(["-h"])

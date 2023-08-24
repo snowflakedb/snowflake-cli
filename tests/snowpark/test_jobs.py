@@ -2,6 +2,8 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from unittest import mock
 
+from tests.testing_utils.fixtures import *
+
 
 @mock.patch("snowflake.connector.connect")
 def test_create_job(mock_connector, runner, mock_ctx):

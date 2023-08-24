@@ -4,6 +4,7 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 from snowcli.config import CliConfigManager, get_default_connection, config_init
+from tests.testing_utils.fixtures import *
 
 
 def test_empty_config_file_is_created_if_not_present():
