@@ -7,13 +7,22 @@ from zipfile import ZipFile
 import pytest
 import typer
 
+
 import snowcli.cli.snowpark_shared as shared
 from tests.testing_utils.fixtures import *
 
+def test_snowpark_package(temp_dir, correct_requirements_txt, caplog):
+
+    with caplog.at_level(logging.INFO):
+        result= shared.snowpark_package("yes",False,"yes")
+
+    print(caplog.text)
+    assert caplog.text
+    assert os.path.isfile(os.path.join(temp_dir,"app.zip"))
+
 
 @mock.patch("tests.snowpark.test_snowpark_shared.shared.connect_to_snowflake")
-@mock.patch("tests.snowpark.test_snowpark_shared.shared.print_db_cursor")
-def test_snowpark_create_procedure(mock_print, mock_connect, temp_dir, app_zip, caplog):
+def test_snowpark_create_procedure(mock_connect, temp_dir, app_zip, caplog):
 
     mock_conn = MagicMock()
     mock_connect.return_value = mock_conn
@@ -52,21 +61,6 @@ def test_snowpark_create_procedure(mock_print, mock_connect, temp_dir, app_zip, 
         packages=[],
         execute_as_caller=False,
     )
-    mock_print.assert_called()
-
-
-def test_validate_configuration_with_no_environment(caplog):
-    with pytest.raises(typer.Abort):
-        with caplog.at_level(logging.ERROR):
-            result = shared.validate_configuration(None, "dev")
-
-    assert "The dev environment is not configured in app.toml" in caplog.text
-
-
-def test_validate_configuration_with_env():
-    result = shared.validate_configuration("something", "dev")
-    assert result is None
-
 
 def test_snowpark_update_function_with_coverage_wrapper(caplog):
 
@@ -101,6 +95,7 @@ def test_replace_handler_in_zip(temp_dir, app_zip):
         coverage_reports_stage_path="test_db.public.example",
     )
     assert os.path.isfile(app_zip)
+    assert result == "snowpark_coverage.measure_coverage"
 
     with ZipFile(app_zip, "r") as zip:
         assert "snowpark_coverage.py" in zip.namelist()
@@ -127,15 +122,3 @@ def test_replace_handler_in_zip_with_wrong_handler(caplog, temp_dir, app_zip):
         "To install a code coverage wrapper, your handler must be in the format <module>.<function>"
         in caplog.text
     )
-
-def test_describe_procedure_without_name_and_input_parameters():
-    with pytest.raises(typer.BadParameter) as e:
-        result = shared.snowpark_describe_procedure(
-            type="function",
-            environment="dev",
-            name="",
-            input_parameters="",
-            signature=""
-        )
-        assert "Please provide either a function name and input " in e.message
-

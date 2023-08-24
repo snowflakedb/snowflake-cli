@@ -14,6 +14,7 @@ from tests.testing_utils.files_and_dirs import create_named_file, create_temp_fi
 
 
 REQUIREMENTS_SNOWFLAKE = "requirements.snowflake.txt"
+REQUIREMENTS_TXT = "requirements.txt"
 TEST_DIR = Path(__file__).parent.parent
 
 
@@ -26,9 +27,16 @@ def app_zip(temp_dir) -> Generator:
 def correct_metadata_file(temp_dir) -> Generator:
     yield create_temp_file(".yaml", temp_dir, test_data.correct_package_metadata)
 
-
 @pytest.fixture
 def correct_requirements_txt(temp_dir) -> Generator:
+    req_txt = create_named_file(
+        REQUIREMENTS_TXT, temp_dir, test_data.requirements
+    )
+    yield req_txt
+    os.remove(req_txt)
+
+@pytest.fixture
+def correct_requirements_snowflake_txt(temp_dir) -> Generator:
     req_txt = create_named_file(
         REQUIREMENTS_SNOWFLAKE, temp_dir, test_data.requirements
     )

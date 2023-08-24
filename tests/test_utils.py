@@ -75,8 +75,8 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_dst(app_zip):
     assert expected_error.type == FileNotFoundError
 
 
-def test_parse_requierements_with_correct_file(correct_requirements_txt: str, temp_dir):
-    result = utils.parse_requirements(correct_requirements_txt)
+def test_parse_requierements_with_correct_file(correct_requirements_snowflake_txt: str, temp_dir):
+    result = utils.parse_requirements(correct_requirements_snowflake_txt)
 
     assert len(result) == len(test_data.requirements)
 
@@ -136,19 +136,19 @@ def test_generate_streamlit_environment_file_with_no_requirements():
     assert result is None
 
 
-def test_generate_streamlit_file(correct_requirements_txt: str, temp_dir):
-    result = utils.generate_streamlit_environment_file([], correct_requirements_txt)
+def test_generate_streamlit_file(correct_requirements_snowflake_txt: str, temp_dir):
+    result = utils.generate_streamlit_environment_file([], correct_requirements_snowflake_txt)
 
     assert result == PosixPath("environment.yml")
     assert os.path.isfile(os.path.join(temp_dir, "environment.yml"))
 
 
 def test_generate_streamlit_environment_file_with_excluded_dependencies(
-    correct_requirements_txt: str, temp_dir
+    correct_requirements_snowflake_txt: str, temp_dir
 ):
 
     result = utils.generate_streamlit_environment_file(
-        test_data.excluded_anaconda_deps, correct_requirements_txt
+        test_data.excluded_anaconda_deps, correct_requirements_snowflake_txt
     )
 
     env_file = os.path.join(temp_dir, "environment.yml")
@@ -197,11 +197,11 @@ def test_generate_snowpark_coverage_wrapper(temp_dir):
         )
 
 
-def test_add_file_to_existing_zip(app_zip: str, correct_requirements_txt: str):
-    utils.add_file_to_existing_zip(app_zip, correct_requirements_txt)
+def test_add_file_to_existing_zip(app_zip: str, correct_requirements_snowflake_txt: str):
+    utils.add_file_to_existing_zip(app_zip, correct_requirements_snowflake_txt)
     zip_file = ZipFile(app_zip)
 
-    assert os.path.basename(correct_requirements_txt) in zip_file.namelist()
+    assert os.path.basename(correct_requirements_snowflake_txt) in zip_file.namelist()
 
 
 def test_recursive_zip_packages(
@@ -270,14 +270,14 @@ def test_standard_zip_dir_with_env_variable(
     assert Path(temp_file_in_other_directory).name in zip_file.namelist()
 
 
-def test_get_snowflake_packages(temp_dir, correct_requirements_txt):
+def test_get_snowflake_packages(temp_dir, correct_requirements_snowflake_txt):
 
     result = utils.get_snowflake_packages()
 
     assert result == test_data.requirements
 
 
-def test_get_snowflake_packages_delta(temp_dir, correct_requirements_txt):
+def test_get_snowflake_packages_delta(temp_dir, correct_requirements_snowflake_txt):
     anaconda_package = test_data.requirements[-1]
 
     result = utils.get_snowflake_packages_delta(anaconda_package)
