@@ -3,7 +3,7 @@ from pathlib import Path
 
 import typer
 
-from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import ConnectionOption, DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark.common import print_log_lines
 from snowcli.cli.snowpark.services.manager import ServiceManager
@@ -18,7 +18,7 @@ app = typer.Typer(
 
 @app.command()
 @with_output
-@global_options
+@global_options_with_connection
 def create(
     name: str = typer.Option(..., "--name", "-n", help="Job Name"),
     compute_pool: str = typer.Option(..., "--compute_pool", "-c", help="Compute Pool"),
@@ -67,7 +67,7 @@ def desc(
 
 @app.command()
 @with_output
-@global_options
+@global_options_with_connection
 def status(
     name: str = typer.Argument(..., help="Service Name"), **options
 ) -> OutputData:
@@ -80,7 +80,7 @@ def status(
 
 @app.command()
 @with_output
-@global_options
+@global_options_with_connection
 def list(**options) -> OutputData:
     """
     List Service
@@ -91,7 +91,7 @@ def list(**options) -> OutputData:
 
 @app.command()
 @with_output
-@global_options
+@global_options_with_connection
 def drop(name: str = typer.Argument(..., help="Service Name"), **options) -> OutputData:
     """
     Drop Service
@@ -101,7 +101,7 @@ def drop(name: str = typer.Argument(..., help="Service Name"), **options) -> Out
 
 
 @app.command()
-@global_options
+@global_options_with_connection
 def logs(
     name: str = typer.Argument(..., help="Service Name"),
     container_name: str = typer.Option(

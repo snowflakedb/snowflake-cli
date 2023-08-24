@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import click
 from collections.abc import Iterable
 from datetime import datetime
 from json import JSONEncoder
@@ -9,6 +8,7 @@ from rich import box, print, print_json
 from snowflake.connector.cursor import SnowflakeCursor
 from typing import List, Optional, Dict, Union
 
+from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 from snowcli.exception import OutputDataTypeError
 from snowcli.output.formats import OutputFormat
 
@@ -163,10 +163,11 @@ def _get_data_from_cursor(
 
 
 def _get_format_type() -> OutputFormat:
-    context = click.get_current_context()
-    format_from_ctx = context.find_root().params.get("output_format")
-    if format_from_ctx:
-        return OutputFormat(format_from_ctx)
+    output_format = (
+        snow_cli_global_context_manager.get_global_context_copy().output_format
+    )
+    if output_format:
+        return output_format
     return OutputFormat.TABLE
 
 

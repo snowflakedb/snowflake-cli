@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 
 import typer
 
-from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.cli.constants import DEPLOYMENT_STAGE
 from snowcli.cli.snowpark.procedure.manager import ProcedureManager
@@ -45,7 +45,7 @@ def procedure_init() -> None:
 
 @app.command("create")
 @with_output
-@global_options
+@global_options_with_connection
 def procedure_create(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
@@ -236,7 +236,7 @@ def procedure_package(
 
 @app.command("execute")
 @with_output
-@global_options
+@global_options_with_connection
 def procedure_execute(
     signature: str = typer.Option(
         ...,
@@ -253,7 +253,7 @@ def procedure_execute(
 
 @app.command("describe")
 @with_output
-@global_options
+@global_options_with_connection
 def procedure_describe(
     name: str = typer.Option("", "--name", "-n", help="Name of the procedure"),
     input_parameters: str = typer.Option(
@@ -283,7 +283,7 @@ def procedure_describe(
 
 @app.command("list")
 @with_output
-@global_options
+@global_options_with_connection
 def procedure_list(
     like: str = typer.Option(
         "%%",
@@ -300,7 +300,7 @@ def procedure_list(
 
 @app.command("drop")
 @with_output
-@global_options
+@global_options_with_connection
 def procedure_drop(
     name: str = typer.Option("", "--name", "-n", help="Name of the procedure"),
     input_parameters: str = typer.Option(

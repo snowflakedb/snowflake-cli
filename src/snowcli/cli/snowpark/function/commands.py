@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 
 import typer
 
-from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.cli.constants import DEPLOYMENT_STAGE
 from snowcli.cli.snowpark.function.manager import FunctionManager
@@ -70,7 +70,7 @@ def function_init():
 
 @app.command("create")
 @with_output
-@global_options
+@global_options_with_connection
 def function_create(
     pypi_download: str = PyPiDownloadOption,
     package_native_libraries: str = PackageNativeLibrariesOption,
@@ -196,7 +196,7 @@ def function_package(
 
 @app.command("execute")
 @with_output
-@global_options
+@global_options_with_connection
 def function_execute(
     function: str = typer.Option(
         ...,
@@ -213,7 +213,7 @@ def function_execute(
 
 @app.command("describe")
 @with_output
-@global_options
+@global_options_with_connection
 def function_describe(
     name: str = typer.Option("", "--name", "-n", help="Name of the function"),
     input_parameters: str = OptionalInputParametersOption,
@@ -236,7 +236,7 @@ def function_describe(
 
 @app.command("list")
 @with_output
-@global_options
+@global_options_with_connection
 def function_list(
     like: str = typer.Option(
         "%%",
@@ -253,7 +253,7 @@ def function_list(
 
 @app.command("drop")
 @with_output
-@global_options
+@global_options_with_connection
 def function_drop(
     name: str = typer.Option("", "--name", "-n", help="Name of the function"),
     input_parameters: str = OptionalInputParametersOption,
