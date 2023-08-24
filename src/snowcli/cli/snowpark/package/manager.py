@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 def lookup(name: str, install_packages: bool) -> LookupResult:
 
     package_response = utils.parse_anaconda_packages([Requirement.parse(name)])
-    print(package_response)
+
     if package_response.snowflake and not package_response.other:
         return InAnaconda(package_response, name)
     elif install_packages:

@@ -33,6 +33,7 @@ log = logging.getLogger(__name__)
 
 @app.command("lookup")
 @global_options
+@with_output
 def package_lookup(
     name: str = typer.Argument(..., help="Name of the package"),
     install_packages: bool = typer.Option(
@@ -50,7 +51,7 @@ def package_lookup(
     """
     lookup_result = lookup(name=name, install_packages=install_packages)
     cleanup_after_install()
-    print(lookup_result.message)
+    return OutputData.from_string(lookup_result.message)
 
 
 @app.command("upload")
@@ -86,6 +87,7 @@ def package_upload(
 
 @app.command("create")
 @global_options
+@with_output
 def package_create(
     name: str = typer.Argument(
         ...,
@@ -116,4 +118,4 @@ def package_create(
             message = lookup_result.message
 
         cleanup_after_install()
-        print(message)
+        return OutputData.from_string(message)

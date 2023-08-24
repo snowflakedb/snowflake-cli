@@ -1,19 +1,14 @@
-import io
 import logging
-import os
-from pathlib import Path
-from zipfile import ZipFile
-
 import pytest
-import tempfile
+
+from pathlib import Path
 from requirements.requirement import Requirement
 from unittest.mock import ANY, MagicMock, patch
+from zipfile import ZipFile
 
 from snowcli.cli.snowpark import package
 from snowcli.cli.snowpark.package.utils import NotInAnaconda
 from snowcli.utils import SplitRequirements
-from tests.test_data import test_data
-from tests.testing_utils.files_and_dirs import create_named_file
 from tests.testing_utils.fixtures import *
 
 
@@ -42,7 +37,7 @@ class TestPackage:
         result = runner.invoke(["snowpark", "package", "lookup", argument[0], "--yes"])
 
         assert result.exit_code == 0
-        assert argument[1] in result.output
+        assert argument[1].replace("\n","") in result.output.replace("\n","")
 
     @patch("tests.test_package.package.manager.utils.install_packages")
     @patch("tests.test_package.package.manager.utils.parse_anaconda_packages")
@@ -65,8 +60,8 @@ class TestPackage:
         )
         assert result.exit_code == 0
         assert (
-            'include the following in your packages: [<Requirement: "snowflake-snowpark-python">]'
-            in result.output
+            'include the following in your packages: [<Requirement: "snowflake-snowpark-python">]'.replace("\n","")
+            in result.output.replace("\n","")
         )
 
     @patch("tests.test_package.package.commands.lookup")
