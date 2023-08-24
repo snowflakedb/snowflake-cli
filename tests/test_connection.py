@@ -142,7 +142,7 @@ def test_fails_if_existing_connection(runner):
 
 
 def test_lists_connection_information(runner):
-    result = runner.invoke_with_config(["--format", "json", "connection", "list"])
+    result = runner.invoke_with_config(["connection", "list", "--format", "json"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload == [

@@ -6,7 +6,7 @@ import typer
 from click import UsageError
 from snowflake.connector.cursor import SnowflakeCursor
 
-from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.output.decorators import with_output
 from snowcli.output.printing import OutputData
@@ -39,7 +39,7 @@ class SqlManager(SqlExecutionMixin):
 
 
 @with_output
-@global_options
+@global_options_with_connection
 def execute_sql(
     query: Optional[str] = typer.Option(
         None,
