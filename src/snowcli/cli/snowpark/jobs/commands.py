@@ -3,7 +3,7 @@ from pathlib import Path
 
 import typer
 
-from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark.common import print_log_lines
 from snowcli.cli.snowpark.jobs.manager import JobManager
@@ -18,7 +18,7 @@ app = typer.Typer(
 
 @app.command()
 @with_output
-@global_options
+@global_options_with_connection
 def create(
     compute_pool: str = typer.Option(..., "--compute-pool", "-c", help="Compute Pool"),
     spec_path: Path = typer.Option(
@@ -48,7 +48,7 @@ def create(
 
 @app.command()
 @with_output
-@global_options
+@global_options_with_connection
 def desc(id: str = typer.Argument(..., help="Job id"), **options) -> OutputData:
     """
     Desc Service
@@ -58,7 +58,7 @@ def desc(id: str = typer.Argument(..., help="Job id"), **options) -> OutputData:
 
 
 @app.command()
-@global_options
+@global_options_with_connection
 def logs(
     id: str = typer.Argument(..., help="Job id"),
     container_name: str = typer.Option(
@@ -77,7 +77,7 @@ def logs(
 
 @app.command()
 @with_output
-@global_options
+@global_options_with_connection
 def status(id: str = typer.Argument(..., help="Job id"), **options) -> OutputData:
     """
     Returns status of a job.
@@ -88,7 +88,7 @@ def status(id: str = typer.Argument(..., help="Job id"), **options) -> OutputDat
 
 @app.command()
 @with_output
-@global_options
+@global_options_with_connection
 def drop(id: str = typer.Argument(..., help="Job id"), **options) -> OutputData:
     """
     Drop Service

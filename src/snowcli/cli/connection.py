@@ -7,6 +7,7 @@ from click import ClickException
 from click.types import StringParamType
 from tomlkit.exceptions import KeyAlreadyPresent
 
+from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.output.decorators import with_output
 from snowcli.config import cli_config
@@ -39,7 +40,8 @@ def _mask_password(connection_params: dict):
 
 @app.command(name="list")
 @with_output
-def list_connections() -> OutputData:
+@global_options
+def list_connections(**options) -> OutputData:
     """
     List configured connections.
     """

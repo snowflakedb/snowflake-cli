@@ -3,7 +3,7 @@ import typer
 from pathlib import Path
 from typing import Optional
 
-from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.streamlit.manager import StreamlitManager
 from snowcli.output.decorators import with_output
@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 
 @app.command("list")
 @with_output
-@global_options
+@global_options_with_connection
 def streamlit_list(**options) -> OutputData:
     """
     List streamlit apps.
@@ -35,7 +35,7 @@ def streamlit_list(**options) -> OutputData:
 
 @app.command("describe")
 @with_output
-@global_options
+@global_options_with_connection
 def streamlit_describe(
     name: str = typer.Argument(..., help="Name of streamlit to be deployed."),
     **options,
@@ -49,7 +49,7 @@ def streamlit_describe(
 
 @app.command("create")
 @with_output
-@global_options
+@global_options_with_connection
 def streamlit_create(
     name: str = typer.Argument(..., help="Name of streamlit to be created."),
     file: Path = typer.Option(
@@ -84,7 +84,7 @@ def streamlit_create(
 
 @app.command("share")
 @with_output
-@global_options
+@global_options_with_connection
 def streamlit_share(
     name: str = typer.Argument(..., help="Name of streamlit to be shared."),
     to_role: str = typer.Argument(
@@ -101,7 +101,7 @@ def streamlit_share(
 
 @app.command("drop")
 @with_output
-@global_options
+@global_options_with_connection
 def streamlit_drop(
     name: str = typer.Argument(..., help="Name of streamlit to be deleted."),
     **options,
@@ -115,7 +115,7 @@ def streamlit_drop(
 
 @app.command("deploy")
 @with_output
-@global_options
+@global_options_with_connection
 def streamlit_deploy(
     name: str = typer.Argument(..., help="Name of streamlit to be deployed."),
     file: Path = typer.Option(

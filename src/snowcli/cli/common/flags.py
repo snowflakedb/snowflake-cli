@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import typer
 
-
-from snowcli.cli.common.snow_cli_global_context import ConnectionDetails
+from snowcli.cli.common.snow_cli_global_context import (
+    ConnectionDetails,
+    update_callback,
+)
+from snowcli.output.formats import OutputFormat
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
@@ -64,7 +67,6 @@ SchemaOption = typer.Option(
     show_default=False,
 )
 
-
 RoleOption = typer.Option(
     None,
     "--role",
@@ -80,4 +82,29 @@ WarehouseOption = typer.Option(
     help="Warehouse to use. Overrides value from connection.",
     callback=ConnectionDetails.update_callback("warehouse"),
     show_default=False,
+)
+
+OutputFormatOption = typer.Option(
+    OutputFormat.TABLE.value,
+    "--format",
+    help="Specifies output format",
+    case_sensitive=False,
+    callback=update_callback("output_format"),
+)
+
+VerboseOption = typer.Option(
+    None,
+    "--verbose",
+    "-v",
+    help="Print logs from level info and higher",
+    callback=update_callback("verbose"),
+    is_flag=True,
+)
+
+DebugOption = typer.Option(
+    None,
+    "--debug",
+    help="Print logs from level debug and higher, logs contains additional information",
+    callback=update_callback("enable_tracebacks"),
+    is_flag=True,
 )

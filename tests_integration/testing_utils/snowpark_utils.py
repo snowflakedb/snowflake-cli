@@ -135,16 +135,16 @@ class SnowparkTestSteps:
     ) -> None:
         result = self._setup.runner.invoke_with_config_and_integration_connection(
             [
-                "--format",
-                "json",
                 "snowpark",
                 self.test_type.value,
                 "list",
                 "--like",
                 f"{self._setup.object_name_prefix}%",
+                "--format",
+                "json",
             ]
         )
-
+        print(result.output)
         assert_that_result_is_successful_and_json_output_contains_value_at_path(
             result=result, path=[0, "name"], expected_value=entity_name.upper()
         )
@@ -165,13 +165,13 @@ class SnowparkTestSteps:
         name_with_arguments = f"{entity_name}{arguments}"
         result = self._setup.runner.invoke_with_config_and_integration_connection(
             [
-                "--format",
-                "json",
                 "snowpark",
                 self.test_type.value,
                 "execute",
                 f"--{self.test_type.value}",
                 name_with_arguments,
+                "--format",
+                "json",
             ]
         )
 
@@ -191,8 +191,6 @@ class SnowparkTestSteps:
     ) -> None:
         result = self._setup.runner.invoke_with_config_and_integration_connection(
             [
-                "--format",
-                "json",
                 "snowpark",
                 self.test_type.value,
                 "describe",
@@ -200,6 +198,8 @@ class SnowparkTestSteps:
                 entity_name,
                 "--input-parameters",
                 arguments,
+                "--format",
+                "json",
             ]
         )
         assert_that_result_is_successful_and_json_output_contains_value_at_path(
