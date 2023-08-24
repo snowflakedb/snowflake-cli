@@ -62,9 +62,10 @@ class TestPackage:
         )
 
         assert result.exit_code == 0
-        assert "Please check the package name or try again with -y option".replace("\n", "") in result.output.replace("\n", "")
+        assert "Please check the package name or try again with -y option".replace(
+            "\n", ""
+        ) in result.output.replace("\n", "")
         assert not os.path.exists("PyRTF3.zip")
-
 
     @pytest.fixture
     def example_file(self):
