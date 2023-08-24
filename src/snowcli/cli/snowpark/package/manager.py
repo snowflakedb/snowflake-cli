@@ -77,9 +77,9 @@ def create(name: str):
         utils.recursive_zip_packages_dir(pack_dir=".packages", dest_zip=file_name)
 
     if os.path.exists(file_name):
-        return CreatedSuccessfully(Path(file_name))
+        return CreatedSuccessfully(name, Path(file_name))
     else:
-        return CreationError()
+        return CreationError(name)
 
 
 def cleanup_after_install():

@@ -105,17 +105,19 @@ def package_create(
     Create a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
     """
 
-    if type(lookup_result := lookup(name=name, install_packages=install_packages)) in [
-        NotInAnaconda,
-        RequiresPackages,
-    ]:
+    if (
+        type(lookup_result := lookup(name=name, install_packages=install_packages))
+        in [
+            NotInAnaconda,
+            RequiresPackages,
+        ]
+        and type(creation_result := create(name)) == CreatedSuccessfully
+    ):
+        message = creation_result.message
+        if type(lookup_result) == RequiresPackages:
+            message += "\n" + lookup_result.message
+    else:
+        message = lookup_result.message
 
-        if type(creation_result := create(name)) == CreatedSuccessfully:
-            message = f"Package {name}.zip created. You can now upload it to a stage (`snow snowpark package upload -f {name}.zip -s packages`) and reference it in your procedure or function."
-            if type(lookup_result) == RequiresPackages:
-                message += lookup_result.message
-        else:
-            message = lookup_result.message
-
-        cleanup_after_install()
-        return OutputData.from_string(message)
+    cleanup_after_install()
+    return OutputData.from_string(message)
