@@ -127,3 +127,15 @@ def test_replace_handler_in_zip_with_wrong_handler(caplog, temp_dir, app_zip):
         "To install a code coverage wrapper, your handler must be in the format <module>.<function>"
         in caplog.text
     )
+
+def test_describe_procedure_without_name_and_input_parameters():
+    with pytest.raises(typer.BadParameter) as e:
+        result = shared.snowpark_describe_procedure(
+            type="function",
+            environment="dev",
+            name="",
+            input_parameters="",
+            signature=""
+        )
+        assert "Please provide either a function name and input " in e.message
+
