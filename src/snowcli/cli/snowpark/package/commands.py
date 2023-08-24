@@ -5,7 +5,7 @@ from pathlib import Path
 
 import typer
 
-from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark.package.manager import (
     lookup,
@@ -32,7 +32,7 @@ log = logging.getLogger(__name__)
 
 
 @app.command("lookup")
-@global_options
+@global_options_with_connection
 @with_output
 def package_lookup(
     name: str = typer.Argument(..., help="Name of the package"),
@@ -55,7 +55,7 @@ def package_lookup(
 
 
 @app.command("upload")
-@global_options
+@global_options_with_connection
 @with_output
 def package_upload(
     file: Path = typer.Option(
@@ -86,7 +86,7 @@ def package_upload(
 
 
 @app.command("create")
-@global_options
+@global_options_with_connection
 @with_output
 def package_create(
     name: str = typer.Argument(
