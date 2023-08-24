@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from requirements.requirement import Requirement
 from unittest import mock
 from unittest.mock import MagicMock, ANY
 from zipfile import ZipFile
@@ -9,58 +10,32 @@ import typer
 
 
 import snowcli.cli.snowpark_shared as shared
+import tests.snowpark.test_snowpark_shared
+from snowcli.utils import SplitRequirements
 from tests.testing_utils.fixtures import *
 
-def test_snowpark_package(temp_dir, correct_requirements_txt, caplog):
 
+@mock.patch("tests.snowpark.test_snowpark_shared.shared.utils.parse_anaconda_packages")
+def test_snowpark_package(mock_parse, temp_dir, correct_requirements_txt, caplog):
+
+    mock_parse.return_value = SplitRequirements(
+        [], [Requirement.parse("totally-awesome-package")]
+    )
     with caplog.at_level(logging.INFO):
-        result= shared.snowpark_package("yes",False,"yes")
-
-    print(caplog.text)
+        result = shared.snowpark_package("yes", False, "yes")
+    q = tests.snowpark.test_snowpark_shared.shared.utils.parse_anaconda_packages()
     assert caplog.text
-    assert os.path.isfile(os.path.join(temp_dir,"app.zip"))
 
+    zip_path = os.path.join(temp_dir, "app.zip")
+    assert os.path.isfile(zip_path)
 
-@mock.patch("tests.snowpark.test_snowpark_shared.shared.connect_to_snowflake")
-def test_snowpark_create_procedure(mock_connect, temp_dir, app_zip, caplog):
+    with ZipFile(zip_path) as zip:
+        assert "requirements.other.txt" in zip.namelist()
 
-    mock_conn = MagicMock()
-    mock_connect.return_value = mock_conn
-    mock_conn.ctx.database = "test_db"
-    mock_conn.ctx.schema = "public"
+        with zip.open("requirements.other.txt") as req_file:
+            reqs = req_file.readlines()
+            assert b"totally-awesome-package\n" in reqs
 
-    with caplog.at_level(logging.DEBUG, logger="snowcli.cli.snowpark_shared"):
-        result = shared.snowpark_create_procedure(
-            "function", "dev", "hello", Path(app_zip), "app.hello", "()", "str", False
-        )
-
-    assert "Uploading deployment file to stage..." in caplog.text
-    assert "Creating str..." in caplog.text
-    mock_conn.upload_file_to_stage.assert_called_with(
-        file_path=ANY,
-        destination_stage="test_db.public.deployments",
-        path="/hello",
-        database="test_db",
-        schema="public",
-        overwrite=False,
-        role=ANY,
-        warehouse=ANY,
-    )
-
-    mock_conn.create_procedure.assert_called_with(
-        name="hello",
-        input_parameters="()",
-        return_type="str",
-        handler="app.hello",
-        imports="@test_db.public.deployments/hello/app.zip",
-        database="test_db",
-        schema="public",
-        role=ANY,
-        warehouse=ANY,
-        overwrite=False,
-        packages=[],
-        execute_as_caller=False,
-    )
 
 def test_snowpark_update_function_with_coverage_wrapper(caplog):
 

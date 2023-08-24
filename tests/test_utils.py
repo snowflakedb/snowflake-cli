@@ -75,7 +75,9 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_dst(app_zip):
     assert expected_error.type == FileNotFoundError
 
 
-def test_parse_requierements_with_correct_file(correct_requirements_snowflake_txt: str, temp_dir):
+def test_parse_requierements_with_correct_file(
+    correct_requirements_snowflake_txt: str, temp_dir
+):
     result = utils.parse_requirements(correct_requirements_snowflake_txt)
 
     assert len(result) == len(test_data.requirements)
@@ -137,7 +139,9 @@ def test_generate_streamlit_environment_file_with_no_requirements():
 
 
 def test_generate_streamlit_file(correct_requirements_snowflake_txt: str, temp_dir):
-    result = utils.generate_streamlit_environment_file([], correct_requirements_snowflake_txt)
+    result = utils.generate_streamlit_environment_file(
+        [], correct_requirements_snowflake_txt
+    )
 
     assert result == PosixPath("environment.yml")
     assert os.path.isfile(os.path.join(temp_dir, "environment.yml"))
@@ -197,7 +201,9 @@ def test_generate_snowpark_coverage_wrapper(temp_dir):
         )
 
 
-def test_add_file_to_existing_zip(app_zip: str, correct_requirements_snowflake_txt: str):
+def test_add_file_to_existing_zip(
+    app_zip: str, correct_requirements_snowflake_txt: str
+):
     utils.add_file_to_existing_zip(app_zip, correct_requirements_snowflake_txt)
     zip_file = ZipFile(app_zip)
 

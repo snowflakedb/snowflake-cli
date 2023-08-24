@@ -27,13 +27,13 @@ def app_zip(temp_dir) -> Generator:
 def correct_metadata_file(temp_dir) -> Generator:
     yield create_temp_file(".yaml", temp_dir, test_data.correct_package_metadata)
 
+
 @pytest.fixture
 def correct_requirements_txt(temp_dir) -> Generator:
-    req_txt = create_named_file(
-        REQUIREMENTS_TXT, temp_dir, test_data.requirements
-    )
+    req_txt = create_named_file(REQUIREMENTS_TXT, temp_dir, test_data.requirements)
     yield req_txt
     os.remove(req_txt)
+
 
 @pytest.fixture
 def correct_requirements_snowflake_txt(temp_dir) -> Generator:
