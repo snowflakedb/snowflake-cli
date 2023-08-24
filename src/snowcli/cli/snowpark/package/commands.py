@@ -14,10 +14,8 @@ from snowcli.cli.snowpark.package.manager import (
     upload,
 )
 from snowcli.cli.snowpark.package.utils import (
-    InAnaconda,
     NotInAnaconda,
     RequiresPackages,
-    NothingFound,
     CreatedSuccessfully,
 )
 from snowcli.output.decorators import with_output
@@ -32,6 +30,7 @@ log = logging.getLogger(__name__)
 
 
 @app.command("lookup")
+@with_output
 @global_options
 def package_lookup(
     name: str = typer.Argument(..., help="Name of the package"),
@@ -50,12 +49,12 @@ def package_lookup(
     """
     lookup_result = lookup(name=name, install_packages=install_packages)
     cleanup_after_install()
-    print(lookup_result.message)
+    return OutputData.from_string(lookup_result.message)
 
 
 @app.command("upload")
-@global_options
 @with_output
+@global_options
 def package_upload(
     file: Path = typer.Option(
         ...,
@@ -85,6 +84,7 @@ def package_upload(
 
 
 @app.command("create")
+@with_output
 @global_options
 def package_create(
     name: str = typer.Argument(
@@ -116,4 +116,4 @@ def package_create(
             message = lookup_result.message
 
         cleanup_after_install()
-        print(message)
+        return OutputData.from_string(message)
