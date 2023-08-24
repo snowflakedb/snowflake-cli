@@ -23,7 +23,7 @@ class TestPackage:
             ),
             (
                 "some-weird-package-we-dont-know",
-                "Lookup for package some-weird-package-we-dont-know resulted in some error. Please check the package name and try again",
+                "Lookup for package some-weird-package-we-dont-know resulted in some error. Please check the package name or try again with -y option",
                 "snowcli.cli.snowpark.package.commands",
             ),
         ],
