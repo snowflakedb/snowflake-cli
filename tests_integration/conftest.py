@@ -59,11 +59,11 @@ class SnowCLIRunner(CliRunner):
     def invoke_integration(self, *args, **kwargs) -> CommandResult:
         result = self.invoke(
             [
-                "--format",
-                "JSON",
                 "--config-file",
                 self.test_snowcli_config,
                 *args[0],
+                "--format",
+                "JSON",
                 "-c",
                 "integration",
             ],

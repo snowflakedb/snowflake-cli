@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from textwrap import dedent
 from unittest import mock
 import typing as t
 
@@ -53,12 +54,14 @@ def test_custom_config_path(mock_conn, runner, mock_cursor):
 
 
 def test_info_callback(runner):
-    result = runner.invoke(["--info", "--format", "json"])
+    result = runner.invoke(["--info"])
     assert result.exit_code == 0, result.output
-    assert json.loads(result.output) == [
-        {"key": "version", "value": VERSION},
-        {"key": "default_config_file_path", "value": str(cli_config.file_path)},
-    ]
+    result_lines = [line.split("|") for line in result.output.splitlines()[3:5]]
+    result_as_dict = {line[1].strip(): line[2].strip() for line in result_lines}
+    assert result_as_dict == {
+        "version": VERSION,
+        "default_config_file_path": str(cli_config.file_path),
+    }
 
 
 def test_all_commands_has_proper_documentation():

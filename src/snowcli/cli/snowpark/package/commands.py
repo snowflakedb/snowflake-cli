@@ -5,7 +5,7 @@ from pathlib import Path
 
 import typer
 
-from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.decorators import global_options, global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark.package.manager import (
     lookup,
@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 
 @app.command("lookup")
 @with_output
-@global_options
+@global_options_with_connection
 def package_lookup(
     name: str = typer.Argument(..., help="Name of the package"),
     install_packages: bool = typer.Option(
@@ -40,7 +40,7 @@ def package_lookup(
         "-y",
         help="Install packages that are not available on the Snowflake anaconda channel",
     ),
-    **kwargs,
+    **options,
 ):
     """
     Checks if a package is available on the Snowflake anaconda channel.
@@ -54,7 +54,7 @@ def package_lookup(
 
 @app.command("upload")
 @with_output
-@global_options
+@global_options_with_connection
 def package_upload(
     file: Path = typer.Option(
         ...,
@@ -75,7 +75,7 @@ def package_upload(
         "-o",
         help="Overwrite the file if it already exists",
     ),
-    **kwargs,
+    **options,
 ) -> OutputData:
     """
     Upload a python package zip file to a Snowflake stage, so it can be referenced in the imports of a procedure or function.
@@ -85,7 +85,7 @@ def package_upload(
 
 @app.command("create")
 @with_output
-@global_options
+@global_options_with_connection
 def package_create(
     name: str = typer.Argument(
         ...,
@@ -97,7 +97,7 @@ def package_create(
         "-y",
         help="Install packages that are not available on the Snowflake anaconda channel",
     ),
-    **kwargs,
+    **options,
 ):
     """
     Create a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
