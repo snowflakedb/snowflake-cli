@@ -1,4 +1,3 @@
-
 native_app:
   name: myapp
   source_stage: myapp_src.stage

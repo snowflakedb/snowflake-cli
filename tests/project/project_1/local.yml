@@ -1,8 +1,9 @@
-package:
-  role: accountadmin
-  name: myapp_pkg_cgorrie
+native_app:
+  package:
+    role: accountadmin
+    name: myapp_pkg_cgorrie
 
-application:
-  role: accountadmin
-  name: myapp_cgorrie
-  debug: true
+  application:
+    role: accountadmin
+    name: myapp_cgorrie
+    debug: true
