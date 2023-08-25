@@ -21,7 +21,7 @@ GLOB_REGEX = r"^[a-zA-Z0-9_\-./*?**\p{L}\p{N}]+$"
 RELATIVE_PATH = r"^[^/][\p{L}\p{N}_\-.][^/]*$"
 
 # TODO: use the above regexes to validate paths + globs
-Path = Str
+FilePath = Str
 Glob = Str
 
 
@@ -35,14 +35,14 @@ class RelaxedMap(MapCombined):
 PathMapping = RelaxedMap(
     {
         "src": Glob() | Seq(Glob()),
-        Optional("dest"): Path(),
+        Optional("dest"): FilePath(),
     }
 )
 
 app_schema = RelaxedMap(
     {
         "name": Str(),
-        Optional("deploy_root", default="output/deploy/"): Path(),
+        Optional("deploy_root", default="output/deploy/"): FilePath(),
         Optional("source_stage", default="app_src.stage"): Regex(SCHEMA_AND_NAME),
         Optional("scripts", default=OrderedDict(package="package/*.sql")): RelaxedMap(
             {
@@ -50,7 +50,7 @@ app_schema = RelaxedMap(
                 | UniqueSeq(Glob()),
             }
         ),
-        "artifacts": Seq(Path() | PathMapping),
+        "artifacts": Seq(FilePath() | PathMapping),
     }
 )
 
@@ -106,7 +106,7 @@ def generate_local_config(project: OrderedDict, conn: dict) -> OrderedDict:
     user = clean_identifier(os.getenv("USER"))
     role = conn.get("role", "accountadmin")
 
-    local = OrderedDict()
+    local: OrderedDict = OrderedDict()
     if "native_app" in project:
         local["native_app"] = OrderedDict()
 
