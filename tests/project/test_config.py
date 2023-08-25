@@ -18,6 +18,7 @@ def test_na_project_1(project_context):
     project = load_project_config(project_yml)
     local = load_local_config(local_yml)
     assert project["native_app"]["name"] == "myapp"
+    assert project["native_app"]["deploy_root"] == "output/deploy/"
     assert local["native_app"]["package"]["role"] == "accountadmin"
     assert local["native_app"]["application"]["debug"] == True
 

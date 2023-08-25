@@ -86,20 +86,20 @@ def generate_local_config(project: OrderedDict, conn: dict) -> OrderedDict:
     user = os.getenv("USER")
     role = conn.get("role", "accountadmin")
 
+    # TODO: need to sanitize user + name
+
     local = OrderedDict()
     if "native_app" in project:
         local["native_app"] = OrderedDict()
 
+        name = project["native_app"]["name"]
+
         local["native_app"]["application"] = OrderedDict()
-        local["native_app"]["application"][
-            "name"
-        ] = f"{project['native_app']['name']}_{user}"
+        local["native_app"]["application"]["name"] = f"{name}_{user}"
         local["native_app"]["application"]["role"] = role
 
         local["native_app"]["package"] = OrderedDict()
-        local["native_app"]["package"][
-            "name"
-        ] = f"{project['native_app']['name']}_pkg_{user}"
+        local["native_app"]["package"]["name"] = f"{name}_pkg_{user}"
         local["native_app"]["package"]["role"] = role
 
     return as_document(local)
