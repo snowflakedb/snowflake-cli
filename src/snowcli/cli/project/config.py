@@ -2,12 +2,13 @@ import os
 import re
 from pathlib import Path
 from strictyaml import (
-    Map,
+    MapCombined,
     Seq,
     Optional,
     UniqueSeq,
     Bool,
     Str,
+    Any,
     Regex,
     load,
     as_document,
@@ -23,19 +24,27 @@ RELATIVE_PATH = r"^[^/][\p{L}\p{N}_\-.][^/]*$"
 Path = Str
 Glob = Str
 
-PathMapping = Map(
+
+class RelaxedMap(MapCombined):
+    """A version of a Map that allows any number of unknown key/value pairs."""
+
+    def __init__(self, map_validator):
+        super(RelaxedMap, self).__init__(map_validator, Str(), Bool() | Any())
+
+
+PathMapping = RelaxedMap(
     {
         "src": Glob() | Seq(Glob()),
         Optional("dest"): Path(),
     }
 )
 
-app_schema = Map(
+app_schema = RelaxedMap(
     {
         "name": Str(),
         Optional("deploy_root", default="output/deploy/"): Path(),
         Optional("source_stage", default="app_src.stage"): Regex(SCHEMA_AND_NAME),
-        "scripts": Map(
+        Optional("scripts", default=OrderedDict(package="package/*.sql")): RelaxedMap(
             {
                 Optional("package", default="package/*.sql"): Glob()
                 | UniqueSeq(Glob()),
@@ -45,17 +54,17 @@ app_schema = Map(
     }
 )
 
-local_schema = Map(
+local_schema = RelaxedMap(
     {
-        "native_app": Map(
+        "native_app": RelaxedMap(
             {
-                "package": Map(
+                "package": RelaxedMap(
                     {
                         "role": Regex(IDENTIFIER),
                         "name": Regex(IDENTIFIER),
                     }
                 ),
-                "application": Map(
+                "application": RelaxedMap(
                     {
                         "role": Regex(IDENTIFIER),
                         "name": Regex(IDENTIFIER),
@@ -68,7 +77,7 @@ local_schema = Map(
     }
 )
 
-project_schema = Map(
+project_schema = RelaxedMap(
     {
         "native_app": app_schema,
     }

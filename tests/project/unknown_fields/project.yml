@@ -1,0 +1,5 @@
+native_app:
+  name: unknown_fields
+  unknown_fields_accepted: true
+  artifacts:
+    - setup.sql

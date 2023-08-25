@@ -3,6 +3,8 @@ from unittest import mock
 from tests.project.fixtures import *
 from tests.testing_utils.fixtures import *
 
+from strictyaml import YAMLValidationError
+
 from snowcli.config import CliConfigManager, get_default_connection
 
 from snowcli.cli.project.config import (
@@ -50,3 +52,29 @@ def test_build_local_from_project(test_snowcli_config, project_context):
         assert local["native_app"]["application"]["role"] == "test_role"
         assert local["native_app"]["package"]["name"] == "myapp_pkg_jsmith"
         assert local["native_app"]["package"]["role"] == "test_role"
+
+
+@pytest.mark.parametrize("project_context", ["minimal"], indirect=True)
+def test_na_minimal_project(project_context):
+    [project_yml, _] = project_context
+    project = load_project_config(project_yml)
+
+    assert project["native_app"]["name"] == "minimal"
+    assert project["native_app"]["scripts"]["package"] == "package/*.sql"
+
+
+@pytest.mark.parametrize("project_context", ["underspecified"], indirect=True)
+def test_underspecified_project(project_context):
+    [project_yml, _] = project_context
+    with pytest.raises(YAMLValidationError) as exc_info:
+        load_project_config(project_yml)
+
+    assert "required key(s) 'artifacts' not found" in str(exc_info.value)
+
+
+@pytest.mark.parametrize("project_context", ["unknown_fields"], indirect=True)
+def test_accepts_unknown_fields(project_context):
+    [project_yml, _] = project_context
+    project = load_project_config(project_yml)
+    assert project["native_app"]["name"] == "unknown_fields"
+    assert project["native_app"]["unknown_fields_accepted"] == True

@@ -1,0 +1,5 @@
+native_app:
+  name: minimal
+
+  artifacts:
+    - setup.sql

@@ -31,8 +31,12 @@ def with_project_context(dir_name: str):
     and will be deleted when this context manager goes out-of-scope.
     """
     with temporary_of(PROJECT_DIR / dir_name / "project.yml") as project_yml:
-        with temporary_of(PROJECT_DIR / dir_name / "local.yml") as local_yml:
-            yield [project_yml, local_yml]
+        local_path = PROJECT_DIR / dir_name / "local.yml"
+        if local_path.exists():
+            with temporary_of(local_path) as local_yml:
+                yield [project_yml, local_yml]
+        else:
+            yield [project_yml, None]
 
 
 @pytest.fixture
