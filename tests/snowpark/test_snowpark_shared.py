@@ -8,14 +8,15 @@ import pytest
 import typer
 
 import snowcli.cli.snowpark_shared as shared
-import tests.snowpark.test_snowpark_shared
 from snowcli.utils import SplitRequirements
 from tests.testing_utils.fixtures import *
 
 
 @mock.patch("tests.snowpark.test_snowpark_shared.shared.utils.parse_anaconda_packages")
 @mock.patch("tests.snowpark.test_snowpark_shared.shared.utils.install_packages")
-def test_snowpark_package(mock_install, mock_parse, temp_dir, correct_requirements_txt, caplog):
+def test_snowpark_package(
+    mock_install, mock_parse, temp_dir, correct_requirements_txt, caplog
+):
 
     mock_parse.return_value = SplitRequirements(
         [], [Requirement.parse("totally-awesome-package")]
@@ -23,7 +24,7 @@ def test_snowpark_package(mock_install, mock_parse, temp_dir, correct_requiremen
 
     mock_install.return_value = (True, None)
 
-    with caplog.at_level(logging.INFO):
+    with caplog.at_level(logging.INFO, logger="snowcli.cli.snowpark_shared"):
         result = shared.snowpark_package("yes", False, "yes")
 
     assert "Comparing provided packages from Snowflake Anaconda..." in caplog.text
@@ -37,6 +38,41 @@ def test_snowpark_package(mock_install, mock_parse, temp_dir, correct_requiremen
         with zip.open("requirements.other.txt") as req_file:
             reqs = req_file.readlines()
             assert b"totally-awesome-package\n" in reqs
+
+
+@mock.patch("tests.snowpark.test_snowpark_shared.shared.utils.parse_anaconda_packages")
+@mock.patch("tests.snowpark.test_snowpark_shared.shared.utils.install_packages")
+def test_snowpark_package_with_packages_dir(
+    mock_install,
+    mock_parse,
+    temp_dir,
+    correct_requirements_txt,
+    dot_packages_directory,
+    caplog,
+):
+
+    mock_parse.return_value = SplitRequirements(
+        [], [Requirement.parse("totally-awesome-package")]
+    )
+    mock_install.return_value = (
+        True,
+        SplitRequirements([Requirement.parse("another-package-in-anaconda")], []),
+    )
+
+    with caplog.at_level(logging.INFO, logger="snowcli.cli.snowpark_shared"):
+        result = shared.snowpark_package("yes", False, "yes")
+
+    zip_path = os.path.join(temp_dir, "app.zip")
+    assert os.path.isfile(zip_path)
+
+    with ZipFile(zip_path) as zip:
+        assert "requirements.snowflake.txt" in zip.namelist()
+        assert (
+            os.path.join(
+                ".packages", "totally-awesome-package", "totally-awesome-module.py"
+            )
+            in zip.namelist()
+        )
 
 
 def test_snowpark_update_function_with_coverage_wrapper(caplog):
