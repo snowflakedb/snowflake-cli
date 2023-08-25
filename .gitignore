@@ -13,3 +13,4 @@ dist/
 ./.packages
 .coverage
 gen_docs/
+.vscode/settings.json
