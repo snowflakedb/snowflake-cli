@@ -7,7 +7,7 @@ SAMPLE_AMOUNT = 20
 EXECUTION_TIME_THRESHOLD = 1.0
 
 
-@pytest.mark.perfomance
+@pytest.mark.performance
 def test_snow_help_performance():
     results = []
     for _ in range(SAMPLE_AMOUNT):
