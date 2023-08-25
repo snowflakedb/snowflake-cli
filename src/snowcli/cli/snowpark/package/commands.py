@@ -42,7 +42,7 @@ def package_lookup(
         "-y",
         help="Install packages that are not available on the Snowflake anaconda channel",
     ),
-    **kwargs,
+    **options,
 ) -> OutputData:
     """
     Checks if a package is available on the Snowflake anaconda channel.
@@ -77,7 +77,7 @@ def package_upload(
         "-o",
         help="Overwrite the file if it already exists",
     ),
-    **kwargs,
+    **options,
 ) -> OutputData:
     """
     Upload a python package zip file to a Snowflake stage, so it can be referenced in the imports of a procedure or function.
@@ -99,7 +99,7 @@ def package_create(
         "-y",
         help="Install packages that are not available on the Snowflake anaconda channel",
     ),
-    **kwargs,
+    **options,
 ) -> OutputData:
     """
     Create a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
