@@ -75,7 +75,7 @@ def test_update_function_no_changes(
     mock_ctx,
     mock_cursor,
     snapshot,
-        temp_dir,
+    temp_dir,
 ):
     rows = [
         ("packages", '["foo=1.2.3", "bar>=3.0.0"]'),
@@ -154,7 +154,7 @@ def test_update_function_needs_update_because_packages_changes(
     mock_ctx,
     mock_cursor,
     snapshot,
-        temp_dir,
+    temp_dir,
 ):
     rows = [
         ("packages", '["foo=1.2.3"]'),

@@ -237,7 +237,7 @@ def test_update_procedure_update_because_packages_changed(
     runner,
     mock_ctx,
     snapshot,
-        temp_dir,
+    temp_dir,
     mock_cursor,
 ):
     rows = [
@@ -285,7 +285,7 @@ def test_update_procedure_update_because_handler_changed(
     runner,
     mock_ctx,
     snapshot,
-        temp_dir,
+    temp_dir,
     mock_cursor,
 ):
     rows = [
@@ -333,7 +333,7 @@ def test_update_procedure_with_coverage(
     runner,
     mock_ctx,
     snapshot,
-        temp_dir,
+    temp_dir,
     mock_cursor,
 ):
     rows = [
