@@ -4,6 +4,6 @@ native_app:
     name: myapp_pkg_cgorrie
 
   application:
-    role: accountadmin
+    role: myapp_consumer
     name: myapp_cgorrie
     debug: true

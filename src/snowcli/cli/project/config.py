@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from strictyaml import (
     Map,
@@ -13,10 +14,12 @@ from strictyaml import (
 )
 from collections import OrderedDict
 
-IDENTIFIER = "(.+)"  # FIXME: actual identifier regex? https://docs.snowflake.com/en/sql-reference/identifiers-syntax
+IDENTIFIER = r'(?:("[^"]*(""[^"]*)*")|([A-Za-z_][\w$]{0,254}))'
 SCHEMA_AND_NAME = f"{IDENTIFIER}[.]{IDENTIFIER}"
+GLOB_REGEX = r"^[a-zA-Z0-9_\-./*?**\p{L}\p{N}]+$"
+RELATIVE_PATH = r"^[^/][\p{L}\p{N}_\-.][^/]*$"
 
-# TODO: turn into regexes
+# TODO: use the above regexes to validate paths + globs
 Path = Str
 Glob = Str
 
@@ -82,17 +85,23 @@ def load_local_config(path: Path) -> OrderedDict:
         return load(local_yml.read(), local_schema)
 
 
-def generate_local_config(project: OrderedDict, conn: dict) -> OrderedDict:
-    user = os.getenv("USER")
-    role = conn.get("role", "accountadmin")
+def clean_identifier(input):
+    """
+    Removes characters that cannot be used in an unquoted identifier,
+    converting to lowercase as well.
+    """
+    return re.sub(r"[^a-z0-9_$]", "", f"{input}".lower())
 
-    # TODO: need to sanitize user + name
+
+def generate_local_config(project: OrderedDict, conn: dict) -> OrderedDict:
+    user = clean_identifier(os.getenv("USER"))
+    role = conn.get("role", "accountadmin")
 
     local = OrderedDict()
     if "native_app" in project:
         local["native_app"] = OrderedDict()
 
-        name = project["native_app"]["name"]
+        name = clean_identifier(project["native_app"]["name"])
 
         local["native_app"]["application"] = OrderedDict()
         local["native_app"]["application"]["name"] = f"{name}_{user}"

@@ -1,6 +1,9 @@
 native_app:
   name: myapp
-  source_stage: myapp_src.stage
+
+  # the following shows how to properly use a quoted identifier in YAML
+  source_stage: >-
+    "MySourceSchema"."SRC_Stage"
 
   artifacts:
     - dest: ext_code/

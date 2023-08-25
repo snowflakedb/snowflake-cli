@@ -20,6 +20,7 @@ def test_na_project_1(project_context):
     assert project["native_app"]["name"] == "myapp"
     assert project["native_app"]["deploy_root"] == "output/deploy/"
     assert local["native_app"]["package"]["role"] == "accountadmin"
+    assert local["native_app"]["application"]["role"] == "myapp_consumer"
     assert local["native_app"]["application"]["debug"] == True
 
 
