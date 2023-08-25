@@ -1,7 +1,7 @@
 import typer
 
 from snowcli.cli.common.alias import build_alias
-from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark.compute_pool.manager import ComputePoolManager
 from snowcli.output.decorators import with_output
@@ -16,7 +16,7 @@ app = typer.Typer(
 
 @app.command()
 @with_output
-@global_options
+@global_options_with_connection
 def create(
     name: str = typer.Option(..., "--name", "-n", help="Compute pool name"),
     num_instances: int = typer.Option(..., "--num", "-d", help="Number of instances"),
@@ -34,7 +34,7 @@ def create(
 
 @app.command()
 @with_output
-@global_options
+@global_options_with_connection
 def list(**options) -> OutputData:
     """
     List compute pools
@@ -45,7 +45,7 @@ def list(**options) -> OutputData:
 
 @app.command()
 @with_output
-@global_options
+@global_options_with_connection
 def drop(
     name: str = typer.Argument(..., help="Compute Pool Name"), **options
 ) -> OutputData:
@@ -58,7 +58,7 @@ def drop(
 
 @app.command()
 @with_output
-@global_options
+@global_options_with_connection
 def stop(
     name: str = typer.Argument(..., help="Compute Pool Name"), **options
 ) -> OutputData:

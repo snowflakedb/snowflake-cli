@@ -8,15 +8,9 @@ import typer
 import click
 
 from snowcli import __about__
-from snowcli.cli import loggers
-from snowcli.cli.common.snow_cli_global_context import (
-    SnowCliGlobalContext,
-    snow_cli_global_context_manager,
-)
 from snowcli.cli.main.snow_cli_main_typer import SnowCliMainTyper
 from snowcli.config import config_init, cli_config
 from snowcli.docs.generator import generate_docs
-from snowcli.output.formats import OutputFormat
 from snowcli.output.printing import print_data
 from snowcli.pycharm_remote_debug import setup_pycharm_remote_debugger_if_provided
 
@@ -48,18 +42,6 @@ def _info_callback(value: bool):
         raise typer.Exit()
 
 
-def setup_global_context(debug: bool):
-    """
-    Setup global state (accessible in whole CLI code) using options passed in SNOW CLI invocation.
-    """
-
-    def modifications(context: SnowCliGlobalContext) -> SnowCliGlobalContext:
-        context.enable_tracebacks = debug
-        return context
-
-    snow_cli_global_context_manager.update_global_context(modifications)
-
-
 @app.callback()
 def default(
     version: bool = typer.Option(
@@ -83,13 +65,6 @@ def default(
         help="Shows information about the snowcli",
         callback=_info_callback,
     ),
-    output_format: OutputFormat = typer.Option(
-        OutputFormat.TABLE.value,
-        "--format",
-        help="Specifies output format",
-        case_sensitive=False,
-        is_eager=True,
-    ),
     configuration_file: Path = typer.Option(
         None,
         "--config-file",
@@ -97,17 +72,6 @@ def default(
         exists=True,
         dir_okay=False,
         is_eager=True,
-    ),
-    verbose: bool = typer.Option(
-        None,
-        "--verbose",
-        "-v",
-        help="Print logs from level info and higher",
-    ),
-    debug: bool = typer.Option(
-        None,
-        "--debug",
-        help="Print logs from level debug and higher, logs contains additional information",
     ),
     pycharm_debug_library_path: str = typer.Option(
         None,
@@ -134,8 +98,6 @@ def default(
         pycharm_debug_server_port=pycharm_debug_server_port,
     )
     config_init(configuration_file)
-    loggers.create_loggers(verbose, debug)
-    setup_global_context(debug=debug)
 
 
 def _add_typer_from_path(path: str):

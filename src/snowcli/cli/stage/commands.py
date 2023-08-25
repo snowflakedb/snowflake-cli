@@ -4,7 +4,7 @@ from pathlib import Path
 
 import typer
 
-from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
@@ -21,7 +21,7 @@ StageNameOption = typer.Argument(..., help="Stage name.")
 
 @app.command("list")
 @with_output
-@global_options
+@global_options_with_connection
 def stage_list(
     stage_name: str = typer.Argument(None, help="Name of stage"), **options
 ) -> OutputData:
@@ -39,7 +39,7 @@ def stage_list(
 
 @app.command("get")
 @with_output
-@global_options
+@global_options_with_connection
 def stage_get(
     stage_name: str = StageNameOption,
     path: Path = typer.Argument(
@@ -62,7 +62,7 @@ def stage_get(
 
 @app.command("put")
 @with_output
-@global_options
+@global_options_with_connection
 def stage_put(
     path: Path = typer.Argument(
         ...,
@@ -98,7 +98,7 @@ def stage_put(
 
 @app.command("create")
 @with_output
-@global_options
+@global_options_with_connection
 def stage_create(name: str = StageNameOption, **options) -> OutputData:
     """
     Create stage if not exists.
@@ -109,7 +109,7 @@ def stage_create(name: str = StageNameOption, **options) -> OutputData:
 
 @app.command("drop")
 @with_output
-@global_options
+@global_options_with_connection
 def stage_drop(name: str = StageNameOption, **options) -> OutputData:
     """
     Drop stage
@@ -120,7 +120,7 @@ def stage_drop(name: str = StageNameOption, **options) -> OutputData:
 
 @app.command("remove")
 @with_output
-@global_options
+@global_options_with_connection
 def stage_remove(
     stage_name: str = StageNameOption,
     file_name: str = typer.Argument(..., help="File name"),

@@ -1,7 +1,8 @@
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
+from snowcli.output.formats import OutputFormat
 from snowcli.snow_connector import connect_to_snowflake
 
 
@@ -57,6 +58,8 @@ class SnowCliGlobalContext:
 
     enable_tracebacks: bool
     connection: ConnectionDetails
+    output_format: OutputFormat
+    verbose: bool
 
 
 class SnowCliGlobalContextManager:
@@ -94,8 +97,26 @@ def _create_snow_cli_global_context_manager_with_default_values() -> SnowCliGlob
         SnowCliGlobalContext(
             enable_tracebacks=True,
             connection=ConnectionDetails(),
+            output_format=OutputFormat.TABLE,
+            verbose=False,
         )
     )
+
+
+def setup_global_context(param_name: str, value: Union[bool, str]):
+    """
+    Setup global state (accessible in whole CLI code) using options passed in SNOW CLI invocation.
+    """
+
+    def modifications(context: SnowCliGlobalContext) -> SnowCliGlobalContext:
+        setattr(context, param_name, value)
+        return context
+
+    snow_cli_global_context_manager.update_global_context(modifications)
+
+
+def update_callback(param_name: str):
+    return lambda value: setup_global_context(param_name=param_name, value=value)
 
 
 snow_cli_global_context_manager = (

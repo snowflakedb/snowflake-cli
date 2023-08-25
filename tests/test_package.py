@@ -1,19 +1,12 @@
-import io
 import logging
-import os
-from pathlib import Path
 from zipfile import ZipFile
 
-import pytest
-import tempfile
 from requirements.requirement import Requirement
 from unittest.mock import ANY, MagicMock, patch
 
 from snowcli.cli.snowpark import package
 from snowcli.cli.snowpark.package.utils import NotInAnaconda
 from snowcli.utils import SplitRequirements
-from tests.test_data import test_data
-from tests.testing_utils.files_and_dirs import create_named_file
 from tests.testing_utils.fixtures import *
 
 
@@ -23,12 +16,12 @@ class TestPackage:
         [
             (
                 "snowflake-connector-python",
-                "Package snowflake-connector-python is available on the Snowflake anaconda channel.",
+                "Package snowflake-connector-python is available on the Snowflake anaconda \nchannel.",
                 "snowcli.cli.snowpark.package.commands",
             ),
             (
                 "some-weird-package-we-dont-know",
-                "Lookup for package some-weird-package-we-dont-know resulted in some error. Please check the package name and try again",
+                "Lookup for package some-weird-package-we-dont-know resulted in some error. \nPlease check the package name and try again",
                 "snowcli.cli.snowpark.package.commands",
             ),
         ],
@@ -65,7 +58,7 @@ class TestPackage:
         )
         assert result.exit_code == 0
         assert (
-            'include the following in your packages: [<Requirement: "snowflake-snowpark-python">]'
+            'include the following in your packages: [<Requirement: \n"snowflake-snowpark-python">]'
             in result.output
         )
 

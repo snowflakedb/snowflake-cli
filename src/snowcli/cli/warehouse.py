@@ -3,7 +3,7 @@ from __future__ import annotations
 import typer
 from snowflake.connector.cursor import SnowflakeCursor
 
-from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.output.decorators import with_output
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
@@ -23,7 +23,7 @@ class WarehouseManager(SqlExecutionMixin):
 
 @app.command("status")
 @with_output
-@global_options
+@global_options_with_connection
 def warehouse_status(**options):
     """
     Show the status of each warehouse in the configured environment.
