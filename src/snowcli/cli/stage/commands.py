@@ -90,7 +90,7 @@ def stage_put(
     Upload files to a stage from a local client
     """
     manager = StageManager()
-    local_path = str(path) + "/*" if Path(path).is_dir() else str(path)
+    local_path = str(path) + "/*" if path.is_dir() else str(path)
 
     cursor = manager.put(
         local_path=local_path, stage_path=name, overwrite=overwrite, parallel=parallel
