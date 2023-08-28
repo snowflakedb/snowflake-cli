@@ -17,22 +17,6 @@ class MockResultMetadata(NamedTuple):
     name: str
 
 
-def test_print_db_cursor_table(capsys):
-    output_data = OutputData.from_cursor(_create_mock_cursor(), OutputFormat.TABLE)
-    print_output(output_data)
-
-    assert _get_output(capsys) == dedent(
-        """\
-    +---------------------------------------------------------------------+
-    | string | number | array     | object          | date                |
-    |--------+--------+-----------+-----------------+---------------------|
-    | string | 42     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
-    | string | 43     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
-    +---------------------------------------------------------------------+
-    """
-    )
-
-
 def test_print_multi_cursors_table(capsys):
     mock_cursor = _create_mock_cursor()
 
@@ -88,27 +72,6 @@ def test_print_different_data_sources_table(capsys):
     +-------+
     """
     )
-
-
-def test_print_db_cursor_json(capsys):
-    print_output(OutputData(format=OutputFormat.JSON).add_cursor(_create_mock_cursor()))
-
-    assert _get_output_as_json(capsys) == [
-        {
-            "string": "string",
-            "number": 42,
-            "array": ["array"],
-            "object": {"k": "object"},
-            "date": "2022-03-21T00:00:00",
-        },
-        {
-            "string": "string",
-            "number": 43,
-            "array": ["array"],
-            "object": {"k": "object"},
-            "date": "2022-03-21T00:00:00",
-        },
-    ]
 
 
 def test_print_multi_db_cursor_json(capsys):

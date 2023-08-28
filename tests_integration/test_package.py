@@ -8,6 +8,10 @@ from tempfile import NamedTemporaryFile
 
 from tests_integration.snowflake_connector import test_database, snowflake_session
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
+from tests_integration.testing_utils.assertions.test_result_assertions import (
+    assert_that_result_is_successful_and_output_json_contains,
+    assert_that_result_is_successful,
+)
 
 
 class TestPackage:
@@ -42,7 +46,7 @@ class TestPackage:
 
     @pytest.mark.integration
     def test_package_create_with_non_anaconda_package(self, directory_for_test, runner):
-        result = runner.invoke_with_config_and_integration_connection(
+        result = runner.invoke_integration(
             ["snowpark", "package", "create", "PyRTF3", "-y"]
         )
 
@@ -57,14 +61,12 @@ class TestPackage:
     def test_package_create_with_non_anaconda_package_without_install(
         self, directory_for_test, runner
     ):
-        result = runner.invoke_with_config_and_integration_connection(
-            ["snowpark", "package", "create", "PyRTF3"]
-        )
+        result = runner.invoke_integration(["snowpark", "package", "create", "PyRTF3"])
 
-        assert result.exit_code == 0
-        assert "Please check the package name or try again with -y option".replace(
-            "\n", ""
-        ) in result.output.replace("\n", "")
+        assert_that_result_is_successful(result)
+        assert result.json == {
+            "result": "Lookup for package PyRTF3 resulted in some error. Please check the package name or try again with -y option"
+        }
         assert not os.path.exists("PyRTF3.zip")
 
     @pytest.fixture

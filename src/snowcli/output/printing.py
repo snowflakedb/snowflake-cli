@@ -133,22 +133,6 @@ def _print_json(output_data: OutputData) -> None:
     print_json(json.dumps(data, cls=CustomJSONEncoder))
 
 
-def print_db_cursor(
-    cursor: SnowflakeCursor,
-    columns: Optional[List[str]] = None,
-) -> None:
-    """
-    Prints results fetched by cursor using specified format.
-
-    :param cursor: snowflake cursor for fetching results
-    :param columns: list of columns that should be included in output, if
-        not provided then all columns are returned
-    :return:
-    """
-    data = _get_data_from_cursor(cursor, columns)
-    _print_formatted(data)
-
-
 def _get_data_from_cursor(
     cursor: SnowflakeCursor, columns: Optional[List[str]] = None
 ) -> List[Dict]:
