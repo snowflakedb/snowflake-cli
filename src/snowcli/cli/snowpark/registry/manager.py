@@ -16,6 +16,7 @@ def get_token(
         # to support registry login
         session_parameters={"PYTHON_CONNECTOR_QUERY_RESULT_FORMAT": "json"},
     )
+
     # disable session deletion
     conn.ctx._all_async_queries_finished = lambda: False
     if conn.ctx._rest is None:
