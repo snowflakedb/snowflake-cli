@@ -61,11 +61,13 @@ ReturnTypeOption = typer.Option(
 
 
 @app.command("init")
+@with_output
 def function_init():
     """
     Initialize this directory with a sample set of files to create a function.
     """
     create_project_template("default_function")
+    return OutputData()
 
 
 @app.command("create")
@@ -139,6 +141,7 @@ def function_create(
 
 
 @app.command("update")
+@with_output
 def function_update(
     environment: str = ConnectionOption,
     pypi_download: str = PyPiDownloadOption,
@@ -161,7 +164,7 @@ def function_update(
         "-a",
         help="Replace function, even if no detected changes to metadata",
     ),
-):
+) -> OutputData:
     """Updates an existing python UDF/UDTF using local artifact."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
@@ -178,20 +181,23 @@ def function_update(
         return_type=return_type,
         replace=replace,
     )
+    return OutputData()
 
 
 @app.command("package")
+@with_output
 def function_package(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
-) -> None:
+) -> OutputData:
     """Packages function code into zip file."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps,
         package_native_libraries,  # type: ignore[arg-type]
     )
+    return OutputData()
 
 
 @app.command("execute")

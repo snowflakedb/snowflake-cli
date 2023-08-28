@@ -39,16 +39,19 @@ class NotInAnaconda(LookupResult):
 class NothingFound(LookupResult):
     @property
     def message(self):
-        return f"Lookup for package {self.name} resulted in some error. Please check the package name and try again"
+        return f"Lookup for package {self.name} resulted in some error. Please check the package name or try again with -y option"
 
 
 @dataclass
 class CreateResult:
+    package_name: str
     file_name: Path = Path()
 
 
 class CreatedSuccessfully(CreateResult):
-    pass
+    @property
+    def message(self):
+        return f"Package {self.package_name}.zip created. You can now upload it to a stage (`snow snowpark package upload -f {self.package_name}.zip -s packages`) and reference it in your procedure or function."
 
 
 class CreationError(CreateResult):

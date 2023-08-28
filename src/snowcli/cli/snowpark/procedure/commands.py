@@ -36,11 +36,13 @@ app.add_typer(procedure_coverage_app)
 
 
 @app.command("init")
-def procedure_init() -> None:
+@with_output
+def procedure_init() -> OutputData:
     """
     Initialize this directory with a sample set of files to create a procedure.
     """
     create_project_template("default_procedure")
+    return OutputData()
 
 
 @app.command("create")
@@ -148,6 +150,7 @@ def procedure_create(
 
 
 @app.command("update")
+@with_output
 def procedure_update(
     environment: str = ConnectionOption,
     pypi_download: str = PyPiDownloadOption,
@@ -199,7 +202,7 @@ def procedure_update(
         "--install-coverage-wrapper",
         help="Wraps the procedure with a code coverage measurement tool, so that a coverage report can be later retrieved.",
     ),
-):
+) -> OutputData:
     """Updates an existing python procedure using local artifact."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
@@ -218,20 +221,23 @@ def procedure_update(
         execute_as_caller,
         install_coverage_wrapper,
     )
+    return OutputData()
 
 
 @app.command("package")
+@with_output
 def procedure_package(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
-):
+) -> OutputData:
     """Packages procedure code into zip file."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps,
         package_native_libraries,  # type: ignore[arg-type]
     )
+    return OutputData()
 
 
 @app.command("execute")

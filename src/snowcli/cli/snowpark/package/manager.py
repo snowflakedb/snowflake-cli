@@ -27,6 +27,7 @@ log = logging.getLogger(__name__)
 def lookup(name: str, install_packages: bool) -> LookupResult:
 
     package_response = utils.parse_anaconda_packages([Requirement.parse(name)])
+
     if package_response.snowflake and not package_response.other:
         return InAnaconda(package_response, name)
     elif install_packages:
@@ -76,9 +77,9 @@ def create(name: str):
         utils.recursive_zip_packages_dir(pack_dir=".packages", dest_zip=file_name)
 
     if os.path.exists(file_name):
-        return CreatedSuccessfully(Path(file_name))
+        return CreatedSuccessfully(name, Path(file_name))
     else:
-        return CreationError()
+        return CreationError(name)
 
 
 def cleanup_after_install():

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import typer
 
-from snowcli.cli.common.decorators import global_options, global_options_with_connection
+from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark.package.manager import (
     lookup,
@@ -14,8 +14,10 @@ from snowcli.cli.snowpark.package.manager import (
     upload,
 )
 from snowcli.cli.snowpark.package.utils import (
+    InAnaconda,
     NotInAnaconda,
     RequiresPackages,
+    NothingFound,
     CreatedSuccessfully,
 )
 from snowcli.output.decorators import with_output
@@ -30,8 +32,8 @@ log = logging.getLogger(__name__)
 
 
 @app.command("lookup")
-@with_output
 @global_options_with_connection
+@with_output
 def package_lookup(
     name: str = typer.Argument(..., help="Name of the package"),
     install_packages: bool = typer.Option(
@@ -41,7 +43,7 @@ def package_lookup(
         help="Install packages that are not available on the Snowflake anaconda channel",
     ),
     **options,
-):
+) -> OutputData:
     """
     Checks if a package is available on the Snowflake anaconda channel.
     In install_packages flag is set to True, command will check all the dependencies of the packages
@@ -53,8 +55,8 @@ def package_lookup(
 
 
 @app.command("upload")
-@with_output
 @global_options_with_connection
+@with_output
 def package_upload(
     file: Path = typer.Option(
         ...,
@@ -84,8 +86,8 @@ def package_upload(
 
 
 @app.command("create")
-@with_output
 @global_options_with_connection
+@with_output
 def package_create(
     name: str = typer.Argument(
         ...,
@@ -98,22 +100,24 @@ def package_create(
         help="Install packages that are not available on the Snowflake anaconda channel",
     ),
     **options,
-):
+) -> OutputData:
     """
     Create a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
     """
 
-    if type(lookup_result := lookup(name=name, install_packages=install_packages)) in [
-        NotInAnaconda,
-        RequiresPackages,
-    ]:
+    if (
+        type(lookup_result := lookup(name=name, install_packages=install_packages))
+        in [
+            NotInAnaconda,
+            RequiresPackages,
+        ]
+        and type(creation_result := create(name)) == CreatedSuccessfully
+    ):
+        message = creation_result.message
+        if type(lookup_result) == RequiresPackages:
+            message += "\n" + lookup_result.message
+    else:
+        message = lookup_result.message
 
-        if type(creation_result := create(name)) == CreatedSuccessfully:
-            message = f"Package {name}.zip created. You can now upload it to a stage (`snow snowpark package upload -f {name}.zip -s packages`) and reference it in your procedure or function."
-            if type(lookup_result) == RequiresPackages:
-                message += lookup_result.message
-        else:
-            message = lookup_result.message
-
-        cleanup_after_install()
-        return OutputData.from_string(message)
+    cleanup_after_install()
+    return OutputData.from_string(message)

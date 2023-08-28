@@ -1,8 +1,10 @@
 import logging
-from zipfile import ZipFile
+import pytest
 
+from pathlib import Path
 from requirements.requirement import Requirement
 from unittest.mock import ANY, MagicMock, patch
+from zipfile import ZipFile
 
 from snowcli.cli.snowpark import package
 from snowcli.cli.snowpark.package.utils import NotInAnaconda
@@ -16,12 +18,12 @@ class TestPackage:
         [
             (
                 "snowflake-connector-python",
-                "Package snowflake-connector-python is available on the Snowflake anaconda \nchannel.",
+                "Package snowflake-connector-python is available on the Snowflake anaconda channel.",
                 "snowcli.cli.snowpark.package.commands",
             ),
             (
                 "some-weird-package-we-dont-know",
-                "Lookup for package some-weird-package-we-dont-know resulted in some error. \nPlease check the package name and try again",
+                "Lookup for package some-weird-package-we-dont-know resulted in some error. Please check the package name or try again with -y option",
                 "snowcli.cli.snowpark.package.commands",
             ),
         ],
@@ -35,7 +37,7 @@ class TestPackage:
         result = runner.invoke(["snowpark", "package", "lookup", argument[0], "--yes"])
 
         assert result.exit_code == 0
-        assert argument[1] in result.output
+        assert argument[1].replace("\n", "") in result.output.replace("\n", "")
 
     @patch("tests.test_package.package.manager.utils.install_packages")
     @patch("tests.test_package.package.manager.utils.parse_anaconda_packages")
@@ -57,9 +59,10 @@ class TestPackage:
             ["snowpark", "package", "lookup", "some-other-package", "--yes"]
         )
         assert result.exit_code == 0
-        assert (
-            'include the following in your packages: [<Requirement: \n"snowflake-snowpark-python">]'
-            in result.output
+        assert 'include the following in your packages: [<Requirement: "snowflake-snowpark-python">]'.replace(
+            "\n", ""
+        ) in result.output.replace(
+            "\n", ""
         )
 
     @patch("tests.test_package.package.commands.lookup")

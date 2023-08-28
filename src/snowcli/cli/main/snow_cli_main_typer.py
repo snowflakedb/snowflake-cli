@@ -10,7 +10,7 @@ def _handle_exception(exception: Exception):
         snow_cli_global_context_manager.get_global_context_copy().enable_tracebacks
     )
     if enable_tracebacks:
-        raise exception from None
+        raise exception
     else:
         click.echo(
             "An unexpected exception occurred. Use --debug option to see the traceback.\n"
