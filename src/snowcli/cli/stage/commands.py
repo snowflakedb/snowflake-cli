@@ -66,6 +66,10 @@ def stage_put(
     path: Path = typer.Argument(
         ...,
         exists=False,
+        file_okay=True,
+        dir_okay=True,
+        writable=True,
+        resolve_path=True,
         help=(
             "File or directory to upload to stage, can include a * in the path, "
             "like folder/*.csv"

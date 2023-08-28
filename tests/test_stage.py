@@ -57,7 +57,7 @@ def test_stage_put(mock_execute, runner, mock_cursor):
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        f"put file://{Path(tmp_dir)}/* @stageName auto_compress=false parallel=42 overwrite=True"
+        f"put file://{Path(tmp_dir).resolve()}/* @stageName auto_compress=false parallel=42 overwrite=True"
     )
 
 
@@ -80,7 +80,7 @@ def test_stage_put_star(mock_execute, runner, mock_cursor):
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        f"put file://{Path(tmp_dir)}/*.py @stageName auto_compress=false parallel=42 overwrite=True"
+        f"put file://{Path(tmp_dir).resolve()}/*.py @stageName auto_compress=false parallel=42 overwrite=True"
     )
 
 
