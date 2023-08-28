@@ -1,3 +1,5 @@
+manifest_version: 1
+
 artifacts:
   setup_script: setup_script.sql
   readme: README.md
