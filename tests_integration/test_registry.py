@@ -1,9 +1,8 @@
 import pytest
 
-from tests_integration.conftest import runner
 
-
+@pytest.mark.integration
 def test_token(runner):
-    result = runner.invoke_integration(["snowpark", "registry", "token"])
+    result = runner.invoke_integration(["snowpark", "registry", "token","-c", "integration"])
 
     assert result.exit_code == 0
