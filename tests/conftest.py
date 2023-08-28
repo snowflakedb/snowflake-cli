@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import functools
-import pytest
 
 from typer import Typer
 from typer.testing import CliRunner
