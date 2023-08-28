@@ -307,6 +307,7 @@ def procedure_update(
             execute_as_caller=execute_as_caller,
         )
         return OutputData.from_cursor(cursor)
+
     return OutputData.from_string("No packages to update. Deployment complete!")
 
 

@@ -111,6 +111,7 @@ def mock_cursor():
         def fetchone(self):
             if self._rows:
                 return self._rows.pop(0)
+            return None
 
         def fetchall(self):
             return self._rows
