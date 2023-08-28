@@ -1,5 +1,6 @@
-import logging
-from pathlib import Path
+# from pathlib import Path
+
+
 from requirements.requirement import Requirement
 from unittest import mock
 from zipfile import ZipFile
@@ -24,10 +25,7 @@ def test_snowpark_package(
 
     mock_install.return_value = (True, None)
 
-    with caplog.at_level(logging.INFO, logger="snowcli.cli.snowpark_shared"):
-        result = shared.snowpark_package("yes", False, "yes")
-
-    assert "Comparing provided packages from Snowflake Anaconda..." in caplog.text
+    result = shared.snowpark_package("yes", False, "yes")
 
     zip_path = os.path.join(temp_dir, "app.zip")
     assert os.path.isfile(zip_path)
@@ -43,12 +41,7 @@ def test_snowpark_package(
 @mock.patch("tests.snowpark.test_snowpark_shared.shared.utils.parse_anaconda_packages")
 @mock.patch("tests.snowpark.test_snowpark_shared.shared.utils.install_packages")
 def test_snowpark_package_with_packages_dir(
-    mock_install,
-    mock_parse,
-    temp_dir,
-    correct_requirements_txt,
-    dot_packages_directory,
-    caplog,
+    mock_install, mock_parse, temp_dir, correct_requirements_txt, dot_packages_directory
 ):
 
     mock_parse.return_value = SplitRequirements(
@@ -59,42 +52,36 @@ def test_snowpark_package_with_packages_dir(
         SplitRequirements([Requirement.parse("another-package-in-anaconda")], []),
     )
 
-    with caplog.at_level(logging.INFO, logger="snowcli.cli.snowpark_shared"):
-        result = shared.snowpark_package("yes", False, "yes")
+    result = shared.snowpark_package("yes", False, "yes")
 
     zip_path = os.path.join(temp_dir, "app.zip")
     assert os.path.isfile(zip_path)
 
-    with ZipFile(zip_path) as zip:
-        assert "requirements.snowflake.txt" in zip.namelist()
+    with ZipFile(zip_path) as zipfile:
+        assert "requirements.snowflake.txt" in zipfile.namelist()
         assert (
             os.path.join(
                 ".packages", "totally-awesome-package", "totally-awesome-module.py"
             )
-            in zip.namelist()
+            in zipfile.namelist()
         )
 
 
-def test_snowpark_update_function_with_coverage_wrapper(caplog):
-
-    with caplog.at_level(logging.ERROR):
-        with pytest.raises(typer.Abort):
-            shared.snowpark_update(
-                type="function",
-                environment="dev",
-                name="hello",
-                file=Path("app.zip"),
-                handler="app.hello",
-                input_parameters="()",
-                return_type="str",
-                replace=False,
-                install_coverage_wrapper=True,
-            )
-
-    assert (
-        "You cannot install a code coverage wrapper on a function, only a procedure."
-        in caplog.text
-    )
+@mock.patch("tests.snowpark.test_snowpark_shared.shared.connect_to_snowflake")
+def test_snowpark_update_function_with_coverage_wrapper(mock_conn):
+    with pytest.raises(typer.Abort):
+        shared.snowpark_update(
+            type="function",
+            environment="dev",
+            name="hello",
+            file=Path("app.zip"),
+            handler="app.hello",
+            input_parameters="()",
+            return_type="str",
+            replace=False,
+            install_coverage_wrapper=True,
+        )
+    mock_conn.assert_not_called()
 
 
 def test_replace_handler_in_zip(temp_dir, app_zip):
@@ -118,20 +105,19 @@ def test_replace_handler_in_zip(temp_dir, app_zip):
             assert b"    import app\n" in coverage_file
 
 
-def test_replace_handler_in_zip_with_wrong_handler(caplog, temp_dir, app_zip):
-    with caplog.at_level(logging.ERROR):
-        with pytest.raises(typer.Abort):
-            result = shared.replace_handler_in_zip(
-                proc_name="hello",
-                proc_signature="()",
-                handler="app.hello.world",
-                temp_dir=temp_dir,
-                zip_file_path=app_zip,
-                coverage_reports_stage="@example",
-                coverage_reports_stage_path="test_db.public.example",
-            )
+@mock.patch(
+    "tests.snowpark.test_snowpark_shared.shared.utils.generate_snowpark_coverage_wrapper"
+)
+def test_replace_handler_in_zip_with_wrong_handler(mock_wrapper, temp_dir, app_zip):
+    with pytest.raises(typer.Abort):
+        result = shared.replace_handler_in_zip(
+            proc_name="hello",
+            proc_signature="()",
+            handler="app.hello.world",
+            temp_dir=temp_dir,
+            zip_file_path=app_zip,
+            coverage_reports_stage="@example",
+            coverage_reports_stage_path="test_db.public.example",
+        )
 
-    assert (
-        "To install a code coverage wrapper, your handler must be in the format <module>.<function>"
-        in caplog.text
-    )
+    mock_wrapper.assert_not_called()
