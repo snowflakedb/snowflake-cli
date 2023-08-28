@@ -38,13 +38,6 @@ def test_stage_get_default_path(mock_execute, runner, mock_cursor):
     )
 
 
-def _resolve_tmp_dir(tmp_dir):
-    raw_path = str(Path(tmp_dir).resolve())
-    if raw_path.startswith("/private/"):
-        return raw_path.replace("/private/", "/")
-    return raw_path
-
-
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_put(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
@@ -64,7 +57,7 @@ def test_stage_put(mock_execute, runner, mock_cursor):
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        f"put file://{_resolve_tmp_dir(tmp_dir)}/* @stageName auto_compress=false parallel=42 overwrite=True"
+        f"put file://{Path(tmp_dir)}/* @stageName auto_compress=false parallel=42 overwrite=True"
     )
 
 
@@ -87,7 +80,7 @@ def test_stage_put_star(mock_execute, runner, mock_cursor):
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        f"put file://{_resolve_tmp_dir(tmp_dir)}/*.py @stageName auto_compress=false parallel=42 overwrite=True"
+        f"put file://{Path(tmp_dir)}/*.py @stageName auto_compress=false parallel=42 overwrite=True"
     )
 
 
