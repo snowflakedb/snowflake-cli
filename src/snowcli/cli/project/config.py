@@ -12,6 +12,7 @@ from .schema import (
     project_override_schema,
 )
 
+from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 
 DEFAULT_USERNAME = "unknown_user"
 
@@ -52,9 +53,12 @@ def load_project_config(paths: List[Path]) -> dict:
     return config.data
 
 
-def generate_local_override_yml(project: dict | YAML, conn: dict) -> YAML:
+def generate_local_override_yml(project: dict | YAML) -> YAML:
     user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
-    role = conn.get("role", "accountadmin")  # TODO: actual connection
+    role = snow_cli_global_context_manager.get_single_value("select current_role()")
+    warehouse = snow_cli_global_context_manager.get_single_value(
+        "select current_warehouse()"
+    )
 
     local: dict = {}
     if "native_app" in project:
@@ -64,7 +68,7 @@ def generate_local_override_yml(project: dict | YAML, conn: dict) -> YAML:
                 "name": f"{name}_{user}",
                 "role": role,
                 "debug": True,
-                # TODO: warehouse from actual connection
+                "warehouse": warehouse,
             },
             "package": {"name": f"{name}_pkg_{user}", "role": role},
         }

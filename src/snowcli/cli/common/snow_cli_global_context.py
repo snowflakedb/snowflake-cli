@@ -88,8 +88,17 @@ class SnowCliGlobalContextManager:
     def get_connection(self):
         return self.get_global_context_copy().connection.build_connection()
 
+    def execute_string(self, *args, **kwargs):
+        return self.get_connection().ctx.execute_string(*args, **kwargs)
 
-def _create_snow_cli_global_context_manager_with_default_values() -> SnowCliGlobalContextManager:
+    def get_single_value(self, query: str):
+        cursor = self.execute_string(query)
+        return cursor.fetchone()[0]
+
+
+def _create_snow_cli_global_context_manager_with_default_values() -> (
+    SnowCliGlobalContextManager
+):
     """
     Creates a manager with global state filled with default values.
     """
