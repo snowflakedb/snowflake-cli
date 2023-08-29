@@ -39,12 +39,12 @@ def test_na_minimal_project(
     def mock_execute_string(query) -> SnowflakeCursor:
         if query == "select current_role()":
             return mock_cursor(
-                rows=["resolved_role"],
+                rows=[("resolved_role",)],
                 columns=["CURRENT_ROLE()"],
             )
         elif query == "select current_warehouse()":
             return mock_cursor(
-                rows=["resolved_warehouse"],
+                rows=[("resolved_warehouse",)],
                 columns=["CURRENT_WAREHOUSE()"],
             )
 
@@ -73,6 +73,14 @@ def test_underspecified_project(project_config_files):
         load_project_config(project_config_files)
 
     assert "required key(s) 'artifacts' not found" in str(exc_info.value)
+
+
+@pytest.mark.parametrize("project_config_files", ["no_config_version"], indirect=True)
+def test_fails_without_config_version(project_config_files):
+    with pytest.raises(YAMLValidationError) as exc_info:
+        load_project_config(project_config_files)
+
+    assert "required key(s) 'config_version' not found" in str(exc_info.value)
 
 
 @pytest.mark.parametrize("project_config_files", ["unknown_fields"], indirect=True)
