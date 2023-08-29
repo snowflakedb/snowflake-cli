@@ -43,48 +43,6 @@ def test_command_context_is_passed_to_snowflake_connection(
 
 
 @mock.patch("snowflake.connector")
-def test_create_procedure(_, snapshot):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (None, None)
-
-    connector.create_procedure(
-        name="nameValue",
-        input_parameters="(string a, variant b)",
-        return_type="returnTypeValue",
-        handler="handlerValue",
-        imports="import1, import2",
-        database="databaseValue",
-        schema="schemaValue",
-        role="roleValue",
-        warehouse="warehouseValue",
-        overwrite=True,
-        packages=["aaa", "bbb"],
-        execute_as_caller=True,
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
-@mock.patch("snowflake.connector")
-def test_describe_procedure(_, snapshot):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (None, None)
-
-    connector.describe_procedure(
-        database="databaseValue",
-        schema="schemaValue",
-        role="roleValue",
-        warehouse="warehouseValue",
-        signature="signatureValue",
-        name="nameValue",
-        input_parameters="(string a, variant b)",
-        show_exceptions="show_exceptionsValue",
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
-@mock.patch("snowflake.connector")
 def test_set_procedure_comment(_, snapshot):
     connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
     connector.ctx.execute_stream.return_value = (None, None)

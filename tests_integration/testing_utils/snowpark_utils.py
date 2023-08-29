@@ -264,7 +264,7 @@ class SnowparkTestSteps:
             to_replace='return "Hello World!"',
             replacement="return 1",
         )
-        result = self._setup.runner.invoke_integration_without_format(
+        result = self._setup.runner.invoke_integration(
             [
                 "snowpark",
                 self.test_type.value,
@@ -279,7 +279,10 @@ class SnowparkTestSteps:
                 "int",
             ]
         )
-        assert_that_result_is_successful_and_done_is_on_output(result)
+        assert_that_result_is_successful_and_output_json_equals(
+            result,
+            [{"status": f"Function {entity_name.upper()} successfully created."}],
+        )
 
     def snowpark_drop_should_finish_successfully(
         self,

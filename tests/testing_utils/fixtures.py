@@ -109,7 +109,9 @@ def mock_cursor():
             self._columns = [MockResultMetadata(c) for c in columns]
 
         def fetchone(self):
-            return self.fetchall()
+            if self._rows:
+                return self._rows.pop(0)
+            return None
 
         def fetchall(self):
             return self._rows
