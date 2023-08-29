@@ -9,6 +9,7 @@ class SqlExecutionMixin:
     def __init__(self):
         pass
 
+    @property
     def _conn(self):
         return snow_cli_global_context_manager.get_connection()
 
