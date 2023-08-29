@@ -12,7 +12,9 @@ from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.constants import DEPLOYMENT_STAGE
 from snowcli.cli.snowpark.procedure.manager import ProcedureManager
-from snowcli.cli.snowpark.procedure_coverage import app as procedure_coverage_app
+from snowcli.cli.snowpark.procedure_coverage.commands import (
+    app as procedure_coverage_app,
+)
 from snowcli.cli.snowpark_shared import (
     CheckAnacondaForPyPiDependancies,
     PackageNativeLibrariesOption,
