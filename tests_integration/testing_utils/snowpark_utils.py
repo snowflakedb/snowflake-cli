@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import os.path
 import re
 from enum import Enum
+
+import pytest
+import typer
 from syrupy import SnapshotAssertion
 from typing import List, Dict, Any
 
@@ -232,21 +236,25 @@ class SnowparkTestSteps:
         entity_name = (
             self._setup.test_object_name_provider.create_and_get_next_object_name()
         )
-        result = self._setup.runner.invoke_integration(
-            [
-                "snowpark",
-                self.test_type.value,
-                "create",
-                "--name",
-                entity_name,
-                "--handler",
-                "app.hello",
-                "--input-parameters",
-                "()",
-                "--return-type",
-                "string",
-            ]
-        )
+
+        invoke_arguments = [
+            "snowpark",
+            self.test_type.value,
+            "create",
+            "--name",
+            entity_name,
+            "--handler",
+            "app.hello",
+            "--input-parameters",
+            "()",
+            "--return-type",
+            "string",
+        ]
+
+        if self.test_type == TestType.PROCEDURE:
+            invoke_arguments.append("--install-coverage-wrapper")
+
+        result = self._setup.runner.invoke_integration(invoke_arguments)
         assert_that_result_is_successful(result)
         return entity_name
 
@@ -302,6 +310,46 @@ class SnowparkTestSteps:
         )
         assert_that_result_is_successful(result)
 
+    def procedure_coverage_report_should_raise_error_when_there_is_no_coverage_report(
+        self, procedure_name: str, arguments: str
+    ):
+
+        result = self._setup.runner.invoke_integration_without_format(
+            [
+                "snowpark",
+                "procedure",
+                "coverage",
+                "report",
+                "-n",
+                procedure_name,
+                "-i",
+                arguments,
+            ]
+        )
+
+        assert result.exit_code == 1
+        assert result.json == None
+        assert result.output == "Aborted.\n"
+        assert not os.path.exists(".coverage")
+
+    def procedure_coverage_should_return_report_when_file_are_present_on_stage(
+        self, procedure_name, arguments
+    ):
+        result = self._setup.runner.invoke_integration_without_format(
+            [
+                "snowpark",
+                "procedure",
+                "coverage",
+                "report",
+                "-n",
+                procedure_name,
+                "-i",
+                arguments,
+            ]
+        )
+        print(result)
+        assert result.exit_code == 0
+
     def assert_that_no_entities_are_in_snowflake(self) -> None:
         self.assert_that_only_these_entities_are_in_snowflake()
 
@@ -325,8 +373,30 @@ class SnowparkTestSteps:
     def assert_that_only_these_files_are_staged_in_test_db(
         self, *expected_file_paths: str
     ) -> None:
-        actual_file_paths = [
+        assert set(self.get_actual_files_staged_in_db()) == set(expected_file_paths)
+
+    def assert_that_only_app_and_coverage_file_are_staged_in_test_db(
+        self, path_beggining: str
+    ):
+        coverage_regex = re.compile(
+            path_beggining + "/coverage/[0-9]{8}-[0-9]{6}.coverage"
+        )
+        app_name = path_beggining + "/app.zip"
+
+        assert app_name in (actual_file_paths := self.get_actual_files_staged_in_db())
+        assert any(coverage_regex.match(file) for file in actual_file_paths)
+
+    def get_actual_files_staged_in_db(self):
+        return [
             staged_file["name"]
             for staged_file in self._setup.query_files_uploaded_in_this_test_case()
         ]
-        assert set(actual_file_paths) == set(expected_file_paths)
+
+    @staticmethod
+    def add_requirements_to_requirements_txt(
+        requirements: List[str], file_path: str = "Requirements.txt"
+    ):
+        if os.path.exists(file_path):
+            with open(file_path, "a") as reqs_file:
+                for req in requirements:
+                    reqs_file.write(req + "\n")

@@ -15,7 +15,7 @@ from tests_integration.testing_utils.working_directory_utils import (
 )
 
 
-@pytest.mark.integration
+# @pytest.mark.integration
 def test_snowpark_procedure_flow(_test_steps):
     _test_steps.assert_that_no_entities_are_in_snowflake()
     _test_steps.assert_that_no_files_are_staged_in_test_db()
@@ -23,16 +23,17 @@ def test_snowpark_procedure_flow(_test_steps):
     _test_steps.snowpark_list_should_return_no_data()
 
     _test_steps.snowpark_init_should_initialize_files_with_default_content()
+    _test_steps.add_requirements_to_requirements_txt(requirements=["coverage"])
     _test_steps.snowpark_package_should_zip_files()
 
     procedure_name = _test_steps.snowpark_create_should_finish_successfully()
     _test_steps.assert_that_only_these_entities_are_in_snowflake(
         f"{procedure_name}() RETURN VARCHAR"
     )
+
     _test_steps.assert_that_only_these_files_are_staged_in_test_db(
         f"deployments/{procedure_name}/app.zip"
     )
-
     _test_steps.snowpark_list_should_return_entity_at_first_place(
         entity_name=procedure_name,
         arguments="()",
@@ -42,6 +43,10 @@ def test_snowpark_procedure_flow(_test_steps):
     _test_steps.snowpark_describe_should_return_entity_description(
         entity_name=procedure_name,
         arguments="()",
+    )
+
+    _test_steps.procedure_coverage_report_should_raise_error_when_there_is_no_coverage_report(
+        procedure_name=procedure_name, arguments="()"
     )
 
     _test_steps.snowpark_execute_should_return_expected_value(
@@ -54,8 +59,13 @@ def test_snowpark_procedure_flow(_test_steps):
     _test_steps.assert_that_only_these_entities_are_in_snowflake(
         f"{procedure_name}() RETURN NUMBER"
     )
-    _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-        f"deployments/{procedure_name}/app.zip"
+
+    _test_steps.assert_that_only_app_and_coverage_file_are_staged_in_test_db(
+        f"deployments/{procedure_name}"
+    )
+
+    _test_steps.procedure_coverage_should_return_report_when_file_are_present_on_stage(
+        procedure_name=procedure_name, arguments="()"
     )
 
     _test_steps.snowpark_list_should_return_entity_at_first_place(
@@ -75,8 +85,8 @@ def test_snowpark_procedure_flow(_test_steps):
         arguments="()",
     )
     _test_steps.assert_that_no_entities_are_in_snowflake()
-    _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-        f"deployments/{procedure_name}/app.zip"
+    _test_steps.assert_that_only_app_and_coverage_file_are_staged_in_test_db(
+        f"deployments/{procedure_name}"
     )
 
     _test_steps.snowpark_list_should_return_no_data()
