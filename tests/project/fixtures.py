@@ -30,7 +30,7 @@ def snowflake_ymls(dir_name: str):
     Returns paths to [snowflake_yml, (snowflake_local_yml)].
     These files are temporary copies of the project config found in dir_name
     and will be deleted when this context manager goes out-of-scope.
-    If there is no local overrides file, the
+    If there is no local overrides file, returns a list of length 1.
     """
     with temporary_of(PROJECT_DIR / dir_name / "snowflake.yml") as project_yml:
         local_path = PROJECT_DIR / dir_name / "snowflake.local.yml"
