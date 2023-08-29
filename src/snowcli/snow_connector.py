@@ -125,8 +125,9 @@ class SnowflakeConnector:
         return self.ctx.execute_string(*args, **kwargs)
 
     def get_single_value(self, query: str):
-        cursor = self.execute_string(query)
-        return cursor.fetchone()[0]
+        cursors = self.ctx.execute_string(query)
+        # one SQL statement, one row, one column
+        return cursors[0].fetchone()[0]
 
 
 def connect_to_snowflake(connection_name: Optional[str] = None, **overrides) -> SnowflakeConnector:  # type: ignore
