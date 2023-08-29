@@ -18,36 +18,37 @@ def temporary_of(path: Path):
     This file will be deleted when this context manager goes out-of-scope.
     """
     with tempfile.NamedTemporaryFile(suffix=path.name, mode="w+") as fh:
-        fh.write(open(path, "r").read())
+        with open(path, "r") as rh:
+            fh.write(rh.read())
         fh.flush()
         yield Path(fh.name)
 
 
 @contextmanager
-def with_project_context(dir_name: str):
+def snowflake_ymls(dir_name: str):
     """
-    Returns paths to [project_yml, local_yml].
+    Returns paths to [snowflake_yml, (snowflake_local_yml)].
     These files are temporary copies of the project config found in dir_name
     and will be deleted when this context manager goes out-of-scope.
+    If there is no local overrides file, the
     """
-    with temporary_of(PROJECT_DIR / dir_name / "project.yml") as project_yml:
-        local_path = PROJECT_DIR / dir_name / "local.yml"
+    with temporary_of(PROJECT_DIR / dir_name / "snowflake.yml") as project_yml:
+        local_path = PROJECT_DIR / dir_name / "snowflake.local.yml"
         if local_path.exists():
             with temporary_of(local_path) as local_yml:
                 yield [project_yml, local_yml]
         else:
-            yield [project_yml, None]
+            yield [project_yml]
 
 
 @pytest.fixture
-def project_context(request):
+def project_config_files(request):
     """
     Expects indirect parameterization, e.g.
     @pytest.mark.parametrize("project_context", ["project_1"], indirect=True)
-    def test_my_project(project_context):
-        [project_yml, local_yml] = project_context
+    def test_my_project(resolved_config):
+        assert resolved_config["native_app"]["name"] == "myapp"
     """
-    print(request.param)
     project_dir = request.param
-    with with_project_context(project_dir) as ctx:
-        yield ctx
+    with snowflake_ymls(project_dir) as ymls:
+        yield ymls

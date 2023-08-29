@@ -1,123 +1,72 @@
-import os
-import re
+from .util import clean_identifier, get_env_username
 from pathlib import Path
+from typing import List
 from strictyaml import (
-    MapCombined,
-    Seq,
-    Optional,
-    UniqueSeq,
-    Bool,
-    Str,
-    Any,
-    Regex,
+    YAML,
     load,
     as_document,
 )
-from collections import OrderedDict
 
-IDENTIFIER = r'(?:("[^"]*(""[^"]*)*")|([A-Za-z_][\w$]{0,254}))'
-SCHEMA_AND_NAME = f"{IDENTIFIER}[.]{IDENTIFIER}"
-GLOB_REGEX = r"^[a-zA-Z0-9_\-./*?**\p{L}\p{N}]+$"
-RELATIVE_PATH = r"^[^/][\p{L}\p{N}_\-.][^/]*$"
-
-# TODO: use the above regexes to validate paths + globs
-FilePath = Str
-Glob = Str
-
-
-class RelaxedMap(MapCombined):
-    """A version of a Map that allows any number of unknown key/value pairs."""
-
-    def __init__(self, map_validator):
-        super(RelaxedMap, self).__init__(map_validator, Str(), Bool() | Any())
-
-
-PathMapping = RelaxedMap(
-    {
-        "src": Glob() | Seq(Glob()),
-        Optional("dest"): FilePath(),
-    }
-)
-
-app_schema = RelaxedMap(
-    {
-        "name": Str(),
-        Optional("deploy_root", default="output/deploy/"): FilePath(),
-        Optional("source_stage", default="app_src.stage"): Regex(SCHEMA_AND_NAME),
-        Optional("scripts", default=OrderedDict(package="package/*.sql")): RelaxedMap(
-            {
-                Optional("package", default="package/*.sql"): Glob()
-                | UniqueSeq(Glob()),
-            }
-        ),
-        "artifacts": Seq(FilePath() | PathMapping),
-    }
-)
-
-local_schema = RelaxedMap(
-    {
-        "native_app": RelaxedMap(
-            {
-                "package": RelaxedMap(
-                    {
-                        "role": Regex(IDENTIFIER),
-                        "name": Regex(IDENTIFIER),
-                    }
-                ),
-                "application": RelaxedMap(
-                    {
-                        "role": Regex(IDENTIFIER),
-                        "name": Regex(IDENTIFIER),
-                        Optional("warehouse"): Regex(IDENTIFIER),
-                        Optional("debug", default=True): Bool(),
-                    }
-                ),
-            }
-        ),
-    }
-)
-
-project_schema = RelaxedMap(
-    {
-        "native_app": app_schema,
-    }
+from .schema import (
+    project_schema,
+    project_override_schema,
 )
 
 
-def load_project_config(path: Path) -> OrderedDict:
-    with open(path, "r") as project_yml:
-        return load(project_yml.read(), project_schema)
+DEFAULT_USERNAME = "unknown_user"
 
 
-def load_local_config(path: Path) -> OrderedDict:
-    with open(path, "r") as local_yml:
-        return load(local_yml.read(), local_schema)
-
-
-def clean_identifier(input):
+def merge_left(target: dict | YAML, source: dict | YAML) -> None:
     """
-    Removes characters that cannot be used in an unquoted identifier,
-    converting to lowercase as well.
+    Recursively merges key/value pairs from source into target.
+    Modifies the original dict-like "target".
     """
-    return re.sub(r"[^a-z0-9_$]", "", f"{input}".lower())
+    for k, v in source.items():
+        if k in target and (isinstance(v, dict) or isinstance(v, YAML)):
+            # assumption: all inputs have been validated.
+            assert isinstance(target[k], dict) or isinstance(target[k], YAML)
+            merge_left(target[k], v)
+        else:
+            target[k] = v
 
 
-def generate_local_config(project: OrderedDict, conn: dict) -> OrderedDict:
-    user = clean_identifier(os.getenv("USER"))
-    role = conn.get("role", "accountadmin")
+def load_project_config(paths: List[Path]) -> dict:
+    """
+    Loads a project config, optionally overriding values. Configuration is merged
+    in order of left to right (increasing precedence).
+    """
+    if len(paths) == 0:
+        raise ValueError("Need at least one configuration file.")
 
-    local: OrderedDict = OrderedDict()
+    with open(paths[0], "r") as base_yml:
+        config = load(base_yml.read(), project_schema)
+
+    for override_path in paths[1:]:
+        with open(override_path, "r") as override_yml:
+            overrides = load(override_yml.read(), project_override_schema)
+            merge_left(config, overrides)
+
+        # TODO: how to show good error messages here?
+        config.revalidate(project_schema)
+
+    return config.data
+
+
+def generate_local_override_yml(project: dict | YAML, conn: dict) -> YAML:
+    user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
+    role = conn.get("role", "accountadmin")  # TODO: actual connection
+
+    local: dict = {}
     if "native_app" in project:
-        local["native_app"] = OrderedDict()
-
         name = clean_identifier(project["native_app"]["name"])
+        local["native_app"] = {
+            "application": {
+                "name": f"{name}_{user}",
+                "role": role,
+                "debug": True,
+                # TODO: warehouse from actual connection
+            },
+            "package": {"name": f"{name}_pkg_{user}", "role": role},
+        }
 
-        local["native_app"]["application"] = OrderedDict()
-        local["native_app"]["application"]["name"] = f"{name}_{user}"
-        local["native_app"]["application"]["role"] = role
-
-        local["native_app"]["package"] = OrderedDict()
-        local["native_app"]["package"]["name"] = f"{name}_pkg_{user}"
-        local["native_app"]["package"]["role"] = role
-
-    return as_document(local)
+    return as_document(local, project_override_schema)

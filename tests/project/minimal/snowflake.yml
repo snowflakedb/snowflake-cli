@@ -1,5 +1,7 @@
+config_version: 1
 native_app:
   name: minimal
 
   artifacts:
     - setup.sql
+    - README.md

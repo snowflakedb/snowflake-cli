@@ -1,3 +1,4 @@
+config_version: 1
 native_app:
   name: myapp
 
@@ -18,5 +19,5 @@ native_app:
     - src: app/streamlit/*.py
       dest: streamlit/
 
-  scripts:
-    package: package/*.sql
+  package:
+    scripts: package/*.sql

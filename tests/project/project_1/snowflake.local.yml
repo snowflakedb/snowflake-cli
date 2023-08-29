@@ -1,9 +1,9 @@
 native_app:
   package:
     role: accountadmin
-    name: myapp_pkg_cgorrie
+    name: myapp_pkg_polly
 
   application:
     role: myapp_consumer
-    name: myapp_cgorrie
+    name: myapp_polly
     debug: true
