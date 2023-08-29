@@ -45,9 +45,9 @@ def snowflake_ymls(dir_name: str):
 def project_config_files(request):
     """
     Expects indirect parameterization, e.g.
-    @pytest.mark.parametrize("project_context", ["project_1"], indirect=True)
-    def test_my_project(resolved_config):
-        assert resolved_config["native_app"]["name"] == "myapp"
+    @pytest.mark.parametrize("project_config_files", ["project_1"], indirect=True)
+    def test_my_project(project_config_files):
+        config = load_project_config(project_config_files)
     """
     project_dir = request.param
     with snowflake_ymls(project_dir) as ymls:
