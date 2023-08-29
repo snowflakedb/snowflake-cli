@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
 from datetime import datetime
 from json import JSONEncoder
 from pathlib import Path
 from rich import box, print, print_json
+from rich.live import Live
+from rich.table import Table
 from snowflake.connector.cursor import SnowflakeCursor
-from typing import List, Optional, Dict, Union
+from typing import List, Optional, Dict, Union, Iterator
 
 from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 from snowcli.exception import OutputDataTypeError
@@ -17,6 +18,8 @@ class CustomJSONEncoder(JSONEncoder):
     """Custom JSON encoder handling serialization of non-standard types"""
 
     def default(self, o):
+        if isinstance(o, OutputData):
+            return o.as_json()
         if isinstance(o, datetime):
             return o.isoformat()
         if isinstance(o, Path):
@@ -25,53 +28,50 @@ class CustomJSONEncoder(JSONEncoder):
 
 
 class OutputData:
+    """
+    This class constitutes base for returning output of commands. Every command wishing to return some
+    information to end users should return `OutputData` and use `@with_output` decorator.
+
+    This implementation can handle streams of outputs. This helps with automated iteration through snowflake
+    cursors as well with cases when you want to stream constant output (for example logs).
+    """
+
     def __init__(
         self,
-        output: Optional[Union[SnowflakeCursor, str, List[Dict]]] = None,
-        format: Optional[OutputFormat] = None,
+        stream: Optional[Iterator[Union[Dict, OutputData]]] = None,
+        format_: Optional[OutputFormat] = None,
     ) -> None:
-        if output is not None:
-            self.output = [output]
-            self.counter = 1
-        else:
-            self.output = []
-            self.counter = 0
-        self._format = format
+        self._stream = stream
+        self._format = format_
 
-    @staticmethod
+    @classmethod
     def from_cursor(
-        cursor: SnowflakeCursor, format: Optional[OutputFormat] = None
+        cls, cursor: SnowflakeCursor, format_: Optional[OutputFormat] = None
     ) -> OutputData:
-        check_if_is_cursor(cursor)
-        return OutputData(cursor, format)
+        """Converts Snowflake cursor to stream of data"""
+        if not isinstance(cursor, SnowflakeCursor):
+            raise OutputDataTypeError(type(cursor), SnowflakeCursor)
+        return OutputData(stream=_get_data_from_cursor(cursor), format_=format_)
 
-    @staticmethod
-    def from_string(message: str, format: Optional[OutputFormat] = None) -> OutputData:
-        check_if_is_string(message)
-        return OutputData(message, format)
+    @classmethod
+    def from_string(
+        cls, message: str, format_: Optional[OutputFormat] = None
+    ) -> OutputData:
+        """Coverts string to stream of data"""
+        if not isinstance(message, str):
+            raise OutputDataTypeError(type(message), str)
+        return cls(stream=({"result": message} for _ in range(1)), format_=format_)
 
-    @staticmethod
-    def from_list(data: List[Dict], format: Optional[OutputFormat] = None):
-        check_if_is_list(data)
-        return OutputData(data, format)
-
-    def add_cursor(self, cursor: SnowflakeCursor) -> OutputData:
-        check_if_is_cursor(cursor)
-        self.output.append(cursor)
-        self.counter += 1
-        return self
-
-    def add_string(self, message: str) -> OutputData:
-        check_if_is_string(message)
-        self.output.append(message)
-        self.counter += 1
-        return self
-
-    def add_list(self, data: List[Dict]):
-        check_if_is_list(data)
-        self.output.append(data)
-        self.counter += 1
-        return self
+    @classmethod
+    def from_list(
+        cls, data: List[Union[Dict, OutputData]], format_: Optional[OutputFormat] = None
+    ):
+        """Converts list to stream of data."""
+        if not isinstance(data, list) or (
+            len(data) > 0 and not isinstance(data[0], (dict, OutputData))
+        ):
+            raise OutputDataTypeError(type(data), List[Union[Dict, OutputData]])
+        return cls(stream=(item for item in data), format_=format_)
 
     @property
     def format(self):
@@ -79,45 +79,38 @@ class OutputData:
             self._format = _get_format_type()
         return self._format
 
-    def get_data(self) -> Union[str, Dict, Iterable[List[Dict]]]:
-        for output in self.output:
-            if isinstance(output, SnowflakeCursor):
-                yield _get_data_from_cursor(output)
-            elif isinstance(output, str):
-                if self.format != OutputFormat.JSON:
-                    yield output
-                else:
-                    yield {"result": output}
-            elif isinstance(output, list):
-                yield output
+    def empty(self):
+        return self._stream is None
 
-    def size(self) -> int:
-        return self.counter
+    def get_data(self) -> Iterator[Union[Dict, OutputData]]:
+        """Returns iterator over output data"""
+        if not self._stream:
+            return None
 
+        for item in self._stream:
+            if isinstance(item, OutputData):
+                yield item
+            else:
+                yield item
 
-def check_if_is_cursor(cursor: SnowflakeCursor) -> None:
-    if not isinstance(cursor, SnowflakeCursor):
-        raise OutputDataTypeError(type(cursor), SnowflakeCursor)
+    def print(self):
+        _print_output(self)
 
-
-def check_if_is_string(message: str) -> None:
-    if not isinstance(message, str):
-        raise OutputDataTypeError(type(message), str)
+    def as_json(self):
+        return list(self._stream)
 
 
-def check_if_is_list(data: List[Dict]) -> None:
-    if not isinstance(data, list) or (len(data) > 0 and not isinstance(data[0], dict)):
-        raise OutputDataTypeError(type(data), List[dict])
-
-
-def print_output(output_data: Optional[OutputData] = None) -> None:
-    if output_data is None or output_data.size() == 0:
+def _print_output(output_data: Optional[OutputData] = None) -> None:
+    if output_data is None:
         print("Done")
         return
 
+    if output_data.empty():
+        print("No data")
+        return
+
     if output_data.format == OutputFormat.TABLE:
-        for data in output_data.get_data():
-            _print_table(data)
+        _render_table_output(output_data)
     elif output_data.format == OutputFormat.JSON:
         _print_json(output_data)
     else:
@@ -127,23 +120,19 @@ def print_output(output_data: Optional[OutputData] = None) -> None:
 def _print_json(output_data: OutputData) -> None:
     import json
 
-    data = list(output_data.get_data())
-    if len(data) == 1:
-        data = data[0]
-    print_json(json.dumps(data, cls=CustomJSONEncoder))
+    print_json(json.dumps(output_data.as_json(), cls=CustomJSONEncoder))
 
 
 def _get_data_from_cursor(
     cursor: SnowflakeCursor, columns: Optional[List[str]] = None
-) -> List[Dict]:
-    result = cursor.fetchall()
+) -> Iterator[Dict]:
     column_names = [col.name for col in cursor.description]
     columns_to_include = columns or column_names
 
-    return [
+    return (
         {k: v for k, v in zip(column_names, row) if k in columns_to_include}
-        for row in result
-    ]
+        for row in cursor
+    )
 
 
 def _get_format_type() -> OutputFormat:
@@ -155,40 +144,21 @@ def _get_format_type() -> OutputFormat:
     return OutputFormat.TABLE
 
 
-def _print_formatted(data: List[Dict]) -> None:
-    output_format = _get_format_type()
-    if output_format == OutputFormat.TABLE:
-        _print_table(data)
-    elif output_format == OutputFormat.JSON:
-        import json
-
-        print_json(json.dumps(data, cls=CustomJSONEncoder))
-    else:
-        raise Exception(f"Unknown {output_format} format option")
+def _render_table_output(data: OutputData) -> None:
+    stream = data.get_data()
+    for item in stream:
+        if isinstance(item, OutputData):
+            _render_table_output(item)
+        else:
+            _print_table(item, stream)
 
 
-def print_data(data: List[Dict], columns: Optional[List[str]] = None) -> None:
-    if columns is not None:
-        data = [{k: v for k, v in raw.items() if k in columns} for raw in data]
-    _print_formatted(data)
-
-
-def _print_table(data: Union[str, Dict, List[Dict]]) -> None:
-    from rich.table import Table
-
-    if not data:
-        print("No data")
-        return
-
-    if isinstance(data, str):
-        print(data)
-        return
-
-    columns = list(data[0].keys())
-
+def _print_table(item, stream):
     table = Table(show_header=True, box=box.ASCII)
-    for column in columns:
+    for column in item.keys():
         table.add_column(column)
-    for row in data:
-        table.add_row(*[str(i) for i in row.values()])
-    print(table)
+    with Live(table, refresh_per_second=4):
+        table.add_row(*[str(i) for i in item.values()])
+        for item in stream:
+            table.add_row(*[str(i) for i in item.values()])
+    print("")
