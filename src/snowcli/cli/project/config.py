@@ -55,15 +55,14 @@ def load_project_config(paths: List[Path]) -> dict:
 
 def generate_local_override_yml(project: dict | YAML) -> YAML:
     """
-    Generates defaults for optional keys in the same structure
-    as the project schema. The returned YAML object can be saved
-    directly to a file, if desired.
+    Generates defaults for optional keys in the same structure as the project
+    schema. The returned YAML object can be saved directly to a file, if desired.
+    A connection is made using global context to resolve current role and warehouse.
     """
+    conn = snow_cli_global_context_manager.get_connection()
+    role = conn.get_single_value("select current_role()")
+    warehouse = conn.get_single_value("select current_warehouse()")
     user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
-    role = snow_cli_global_context_manager.get_single_value("select current_role()")
-    warehouse = snow_cli_global_context_manager.get_single_value(
-        "select current_warehouse()"
-    )
 
     local: dict = {}
     if "native_app" in project:

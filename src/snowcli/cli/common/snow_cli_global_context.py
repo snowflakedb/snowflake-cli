@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Callable, Optional, Union
 
 from snowcli.output.formats import OutputFormat
-from snowcli.snow_connector import connect_to_snowflake
+from snowcli.snow_connector import connect_to_snowflake, SnowflakeConnector
 
 
 @dataclass
@@ -67,8 +67,11 @@ class SnowCliGlobalContextManager:
     A manager responsible for retrieving and updating global state.
     """
 
+    _cached_connector: SnowflakeConnector | None
+
     def __init__(self, global_context_with_default_values: SnowCliGlobalContext):
         self._global_context = deepcopy(global_context_with_default_values)
+        self._cached_connector = None
 
     def get_global_context_copy(self) -> SnowCliGlobalContext:
         """
@@ -84,16 +87,20 @@ class SnowCliGlobalContextManager:
         The resulting object will be deep copied before storing in the manager.
         """
         self._global_context = deepcopy(update(self.get_global_context_copy()))
+        self._cached_connector = None
 
-    def get_connection(self):
-        return self.get_global_context_copy().connection.build_connection()
-
-    def execute_string(self, *args, **kwargs):
-        return self.get_connection().ctx.execute_string(*args, **kwargs)
-
-    def get_single_value(self, query: str):
-        cursor = self.execute_string(query)
-        return cursor.fetchone()[0]
+    def get_connection(self) -> SnowflakeConnector:
+        """
+        Returns a SnowflakeConnector, representing an open connection to Snowflake
+        given the context in this manager. This connection is shared with subsequent
+        calls to this method until updates are made, in which case a new connector
+        will be returned.
+        """
+        if not self._cached_connector:
+            self._cached_connector = (
+                self.get_global_context_copy().connection.build_connection()
+            )
+        return self._cached_connector
 
 
 def _create_snow_cli_global_context_manager_with_default_values() -> (

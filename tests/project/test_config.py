@@ -21,9 +21,7 @@ def test_na_project_1(project_config_files):
 
 
 @pytest.mark.parametrize("project_config_files", ["minimal"], indirect=True)
-def test_na_minimal_project(
-    project_config_files: List[Path], mock_cursor, test_snowcli_config
-):
+def test_na_minimal_project(project_config_files: List[Path]):
     project = load_project_config(project_config_files)
     assert project["native_app"]["name"] == "minimal"
     assert project["native_app"]["package"]["scripts"] == "package/*.sql"
@@ -36,22 +34,18 @@ def test_na_minimal_project(
             return "jsmith"
         return original_getenv(key, default)
 
-    def mock_execute_string(query) -> SnowflakeCursor:
+    def mock_single_value(query: str) -> str:
         if query == "select current_role()":
-            return mock_cursor(
-                rows=[("resolved_role",)],
-                columns=["CURRENT_ROLE()"],
-            )
+            return "resolved_role"
         elif query == "select current_warehouse()":
-            return mock_cursor(
-                rows=[("resolved_warehouse",)],
-                columns=["CURRENT_WAREHOUSE()"],
-            )
+            return "resolved_warehouse"
 
     with mock.patch(
-        "snowcli.cli.common.snow_cli_global_context.SnowCliGlobalContextManager.execute_string",
-        side_effect=mock_execute_string,
-    ):
+        "snowcli.cli.common.snow_cli_global_context.ConnectionDetails.build_connection",
+    ) as build_connection:
+        connector = build_connection.return_value
+        connector.get_single_value.side_effect = mock_single_value
+
         with mock.patch("os.getenv", side_effect=mock_getenv):
             # probably a better way of going about this is to not generate
             # a config structure for these values but directly return defaults

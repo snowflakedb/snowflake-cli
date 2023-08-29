@@ -30,7 +30,7 @@ class RelaxedMap(MapCombined):
     """
 
     def __init__(self, map_validator):
-        super(RelaxedMap, self).__init__(
+        super().__init__(
             map_validator,
             Str(),
             # moves through value validators left-to-right until one matches
