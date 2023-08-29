@@ -17,9 +17,13 @@ def generate_user_env(username: str) -> dict:
     }
 
 
-def first_set_env(*keys: List[str]):
-    getenv = lambda i: os.getenv(keys[i], getenv(i + 1) if i + 1 < len(keys) else None)
-    return getenv(0)
+def first_set_env(*keys: str):
+    for k in keys:
+        v = os.getenv(k)
+        if v:
+            return v
+
+    return None
 
 
 def get_env_username() -> str | None:
