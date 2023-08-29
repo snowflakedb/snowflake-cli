@@ -55,14 +55,14 @@ def create(
 
 
 @app.command()
-def desc(
-    environment: str = ConnectionOption,
-    name: str = typer.Argument(..., help="Service Name"),
-) -> OutputData:
+@with_output
+@global_options_with_connection
+def desc(name: str = typer.Argument(..., help="Service Name"), **options) -> OutputData:
     """
     Desc Service
     """
-    return ServiceManager().desc(service_name=name)
+    cursor = ServiceManager().desc(service_name=name)
+    return OutputData.from_cursor(cursor)
 
 
 @app.command()

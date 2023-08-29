@@ -100,33 +100,6 @@ class SnowflakeConnector:
             },
         )
 
-    def set_procedure_comment(
-        self,
-        database,
-        schema,
-        role,
-        warehouse,
-        signature=None,
-        name=None,
-        input_parameters=None,
-        show_exceptions=True,
-        comment="",
-    ) -> SnowflakeCursor:
-        if signature is None and name and input_parameters:
-            signature = name + self.generate_signature_from_params(input_parameters)
-        return self.run_sql(
-            "set_procedure_comment",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "signature": signature,
-                "comment": comment,
-            },
-            show_exceptions,
-        )
-
     def list_procedures(
         self,
         database,
@@ -186,11 +159,11 @@ class SnowflakeConnector:
                 log.error(f"Error executing sql:\n{sql}")
             raise e
 
-    @staticmethod
-    def generate_signature_from_params(params: str) -> str:
-        if params == "()":
-            return "()"
-        return "(" + " ".join(params.split()[1::2])
+
+def generate_signature_from_params(params: str) -> str:
+    if params == "()":
+        return "()"
+    return "(" + " ".join(params.split()[1::2]) + ")"
 
 
 def connect_to_snowflake(connection_name: Optional[str] = None, **overrides) -> SnowflakeConnector:  # type: ignore
