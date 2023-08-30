@@ -1,4 +1,4 @@
-config_version: 1
+definition_version: 1
 native_app:
   name: minimal
 

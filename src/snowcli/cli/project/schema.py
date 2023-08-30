@@ -88,7 +88,7 @@ native_app_schema = RelaxedMap(
 
 project_schema = RelaxedMap(
     {
-        "config_version": Int(),
+        "definition_version": Int(),
         "native_app": native_app_schema,
     }
 )

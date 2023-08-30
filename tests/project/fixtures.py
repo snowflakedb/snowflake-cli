@@ -1,10 +1,7 @@
 import pytest
 import tempfile
 from pathlib import Path
-from unittest import mock
 from contextlib import contextmanager
-
-from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 
 REQUIREMENTS_SNOWFLAKE = "requirements.snowflake.txt"
 PROJECT_DIR = Path(__file__).parent
@@ -27,8 +24,8 @@ def temporary_of(path: Path):
 def snowflake_ymls(dir_name: str):
     """
     Returns paths to [snowflake_yml, (snowflake_local_yml)].
-    These files are temporary copies of the project config found in dir_name
-    and will be deleted when this context manager goes out-of-scope.
+    These files are temporary copies of the project definition found in
+    dir_name and will be deleted when this context manager goes out-of-scope.
     If there is no local overrides file, returns a list of length 1.
     """
     with temporary_of(PROJECT_DIR / dir_name / "snowflake.yml") as project_yml:
@@ -41,12 +38,12 @@ def snowflake_ymls(dir_name: str):
 
 
 @pytest.fixture
-def project_config_files(request):
+def project_definition_files(request):
     """
     Expects indirect parameterization, e.g.
-    @pytest.mark.parametrize("project_config_files", ["project_1"], indirect=True)
-    def test_my_project(project_config_files):
-        config = load_project_config(project_config_files)
+    @pytest.mark.parametrize("project_definition_files", ["project_1"], indirect=True)
+    def test_my_project(project_definition_files):
+        project = load_project_definition(project_definition_files)
     """
     project_dir = request.param
     with snowflake_ymls(project_dir) as ymls:

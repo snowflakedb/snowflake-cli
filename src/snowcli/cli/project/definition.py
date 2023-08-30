@@ -31,26 +31,26 @@ def merge_left(target: dict | YAML, source: dict | YAML) -> None:
             target[k] = v
 
 
-def load_project_config(paths: List[Path]) -> dict:
+def load_project_definition(paths: List[Path]) -> dict:
     """
-    Loads a project config, optionally overriding values. Configuration is merged
-    in order of left to right (increasing precedence).
+    Loads project definition, optionally overriding values. Definition values
+    are merged in left-to-right order (increasing precedence).
     """
     if len(paths) == 0:
-        raise ValueError("Need at least one configuration file.")
+        raise ValueError("Need at least one definition file.")
 
     with open(paths[0], "r") as base_yml:
-        config = load(base_yml.read(), project_schema)
+        definition = load(base_yml.read(), project_schema)
 
     for override_path in paths[1:]:
         with open(override_path, "r") as override_yml:
             overrides = load(override_yml.read(), project_override_schema)
-            merge_left(config, overrides)
+            merge_left(definition, overrides)
 
         # TODO: how to show good error messages here?
-        config.revalidate(project_schema)
+        definition.revalidate(project_schema)
 
-    return config.data
+    return definition.data
 
 
 def generate_local_override_yml(project: dict | YAML) -> YAML:
