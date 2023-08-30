@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from enum import Enum
 from syrupy import SnapshotAssertion
@@ -30,6 +31,7 @@ from tests_integration.testing_utils.sql_utils import SqlTestHelper
 class TestType(Enum):
     FUNCTION = "function"
     PROCEDURE = "procedure"
+
 
 
 class SnowparkTestSetup:
@@ -87,7 +89,7 @@ class SnowparkTestSetup:
 
     def clean_after_test_case(self) -> None:
         self.delete_entities_created_in_this_test_case()
-        self.delete_files_uploaded_in_this_test_case()
+        self.delete_files_uploaded_in_this_test_case() #TODO: does it clean everything, with coverages as well?
 
     def delete_entities_created_in_this_test_case(self) -> None:
         entities_to_delete = self.query_entities_created_in_this_test_case()
@@ -232,8 +234,26 @@ class SnowparkTestSteps:
         entity_name = (
             self._setup.test_object_name_provider.create_and_get_next_object_name()
         )
-        result = self._setup.runner.invoke_integration(
-            [
+
+        result = self.run_create(entity_name=entity_name)
+
+
+        assert_that_result_is_successful(result)
+        return entity_name
+
+    def snowpark_create_with_coverage_wrapper_should_finish_succesfully(self) -> str:
+        entity_name = (
+            self._setup.test_object_name_provider.create_and_get_next_object_name()
+        )
+
+        result = self.run_create(entity_name, "--install-coverage-wrapper")
+
+        assert_that_result_is_successful(result)
+        return entity_name
+
+
+    def run_create(self, entity_name, additional_arguments = ""):
+        arguments = [
                 "snowpark",
                 self.test_type.value,
                 "create",
@@ -246,10 +266,13 @@ class SnowparkTestSteps:
                 "--return-type",
                 "string",
             ]
-        )
-        assert_that_result_is_successful(result)
-        return entity_name
 
+        if additional_arguments:
+            arguments.append(additional_arguments)
+
+        return self._setup.runner.invoke_integration(
+            arguments
+        )
     def snowpark_update_should_finish_successfully(
         self,
         entity_name: str,
@@ -366,10 +389,31 @@ class SnowparkTestSteps:
         self.assert_that_only_these_files_are_staged_in_test_db()
 
     def assert_that_only_these_files_are_staged_in_test_db(
-        self, *expected_file_paths: str
+            self, *expected_file_paths: str
     ) -> None:
-        actual_file_paths = [
+        assert set(self.get_actual_files_staged_in_db()) == set(expected_file_paths)
+
+    def assert_that_only_app_and_coverage_file_are_staged_in_test_db(
+            self, path_beggining: str
+    ):
+        coverage_regex = re.compile(
+            path_beggining + "/coverage/[0-9]{8}-[0-9]{6}.coverage"
+        )
+        app_name = path_beggining + "/app.zip"
+
+        assert app_name in (actual_file_paths := self.get_actual_files_staged_in_db())
+        assert any(coverage_regex.match(file) for file in actual_file_paths)
+
+    def get_actual_files_staged_in_db(self):
+        return [
             staged_file["name"]
             for staged_file in self._setup.query_files_uploaded_in_this_test_case()
         ]
-        assert set(actual_file_paths) == set(expected_file_paths)
+    @staticmethod
+    def add_requirements_to_requirements_txt(
+        requirements: List[str], file_path: str = "Requirements.txt"
+    ):
+        if os.path.exists(file_path):
+            with open(file_path, "a") as reqs_file:
+                for req in requirements:
+                    reqs_file.write(req + "\n")
