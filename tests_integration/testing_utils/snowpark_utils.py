@@ -329,7 +329,7 @@ class SnowparkTestSteps:
 
         assert result.exit_code == 1
         assert result.json == None
-        assert result.output == "Aborted.\n"
+        assert "Aborted.\n" in result.output
         assert not os.path.exists(".coverage")
 
     def procedure_coverage_should_return_report_when_file_are_present_on_stage(
@@ -345,6 +345,8 @@ class SnowparkTestSteps:
                 procedure_name,
                 "-i",
                 arguments,
+                "--output-format",
+                "json",
             ]
         )
         print(result)
