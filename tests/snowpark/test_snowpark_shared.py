@@ -1,14 +1,10 @@
-# from pathlib import Path
-
-
 from requirements.requirement import Requirement
-from unittest import mock
 from zipfile import ZipFile
 
-import pytest
 import typer
 
 import snowcli.cli.snowpark_shared as shared
+from snowcli.cli.snowpark.procedure.commands import _replace_handler_in_zip
 from snowcli.utils import SplitRequirements
 from tests.testing_utils.fixtures import *
 
@@ -67,25 +63,8 @@ def test_snowpark_package_with_packages_dir(
         )
 
 
-@mock.patch("tests.snowpark.test_snowpark_shared.shared.connect_to_snowflake")
-def test_snowpark_update_function_with_coverage_wrapper(mock_conn):
-    with pytest.raises(typer.Abort):
-        shared.snowpark_update(
-            type="function",
-            environment="dev",
-            name="hello",
-            file=Path("app.zip"),
-            handler="app.hello",
-            input_parameters="()",
-            return_type="str",
-            replace=False,
-            install_coverage_wrapper=True,
-        )
-    mock_conn.assert_not_called()
-
-
 def test_replace_handler_in_zip(temp_dir, app_zip):
-    result = shared.replace_handler_in_zip(
+    result = _replace_handler_in_zip(
         proc_name="hello",
         proc_signature="()",
         handler="app.hello",
@@ -110,7 +89,7 @@ def test_replace_handler_in_zip(temp_dir, app_zip):
 )
 def test_replace_handler_in_zip_with_wrong_handler(mock_wrapper, temp_dir, app_zip):
     with pytest.raises(typer.Abort):
-        result = shared.replace_handler_in_zip(
+        result = _replace_handler_in_zip(
             proc_name="hello",
             proc_signature="()",
             handler="app.hello.world",
