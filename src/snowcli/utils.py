@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import importlib
 from dataclasses import dataclass
 
 import glob
@@ -19,8 +21,7 @@ import requirements
 from requirements.requirement import Requirement
 import typer
 from jinja2 import Environment, FileSystemLoader
-
-from snowcli.config import cli_config, get_default_connection
+from snowflake.connector.cursor import SnowflakeCursor
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -44,18 +45,6 @@ def yes_no_ask_callback(value: str):
             f"Valid values: {YesNoAskOptions}. You provided: {value}",
         )
     return value
-
-
-def get_deploy_names(database, schema, name) -> dict:
-    stage = f"{database}.{schema}.deployments"
-    path = f"/{name.lower()}/app.zip"
-    directory = f"/{name.lower()}"
-    return {
-        "stage": stage,
-        "path": path,
-        "full_path": f"@{stage}{path}",
-        "directory": directory,
-    }
 
 
 # create a temporary directory, copy the file_path to it and rename to app.zip
@@ -503,9 +492,9 @@ def get_list_of_files_to_pack(
     files: List[File] = []
 
     def filenames_filter(filepath: Path) -> bool:
+
         return (
             not filepath.name.startswith(".")
-            and not str(filepath).startswith(".")
             and not filepath.match("*.pyc")
             and not filepath.match("*__pycache__*")
             and filepath not in [file.name for file in files]
@@ -536,7 +525,7 @@ def get_list_of_files_to_pack(
     return list(filter(lambda x: os.path.isfile(x.name), files))
 
 
-def get_snowflake_packages() -> list[str]:
+def get_snowflake_packages() -> List[str]:
     if os.path.exists("requirements.snowflake.txt"):
         with open("requirements.snowflake.txt", encoding="utf-8") as f:
             return [line.strip() for line in f]
@@ -544,7 +533,7 @@ def get_snowflake_packages() -> list[str]:
         return []
 
 
-def get_snowflake_packages_delta(anaconda_packages) -> list[str]:
+def get_snowflake_packages_delta(anaconda_packages) -> List[str]:
     updated_package_list = []
     if os.path.exists("requirements.snowflake.txt"):
         with open("requirements.snowflake.txt", encoding="utf-8") as f:
@@ -558,7 +547,7 @@ def get_snowflake_packages_delta(anaconda_packages) -> list[str]:
         return updated_package_list
 
 
-def convert_resource_details_to_dict(function_details: list[tuple]) -> dict:
+def convert_resource_details_to_dict(function_details: SnowflakeCursor) -> dict:
     function_dict = {}
     json_properties = ["packages", "installed_packages"]
     for function in function_details:
@@ -569,13 +558,6 @@ def convert_resource_details_to_dict(function_details: list[tuple]) -> dict:
         else:
             function_dict[function[0]] = function[1]
     return function_dict
-
-
-def check_for_connection(connection_name: str):
-    if not connection_name:
-        connection_name = get_default_connection()
-    cli_config.get_connection(connection_name=connection_name)
-    return connection_name
 
 
 def generate_deploy_stage_name(name: str, input_parameters: str) -> str:
@@ -592,3 +574,11 @@ def generate_deploy_stage_name(name: str, input_parameters: str) -> str:
 class File:
     name: Path
     relpath: Optional[str] = None
+
+
+def create_project_template(template_name: str):
+    shutil.copytree(
+        Path(importlib.util.find_spec("templates").origin).parent / template_name,  # type: ignore
+        f"{os.getcwd()}",
+        dirs_exist_ok=True,
+    )

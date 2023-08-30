@@ -1,7 +1,11 @@
 import json
+import pytest
+
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import mock
+
+from tests.testing_utils.fixtures import *
 
 
 def test_new_connection_can_be_added(runner, snapshot):
@@ -20,11 +24,57 @@ def test_new_connection_can_be_added(runner, snapshot):
                 "password1",
                 "--account",
                 "account1",
+                "--port",
+                "8080",
             ]
         )
         content = tmp_file.read()
     assert result.exit_code == 0, result.output
     assert content == snapshot
+
+
+def test_port_has_cannot_be_string(runner):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke(
+            [
+                "--config-file",
+                tmp_file.name,
+                "connection",
+                "add",
+                "--connection-name",
+                "conn1",
+                "--username",
+                "user1",
+                "--account",
+                "account1",
+                "--port",
+                "portValue",
+            ]
+        )
+    assert result.exit_code == 1, result.output
+    assert "Value of port must be integer" in result.output
+
+
+def test_port_has_cannot_be_float(runner):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke(
+            [
+                "--config-file",
+                tmp_file.name,
+                "connection",
+                "add",
+                "--connection-name",
+                "conn1",
+                "--username",
+                "user1",
+                "--account",
+                "account1",
+                "--port",
+                "123.45",
+            ]
+        )
+    assert result.exit_code == 1, result.output
+    assert "Value of port must be integer" in result.output
 
 
 def test_new_connection_add_prompt_handles_default_values(runner, snapshot):
@@ -92,7 +142,7 @@ def test_fails_if_existing_connection(runner):
 
 
 def test_lists_connection_information(runner):
-    result = runner.invoke_with_config(["--format", "json", "connection", "list"])
+    result = runner.invoke_with_config(["connection", "list", "--format", "json"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload == [

@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from textwrap import dedent
 from unittest import mock
 import typing as t
 
@@ -14,6 +15,7 @@ from typer.main import get_command
 
 from snowcli.__about__ import VERSION
 from snowcli.config import cli_config
+from tests.testing_utils.fixtures import *
 
 
 def test_help_option(runner):
@@ -28,9 +30,12 @@ def test_streamlit_help(runner):
 
 @mock.patch("snowcli.snow_connector.SnowflakeConnector")
 @mock.patch.dict(os.environ, {}, clear=True)
-def test_custom_config_path(mock_conn, runner):
+def test_custom_config_path(mock_conn, runner, mock_cursor):
     config_file = Path(__file__).parent / "test.toml"
-    mock_conn.return_value.ctx.execute_string.return_value = [None, mock.MagicMock()]
+    mock_conn.return_value.ctx.execute_string.return_value = [
+        None,
+        mock_cursor(["row"], []),
+    ]
     result = runner.invoke(
         ["--config-file", str(config_file), "warehouse", "status"],
         catch_exceptions=False,
@@ -49,12 +54,14 @@ def test_custom_config_path(mock_conn, runner):
 
 
 def test_info_callback(runner):
-    result = runner.invoke(["--info", "--format", "json"])
+    result = runner.invoke(["--info"])
     assert result.exit_code == 0, result.output
-    assert json.loads(result.output) == [
-        {"key": "version", "value": VERSION},
-        {"key": "default_config_file_path", "value": str(cli_config.file_path)},
-    ]
+    result_lines = [line.split("|") for line in result.output.splitlines()[3:5]]
+    result_as_dict = {line[1].strip(): line[2].strip() for line in result_lines}
+    assert result_as_dict == {
+        "version": VERSION,
+        "default_config_file_path": str(cli_config.file_path),
+    }
 
 
 def test_all_commands_has_proper_documentation():

@@ -2,41 +2,45 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from unittest import mock
 
+from tests.testing_utils.fixtures import *
 from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
 
-MOCK_CONNECTION = "snowcli.cli.sql.connect_to_snowflake"
 
+@mock.patch("snowflake.connector.connect")
+def test_sql_execute_query(mock_connector, runner, mock_ctx, mock_cursor):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
 
-@mock.patch(MOCK_CONNECTION)
-def test_sql_execute_query(mock_conn, runner):
     result = runner.invoke(["sql", "-q", "query"])
 
     assert result.exit_code == 0
-    mock_conn.return_value.ctx.execute_string.assert_called_once_with(
-        sql_text="query", remove_comments=True
-    )
+    assert ctx.get_query() == "query"
 
 
-@mock.patch(MOCK_CONNECTION)
-def test_sql_execute_file(mock_conn, runner):
+@mock.patch("snowflake.connector.connect")
+def test_sql_execute_file(mock_connector, runner, mock_ctx, mock_cursor):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    query = "query from file"
+
     with NamedTemporaryFile("r") as tmp_file:
-        Path(tmp_file.name).write_text("query from file")
+        Path(tmp_file.name).write_text(query)
         result = runner.invoke(["sql", "-f", tmp_file.name])
 
     assert result.exit_code == 0
-    mock_conn.return_value.ctx.execute_string.assert_called_once_with(
-        sql_text="query from file", remove_comments=True
-    )
+    assert ctx.get_query() == query
 
 
-@mock.patch(MOCK_CONNECTION)
-def test_sql_execute_from_stdin(mock_conn, runner):
-    result = runner.invoke(["sql"], input="query from input")
+@mock.patch("snowflake.connector.connect")
+def test_sql_execute_from_stdin(mock_connector, runner, mock_ctx, mock_cursor):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    query = "query from input"
+
+    result = runner.invoke(["sql"], input=query)
 
     assert result.exit_code == 0
-    mock_conn.return_value.ctx.execute_string.assert_called_once_with(
-        sql_text="query from input", remove_comments=True
-    )
+    assert ctx.get_query() == query
 
 
 def test_sql_fails_if_no_query_file_or_stdin(runner):
@@ -63,16 +67,17 @@ def test_sql_fails_for_both_query_and_file(runner):
     assert_that_result_is_usage_error(result, "Both query and file provided")
 
 
-@mock.patch(MOCK_CONNECTION)
-@mock.patch("snowcli.config.cli_config")
-def test_sql_overrides_connection_configuration(mock_config, mock_conn, runner):
-    mock_config.get.return_value = "dev"  # mock of get_default_connection
-    mock_config.get_connection.return_value = {}
-    result = runner.invoke(
+@mock.patch("snowcli.cli.common.snow_cli_global_context.connect_to_snowflake")
+def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
+    mock_conn.return_value.ctx.execute_string.return_value = [mock_cursor(["row"], [])]
+
+    result = runner.invoke_with_config(
         [
             "sql",
             "-q",
             "select 1",
+            "--connection",
+            "connectionName",
             "--accountname",
             "accountnameValue",
             "--username",
@@ -85,16 +90,20 @@ def test_sql_overrides_connection_configuration(mock_config, mock_conn, runner):
             "rolenameValue",
             "--warehouse",
             "warehouseValue",
-        ]
+            "--password",
+            "passFromTest",
+        ],
+        catch_exceptions=False,
     )
 
     assert result.exit_code == 0, result.output
     mock_conn.assert_called_once_with(
-        connection_name="dev",
+        connection_name="connectionName",
         account="accountnameValue",
         user="usernameValue",
         warehouse="warehouseValue",
         database="dbnameValue",
         schema="schemanameValue",
         role="rolenameValue",
+        password="passFromTest",
     )

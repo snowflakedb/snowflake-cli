@@ -1,23 +1,45 @@
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Union
 
 import typer
 from click import UsageError
+from snowflake.connector.cursor import SnowflakeCursor
 
-from snowcli.snow_connector import connect_to_snowflake
-from snowcli.cli.common.flags import (
-    ConnectionOption,
-    AccountOption,
-    UserOption,
-    DatabaseOption,
-    SchemaOption,
-    RoleOption,
-    WarehouseOption,
-)
-from snowcli.output.printing import print_db_cursor
+from snowcli.cli.common.decorators import global_options_with_connection
+from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.output.decorators import with_output
+from snowcli.output.printing import OutputData
 
 
+class SqlManager(SqlExecutionMixin):
+    def execute(
+        self, query: Optional[str], file: Optional[Path]
+    ) -> List[SnowflakeCursor]:
+        sys_input = None
+
+        if query and file:
+            raise UsageError("Both query and file provided, please specify only one.")
+
+        if not sys.stdin.isatty():
+            sys_input = sys.stdin.read()
+
+        if sys_input and (query or file):
+            raise UsageError(
+                "Can't use stdin input together with query or filename option."
+            )
+
+        if not query and not file and not sys_input:
+            raise UsageError("Provide either query or filename argument")
+        elif sys_input:
+            sql = sys_input
+        else:
+            sql = query if query else file.read_text()  # type: ignore
+        return self._execute_queries(sql)
+
+
+@with_output
+@global_options_with_connection
 def execute_sql(
     query: Optional[str] = typer.Option(
         None,
@@ -35,53 +57,16 @@ def execute_sql(
         readable=True,
         help="File to execute.",
     ),
-    connection: Optional[str] = ConnectionOption,
-    account: Optional[str] = AccountOption,
-    user: Optional[str] = UserOption,
-    database: Optional[str] = DatabaseOption,
-    schema: Optional[str] = SchemaOption,
-    role: Optional[str] = RoleOption,
-    warehouse: Optional[str] = WarehouseOption,
-):
+    **options
+) -> OutputData:
     """
     Executes Snowflake query.
 
     Query to execute can be specified using query option, filename option (all queries from file will be executed)
-    or via stdin by piping output from other command. For example `snow render template my.sql | snow sql`.
+    or via stdin by piping output from other command. For example `cat my.sql | snow sql`.
     """
-    sys_input = None
-
-    if query and file:
-        raise UsageError("Both query and file provided, please specify only one.")
-
-    if not sys.stdin.isatty():
-        sys_input = sys.stdin.read()
-
-    if sys_input and (query or file):
-        raise UsageError(
-            "Can't use stdin input together with query or filename option."
-        )
-
-    if not query and not file and not sys_input:
-        raise UsageError("Provide either query or filename argument")
-    elif sys_input:
-        sql = sys_input
-    else:
-        sql = query if query else file.read_text()  # type: ignore
-
-    conn = connect_to_snowflake(
-        connection_name=connection,
-        account=account,
-        user=user,
-        role=role,
-        warehouse=warehouse,
-        database=database,
-        schema=schema,
-    )
-
-    results = conn.ctx.execute_string(
-        sql_text=sql,
-        remove_comments=True,
-    )
-    for result in results:
-        print_db_cursor(result)
+    cursors = SqlManager().execute(query, file)
+    output_data = OutputData()
+    for cursor in cursors:
+        output_data.add_cursor(cursor)
+    return output_data

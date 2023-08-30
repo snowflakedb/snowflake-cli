@@ -1,15 +1,24 @@
 from __future__ import annotations
 
 import functools
+import json
 import pytest
-
+from dataclasses import dataclass
 from pathlib import Path
 from snowcli.cli.app import app
 from tempfile import NamedTemporaryFile
 from typer import Typer
 from typer.testing import CliRunner
+from typing import List, Dict, Any, Optional
 
 TEST_DIR = Path(__file__).parent
+
+
+@dataclass
+class CommandResult:
+    exit_code: int
+    json: Optional[List[Dict[str, Any]]] = None
+    output: Optional[str] = None
 
 
 @pytest.fixture(scope="session")
@@ -33,20 +42,45 @@ class SnowCLIRunner(CliRunner):
         self.test_snowcli_config = test_snowcli_config
 
     @functools.wraps(CliRunner.invoke)
-    def invoke(self, *a, **kw):
+    def _invoke(self, *a, **kw):
         return super().invoke(self.app, *a, **kw)
 
-    def invoke_with_config(self, *args, **kwargs):
-        return self.invoke(
+    def invoke_with_config(self, *args, **kwargs) -> CommandResult:
+        result = self._invoke(
             ["--config-file", self.test_snowcli_config, *args[0]],
             **kwargs,
         )
+        return CommandResult(result.exit_code, output=result.output)
 
-    def invoke_with_config_and_integration_connection(self, *args, **kwargs):
-        return self.invoke(
-            ["--config-file", self.test_snowcli_config, *args[0], "-c", "integration"],
+    def invoke_integration(self, *args, **kwargs) -> CommandResult:
+        result = self._invoke(
+            [
+                "--config-file",
+                self.test_snowcli_config,
+                *args[0],
+                "--format",
+                "JSON",
+                "-c",
+                "integration",
+            ],
             **kwargs,
         )
+        if result.output == "" or result.output.strip() == "Done":
+            return CommandResult(result.exit_code, json=[])
+        return CommandResult(result.exit_code, json.loads(result.output))
+
+    def invoke_integration_without_format(self, *args, **kwargs) -> CommandResult:
+        result = self._invoke(
+            [
+                "--config-file",
+                self.test_snowcli_config,
+                *args[0],
+                "-c",
+                "integration",
+            ],
+            **kwargs,
+        )
+        return CommandResult(result.exit_code, output=result.output)
 
 
 @pytest.fixture

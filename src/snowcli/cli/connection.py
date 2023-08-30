@@ -7,9 +7,11 @@ from click import ClickException
 from click.types import StringParamType
 from tomlkit.exceptions import KeyAlreadyPresent
 
+from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
-from snowcli.output.printing import print_data
+from snowcli.output.decorators import with_output
 from snowcli.config import cli_config
+from snowcli.output.printing import OutputData
 from snowcli.snow_connector import connect_to_snowflake
 
 app = typer.Typer(
@@ -37,21 +39,33 @@ def _mask_password(connection_params: dict):
 
 
 @app.command(name="list")
-def list_connections():
+@with_output
+@global_options
+def list_connections(**options) -> OutputData:
     """
     List configured connections.
     """
     connections = cli_config.get_section("connections")
-    print_data(
-        [
-            {"connection_name": k, "parameters": _mask_password(v)}
-            for k, v in connections.items()
-        ],
-        columns=["connection_name", "parameters"],
-    )
+    result = [
+        {"connection_name": k, "parameters": _mask_password(v)}
+        for k, v in connections.items()
+    ]
+    return OutputData.from_list(result)
+
+
+def require_integer(field_name: str):
+    def callback(value: str):
+        if value is None:
+            return None
+        if value.isdigit():
+            return value
+        raise ClickException(f"Value of {field_name} must be integer")
+
+    return callback
 
 
 @app.command()
+@with_output
 def add(
     connection_name: str = typer.Option(
         None,
@@ -135,6 +149,7 @@ def add(
         click_type=OptionalPrompt(),
         prompt="Connection port",
         help="The port to communicate with on the host.",
+        callback=require_integer(field_name="port"),
     ),
     region: str = typer.Option(
         EmptyInput(),
@@ -144,7 +159,7 @@ def add(
         prompt="Snowflake region",
         help="Region name if not the default Snowflake deployment.",
     ),
-):
+) -> OutputData:
     """Add connection to configuration file."""
     connection_entry = {
         "account": account,
@@ -165,13 +180,16 @@ def add(
     except KeyAlreadyPresent:
         raise ClickException(f"Connection {connection_name} already exists")
 
-    log.info(f"Wrote new connection {connection_name} to {cli_config.file_path}")
+    return OutputData.from_string(
+        f"Wrote new connection {connection_name} to {cli_config.file_path}"
+    )
 
 
 @app.command()
-def test(connection: str = ConnectionOption):
+@with_output
+def test(connection: str = ConnectionOption) -> OutputData:
     """
     Tests connection to Snowflake.
     """
     connect_to_snowflake(connection_name=connection)
-    print("OK")
+    return OutputData.from_string("OK")
