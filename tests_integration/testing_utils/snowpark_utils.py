@@ -221,7 +221,7 @@ class SnowparkTestSteps:
 
     def snowpark_package_should_zip_files(self) -> None:
         result = self._setup.runner.invoke_with_config(
-            ["snowpark", "function", "package"]
+            ["snowpark", self.test_type.value, "package"]
         )
         assert_that_result_is_successful_and_done_is_on_output(result)
         assert_that_current_working_directory_contains_only_following_files(

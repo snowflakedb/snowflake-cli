@@ -5,40 +5,40 @@
   .venv/
   app.zip
   __pycache__
-
+  
   '''
 # ---
 # name: test_procedure_coverage_flow[app.py]
   '''
   from __future__ import annotations
-
+  
   import sys
-
+  
   from snowflake.snowpark import Session
-
-
+  
+  
   def hello(session: Session) -> str:
       return "Hello World!"
-
-
+  
+  
   # For local debugging. Be aware you may need to type-convert arguments if
   # you add input parameters
   if __name__ == "__main__":
       from snowcli.config import cli_config
-
+  
       session = Session.builder.configs(**cli_config.get_connection("dev")).create()
       if len(sys.argv) > 1:
           print(hello(*sys.argv[1:]))  # type: ignore
       else:
           print(hello())  # type: ignore
       session.close()
-
+  
   '''
 # ---
 # name: test_procedure_coverage_flow[config.toml]
   '''
   # Can create multiple --environments (default 'dev')
-
+  
   [connections]
   [connections.dev]
   account = "<ACCOUNT_NAME>"
@@ -46,19 +46,19 @@
   schema = "<SCHEMA_NAME>"
   warehouse = "<WAREHOUSE_NAME>"
   role = "<ROLE_NAME>"
-
+  
   '''
 # ---
 # name: test_procedure_coverage_flow[local_connection.py]
   '''
   from __future__ import annotations
-
+  
   import configparser
   from pathlib import Path
-
+  
   import toml
-
-
+  
+  
   def get_dev_config(
       environment: str = "dev",
       app_config_path: Path = Path.cwd().joinpath("app.toml"),
@@ -78,13 +78,13 @@
               "Error creating snowpark_containers_cmds session - be sure you've logged into "
               "the SnowCLI and have a valid app.toml file",
           )
-
+  
   '''
 # ---
 # name: test_procedure_coverage_flow[requirements.txt]
   '''
   snowflake-snowpark-python
   #snowcli  # for local development
-
+  
   '''
 # ---
