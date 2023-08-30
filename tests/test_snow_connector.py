@@ -42,26 +42,6 @@ def test_command_context_is_passed_to_snowflake_connection(
     mock_connector.connect.assert_called_once_with(application=expected)
 
 
-@mock.patch("snowflake.connector")
-def test_set_procedure_comment(_, snapshot):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (None, None)
-
-    connector.set_procedure_comment(
-        database="databaseValue",
-        schema="schemaValue",
-        role="roleValue",
-        warehouse="warehouseValue",
-        signature="signatureValue",
-        name="nameValue",
-        input_parameters="(string a, variant b)",
-        show_exceptions="show_exceptionsValue",
-        comment="commentValue",
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
 @pytest.mark.parametrize(
     "create_stage",
     [True, False],

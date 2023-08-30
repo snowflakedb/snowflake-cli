@@ -37,17 +37,6 @@ def test_yes_no_ask_callback_with_incorrect_argument(argument):
     )
 
 
-def test_get_deploy_names_correct():
-    result = utils.get_deploy_names("snowhouse_test", "test_schema", "jdoe")
-
-    assert result == {
-        "stage": "snowhouse_test.test_schema.deployments",
-        "path": "/jdoe/app.zip",
-        "full_path": "@snowhouse_test.test_schema.deployments/jdoe/app.zip",
-        "directory": "/jdoe",
-    }
-
-
 def test_prepare_app_zip(
     temp_dir,
     app_zip: str,
