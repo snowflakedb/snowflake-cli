@@ -48,13 +48,13 @@ def procedure_coverage_report(
     ),
     **options,
 ):
-    ProcedureCoverageManager().report(
+    message = ProcedureCoverageManager().report(
         name=name,
         input_parameters=input_parameters,
         output_format=output_format,
         store_as_comment=store_as_comment,
     )
-    return OutputData()
+    return OutputData.from_string(message)
 
 
 @app.command(
