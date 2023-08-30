@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import typer
-
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.stage.manager import StageManager
@@ -66,12 +65,16 @@ def stage_get(
 def stage_put(
     path: Path = typer.Argument(
         ...,
-        exists=True,
+        exists=False,
         file_okay=True,
         dir_okay=True,
         writable=True,
         resolve_path=True,
-        help="File or directory to upload to stage",
+        help=(
+            "File or directory to upload to stage, can include a * in the path, "
+            'like "folder/*.csv". Make sure you put quotes around the path if it'
+            " includes a *. "
+        ),
     ),
     name: str = StageNameOption,
     overwrite: bool = typer.Option(
