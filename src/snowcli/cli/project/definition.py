@@ -55,7 +55,7 @@ def load_project_definition(paths: List[Path]) -> dict:
 
 def generate_local_override_yml(project: dict | YAML) -> YAML:
     """
-    Generates defaults for optional keys in the same structure as the project
+    Generates defaults for optional keys in the same YAML structure as the project
     schema. The returned YAML object can be saved directly to a file, if desired.
     A connection is made using global context to resolve current role and warehouse.
     """
