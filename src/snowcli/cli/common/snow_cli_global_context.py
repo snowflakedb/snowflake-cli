@@ -67,7 +67,7 @@ class SnowCliGlobalContextManager:
     A manager responsible for retrieving and updating global state.
     """
 
-    _cached_connector: SnowflakeConnector | None
+    _cached_connector: Optional[SnowflakeConnector]
 
     def __init__(self, global_context_with_default_values: SnowCliGlobalContext):
         self._global_context = deepcopy(global_context_with_default_values)
