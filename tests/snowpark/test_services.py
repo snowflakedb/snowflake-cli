@@ -44,6 +44,18 @@ def test_create_service(mock_connector, runner, mock_ctx):
 
 
 @mock.patch("snowflake.connector.connect")
+def test_desc_service(mock_connector, runner, mock_ctx):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    service_name = "test_service"
+
+    result = runner.invoke(["snowpark", "services", "desc", service_name])
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == f"desc service {service_name}"
+
+
+@mock.patch("snowflake.connector.connect")
 def test_list_service(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
