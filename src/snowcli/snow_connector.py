@@ -121,14 +121,6 @@ class SnowflakeConnector:
                 log.error(f"Error executing sql:\n{sql}")
             raise e
 
-    def execute_string(self, *args, **kwargs):
-        return self.ctx.execute_string(*args, **kwargs)
-
-    def get_single_value(self, query: str):
-        cursors = self.ctx.execute_string(query)
-        # one SQL statement, one row, one column
-        return cursors[0].fetchone()[0]
-
 
 def connect_to_snowflake(connection_name: Optional[str] = None, **overrides) -> SnowflakeConnector:  # type: ignore
     connection_name = (

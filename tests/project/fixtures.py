@@ -51,20 +51,3 @@ def project_config_files(request):
     project_dir = request.param
     with snowflake_ymls(project_dir) as ymls:
         yield ymls
-
-
-@pytest.fixture
-def mock_global_connection():
-    """
-    Fixture that mocks out the return value of ConnectionDetails.build_connection.
-    You can then provide return values / side effects for its member functions
-    in your test case.
-    """
-    # trigger a global context update to ensure build_connection gets called.
-    snow_cli_global_context_manager.update_global_context(lambda x: x)
-
-    with mock.patch(
-        "snowcli.cli.common.snow_cli_global_context.ConnectionDetails.build_connection",
-    ) as build_connection:
-        connector = build_connection.return_value
-        yield connector

@@ -21,7 +21,7 @@ def test_na_project_1(project_config_files):
 
 
 @pytest.mark.parametrize("project_config_files", ["minimal"], indirect=True)
-def test_na_minimal_project(project_config_files: List[Path], mock_global_connection):
+def test_na_minimal_project(project_config_files: List[Path]):
     project = load_project_config(project_config_files)
     assert project["native_app"]["name"] == "minimal"
     assert project["native_app"]["package"]["scripts"] == "package/*.sql"
@@ -34,25 +34,24 @@ def test_na_minimal_project(project_config_files: List[Path], mock_global_connec
             return "jsmith"
         return original_getenv(key, default)
 
-    def mock_single_value(query: str) -> str:
-        if query == "select current_role()":
-            return "resolved_role"
-        elif query == "select current_warehouse()":
-            return "resolved_warehouse"
-
-    mock_global_connection.get_single_value.side_effect = mock_single_value
-
-    with mock.patch("os.getenv", side_effect=mock_getenv):
-        # probably a better way of going about this is to not generate
-        # a config structure for these values but directly return defaults
-        # in "getter" function (higher-level data structures).
-        local = generate_local_override_yml(project)
-        assert local["native_app"]["application"]["name"] == "minimal_jsmith"
-        assert local["native_app"]["application"]["role"] == "resolved_role"
-        assert local["native_app"]["application"]["warehouse"] == "resolved_warehouse"
-        assert local["native_app"]["application"]["debug"] == True
-        assert local["native_app"]["package"]["name"] == "minimal_pkg_jsmith"
-        assert local["native_app"]["package"]["role"] == "resolved_role"
+    with mock.patch(
+        "snowcli.cli.common.snow_cli_global_context.SnowCliGlobalContextManager.get_connection",
+    ) as get_connection:
+        get_connection.return_value.ctx.role = "resolved_role"
+        get_connection.return_value.ctx.warehouse = "resolved_warehouse"
+        with mock.patch("os.getenv", side_effect=mock_getenv):
+            # TODO: probably a better way of going about this is to not generate
+            # a config structure for these values but directly return defaults
+            # in "getter" functions (higher-level data structures).
+            local = generate_local_override_yml(project)
+            assert local["native_app"]["application"]["name"] == "minimal_jsmith"
+            assert local["native_app"]["application"]["role"] == "resolved_role"
+            assert (
+                local["native_app"]["application"]["warehouse"] == "resolved_warehouse"
+            )
+            assert local["native_app"]["application"]["debug"] == True
+            assert local["native_app"]["package"]["name"] == "minimal_pkg_jsmith"
+            assert local["native_app"]["package"]["role"] == "resolved_role"
 
 
 @pytest.mark.parametrize("project_config_files", ["underspecified"], indirect=True)
