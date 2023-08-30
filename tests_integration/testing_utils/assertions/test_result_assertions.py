@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Union
 
 from tests_integration.test_utils import contains_row_with
 from tests_integration.conftest import CommandResult
@@ -18,7 +18,7 @@ def assert_that_result_is_successful_and_output_json_contains(
 
 def assert_that_result_is_successful_and_output_json_equals(
     result: CommandResult,
-    expected_output: List[Dict],
+    expected_output: Union[Dict, List],
 ) -> None:
     assert_that_result_is_successful(result)
     assert result.json == expected_output

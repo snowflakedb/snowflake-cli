@@ -59,76 +59,6 @@ class SnowflakeConnector:
         self.cs.execute("SELECT current_version()")
         return self.cs.fetchone()[0]
 
-    def create_function(
-        self,
-        name: str,
-        input_parameters: str,
-        return_type: str,
-        handler: str,
-        imports: str,
-        database: str,
-        schema: str,
-        role: str,
-        warehouse: str,
-        overwrite: bool,
-        packages: list[str],
-    ) -> SnowflakeCursor:
-        return self.run_sql(
-            "create_function",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "name": name,
-                "overwrite": overwrite,
-                "input_parameters": input_parameters,
-                "return_type": return_type,
-                "handler": handler,
-                "imports": imports,
-                "packages": packages,
-                "signature": self.generate_signature_from_params(
-                    input_parameters,
-                ),
-            },
-        )
-
-    def create_procedure(
-        self,
-        name: str,
-        input_parameters: str,
-        return_type: str,
-        handler: str,
-        imports: str,
-        database: str,
-        schema: str,
-        role: str,
-        warehouse: str,
-        overwrite: bool,
-        packages: list[str],
-        execute_as_caller: bool,
-    ) -> SnowflakeCursor:
-        return self.run_sql(
-            "create_procedure",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "name": name,
-                "overwrite": overwrite,
-                "input_parameters": input_parameters,
-                "return_type": return_type,
-                "handler": handler,
-                "imports": imports,
-                "packages": packages,
-                "signature": self.generate_signature_from_params(
-                    input_parameters,
-                ),
-                "execute_as_caller": execute_as_caller,
-            },
-        )
-
     def upload_file_to_stage(
         self,
         file_path,
@@ -168,83 +98,6 @@ class SnowflakeConnector:
                 "parallel": parallel,
                 "overwrite": overwrite,
             },
-        )
-
-    def describe_function(
-        self,
-        database,
-        schema,
-        role,
-        warehouse,
-        signature=None,
-        name=None,
-        input_parameters=None,
-        show_exceptions=True,
-    ) -> SnowflakeCursor:
-        if signature is None and name and input_parameters:
-            signature = name + self.generate_signature_from_params(input_parameters)
-        return self.run_sql(
-            "describe_function",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "signature": signature,
-            },
-            show_exceptions,
-        )
-
-    def describe_procedure(
-        self,
-        database,
-        schema,
-        role,
-        warehouse,
-        signature=None,
-        name=None,
-        input_parameters=None,
-        show_exceptions=True,
-    ) -> SnowflakeCursor:
-        if signature is None and name and input_parameters:
-            signature = name + self.generate_signature_from_params(input_parameters)
-        return self.run_sql(
-            "describe_procedure",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "signature": signature,
-            },
-            show_exceptions,
-        )
-
-    def set_procedure_comment(
-        self,
-        database,
-        schema,
-        role,
-        warehouse,
-        signature=None,
-        name=None,
-        input_parameters=None,
-        show_exceptions=True,
-        comment="",
-    ) -> SnowflakeCursor:
-        if signature is None and name and input_parameters:
-            signature = name + self.generate_signature_from_params(input_parameters)
-        return self.run_sql(
-            "set_procedure_comment",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "signature": signature,
-                "comment": comment,
-            },
-            show_exceptions,
         )
 
     def list_procedures(
@@ -306,11 +159,11 @@ class SnowflakeConnector:
                 log.error(f"Error executing sql:\n{sql}")
             raise e
 
-    @staticmethod
-    def generate_signature_from_params(params: str) -> str:
-        if params == "()":
-            return "()"
-        return "(" + " ".join(params.split()[1::2])
+
+def generate_signature_from_params(params: str) -> str:
+    if params == "()":
+        return "()"
+    return "(" + " ".join(params.split()[1::2]) + ")"
 
 
 def connect_to_snowflake(connection_name: Optional[str] = None, **overrides) -> SnowflakeConnector:  # type: ignore
