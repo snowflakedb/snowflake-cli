@@ -329,6 +329,7 @@ class SnowparkTestSteps:
 
         assert result.exit_code == 1
         assert result.json == None
+        assert result.output
         assert "Aborted.\n" in result.output
         assert not os.path.exists(".coverage")
 
