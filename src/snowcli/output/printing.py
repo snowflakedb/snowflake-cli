@@ -87,11 +87,7 @@ class OutputData:
         if not self._stream:
             return None
 
-        for item in self._stream:
-            if isinstance(item, OutputData):
-                yield item
-            else:
-                yield item
+        yield from self._stream
 
     def print(self):
         _print_output(self)
@@ -161,4 +157,5 @@ def _print_table(item, stream):
         table.add_row(*[str(i) for i in item.values()])
         for item in stream:
             table.add_row(*[str(i) for i in item.values()])
-    print("")
+    # Add separator between tables
+    print()

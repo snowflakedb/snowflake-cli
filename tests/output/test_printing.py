@@ -1,12 +1,8 @@
 import json
 from datetime import datetime
 from textwrap import dedent
-from typing import NamedTuple
-from unittest.mock import Mock
 
-import pytest
 from click import Context, Command
-from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.exception import OutputDataTypeError
 from snowcli.output.formats import OutputFormat
@@ -49,7 +45,7 @@ def test_print_multi_cursors_table(capsys, _create_mock_cursor):
 
 
 def test_print_different_multi_cursors_table(capsys, mock_cursor):
-    output_data = OutputData().from_list(
+    output_data = OutputData.from_list(
         [
             OutputData.from_cursor(
                 mock_cursor(
@@ -186,7 +182,7 @@ def test_print_multi_db_cursor_json(capsys, _create_mock_cursor):
 
 
 def test_print_different_data_sources_json(capsys, _create_mock_cursor):
-    output_data = OutputData().from_list(
+    output_data = OutputData.from_list(
         [
             OutputData.from_cursor(_create_mock_cursor()),
             OutputData.from_string("Command done"),
