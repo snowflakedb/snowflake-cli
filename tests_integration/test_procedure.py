@@ -64,7 +64,7 @@ def test_snowpark_procedure_flow(_test_steps):
         f"deployments/{procedure_name}"
     )
 
-    _test_steps.procedure_coverage_should_return_report_when_file_are_present_on_stage(
+    _test_steps.procedure_coverage_should_return_report_when_files_are_present_on_stage(
         procedure_name=procedure_name, arguments="()"
     )
 

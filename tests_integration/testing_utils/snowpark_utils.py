@@ -333,7 +333,7 @@ class SnowparkTestSteps:
         assert "Aborted.\n" in result.output
         assert not os.path.exists(".coverage")
 
-    def procedure_coverage_should_return_report_when_file_are_present_on_stage(
+    def procedure_coverage_should_return_report_when_files_are_present_on_stage(
         self, procedure_name, arguments
     ):
         result = self._setup.runner.invoke_integration_without_format(
