@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import rich
 
 import typer
 from click import ClickException
@@ -46,11 +47,11 @@ def list_connections(**options) -> OutputData:
     List configured connections.
     """
     connections = cli_config.get_section("connections")
-    result = [
+    result = (
         {"connection_name": k, "parameters": _mask_password(v)}
         for k, v in connections.items()
-    ]
-    return OutputData.from_list(result)
+    )
+    return OutputData(stream=result)
 
 
 def require_integer(field_name: str):

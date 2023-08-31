@@ -1,0 +1,28 @@
+# serializer version: 1
+# name: test_procedure_coverage_report_create_html_report
+  '''
+  +--------------------------------------------------------------------------+
+  | result                                                                   |
+  |--------------------------------------------------------------------------|
+  | Your HTML code coverage report is now available in 'htmlcov/index.html'. |
+  +--------------------------------------------------------------------------+
+  '''
+# ---
+# name: test_procedure_coverage_report_create_json_report
+  '''
+  +---------------------------------------------------------------------+
+  | result                                                              |
+  |---------------------------------------------------------------------|
+  | Your JSON code coverage report is now available in 'coverage.json'. |
+  +---------------------------------------------------------------------+
+  '''
+# ---
+# name: test_procedure_coverage_report_create_lcov_report
+  '''
+  +---------------------------------------------------------------------+
+  | result                                                              |
+  |---------------------------------------------------------------------|
+  | Your lcov code coverage report is now available in 'coverage.lcov'. |
+  +---------------------------------------------------------------------+
+  '''
+# ---

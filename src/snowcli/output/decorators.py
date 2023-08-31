@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import wraps
 
 from snowcli.exception import CommandReturnTypeError
-from snowcli.output.printing import OutputData, print_output
+from snowcli.output.printing import OutputData
 from snowflake.connector.cursor import SnowflakeCursor
 
 
@@ -14,7 +14,7 @@ def with_output(func):
 
         if not isinstance(output_data, OutputData):
             raise CommandReturnTypeError(type(output_data))
-        print_output(output_data)
+        output_data.print()
 
     return wrapper
 

@@ -50,7 +50,7 @@ def procedure_init() -> OutputData:
     Initialize this directory with a sample set of files to create a procedure.
     """
     create_project_template("default_procedure")
-    return OutputData()
+    return OutputData.from_string("Done")
 
 
 @app.command("create")
@@ -326,7 +326,7 @@ def procedure_package(
         check_anaconda_for_pypi_deps,
         package_native_libraries,  # type: ignore[arg-type]
     )
-    return OutputData()
+    return OutputData.from_string("Done")
 
 
 @app.command("execute")
