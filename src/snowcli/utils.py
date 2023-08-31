@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import warnings
 from typing import Dict, List, Literal, Optional
 from pathlib import Path
@@ -582,3 +583,18 @@ def create_project_template(template_name: str):
         f"{os.getcwd()}",
         dirs_exist_ok=True,
     )
+
+
+def get_client_git_version() -> float:
+    try:
+        output = subprocess.check_output(["git", "--version"], text=True)
+        git_version = (
+            output.strip().split()[2].split(".")
+        )  # Deals with e.g. "git version 2.39.2 (Apple Git-143)" vs "git version 2.39.2"
+        if len(git_version) == 3:
+            git_version.pop(-1)
+        major_and_minor = ".".join(git_version)
+        return float(major_and_minor)
+    except subprocess.CalledProcessError as err:
+        log.error(err.stderr)
+        sys.exit(err.returncode)
