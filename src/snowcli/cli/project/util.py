@@ -1,6 +1,6 @@
 import re
 import os
-from typing import List
+from typing import Optional
 
 
 def clean_identifier(input):
@@ -26,5 +26,5 @@ def first_set_env(*keys: str):
     return None
 
 
-def get_env_username() -> str | None:
+def get_env_username() -> Optional[str]:
     return first_set_env("USER", "USERNAME", "LOGNAME")

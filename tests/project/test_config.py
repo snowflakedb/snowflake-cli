@@ -32,7 +32,7 @@ def test_na_minimal_project(project_definition_files: List[Path]):
 
     from os import getenv as original_getenv
 
-    def mock_getenv(key: str, default: Optional[str] = None) -> str | None:
+    def mock_getenv(key: str, default: Optional[str] = None) -> Optional[str]:
         if key.lower() == "user":
             return "jsmith"
         return original_getenv(key, default)
