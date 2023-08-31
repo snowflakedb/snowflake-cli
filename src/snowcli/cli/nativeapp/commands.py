@@ -9,7 +9,7 @@ from snowcli.output.printing import OutputData
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    # hidden=True,
+    hidden=True,
     name="app",
     help="Manage Native Apps in Snowflake",
 )
@@ -31,4 +31,7 @@ def nativeapp_init(
     Initialize a Native Apps project, optionally with a --template.
     """
 
-    pass
+    NativeAppManager().nativeapp_init(name, template)
+    return OutputData().from_string(
+        f"Native Apps project {name} has been created in your local directory."
+    )
