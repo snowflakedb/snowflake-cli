@@ -78,7 +78,13 @@ def test_procedure_coverage_report_create_default_report(
 @mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.StageManager")
 @mock.patch("snowflake.connector.connect")
 def test_procedure_coverage_report_create_html_report(
-    mock_connector, mock_stage_manager, mock_coverage, runner, mock_ctx, mock_cursor
+    mock_connector,
+    mock_stage_manager,
+    mock_coverage,
+    runner,
+    mock_ctx,
+    mock_cursor,
+    snapshot,
 ):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -104,10 +110,7 @@ def test_procedure_coverage_report_create_html_report(
     )
 
     assert result.exit_code == 0
-    assert (
-        result.output.strip()
-        == "Your HTML code coverage report is now available in 'htmlcov/index.html'."
-    )
+    assert result.output.strip() == snapshot
     tmp_dir_path = mock_stage_manager().get.call_args.kwargs["dest_path"]
     mock_combined_coverage.combine.assert_called_once_with(
         data_paths=[str(tmp_dir_path / "1.coverage")]
@@ -120,7 +123,13 @@ def test_procedure_coverage_report_create_html_report(
 @mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.StageManager")
 @mock.patch("snowflake.connector.connect")
 def test_procedure_coverage_report_create_json_report(
-    mock_connector, mock_stage_manager, mock_coverage, runner, mock_ctx, mock_cursor
+    mock_connector,
+    mock_stage_manager,
+    mock_coverage,
+    runner,
+    mock_ctx,
+    mock_cursor,
+    snapshot,
 ):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -146,10 +155,7 @@ def test_procedure_coverage_report_create_json_report(
     )
 
     assert result.exit_code == 0
-    assert (
-        result.output.strip()
-        == "Your JSON code coverage report is now available in 'coverage.json'."
-    )
+    assert result.output.strip() == snapshot
     tmp_dir_path = mock_stage_manager().get.call_args.kwargs["dest_path"]
     mock_combined_coverage.combine.assert_called_once_with(
         data_paths=[str(tmp_dir_path / "1.coverage")]
@@ -162,7 +168,13 @@ def test_procedure_coverage_report_create_json_report(
 @mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.StageManager")
 @mock.patch("snowflake.connector.connect")
 def test_procedure_coverage_report_create_lcov_report(
-    mock_connector, mock_stage_manager, mock_coverage, runner, mock_ctx, mock_cursor
+    mock_connector,
+    mock_stage_manager,
+    mock_coverage,
+    runner,
+    mock_ctx,
+    mock_cursor,
+    snapshot,
 ):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -188,10 +200,7 @@ def test_procedure_coverage_report_create_lcov_report(
     )
 
     assert result.exit_code == 0
-    assert (
-        result.output.strip()
-        == "Your lcov code coverage report is now available in 'coverage.lcov'."
-    )
+    assert result.output.strip() == snapshot
     tmp_dir_path = mock_stage_manager().get.call_args.kwargs["dest_path"]
     mock_combined_coverage.combine.assert_called_once_with(
         data_paths=[str(tmp_dir_path / "1.coverage")]

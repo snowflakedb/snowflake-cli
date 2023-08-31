@@ -44,7 +44,9 @@ def streamlit_describe(
     Describe a streamlit app.
     """
     description, url = StreamlitManager().describe(streamlit_name=name)
-    return OutputData().add_cursor(description).add_cursor(url)
+    return OutputData.from_list(
+        [OutputData.from_cursor(description), OutputData.from_cursor(url)]
+    )
 
 
 @app.command("create")
@@ -169,4 +171,4 @@ def streamlit_deploy(
     )
     if result is not None:
         return OutputData.from_string(result)
-    return OutputData()
+    return OutputData.from_string("Done")

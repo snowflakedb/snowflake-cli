@@ -1,0 +1,36 @@
+# serializer version: 1
+# name: TestPackage.test_package_lookup[argument0]
+  '''
+  +------------------------------------------------------------------------------+
+  | result                                                                       |
+  |------------------------------------------------------------------------------|
+  | Package snowflake-connector-python is available on the Snowflake anaconda    |
+  | channel.                                                                     |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: TestPackage.test_package_lookup[argument1]
+  '''
+  +------------------------------------------------------------------------------+
+  | result                                                                       |
+  |------------------------------------------------------------------------------|
+  | Lookup for package some-weird-package-we-dont-know resulted in some error.   |
+  | Please check the package name or try again with -y option                    |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: TestPackage.test_package_lookup_with_install_packages
+  '''
+  +------------------------------------------------------------------------------+
+  | result                                                                       |
+  |------------------------------------------------------------------------------|
+  | The package some-other-package is supported, but does depend on the          |
+  |                 following Snowflake supported native libraries. You should   |
+  |                 include the following in your packages: [<Requirement:       |
+  | "snowflake-snowpark-python">]                                                |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---

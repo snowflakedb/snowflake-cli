@@ -71,7 +71,7 @@ def function_init():
     Initialize this directory with a sample set of files to create a function.
     """
     create_project_template("default_function")
-    return OutputData()
+    return OutputData.from_string("Done")
 
 
 @app.command("create")
@@ -259,7 +259,7 @@ def function_package(
         check_anaconda_for_pypi_deps,
         package_native_libraries,  # type: ignore[arg-type]
     )
-    return OutputData()
+    return OutputData.from_string("Done")
 
 
 @app.command("execute")

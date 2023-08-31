@@ -1,9 +1,5 @@
-import contextlib
-import os
-from pathlib import Path
-from tempfile import NamedTemporaryFile, TemporaryDirectory
+from tempfile import TemporaryDirectory
 from textwrap import dedent
-from unittest import mock
 from tests.testing_utils.fixtures import *
 
 
