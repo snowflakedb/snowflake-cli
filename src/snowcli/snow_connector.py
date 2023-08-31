@@ -100,44 +100,6 @@ class SnowflakeConnector:
             },
         )
 
-    def list_procedures(
-        self,
-        database,
-        schema,
-        role,
-        warehouse,
-        like="%%",
-    ) -> SnowflakeCursor:
-        return self.run_sql(
-            "list_procedures",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "like": like,
-            },
-        )
-
-    def drop_procedure(
-        self,
-        database,
-        schema,
-        role,
-        warehouse,
-        signature,
-    ) -> SnowflakeCursor:
-        return self.run_sql(
-            "drop_procedure",
-            {
-                "database": database,
-                "schema": schema,
-                "role": role,
-                "warehouse": warehouse,
-                "signature": signature,
-            },
-        )
-
     def run_sql(
         self,
         command,
@@ -158,12 +120,6 @@ class SnowflakeConnector:
             if show_exceptions:
                 log.error(f"Error executing sql:\n{sql}")
             raise e
-
-
-def generate_signature_from_params(params: str) -> str:
-    if params == "()":
-        return "()"
-    return "(" + " ".join(params.split()[1::2]) + ")"
 
 
 def connect_to_snowflake(connection_name: Optional[str] = None, **overrides) -> SnowflakeConnector:  # type: ignore

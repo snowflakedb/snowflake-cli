@@ -88,23 +88,29 @@ class TestPackage:
         )
         os.remove("totally-awesome-package.zip")
 
-    @patch("snowcli.cli.snowpark.package.manager.snow_cli_global_context_manager")
-    def test_package_upload(self, mock_ctx_manager, package_file: str, runner) -> None:
+    @mock.patch("snowcli.cli.snowpark.package.manager.StageManager")
+    @mock.patch("snowflake.connector.connect")
+    def test_package_upload(
+        self,
+        mock_connector,
+        mock_stage_manager,
+        package_file: str,
+        runner,
+        mock_ctx,
+        mock_cursor,
+    ) -> None:
+        ctx = mock_ctx()
+        mock_connector.return_value = ctx
+        mock_stage_manager().put.return_value = mock_cursor(
+            rows=[("", "", "", "", "", "", "UPLOADED")], columns=[]
+        )
+
         result = runner.invoke(
             ["snowpark", "package", "upload", "-f", package_file, "-s", "stageName"]
         )
 
         assert result.exit_code == 0
-        mock_ctx_manager.get_connection.return_value.upload_file_to_stage.assert_called_with(
-            file_path=ANY,
-            destination_stage="stageName",
-            path="/",
-            database=ANY,
-            schema=ANY,
-            overwrite=False,
-            role=ANY,
-            warehouse=ANY,
-        )
+        assert ctx.get_query() == ""
 
     @staticmethod
     def mocked_anaconda_response(response: dict):

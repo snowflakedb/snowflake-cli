@@ -42,31 +42,6 @@ def test_command_context_is_passed_to_snowflake_connection(
     mock_connector.connect.assert_called_once_with(application=expected)
 
 
-@pytest.mark.parametrize(
-    "create_stage",
-    [True, False],
-)
-@pytest.mark.parametrize("stage_name", ["namedStageValue", "snow://embeddedStageValue"])
-@mock.patch("snowflake.connector")
-def test_upload_file_to_stage(_, snapshot, create_stage, stage_name):
-    connector = SnowflakeConnector(connection_parameters=MOCK_CONNECTION)
-    connector.ctx.execute_stream.return_value = (None, None)
-
-    connector.upload_file_to_stage(
-        file_path="file_pathValue",
-        destination_stage=stage_name,
-        path="pathValue",
-        role="roleValue",
-        database="databaseValue",
-        schema="schemaValue",
-        warehouse="warehouseValue",
-        overwrite="overwriteValue",
-        create_stage=create_stage,
-    )
-    query, *_ = connector.ctx.execute_stream.call_args.args
-    assert query.getvalue() == snapshot
-
-
 @mock.patch("snowcli.cli.snowpark.registry.connect_to_snowflake")
 def test_registry_get_token(mock_conn, runner):
     mock_conn.return_value.ctx._rest._token_request.return_value = {
