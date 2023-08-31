@@ -134,6 +134,7 @@ def _register_cli_typers() -> None:
         "snowcli.cli.streamlit.commands",
         "snowcli.cli.warehouse.commands",
         "snowcli.cli.stage.commands",
+        "snowcli.cli.nativeapp.commands",
     ]
     for cmd in known_sub_commands:
         _add_typer_from_path(cmd)
