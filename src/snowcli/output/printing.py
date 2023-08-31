@@ -65,7 +65,7 @@ class OutputData:
     @classmethod
     def from_list(
         cls, data: List[Union[Dict, OutputData]], format_: Optional[OutputFormat] = None
-    ):
+    ) -> OutputData:
         """Converts list to stream of data."""
         if not isinstance(data, list) or (
             len(data) > 0 and not isinstance(data[0], (dict, OutputData))
@@ -74,12 +74,12 @@ class OutputData:
         return cls(stream=(item for item in data), format_=format_)
 
     @property
-    def format(self):
+    def format(self) -> OutputFormat:
         if not self._format:
             self._format = _get_format_type()
         return self._format
 
-    def empty(self):
+    def is_empty(self) -> bool:
         return self._stream is None
 
     def get_data(self) -> Iterator[Union[Dict, OutputData]]:
@@ -101,7 +101,7 @@ def _print_output(output_data: Optional[OutputData] = None) -> None:
         print("Done")
         return
 
-    if output_data.empty():
+    if output_data.is_empty():
         print("No data")
         return
 
