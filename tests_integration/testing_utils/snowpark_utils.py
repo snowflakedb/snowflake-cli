@@ -365,7 +365,7 @@ class SnowparkTestSteps:
                 "json",
             ]
         )
-        print(result)
+        print(result) #todo: remove print
         assert result.exit_code == 0
 
     def assert_that_no_entities_are_in_snowflake(self) -> None:

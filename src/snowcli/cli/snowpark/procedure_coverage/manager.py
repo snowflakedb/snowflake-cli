@@ -109,7 +109,7 @@ class ProcedureCoverageManager(SqlExecutionMixin):
             if not (report_function and message):
                 raise UnknownOutputFormatError(output_format)
             coverage_percentage = report_function()
-            print(coverage_percentage)
+            print(coverage_percentage) #todo remove print
             if store_as_comment:
                 log.info(
                     f"Storing total coverage value of {str(coverage_percentage)} as a procedure comment."

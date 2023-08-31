@@ -54,7 +54,7 @@ def procedure_coverage_report(
         output_format=output_format,
         store_as_comment=store_as_comment,
     )
-    print(message) #TODO: remove print
+
     return OutputData.from_string(message)
 
 
