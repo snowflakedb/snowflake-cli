@@ -1,6 +1,6 @@
 from .util import clean_identifier, get_env_username
 from pathlib import Path
-from typing import List
+from typing import List, Union, Dict
 from strictyaml import (
     YAML,
     load,
@@ -17,7 +17,7 @@ from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_m
 DEFAULT_USERNAME = "unknown_user"
 
 
-def merge_left(target: dict | YAML, source: dict | YAML) -> None:
+def merge_left(target: Union[Dict, YAML], source: Union[Dict, YAML]) -> None:
     """
     Recursively merges key/value pairs from source into target.
     Modifies the original dict-like "target".
@@ -53,7 +53,7 @@ def load_project_definition(paths: List[Path]) -> dict:
     return definition.data
 
 
-def generate_local_override_yml(project: dict | YAML) -> YAML:
+def generate_local_override_yml(project: Union[Dict, YAML]) -> YAML:
     """
     Generates defaults for optional keys in the same YAML structure as the project
     schema. The returned YAML object can be saved directly to a file, if desired.
