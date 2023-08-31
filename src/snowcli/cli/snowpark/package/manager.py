@@ -9,7 +9,6 @@ from requirements.requirement import Requirement
 from shutil import rmtree
 
 from snowcli import utils
-from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 from snowcli.cli.snowpark.package.utils import (
     LookupResult,
     InAnaconda,
@@ -19,6 +18,7 @@ from snowcli.cli.snowpark.package.utils import (
     CreatedSuccessfully,
     CreationError,
 )
+from snowcli.cli.stage.manager import StageManager
 from snowcli.utils import SplitRequirements
 
 log = logging.getLogger(__name__)
@@ -45,27 +45,16 @@ def lookup(name: str, install_packages: bool) -> LookupResult:
 
 
 def upload(file: Path, stage: str, overwrite: bool):
-    conn = snow_cli_global_context_manager.get_connection()
-
     log.info(f"Uploading {file} to Snowflake @{stage}/{file}...")
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
-        deploy_response = conn.upload_file_to_stage(
-            file_path=temp_app_zip_path,
-            destination_stage=stage,
-            path="/",
-            database=conn.ctx.database,
-            schema=conn.ctx.schema,
-            overwrite=overwrite,
-            role=conn.ctx.role,
-            warehouse=conn.ctx.warehouse,
-        )
+        sm = StageManager()
+        sm.create(stage)
+        put_response = sm.put(temp_app_zip_path, stage, overwrite=overwrite).fetchone()
 
-    message = (
-        f"Package {file} {deploy_response.description[6]} to Snowflake @{stage}/{file}."
-    )
+    message = f"Package {file} {put_response[6]} to Snowflake @{stage}/{file}."
 
-    if deploy_response.description[6] == "SKIPPED":
+    if put_response[6] == "SKIPPED":
         message = "Package already exists on stage. Consider using --overwrite to overwrite the file."
 
     return message
