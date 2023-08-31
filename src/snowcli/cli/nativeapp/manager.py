@@ -7,7 +7,6 @@ from pathlib import Path
 import subprocess
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
-from snowcli.utils import get_client_git_version
 
 log = logging.getLogger(__name__)
 
