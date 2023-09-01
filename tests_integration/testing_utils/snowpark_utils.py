@@ -221,7 +221,7 @@ class SnowparkTestSteps:
 
     def snowpark_package_should_zip_files(self) -> None:
         result = self._setup.runner.invoke_with_config(
-            ["snowpark", self.test_type.value, "package"]
+            ["snowpark", self.test_type.value, "package", "--pypi-download", "yes"]
         )
         assert_that_result_is_successful_and_done_is_on_output(result)
         assert_that_current_working_directory_contains_only_following_files(
@@ -231,44 +231,16 @@ class SnowparkTestSteps:
         )
 
     def snowpark_create_should_finish_successfully(self) -> str:
-        entity_name = (
-            self._setup.test_object_name_provider.create_and_get_next_object_name()
-        )
-
-        result = self.run_create(entity_name=entity_name)
-
-        assert_that_result_is_successful(result)
-        return entity_name
+        return self.run_create()
 
     def snowpark_create_with_coverage_wrapper_should_finish_succesfully(self) -> str:
+        return self.run_create("--install-coverage-wrapper")
+
+    def run_create(self, additional_arguments=""):
         entity_name = (
             self._setup.test_object_name_provider.create_and_get_next_object_name()
         )
 
-        result = self._setup.runner.invoke_integration(
-            [
-                "snowpark",
-                self.test_type.value,
-                "create",
-                "--name",
-                entity_name,
-                "--handler",
-                "app.hello",
-                "--input-parameters",
-                "()",
-                "--return-type",
-                "string",
-                "--install-coverage-wrapper",
-            ]
-        )
-
-        # self.run_create(entity_name, "--install-coverage-wrapper")
-        print(result.output)
-        print(result.json)
-        assert_that_result_is_successful(result)
-        return entity_name
-
-    def run_create(self, entity_name, additional_arguments=""):
         arguments = [
             "snowpark",
             self.test_type.value,
@@ -286,7 +258,10 @@ class SnowparkTestSteps:
         if additional_arguments:
             arguments.append(additional_arguments)
 
-        return self._setup.runner.invoke_integration(arguments)
+        result = self._setup.runner.invoke_integration(arguments)
+
+        assert_that_result_is_successful(result)
+        return entity_name
 
     def snowpark_update_should_finish_successfully(
         self,
