@@ -12,17 +12,18 @@ from typing import List, Union, Optional
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 
 from .artifacts import build_bundle, translate_artifact, SrcDestPair
-from ..project.definition_manager import DefinitionManager
+
+# from ..project.definition_manager import DefinitionManager
 
 log = logging.getLogger(__name__)
 
 
 class NativeAppManager(SqlExecutionMixin):
-    definition_manager: DefinitionManager
+    # definition_manager: DefinitionManager
 
     def __init__(self, search_path: Optional[str]):
         super().__init__()
-        self.definition_manager = DefinitionManager(search_path)
+        # self.definition_manager = DefinitionManager(search_path)
 
     @property
     def project_root(self) -> Path:

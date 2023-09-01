@@ -7,17 +7,10 @@ native_app:
     "MySourceSchema"."SRC_Stage"
 
   artifacts:
-    - dest: ext_code/
-      src:
-        - java/build/*.jar
-        - java/deps/myDep.jar
-    - dest: ext_code/
-      src: python/build/my-package-0.0.0.wheel
     - setup.sql
-    - manifest.yml
     - app/README.md
     - src: app/streamlit/*.py
-      dest: streamlit/
+      dest: ui/
 
   package:
     scripts: package/*.sql

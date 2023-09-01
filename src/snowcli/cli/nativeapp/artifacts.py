@@ -151,7 +151,7 @@ def build_bundle(project_root: Path, deploy_root: Path, artifacts: List[SrcDestP
         if dest_path.is_file():
             dest_path.unlink()
 
-        if specifies_directory(dest_path):
+        if specifies_directory(artifact.dest):
             # copy all files as children of the given destination path
             for source_path in source_paths:
                 symlink_or_copy(source_path, dest_path / source_path.name)

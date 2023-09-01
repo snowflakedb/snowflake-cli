@@ -12,8 +12,8 @@ from snowcli.cli.project.definition import (
 )
 
 
-@pytest.mark.parametrize("project_definition_files", ["project_1"], indirect=True)
-def test_na_project_1(project_definition_files):
+@pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
+def test_napp_project_1(project_definition_files):
     project = load_project_definition(project_definition_files)
     assert project["native_app"]["name"] == "myapp"
     assert project["native_app"]["deploy_root"] == "output/deploy/"
