@@ -2,12 +2,17 @@ from typing import Optional
 import logging
 import typer
 
+from pathlib import Path
+from textwrap import dedent
+
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.output.decorators import with_output
 from snowcli.output.printing import OutputData
+from snowcli.cli.stage.diff import stage_diff
 
 from .manager import NativeAppManager
+
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -59,3 +64,26 @@ def nativeapp_bundle(
 
     except Exception as e:
         return OutputData.from_string(str(e)).add_exit_code(1)
+
+
+@app.command("diff")
+@with_output
+@global_options_with_connection
+def stage_list(
+    stage_fqn: str = typer.Argument(None, help="Name of stage"),
+    folder_name: str = typer.Argument(None, help="Path to local folder"),
+    **options,
+) -> OutputData:
+    """
+    Diffs a stage with a local folder
+    """
+
+    diff = stage_diff(Path(folder_name), stage_fqn)
+    output = f"""\
+        only local: {', '.join(diff.only_local)}
+        only stage: {', '.join(diff.only_on_stage)}
+        modified:   {', '.join(diff.modified)}
+        unmodified: {', '.join(diff.unmodified)}
+    """
+
+    return OutputData.from_string(dedent(output))
