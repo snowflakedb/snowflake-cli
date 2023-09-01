@@ -5,11 +5,15 @@ from typing import List, Union
 from dataclasses import dataclass
 
 
-class InvalidArtifactException(Exception):
+class ArtifactError(Exception):
     pass
 
 
-class GlobMatchedNothingException(Exception):
+class InvalidArtifactError(ArtifactError):
+    pass
+
+
+class GlobMatchedNothingError(ArtifactError):
     """
     No files were found that matched the provided glob pattern.
     """
@@ -17,7 +21,7 @@ class GlobMatchedNothingException(Exception):
     pass
 
 
-class SourceNotFoundException(Exception):
+class SourceNotFoundError(ArtifactError):
     """
     The specifically-referenced source file or directory was not found
     in the project directory.
@@ -33,7 +37,7 @@ class SourceNotFoundException(Exception):
         return self.__doc__ + f"\path = {self.path}"
 
 
-class TooManyFilesException(Exception):
+class TooManyFilesError(ArtifactError):
     """
     Multiple files were mapped to one output file.
     """
@@ -48,7 +52,7 @@ class TooManyFilesException(Exception):
         return self.__doc__ + f"\ndest_path = {self.dest_path}"
 
 
-class OutsideDeployRootException(Exception):
+class OutsideDeployRootError(ArtifactError):
     """
     The specified path is outside of the deploy root.
     This can happen when a relative path with ".." is provided.
@@ -119,7 +123,8 @@ def translate_artifact(item: Union[dict, str]) -> SrcDestPair:
         return SrcDestPair(item, item)
 
     else:
-        raise InvalidArtifactException(item)
+        # XXX: validation should have caught this
+        raise InvalidArtifactError(item)
 
 
 def build_bundle(project_root: Path, deploy_root: Path, artifacts: List[SrcDestPair]):
@@ -136,17 +141,17 @@ def build_bundle(project_root: Path, deploy_root: Path, artifacts: List[SrcDestP
         if is_glob(artifact.src):
             source_paths = project_root.glob(artifact.src)
             if not source_paths:
-                raise GlobMatchedNothingException(artifact.src)
+                raise GlobMatchedNothingError(artifact.src)
         else:
             source_path = Path(project_root, artifact.src)
             source_paths = [source_path]
             if not source_path.exists():
-                raise SourceNotFoundException(source_path)
+                raise SourceNotFoundError(source_path)
 
         # make sure we are only modifying files / directories inside deploy_root
         dest_path = Path(deploy_root, artifact.dest)
         if deploy_root not in dest_path.parents:
-            raise OutsideDeployRootException(dest_path, deploy_root)
+            raise OutsideDeployRootError(dest_path, deploy_root)
 
         if dest_path.is_file():
             dest_path.unlink()
@@ -161,4 +166,4 @@ def build_bundle(project_root: Path, deploy_root: Path, artifacts: List[SrcDestP
                 symlink_or_copy(source_path, dest_path)
             else:
                 # refuse to map multiple source files to one destination (undefined behaviour)
-                raise TooManyFilesException(dest_path)
+                raise TooManyFilesError(dest_path)
