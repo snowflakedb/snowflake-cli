@@ -36,6 +36,8 @@ class OutputData:
     cursors as well with cases when you want to stream constant output (for example logs).
     """
 
+    exit_code: Optional[int]
+
     def __init__(
         self,
         stream: Optional[Iterator[Union[Dict, OutputData]]] = None,
@@ -43,6 +45,7 @@ class OutputData:
     ) -> None:
         self._stream = stream
         self._format = format_
+        self.exit_code = None
 
     @classmethod
     def from_cursor(
@@ -72,6 +75,10 @@ class OutputData:
         ):
             raise OutputDataTypeError(type(data), List[Union[Dict, OutputData]])
         return cls(stream=(item for item in data), format_=format_)
+
+    def add_exit_code(self, exit_code: int):
+        self.exit_code = exit_code
+        return self
 
     @property
     def format(self) -> OutputFormat:

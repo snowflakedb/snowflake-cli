@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import typer
+
 from functools import wraps
 
 from snowcli.exception import CommandReturnTypeError
@@ -14,7 +16,10 @@ def with_output(func):
 
         if not isinstance(output_data, OutputData):
             raise CommandReturnTypeError(type(output_data))
+
         output_data.print()
+        if output_data.exit_code is not None:
+            raise typer.Exit(output_data.exit_code)
 
     return wrapper
 
