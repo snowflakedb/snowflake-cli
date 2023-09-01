@@ -93,6 +93,10 @@ def specifies_directory(s: str) -> bool:
     Does the path (as seen from the project definition) refer to
     a directory? For destination paths, we enforce the usage of a
     trailing slash (i.e. \ for windows; / for others).
+
+    This means that to put a file in the root of the stage, we need
+    to specify "./" as its destination, or omit it (but only if the
+    file already lives in the project root).
     """
     return s.endswith(os.sep)
 
@@ -132,6 +136,7 @@ def build_bundle(project_root: Path, deploy_root: Path, artifacts: List[SrcDestP
     Prepares a local folder (deploy_root) with configured app artifacts.
     This folder can then be uploaded to a stage.
     """
+    deploy_root = deploy_root.resolve()
     if deploy_root.exists() and not deploy_root.is_dir():
         raise ValueError(f"Deploy root {deploy_root} exists, but is not a directory!")
 
@@ -139,7 +144,7 @@ def build_bundle(project_root: Path, deploy_root: Path, artifacts: List[SrcDestP
         # build the list of source files
         source_paths: List[Path]
         if is_glob(artifact.src):
-            source_paths = project_root.glob(artifact.src)
+            source_paths = list(project_root.glob(artifact.src))
             if not source_paths:
                 raise GlobMatchedNothingError(artifact.src)
         else:
@@ -149,8 +154,8 @@ def build_bundle(project_root: Path, deploy_root: Path, artifacts: List[SrcDestP
                 raise SourceNotFoundError(source_path)
 
         # make sure we are only modifying files / directories inside deploy_root
-        dest_path = Path(deploy_root, artifact.dest)
-        if deploy_root not in dest_path.parents:
+        dest_path = Path(deploy_root, artifact.dest).resolve()
+        if deploy_root != dest_path and deploy_root not in dest_path.parents:
             raise OutsideDeployRootError(dest_path, deploy_root)
 
         if dest_path.is_file():

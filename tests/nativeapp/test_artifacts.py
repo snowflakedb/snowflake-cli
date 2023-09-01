@@ -1,11 +1,20 @@
 import pytest
 import os
+from textwrap import dedent
 from typing import Optional
 from unittest import mock
 from tests.project.fixtures import *
 from tests.testing_utils.fixtures import *
 
-from snowcli.cli.nativeapp.artifacts import build_bundle, translate_artifact
+from snowcli.cli.nativeapp.artifacts import (
+    build_bundle,
+    translate_artifact,
+    SrcDestPair,
+    GlobMatchedNothingError,
+    SourceNotFoundError,
+    TooManyFilesError,
+    OutsideDeployRootError,
+)
 from snowcli.cli.project.definition import load_project_definition
 
 
@@ -30,11 +39,7 @@ def dir_structure(path: Path, prefix="") -> List[str]:
     return parts
 
 
-@pytest.mark.parametrize(
-    "project_definition_files",
-    ["napp_project_1"],
-    indirect=True,
-)
+@pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_napp_project_1_artifacts(project_definition_files):
     project_root = project_definition_files[0].parent
     native_app = load_project_definition(project_definition_files)["native_app"]
@@ -59,3 +64,56 @@ def test_napp_project_1_artifacts(project_definition_files):
     assert trimmed_contents(deploy_root / "app" / "README.md") == "app/README.md"
     assert trimmed_contents(deploy_root / "ui" / "main.py") == "# main.py"
     assert trimmed_contents(deploy_root / "ui" / "config.py") == "# config.py"
+
+
+@pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
+def test_source_not_found(project_definition_files):
+    project_root = project_definition_files[0].parent
+    with pytest.raises(SourceNotFoundError):
+        build_bundle(
+            project_root,
+            deploy_root=Path(project_root, "deploy"),
+            artifacts=[SrcDestPair("NOTFOUND.md", "NOTFOUND.md")],
+        )
+
+
+@pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
+def test_glob_matched_nothing(project_definition_files):
+    project_root = project_definition_files[0].parent
+    with pytest.raises(GlobMatchedNothingError):
+        build_bundle(
+            project_root,
+            deploy_root=Path(project_root, "deploy"),
+            artifacts=[SrcDestPair("**/*.jar", ".")],
+        )
+
+
+@pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
+def test_outside_deploy_root_two_ways(project_definition_files):
+    project_root = project_definition_files[0].parent
+    with pytest.raises(OutsideDeployRootError):
+        build_bundle(
+            project_root,
+            deploy_root=Path(project_root, "deploy"),
+            artifacts=[SrcDestPair("setup.sql", "..")],
+        )
+
+    with pytest.raises(OutsideDeployRootError):
+        build_bundle(
+            project_root,
+            deploy_root=Path(project_root, "deploy"),
+            artifacts=[SrcDestPair("setup.sql", "/")],
+        )
+
+
+@pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
+def test_too_many_files(project_definition_files):
+    project_root = project_definition_files[0].parent
+    with pytest.raises(TooManyFilesError):
+        build_bundle(
+            project_root,
+            deploy_root=Path(project_root, "deploy"),
+            artifacts=[
+                SrcDestPair("app/streamlit/*.py", "somehow_combined_streamlits.py")
+            ],
+        )
