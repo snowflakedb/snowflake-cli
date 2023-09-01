@@ -25,9 +25,9 @@ def trimmed_contents(path: Path) -> Optional[str]:
         return handle.read().strip()
 
 
-def dir_structure(path: Path, prefix="") -> Optional[List[str]]:
+def dir_structure(path: Path, prefix="") -> List[str]:
     if not path.is_dir():
-        return None
+        raise ValueError("Path must point to a directory")
 
     parts: List[str] = []
     for child in sorted(path.iterdir()):
