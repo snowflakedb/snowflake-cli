@@ -68,3 +68,50 @@ anaconda_response = {
         },
     },
 }
+
+describe_function_response = """[
+  {
+    "property": "signature",
+    "value": "()"
+  },
+  {
+    "property": "returns",
+    "value": "VARCHAR(16777216)"
+  },
+  {
+    "property": "language",
+    "value": "PYTHON"
+  },
+  {
+    "property": "null handling",
+    "value": "CALLED ON NULL INPUT"
+  },
+  {
+    "property": "volatility",
+    "value": "VOLATILE"
+  },
+  {
+    "property": "body",
+    "value": null
+  },
+  {
+    "property": "imports",
+    "value": "[@test_snowpark_shared/app.zip]"
+  },
+  {
+    "property": "handler",
+    "value": "app.hello"
+  },
+  {
+    "property": "runtime_version",
+    "value": "3.8"
+  },
+  {
+    "property": "packages",
+    "value": "["snowpark-connector-python"]"
+  },
+  {
+    "property": "installed_packages",
+    "value": "['python==3.8.17']"
+  }
+]"""

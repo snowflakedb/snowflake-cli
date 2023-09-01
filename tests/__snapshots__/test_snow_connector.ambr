@@ -1,13 +1,4 @@
 # serializer version: 1
-# name: test_set_procedure_comment
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  alter PROCEDURE signatureValue SET COMMENT = $$commentValue$$;
-  '''
-# ---
 # name: test_upload_file_to_stage[namedStageValue-False]
   '''
   use role roleValue;

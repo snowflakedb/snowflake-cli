@@ -35,6 +35,9 @@ def row_from_cursor(cursor: SnowflakeCursor) -> List[Dict[str, str]]:
 
 def contains_row_with(rows: List[Dict[str, str]], values: Dict[str, str]) -> bool:
     values_items = values.items()
+    if isinstance(rows, dict):
+        return rows.items() >= values_items
+
     for row in rows:
         if row.items() >= values_items:
             return True

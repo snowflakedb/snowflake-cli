@@ -29,7 +29,9 @@ class TestPackage:
         ],
     )
     @patch("tests.test_package.package.manager.utils.requests")
-    def test_package_lookup(self, mock_requests, argument, monkeypatch, runner) -> None:
+    def test_package_lookup(
+        self, mock_requests, argument, monkeypatch, runner, snapshot
+    ) -> None:
         mock_requests.get.return_value = self.mocked_anaconda_response(
             test_data.anaconda_response
         )
@@ -37,12 +39,12 @@ class TestPackage:
         result = runner.invoke(["snowpark", "package", "lookup", argument[0], "--yes"])
 
         assert result.exit_code == 0
-        assert argument[1].replace("\n", "") in result.output.replace("\n", "")
+        assert result.output == snapshot
 
     @patch("tests.test_package.package.manager.utils.install_packages")
     @patch("tests.test_package.package.manager.utils.parse_anaconda_packages")
     def test_package_lookup_with_install_packages(
-        self, mock_package, mock_install, runner, capfd
+        self, mock_package, mock_install, runner, capfd, snapshot
     ) -> None:
         mock_package.return_value = SplitRequirements(
             [], [Requirement("some-other-package")]
@@ -59,11 +61,7 @@ class TestPackage:
             ["snowpark", "package", "lookup", "some-other-package", "--yes"]
         )
         assert result.exit_code == 0
-        assert 'include the following in your packages: [<Requirement: "snowflake-snowpark-python">]'.replace(
-            "\n", ""
-        ) in result.output.replace(
-            "\n", ""
-        )
+        assert result.output == snapshot
 
     @patch("tests.test_package.package.commands.lookup")
     def test_package_create(
@@ -90,23 +88,29 @@ class TestPackage:
         )
         os.remove("totally-awesome-package.zip")
 
-    @patch("snowcli.cli.snowpark.package.manager.snow_cli_global_context_manager")
-    def test_package_upload(self, mock_ctx_manager, package_file: str, runner) -> None:
+    @mock.patch("snowcli.cli.snowpark.package.manager.StageManager")
+    @mock.patch("snowflake.connector.connect")
+    def test_package_upload(
+        self,
+        mock_connector,
+        mock_stage_manager,
+        package_file: str,
+        runner,
+        mock_ctx,
+        mock_cursor,
+    ) -> None:
+        ctx = mock_ctx()
+        mock_connector.return_value = ctx
+        mock_stage_manager().put.return_value = mock_cursor(
+            rows=[("", "", "", "", "", "", "UPLOADED")], columns=[]
+        )
+
         result = runner.invoke(
             ["snowpark", "package", "upload", "-f", package_file, "-s", "stageName"]
         )
 
         assert result.exit_code == 0
-        mock_ctx_manager.get_connection.return_value.upload_file_to_stage.assert_called_with(
-            file_path=ANY,
-            destination_stage="stageName",
-            path="/",
-            database=ANY,
-            schema=ANY,
-            overwrite=False,
-            role=ANY,
-            warehouse=ANY,
-        )
+        assert ctx.get_query() == ""
 
     @staticmethod
     def mocked_anaconda_response(response: dict):

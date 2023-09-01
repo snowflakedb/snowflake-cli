@@ -44,7 +44,7 @@ def test_create_function(
             ]
         )
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 0, result._output
     assert ctx.get_queries() == [
         "create stage if not exists deployments comment='deployments managed by snowcli'",
         f"put file://{tmp_dir.name}/{Path(fh.name).name} @deployments/functionnamea_string_b_number"
@@ -93,7 +93,7 @@ def test_update_function_no_changes(
         mock_tmp_dir,
     )
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 0, result._output
     assert "No packages to update. Deployment complete" in result.output
     assert queries == [
         "describe function functionName(a string, b number)",
@@ -172,7 +172,7 @@ def test_update_function_needs_update_because_packages_changes(
         mock_tmp_dir,
     )
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 0, result._output
     assert queries == [
         "describe function functionName(a string, b number)",
         "create stage if not exists deployments comment='deployments managed by snowcli'",
@@ -221,7 +221,7 @@ def test_update_function_needs_update_because_handler_changes(
         mock_tmp_dir,
     )
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 0, result._output
     assert queries == [
         "describe function functionName(a string, b number)",
         "create stage if not exists deployments comment='deployments managed by snowcli'",
@@ -255,7 +255,7 @@ def test_execute_function(mock_connector, runner, mock_ctx):
         ]
     )
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 0, result._output
     assert ctx.get_query() == "select functionName(42, 'string')"
 
 
@@ -273,7 +273,7 @@ def test_describe_function_from_signature(mock_connector, runner, mock_ctx):
         ]
     )
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 0, result._output
     assert ctx.get_query() == "describe function functionName(int, string, variant)"
 
 
@@ -293,7 +293,7 @@ def test_describe_function_from_name(mock_connector, runner, mock_ctx):
         ]
     )
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 0, result._output
     assert ctx.get_query() == "describe function functionName(int, string, variant)"
 
 
@@ -311,7 +311,7 @@ def test_list_function(mock_connector, runner, mock_ctx):
         ]
     )
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 0, result._output
     assert ctx.get_query() == "show user functions like 'foo_bar%'"
 
 
@@ -329,7 +329,7 @@ def test_drop_function_from_signature(mock_connector, runner, mock_ctx):
         ]
     )
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 0, result._output
     assert ctx.get_query() == "drop function functionName(int, string, variant)"
 
 
@@ -349,5 +349,5 @@ def test_drop_function_from_name(mock_connector, runner, mock_ctx):
         ]
     )
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 0, result._output
     assert ctx.get_query() == "drop function functionName(int, string, variant)"

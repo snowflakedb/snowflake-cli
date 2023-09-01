@@ -1,3 +1,4 @@
+import json
 from typing import Dict, List, Union
 
 from tests_integration.test_utils import contains_row_with
@@ -33,4 +34,6 @@ def assert_that_result_is_successful_and_done_is_on_output(
     result: CommandResult,
 ) -> None:
     assert_that_result_is_successful(result)
-    assert result.output is not None and result.output.strip() == "Done"
+    assert result.output is not None and json.loads(result.output) == [
+        {"result": "Done"}
+    ]

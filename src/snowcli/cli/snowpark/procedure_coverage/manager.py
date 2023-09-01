@@ -10,10 +10,8 @@ import typer
 from click import ClickException
 from snowflake.connector.cursor import SnowflakeCursor
 
-from snowcli import utils
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.stage.manager import StageManager
-from snowcli.snow_connector import generate_signature_from_params
 from snowcli.utils import generate_deploy_stage_name
 
 log = logging.getLogger(__name__)
@@ -107,7 +105,9 @@ class ProcedureCoverageManager(SqlExecutionMixin):
                 log.info(
                     f"Storing total coverage value of {str(coverage_percentage)} as a procedure comment."
                 )
-                signature = name + generate_signature_from_params(input_parameters)
+                signature = name + self._generate_signature_from_params(
+                    input_parameters
+                )
                 self._execute_query(
                     f"ALTER PROCEDURE {signature} SET COMMENT = $${str(coverage_percentage)}$$"
                 )
@@ -129,6 +129,11 @@ class ProcedureCoverageManager(SqlExecutionMixin):
         )
         log.info("Deleted the following coverage results from the stage:")
         return cursor
+
+    def _generate_signature_from_params(self, params: str) -> str:
+        if params == "()":
+            return "()"
+        return "(" + " ".join(params.split()[1::2]) + ")"
 
 
 def get_deploy_names(database, schema, name) -> dict:
