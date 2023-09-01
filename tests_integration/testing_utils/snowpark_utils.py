@@ -245,22 +245,24 @@ class SnowparkTestSteps:
             self._setup.test_object_name_provider.create_and_get_next_object_name()
         )
 
-        result = self._setup.runner.invoke_integration([
-            "snowpark",
-            self.test_type.value,
-            "create",
-            "--name",
-            entity_name,
-            "--handler",
-            "app.hello",
-            "--input-parameters",
-            "()",
-            "--return-type",
-            "string",
-            "--install-coverage-wrapper"
-        ])
+        result = self._setup.runner.invoke_integration(
+            [
+                "snowpark",
+                self.test_type.value,
+                "create",
+                "--name",
+                entity_name,
+                "--handler",
+                "app.hello",
+                "--input-parameters",
+                "()",
+                "--return-type",
+                "string",
+                "--install-coverage-wrapper",
+            ]
+        )
 
-            #self.run_create(entity_name, "--install-coverage-wrapper")
+        # self.run_create(entity_name, "--install-coverage-wrapper")
 
         assert_that_result_is_successful(result)
         return entity_name
