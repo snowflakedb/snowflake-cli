@@ -66,7 +66,6 @@ def execute_sql(
     or via stdin by piping output from other command. For example `cat my.sql | snow sql`.
     """
     cursors = SqlManager().execute(query, file)
-    output_data = OutputData()
-    for cursor in cursors:
-        output_data.add_cursor(cursor)
-    return output_data
+    if len(cursors) > 1:
+        return OutputData(stream=(OutputData.from_cursor(cur) for cur in cursors))
+    return OutputData.from_cursor(cursors[0])

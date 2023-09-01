@@ -1,41 +1,4 @@
 # serializer version: 1
-# name: test_create_procedure
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  CREATE OR REPLACE  PROCEDURE nameValue(string a, variant b)
-           RETURNS returnTypeValue
-           LANGUAGE PYTHON
-           RUNTIME_VERSION=3.8
-           IMPORTS=('import1, import2')
-           HANDLER='handlerValue'
-           PACKAGES=('aaa','bbb')
-           EXECUTE AS CALLER;
-  
-  
-  describe PROCEDURE nameValue(a, b);
-  '''
-# ---
-# name: test_describe_procedure
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  desc PROCEDURE signatureValue;
-  '''
-# ---
-# name: test_set_procedure_comment
-  '''
-  use role roleValue;
-  use warehouse warehouseValue;
-  use database databaseValue;
-  use schema schemaValue;
-  alter PROCEDURE signatureValue SET COMMENT = $$commentValue$$;
-  '''
-# ---
 # name: test_upload_file_to_stage[namedStageValue-False]
   '''
   use role roleValue;

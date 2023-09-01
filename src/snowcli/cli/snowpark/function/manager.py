@@ -1,71 +1,19 @@
 from __future__ import annotations
 
-from typing import Optional, List
+from typing import List
 
-import click
 from snowflake.connector.cursor import SnowflakeCursor
 
-from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.cli.snowpark.common import SnowparkObjectManager
 
 
-class FunctionManager(SqlExecutionMixin):
-    @staticmethod
-    def identifier(
-        name: Optional[str] = None,
-        signature: Optional[str] = None,
-        name_and_signature: Optional[str] = None,
-    ):
-        if all([name, signature, name_and_signature]):
-            raise click.ClickException(
-                "Provide only one, name and arguments or full signature. Both provided."
-            )
-
-        if not (name and signature) and not name_and_signature:
-            raise click.ClickException(
-                "Provide either name and arguments or full signature. None provided."
-            )
-
-        if name and signature:
-            name_and_signature = name + signature
-
-        return name_and_signature
-
-    def drop(self, identifier: str) -> SnowflakeCursor:
-        return self._execute_query(f"drop function {identifier}")
-
-    def show(self, like: Optional[str] = None) -> SnowflakeCursor:
-        query = "show user functions"
-        if like:
-            query += f" like '{like}'"
-        return self._execute_query(query)
-
-    def describe(self, identifier: str) -> SnowflakeCursor:
-        return self._execute_query(f"describe function {identifier}")
+class FunctionManager(SnowparkObjectManager):
+    @property
+    def _object_type(self):
+        return "function"
 
     def execute(self, expression: str) -> SnowflakeCursor:
         return self._execute_query(f"select {expression}")
-
-    @staticmethod
-    def artifact_stage_path(identifier: str):
-        return (
-            identifier.replace(
-                "(",
-                "",
-            )
-            .replace(
-                ")",
-                "",
-            )
-            .replace(
-                " ",
-                "_",
-            )
-            .replace(
-                ",",
-                "",
-            )
-            .lower()
-        )
 
     def create(
         self,

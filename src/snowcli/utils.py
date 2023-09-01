@@ -21,7 +21,7 @@ import requirements
 from requirements.requirement import Requirement
 import typer
 from jinja2 import Environment, FileSystemLoader
-
+from snowflake.connector.cursor import SnowflakeCursor
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -45,18 +45,6 @@ def yes_no_ask_callback(value: str):
             f"Valid values: {YesNoAskOptions}. You provided: {value}",
         )
     return value
-
-
-def get_deploy_names(database, schema, name) -> dict:
-    stage = f"{database}.{schema}.deployments"
-    path = f"/{name.lower()}/app.zip"
-    directory = f"/{name.lower()}"
-    return {
-        "stage": stage,
-        "path": path,
-        "full_path": f"@{stage}{path}",
-        "directory": directory,
-    }
 
 
 # create a temporary directory, copy the file_path to it and rename to app.zip
@@ -559,7 +547,7 @@ def get_snowflake_packages_delta(anaconda_packages) -> List[str]:
         return updated_package_list
 
 
-def convert_resource_details_to_dict(function_details: List[tuple]) -> dict:
+def convert_resource_details_to_dict(function_details: SnowflakeCursor) -> dict:
     function_dict = {}
     json_properties = ["packages", "installed_packages"]
     for function in function_details:
