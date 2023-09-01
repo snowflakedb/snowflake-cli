@@ -25,7 +25,7 @@ def trimmed_contents(path: Path) -> Optional[str]:
         return handle.read().strip()
 
 
-def dir_structure(path: Path, prefix="") -> List[str]:
+def dir_structure(path: Path, prefix="") -> Optional[List[str]]:
     if not path.is_dir():
         return None
 

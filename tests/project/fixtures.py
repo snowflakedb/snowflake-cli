@@ -9,7 +9,7 @@ PROJECT_DIR = Path(__file__).parent
 
 
 @contextmanager
-def temp_cloned_dir(path: Path) -> Path:
+def temp_cloned_dir(path: Path) -> Generator[Path, None, None]:
     """
     Returns a temporary copy of the directory structure at the given path.
     This file will be deleted when this context manager goes out-of-scope.

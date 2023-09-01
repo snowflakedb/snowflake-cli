@@ -38,7 +38,7 @@ class NativeAppManager(SqlExecutionMixin):
         return [translate_artifact(item) for item in self.definition["artifacts"]]
 
     @cached_property
-    def deploy_root(self) -> str:
+    def deploy_root(self) -> Path:
         return Path(self.project_root, self.definition["deploy_root"])
 
     def nativeapp_init(self, name: str, template: str | None = None):
