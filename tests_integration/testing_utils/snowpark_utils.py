@@ -263,7 +263,8 @@ class SnowparkTestSteps:
         )
 
         # self.run_create(entity_name, "--install-coverage-wrapper")
-
+        print(result.output)
+        print(result.json)
         assert_that_result_is_successful(result)
         return entity_name
 
