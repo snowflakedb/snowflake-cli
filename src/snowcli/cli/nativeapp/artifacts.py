@@ -6,10 +6,10 @@ from dataclasses import dataclass
 
 
 class ArtifactError(Exception):
-    pass
+    """
+    Common base class for all artifact errors.
+    """
 
-
-class InvalidArtifactError(ArtifactError):
     pass
 
 
@@ -18,7 +18,8 @@ class GlobMatchedNothingError(ArtifactError):
     No files were found that matched the provided glob pattern.
     """
 
-    pass
+    def __str__(self):
+        return self.__doc__
 
 
 class SourceNotFoundError(ArtifactError):
@@ -34,7 +35,7 @@ class SourceNotFoundError(ArtifactError):
         self.path = path
 
     def __str__(self):
-        return self.__doc__ + f"\path = {self.path}"
+        return self.__doc__ + f"\npath = {self.path}"
 
 
 class TooManyFilesError(ArtifactError):
@@ -128,7 +129,7 @@ def translate_artifact(item: Union[dict, str]) -> SrcDestPair:
 
     else:
         # XXX: validation should have caught this
-        raise InvalidArtifactError(item)
+        raise ArtifactError("Item is not a valid artifact!")
 
 
 def build_bundle(project_root: Path, deploy_root: Path, artifacts: List[SrcDestPair]):
