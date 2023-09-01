@@ -1,0 +1,4 @@
+native_app:
+  name: underspecified
+  artifacts:
+    - setup.sql
