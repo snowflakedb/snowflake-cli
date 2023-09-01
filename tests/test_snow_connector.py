@@ -42,7 +42,7 @@ def test_command_context_is_passed_to_snowflake_connection(
     mock_connector.connect.assert_called_once_with(application=expected)
 
 
-@mock.patch("snowcli.cli.snowpark.registry.connect_to_snowflake")
+@mock.patch("snowcli.cli.snowpark.registry.manager.connect_to_snowflake")
 def test_registry_get_token(mock_conn, runner):
     mock_conn.return_value.ctx._rest._token_request.return_value = {
         "data": {
@@ -50,9 +50,12 @@ def test_registry_get_token(mock_conn, runner):
             "validityInSecondsST": 42,
         }
     }
-    result = runner.invoke(["snowpark", "registry", "token"])
+    result = runner.invoke(["snowpark", "registry", "token", "--format", "JSON"])
     assert result.exit_code == 0, result.output
-    assert result.stdout == '{"token": "token1234", "expires_in": 42}'
+    assert (
+        result.stdout
+        == '[\n  {\n    "token": "token1234",\n    "expires_in": 42\n  }\n]\n'
+    )
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
