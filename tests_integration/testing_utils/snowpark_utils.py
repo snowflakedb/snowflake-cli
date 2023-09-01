@@ -219,6 +219,12 @@ class SnowparkTestSteps:
                 actual_file_path=file, snapshot=self._setup.snapshot(name=file)
             )
 
+    def requirements_file_should_contain_coverage(self, file_name="requirements.txt"):
+        assert os.path.exists(file_name)
+
+        with open(file_name, "r") as req_file:
+            assert "coverage\n" in req_file.readlines()
+
     def snowpark_package_should_zip_files(self) -> None:
         result = self._setup.runner.invoke_with_config(
             ["snowpark", self.test_type.value, "package", "--pypi-download", "yes"]
@@ -429,6 +435,10 @@ class SnowparkTestSteps:
         requirements: List[str], file_path: str = "Requirements.txt"
     ):
         if os.path.exists(file_path):
-            with open(file_path, "a") as reqs_file:
-                for req in requirements:
-                    reqs_file.write(req + "\n")
+            with open(file_path, "r+") as reqs_file:
+                file_content = reqs_file.read()
+                reqs_file.seek(0, 0)
+                reqs_file.write("\n".join(requirements) + "\n" + file_content)
+
+                # for req in requirements:
+                #     reqs_file.write(req + "\n")
