@@ -13,7 +13,7 @@ from tests_integration.testing_utils.working_directory_utils import (
 )
 
 
-# @pytest.mark.integration
+@pytest.mark.integration
 def test_procedure_coverage_flow(_test_steps):
     _test_steps.assert_that_no_entities_are_in_snowflake()
     _test_steps.assert_that_no_files_are_staged_in_test_db()
