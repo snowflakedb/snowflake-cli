@@ -1,0 +1,23 @@
+definition_version: 1
+native_app:
+  name: myapp
+
+  # the following shows how to properly use a quoted identifier in YAML
+  source_stage: >-
+    "MySourceSchema"."SRC_Stage"
+
+  artifacts:
+    - dest: ext_code/
+      src:
+        - java/build/*.jar
+        - java/deps/myDep.jar
+    - dest: ext_code/
+      src: python/build/my-package-0.0.0.wheel
+    - setup.sql
+    - manifest.yml
+    - app/README.md
+    - src: app/streamlit/*.py
+      dest: streamlit/
+
+  package:
+    scripts: package/*.sql
