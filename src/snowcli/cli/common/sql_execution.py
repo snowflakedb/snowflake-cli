@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from functools import cached_property
 from textwrap import dedent
 
 from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
@@ -10,7 +9,7 @@ class SqlExecutionMixin:
     def __init__(self):
         pass
 
-    @cached_property
+    @property
     def _conn(self):
         return snow_cli_global_context_manager.get_connection()
 

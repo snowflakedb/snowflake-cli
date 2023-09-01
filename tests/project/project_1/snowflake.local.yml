@@ -1,0 +1,9 @@
+native_app:
+  package:
+    role: accountadmin
+    name: myapp_pkg_polly
+
+  application:
+    role: myapp_consumer
+    name: myapp_polly
+    debug: true
