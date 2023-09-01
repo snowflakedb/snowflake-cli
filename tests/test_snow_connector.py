@@ -1,3 +1,4 @@
+import json
 import os
 import pytest
 
@@ -52,10 +53,7 @@ def test_registry_get_token(mock_conn, runner):
     }
     result = runner.invoke(["snowpark", "registry", "token", "--format", "JSON"])
     assert result.exit_code == 0, result.output
-    assert (
-        result.stdout
-        == '[\n  {\n    "token": "token1234",\n    "expires_in": 42\n  }\n]\n'
-    )
+    assert json.loads(result.stdout) == [{"token": "token1234", "expires_in": 42}]
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
