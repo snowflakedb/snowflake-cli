@@ -10,7 +10,7 @@ from snowcli.cli.snowpark.compute_pool.commands import (
 )
 from snowcli.cli.snowpark.services.commands import app as services_app
 from snowcli.cli.snowpark.jobs.commands import app as jobs_app
-from snowcli.cli.snowpark.registry import app as registry_app
+from snowcli.cli.snowpark.registry.commands import app as registry_app
 
 app = typer.Typer(
     name="snowpark",
