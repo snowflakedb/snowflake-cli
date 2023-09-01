@@ -223,6 +223,7 @@ class SnowparkTestSteps:
         assert os.path.exists(file_name)
 
         with open(file_name, "r") as req_file:
+            print(req_file.readlines())
             assert "coverage\n" in req_file.readlines()
 
     def snowpark_package_should_zip_files(self) -> None:
