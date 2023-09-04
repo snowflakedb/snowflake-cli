@@ -223,8 +223,9 @@ class SnowparkTestSteps:
         assert os.path.exists(file_name)
 
         with open(file_name, "r") as req_file:
-            print(req_file.readlines())
-            assert "coverage\n" in req_file.readlines()
+            file_contents = req_file.readlines()
+            assert file_contents
+            assert "coverage\n" in file_contents
 
     def snowpark_package_should_zip_files(self) -> None:
         result = self._setup.runner.invoke_with_config(
@@ -433,12 +434,9 @@ class SnowparkTestSteps:
 
     @staticmethod
     def add_requirements_to_requirements_txt(
-        requirements: List[str], file_path: str = "Requirements.txt"
+        requirements: List[str], file_path: str = "requirements.txt"
     ):
         if os.path.exists(file_path):
-            with open(file_path, "r+") as reqs_file:
-                print(f"Writing {requirements} to file: {file_path}")
+            with open(file_path, "a") as reqs_file:
                 for req in requirements:
                     reqs_file.write(req + "\n")
-
-                assert "coverage\n" in reqs_file.readlines()
