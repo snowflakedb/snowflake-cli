@@ -4,12 +4,12 @@ from pathlib import Path
 import typer
 
 from snowcli.cli.common.decorators import global_options_with_connection
-from snowcli.cli.common.flags import ConnectionOption, DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark.common import print_log_lines
 from snowcli.cli.snowpark.services.manager import ServiceManager
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
-from snowcli.output.printing import OutputData
+from snowcli.output.types import QueryResult, SingleQueryResult, CommandResult
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS, name="services", help="Manage services"
@@ -36,7 +36,7 @@ def create(
     ),
     stage: str = typer.Option("SOURCE_STAGE", "--stage", "-l", help="Stage name"),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """
     Create service
     """
@@ -51,18 +51,20 @@ def create(
         spec_path=spec_path,
         stage=stage,
     )
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)
 
 
 @app.command()
 @with_output
 @global_options_with_connection
-def desc(name: str = typer.Argument(..., help="Service Name"), **options) -> OutputData:
+def desc(
+    name: str = typer.Argument(..., help="Service Name"), **options
+) -> CommandResult:
     """
     Desc Service
     """
     cursor = ServiceManager().desc(service_name=name)
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)
 
 
 @app.command()
@@ -70,34 +72,36 @@ def desc(name: str = typer.Argument(..., help="Service Name"), **options) -> Out
 @global_options_with_connection
 def status(
     name: str = typer.Argument(..., help="Service Name"), **options
-) -> OutputData:
+) -> CommandResult:
     """
     Logs Service
     """
     cursor = ServiceManager().status(service_name=name)
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)
 
 
 @app.command()
 @with_output
 @global_options_with_connection
-def list(**options) -> OutputData:
+def list(**options) -> CommandResult:
     """
     List Service
     """
     cursor = ServiceManager().show()
-    return OutputData.from_cursor(cursor)
+    return QueryResult(cursor)
 
 
 @app.command()
 @with_output
 @global_options_with_connection
-def drop(name: str = typer.Argument(..., help="Service Name"), **options) -> OutputData:
+def drop(
+    name: str = typer.Argument(..., help="Service Name"), **options
+) -> CommandResult:
     """
     Drop Service
     """
     cursor = ServiceManager().drop(service_name=name)
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)
 
 
 @app.command()

@@ -4,9 +4,16 @@ from textwrap import dedent
 
 from click import Context, Command
 
-from snowcli.exception import OutputDataTypeError
 from snowcli.output.formats import OutputFormat
-from snowcli.output.printing import OutputData
+from snowcli.output.printing import print_result
+from snowcli.output.types import (
+    MultipleResults,
+    QueryResult,
+    MessageResult,
+    CollectionResult,
+    SingleQueryResult,
+    ObjectResult,
+)
 
 from tests.testing_utils.fixtures import *
 
@@ -15,25 +22,90 @@ class MockResultMetadata(NamedTuple):
     name: str
 
 
-def test_print_multi_cursors_table(capsys, _create_mock_cursor):
-    output_data = OutputData.from_list(
-        [
-            OutputData.from_cursor(_create_mock_cursor()),
-            OutputData.from_cursor(_create_mock_cursor()),
-        ],
-        format_=OutputFormat.TABLE,
+def test_single_value_from_query(capsys, mock_cursor):
+    output_data = SingleQueryResult(
+        mock_cursor(
+            columns=["array", "object", "date"],
+            rows=[
+                (["array"], {"k": "object"}, datetime(2022, 3, 21)),
+            ],
+        )
     )
 
-    output_data.print()
+    print_result(output_data, output_format=OutputFormat.TABLE)
+    assert _get_output(capsys) == dedent(
+        """\
+    +------------------------------+
+    | key    | value               |
+    |--------+---------------------|
+    | array  | ['array']           |
+    | object | {'k': 'object'}     |
+    | date   | 2022-03-21 00:00:00 |
+    +------------------------------+
+    """
+    )
+
+
+def test_single_object_result(capsys, mock_cursor):
+    output_data = ObjectResult(
+        {"array": ["array"], "object": {"k": "object"}, "date": datetime(2022, 3, 21)}
+    )
+
+    print_result(output_data, output_format=OutputFormat.TABLE)
+    assert _get_output(capsys) == dedent(
+        """\
+    +------------------------------+
+    | key    | value               |
+    |--------+---------------------|
+    | array  | ['array']           |
+    | object | {'k': 'object'}     |
+    | date   | 2022-03-21 00:00:00 |
+    +------------------------------+
+    """
+    )
+
+
+def test_single_collection_result(capsys, mock_cursor):
+    output_data = {
+        "array": ["array"],
+        "object": {"k": "object"},
+        "date": datetime(2022, 3, 21),
+    }
+    collection = CollectionResult([output_data, output_data])
+
+    print_result(collection, output_format=OutputFormat.TABLE)
+    assert _get_output(capsys) == dedent(
+        """\
+    +---------------------------------------------------+
+    | array     | object          | date                |
+    |-----------+-----------------+---------------------|
+    | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
+    | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
+    +---------------------------------------------------+
+    """
+    )
+
+
+def test_print_multi_results_table(capsys, _create_mock_cursor):
+    output_data = MultipleResults(
+        [
+            QueryResult(_create_mock_cursor()),
+            QueryResult(_create_mock_cursor()),
+        ],
+    )
+
+    print_result(output_data, output_format=OutputFormat.TABLE)
 
     assert _get_output(capsys) == dedent(
         """\
+    SELECT A MOCK QUERY
     +---------------------------------------------------------------------+
     | string | number | array     | object          | date                |
     |--------+--------+-----------+-----------------+---------------------|
     | string | 42     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
     | string | 43     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
     +---------------------------------------------------------------------+
+    SELECT A MOCK QUERY
     +---------------------------------------------------------------------+
     | string | number | array     | object          | date                |
     |--------+--------+-----------+-----------------+---------------------|
@@ -44,10 +116,10 @@ def test_print_multi_cursors_table(capsys, _create_mock_cursor):
     )
 
 
-def test_print_different_multi_cursors_table(capsys, mock_cursor):
-    output_data = OutputData.from_list(
+def test_print_different_multi_results_table(capsys, mock_cursor):
+    output_data = MultipleResults(
         [
-            OutputData.from_cursor(
+            QueryResult(
                 mock_cursor(
                     columns=["string", "number"],
                     rows=[
@@ -68,7 +140,7 @@ def test_print_different_multi_cursors_table(capsys, mock_cursor):
                     ],
                 )
             ),
-            OutputData.from_cursor(
+            QueryResult(
                 mock_cursor(
                     columns=["array", "object", "date"],
                     rows=[
@@ -78,19 +150,20 @@ def test_print_different_multi_cursors_table(capsys, mock_cursor):
                 )
             ),
         ],
-        format_=OutputFormat.TABLE,
     )
 
-    output_data.print()
+    print_result(output_data, output_format=OutputFormat.TABLE)
 
     assert _get_output(capsys) == dedent(
         """\
+    SELECT A MOCK QUERY
     +-----------------+
     | string | number |
     |--------+--------|
     | string | 42     |
     | string | 43     |
     +-----------------+
+    SELECT A MOCK QUERY
     +---------------------------------------------------+
     | array     | object          | date                |
     |-----------+-----------------+---------------------|
@@ -102,30 +175,26 @@ def test_print_different_multi_cursors_table(capsys, mock_cursor):
 
 
 def test_print_different_data_sources_table(capsys, _create_mock_cursor):
-    output_data = OutputData.from_list(
+    output_data = MultipleResults(
         [
-            OutputData.from_cursor(_create_mock_cursor()),
-            OutputData.from_string("Command done"),
-            OutputData.from_list([{"key": "value"}]),
+            QueryResult(_create_mock_cursor()),
+            MessageResult("Command done"),
+            CollectionResult(({"key": "value"} for _ in range(1))),
         ],
-        format_=OutputFormat.TABLE,
     )
 
-    output_data.print()
+    print_result(output_data, output_format=OutputFormat.TABLE)
 
     assert _get_output(capsys) == dedent(
         """\
+    SELECT A MOCK QUERY
     +---------------------------------------------------------------------+
     | string | number | array     | object          | date                |
     |--------+--------+-----------+-----------------+---------------------|
     | string | 42     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
     | string | 43     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
     +---------------------------------------------------------------------+
-    +--------------+
-    | result       |
-    |--------------|
-    | Command done |
-    +--------------+
+    Command done
     +-------+
     | key   |
     |-------|
@@ -136,14 +205,13 @@ def test_print_different_data_sources_table(capsys, _create_mock_cursor):
 
 
 def test_print_multi_db_cursor_json(capsys, _create_mock_cursor):
-    output_data = OutputData.from_list(
+    output_data = MultipleResults(
         [
-            OutputData.from_cursor(_create_mock_cursor()),
-            OutputData.from_cursor(_create_mock_cursor()),
+            QueryResult(_create_mock_cursor()),
+            QueryResult(_create_mock_cursor()),
         ],
-        format_=OutputFormat.JSON,
     )
-    output_data.print()
+    print_result(output_data, output_format=OutputFormat.JSON)
 
     assert _get_output_as_json(capsys) == [
         [
@@ -182,16 +250,15 @@ def test_print_multi_db_cursor_json(capsys, _create_mock_cursor):
 
 
 def test_print_different_data_sources_json(capsys, _create_mock_cursor):
-    output_data = OutputData.from_list(
+    output_data = MultipleResults(
         [
-            OutputData.from_cursor(_create_mock_cursor()),
-            OutputData.from_string("Command done"),
-            OutputData.from_list([{"key": "value"}]),
+            QueryResult(_create_mock_cursor()),
+            MessageResult("Command done"),
+            CollectionResult(({"key": f"value_{i}"} for i in range(2))),
         ],
-        format_=OutputFormat.JSON,
     )
 
-    output_data.print()
+    print_result(output_data, output_format=OutputFormat.JSON)
 
     assert _get_output_as_json(capsys) == [
         [
@@ -210,55 +277,30 @@ def test_print_different_data_sources_json(capsys, _create_mock_cursor):
                 "date": "2022-03-21T00:00:00",
             },
         ],
-        [{"result": "Command done"}],
-        [{"key": "value"}],
+        {"message": "Command done"},
+        [{"key": "value_0"}, {"key": "value_1"}],
     ]
 
 
 def test_print_with_no_data_table(capsys):
-    output_data = OutputData(format_=OutputFormat.TABLE)
-
-    output_data.print()
-
-    assert _get_output(capsys) == "No data\n"
+    print_result(None)
+    assert _get_output(capsys) == "Done\n"
 
 
-def test_print_with_no_data_json(capsys):
-    output_data = OutputData(format_=OutputFormat.JSON)
-
-    output_data.print()
-
-    assert _get_output(capsys) == "No data\n"
+def test_print_with_no_data_in_query_json(capsys, _empty_cursor):
+    print_result(QueryResult(_empty_cursor()), output_format=OutputFormat.JSON)
+    assert _get_output(capsys) == "[]"
 
 
-def test_raise_error_when_try_add_wrong_data_type_to_from_cursor():
-    with pytest.raises(OutputDataTypeError) as exception:
-        OutputData.from_cursor("")
-
-    assert (
-        exception.value.args[0]
-        == "Got <class 'str'> type but expected <class 'snowflake.connector.cursor.SnowflakeCursor'>"
-    )
+def test_print_with_no_data_in_single_value_query_json(capsys, _empty_cursor):
+    print_result(SingleQueryResult(_empty_cursor()), output_format=OutputFormat.JSON)
+    assert _get_output(capsys) == "null"
 
 
-def test_raise_error_when_try_add_wrong_data_type_to_from_string():
-    with pytest.raises(OutputDataTypeError) as exception:
-        OutputData.from_string(0)
+def test_print_with_no_response_json(capsys):
+    print_result(None, output_format=OutputFormat.JSON)
 
-    assert (
-        exception.value.args[0] == "Got <class 'int'> type but expected <class 'str'>"
-    )
-
-
-def test_raise_error_when_try_add_wrong_data_type_to_from_list():
-    with pytest.raises(OutputDataTypeError) as exception:
-        OutputData.from_list("")
-
-    assert (
-        exception.value.args[0]
-        == "Got <class 'str'> type but expected typing.List[typing.Union[typing.Dict, "
-        "snowcli.output.printing.OutputData]]"
-    )
+    assert _get_output(capsys) == "null"
 
 
 def _mock_output_format(mock_context, format):
@@ -284,4 +326,12 @@ def _create_mock_cursor(mock_cursor):
             ("string", 42, ["array"], {"k": "object"}, datetime(2022, 3, 21)),
             ("string", 43, ["array"], {"k": "object"}, datetime(2022, 3, 21)),
         ],
+    )
+
+
+@pytest.fixture
+def _empty_cursor(mock_cursor):
+    return lambda: mock_cursor(
+        columns=["string", "number", "array", "object", "date"],
+        rows=[],
     )

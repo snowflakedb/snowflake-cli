@@ -1,5 +1,3 @@
-from unittest import mock
-
 from tests.testing_utils.fixtures import *
 
 

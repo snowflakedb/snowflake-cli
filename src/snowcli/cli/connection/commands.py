@@ -11,7 +11,7 @@ from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.config import cli_config
 from snowcli.output.decorators import with_output
-from snowcli.output.printing import OutputData
+from snowcli.output.types import CollectionResult, CommandResult, MessageResult
 from snowcli.snow_connector import connect_to_snowflake
 
 app = typer.Typer(
@@ -41,7 +41,7 @@ def _mask_password(connection_params: dict):
 @app.command(name="list")
 @with_output
 @global_options
-def list_connections(**options) -> OutputData:
+def list_connections(**options) -> CommandResult:
     """
     List configured connections.
     """
@@ -50,7 +50,7 @@ def list_connections(**options) -> OutputData:
         {"connection_name": k, "parameters": _mask_password(v)}
         for k, v in connections.items()
     )
-    return OutputData(stream=result)
+    return CollectionResult(result)
 
 
 def require_integer(field_name: str):
@@ -159,7 +159,7 @@ def add(
         prompt="Snowflake region",
         help="Region name if not the default Snowflake deployment.",
     ),
-) -> OutputData:
+) -> CommandResult:
     """Add connection to configuration file."""
     connection_entry = {
         "account": account,
@@ -180,16 +180,16 @@ def add(
     except KeyAlreadyPresent:
         raise ClickException(f"Connection {connection_name} already exists")
 
-    return OutputData.from_string(
+    return MessageResult(
         f"Wrote new connection {connection_name} to {cli_config.file_path}"
     )
 
 
 @app.command()
 @with_output
-def test(connection: str = ConnectionOption) -> OutputData:
+def test(connection: str = ConnectionOption) -> CommandResult:
     """
     Tests connection to Snowflake.
     """
     connect_to_snowflake(connection_name=connection)
-    return OutputData.from_string("OK")
+    return MessageResult("OK")
