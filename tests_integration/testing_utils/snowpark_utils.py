@@ -442,4 +442,3 @@ class SnowparkTestSteps:
                     reqs_file.write(req + "\n")
 
                 assert "coverage\n" in reqs_file.readlines()
-
