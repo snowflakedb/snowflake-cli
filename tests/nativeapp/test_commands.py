@@ -1,10 +1,5 @@
-import contextlib
-import os
 import pytest
-from tempfile import NamedTemporaryFile, TemporaryDirectory
-from textwrap import dedent
 from unittest import mock
-from unittest.mock import call
 from subprocess import CalledProcessError
 
 from tests.testing_utils.fixtures import *

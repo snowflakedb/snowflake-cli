@@ -1,7 +1,8 @@
 from snowcli.cli.nativeapp.manager import (
-    render_yml_from_jinja,
+    render_snowflake_yml,
     _sparse_checkout,
     _move_and_rename_project,
+    render_nativeapp_readme,
 )
 from tests.testing_utils.fixtures import *
 from textwrap import dedent
@@ -39,7 +40,7 @@ def test_move_and_rename_project(other_directory):
     assert not directory_to_make.exists()
 
 
-def test_render_yml_from_jinja(other_directory):
+def test_render_snowflake_yml(other_directory):
 
     temp_dir = Path(other_directory)
     create_named_file(
@@ -56,6 +57,52 @@ def test_render_yml_from_jinja(other_directory):
             )
         ],
     )
-    render_yml_from_jinja(temp_dir)
+    expected = dedent(
+        f"""\
+        native_app:
+            name: {temp_dir.name}
+            artifacts:
+                - app/setup_script.sql
+
+        """
+    )
+    render_snowflake_yml(temp_dir)
     assert Path.exists(temp_dir.joinpath("snowflake.yml"))
     assert not Path.exists(temp_dir.joinpath("snowflake.yml.jinja"))
+    assert temp_dir.joinpath("snowflake.yml").read_text() == expected
+
+
+@mock.patch("os.getenv", return_value="pytest_user")
+def test_render_nativeapp_readme(mock_get_env_username, other_directory):
+    temp_dir = Path(other_directory)
+    create_named_file(
+        file_name="README.md.jinja",
+        dir=temp_dir,
+        contents=[
+            dedent(
+                """\
+            ### Calling a function
+            SELECT {{application_name}}.versioned_schema.hello_world();
+            which should output 'hello world!'
+            ```
+            SELECT {{application_name}}.versioned_schema.hello_world();
+            ```
+            """
+            )
+        ],
+    )
+    expected = dedent(
+        """\
+            ### Calling a function
+            SELECT random_project_pytest_user.versioned_schema.hello_world();
+            which should output 'hello world!'
+            ```
+            SELECT random_project_pytest_user.versioned_schema.hello_world();
+            ```
+            
+            """
+    )
+    render_nativeapp_readme(temp_dir, "random_project")
+    assert temp_dir.joinpath("README.md").exists()
+    assert not temp_dir.joinpath("README.md.jinja").exists()
+    assert temp_dir.joinpath("README.md").read_text() == expected

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import logging
 import sys
-import jinja2
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.cli.project.definition import DEFAULT_USERNAME
+from snowcli.cli.project.util import clean_identifier, get_env_username
+from snowcli.cli.render.commands import generic_render_template
 from snowcli.utils import get_client_git_version
 
 log = logging.getLogger(__name__)
@@ -60,47 +62,6 @@ class NativeAppManager(SqlExecutionMixin):
                 sys.exit(err.returncode)
 
         # If no error thrown, default exit = 0
-
-
-def _init_without_user_provided_template(
-    current_working_directory: Path, project_name: str
-):
-    """
-    Initialize a Native Apps project without any template specified by the user.
-
-    Args:
-        current_working_directory (str): The current working directory of the user where the project will be added.
-        project_name (str): Name of the project to be created.
-
-    Returns:
-        None
-    """
-
-    try:
-        with TemporaryDirectory(dir=current_working_directory) as temp_dir:
-            # Checkout the basic template, which will now reside at ./native-apps-templates/native-app-basic
-            _sparse_checkout(
-                git_url=SNOWFLAKELABS_GITHUB_URL,
-                repo_sub_directory=BASIC_TEMPLATE,
-                target_parent_directory=temp_dir,
-            )
-
-            # Move native-app-basic to current_working_directory and rename to name
-            _move_and_rename_project(
-                source_parent_directory=current_working_directory.joinpath(temp_dir),
-                target_parent_directory=current_working_directory,
-                repo_sub_directory=BASIC_TEMPLATE,
-                new_name=project_name,
-            )
-
-        # Render snowflake.yml file from its jinja template
-        render_yml_from_jinja(
-            parent_to_snowflake_yml=current_working_directory.joinpath(project_name)
-        )
-
-    except subprocess.CalledProcessError as err:
-        log.error(err.stderr)
-        raise (err)
 
 
 def _sparse_checkout(
@@ -174,10 +135,9 @@ def _move_and_rename_project(
     old_name.rename(old_name.parent / new_name)
 
 
-# This can be modularized further to render any jinja, but limiting scope for init
-def render_yml_from_jinja(parent_to_snowflake_yml: Path):
+def render_snowflake_yml(parent_to_snowflake_yml: Path):
     """
-    Create a snowflake.yml file from jinja template at a given path.
+    Create a snowflake.yml file from a jinja template at a given path.
 
     Args:
         parent_to_snowflake_yml (Path): The parent directory of snowflake.yml.jinja, and later snowflake.yml
@@ -187,17 +147,93 @@ def render_yml_from_jinja(parent_to_snowflake_yml: Path):
     """
 
     snowflake_yml_jinja = "snowflake.yml.jinja"
-    env = jinja2.Environment(
-        loader=jinja2.loaders.FileSystemLoader(parent_to_snowflake_yml),
-        keep_trailing_newline=True,
-    )
-    snowflake_yml_template = env.get_template(snowflake_yml_jinja)
-    output_yml_file = parent_to_snowflake_yml.joinpath("snowflake.yml")
-    output_yml_file.write_text(
-        snowflake_yml_template.render(project_name=parent_to_snowflake_yml.name)
+
+    generic_render_template(
+        template_path=parent_to_snowflake_yml.joinpath(snowflake_yml_jinja),
+        data={"project_name": parent_to_snowflake_yml.name},
+        output_file_path=parent_to_snowflake_yml.joinpath("snowflake.yml"),
     )
     subprocess.run(
         f"rm {snowflake_yml_jinja}",
         shell=True,
         cwd=str(parent_to_snowflake_yml),
     )
+
+
+def render_nativeapp_readme(parent_to_readme: Path, project_name: str):
+    """
+    Create a README.yml file from a jinja template at a given path.
+
+    Args:
+        parent_to_readme (Path): The parent directory of README.md.jinja, and later README.md
+
+    Returns:
+        None
+    """
+
+    readme_jinja = "README.md.jinja"
+
+    default_application_name_prefix = clean_identifier(project_name)
+    default_application_name_suffix = clean_identifier(
+        get_env_username() or DEFAULT_USERNAME
+    )
+
+    generic_render_template(
+        template_path=parent_to_readme.joinpath(readme_jinja),
+        data={
+            "application_name": f"{default_application_name_prefix}_{default_application_name_suffix}"
+        },
+        output_file_path=parent_to_readme.joinpath("README.md"),
+    )
+    subprocess.run(
+        f"rm {readme_jinja}",
+        shell=True,
+        cwd=str(parent_to_readme),
+    )
+
+
+def _init_without_user_provided_template(
+    current_working_directory: Path, project_name: str
+):
+    """
+    Initialize a Native Apps project without any template specified by the user.
+
+    Args:
+        current_working_directory (str): The current working directory of the user where the project will be added.
+        project_name (str): Name of the project to be created.
+
+    Returns:
+        None
+    """
+
+    try:
+        with TemporaryDirectory(dir=current_working_directory) as temp_dir:
+            # Checkout the basic template, which will now reside at ./native-apps-templates/native-app-basic
+            _sparse_checkout(
+                git_url=SNOWFLAKELABS_GITHUB_URL,
+                repo_sub_directory=BASIC_TEMPLATE,
+                target_parent_directory=temp_dir,
+            )
+
+            # Move native-app-basic to current_working_directory and rename to name
+            _move_and_rename_project(
+                source_parent_directory=current_working_directory.joinpath(temp_dir),
+                target_parent_directory=current_working_directory,
+                repo_sub_directory=BASIC_TEMPLATE,
+                new_name=project_name,
+            )
+
+        # Render snowflake.yml file from its jinja template
+        render_snowflake_yml(
+            parent_to_snowflake_yml=current_working_directory.joinpath(project_name)
+        )
+
+        # Render README.md file from its jinja template
+        render_nativeapp_readme(
+            parent_to_readme=current_working_directory.joinpath(project_name, "app"),
+            project_name=project_name,
+        )
+
+    except subprocess.CalledProcessError as err:
+        log.error(err.stderr)
+        raise (err)

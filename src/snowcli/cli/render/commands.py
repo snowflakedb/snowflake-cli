@@ -142,16 +142,35 @@ def render_template(
             key, value = _parse_key_value(key_value_str)
             data[key] = value
 
+    generic_render_template(
+        template_path=template_path, data=data, output_file_path=output_file_path
+    )
+
+
+def generic_render_template(
+    template_path: Path, data: dict, output_file_path: Optional[Path]
+):
+    """
+    Create a file from a jinja template.
+
+    Args:
+        template_path (Path): Path to the template
+        data (dict): A dictionary of jinja variables and their actual values
+        output_file_path (Optional[Path]): If provided then rendered template will be written to this file
+
+    Returns:
+        None
+    """
     env = jinja2.Environment(
-        loader=jinja2.loaders.FileSystemLoader(template_path.parent)
+        loader=jinja2.loaders.FileSystemLoader(template_path.parent),
+        keep_trailing_newline=True,
     )
     filters = [render_metadata, read_file_content, procedure_from_js_file]
     for custom_filter in filters:
         env.filters[custom_filter.__name__] = custom_filter
-
-    template = env.from_string(template_path.read_text())
-    result = template.render(**data)
+    loaded_template = env.get_template(template_path.name)
+    rendered_result = loaded_template.render(**data)
     if output_file_path:
-        output_file_path.write_text(result)
+        output_file_path.write_text(rendered_result)
     else:
-        print(result)
+        print(rendered_result)
