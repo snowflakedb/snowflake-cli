@@ -2,8 +2,10 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable, Optional, Union
 
+from snowflake.connector import SnowflakeConnection
+
 from snowcli.output.formats import OutputFormat
-from snowcli.snow_connector import connect_to_snowflake, SnowflakeConnector
+from snowcli.snow_connector import connect_to_snowflake
 
 
 @dataclass
@@ -67,7 +69,7 @@ class SnowCliGlobalContextManager:
     A manager responsible for retrieving and updating global state.
     """
 
-    _cached_connector: Optional[SnowflakeConnector]
+    _cached_connector: Optional[SnowflakeConnection]
 
     def __init__(self, global_context_with_default_values: SnowCliGlobalContext):
         self._global_context = deepcopy(global_context_with_default_values)
@@ -89,9 +91,9 @@ class SnowCliGlobalContextManager:
         self._global_context = deepcopy(update(self.get_global_context_copy()))
         self._cached_connector = None
 
-    def get_connection(self, force_rebuild=False) -> SnowflakeConnector:
+    def get_connection(self, force_rebuild=False) -> SnowflakeConnection:
         """
-        Returns a SnowflakeConnector, representing an open connection to Snowflake
+        Returns a SnowflakeConnection, representing an open connection to Snowflake
         given the context in this manager. This connection is shared with subsequent
         calls to this method until updates are made or force_rebuild is True, in which
         case a new connector will be returned.

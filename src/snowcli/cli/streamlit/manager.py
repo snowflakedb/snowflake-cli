@@ -36,7 +36,7 @@ class StreamlitManager(SqlExecutionMixin):
         from_stage: str,
         use_packaging_workaround: bool,
     ) -> SnowflakeCursor:
-        connection_ctx = self._conn.ctx
+        connection = self._conn
         if from_stage:
             standard_page_name = StageManager.get_standard_stage_name(from_stage)
             from_stage_command = f"FROM {standard_page_name}"
@@ -51,7 +51,7 @@ class StreamlitManager(SqlExecutionMixin):
             create streamlit {streamlit_name}
             {from_stage_command}
             MAIN_FILE = '{main_file}'
-            QUERY_WAREHOUSE = {connection_ctx.warehouse};
+            QUERY_WAREHOUSE = {connection.warehouse};
 
             alter streamlit {streamlit_name} checkout;
         """
@@ -147,19 +147,19 @@ class StreamlitManager(SqlExecutionMixin):
             stage_manager.put(str(env_file), stage_name, 4, True)
 
     def _get_url(self, base_url: str, qualified_name: str) -> str:
-        connection_ctx = self._conn.ctx
+        connection = self._conn
 
-        if not connection_ctx.host:
+        if not connection.host:
             return base_url
 
-        host_parts = connection_ctx.host.split(".")
+        host_parts = connection.host.split(".")
 
         if len(host_parts) == 3:
             return base_url
 
         if len(host_parts) != 6:
             log.error(
-                f"The connection host ({connection_ctx.host}) was missing or not in "
+                f"The connection host ({connection.host}) was missing or not in "
                 "the expected format "
                 "(<account>.<deployment>.snowflakecomputing.com)"
             )
@@ -168,11 +168,11 @@ class StreamlitManager(SqlExecutionMixin):
             account_name = host_parts[0]
             deployment = ".".join(host_parts[1:4])
 
-        snowflake_host = connection_ctx.host or "app.snowflake.com"
+        snowflake_host = connection.host or "app.snowflake.com"
         return (
             f"https://{snowflake_host}/{deployment}/{account_name}/"
             f"#/streamlit-apps/{qualified_name.upper()}"
         )
 
     def qualified_name(self, object_name: str):
-        return f"{self._conn.ctx.database}.{self._conn.ctx.schema}.{object_name}"
+        return f"{self._conn.database}.{self._conn.schema}.{object_name}"
