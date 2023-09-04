@@ -63,14 +63,10 @@ def test_init_no_template_raised_exception(
     return_value=None,
 )
 def test_init_no_template_success(
-    mock_init_without_user_provided_template, runner, temp_dir
+    mock_init_without_user_provided_template, runner, temp_dir, snapshot
 ):
     # temp_dir will be cwd for the rest of this test
     result = runner.invoke(["app", "init", PROJECT_NAME])
 
-    print(result.output)
-    assert (
-        f"Native Apps project {PROJECT_NAME} has been created in your local directory."
-        in result.stdout
-    )
     assert result.exit_code == 0
+    assert result.output == snapshot

@@ -32,6 +32,6 @@ def nativeapp_init(
     """
 
     NativeAppManager().nativeapp_init(name, template)
-    return OutputData().from_string(
+    return OutputData.from_string(
         f"Native Apps project {name} has been created in your local directory."
     )
