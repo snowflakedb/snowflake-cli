@@ -440,6 +440,7 @@ class SnowparkTestSteps:
                 file_content = reqs_file.read()
                 reqs_file.seek(0, 0)
                 reqs_file.write("\n".join(requirements) + "\n" + file_content)
+                print(f"Writing {requirements} to file: {file_path}")
 
                 # for req in requirements:
                 #     reqs_file.write(req + "\n")
