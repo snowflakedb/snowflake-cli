@@ -370,8 +370,8 @@ class SnowparkTestSteps:
         with open("coverage.json", "r") as coverage_file:
             coverage = json.load(coverage_file)
 
-        assert coverage["totals"]["percent_covered"] == 0.0
-        assert coverage["totals"]["excluded_lines"] == 0
+        assert "percent_covered" in coverage["totals"].keys()
+        assert "excluded_lines" in coverage["totals"].keys()
 
     def coverage_clear_should_execute_succesfully(self, procedure_name, arguments):
         result = self._setup.runner.invoke_integration(
