@@ -71,9 +71,9 @@ def stage_put(
         writable=True,
         resolve_path=True,
         help=(
-            "File or directory to upload to stage, can include a * in the path, "
-            'like "folder/*.csv". Make sure you put quotes around the path if it'
-            " includes a *. "
+            "File or directory to upload to stage, can include a `*` in the path, "
+            "like `folder/*.csv`. Make sure you put quotes around the path if it"
+            " includes a `*`. "
         ),
     ),
     name: str = StageNameOption,
