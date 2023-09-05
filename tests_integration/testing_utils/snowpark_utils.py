@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import os
 import re
 from enum import Enum
 from syrupy import SnapshotAssertion
@@ -217,9 +219,17 @@ class SnowparkTestSteps:
                 actual_file_path=file, snapshot=self._setup.snapshot(name=file)
             )
 
+    def requirements_file_should_contain_coverage(self, file_name="requirements.txt"):
+        assert os.path.exists(file_name)
+
+        with open(file_name, "r") as req_file:
+            file_contents = req_file.readlines()
+            assert file_contents
+            assert "coverage\n" in file_contents
+
     def snowpark_package_should_zip_files(self) -> None:
         result = self._setup.runner.invoke_with_config(
-            ["snowpark", "function", "package"]
+            ["snowpark", self.test_type.value, "package", "--pypi-download", "yes"]
         )
         assert_that_result_is_successful_and_done_is_on_output(result)
         assert_that_current_working_directory_contains_only_following_files(
@@ -229,24 +239,35 @@ class SnowparkTestSteps:
         )
 
     def snowpark_create_should_finish_successfully(self) -> str:
+        return self.run_create()
+
+    def snowpark_create_with_coverage_wrapper_should_finish_succesfully(self) -> str:
+        return self.run_create("--install-coverage-wrapper")
+
+    def run_create(self, additional_arguments=""):
         entity_name = (
             self._setup.test_object_name_provider.create_and_get_next_object_name()
         )
-        result = self._setup.runner.invoke_integration(
-            [
-                "snowpark",
-                self.test_type.value,
-                "create",
-                "--name",
-                entity_name,
-                "--handler",
-                "app.hello",
-                "--input-parameters",
-                "()",
-                "--return-type",
-                "string",
-            ]
-        )
+
+        arguments = [
+            "snowpark",
+            self.test_type.value,
+            "create",
+            "--name",
+            entity_name,
+            "--handler",
+            "app.hello",
+            "--input-parameters",
+            "()",
+            "--return-type",
+            "string",
+        ]
+
+        if additional_arguments:
+            arguments.append(additional_arguments)
+
+        result = self._setup.runner.invoke_integration(arguments)
+
         assert_that_result_is_successful(result)
         return entity_name
 
@@ -302,6 +323,73 @@ class SnowparkTestSteps:
         )
         assert_that_result_is_successful(result)
 
+    def procedure_coverage_report_should_raise_error_when_there_is_no_coverage_report(
+        self, procedure_name: str, arguments: str
+    ):
+
+        result = self._setup.runner.invoke_integration_without_format(
+            [
+                "snowpark",
+                "procedure",
+                "coverage",
+                "report",
+                "-n",
+                procedure_name,
+                "-i",
+                arguments,
+            ]
+        )
+
+        assert result.exit_code == 1
+        assert result.json == None
+        assert result.output
+        assert "Aborted.\n" in result.output
+        assert not os.path.exists(".coverage")
+
+    def procedure_coverage_should_return_report_when_files_are_present_on_stage(
+        self, procedure_name, arguments
+    ):
+        result = self._setup.runner.invoke_integration(
+            [
+                "snowpark",
+                "procedure",
+                "coverage",
+                "report",
+                "-n",
+                procedure_name,
+                "-i",
+                arguments,
+                "--output-format",
+                "json",
+            ]
+        )
+
+        assert result.exit_code == 0
+        assert os.path.isfile("coverage.json")
+
+        with open("coverage.json", "r") as coverage_file:
+            coverage = json.load(coverage_file)
+
+        assert "percent_covered" in coverage["totals"].keys()
+        assert "excluded_lines" in coverage["totals"].keys()
+
+    def coverage_clear_should_execute_succesfully(self, procedure_name, arguments):
+        result = self._setup.runner.invoke_integration(
+            [
+                "snowpark",
+                "procedure",
+                "coverage",
+                "clear",
+                "-n",
+                procedure_name,
+                "-i",
+                arguments,
+            ]
+        )
+
+        assert result.exit_code == 0
+        assert result.json[0]["result"] == "removed"
+
     def assert_that_no_entities_are_in_snowflake(self) -> None:
         self.assert_that_only_these_entities_are_in_snowflake()
 
@@ -325,8 +413,30 @@ class SnowparkTestSteps:
     def assert_that_only_these_files_are_staged_in_test_db(
         self, *expected_file_paths: str
     ) -> None:
-        actual_file_paths = [
+        assert set(self.get_actual_files_staged_in_db()) == set(expected_file_paths)
+
+    def assert_that_only_app_and_coverage_file_are_staged_in_test_db(
+        self, path_beggining: str
+    ):
+        coverage_regex = re.compile(
+            path_beggining + "/coverage/[0-9]{8}-[0-9]{6}.coverage"
+        )
+        app_name = path_beggining + "/app.zip"
+
+        assert app_name in (actual_file_paths := self.get_actual_files_staged_in_db())
+        assert any(coverage_regex.match(file) for file in actual_file_paths)
+
+    def get_actual_files_staged_in_db(self):
+        return [
             staged_file["name"]
             for staged_file in self._setup.query_files_uploaded_in_this_test_case()
         ]
-        assert set(actual_file_paths) == set(expected_file_paths)
+
+    @staticmethod
+    def add_requirements_to_requirements_txt(
+        requirements: List[str], file_path: str = "requirements.txt"
+    ):
+        if os.path.exists(file_path):
+            with open(file_path, "a") as reqs_file:
+                for req in requirements:
+                    reqs_file.write(req + "\n")
