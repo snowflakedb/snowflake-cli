@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import rich
 
 import typer
 from click import ClickException
@@ -10,8 +9,8 @@ from tomlkit.exceptions import KeyAlreadyPresent
 
 from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
-from snowcli.output.decorators import with_output
 from snowcli.config import cli_config
+from snowcli.output.decorators import with_output
 from snowcli.output.printing import OutputData
 from snowcli.snow_connector import connect_to_snowflake
 
