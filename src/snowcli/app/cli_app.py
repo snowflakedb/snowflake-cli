@@ -8,12 +8,14 @@ import typer
 import click
 
 from snowcli import __about__
-from snowcli.cli.main.snow_cli_main_typer import SnowCliMainTyper
+from snowcli.app.main_typer import SnowCliMainTyper
 from snowcli.config import config_init, cli_config
-from snowcli.docs.generator import generate_docs
+from snowcli.app.dev.docs.generator import generate_docs
 from snowcli.output.formats import OutputFormat
 from snowcli.output.printing import OutputData
-from snowcli.pycharm_remote_debug import setup_pycharm_remote_debugger_if_provided
+from snowcli.app.dev.pycharm_remote_debug import (
+    setup_pycharm_remote_debugger_if_provided,
+)
 
 app: SnowCliMainTyper = SnowCliMainTyper()
 log = logging.getLogger(__name__)
