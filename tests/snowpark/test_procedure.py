@@ -33,16 +33,13 @@ def test_create_procedure(
             "snowpark",
             "procedure",
             "create",
-            "--name",
-            "procedureName",
+            "procedureName(a string, b number)",
             "--file",
             str(app),
             "--handler",
             "main.py:app",
-            "--return-type",
+            "--returns",
             "table(variant)",
-            "--input-parameters",
-            "(a string, b number)",
             "--overwrite",
         ]
     )
@@ -100,16 +97,13 @@ def test_create_procedure_with_coverage(
             "snowpark",
             "procedure",
             "create",
-            "--name",
-            "procedureName",
+            "procedureName(a string, b number)",
             "--file",
             str(app),
             "--handler",
             "main.py:app",
-            "--return-type",
+            "--returns",
             "table(variant)",
-            "--input-parameters",
-            "(a string, b number)",
             "--overwrite",
             "--install-coverage-wrapper",
         ]
@@ -207,16 +201,13 @@ def _update_procedure(
             "snowpark",
             "procedure",
             "update",
-            "--name",
-            "procName",
+            "procName(a string, b number)",
             "--file",
             str(app),
             "--handler",
             "main.py:app",
-            "--return-type",
+            "--returns",
             "table(variant)",
-            "--input-parameters",
-            "(a string, b number)",
             *args,
         ]
     )
@@ -377,7 +368,6 @@ def test_execute_procedure(mock_connector, runner, mock_ctx):
             "snowpark",
             "procedure",
             "execute",
-            "--procedure",
             "procedureName(42, 'string')",
         ]
     )
@@ -395,7 +385,6 @@ def test_describe_procedure_from_signature(mock_connector, runner, mock_ctx):
             "snowpark",
             "procedure",
             "describe",
-            "--procedure",
             "procedureName(int, string, variant)",
         ]
     )
@@ -413,10 +402,7 @@ def test_describe_procedure_from_name(mock_connector, runner, mock_ctx):
             "snowpark",
             "procedure",
             "describe",
-            "--name",
-            "procedureName",
-            "--input-parameters",
-            "(int, string, variant)",
+            "procedureName(int, string, variant)",
         ]
     )
 
@@ -451,7 +437,6 @@ def test_drop_procedure_from_signature(mock_connector, runner, mock_ctx):
             "snowpark",
             "procedure",
             "drop",
-            "--procedure",
             "procedureName(int, string, variant)",
         ]
     )
@@ -469,10 +454,7 @@ def test_drop_procedure_from_name(mock_connector, runner, mock_ctx):
             "snowpark",
             "procedure",
             "drop",
-            "--name",
-            "procedureName",
-            "--input-parameters",
-            "(int, string, variant)",
+            "procedureName(int, string, variant)",
         ]
     )
 

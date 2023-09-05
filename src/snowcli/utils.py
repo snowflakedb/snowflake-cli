@@ -568,13 +568,24 @@ def convert_resource_details_to_dict(function_details: SnowflakeCursor) -> dict:
     return function_dict
 
 
-def generate_deploy_stage_name(name: str, input_parameters: str) -> str:
-    return name + input_parameters.replace("(", "",).replace(")", "",).replace(
-        " ",
-        "_",
-    ).replace(
-        ",",
-        "",
+def generate_deploy_stage_name(identifier: str) -> str:
+    return (
+        identifier.replace(
+            "(",
+            "_",
+        )
+        .replace(
+            ")",
+            "",
+        )
+        .replace(
+            " ",
+            "_",
+        )
+        .replace(
+            ",",
+            "",
+        )
     )
 
 

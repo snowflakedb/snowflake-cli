@@ -12,8 +12,9 @@ class ProcedureManager(SnowparkObjectManager):
     def _object_type(self):
         return "procedure"
 
-    def execute(self, expression: str) -> SnowflakeCursor:
-        return self._execute_query(f"call {expression}")
+    @property
+    def _object_execute(self):
+        return "call"
 
     def create(
         self,

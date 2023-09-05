@@ -53,12 +53,10 @@ def test_procedure_coverage_flow(_test_steps):
     )
 
     _test_steps.procedure_coverage_should_return_report_when_files_are_present_on_stage(
-        procedure_name=procedure_name, arguments="()"
+        identifier=procedure_name
     )
 
-    _test_steps.coverage_clear_should_execute_succesfully(
-        procedure_name=procedure_name, arguments="()"
-    )
+    _test_steps.coverage_clear_should_execute_successfully(identifier=procedure_name)
 
     _test_steps.assert_that_only_these_files_are_staged_in_test_db(
         f"deployments/{procedure_name}/app.zip"

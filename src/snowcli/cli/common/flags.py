@@ -123,3 +123,15 @@ DebugOption = typer.Option(
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
 )
+
+
+def identifier_argument(object: str, example: str) -> typer.Argument:
+    return typer.Argument(
+        ..., help=f"Identifier of the {object}. For example: {example}"
+    )
+
+
+def execution_identifier_argument(object: str, example: str) -> typer.Argument:
+    return typer.Argument(
+        ..., help=f"Execution identifier of the {object}. For example: {example}"
+    )
