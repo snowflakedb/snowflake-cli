@@ -89,24 +89,17 @@ class ProcedureCoverageManager(SqlExecutionMixin):
                 ]
             )
 
-            coverage_reports = {
-                ReportOutputOptions.html: (
-                    combined_coverage.html_report,
-                    "Your HTML code coverage report is now available in 'htmlcov/index.html'.",
-                ),
-                ReportOutputOptions.json: (
-                    combined_coverage.json_report,
-                    "Your JSON code coverage report is now available in 'coverage.json'.",
-                ),
-                ReportOutputOptions.lcov: (
-                    combined_coverage.lcov_report,
-                    "Your lcov code coverage report is now available in 'coverage.lcov'.",
-                ),
-            }
-            report_function, message = coverage_reports.get(output_format, (None, None))
-            if not (report_function and message):
+            if output_format == ReportOutputOptions.html:
+                coverage_percentage = combined_coverage.html_report()
+                message = "Your HTML code coverage report is now available in 'htmlcov/index.html'."
+            elif output_format == ReportOutputOptions.json:
+                coverage_percentage = combined_coverage.json_report()
+                message = "Your JSON code coverage report is now available in 'coverage.json'."
+            elif output_format == ReportOutputOptions.lcov:
+                coverage_percentage = combined_coverage.lcov_report()
+                message = "Your lcov code coverage report is now available in 'coverage.lcov'."
+            else:
                 raise UnknownOutputFormatError(output_format)
-            coverage_percentage = report_function()
 
             if store_as_comment:
                 log.info(
