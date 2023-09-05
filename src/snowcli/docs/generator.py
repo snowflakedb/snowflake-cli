@@ -29,7 +29,8 @@ def generate_docs(root: Path, command: Command, cmd_parts: Optional[List] = None
     cmd_parts = cmd_parts or []
     if hasattr(command, "commands"):
         for command_name, command_info in command.commands.items():
-            generate_docs(root / command_name, command_info, [*cmd_parts, command_name])
+            path = root / command.name if command.name != "default" else root
+            generate_docs(path, command_info, [*cmd_parts, command_name])
     else:
         _render_usage(command, root, cmd_parts)
 
