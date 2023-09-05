@@ -40,8 +40,8 @@ def test_na_minimal_project(project_definition_files: List[Path]):
     with mock.patch(
         "snowcli.cli.common.snow_cli_global_context.SnowCliGlobalContextManager.get_connection",
     ) as get_connection:
-        get_connection.return_value.ctx.role = "resolved_role"
-        get_connection.return_value.ctx.warehouse = "resolved_warehouse"
+        get_connection.return_value.role = "resolved_role"
+        get_connection.return_value.warehouse = "resolved_warehouse"
         with mock.patch("os.getenv", side_effect=mock_getenv):
             # TODO: probably a better way of going about this is to not generate
             # a definition structure for these values but directly return defaults

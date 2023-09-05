@@ -18,11 +18,11 @@ def get_token(
     )
 
     # disable session deletion
-    conn.ctx._all_async_queries_finished = lambda: False
-    if conn.ctx._rest is None:
+    conn._all_async_queries_finished = lambda: False
+    if conn._rest is None:
         raise Exception("error in connection object")
     # obtain and create the token
-    token_data = conn.ctx._rest._token_request("ISSUE")
+    token_data = conn._rest._token_request("ISSUE")
 
     return {
         "token": token_data["data"]["sessionToken"],
