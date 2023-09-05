@@ -39,7 +39,7 @@ classifiers = [
 dev = [
   "coverage==7.3.0",
   "pre-commit==3.4.0",
-  "pytest==7.4.0",
+  "pytest==7.4.1",
   "syrupy==4.5.0",
   "tox==4.6.4",
 ]
