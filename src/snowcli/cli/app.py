@@ -110,18 +110,18 @@ def _add_typer_from_path(path: str):
 def _register_cli_typers() -> None:
     known_sub_commands = [
         "snowcli.cli.snowpark",
-        "snowcli.cli.connection",
-        "snowcli.cli.render",
+        "snowcli.cli.connection.commands",
+        "snowcli.cli.render.commands",
         "snowcli.cli.streamlit.commands",
-        "snowcli.cli.warehouse",
+        "snowcli.cli.warehouse.commands",
         "snowcli.cli.stage.commands",
     ]
     for cmd in known_sub_commands:
         _add_typer_from_path(cmd)
 
-    from snowcli.cli import sql
+    from snowcli.cli.sql import commands as sql_commands
 
-    app.command("sql")(sql.execute_sql)
+    app.command("sql")(sql_commands.execute_sql)
 
 
 _register_cli_typers()
