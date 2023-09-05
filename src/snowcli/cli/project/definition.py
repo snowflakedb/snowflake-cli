@@ -61,8 +61,8 @@ def generate_local_override_yml(project: Union[Dict, YAML]) -> YAML:
     """
     conn = snow_cli_global_context_manager.get_connection()
     user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
-    role = conn.ctx.role
-    warehouse = conn.ctx.warehouse
+    role = conn.role
+    warehouse = conn.warehouse
 
     local: dict = {}
     if "native_app" in project:

@@ -28,11 +28,11 @@ def test_streamlit_help(runner):
     assert result.exit_code == 0, result.output
 
 
-@mock.patch("snowcli.snow_connector.SnowflakeConnector")
+@mock.patch("snowflake.connector.connect")
 @mock.patch.dict(os.environ, {}, clear=True)
 def test_custom_config_path(mock_conn, runner, mock_cursor):
     config_file = Path(__file__).parent / "test.toml"
-    mock_conn.return_value.ctx.execute_string.return_value = [
+    mock_conn.return_value.execute_string.return_value = [
         None,
         mock_cursor(["row"], []),
     ]
@@ -42,14 +42,12 @@ def test_custom_config_path(mock_conn, runner, mock_cursor):
     )
     assert result.exit_code == 0, result.output
     mock_conn.assert_called_once_with(
-        connection_parameters={
-            "database": "db_for_test",
-            "schema": "test_public",
-            "role": "test_role",
-            "warehouse": "xs",
-            "password": "dummy_password",
-        },
-        overrides={},
+        application="SNOWCLI.WAREHOUSE.STATUS",
+        database="db_for_test",
+        schema="test_public",
+        role="test_role",
+        warehouse="xs",
+        password="dummy_password",
     )
 
 

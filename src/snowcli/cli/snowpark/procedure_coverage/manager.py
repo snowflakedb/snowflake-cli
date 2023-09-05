@@ -38,8 +38,8 @@ class ProcedureCoverageManager(SqlExecutionMixin):
     ) -> str:
         conn = self._conn
         deploy_dict = get_deploy_names(
-            conn.ctx.database,
-            conn.ctx.schema,
+            conn.database,
+            conn.schema,
             generate_deploy_stage_name(
                 name,
                 input_parameters,
@@ -123,8 +123,8 @@ class ProcedureCoverageManager(SqlExecutionMixin):
     def clear(self, name: str, input_parameters: str) -> SnowflakeCursor:
         conn = self._conn
         deploy_dict = get_deploy_names(
-            conn.ctx.database,
-            conn.ctx.schema,
+            conn.database,
+            conn.schema,
             generate_deploy_stage_name(
                 name,
                 input_parameters,
