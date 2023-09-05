@@ -1,11 +1,9 @@
 import json
-import os
 import pytest
 
-from snowcli.snow_connector import SnowflakeConnector, SnowflakeCursor
+from snowcli.snow_connector import connect_to_snowflake
 from tests.testing_utils.fixtures import *
 from unittest import mock
-from snowcli.snow_connector import SnowflakeConnector
 
 
 # Used as a solution to syrupy having some problems with comparing multilines string
@@ -29,23 +27,25 @@ MOCK_CONNECTION = {
         ("snow warehouse status", "SNOWCLI.WAREHOUSE.STATUS"),
     ],
 )
-@mock.patch("snowcli.snow_connector.snowflake.connector")
+@mock.patch("snowcli.snow_connector.cli_config")
+@mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.snow_connector.click")
 def test_command_context_is_passed_to_snowflake_connection(
-    mock_click, mock_connector, runner, cmd, expected, mock_cursor
+    mock_click, mock_connect, mock_cli_config, runner, cmd, expected, mock_cursor
 ):
     mock_ctx = mock.Mock()
     mock_ctx.command_path = cmd
     mock_click.get_current_context.return_value = mock_ctx
+    mock_cli_config.get_connection.return_value = {}
 
-    SnowflakeConnector({})
+    connect_to_snowflake()
 
-    mock_connector.connect.assert_called_once_with(application=expected)
+    mock_connect.assert_called_once_with(application=expected)
 
 
 @mock.patch("snowcli.cli.snowpark.registry.manager.connect_to_snowflake")
 def test_registry_get_token(mock_conn, runner):
-    mock_conn.return_value.ctx._rest._token_request.return_value = {
+    mock_conn.return_value._rest._token_request.return_value = {
         "data": {
             "sessionToken": "token1234",
             "validityInSecondsST": 42,
