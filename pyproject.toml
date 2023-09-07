@@ -49,7 +49,7 @@ dev = [
 "Bug Tracker" = "https://github.com/Snowflake-Labs/snowcli/issues"
 
 [project.scripts]
-snow = "snowcli.__main__:main"
+snow = "snowcli.app.__main__:main"
 
 [tool.hatch.version]
 path = "src/snowcli/__about__.py"
