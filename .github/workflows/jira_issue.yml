@@ -46,9 +46,10 @@ jobs:
           project: SNOW
           issuetype: Bug
           summary: '${{ github.event.issue.title }}'
-          description: |
-            ${{ github.event.issue.body }} \\ \\ _Created from GitHub Action_ for ${{ github.event.issue.html_url }}
-          fields: '{"customfield_11401":{"id":"14723"},"labels":["dp-snowcli","github"]}'
+          description: >
+            _Created from GitHub Action_ for ${{ github.event.issue.html_url }}
+            ```${{ github.event.issue.body }}```
+          fields: '{"customfield_11401":{"id":"14723"},"labels":["dp-snowcli","github"],"parent":{"key":"SNOW-870768"}}'
 
       - name: Update GitHub Issue
         uses: ./jira/gajira-issue-update
@@ -59,3 +60,8 @@ jobs:
           owner: "{{ event.repository.owner.login }}"
           name: "{{ event.repository.name }}"
           jira: "${{ steps.create.outputs.issue }}"
+      - name: Transition issue
+        uses: atlassian/gajira-transition@v3
+        with:
+          issue: "${{ steps.create.outputs.issue }}"
+          transition: "TODO"
