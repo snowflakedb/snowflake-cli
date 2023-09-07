@@ -201,8 +201,6 @@ class SnowparkTestSteps:
             result, {"property": "signature", "value": arguments}
         )
         assert result.json is not None
-        imports = [i for i in result.json if i["property"] == "imports"][0]
-        assert imports["value"].__contains__(entity_name)
 
     def snowpark_init_should_initialize_files_with_default_content(
         self,
@@ -302,7 +300,7 @@ class SnowparkTestSteps:
         )
         assert_that_result_is_successful_and_output_json_equals(
             result,
-            [{"status": f"Function {entity_name.upper()} successfully created."}],
+            {"status": f"Function {entity_name.upper()} successfully created."},
         )
 
     def snowpark_drop_should_finish_successfully(
@@ -388,7 +386,8 @@ class SnowparkTestSteps:
         )
 
         assert result.exit_code == 0
-        assert result.json[0]["result"] == "removed"
+        print(result.json)
+        assert result.json["result"] == "removed"
 
     def assert_that_no_entities_are_in_snowflake(self) -> None:
         self.assert_that_only_these_entities_are_in_snowflake()

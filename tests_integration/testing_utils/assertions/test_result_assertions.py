@@ -27,13 +27,12 @@ def assert_that_result_is_successful_and_output_json_equals(
 
 def assert_that_result_contains_row_with(result: CommandResult, expect: Dict) -> None:
     assert result.json is not None
-    assert contains_row_with(result.json, expect)
+    assert contains_row_with(result.json, expect)  # type: ignore
 
 
 def assert_that_result_is_successful_and_done_is_on_output(
     result: CommandResult,
 ) -> None:
     assert_that_result_is_successful(result)
-    assert result.output is not None and json.loads(result.output) == [
-        {"result": "Done"}
-    ]
+    assert result.output is not None
+    assert json.loads(result.output) == {"message": "Done"}

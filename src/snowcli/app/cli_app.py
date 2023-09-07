@@ -12,7 +12,8 @@ from snowcli.app.main_typer import SnowCliMainTyper
 from snowcli.config import config_init, cli_config
 from snowcli.app.dev.docs.generator import generate_docs
 from snowcli.output.formats import OutputFormat
-from snowcli.output.printing import OutputData
+from snowcli.output.printing import print_result
+from snowcli.output.types import CollectionResult
 from snowcli.app.dev.pycharm_remote_debug import (
     setup_pycharm_remote_debugger_if_provided,
 )
@@ -36,13 +37,13 @@ def _version_callback(value: bool):
 
 def _info_callback(value: bool):
     if value:
-        OutputData.from_list(
+        result = CollectionResult(
             [
                 {"key": "version", "value": __about__.VERSION},
                 {"key": "default_config_file_path", "value": cli_config.file_path},
             ],
-            format_=OutputFormat.JSON,
-        ).print()
+        )
+        print_result(result, output_format=OutputFormat.JSON)
         raise typer.Exit()
 
 

@@ -6,7 +6,7 @@ import typer
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.sql.manager import SqlManager
 from snowcli.output.decorators import with_output
-from snowcli.output.printing import OutputData
+from snowcli.output.types import QueryResult, CommandResult, MultipleResults
 
 
 @with_output
@@ -29,7 +29,7 @@ def execute_sql(
         help="File to execute.",
     ),
     **options
-) -> OutputData:
+) -> CommandResult:
     """
     Executes Snowflake query.
 
@@ -38,5 +38,9 @@ def execute_sql(
     """
     cursors = SqlManager().execute(query, file)
     if len(cursors) > 1:
-        return OutputData(stream=(OutputData.from_cursor(cur) for cur in cursors))
-    return OutputData.from_cursor(cursors[0])
+        result = MultipleResults()
+        for curr in cursors:
+            result.add(QueryResult(curr))
+    else:
+        result = QueryResult(cursors[0])
+    return result

@@ -17,7 +17,7 @@ TEST_DIR = Path(__file__).parent
 @dataclass
 class CommandResult:
     exit_code: int
-    json: Optional[List[Dict[str, Any]]] = None
+    json: Optional[List[Dict[str, Any]] | Dict[str, Any]] = None
     output: Optional[str] = None
 
 
