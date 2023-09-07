@@ -26,8 +26,7 @@ CheckAnacondaForPyPiDependancies: bool = typer.Option(
     True,
     "--check-anaconda-for-pypi-deps/--no-check-anaconda-for-pypi-deps",
     "-a",
-    help="""When downloading missing Anaconda packages, check if any of
-    their dependancies can be imported directly from Anaconda""",
+    help="""When downloading missing Anaconda packages, check if any of their dependancies can be imported directly from Anaconda""",
 )
 log = logging.getLogger(__name__)
 
