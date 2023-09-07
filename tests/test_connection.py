@@ -174,7 +174,7 @@ def test_lists_connection_information(runner):
     ]
 
 
-@mock.patch("snowcli.cli.connection.connect_to_snowflake")
+@mock.patch("snowcli.cli.connection.commands.connect_to_snowflake")
 def test_connection_test(mock_connect, runner):
     result = runner.invoke_with_config(["connection", "test", "-c", "full"])
     assert result.exit_code == 0, result.output

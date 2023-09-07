@@ -127,9 +127,9 @@ To add credentials in a configuration file:
    ```
    [connections]
    [connections.myconnection]
-   account = myaccount
-   user = jondoe
-   password = hunter2
+   account = "myaccount"
+   user = "jondoe"
+   password = "hunter2"
    ```
 
 1. If desired, you can add more connections, as shown:
@@ -137,14 +137,14 @@ To add credentials in a configuration file:
    ```
    [connections]
    [connections.myconnection]
-   account = myaccount
-   user = jondoe
-   password = hunter2
+   account = "myaccount"
+   user = "jondoe"
+   password = "hunter2"
 
    [connections.myconnection-test]
-   account = myaccount
-   user = jondoe-test
-   password = hunter2
+   account = "myaccount"
+   user = "jondoe-test"
+   password = "hunter2"
    ```
 
 1. Save changes to the file.
@@ -176,8 +176,8 @@ environment variables as follows:
    ```
    [connections]
    [connections.myconnection]
-   account = myaccount
-   user = jdoe
+   account = "myaccount"
+   user = "jdoe"
    ```
 
 1. Create a system environment variable for the password using the appropriate naming convention:
@@ -192,9 +192,9 @@ file contains the following:
 ```
 [connections]
 [connections.myconnection]
-account = myaccount
-user = jdoe
-password = xyz2000
+account = "myaccount"
+user = "jdoe"
+password = "xyz2000"
 ```
 
 You can supply a different password for that connection by creating the following environment variables:
