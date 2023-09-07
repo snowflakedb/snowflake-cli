@@ -18,7 +18,12 @@ from snowcli.cli.snowpark_shared import (
 )
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
-from snowcli.output.printing import OutputData
+from snowcli.output.types import (
+    MessageResult,
+    SingleQueryResult,
+    QueryResult,
+    CommandResult,
+)
 from snowcli.utils import (
     prepare_app_zip,
     get_snowflake_packages,
@@ -71,7 +76,7 @@ def function_init():
     Initialize this directory with a sample set of files to create a function.
     """
     create_project_template("default_function")
-    return OutputData.from_string("Done")
+    return MessageResult("Done")
 
 
 @app.command("create")
@@ -104,7 +109,7 @@ def function_create(
         help="Replace if existing function",
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """Creates a python UDF/UDTF using local artifact."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
@@ -133,7 +138,7 @@ def function_create(
         packages=packages,
         overwrite=overwrite,
     )
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)
 
 
 def upload_snowpark_artifact(
@@ -182,7 +187,7 @@ def function_update(
         help="Replace function, even if no detected changes to metadata",
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """Updates an existing python UDF/UDTF using local artifact."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
@@ -241,9 +246,9 @@ def function_update(
             packages=packages,
             overwrite=True,
         )
-        return OutputData.from_cursor(cursor)
+        return SingleQueryResult(cursor)
 
-    return OutputData.from_string("No packages to update. Deployment complete!")
+    return MessageResult("No packages to update. Deployment complete!")
 
 
 @app.command("package")
@@ -252,14 +257,14 @@ def function_package(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
-) -> OutputData:
+) -> CommandResult:
     """Packages function code into zip file."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps,
         package_native_libraries,  # type: ignore[arg-type]
     )
-    return OutputData.from_string("Done")
+    return MessageResult("Done")
 
 
 @app.command("execute")
@@ -273,10 +278,10 @@ def function_execute(
         help="Function with inputs. E.g. 'hello(int, string)'",
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """Executes a Snowflake function."""
     cursor = FunctionManager().execute(expression=function)
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)
 
 
 @app.command("describe")
@@ -292,14 +297,14 @@ def function_describe(
         help="Function signature with inputs. E.g. 'hello(int, string)'",
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """Describes a Snowflake function."""
     cursor = FunctionManager().describe(
         identifier=FunctionManager.identifier(
             name=name, signature=input_parameters, name_and_signature=function
         )
     )
-    return OutputData.from_cursor(cursor)
+    return QueryResult(cursor)
 
 
 @app.command("list")
@@ -313,10 +318,10 @@ def function_list(
         help='Filter functions by name - e.g. "hello%"',
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """Lists Snowflake functions."""
     cursor = FunctionManager().show(like=like)
-    return OutputData.from_cursor(cursor)
+    return QueryResult(cursor)
 
 
 @app.command("drop")
@@ -332,11 +337,11 @@ def function_drop(
         help="Function signature with inputs. E.g. 'hello(int, string)'",
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """Drops a Snowflake function."""
     cursor = FunctionManager().drop(
         identifier=FunctionManager.identifier(
             name=name, signature=input_parameters, name_and_signature=signature
         )
     )
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)

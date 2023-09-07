@@ -7,7 +7,7 @@ from snowcli.cli.snowpark.procedure_coverage.manager import (
     ReportOutputOptions,
 )
 from snowcli.output.decorators import with_output
-from snowcli.output.printing import OutputData
+from snowcli.output.types import MessageResult, SingleQueryResult, CommandResult
 
 app: typer.Typer = typer.Typer(
     name="coverage",
@@ -55,7 +55,7 @@ def procedure_coverage_report(
         store_as_comment=store_as_comment,
     )
 
-    return OutputData.from_string(message)
+    return MessageResult(message)
 
 
 @app.command(
@@ -78,8 +78,8 @@ def procedure_coverage_clear(
         help="Input parameters - such as (message string, count int). Must exactly match those provided when creating the procedure.",
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     cursor = ProcedureCoverageManager().clear(
         name=name, input_parameters=input_parameters
     )
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)

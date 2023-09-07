@@ -2,10 +2,6 @@
 from __future__ import annotations
 
 import json
-import os
-from pathlib import Path
-from textwrap import dedent
-from unittest import mock
 import typing as t
 
 import click

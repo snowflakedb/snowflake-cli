@@ -9,7 +9,8 @@ from snowcli.cli.snowpark.common import print_log_lines
 from snowcli.cli.snowpark.jobs.manager import JobManager
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
-from snowcli.output.printing import OutputData
+
+from snowcli.output.types import SingleQueryResult, CommandResult
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS, name="jobs", help="Manage jobs"
@@ -32,7 +33,7 @@ def create(
     ),
     stage: str = typer.Option("SOURCE_STAGE", "--stage", "-l", help="Stage name"),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """
     Create Job
     """
@@ -43,18 +44,18 @@ def create(
     cursor = JobManager().create(
         compute_pool=compute_pool, spec_path=spec_path, stage=stage
     )
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)
 
 
 @app.command()
 @with_output
 @global_options_with_connection
-def desc(id: str = typer.Argument(..., help="Job id"), **options) -> OutputData:
+def desc(id: str = typer.Argument(..., help="Job id"), **options) -> CommandResult:
     """
     Desc Service
     """
     cursor = JobManager().desc(job_name=id)
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)
 
 
 @app.command()
@@ -78,20 +79,20 @@ def logs(
 @app.command()
 @with_output
 @global_options_with_connection
-def status(id: str = typer.Argument(..., help="Job id"), **options) -> OutputData:
+def status(id: str = typer.Argument(..., help="Job id"), **options) -> CommandResult:
     """
     Returns status of a job.
     """
     cursor = JobManager().status(job_name=id)
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)
 
 
 @app.command()
 @with_output
 @global_options_with_connection
-def drop(id: str = typer.Argument(..., help="Job id"), **options) -> OutputData:
+def drop(id: str = typer.Argument(..., help="Job id"), **options) -> CommandResult:
     """
     Drop Service
     """
     cursor = JobManager().drop(job_name=id)
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)
