@@ -75,8 +75,7 @@ def streamlit_create(
     ),
     use_packaging_workaround: bool = typer.Option(
         False,
-        help="Set this flag to package all code and dependencies into a zip file. "
-        + "This should be considered a temporary workaround until native support is available.",
+        help="Set this flag to package all code and dependencies into a zip file. This should be considered a temporary workaround until native support is available.",
     ),
     **options,
 ) -> CommandResult:
