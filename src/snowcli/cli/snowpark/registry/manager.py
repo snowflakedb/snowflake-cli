@@ -1,7 +1,4 @@
-import json
-
 from snowcli.cli.common.flags import ConnectionOption
-from snowcli.output.printing import OutputData
 from snowcli.snow_connector import connect_to_snowflake
 
 

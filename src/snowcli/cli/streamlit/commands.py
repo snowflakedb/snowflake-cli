@@ -12,7 +12,14 @@ from snowcli.cli.snowpark_shared import (
     PackageNativeLibrariesOption,
     PyPiDownloadOption,
 )
-from snowcli.output.printing import OutputData
+from snowcli.output.types import (
+    CommandResult,
+    QueryResult,
+    CollectionResult,
+    SingleQueryResult,
+    MessageResult,
+    MultipleResults,
+)
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -25,12 +32,12 @@ log = logging.getLogger(__name__)
 @app.command("list")
 @with_output
 @global_options_with_connection
-def streamlit_list(**options) -> OutputData:
+def streamlit_list(**options) -> CommandResult:
     """
     List streamlit apps.
     """
     cursor = StreamlitManager().list()
-    return OutputData.from_cursor(cursor)
+    return QueryResult(cursor)
 
 
 @app.command("describe")
@@ -39,14 +46,15 @@ def streamlit_list(**options) -> OutputData:
 def streamlit_describe(
     name: str = typer.Argument(..., help="Name of streamlit to be deployed."),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """
     Describe a streamlit app.
     """
     description, url = StreamlitManager().describe(streamlit_name=name)
-    return OutputData.from_list(
-        [OutputData.from_cursor(description), OutputData.from_cursor(url)]
-    )
+    result = MultipleResults()
+    result.add(QueryResult(description))
+    result.add(SingleQueryResult(url))
+    return result
 
 
 @app.command("create")
@@ -71,7 +79,7 @@ def streamlit_create(
         + "This should be considered a temporary workaround until native support is available.",
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """
     Create a streamlit app.
     """
@@ -81,7 +89,7 @@ def streamlit_create(
         from_stage=from_stage,
         use_packaging_workaround=use_packaging_workaround,
     )
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)
 
 
 @app.command("share")
@@ -93,12 +101,12 @@ def streamlit_share(
         ..., help="Role that streamlit should be shared with."
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """
     Share a streamlit app with a role.
     """
     cursor = StreamlitManager().share(streamlit_name=name, to_role=to_role)
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)
 
 
 @app.command("drop")
@@ -107,12 +115,12 @@ def streamlit_share(
 def streamlit_drop(
     name: str = typer.Argument(..., help="Name of streamlit to be deleted."),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """
     Drop a streamlit app.
     """
     cursor = StreamlitManager().drop(streamlit_name=name)
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)
 
 
 @app.command("deploy")
@@ -154,7 +162,7 @@ def streamlit_deploy(
         + "environment.yml (noting the risk of runtime errors).",
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """
     Deploy a streamlit app.
     """
@@ -170,5 +178,5 @@ def streamlit_deploy(
         excluded_anaconda_deps=excluded_anaconda_deps,
     )
     if result is not None:
-        return OutputData.from_string(result)
-    return OutputData.from_string("Done")
+        return MessageResult(result)
+    return MessageResult("Done")

@@ -115,6 +115,7 @@ def mock_cursor():
             super().__init__(mock.Mock())
             self._rows = rows
             self._columns = [MockResultMetadata(c) for c in columns]
+            self.query = "SELECT A MOCK QUERY"
 
         def fetchone(self):
             if self._rows:
