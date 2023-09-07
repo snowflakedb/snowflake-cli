@@ -5,7 +5,7 @@ import typer
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.output.decorators import with_output, catch_error
-from snowcli.output.printing import OutputData
+from snowcli.output.printing import MessageResult
 
 from .init import nativeapp_init
 from .manager import NativeAppManager
@@ -38,12 +38,12 @@ def app_init(
     template: str = typer.Option(
         None, help="A git URL to use as template for the Native Apps project."
     ),
-) -> OutputData:
+) -> MessageResult:
     """
     Initialize a Native Apps project, optionally with a --template.
     """
     nativeapp_init(name, template)
-    return OutputData.from_string(
+    return MessageResult(
         f"Native Apps project {name} has been created in your local directory."
     )
 
@@ -53,10 +53,10 @@ def app_init(
 @catch_error(ArtifactError, exit_code=1)
 def app_bundle(
     project_path: Optional[str] = ProjectArgument,
-) -> OutputData:
+) -> MessageResult:
     """
     Prepares a local folder with configured app artifacts.
     """
     manager = NativeAppManager(project_path)
     manager.build_bundle()
-    return OutputData.from_string(f"Bundle generated at {manager.deploy_root}")
+    return MessageResult(f"Bundle generated at {manager.deploy_root}")
