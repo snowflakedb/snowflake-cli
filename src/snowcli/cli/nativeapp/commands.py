@@ -5,11 +5,15 @@ import typer
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.output.decorators import with_output, catch_error
-from snowcli.output.printing import MessageResult
 
-from .init import nativeapp_init
+from .init import nativeapp_init, _init_without_user_provided_template, InitError
 from .manager import NativeAppManager
 from .artifacts import ArtifactError
+
+from snowcli.output.types import (
+    CommandResult,
+    MessageResult,
+)
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -36,9 +40,10 @@ def app_init(
         ..., help="Name of the Native Apps project to be initiated."
     ),
     template: str = typer.Option(
-        None, help="A git URL to use as template for the Native Apps project."
+        None,
+        help="A git URL to use as template for the Native Apps project. Example: https://github.com/Snowflake-Labs/native-apps-templates.git",
     ),
-) -> MessageResult:
+) -> CommandResult:
     """
     Initialize a Native Apps project, optionally with a --template.
     """
@@ -53,7 +58,7 @@ def app_init(
 @catch_error(ArtifactError, exit_code=1)
 def app_bundle(
     project_path: Optional[str] = ProjectArgument,
-) -> MessageResult:
+) -> CommandResult:
     """
     Prepares a local folder with configured app artifacts.
     """

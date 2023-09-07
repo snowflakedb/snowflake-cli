@@ -16,7 +16,7 @@ class DefinitionManager:
     project_root: Path
     _project_config_paths: List[Path]
 
-    def __init__(self, project: str = "") -> None:
+    def __init__(self, project: str | None = None) -> None:
         search_path = os.getcwd()
         if project and len(project) > 0:
             search_path = os.path.abspath(project)

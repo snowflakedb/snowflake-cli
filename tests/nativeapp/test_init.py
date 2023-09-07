@@ -3,9 +3,16 @@ from snowcli.cli.nativeapp.init import (
     _sparse_checkout,
     _move_and_rename_project,
     render_nativeapp_readme,
+    nativeapp_init,
+    CannotInitializeAnExistingProjectError,
+    DirectoryAlreadyExistsError,
+    GitVersionIncompatibleError,
+    InitError,
 )
 from tests.testing_utils.fixtures import *
 from textwrap import dedent
+
+PROJECT_NAME = "demo_na_project"
 
 
 def test_sparse_checkout(other_directory):
@@ -105,3 +112,33 @@ def test_render_nativeapp_readme(mock_get_env_username, other_directory):
     assert temp_dir.joinpath("README.md").exists()
     assert not temp_dir.joinpath("README.md.jinja").exists()
     assert temp_dir.joinpath("README.md").read_text() == expected
+
+
+@mock.patch("pathlib.Path.is_file", return_value=True)
+def test_init_no_template_w_existing_yml(mock_path_is_file):
+    with pytest.raises(CannotInitializeAnExistingProjectError):
+        nativeapp_init(name=PROJECT_NAME)
+
+
+@mock.patch("pathlib.Path.exists", return_value=True)
+def test_init_no_template_w_existing_directory(mock_path_exists):
+    with pytest.raises(DirectoryAlreadyExistsError):
+        nativeapp_init(name=PROJECT_NAME)
+
+
+@mock.patch("subprocess.check_output", return_value="git version 2.2")
+def test_init_no_template_git_fails(mock_get_client_git_version):
+    with pytest.raises(GitVersionIncompatibleError):
+        nativeapp_init(name=PROJECT_NAME)
+
+
+@mock.patch(
+    "snowcli.cli.nativeapp.init._init_without_user_provided_template",
+    side_effect=InitError(),
+)
+def test_init_no_template_raised_exception(
+    mock_init_without_user_provided_template, temp_dir
+):
+    with pytest.raises(InitError):
+        # temp_dir will be cwd for the rest of this test
+        nativeapp_init(name=PROJECT_NAME)

@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
+from typer import Abort
 
 from typing import Optional
 from snowcli.cli.project.definition import DEFAULT_USERNAME
@@ -12,10 +13,74 @@ from snowcli.cli.project.util import clean_identifier, get_env_username
 from snowcli.cli.render.commands import generic_render_template
 from snowcli.utils import get_client_git_version
 
+
 log = logging.getLogger(__name__)
 
 SNOWFLAKELABS_GITHUB_URL = "https://github.com/Snowflake-Labs/native-app-templates"
 BASIC_TEMPLATE = "native-app-basic"
+
+
+class InitError(Exception):
+    """
+    Native app project could not be initiated due to an underlying error.
+    """
+
+    def __str__(self):
+        return self.__doc__
+
+
+class GitVersionIncompatibleError(InitError):
+    """
+    Init requires git version to be at least 2.25.0. Please update git and try again.
+    """
+
+    pass
+
+
+class GitCloneError(InitError):
+    """
+    Could not complete git clone with the specified git repository URL.
+    """
+
+    pass
+
+
+class RenderingFromJinjaError(InitError):
+    """
+    Could not complete rendering file from Jinja template.
+    """
+
+    message: str | None
+
+    def __init__(self, message: str | None = None):
+        self.message = message
+
+    def __str__(self):
+        return self.message + f"\n{self.__doc__}"
+
+
+class CannotInitializeAnExistingProjectError(InitError):
+    """
+    Cannot initialize a new project within an existing Native Application project.
+    """
+
+    def __str__(self):
+        return self.__doc__
+
+
+class DirectoryAlreadyExistsError(InitError):
+    """
+    Directory already contains a project with the intended name
+    """
+
+    name: str
+
+    def __init__(self, name: str):
+        super().__init__()
+        self.name = name
+
+    def __str__(self):
+        return f"This directory already contains a sub-directory called {self.name}. Please try a different name."
 
 
 def _sparse_checkout(
@@ -58,7 +123,7 @@ def _sparse_checkout(
         )
     except subprocess.CalledProcessError as err:
         log.error(err.stderr)
-        raise err
+        raise GitCloneError()
 
 
 def _move_and_rename_project(
@@ -102,16 +167,22 @@ def render_snowflake_yml(parent_to_snowflake_yml: Path):
 
     snowflake_yml_jinja = "snowflake.yml.jinja"
 
-    generic_render_template(
-        template_path=parent_to_snowflake_yml.joinpath(snowflake_yml_jinja),
-        data={"project_name": parent_to_snowflake_yml.name},
-        output_file_path=parent_to_snowflake_yml.joinpath("snowflake.yml"),
-    )
-    subprocess.run(
-        f"rm {snowflake_yml_jinja}",
-        shell=True,
-        cwd=str(parent_to_snowflake_yml),
-    )
+    try:
+        generic_render_template(
+            template_path=parent_to_snowflake_yml.joinpath(snowflake_yml_jinja),
+            data={"project_name": parent_to_snowflake_yml.name},
+            output_file_path=parent_to_snowflake_yml.joinpath("snowflake.yml"),
+        )
+        subprocess.run(
+            f"rm {snowflake_yml_jinja}",
+            shell=True,
+            cwd=str(parent_to_snowflake_yml),
+        )
+    except Exception as err:
+        log.error(err)
+        raise RenderingFromJinjaError(
+            "Error rendering snowflake.yml from snowflake.yml.jinja."
+        )
 
 
 def render_nativeapp_readme(parent_to_readme: Path, project_name: str):
@@ -132,18 +203,22 @@ def render_nativeapp_readme(parent_to_readme: Path, project_name: str):
         get_env_username() or DEFAULT_USERNAME
     )
 
-    generic_render_template(
-        template_path=parent_to_readme.joinpath(readme_jinja),
-        data={
-            "application_name": f"{default_application_name_prefix}_{default_application_name_suffix}"
-        },
-        output_file_path=parent_to_readme.joinpath("README.md"),
-    )
-    subprocess.run(
-        f"rm {readme_jinja}",
-        shell=True,
-        cwd=str(parent_to_readme),
-    )
+    try:
+        generic_render_template(
+            template_path=parent_to_readme.joinpath(readme_jinja),
+            data={
+                "application_name": f"{default_application_name_prefix}_{default_application_name_suffix}"
+            },
+            output_file_path=parent_to_readme.joinpath("README.md"),
+        )
+        subprocess.run(
+            f"rm {readme_jinja}",
+            shell=True,
+            cwd=str(parent_to_readme),
+        )
+    except Exception as err:
+        log.error(err)
+        raise RenderingFromJinjaError("Error rendering README.md from readme.md.jinja.")
 
 
 def _init_without_user_provided_template(
@@ -188,9 +263,9 @@ def _init_without_user_provided_template(
             project_name=project_name,
         )
 
-    except subprocess.CalledProcessError as err:
-        log.error(err.stderr)
-        raise (err)
+    except InitError as err:
+        log.error(err)
+        raise InitError()
 
 
 def nativeapp_init(name: str, template: Optional[str] = None):
@@ -204,33 +279,21 @@ def nativeapp_init(name: str, template: Optional[str] = None):
     # We do not validate the yml here though.
     path_to_snowflake_yml = current_working_directory.joinpath("snowflake.yml")
     if path_to_snowflake_yml.is_file():
-        sys.exit(
-            "Cannot initialize a new project within an existing Native Application project!"
-        )
+        raise CannotInitializeAnExistingProjectError()
 
     # If a subdirectory with the same name as name exists in the current directory, fail init command
     path_to_project = current_working_directory.joinpath(name)
     if path_to_project.exists():
-        sys.exit(
-            f"This directory already contains a sub-directory called {name}. Please try a different name."
-        )
+        raise DirectoryAlreadyExistsError(name)
 
     if template:  # If user provided a template, use the template
         # Implementation to be added as part of https://snowflakecomputing.atlassian.net/browse/SNOW-896905
         pass
     else:  # No template provided, use Native Apps Basic Template
-        try:
-            # The logic makes use of git sparse checkout, which was introduced in git 2.25.0. Check client's installed git version.
-            if get_client_git_version() >= "2.25":
-                _init_without_user_provided_template(
-                    current_working_directory=current_working_directory,
-                    project_name=name,
-                )
-            else:
-                sys.exit(
-                    "Init requires git version to be at least 2.25.0. Please update git and try again."
-                )
-
-        except subprocess.CalledProcessError as err:
-            log.error(err.stderr)
-            sys.exit(err.returncode)
+        # The logic makes use of git sparse checkout, which was introduced in git 2.25.0. Check client's installed git version.
+        if get_client_git_version() < "2.25":
+            raise GitVersionIncompatibleError()
+        _init_without_user_provided_template(
+            current_working_directory=current_working_directory,
+            project_name=name,
+        )
