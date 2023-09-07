@@ -41,7 +41,7 @@ def test_init_no_template_git_fails(mock_get_client_git_version, runner):
 
 
 @mock.patch(
-    "snowcli.cli.nativeapp.manager._init_without_user_provided_template",
+    "snowcli.cli.nativeapp.init._init_without_user_provided_template",
     side_effect=CalledProcessError(1, "Some Mocked Error"),
 )
 def test_init_no_template_raised_exception(
@@ -54,7 +54,7 @@ def test_init_no_template_raised_exception(
 
 
 @mock.patch(
-    "snowcli.cli.nativeapp.manager._init_without_user_provided_template",
+    "snowcli.cli.nativeapp.init._init_without_user_provided_template",
     return_value=None,
 )
 def test_init_no_template_success(

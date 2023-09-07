@@ -1,4 +1,4 @@
-from snowcli.cli.nativeapp.manager import (
+from snowcli.cli.nativeapp.init import (
     render_snowflake_yml,
     _sparse_checkout,
     _move_and_rename_project,
@@ -41,7 +41,6 @@ def test_move_and_rename_project(other_directory):
 
 
 def test_render_snowflake_yml(other_directory):
-
     temp_dir = Path(other_directory)
     create_named_file(
         file_name="snowflake.yml.jinja",

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import typer
+from sys import stderr
+from typing import Type, Optional
 from functools import wraps
 
 from snowcli.exception import CommandReturnTypeError
@@ -25,3 +28,25 @@ def _is_list_of_results(result):
         and len(result) > 0
         and (isinstance(result[0], list) or isinstance(result[0], SnowflakeCursor))
     )
+
+
+def catch_error(
+    exception_class: Type[Exception], message: Optional[str] = None, exit_code: int = 1
+):
+    """
+    Catches a specific type of exception and exits fatally, optionally with
+    a custom message or process exit code.
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except exception_class as e:
+                print(message if message else str(e), file=stderr)
+                raise typer.Exit(code=exit_code)
+
+        return wrapper
+
+    return decorator

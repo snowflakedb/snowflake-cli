@@ -37,16 +37,18 @@ class DefinitionManager:
                 or parent_path == Path.home()
             ):
                 return None
+
             base_config_file_path = self._base_config_file_if_available(parent_path)
             if base_config_file_path:
                 user_config_file_path = self._user_config_file_if_available(parent_path)
                 self.project_root = parent_path
                 if user_config_file_path:
-                    self._project_config_paths = [
+                    return [
                         base_config_file_path,
                         user_config_file_path,
                     ]
-                self._project_config_paths = [base_config_file_path]
+                return [base_config_file_path]
+
             parent_path = parent_path.parent
         return None
 
