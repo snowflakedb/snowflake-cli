@@ -582,3 +582,11 @@ def create_project_template(template_name: str):
         f"{os.getcwd()}",
         dirs_exist_ok=True,
     )
+
+def sql_to_python_type_mapper(resource_return_type: str) -> str:
+    if 'VARCHAR(' in resource_return_type:
+        return 'string'
+    elif resource_return_type in ['BINARY','BOOLEAN']:
+        return 'bool'
+    else:
+        return resource_return_type

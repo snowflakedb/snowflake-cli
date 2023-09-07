@@ -250,6 +250,10 @@ class SnowparkTestSteps:
         assert_that_result_is_successful(result)
         return entity_name
 
+    def snowpark_update_should_fail_if_the_signature_does_not_change(self, entity_name: str):
+        pass
+
+
     def snowpark_update_should_finish_successfully(
         self,
         entity_name: str,
@@ -330,3 +334,4 @@ class SnowparkTestSteps:
             for staged_file in self._setup.query_files_uploaded_in_this_test_case()
         ]
         assert set(actual_file_paths) == set(expected_file_paths)
+

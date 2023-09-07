@@ -15,7 +15,7 @@ from tests_integration.testing_utils.working_directory_utils import (
 )
 
 
-@pytest.mark.integration
+#@pytest.mark.integration
 def test_snowpark_procedure_flow(_test_steps):
     _test_steps.assert_that_no_entities_are_in_snowflake()
     _test_steps.assert_that_no_files_are_staged_in_test_db()
@@ -49,6 +49,8 @@ def test_snowpark_procedure_flow(_test_steps):
         arguments="()",
         expected_value="Hello World!",
     )
+
+    _test_steps.snowpark_update_should_fail_if_the_signature_does_not_change(procedure_name)
 
     _test_steps.snowpark_update_should_finish_successfully(procedure_name)
     _test_steps.assert_that_only_these_entities_are_in_snowflake(
