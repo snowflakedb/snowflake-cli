@@ -2,7 +2,7 @@ import pytest
 import subprocess
 from unittest import mock
 
-from snowcli.cli.nativeapp.init import InitError
+from snowcli.cli.nativeapp.init import GitCloneError
 
 from tests.testing_utils.fixtures import *
 
@@ -14,7 +14,7 @@ PROJECT_NAME = "demo_na_project"
     side_effect=subprocess.CalledProcessError(1, "Some Mocked Error"),
 )
 def test_init_no_template_raised_exception(mock_subprocess, runner, temp_dir):
-    with pytest.raises(InitError):
+    with pytest.raises(GitCloneError):
         # temp_dir will be cwd for the rest of this test
         runner.invoke(["app", "init", PROJECT_NAME])
 
