@@ -16,7 +16,7 @@ from snowcli.output.types import (
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    hidden=False,
+    hidden=True,
     name="app",
     help="Manage Native Apps in Snowflake",
 )
@@ -54,7 +54,7 @@ def app_init(
     )
 
 
-@app.command("bundle", hidden=False)
+@app.command("bundle", hidden=True)
 @with_output
 @global_options
 def app_bundle(
