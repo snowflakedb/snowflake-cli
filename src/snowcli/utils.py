@@ -10,8 +10,10 @@ import os
 import re
 import shutil
 import subprocess
-import git
 import warnings
+import git
+
+# from git import Repo, GitCommandError
 from typing import Dict, List, Literal, Optional
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED

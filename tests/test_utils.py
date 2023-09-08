@@ -8,7 +8,7 @@ from requirements.requirement import Requirement
 import typer
 from unittest.mock import MagicMock, patch
 from zipfile import ZipFile
-from subprocess import CalledProcessError
+from git import GitCommandError, Repo
 
 from snowcli import utils
 from tests.testing_utils.fixtures import *

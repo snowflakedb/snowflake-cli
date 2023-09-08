@@ -174,11 +174,6 @@ def render_snowflake_yml(parent_to_snowflake_yml: Path):
             output_file_path=parent_to_snowflake_yml.joinpath("snowflake.yml"),
         )
         os.remove(parent_to_snowflake_yml.joinpath(snowflake_yml_jinja))
-        # subprocess.run(
-        #     f"rm {snowflake_yml_jinja}",
-        #     shell=True,
-        #     cwd=str(parent_to_snowflake_yml),
-        # )
     except Exception as err:
         log.error(err)
         raise RenderingFromJinjaError(
@@ -213,11 +208,6 @@ def render_nativeapp_readme(parent_to_readme: Path, project_name: str):
             output_file_path=parent_to_readme.joinpath("README.md"),
         )
         os.remove(parent_to_readme.joinpath(readme_jinja))
-        # subprocess.run(
-        #     f"rm {readme_jinja}",
-        #     shell=True,
-        #     cwd=str(parent_to_readme),
-        # )
     except Exception as err:
         log.error(err)
         raise RenderingFromJinjaError("Error rendering README.md from readme.md.jinja.")
@@ -293,7 +283,8 @@ def nativeapp_init(name: str, template: Optional[str] = None):
         pass
     else:  # No template provided, use Native Apps Basic Template
         # The logic makes use of git sparse checkout, which was introduced in git 2.25.0. Check client's installed git version.
-        if get_client_git_version() < "2.25":
+        major, minor = get_client_git_version
+        if major < 2 and minor < 25:
             raise GitVersionIncompatibleError()
         _init_without_user_provided_template(
             current_working_directory=current_working_directory,
