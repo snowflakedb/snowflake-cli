@@ -283,7 +283,7 @@ def nativeapp_init(name: str, template: Optional[str] = None):
         pass
     else:  # No template provided, use Native Apps Basic Template
         # The logic makes use of git sparse checkout, which was introduced in git 2.25.0. Check client's installed git version.
-        major, minor = get_client_git_version
+        major, minor = get_client_git_version()
         if major < 2 and minor < 25:
             raise GitVersionIncompatibleError()
         _init_without_user_provided_template(
