@@ -30,7 +30,7 @@ def _docs_callback(value: bool):
         raise typer.Exit()
 
 
-def _commands_callback(value: bool):
+def _commands_structure_callback(value: bool):
     if value:
         ctx = click.get_current_context()
         generate_commands_structure(ctx.command).print()
@@ -77,7 +77,7 @@ def default(
         "--structure",
         hidden=True,
         help="Prints Snowflake CLI structure of commands",
-        callback=_commands_callback,
+        callback=_commands_structure_callback,
         is_eager=True,
     ),
     info: bool = typer.Option(

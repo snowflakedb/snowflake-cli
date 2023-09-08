@@ -20,8 +20,8 @@ class _Node:
 
 def generate_commands_structure(command: Command, root: _Node | None = None):
     """
-    Iterates recursively through commands info. Creates a file structure resembling
-    commands structure. For each terminal command creates a "usage" rst file.
+    Iterates recursively through commands info. Creates tree-like structure
+    of commands.
     """
     if not root:
         root = _Node(name="snow")
