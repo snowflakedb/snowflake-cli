@@ -1,6 +1,6 @@
 import os
 import shutil
-from click import ClickException
+from click.exceptions import ClickException
 from pathlib import Path
 from typing import List, Union, Optional
 from dataclasses import dataclass
@@ -11,19 +11,20 @@ class ArtifactError(ClickException):
     Common base class for all artifact errors.
     """
 
-    def __init__(self, msg: Optional[str] = None):
-        super().__init__(msg or self.__doc__)
+    def __init__(self, msg: str):
+        super().__init__(msg)
 
 
-class GlobMatchedNothingError(ArtifactError):
+class GlobMatchedNothingError(ClickException):
     """
     No files were found that matched the provided glob pattern.
     """
 
-    pass
+    def __init__(self, src: str):
+        super().__init__(f"{self.__doc__}: {src}")
 
 
-class SourceNotFoundError(ArtifactError):
+class SourceNotFoundError(ClickException):
     """
     The specifically-referenced source file or directory was not found
     in the project directory.
@@ -32,11 +33,11 @@ class SourceNotFoundError(ArtifactError):
     path: Path
 
     def __init__(self, path: Path):
-        super().__init__(self.__doc__ + f"\npath = {path}")
+        super().__init__(f"{self.__doc__}\npath = {path}")
         self.path = path
 
 
-class TooManyFilesError(ArtifactError):
+class TooManyFilesError(ClickException):
     """
     Multiple files were mapped to one output file.
     """
@@ -44,11 +45,11 @@ class TooManyFilesError(ArtifactError):
     dest_path: Path
 
     def __init__(self, dest_path: Path):
-        super().__init__(self.__doc__ + f"\ndest_path = {dest_path}")
+        super().__init__(f"self.__doc__\ndest_path = {dest_path}")
         self.dest_path = dest_path
 
 
-class OutsideDeployRootError(ArtifactError):
+class OutsideDeployRootError(ClickException):
     """
     The specified path is outside of the deploy root.
     This can happen when a relative path with ".." is provided.
@@ -59,9 +60,11 @@ class OutsideDeployRootError(ArtifactError):
 
     def __init__(self, dest_path: Path, deploy_root: Path):
         super().__init__(
+            f"""
             self.__doc__
-            + f"\ndest_path = {dest_path}"
-            + f"\ndeploy_root = {deploy_root}"
+            \ndest_path = {dest_path}
+            \ndeploy_root = {deploy_root}
+            """
         )
         self.dest_path = dest_path
         self.deploy_root = deploy_root

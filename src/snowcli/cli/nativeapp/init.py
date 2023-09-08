@@ -6,13 +6,15 @@ from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 from typer import Abort
-from click import ClickException
+from click.exceptions import ClickException
+
 
 from typing import Optional
 from snowcli.cli.project.definition import DEFAULT_USERNAME
 from snowcli.cli.project.util import clean_identifier, get_env_username
 from snowcli.cli.render.commands import generic_render_template
-from snowcli.utils import get_client_git_version
+
+from src.snowcli.utils import get_client_git_version
 
 
 log = logging.getLogger(__name__)
@@ -26,44 +28,51 @@ class InitError(ClickException):
     Native app project could not be initiated due to an underlying error.
     """
 
-    def __init__(self, msg: Optional[str] = None):
-        super().__init__(msg or self.__doc__)
+    def __init__(self):
+        super().__init__(self.__doc__)
 
 
-class GitVersionIncompatibleError(InitError):
+class GitVersionIncompatibleError(ClickException):
     """
     Init requires git version to be at least 2.25.0. Please update git and try again.
     """
 
-    pass
+    def __init__(self):
+        super().__init__(self.__doc__)
 
 
-class GitCloneError(InitError):
+class GitCloneError(ClickException):
     """
     Could not complete git clone with the specified git repository URL.
     """
 
-    pass
+    def __init__(self):
+        super().__init__(self.__doc__)
 
 
-class RenderingFromJinjaError(InitError):
+class RenderingFromJinjaError(ClickException):
     """
     Could not complete rendering file from Jinja template.
     """
 
-    def __init__(self, message: str | None = None):
-        super.__init__(f"{message or ''}\n{self.__doc__}")
+    # def __init__(self, message: str):
+    #     super.__init__(message)
+    def __init__(self, name: str):
+        super().__init__(
+            f"Could not complete rendering file from Jinja template: {name}"
+        )
 
 
-class CannotInitializeAnExistingProjectError(InitError):
+class CannotInitializeAnExistingProjectError(ClickException):
     """
     Cannot initialize a new project within an existing Native Application project.
     """
 
-    pass
+    def __init__(self):
+        super().__init__(self.__doc__)
 
 
-class DirectoryAlreadyExistsError(InitError):
+class DirectoryAlreadyExistsError(ClickException):
     """
     Directory already contains a project with the intended name
     """
@@ -170,9 +179,7 @@ def render_snowflake_yml(parent_to_snowflake_yml: Path):
         os.remove(parent_to_snowflake_yml.joinpath(snowflake_yml_jinja))
     except Exception as err:
         log.error(err)
-        raise RenderingFromJinjaError(
-            "Error rendering snowflake.yml from snowflake.yml.jinja."
-        )
+        raise RenderingFromJinjaError(snowflake_yml_jinja)
 
 
 def render_nativeapp_readme(parent_to_readme: Path, project_name: str):
@@ -204,7 +211,7 @@ def render_nativeapp_readme(parent_to_readme: Path, project_name: str):
         os.remove(parent_to_readme.joinpath(readme_jinja))
     except Exception as err:
         log.error(err)
-        raise RenderingFromJinjaError("Error rendering README.md from readme.md.jinja.")
+        raise RenderingFromJinjaError(readme_jinja)
 
 
 def _init_without_user_provided_template(
@@ -249,7 +256,7 @@ def _init_without_user_provided_template(
             project_name=project_name,
         )
 
-    except InitError as err:
+    except ClickException as err:
         log.error(err)
         raise InitError()
 
