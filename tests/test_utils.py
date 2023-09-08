@@ -1,3 +1,4 @@
+from typing import Tuple
 from unittest import mock
 import json
 
@@ -372,3 +373,15 @@ def test_deduplicate_and_sort_reqs():
     assert sorted_packages[0].name == "a"
     assert sorted_packages[0].specifier is True
     assert sorted_packages[0].specs == [("==", "0.9.5")]
+
+@pytest.mark.parametrize(
+    "argument",
+    [('NUMBER(38,0)','int'),
+    ('TIMESTAMP_NTZ(9)', 'datetime'),
+    ('TIMESTAMP_TZ(9)', 'datetime'),
+    ('VARCHAR(16777216)', 'string'),
+     ('FLOAT','float'),
+     ('ARRAY', 'array')]
+)
+def test_sql_to_python_return_type_mapper(argument: Tuple[str,str]):
+    assert utils.sql_to_python_return_type_mapper(argument[0]) == argument[1]
