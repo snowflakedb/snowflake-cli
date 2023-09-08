@@ -2,7 +2,7 @@ from typing import Optional
 import logging
 import typer
 
-from snowcli.cli.common.decorators import global_options_with_connection
+from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.output.decorators import with_output, catch_error
 
@@ -35,6 +35,8 @@ ProjectArgument = typer.Option(
 
 @app.command("init")
 @with_output
+@global_options
+@catch_error(InitError, exit_code=1)
 def app_init(
     name: str = typer.Argument(
         ..., help="Name of the Native Apps project to be initiated."
@@ -55,6 +57,7 @@ def app_init(
 
 @app.command("bundle", hidden=True)
 @with_output
+@global_options
 @catch_error(ArtifactError, exit_code=1)
 def app_bundle(
     project_path: Optional[str] = ProjectArgument,
