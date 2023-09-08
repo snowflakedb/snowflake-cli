@@ -30,7 +30,8 @@ from snowcli.utils import (
     prepare_app_zip,
     get_snowflake_packages,
     convert_resource_details_to_dict,
-    get_snowflake_packages_delta, sql_to_python_return_type_mapper,
+    get_snowflake_packages_delta,
+    sql_to_python_return_type_mapper,
 )
 
 
@@ -279,7 +280,8 @@ def procedure_update(
             replace = True
         elif (
             resource_json["handler"].lower() != handler.lower()
-            or sql_to_python_return_type_mapper(resource_json["returns"]) != return_type.lower()
+            or sql_to_python_return_type_mapper(resource_json["returns"])
+            != return_type.lower()
         ):
             log.info(
                 "Return type or handler types do not match. Replacing the procedure."

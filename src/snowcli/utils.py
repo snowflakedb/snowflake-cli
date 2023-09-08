@@ -583,13 +583,14 @@ def create_project_template(template_name: str):
         dirs_exist_ok=True,
     )
 
+
 def sql_to_python_return_type_mapper(resource_return_type: str) -> str:
 
     mapping = {
-        'number(38,0)': 'int',
-        'timestamp_ntz(9)': 'datetime',
-        'timestamp_tz(9)': 'datetime',
-        'varchar(16777216)': 'string'
-     }
+        "number(38,0)": "int",
+        "timestamp_ntz(9)": "datetime",
+        "timestamp_tz(9)": "datetime",
+        "varchar(16777216)": "string",
+    }
 
     return mapping.get(resource_return_type.lower(), resource_return_type.lower())
