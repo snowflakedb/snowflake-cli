@@ -76,9 +76,10 @@ class OutsideDeployRootError(ArtifactError):
 
 
 @dataclass
-class SrcDestPair:
+class ArtifactMapping:
     """
-    A pair of paths, relative to some context.
+    Used to keep track of equivalent paths / globs so we can copy
+    artifacts from the project folder to the deploy root.
     """
 
     src: str
@@ -117,44 +118,50 @@ def symlink_or_copy(src: Path, dst: Path, makedirs=True) -> None:
         shutil.copy(src, dst)
 
 
-def translate_artifact(item: Union[dict, str]) -> SrcDestPair:
+def translate_artifact(item: Union[dict, str]) -> ArtifactMapping:
     if isinstance(item, dict):
-        if "dest" in item:
-            return SrcDestPair(item["src"], item["dest"])
-        else:
-            return SrcDestPair(item["src"], item["src"])
+        return ArtifactMapping(item["src"], item.get("dest", item["src"]))
 
     elif isinstance(item, str):
-        return SrcDestPair(item, item)
+        return ArtifactMapping(item, item)
 
+    # XXX: validation should have caught this
+    raise ArtifactError("Item is not a valid artifact!")
+
+
+def get_source_paths(artifact: ArtifactMapping, project_root: Path) -> List[Path]:
+    """
+    Expands globs, ensuring at least one file exists that matches artifact.src.
+    Returns a list of paths that resolve to actual files in the project root dir structure.
+    """
+    source_paths: List[Path]
+
+    if is_glob(artifact.src):
+        source_paths = list(project_root.glob(artifact.src))
+        if not source_paths:
+            raise GlobMatchedNothingError(artifact.src)
     else:
-        # XXX: validation should have caught this
-        raise ArtifactError("Item is not a valid artifact!")
+        source_path = Path(project_root, artifact.src)
+        source_paths = [source_path]
+        if not source_path.exists():
+            raise SourceNotFoundError(source_path)
+
+    return source_paths
 
 
-def build_bundle(project_root: Path, deploy_root: Path, artifacts: List[SrcDestPair]):
+def build_bundle(
+    project_root: Path, deploy_root: Path, artifacts: List[ArtifactMapping]
+):
     """
     Prepares a local folder (deploy_root) with configured app artifacts.
     This folder can then be uploaded to a stage.
     """
-    if deploy_root.exists() and not deploy_root.is_dir():
-        raise ValueError(f"Deploy root {deploy_root} exists, but is not a directory!")
+    resolved_root = deploy_root.resolve()
+    if resolved_root.exists() and not resolved_root.is_dir():
+        raise ValueError(f"Deploy root {resolved_root} exists, but is not a directory!")
 
     for artifact in artifacts:
-        # build the list of source files
-        source_paths: List[Path]
-        if is_glob(artifact.src):
-            source_paths = list(project_root.glob(artifact.src))
-            if not source_paths:
-                raise GlobMatchedNothingError(artifact.src)
-        else:
-            source_path = Path(project_root, artifact.src)
-            source_paths = [source_path]
-            if not source_path.exists():
-                raise SourceNotFoundError(source_path)
-
-        # make sure we are only modifying files / directories inside deploy_root
-        resolved_root = deploy_root.resolve()
+        # make sure we are only modifying files / directories inside the deploy root
         dest_path = Path(resolved_root, artifact.dest).resolve()
         if resolved_root != dest_path and resolved_root not in dest_path.parents:
             raise OutsideDeployRootError(dest_path, resolved_root)
@@ -162,14 +169,16 @@ def build_bundle(project_root: Path, deploy_root: Path, artifacts: List[SrcDestP
         if dest_path.is_file():
             dest_path.unlink()
 
+        source_paths = get_source_paths(artifact, project_root)
+
         if specifies_directory(artifact.dest):
             # copy all files as children of the given destination path
             for source_path in source_paths:
                 symlink_or_copy(source_path, dest_path / source_path.name)
         else:
-            # copy a single file as the given destination path
             if len(source_paths) == 1:
-                symlink_or_copy(source_path, dest_path)
+                # copy a single file as the given destination path
+                symlink_or_copy(source_paths[0], dest_path)
             else:
                 # refuse to map multiple source files to one destination (undefined behaviour)
                 raise TooManyFilesError(dest_path)

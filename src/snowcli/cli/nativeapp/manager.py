@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 
-from .artifacts import build_bundle, translate_artifact, SrcDestPair
+from .artifacts import build_bundle, translate_artifact, ArtifactMapping
 from ..project.definition_manager import DefinitionManager
 
 
@@ -26,7 +26,7 @@ class NativeAppManager(SqlExecutionMixin):
         return self.definition_manager.project_definition["native_app"]
 
     @cached_property
-    def artifacts(self) -> List[SrcDestPair]:
+    def artifacts(self) -> List[ArtifactMapping]:
         return [translate_artifact(item) for item in self.definition["artifacts"]]
 
     @cached_property

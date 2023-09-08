@@ -9,7 +9,7 @@ from tests.testing_utils.fixtures import *
 from snowcli.cli.nativeapp.artifacts import (
     build_bundle,
     translate_artifact,
-    SrcDestPair,
+    ArtifactMapping,
     GlobMatchedNothingError,
     SourceNotFoundError,
     TooManyFilesError,
@@ -73,7 +73,7 @@ def test_source_not_found(project_definition_files):
         build_bundle(
             project_root,
             deploy_root=Path(project_root, "deploy"),
-            artifacts=[SrcDestPair("NOTFOUND.md", "NOTFOUND.md")],
+            artifacts=[ArtifactMapping("NOTFOUND.md", "NOTFOUND.md")],
         )
 
 
@@ -84,7 +84,7 @@ def test_glob_matched_nothing(project_definition_files):
         build_bundle(
             project_root,
             deploy_root=Path(project_root, "deploy"),
-            artifacts=[SrcDestPair("**/*.jar", ".")],
+            artifacts=[ArtifactMapping("**/*.jar", ".")],
         )
 
 
@@ -95,14 +95,14 @@ def test_outside_deploy_root_two_ways(project_definition_files):
         build_bundle(
             project_root,
             deploy_root=Path(project_root, "deploy"),
-            artifacts=[SrcDestPair("setup.sql", "..")],
+            artifacts=[ArtifactMapping("setup.sql", "..")],
         )
 
     with pytest.raises(OutsideDeployRootError):
         build_bundle(
             project_root,
             deploy_root=Path(project_root, "deploy"),
-            artifacts=[SrcDestPair("setup.sql", "/")],
+            artifacts=[ArtifactMapping("setup.sql", "/")],
         )
 
 
@@ -114,6 +114,6 @@ def test_too_many_files(project_definition_files):
             project_root,
             deploy_root=Path(project_root, "deploy"),
             artifacts=[
-                SrcDestPair("app/streamlit/*.py", "somehow_combined_streamlits.py")
+                ArtifactMapping("app/streamlit/*.py", "somehow_combined_streamlits.py")
             ],
         )
