@@ -9,18 +9,17 @@ from snowcli.cli.project.definition_manager import DefinitionManager
 
 
 class DefinitionManagerTest(TestCase):
-
-    exception_message = "Cannot find native app project configuration. Please provide a path to the project or run this command in a valid native app project directory."
+    exception_message = "Cannot find project definition (snowflake.yml). Please provide a path to the project or run this command in a valid project directory."
 
     def mock_definition_manager(self):
         return patch(
-            "snowcli.cli.project.definition_manager.DefinitionManager._find_config_files",
+            "snowcli.cli.project.definition_manager.DefinitionManager._find_definition_files",
             return_value=[Path("/hello/world/snowflake.yml")],
         )
 
-    def mock_base_config_files(self):
+    def mock_base_definition_files(self):
         return patch(
-            "snowcli.cli.project.definition_manager.DefinitionManager._base_config_file_if_available",
+            "snowcli.cli.project.definition_manager.DefinitionManager._base_definition_file_if_available",
             return_value=None,
         )
 
@@ -64,8 +63,8 @@ class DefinitionManagerTest(TestCase):
             ]
 
     @mock.patch("os.path.abspath", return_value="/tmp")
-    def test_find_config_files_reached_root(self, mock_abs):
-        with self.mock_base_config_files():
+    def test_find_definition_files_reached_root(self, mock_abs):
+        with self.mock_base_definition_files():
             with pytest.raises(Exception) as exception:
                 definition_manager = DefinitionManager("/tmp")
                 assert definition_manager.project_root == None
@@ -73,8 +72,8 @@ class DefinitionManagerTest(TestCase):
 
     @mock.patch("os.path.abspath", return_value="/usr/user1/project")
     @mock.patch("pathlib.Path.home", return_value="/usr/user1")
-    def test_find_config_files_reached_home(self, path_home, mock_abs):
-        with self.mock_base_config_files():
+    def test_find_definition_files_reached_home(self, path_home, mock_abs):
+        with self.mock_base_definition_files():
             with pytest.raises(Exception) as exception:
                 definition_manager = DefinitionManager("/usr/user1/project")
                 assert definition_manager.project_root == None
