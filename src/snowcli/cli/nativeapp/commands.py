@@ -45,6 +45,7 @@ def app_init(
         None,
         help="A git URL to use as template for the Native Apps project. Example: https://github.com/Snowflake-Labs/native-apps-templates.git",
     ),
+    **options,
 ) -> CommandResult:
     """
     Initialize a Native Apps project, optionally with a --template.
@@ -61,6 +62,7 @@ def app_init(
 @catch_error(ArtifactError, exit_code=1)
 def app_bundle(
     project_path: Optional[str] = ProjectArgument,
+    **options,
 ) -> CommandResult:
     """
     Prepares a local folder with configured app artifacts.

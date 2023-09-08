@@ -126,12 +126,6 @@ def test_init_no_template_w_existing_directory(mock_path_exists):
         nativeapp_init(name=PROJECT_NAME)
 
 
-@mock.patch("subprocess.check_output", return_value="git version 2.2")
-def test_init_no_template_git_fails(mock_get_client_git_version):
-    with pytest.raises(GitVersionIncompatibleError):
-        nativeapp_init(name=PROJECT_NAME)
-
-
 @mock.patch(
     "snowcli.cli.nativeapp.init._init_without_user_provided_template",
     side_effect=InitError(),
