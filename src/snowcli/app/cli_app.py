@@ -8,6 +8,7 @@ import typer
 import click
 
 from snowcli import __about__
+from snowcli.app.dev.commands_structure import generate_commands_structure
 from snowcli.app.main_typer import SnowCliMainTyper
 from snowcli.config import config_init, cli_config
 from snowcli.app.dev.docs.generator import generate_docs
@@ -26,6 +27,13 @@ def _docs_callback(value: bool):
     if value:
         ctx = click.get_current_context()
         generate_docs(Path("gen_docs"), ctx.command)
+        raise typer.Exit()
+
+
+def _commands_callback(value: bool):
+    if value:
+        ctx = click.get_current_context()
+        generate_commands_structure(ctx.command).print()
         raise typer.Exit()
 
 
@@ -62,6 +70,14 @@ def default(
         hidden=True,
         help="Generates Snowflake CLI documentation",
         callback=_docs_callback,
+        is_eager=True,
+    ),
+    structure: bool = typer.Option(
+        None,
+        "--structure",
+        hidden=True,
+        help="Prints Snowflake CLI structure of commands",
+        callback=_commands_callback,
         is_eager=True,
     ),
     info: bool = typer.Option(
