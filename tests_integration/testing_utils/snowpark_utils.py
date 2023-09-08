@@ -295,7 +295,7 @@ class SnowparkTestSteps:
         )
 
         assert_that_result_is_successful_and_output_json_equals(
-            result, [{"message": "No packages to update. Deployment complete!"}]
+            result, {"message": "No packages to update. Deployment complete!"}
         )
 
     def snowpark_update_should_finish_successfully(
