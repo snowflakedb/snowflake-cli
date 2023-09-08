@@ -10,7 +10,7 @@ import os
 import re
 import shutil
 import subprocess
-import sys
+import git
 import warnings
 from typing import Dict, List, Literal, Optional
 from pathlib import Path

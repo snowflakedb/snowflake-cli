@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-import sys
+import os
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
@@ -173,11 +173,12 @@ def render_snowflake_yml(parent_to_snowflake_yml: Path):
             data={"project_name": parent_to_snowflake_yml.name},
             output_file_path=parent_to_snowflake_yml.joinpath("snowflake.yml"),
         )
-        subprocess.run(
-            f"rm {snowflake_yml_jinja}",
-            shell=True,
-            cwd=str(parent_to_snowflake_yml),
-        )
+        os.remove(parent_to_snowflake_yml.joinpath(snowflake_yml_jinja))
+        # subprocess.run(
+        #     f"rm {snowflake_yml_jinja}",
+        #     shell=True,
+        #     cwd=str(parent_to_snowflake_yml),
+        # )
     except Exception as err:
         log.error(err)
         raise RenderingFromJinjaError(
@@ -211,11 +212,12 @@ def render_nativeapp_readme(parent_to_readme: Path, project_name: str):
             },
             output_file_path=parent_to_readme.joinpath("README.md"),
         )
-        subprocess.run(
-            f"rm {readme_jinja}",
-            shell=True,
-            cwd=str(parent_to_readme),
-        )
+        os.remove(parent_to_readme.joinpath(readme_jinja))
+        # subprocess.run(
+        #     f"rm {readme_jinja}",
+        #     shell=True,
+        #     cwd=str(parent_to_readme),
+        # )
     except Exception as err:
         log.error(err)
         raise RenderingFromJinjaError("Error rendering README.md from readme.md.jinja.")
