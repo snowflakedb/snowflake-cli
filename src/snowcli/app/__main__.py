@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 
-from snowcli.cli.app import app
+from snowcli.app.cli_app import app
 
 
 def main(*args):

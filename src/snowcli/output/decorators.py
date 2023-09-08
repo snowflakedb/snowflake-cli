@@ -3,18 +3,18 @@ from __future__ import annotations
 from functools import wraps
 
 from snowcli.exception import CommandReturnTypeError
-from snowcli.output.printing import OutputData
+from snowcli.output.printing import print_result
 from snowflake.connector.cursor import SnowflakeCursor
+from snowcli.output.types import CommandResult
 
 
 def with_output(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         output_data = func(*args, **kwargs)
-
-        if not isinstance(output_data, OutputData):
+        if not isinstance(output_data, CommandResult):
             raise CommandReturnTypeError(type(output_data))
-        output_data.print()
+        print_result(output_data)
 
     return wrapper
 

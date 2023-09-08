@@ -14,14 +14,12 @@ from snowcli.cli.snowpark.package.manager import (
     upload,
 )
 from snowcli.cli.snowpark.package.utils import (
-    InAnaconda,
     NotInAnaconda,
     RequiresPackages,
-    NothingFound,
     CreatedSuccessfully,
 )
 from snowcli.output.decorators import with_output
-from snowcli.output.printing import OutputData
+from snowcli.output.types import MessageResult, CommandResult
 
 app = typer.Typer(
     name="package",
@@ -43,7 +41,7 @@ def package_lookup(
         help="Install packages that are not available on the Snowflake anaconda channel",
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """
     Checks if a package is available on the Snowflake anaconda channel.
     In install_packages flag is set to True, command will check all the dependencies of the packages
@@ -51,7 +49,7 @@ def package_lookup(
     """
     lookup_result = lookup(name=name, install_packages=install_packages)
     cleanup_after_install()
-    return OutputData.from_string(lookup_result.message)
+    return MessageResult(lookup_result.message)
 
 
 @app.command("upload")
@@ -78,11 +76,11 @@ def package_upload(
         help="Overwrite the file if it already exists",
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """
     Upload a python package zip file to a Snowflake stage, so it can be referenced in the imports of a procedure or function.
     """
-    return OutputData.from_string(upload(file=file, stage=stage, overwrite=overwrite))
+    return MessageResult(upload(file=file, stage=stage, overwrite=overwrite))
 
 
 @app.command("create")
@@ -100,7 +98,7 @@ def package_create(
         help="Install packages that are not available on the Snowflake anaconda channel",
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """
     Create a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
     """
@@ -120,4 +118,4 @@ def package_create(
         message = lookup_result.message
 
     cleanup_after_install()
-    return OutputData.from_string(message)
+    return MessageResult(message)

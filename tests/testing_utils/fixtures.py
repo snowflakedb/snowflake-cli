@@ -115,6 +115,7 @@ def mock_cursor():
             super().__init__(mock.Mock())
             self._rows = rows
             self._columns = [MockResultMetadata(c) for c in columns]
+            self.query = "SELECT A MOCK QUERY"
 
         def fetchone(self):
             if self._rows:
@@ -150,7 +151,7 @@ def package_file():
 
 @pytest.fixture(scope="function")
 def runner(test_snowcli_config):
-    from snowcli.cli.app import app
+    from snowcli.app.cli_app import app
 
     return SnowCLIRunner(app, test_snowcli_config)
 

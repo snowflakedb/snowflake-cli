@@ -3,9 +3,14 @@ description: File a bug report
 body:
   - type: input
     attributes:
+      label: "SnowCLI version"
+      description: "What version of snow are you using?"
+      placeholder: "Run `snow --version`"
+  - type: input
+    attributes:
       label: "Python version"
       description: "What version of Python are you using?"
-      placeholder: "Run `python --version --version`"
+      placeholder: "Run `python --version`"
   - type: input
     attributes:
       label: "Platform"

@@ -5,7 +5,7 @@ import json
 import pytest
 from dataclasses import dataclass
 from pathlib import Path
-from snowcli.cli.app import app
+from snowcli.app.cli_app import app
 from tempfile import NamedTemporaryFile
 from typer import Typer
 from typer.testing import CliRunner
@@ -17,7 +17,7 @@ TEST_DIR = Path(__file__).parent
 @dataclass
 class CommandResult:
     exit_code: int
-    json: Optional[List[Dict[str, Any]]] = None
+    json: Optional[List[Dict[str, Any]] | Dict[str, Any]] = None
     output: Optional[str] = None
 
 

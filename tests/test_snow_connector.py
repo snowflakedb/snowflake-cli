@@ -53,7 +53,7 @@ def test_registry_get_token(mock_conn, runner):
     }
     result = runner.invoke(["snowpark", "registry", "token", "--format", "JSON"])
     assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout) == [{"token": "token1234", "expires_in": 42}]
+    assert json.loads(result.stdout) == {"token": "token1234", "expires_in": 42}
 
 
 @mock.patch.dict(os.environ, {}, clear=True)

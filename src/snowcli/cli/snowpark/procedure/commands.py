@@ -24,7 +24,12 @@ from snowcli.cli.snowpark_shared import (
 )
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
-from snowcli.output.printing import OutputData
+from snowcli.output.types import (
+    MessageResult,
+    CommandResult,
+    SingleQueryResult,
+    QueryResult,
+)
 from snowcli.utils import (
     create_project_template,
     prepare_app_zip,
@@ -47,12 +52,12 @@ app.add_typer(procedure_coverage_app)
 
 @app.command("init")
 @with_output
-def procedure_init() -> OutputData:
+def procedure_init() -> CommandResult:
     """
     Initialize this directory with a sample set of files to create a procedure.
     """
     create_project_template("default_procedure")
-    return OutputData.from_string("Done")
+    return MessageResult("Done")
 
 
 @app.command("create")
@@ -110,7 +115,7 @@ def procedure_create(
         help="Wraps the procedure with a code coverage measurement tool, so that a coverage report can be later retrieved.",
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """Creates a python procedure using local artifact."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
@@ -144,7 +149,7 @@ def procedure_create(
         overwrite=overwrite,
         execute_as_caller=execute_as_caller,
     )
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)
 
 
 def _upload_procedure_artifact(
@@ -238,7 +243,7 @@ def procedure_update(
         help="Wraps the procedure with a code coverage measurement tool, so that a coverage report can be later retrieved.",
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """Updates an existing python procedure using local artifact."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
@@ -311,9 +316,9 @@ def procedure_update(
             overwrite=True,
             execute_as_caller=execute_as_caller,
         )
-        return OutputData.from_cursor(cursor)
+        return SingleQueryResult(cursor)
 
-    return OutputData.from_string("No packages to update. Deployment complete!")
+    return MessageResult("No packages to update. Deployment complete!")
 
 
 @app.command("package")
@@ -322,14 +327,14 @@ def procedure_package(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
-) -> OutputData:
+) -> CommandResult:
     """Packages procedure code into zip file."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps,
         package_native_libraries,  # type: ignore[arg-type]
     )
-    return OutputData.from_string("Done")
+    return MessageResult("Done")
 
 
 @app.command("execute")
@@ -343,10 +348,10 @@ def procedure_execute(
         help="Procedure with inputs. E.g. 'hello(int, string)'. Must exactly match those provided when creating the procedure.",
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """Executes a Snowflake procedure."""
     cursor = ProcedureManager().execute(expression=signature)
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)
 
 
 @app.command("describe")
@@ -367,7 +372,7 @@ def procedure_describe(
         help="Procedure signature with inputs. E.g. 'hello(int, string)'",
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """Describes a Snowflake procedure."""
     cursor = ProcedureManager().describe(
         ProcedureManager.identifier(
@@ -376,7 +381,7 @@ def procedure_describe(
             name_and_signature=signature,
         )
     )
-    return OutputData.from_cursor(cursor)
+    return QueryResult(cursor)
 
 
 @app.command("list")
@@ -390,10 +395,10 @@ def procedure_list(
         help='Filter procedures by name - e.g. "hello%"',
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """Lists Snowflake procedures."""
     cursor = ProcedureManager().show(like=like)
-    return OutputData.from_cursor(cursor)
+    return QueryResult(cursor)
 
 
 @app.command("drop")
@@ -414,7 +419,7 @@ def procedure_drop(
         help="Procedure signature with inputs. E.g. 'hello(int, string)'",
     ),
     **options,
-) -> OutputData:
+) -> CommandResult:
     """Drops a Snowflake procedure."""
     cursor = ProcedureManager().drop(
         ProcedureManager.identifier(
@@ -423,7 +428,7 @@ def procedure_drop(
             name_and_signature=signature,
         )
     )
-    return OutputData.from_cursor(cursor)
+    return SingleQueryResult(cursor)
 
 
 def _replace_handler_in_zip(

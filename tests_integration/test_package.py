@@ -64,11 +64,9 @@ class TestPackage:
         result = runner.invoke_integration(["snowpark", "package", "create", "PyRTF3"])
 
         assert_that_result_is_successful(result)
-        assert result.json == [
-            {
-                "result": "Lookup for package PyRTF3 resulted in some error. Please check the package name or try again with -y option"
-            }
-        ]
+        assert result.json == {
+            "message": "Lookup for package PyRTF3 resulted in some error. Please check the package name or try again with -y option"
+        }
         assert not os.path.exists("PyRTF3.zip")
 
     @pytest.fixture

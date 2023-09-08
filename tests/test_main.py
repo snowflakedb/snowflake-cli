@@ -2,10 +2,6 @@
 from __future__ import annotations
 
 import json
-import os
-from pathlib import Path
-from textwrap import dedent
-from unittest import mock
 import typing as t
 
 import click
@@ -62,7 +58,7 @@ def test_info_callback(runner):
 
 
 def test_all_commands_has_proper_documentation():
-    from snowcli.cli.app import app
+    from snowcli.app.cli_app import app
 
     ctx = click.Context(get_command(app))
     errors = []

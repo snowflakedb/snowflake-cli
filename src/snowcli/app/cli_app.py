@@ -8,12 +8,16 @@ import typer
 import click
 
 from snowcli import __about__
-from snowcli.cli.main.snow_cli_main_typer import SnowCliMainTyper
+from snowcli.app.dev.commands_structure import generate_commands_structure
+from snowcli.app.main_typer import SnowCliMainTyper
 from snowcli.config import config_init, cli_config
-from snowcli.docs.generator import generate_docs
+from snowcli.app.dev.docs.generator import generate_docs
 from snowcli.output.formats import OutputFormat
-from snowcli.output.printing import OutputData
-from snowcli.pycharm_remote_debug import setup_pycharm_remote_debugger_if_provided
+from snowcli.output.printing import print_result
+from snowcli.output.types import CollectionResult
+from snowcli.app.dev.pycharm_remote_debug import (
+    setup_pycharm_remote_debugger_if_provided,
+)
 
 app: SnowCliMainTyper = SnowCliMainTyper()
 log = logging.getLogger(__name__)
@@ -26,6 +30,13 @@ def _docs_callback(value: bool):
         raise typer.Exit()
 
 
+def _commands_structure_callback(value: bool):
+    if value:
+        ctx = click.get_current_context()
+        generate_commands_structure(ctx.command).print()
+        raise typer.Exit()
+
+
 def _version_callback(value: bool):
     if value:
         typer.echo(f"SnowCLI Version: {__about__.VERSION}")
@@ -34,13 +45,13 @@ def _version_callback(value: bool):
 
 def _info_callback(value: bool):
     if value:
-        OutputData.from_list(
+        result = CollectionResult(
             [
                 {"key": "version", "value": __about__.VERSION},
                 {"key": "default_config_file_path", "value": cli_config.file_path},
             ],
-            format_=OutputFormat.JSON,
-        ).print()
+        )
+        print_result(result, output_format=OutputFormat.JSON)
         raise typer.Exit()
 
 
@@ -59,6 +70,14 @@ def default(
         hidden=True,
         help="Generates Snowflake CLI documentation",
         callback=_docs_callback,
+        is_eager=True,
+    ),
+    structure: bool = typer.Option(
+        None,
+        "--structure",
+        hidden=True,
+        help="Prints Snowflake CLI structure of commands",
+        callback=_commands_structure_callback,
         is_eager=True,
     ),
     info: bool = typer.Option(
