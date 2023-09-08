@@ -6,7 +6,6 @@ from snowcli.cli.nativeapp.init import (
     nativeapp_init,
     CannotInitializeAnExistingProjectError,
     DirectoryAlreadyExistsError,
-    GitVersionIncompatibleError,
     InitError,
 )
 from tests.testing_utils.fixtures import *

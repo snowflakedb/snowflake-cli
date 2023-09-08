@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
-from typer import Abort
 from click.exceptions import ClickException
 
 
@@ -14,7 +13,7 @@ from snowcli.cli.project.definition import DEFAULT_USERNAME
 from snowcli.cli.project.util import clean_identifier, get_env_username
 from snowcli.cli.render.commands import generic_render_template
 
-from src.snowcli.utils import get_client_git_version
+from snowcli.utils import get_client_git_version
 
 
 log = logging.getLogger(__name__)
