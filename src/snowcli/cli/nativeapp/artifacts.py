@@ -1,16 +1,18 @@
 import os
 import shutil
+from click import ClickException
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Optional
 from dataclasses import dataclass
 
 
-class ArtifactError(Exception):
+class ArtifactError(ClickException):
     """
     Common base class for all artifact errors.
     """
 
-    pass
+    def __init__(self, msg: Optional[str] = None):
+        super().__init__(msg or self.__doc__)
 
 
 class GlobMatchedNothingError(ArtifactError):
@@ -18,8 +20,7 @@ class GlobMatchedNothingError(ArtifactError):
     No files were found that matched the provided glob pattern.
     """
 
-    def __str__(self):
-        return self.__doc__
+    pass
 
 
 class SourceNotFoundError(ArtifactError):
@@ -31,11 +32,8 @@ class SourceNotFoundError(ArtifactError):
     path: Path
 
     def __init__(self, path: Path):
-        super().__init__()
+        super().__init__(self.__doc__ + f"\npath = {path}")
         self.path = path
-
-    def __str__(self):
-        return self.__doc__ + f"\npath = {self.path}"
 
 
 class TooManyFilesError(ArtifactError):
@@ -46,11 +44,8 @@ class TooManyFilesError(ArtifactError):
     dest_path: Path
 
     def __init__(self, dest_path: Path):
-        super().__init__()
+        super().__init__(self.__doc__ + f"\ndest_path = {dest_path}")
         self.dest_path = dest_path
-
-    def __str__(self):
-        return self.__doc__ + f"\ndest_path = {self.dest_path}"
 
 
 class OutsideDeployRootError(ArtifactError):
@@ -63,16 +58,13 @@ class OutsideDeployRootError(ArtifactError):
     deploy_root: Path
 
     def __init__(self, dest_path: Path, deploy_root: Path):
-        super().__init__()
+        super().__init__(
+            self.__doc__
+            + f"\ndest_path = {dest_path}"
+            + f"\ndeploy_root = {deploy_root}"
+        )
         self.dest_path = dest_path
         self.deploy_root = deploy_root
-
-    def __str__(self):
-        return (
-            self.__doc__
-            + f"\ndest_path = {self.dest_path}"
-            + f"\ndeploy_root = {self.deploy_root}"
-        )
 
 
 @dataclass

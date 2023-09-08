@@ -4,11 +4,10 @@ import typer
 
 from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
-from snowcli.output.decorators import with_output, catch_error
+from snowcli.output.decorators import with_output
 
-from .init import nativeapp_init, _init_without_user_provided_template, InitError
+from .init import nativeapp_init
 from .manager import NativeAppManager
-from .artifacts import ArtifactError
 
 from snowcli.output.types import (
     CommandResult,
@@ -17,7 +16,7 @@ from snowcli.output.types import (
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    hidden=True,
+    hidden=False,
     name="app",
     help="Manage Native Apps in Snowflake",
 )
@@ -36,7 +35,6 @@ ProjectArgument = typer.Option(
 @app.command("init")
 @with_output
 @global_options
-@catch_error(InitError, exit_code=1)
 def app_init(
     name: str = typer.Argument(
         ..., help="Name of the Native Apps project to be initiated."
@@ -56,10 +54,9 @@ def app_init(
     )
 
 
-@app.command("bundle", hidden=True)
+@app.command("bundle", hidden=False)
 @with_output
 @global_options
-@catch_error(ArtifactError, exit_code=1)
 def app_bundle(
     project_path: Optional[str] = ProjectArgument,
     **options,

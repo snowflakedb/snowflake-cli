@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 from typer import Abort
+from click import ClickException
 
 from typing import Optional
 from snowcli.cli.project.definition import DEFAULT_USERNAME
@@ -20,13 +21,13 @@ SNOWFLAKELABS_GITHUB_URL = "https://github.com/Snowflake-Labs/native-app-templat
 BASIC_TEMPLATE = "native-app-basic"
 
 
-class InitError(Exception):
+class InitError(ClickException):
     """
     Native app project could not be initiated due to an underlying error.
     """
 
-    def __str__(self):
-        return self.__doc__
+    def __init__(self, msg: Optional[str] = None):
+        super().__init__(msg or self.__doc__)
 
 
 class GitVersionIncompatibleError(InitError):
@@ -50,13 +51,8 @@ class RenderingFromJinjaError(InitError):
     Could not complete rendering file from Jinja template.
     """
 
-    message: str | None
-
     def __init__(self, message: str | None = None):
-        self.message = message
-
-    def __str__(self):
-        return self.message + f"\n{self.__doc__}"
+        super.__init__(f"{message or ''}\n{self.__doc__}")
 
 
 class CannotInitializeAnExistingProjectError(InitError):
@@ -64,8 +60,7 @@ class CannotInitializeAnExistingProjectError(InitError):
     Cannot initialize a new project within an existing Native Application project.
     """
 
-    def __str__(self):
-        return self.__doc__
+    pass
 
 
 class DirectoryAlreadyExistsError(InitError):
@@ -76,11 +71,10 @@ class DirectoryAlreadyExistsError(InitError):
     name: str
 
     def __init__(self, name: str):
-        super().__init__()
+        super().__init__(
+            f"This directory already contains a sub-directory called {name}. Please try a different name."
+        )
         self.name = name
-
-    def __str__(self):
-        return f"This directory already contains a sub-directory called {self.name}. Please try a different name."
 
 
 def _sparse_checkout(
