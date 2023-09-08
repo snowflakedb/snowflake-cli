@@ -142,23 +142,18 @@ def streamlit_deploy(
     ),
     use_packaging_workaround: bool = typer.Option(
         False,
-        help="Set this flag to package all code and dependencies into a zip file. "
-        + "This should be considered a temporary workaround until native support is available.",
+        help="Set this flag to package all code and dependencies into a zip file. This should be considered a temporary workaround until native support is available.",
     ),
     packaging_workaround_includes_content: bool = typer.Option(
         False,
-        help="Set this flag to unzip the package to the working directory. "
-        + "Use this if your directory contains non-code files that you need "
-        + "to access within your Streamlit app.",
+        help="Set this flag to unzip the package to the working directory. Use this if your directory contains non-code files that you need to access within your Streamlit app.",
     ),
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
     excluded_anaconda_deps: str = typer.Option(
         None,
-        help="Sometimes Streamlit fails to import an Anaconda package at runtime. "
-        + "Provide a comma-separated list of package names to exclude them from "
-        + "environment.yml (noting the risk of runtime errors).",
+        help="Sometimes Streamlit fails to import an Anaconda package at runtime. Provide a comma-separated list of package names to exclude them from environment.yml (noting the risk of runtime errors).",
     ),
     **options,
 ) -> CommandResult:
