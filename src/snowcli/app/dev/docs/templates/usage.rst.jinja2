@@ -7,7 +7,7 @@ Syntax
 
   snow {% for part in path %}{{ part }}{{ " " if not loop.last }}{% endfor %}
 {%- for param in options if not param.hidden %}
-{{ "    " + param.opts[-1] }}{% if not param.is_flag %} <{{ param.name }}>{% endif %}
+{{ "    " + param.opts[0] }}{% if not param.is_flag %} <{{ param.name }}>{% endif %}
 {%- endfor %}
 
 Arguments
@@ -32,4 +32,8 @@ Options
 :samp:`{% for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %}{% if not param.is_flag %} {{ '{' }}{{ param.name }}{{ '}' }}{% endif %}`
 {% if param.help %}{{ "  " + param.help }}{% if param.help[-1] != '.' %}.{% endif %}{% else %}  TBD{% endif %}
 {% endfor %}
-{%- else %}None{% endif %}
+{%- else %}
+
+None
+
+{% endif %}

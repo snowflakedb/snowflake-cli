@@ -17,8 +17,8 @@ _CLI_BEHAVIOUR = "Global configuration"
 
 ConnectionOption = typer.Option(
     None,
-    "-c",
     "--connection",
+    "-c",
     "--environment",
     help=f"Connection / environment name. If not provided then default connection will be used.",
     callback=ConnectionDetails.update_callback("connection_name"),
@@ -38,7 +38,7 @@ AccountOption = typer.Option(
 
 UserOption = typer.Option(
     None,
-    "-user",
+    "--user",
     "--username",
     help="Username to connect to Snowflake. Overrides value from connection.",
     callback=ConnectionDetails.update_callback("user"),
@@ -48,8 +48,8 @@ UserOption = typer.Option(
 
 PasswordOption = typer.Option(
     None,
-    "-p",
     "--password",
+    "-p",
     help="Snowflake password. Overrides value from connection.",
     hide_input=True,
     callback=ConnectionDetails.update_callback("password"),
