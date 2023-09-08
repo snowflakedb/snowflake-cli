@@ -14,14 +14,14 @@ from snowcli.output.types import QueryResult, CommandResult, MultipleResults
 def execute_sql(
     query: Optional[str] = typer.Option(
         None,
-        "-q",
         "--query",
+        "-q",
         help="Query to execute.",
     ),
     file: Optional[Path] = typer.Option(
         None,
-        "-f",
         "--filename",
+        "-f",
         exists=True,
         file_okay=True,
         dir_okay=False,
