@@ -1,6 +1,5 @@
 from snowcli.cli.nativeapp.init import (
     render_snowflake_yml,
-    _sparse_checkout,
     render_nativeapp_readme,
     nativeapp_init,
     CannotInitializeAnExistingProjectError,
@@ -11,20 +10,6 @@ from tests.testing_utils.fixtures import *
 from textwrap import dedent
 
 PROJECT_NAME = "demo_na_project"
-
-
-# def test_sparse_checkout(other_directory):
-#     temp_dir = other_directory
-#     _sparse_checkout(
-#         git_url="https://github.com/Snowflake-Labs/sf-samples",
-#         repo_sub_directory="samples",
-#         target_parent_directory=os.path.abspath(temp_dir),
-#     )
-#     cloned_repo = Path(temp_dir)
-
-#     assert cloned_repo.exists()
-#     assert cloned_repo.joinpath("samples").exists()
-#     assert not cloned_repo.joinpath("README.md").exists()
 
 
 def test_render_snowflake_yml(other_directory):

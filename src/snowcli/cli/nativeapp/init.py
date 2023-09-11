@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-import subprocess
 from tempfile import TemporaryDirectory
 from click.exceptions import ClickException
 from shutil import move
@@ -15,8 +14,6 @@ from snowcli.cli.project.definition import DEFAULT_USERNAME
 from snowcli.cli.project.util import clean_identifier, get_env_username
 from snowcli.cli.common.utils import generic_render_template
 
-from snowcli.utils import get_client_git_version
-
 
 log = logging.getLogger(__name__)
 
@@ -27,24 +24,6 @@ BASIC_TEMPLATE = "native-app-basic"
 class InitError(ClickException):
     """
     Native app project could not be initiated due to an underlying error.
-    """
-
-    def __init__(self):
-        super().__init__(self.__doc__)
-
-
-class GitVersionIncompatibleError(ClickException):
-    """
-    Init requires git version to be at least 2.25.0. Please update git and try again.
-    """
-
-    def __init__(self):
-        super().__init__(self.__doc__)
-
-
-class GitCloneError(ClickException):
-    """
-    Could not complete git clone with the specified git repository URL.
     """
 
     def __init__(self):
@@ -83,49 +62,6 @@ class DirectoryAlreadyExistsError(ClickException):
             f"This directory already contains a sub-directory called {name}. Please try a different name."
         )
         self.name = name
-
-
-def _sparse_checkout(
-    git_url: str, repo_sub_directory: str, target_parent_directory: str
-):
-    """
-    Clone the requested sub directory of a git repository from the provided git url.
-
-    Args:
-        git_url (str): The full git url to the repository to be cloned.
-        repo_sub_directory (str): The sub directory name within the repository to be cloned.
-        target_parent_directory (str): The parent directory where the git repository will be cloned into.
-
-    Returns:
-        None
-    """
-
-    clone_command = (
-        f"git clone -n --depth=1 --filter=tree:0 {git_url} {target_parent_directory}"
-    )
-    sparse_checkout_command = f"""
-        cd {target_parent_directory} &&
-            git sparse-checkout set --no-cone {repo_sub_directory} &&
-                git checkout
-        """
-    try:
-        subprocess.run(
-            clone_command,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        subprocess.run(
-            sparse_checkout_command,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-    except subprocess.CalledProcessError as err:
-        log.error(err.stderr)
-        raise GitCloneError()
 
 
 def render_snowflake_yml(parent_to_snowflake_yml: Path):
@@ -253,9 +189,6 @@ def nativeapp_init(name: str, template: Optional[str] = None):
         # Implementation to be added as part of https://snowflakecomputing.atlassian.net/browse/SNOW-896905
         pass
     else:  # No template provided, use Native Apps Basic Template
-        # The logic makes use of git sparse checkout, which was introduced in git 2.25.0. Check client's installed git version.
-        # if get_client_git_version() < (2, 25):
-        #     raise GitVersionIncompatibleError()
         _init_without_user_provided_template(
             current_working_directory=current_working_directory,
             project_name=name,
