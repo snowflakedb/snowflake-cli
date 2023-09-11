@@ -37,35 +37,35 @@ log = logging.getLogger(__name__)
 app = typer.Typer(
     name="function",
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    help="Manage user defined functions",
+    help="Manages user defined functions.",
 )
 
 HandlerOption = typer.Option(
     ...,
     "--handler",
     "-h",
-    help="Handler",
+    help="Path to the file containing the handler code for the stored procedure.",
 )
 
 InputParametersOption = typer.Option(
     ...,
     "--input-parameters",
     "-i",
-    help="Input parameters - such as (message string, count int)",
+    help="Input parameters for this function as a comma-separated string, such as (``message string``, ``count int``).",
 )
 
 OptionalInputParametersOption = typer.Option(
     None,
     "--input-parameters",
     "-i",
-    help="Input parameters - such as (message string, count int)",
+    help="Input parameters for this function as a comma-separated string, such as (message string, count int)",
 )
 
 ReturnTypeOption = typer.Option(
     ...,
     "--return-type",
     "-r",
-    help="Return type",
+    help="Data type for the function to return.",
 )
 
 
@@ -73,7 +73,7 @@ ReturnTypeOption = typer.Option(
 @with_output
 def function_init():
     """
-    Initialize this directory with a sample set of files to create a function.
+    Initializes this directory with a sample set of files for creating a function.
     """
     create_project_template("default_function")
     return MessageResult("Done")
@@ -90,13 +90,13 @@ def function_create(
         ...,
         "--name",
         "-n",
-        help="Name of the function",
+        help="Name of the function.",
     ),
     file: Path = typer.Option(
         "app.zip",
         "--file",
         "-f",
-        help="Path to the file or folder to deploy",
+        help="Path to the file or folder to deploy.",
         exists=False,
     ),
     handler: str = HandlerOption,
@@ -106,11 +106,11 @@ def function_create(
         False,
         "--overwrite",
         "-o",
-        help="Replace if existing function",
+        help="Whether to replace an existing function with this one.",
     ),
     **options,
 ) -> CommandResult:
-    """Creates a python UDF/UDTF using local artifact."""
+    """Creates a python UDF or UDTF using a local artifact."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps,
@@ -169,12 +169,12 @@ def function_update(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
-    name: str = typer.Option(..., "--name", "-n", help="Name of the function"),
+    name: str = typer.Option(..., "--name", "-n", help="Name of the function."),
     file: Path = typer.Option(
         "app.zip",
         "--file",
         "-f",
-        help="Path to the file to update",
+        help="Path to the file or folder with the updated function definition.",
         exists=False,
     ),
     handler: str = HandlerOption,
@@ -184,11 +184,11 @@ def function_update(
         False,
         "--replace-always",
         "-a",
-        help="Replace function, even if no detected changes to metadata",
+        help="Whether to replace the function even in no changes to the metadata are detected.",
     ),
     **options,
 ) -> CommandResult:
-    """Updates an existing python UDF/UDTF using local artifact."""
+    """Updates an existing python UDF or UDTF using a local artifact."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps,
@@ -275,11 +275,11 @@ def function_execute(
         ...,
         "--function",
         "-f",
-        help="Function with inputs. E.g. 'hello(int, string)'",
+        help="String containing the function signature with its parameters, such as 'hello(int, string)'.",
     ),
     **options,
 ) -> CommandResult:
-    """Executes a Snowflake function."""
+    """Executes a function in a Snowflake environment."""
     cursor = FunctionManager().execute(expression=function)
     return SingleQueryResult(cursor)
 
@@ -288,13 +288,13 @@ def function_execute(
 @with_output
 @global_options_with_connection
 def function_describe(
-    name: str = typer.Option("", "--name", "-n", help="Name of the function"),
+    name: str = typer.Option("", "--name", "-n", help="Name of the function."),
     input_parameters: str = OptionalInputParametersOption,
     function: str = typer.Option(
         "",
         "--function",
         "-f",
-        help="Function signature with inputs. E.g. 'hello(int, string)'",
+        help="String containing the function signature with its parameters, such as 'hello(int, string)'.",
     ),
     **options,
 ) -> CommandResult:
@@ -315,11 +315,11 @@ def function_list(
         "%%",
         "--like",
         "-l",
-        help='Filter functions by name - e.g. "hello%"',
+        help='Regular expression for filtering the functions by name. For example, ``list --file "my%"`` lists all functions in the **dev** (default) environment that begin with “my”.',
     ),
     **options,
 ) -> CommandResult:
-    """Lists Snowflake functions."""
+    """Displays the functions available in a specified environment, with the option to filter the results."""
     cursor = FunctionManager().show(like=like)
     return QueryResult(cursor)
 
@@ -328,17 +328,17 @@ def function_list(
 @with_output
 @global_options_with_connection
 def function_drop(
-    name: str = typer.Option("", "--name", "-n", help="Name of the function"),
+    name: str = typer.Option("", "--name", "-n", help="Name of the function."),
     input_parameters: str = OptionalInputParametersOption,
     signature: str = typer.Option(
         "",
         "--function",
         "-f",
-        help="Function signature with inputs. E.g. 'hello(int, string)'",
+        help="String containing the function signature with its parameters, such as 'hello(int, string)'.",
     ),
     **options,
 ) -> CommandResult:
-    """Drops a Snowflake function."""
+    """Deletes a function from a specified environment."""
     cursor = FunctionManager().drop(
         identifier=FunctionManager.identifier(
             name=name, signature=input_parameters, name_and_signature=signature

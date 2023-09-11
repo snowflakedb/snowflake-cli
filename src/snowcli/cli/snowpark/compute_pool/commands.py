@@ -10,7 +10,7 @@ from snowcli.output.types import SingleQueryResult, QueryResult, CommandResult
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     name="compute-pool",
-    help="Manage compute pools. You can also use cp as alias for this command",
+    help="Manages compute pools. You can also use ``cp`` as alias for this command.",
 )
 
 
@@ -18,13 +18,20 @@ app = typer.Typer(
 @with_output
 @global_options_with_connection
 def create(
-    name: str = typer.Option(..., "--name", "-n", help="Compute pool name"),
-    num_instances: int = typer.Option(..., "--num", "-d", help="Number of instances"),
-    instance_family: str = typer.Option(..., "--family", "-f", help="Instance family"),
+    name: str = typer.Option(..., "--name", "-n", help="Name of the compute pool."),
+    num_instances: int = typer.Option(
+        ..., "--num", "-d", help="Number of compute pool instances."
+    ),
+    instance_family: str = typer.Option(
+        ...,
+        "--family",
+        "-f",
+        help="Name of the instance family. For more information about instance families, refer to the SQL CREATE COMPUTE POLL command.",
+    ),
     **options,
 ) -> CommandResult:
     """
-    Create compute pool
+    Creates a compute pool with a specified number of instances.
     """
     cursor = ComputePoolManager().create(
         pool_name=name, num_instances=num_instances, instance_family=instance_family
@@ -37,7 +44,7 @@ def create(
 @global_options_with_connection
 def list(**options) -> CommandResult:
     """
-    List compute pools
+    Lists all compute pools running in an environment for which you have access privileges.
     """
     cursor = ComputePoolManager().show()
     return QueryResult(cursor)
@@ -47,10 +54,10 @@ def list(**options) -> CommandResult:
 @with_output
 @global_options_with_connection
 def drop(
-    name: str = typer.Argument(..., help="Compute Pool Name"), **options
+    name: str = typer.Argument(..., help="Name of the compute pool."), **options
 ) -> CommandResult:
     """
-    Drop compute pool
+    Removes the specified pool from the account.
     """
     cursor = ComputePoolManager().drop(pool_name=name)
     return SingleQueryResult(cursor)
@@ -60,10 +67,10 @@ def drop(
 @with_output
 @global_options_with_connection
 def stop(
-    name: str = typer.Argument(..., help="Compute Pool Name"), **options
+    name: str = typer.Argument(..., help="Name of the compute pool."), **options
 ) -> CommandResult:
     """
-    Stop and delete all services running on Compute Pool
+    Stops a compute pool and deletes all services running on the pool.
     """
     cursor = ComputePoolManager().stop(pool_name=name)
     return SingleQueryResult(cursor)
@@ -72,5 +79,5 @@ def stop(
 app_cp = build_alias(
     app,
     name="cp",
-    help_str="Manage compute pools. This is alias for compute-pool command",
+    help_str="Manages compute pools. This command is alias for ``compute-pool`` command",
 )

@@ -33,19 +33,19 @@ log = logging.getLogger(__name__)
 @global_options_with_connection
 @with_output
 def package_lookup(
-    name: str = typer.Argument(..., help="Name of the package"),
+    name: str = typer.Argument(..., help="Name of the package."),
     install_packages: bool = typer.Option(
         False,
         "--yes",
         "-y",
-        help="Install packages that are not available on the Snowflake anaconda channel",
+        help="Installs packages that are not available on the Snowflake anaconda channel.",
     ),
     **options,
 ) -> CommandResult:
     """
     Checks if a package is available on the Snowflake anaconda channel.
-    In install_packages flag is set to True, command will check all the dependencies of the packages
-    outside snowflake channel.
+    If ``install_packages flag`` is set to ``True``, this command checks all the dependencies of the packages
+    outside Snowflake channel.
     """
     lookup_result = lookup(name=name, install_packages=install_packages)
     cleanup_after_install()
@@ -60,25 +60,25 @@ def package_upload(
         ...,
         "--file",
         "-f",
-        help="Path to the file to update",
+        help="Path to the file to upload.",
         exists=False,
     ),
     stage: str = typer.Option(
         ...,
         "--stage",
         "-s",
-        help="The stage to upload the file to, NOT including @ symbol",
+        help="Name of the stage in which to upload the file, not including the @ symbol.",
     ),
     overwrite: bool = typer.Option(
         False,
         "--overwrite",
         "-o",
-        help="Overwrite the file if it already exists",
+        help="Whether to overwrite the file if it already exists.",
     ),
     **options,
 ) -> CommandResult:
     """
-    Upload a python package zip file to a Snowflake stage, so it can be referenced in the imports of a procedure or function.
+    Uploads a python package zip file to a Snowflake stage so it can be referenced in the imports of a procedure or function.
     """
     return MessageResult(upload(file=file, stage=stage, overwrite=overwrite))
 
@@ -89,18 +89,18 @@ def package_upload(
 def package_create(
     name: str = typer.Argument(
         ...,
-        help="Name of the package",
+        help="Name of the package to create.",
     ),
     install_packages: bool = typer.Option(
         False,
         "--yes",
         "-y",
-        help="Install packages that are not available on the Snowflake anaconda channel",
+        help="Installs packages that are not available on the Snowflake anaconda channel.",
     ),
     **options,
 ) -> CommandResult:
     """
-    Create a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
+    Creates a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
     """
 
     if (

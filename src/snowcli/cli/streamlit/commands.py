@@ -24,7 +24,7 @@ from snowcli.output.types import (
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     name="streamlit",
-    help="Manages Streamlit in Snowflake",
+    help="Manages Streamlit in Snowflake.",
 )
 log = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ def streamlit_create(
     ),
     from_stage: Optional[str] = typer.Option(
         None,
-        help="Stage name to copy streamlit file from",
+        help="Stage name from which to copy a Streamlit file.",
     ),
     use_packaging_workaround: bool = typer.Option(
         False,
