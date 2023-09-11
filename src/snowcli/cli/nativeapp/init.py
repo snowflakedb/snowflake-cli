@@ -6,12 +6,13 @@ from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 from click.exceptions import ClickException
+from shutil import move
 
 
 from typing import Optional
 from snowcli.cli.project.definition import DEFAULT_USERNAME
 from snowcli.cli.project.util import clean_identifier, get_env_username
-from snowcli.cli.render.commands import generic_render_template
+from snowcli.cli.common.utils import generic_render_template
 
 from snowcli.utils import get_client_git_version
 
@@ -126,34 +127,6 @@ def _sparse_checkout(
         raise GitCloneError()
 
 
-def _move_and_rename_project(
-    source_parent_directory: Path,
-    target_parent_directory: Path,
-    repo_sub_directory: str,
-    new_name: str,
-):
-    """
-    Move the newly cloned repository's sub directory from its source directory to target directory, and rename to new_name.
-
-    Args:
-        source_parent_directory (Path): The source parent directory of the sub directory.
-        target_parent_directory (Path): The target parent directory for the sub directory.
-        repo_sub_directory (str): The sub directory name within the cloned repository.
-        new_name (str): The new name to give to the sub directory after moving.
-
-    Returns:
-        None
-    """
-
-    # Move to target parent directory
-    source_path = source_parent_directory.joinpath(repo_sub_directory)
-    source_path.rename(target_parent_directory / source_path.name)
-
-    # Rename directory
-    old_name = target_parent_directory.joinpath(repo_sub_directory)
-    old_name.rename(old_name.parent / new_name)
-
-
 def render_snowflake_yml(parent_to_snowflake_yml: Path):
     """
     Create a snowflake.yml file from a jinja template at a given path.
@@ -235,11 +208,9 @@ def _init_without_user_provided_template(
             )
 
             # Move native-app-basic to current_working_directory and rename to name
-            _move_and_rename_project(
-                source_parent_directory=current_working_directory.joinpath(temp_dir),
-                target_parent_directory=current_working_directory,
-                repo_sub_directory=BASIC_TEMPLATE,
-                new_name=project_name,
+            move(
+                src=current_working_directory.joinpath(temp_dir, BASIC_TEMPLATE),
+                dst=current_working_directory.joinpath(project_name),
             )
 
         # Render snowflake.yml file from its jinja template
