@@ -2,13 +2,13 @@ import os
 import shutil
 from click.exceptions import ClickException
 from pathlib import Path
-from typing import List, Union, Optional
+from typing import List, Union
 from dataclasses import dataclass
 
 
 class ArtifactError(ClickException):
     """
-    Common base class for all artifact errors.
+    Could not parse source or destination artifact.
     """
 
     def __init__(self, msg: str):

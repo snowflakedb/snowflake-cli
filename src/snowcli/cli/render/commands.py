@@ -148,7 +148,7 @@ def render_template(
 
 
 def generic_render_template(
-    template_path: Path, data: dict, output_file_path: Optional[Path]
+    template_path: Path, data: dict, output_file_path: Optional[Path] = None
 ):
     """
     Create a file from a jinja template.
