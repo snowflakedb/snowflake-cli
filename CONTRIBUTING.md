@@ -1,5 +1,6 @@
 # Contributing to SnowCLI
 
+There are two ways to contribute code to the repository: directly or by use of forks. For best practices for the second approach, refer to the section on forks below. Right now, there is limited access to contributing to the repository directly, and hence using forks is the recommended approach.
 
 ## Setup a development environment
 If you are interested in contributing, you will need to instantiate the pre-commit logic to help with formatting and linting of commits.
@@ -10,7 +11,7 @@ pip install pre-commit
 pre-commit
 ```
 
-Currently, the required Python version for development is Python 3.8+. For locall development we recommend to use
+Currently, the required Python version for development is Python 3.8+. For local development we recommend to use
 a wrapper for virtual environments like [pyenv](https://github.com/pyenv/pyenv).
 
 Once you created a dedicated virtual environment you can install SnowCLI in editable mode with all required dependencies:
@@ -72,3 +73,17 @@ How to use it?
     * The code execution will be paused before execution of your command.
       You will see the exact line in the IDE's debug view.
       You can resume code execution, add breakpoints, evaluate variables, do all the things you usually do when debugging locally.
+
+## Using Forks
+Create your own fork from the `snowcli` repo. As a heads up, all `snowcli` forks are publicly accessible on Github.
+
+Syncing forks with the upstream `snowcli` repo can be a hassle when trying to resolve merge conflicts. To avoid issues with this approach, we recommend always rebasing to the upstream `snowcli` branch.
+
+In the cloned copy of your fork, perform the following steps.
+
+```bash
+git remote add sfcli https://github.com/Snowflake-Labs/snowcli.git
+git fetch sfcli
+git checkout <your-branch>
+git rebase sfcli/main
+```
