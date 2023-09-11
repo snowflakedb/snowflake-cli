@@ -15,14 +15,14 @@ app = typer.Typer(
     help="Manage stages",
 )
 
-StageNameOption = typer.Argument(..., help="Stage name.")
+StageNameOption = typer.Argument(..., help="Name of the stage.")
 
 
 @app.command("list")
 @with_output
 @global_options_with_connection
 def stage_list(
-    stage_name: str = typer.Argument(None, help="Name of stage."), **options
+    stage_name: str = typer.Argument(None, help="Name of the stage."), **options
 ) -> CommandResult:
     """
     Lists the stage contents or shows available stages if the stage name is omitted.
