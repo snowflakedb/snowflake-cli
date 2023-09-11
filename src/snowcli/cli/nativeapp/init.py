@@ -7,6 +7,7 @@ import subprocess
 from tempfile import TemporaryDirectory
 from click.exceptions import ClickException
 from shutil import move
+from git import Repo
 
 
 from typing import Optional
@@ -200,11 +201,12 @@ def _init_without_user_provided_template(
 
     try:
         with TemporaryDirectory(dir=current_working_directory) as temp_dir:
-            # Checkout the basic template, which will now reside at ./native-apps-templates/native-app-basic
-            _sparse_checkout(
-                git_url=SNOWFLAKELABS_GITHUB_URL,
-                repo_sub_directory=BASIC_TEMPLATE,
-                target_parent_directory=temp_dir,
+            # Clone the repository in the temporary directory with options.
+            Repo.clone_from(
+                url=SNOWFLAKELABS_GITHUB_URL,
+                to_path=temp_dir,
+                filter=["tree:0"],
+                depth=1,
             )
 
             # Move native-app-basic to current_working_directory and rename to name
@@ -224,7 +226,7 @@ def _init_without_user_provided_template(
             project_name=project_name,
         )
 
-    except ClickException as err:
+    except Exception as err:
         log.error(err)
         raise InitError()
 
@@ -252,8 +254,8 @@ def nativeapp_init(name: str, template: Optional[str] = None):
         pass
     else:  # No template provided, use Native Apps Basic Template
         # The logic makes use of git sparse checkout, which was introduced in git 2.25.0. Check client's installed git version.
-        if get_client_git_version() < (2, 25):
-            raise GitVersionIncompatibleError()
+        # if get_client_git_version() < (2, 25):
+        #     raise GitVersionIncompatibleError()
         _init_without_user_provided_template(
             current_working_directory=current_working_directory,
             project_name=name,
