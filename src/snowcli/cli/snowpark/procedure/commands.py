@@ -326,7 +326,7 @@ def procedure_package(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
-    **options
+    **options,
 ) -> CommandResult:
     """Packages procedure code into zip file."""
     snowpark_package(

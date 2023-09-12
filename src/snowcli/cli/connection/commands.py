@@ -160,7 +160,7 @@ def add(
         prompt="Snowflake region",
         help="Region name if not the default Snowflake deployment.",
     ),
-    **options
+    **options,
 ) -> CommandResult:
     """Add connection to configuration file."""
     connection_entry = {
