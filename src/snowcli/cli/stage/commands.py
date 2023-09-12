@@ -12,7 +12,7 @@ from snowcli.output.types import QueryResult, SingleQueryResult, CommandResult
 app = typer.Typer(
     name="stage",
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    help="Manage stages",
+    help="Manages stages.",
 )
 
 StageNameOption = typer.Argument(..., help="Name of the stage.")

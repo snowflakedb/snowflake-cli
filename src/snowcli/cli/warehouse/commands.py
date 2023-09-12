@@ -11,7 +11,7 @@ from snowcli.output.types import QueryResult
 app = typer.Typer(
     name="warehouse",
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    help="Manage warehouses",
+    help="Manages warehouses.",
 )
 
 
