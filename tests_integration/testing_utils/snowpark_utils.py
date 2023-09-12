@@ -277,6 +277,35 @@ class SnowparkTestSteps:
         assert_that_result_is_successful(result)
         return entity_name
 
+    def snowpark_update_should_not_replace_if_the_signature_does_not_change(
+        self, entity_name: str
+    ):
+        replace_text_in_file(
+            file_path="app.py",
+            to_replace='return "Hello World!"',
+            replacement='return "Hello Snowflakes!"',
+        )
+
+        result = self._setup.runner.invoke_integration(
+            [
+                "snowpark",
+                self.test_type.value,
+                "update",
+                "--name",
+                entity_name,
+                "--handler",
+                "app.hello",
+                "--input-parameters",
+                "()",
+                "--return-type",
+                "string",
+            ]
+        )
+
+        assert_that_result_is_successful_and_output_json_equals(
+            result, {"message": "No packages to update. Deployment complete!"}
+        )
+
     def snowpark_update_should_finish_successfully(
         self,
         entity_name: str,
@@ -288,7 +317,7 @@ class SnowparkTestSteps:
         )
         replace_text_in_file(
             file_path="app.py",
-            to_replace='return "Hello World!"',
+            to_replace='return "Hello Snowflakes!"',
             replacement="return 1",
         )
         result = self._setup.runner.invoke_integration(
