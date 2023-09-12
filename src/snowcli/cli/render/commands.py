@@ -134,6 +134,7 @@ def render_template(
         dir_okay=False,
         help="If provided then rendered template will be written to this file",
     ),
+    **options
 ):
     """Renders Jinja2 template. Can be used to construct complex SQL files."""
     data = {}

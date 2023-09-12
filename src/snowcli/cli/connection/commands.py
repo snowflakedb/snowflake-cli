@@ -160,6 +160,7 @@ def add(
         prompt="Snowflake region",
         help="Region name if not the default Snowflake deployment.",
     ),
+    **options
 ) -> CommandResult:
     """Add connection to configuration file."""
     connection_entry = {
@@ -189,7 +190,7 @@ def add(
 @app.command()
 @global_options
 @with_output
-def test(connection: str = ConnectionOption) -> CommandResult:
+def test(connection: str = ConnectionOption, **options) -> CommandResult:
     """
     Tests connection to Snowflake.
     """

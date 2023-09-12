@@ -51,7 +51,7 @@ app.add_typer(procedure_coverage_app)
 @app.command("init")
 @global_options
 @with_output
-def procedure_init() -> CommandResult:
+def procedure_init(**options) -> CommandResult:
     """
     Initialize this directory with a sample set of files to create a procedure.
     """
@@ -326,6 +326,7 @@ def procedure_package(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
+    **options
 ) -> CommandResult:
     """Packages procedure code into zip file."""
     snowpark_package(
