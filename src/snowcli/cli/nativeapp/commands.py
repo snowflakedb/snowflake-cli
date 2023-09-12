@@ -39,16 +39,20 @@ def app_init(
     name: str = typer.Argument(
         ..., help="Name of the Native Apps project to be initiated."
     ),
+    git_url: str = typer.Option(
+        None,
+        help="A git URL to use as template for the Native Apps project. Example: https://github.com/Snowflake-Labs/native-apps-templates.git for all official Snowflake templates.",
+    ),
     template: str = typer.Option(
         None,
-        help="A git URL to use as template for the Native Apps project. Example: https://github.com/Snowflake-Labs/native-apps-templates.git",
+        help="A specific directory within the git URL to use as template for the Native Apps project. Example: native-app-basic within https://github.com/Snowflake-Labs/native-apps-templates.git.",
     ),
     **options,
 ) -> CommandResult:
     """
-    Initialize a Native Apps project, optionally with a --template.
+    Initialize a Native Apps project, optionally with a --git-url and a --template.
     """
-    nativeapp_init(name, template)
+    nativeapp_init(name, git_url, template)
     return MessageResult(
         f"Native Apps project {name} has been created in your local directory."
     )
