@@ -109,7 +109,7 @@ VerboseOption = typer.Option(
     None,
     "--verbose",
     "-v",
-    help="Displays log entries for log levels ``info`` and ``higher``.",
+    help="Displays log entries for log levels ``info`` and higher.",
     callback=update_callback("verbose"),
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,

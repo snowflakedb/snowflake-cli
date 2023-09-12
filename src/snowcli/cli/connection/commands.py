@@ -72,7 +72,7 @@ def add(
         "--connection-name",
         "-n",
         prompt="Name for this connection",
-        help="Name of the new connection",
+        help="Name of the new connection.",
         show_default=False,
     ),
     account: str = typer.Option(
