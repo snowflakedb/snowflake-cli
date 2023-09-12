@@ -11,6 +11,8 @@ import re
 import shutil
 import subprocess
 import warnings
+import git
+
 from typing import Dict, List, Literal, Optional
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED

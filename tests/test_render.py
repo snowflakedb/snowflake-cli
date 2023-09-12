@@ -52,6 +52,7 @@ function foo() {};
 module.exports = foo;
 })()
 return module.exports.apply(this, arguments);
+
 """
     )
 
