@@ -51,6 +51,13 @@ def test_snowpark_function_flow(_test_steps):
         expected_value="Hello World!",
     )
 
+    _test_steps.snowpark_update_should_not_replace_if_the_signature_does_not_change(
+        function_name
+    )
+    _test_steps.snowpark_execute_should_return_expected_value(
+        entity_name=function_name, arguments="()", expected_value="Hello Snowflakes!"
+    )
+
     _test_steps.snowpark_update_should_finish_successfully(function_name)
     _test_steps.assert_that_only_these_entities_are_in_snowflake(
         f"{function_name}() RETURN NUMBER"

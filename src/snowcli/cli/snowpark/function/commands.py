@@ -30,6 +30,7 @@ from snowcli.utils import (
     create_project_template,
     convert_resource_details_to_dict,
     get_snowflake_packages_delta,
+    sql_to_python_return_type_mapper,
 )
 
 log = logging.getLogger(__name__)
@@ -221,7 +222,8 @@ def function_update(
             replace = True
         elif (
             resource_json["handler"].lower() != handler.lower()
-            or resource_json["returns"].lower() != return_type.lower()
+            or sql_to_python_return_type_mapper(resource_json["returns"]).lower()
+            != return_type.lower()
         ):
             log.info(
                 "Return type or handler types do not match. Replacing the function."
