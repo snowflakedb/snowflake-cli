@@ -65,6 +65,7 @@ def require_integer(field_name: str):
 
 
 @app.command()
+@global_options
 @with_output
 def add(
     connection_name: str = typer.Option(
@@ -186,6 +187,7 @@ def add(
 
 
 @app.command()
+@global_options
 @with_output
 def test(connection: str = ConnectionOption) -> CommandResult:
     """

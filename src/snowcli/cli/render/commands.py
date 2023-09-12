@@ -8,6 +8,7 @@ from typing import List, Optional
 import jinja2
 import typer
 
+from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 
 app = typer.Typer(context_settings=DEFAULT_CONTEXT_SETTINGS, hidden=True, name="render")
@@ -100,6 +101,7 @@ def _parse_key_value(key_value_str: str):
 
 
 @app.command("template")
+@global_options
 def render_template(
     template_path: Path = typer.Argument(
         None,

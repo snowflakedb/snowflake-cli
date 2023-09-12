@@ -8,7 +8,7 @@ from tempfile import TemporaryDirectory
 import typer
 
 from snowcli import utils
-from snowcli.cli.common.decorators import global_options_with_connection
+from snowcli.cli.common.decorators import global_options_with_connection, global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.constants import DEPLOYMENT_STAGE
 from snowcli.cli.snowpark.procedure.manager import ProcedureManager
@@ -49,6 +49,7 @@ app.add_typer(procedure_coverage_app)
 
 
 @app.command("init")
+@global_options
 @with_output
 def procedure_init() -> CommandResult:
     """
@@ -319,6 +320,7 @@ def procedure_update(
 
 
 @app.command("package")
+@global_options
 @with_output
 def procedure_package(
     pypi_download: str = PyPiDownloadOption,
