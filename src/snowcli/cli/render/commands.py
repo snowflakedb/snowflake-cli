@@ -6,6 +6,7 @@ from typing import List, Optional
 
 import typer
 
+from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.common.utils import generic_render_template
 
@@ -21,6 +22,7 @@ def _parse_key_value(key_value_str: str):
 
 
 @app.command("template")
+@global_options
 def render_template(
     template_path: Path = typer.Argument(
         None,
@@ -53,6 +55,7 @@ def render_template(
         dir_okay=False,
         help="If provided then rendered template will be written to this file",
     ),
+    **options,
 ):
     """Renders Jinja2 template. Can be used to construct complex SQL files."""
     data = {}
