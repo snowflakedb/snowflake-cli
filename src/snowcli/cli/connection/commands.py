@@ -17,7 +17,7 @@ from snowcli.snow_connector import connect_to_snowflake
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     name="connection",
-    help="Manage connection to Snowflake",
+    help="Manages connections to Snowflake.",
 )
 log = logging.getLogger(__name__)
 
