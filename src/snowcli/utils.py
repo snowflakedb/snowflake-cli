@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import threading
 from dataclasses import dataclass
 
 import glob
@@ -13,7 +14,7 @@ import subprocess
 import warnings
 import git
 
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Literal, Optional, Generic, TypeVar, Callable
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 
@@ -604,3 +605,34 @@ def sql_to_python_return_type_mapper(resource_return_type: str) -> str:
     }
 
     return mapping.get(resource_return_type.lower(), resource_return_type.lower())
+
+
+T = TypeVar("T")
+
+
+class ThreadsafeValue(Generic[T]):
+    def __init__(self, value: T):
+        self._value = value
+        self._lock = threading.Lock()
+
+    def set(self, new_value: T) -> T:
+        return self.transform(lambda _: new_value)
+
+    def transform(self, f: Callable[[T], T]) -> T:
+        with self._lock:
+            new_value = f(self._value)
+            self._value = new_value
+            return new_value
+
+    @property
+    def value(self) -> T:
+        with self._lock:
+            return self._value
+
+
+class ThreadsafeCounter(ThreadsafeValue[int]):
+    def increment(self, d=1) -> int:
+        return self.transform(lambda v: v + d)
+
+    def decrement(self, d=1) -> int:
+        return self.increment(-d)
