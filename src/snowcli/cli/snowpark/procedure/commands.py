@@ -285,7 +285,7 @@ def procedure_update(
             replace = True
         elif (
             resource_json["handler"].lower() != handler.lower()
-            or sql_to_python_return_type_mapper(resource_json["returns"])
+            or sql_to_python_return_type_mapper(resource_json["returns"]).lower()
             != return_type.lower()
         ):
             log.info(
