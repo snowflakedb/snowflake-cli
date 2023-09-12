@@ -35,6 +35,10 @@ def generate_docs(root: Path, command: Command, cmd_parts: Optional[List] = None
         _render_usage(command, root, cmd_parts)
 
 
+def get_main_option(options: List[str]) -> str:
+    return next(option for option in options if option.startswith("--"))
+
+
 def _render_usage(
     command: Command,
     root: Path,
@@ -44,6 +48,7 @@ def _render_usage(
     # This is end command
     command_name = command.name
     env = Environment(loader=FileSystemLoader(Path(__file__).parent / "templates"))
+    env.filters[get_main_option.__name__] = get_main_option
     template = env.get_template(template_name)
     arguments = []
     options = []
