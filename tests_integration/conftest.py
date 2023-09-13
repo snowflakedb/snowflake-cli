@@ -65,6 +65,7 @@ class SnowCLIRunner(CliRunner):
             ],
             **kwargs,
         )
+
         if result.output == "" or result.output.strip() == "Done":
             return CommandResult(result.exit_code, json=[])
         return CommandResult(result.exit_code, json.loads(result.output))

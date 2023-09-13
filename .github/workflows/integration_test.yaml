@@ -10,7 +10,10 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,4 +33,4 @@ jobs:
           SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
         run:
-          pytest -m integration
+          snow --config-file tests_integration/config/connection_configs.toml sql -q "select 1" -c integration
