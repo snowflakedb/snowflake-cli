@@ -15,7 +15,7 @@ from snowcli.cli.snowpark.registry.commands import app as registry_app
 app = typer.Typer(
     name="snowpark",
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    help="Manage functions, procedures and Snowpark objects",
+    help="Manages functions, procedures, and Snowpark objects.",
 )
 
 app.add_typer(function_app)  # type: ignore
