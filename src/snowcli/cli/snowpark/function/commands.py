@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 
 import typer
 
-from snowcli.cli.common.decorators import global_options_with_connection
+from snowcli.cli.common.decorators import global_options_with_connection, global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.cli.constants import DEPLOYMENT_STAGE
 from snowcli.cli.snowpark.function.manager import FunctionManager
@@ -30,6 +30,7 @@ from snowcli.utils import (
     create_project_template,
     convert_resource_details_to_dict,
     get_snowflake_packages_delta,
+    sql_to_python_return_type_mapper,
 )
 
 log = logging.getLogger(__name__)
@@ -70,8 +71,9 @@ ReturnTypeOption = typer.Option(
 
 
 @app.command("init")
+@global_options
 @with_output
-def function_init():
+def function_init(**options):
     """
     Initializes this directory with a sample set of files for creating a function.
     """
@@ -221,7 +223,8 @@ def function_update(
             replace = True
         elif (
             resource_json["handler"].lower() != handler.lower()
-            or resource_json["returns"].lower() != return_type.lower()
+            or sql_to_python_return_type_mapper(resource_json["returns"]).lower()
+            != return_type.lower()
         ):
             log.info(
                 "Return type or handler types do not match. Replacing the function."
@@ -252,11 +255,13 @@ def function_update(
 
 
 @app.command("package")
+@global_options
 @with_output
 def function_package(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
+    **options,
 ) -> CommandResult:
     """Packages function code into zip file."""
     snowpark_package(

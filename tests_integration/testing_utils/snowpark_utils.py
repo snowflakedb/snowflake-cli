@@ -206,7 +206,7 @@ class SnowparkTestSteps:
         self,
     ) -> None:
         result = self._setup.runner.invoke_with_config(
-            ["snowpark", self.test_type.value, "init"]
+            ["snowpark", self.test_type.value, "init", "--format", "JSON"]
         )
         file_list = self.dir_contents[self.test_type.value]
         assert_that_result_is_successful_and_done_is_on_output(result)
@@ -227,7 +227,15 @@ class SnowparkTestSteps:
 
     def snowpark_package_should_zip_files(self) -> None:
         result = self._setup.runner.invoke_with_config(
-            ["snowpark", self.test_type.value, "package", "--pypi-download", "yes"]
+            [
+                "snowpark",
+                self.test_type.value,
+                "package",
+                "--pypi-download",
+                "yes",
+                "--format",
+                "JSON",
+            ]
         )
         assert_that_result_is_successful_and_done_is_on_output(result)
         assert_that_current_working_directory_contains_only_following_files(
@@ -269,6 +277,35 @@ class SnowparkTestSteps:
         assert_that_result_is_successful(result)
         return entity_name
 
+    def snowpark_update_should_not_replace_if_the_signature_does_not_change(
+        self, entity_name: str
+    ):
+        replace_text_in_file(
+            file_path="app.py",
+            to_replace='return "Hello World!"',
+            replacement='return "Hello Snowflakes!"',
+        )
+
+        result = self._setup.runner.invoke_integration(
+            [
+                "snowpark",
+                self.test_type.value,
+                "update",
+                "--name",
+                entity_name,
+                "--handler",
+                "app.hello",
+                "--input-parameters",
+                "()",
+                "--return-type",
+                "string",
+            ]
+        )
+
+        assert_that_result_is_successful_and_output_json_equals(
+            result, {"message": "No packages to update. Deployment complete!"}
+        )
+
     def snowpark_update_should_finish_successfully(
         self,
         entity_name: str,
@@ -280,7 +317,7 @@ class SnowparkTestSteps:
         )
         replace_text_in_file(
             file_path="app.py",
-            to_replace='return "Hello World!"',
+            to_replace='return "Hello Snowflakes!"',
             replacement="return 1",
         )
         result = self._setup.runner.invoke_integration(

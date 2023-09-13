@@ -5,10 +5,11 @@ import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+
 import typer
 
 from snowcli import utils
-from snowcli.cli.common.decorators import global_options_with_connection
+from snowcli.cli.common.decorators import global_options_with_connection, global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.constants import DEPLOYMENT_STAGE
 from snowcli.cli.snowpark.procedure.manager import ProcedureManager
@@ -35,6 +36,7 @@ from snowcli.utils import (
     get_snowflake_packages,
     convert_resource_details_to_dict,
     get_snowflake_packages_delta,
+    sql_to_python_return_type_mapper,
 )
 
 
@@ -49,8 +51,9 @@ app.add_typer(procedure_coverage_app)
 
 
 @app.command("init")
+@global_options
 @with_output
-def procedure_init() -> CommandResult:
+def procedure_init(**options) -> CommandResult:
     """
     Initialize this directory with a sample set of files to create a procedure.
     """
@@ -283,7 +286,8 @@ def procedure_update(
             replace = True
         elif (
             resource_json["handler"].lower() != handler.lower()
-            or resource_json["returns"].lower() != return_type.lower()
+            or sql_to_python_return_type_mapper(resource_json["returns"]).lower()
+            != return_type.lower()
         ):
             log.info(
                 "Return type or handler types do not match. Replacing the procedure."
@@ -319,11 +323,13 @@ def procedure_update(
 
 
 @app.command("package")
+@global_options
 @with_output
 def procedure_package(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
+    **options,
 ) -> CommandResult:
     """Packages procedure code into a `.zip` file."""
     snowpark_package(
