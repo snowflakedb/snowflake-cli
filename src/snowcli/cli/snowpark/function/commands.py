@@ -51,7 +51,7 @@ InputParametersOption = typer.Option(
     ...,
     "--input-parameters",
     "-i",
-    help="Input parameters for this function as a comma-separated string, such as (``message string``, ``count int``).",
+    help="Input parameters for this function as a comma-separated string, such as (`message string`, `count int`).",
 )
 
 OptionalInputParametersOption = typer.Option(
@@ -315,7 +315,7 @@ def function_list(
         "%%",
         "--like",
         "-l",
-        help='Regular expression for filtering the functions by name. For example, ``list --file "my%"`` lists all functions in the **dev** (default) environment that begin with “my”.',
+        help='Regular expression for filtering the functions by name. For example, `list --file "my%"` lists all functions in the **dev** (default) environment that begin with “my”.',
     ),
     **options,
 ) -> CommandResult:

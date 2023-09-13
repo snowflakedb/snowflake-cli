@@ -10,7 +10,7 @@ from snowcli.output.types import SingleQueryResult, QueryResult, CommandResult
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     name="compute-pool",
-    help="Manages compute pools. You can also use ``cp`` as alias for this command.",
+    help="Manages compute pools. You can also use `cp` as alias for this command.",
 )
 
 
@@ -79,5 +79,5 @@ def stop(
 app_cp = build_alias(
     app,
     name="cp",
-    help_str="Manages compute pools. This command is alias for ``compute-pool`` command",
+    help_str="Manages compute pools. This command is alias for `compute-pool` command",
 )

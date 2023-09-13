@@ -70,7 +70,7 @@ def stage_put(
         dir_okay=True,
         writable=True,
         resolve_path=True,
-        help="File or directory to upload to stage. You can use the ``*`` wildcard in the path, like ``folder/*.csv``. If a path contains ``*.``, you must enclose the path in quotes. ",
+        help="File or directory to upload to stage. You can use the `*` wildcard in the path, like `folder/*.csv`. If a path contains `*.`, you must enclose the path in quotes.",
     ),
     name: str = StageNameOption,
     overwrite: bool = typer.Option(

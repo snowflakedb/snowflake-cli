@@ -75,7 +75,7 @@ def procedure_create(
         "app.zip",
         "--file",
         "-f",
-        help="Path to the file or folder to containing the procedure code. If you specify a directory, the procedure deploys the procedure in the default ``app.zip`` file.",
+        help="Path to the file or folder to containing the procedure code. If you specify a directory, the procedure deploys the procedure in the default `app.zip` file.",
         exists=False,
     ),
     handler: str = typer.Option(
@@ -88,7 +88,7 @@ def procedure_create(
         ...,
         "--input-parameters",
         "-i",
-        help="Input parameters for this function as a comma-separated string, such as (``message string``, ``count int``).",
+        help="Input parameters for this function as a comma-separated string, such as (`message string`, `count int`).",
     ),
     return_type: str = typer.Option(
         ...,
@@ -217,7 +217,7 @@ def procedure_update(
         ...,
         "--input-parameters",
         "-i",
-        help="Input parameters for this function as a comma-separated string, such as (``message string``, ``count int``).",
+        help="Input parameters for this function as a comma-separated string, such as (`message string`, `count int`).",
     ),
     return_type: str = typer.Option(
         ...,
@@ -233,7 +233,7 @@ def procedure_update(
     execute_as_caller: bool = typer.Option(
         False,
         "--execute-as-caller",
-        help="Whether to execute this procedure as the caller (Default: ``false``).",
+        help="Whether to execute this procedure as the caller (Default: `false`).",
     ),
     install_coverage_wrapper: bool = typer.Option(
         False,
@@ -325,7 +325,7 @@ def procedure_package(
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
 ) -> CommandResult:
-    """Packages procedure code into a ``.zip`` file."""
+    """Packages procedure code into a `.zip` file."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps,
@@ -342,7 +342,7 @@ def procedure_execute(
         ...,
         "--procedure",
         "-p",
-        help="String containing the procedure signature with its parameters, such as ``greeting('hello', 'italian')``. The parameters must exactly match those provided when creating the procedure.",
+        help="String containing the procedure signature with its parameters, such as `greeting('hello', 'italian')`. The parameters must exactly match those provided when creating the procedure.",
     ),
     **options,
 ) -> CommandResult:
@@ -360,7 +360,7 @@ def procedure_describe(
         "",
         "--input-parameters",
         "-i",
-        help="Input parameters for this function as a comma-separated string, such as (``message string``, ``count int``).",
+        help="Input parameters for this function as a comma-separated string, such as (`message string`, `count int`).",
     ),
     signature: str = typer.Option(
         "",
@@ -389,7 +389,7 @@ def procedure_list(
         "%%",
         "--like",
         "-l",
-        help='Regular expression for filtering the functions by name. For example, ``list --file "my%"`` lists all functions in the **dev** (default) environment that begin with “my”.',
+        help='Regular expression for filtering the functions by name. For example, `list --file "my%"` lists all functions in the **dev** (default) environment that begin with “my”.',
     ),
     **options,
 ) -> CommandResult:
@@ -409,7 +409,7 @@ def procedure_drop(
         "",
         "--input-parameters",
         "-i",
-        help="Input parameters for this function as a comma-separated string, such as (``message string``, ``count int``).",
+        help="Input parameters for this function as a comma-separated string, such as (`message string`, `count int`).",
     ),
     signature: str = typer.Option(
         "",

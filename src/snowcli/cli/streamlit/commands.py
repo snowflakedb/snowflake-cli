@@ -69,7 +69,7 @@ def streamlit_create(
         exists=True,
         readable=True,
         file_okay=True,
-        help="Path to the Streamlit Python application (``streamlit_app.py``) file.",
+        help="Path to the Streamlit Python application (`streamlit_app.py`) file.",
     ),
     from_stage: Optional[str] = typer.Option(
         None,
@@ -77,7 +77,7 @@ def streamlit_create(
     ),
     use_packaging_workaround: bool = typer.Option(
         False,
-        help="Whether to package all code and dependencies into a zip file. Valid values: ``true``, ``false`` (default). You should use this only for a temporary workaround until native support is available.",
+        help="Whether to package all code and dependencies into a zip file. Valid values: `true`, `false` (default). You should use this only for a temporary workaround until native support is available.",
     ),
     **options,
 ) -> CommandResult:
@@ -140,22 +140,22 @@ def streamlit_deploy(
         False,
         "--open",
         "-o",
-        help="Whether to open Streamlit in a browser. Valid values: ``true``, ``false``. Default: ``false``.",
+        help="Whether to open Streamlit in a browser. Valid values: `true`, `false`. Default: `false`.",
     ),
     use_packaging_workaround: bool = typer.Option(
         False,
-        help="Whether to package all code and dependencies into a zip file. Valid values: ``true``, ``false`` (default). You should use this only for a temporary workaround until native support is available.",
+        help="Whether to package all code and dependencies into a zip file. Valid values: `true`, `false` (default). You should use this only for a temporary workaround until native support is available.",
     ),
     packaging_workaround_includes_content: bool = typer.Option(
         False,
-        help="Whether to package all code and dependencies into a zip file. Valid values: ``true``, ``false``. Default: ``false``.",
+        help="Whether to package all code and dependencies into a zip file. Valid values: `true`, `false`. Default: `false`.",
     ),
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
     package_native_libraries: str = PackageNativeLibrariesOption,
     excluded_anaconda_deps: str = typer.Option(
         None,
-        help="List of comma-separated package names from ``environment.yml`` to exclude in the deployed app, particularly when Streamlit fails to import an Anaconda package at runtime. Be aware that excluding files might the risk of runtime errors).",
+        help="List of comma-separated package names from `environment.yml` to exclude in the deployed app, particularly when Streamlit fails to import an Anaconda package at runtime. Be aware that excluding files might the risk of runtime errors).",
     ),
     **options,
 ) -> CommandResult:

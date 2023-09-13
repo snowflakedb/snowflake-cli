@@ -44,7 +44,7 @@ def package_lookup(
 ) -> CommandResult:
     """
     Checks if a package is available on the Snowflake anaconda channel.
-    If ``install_packages flag`` is set to ``True``, this command checks all the dependencies of the packages
+    If `install_packages flag` is set to `True`, this command checks all the dependencies of the packages
     outside Snowflake channel.
     """
     lookup_result = lookup(name=name, install_packages=install_packages)
