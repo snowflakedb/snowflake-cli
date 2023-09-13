@@ -11,7 +11,7 @@ from snowcli.output.types import QueryResult
 app = typer.Typer(
     name="warehouse",
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    help="Manage warehouses",
+    help="Manages warehouses.",
 )
 
 
@@ -20,7 +20,7 @@ app = typer.Typer(
 @global_options_with_connection
 def warehouse_status(**options):
     """
-    Show the status of each warehouse in the configured environment.
+    Shows the status of each warehouse in the configured environment.
     """
     cursor = WarehouseManager().show()
     return QueryResult(cursor)
