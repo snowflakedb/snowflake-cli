@@ -49,6 +49,10 @@ class AddPluginsToMainTyper:
             command_spec=command_spec,
         )
         plugin_typer = typer.main.get_command(command_spec.typer_instance)
+        if plugin_typer.name in parent_group.commands:
+            raise RuntimeError(
+                f"Cannot add command [{command_spec.full_command_path}] because it already exists."
+            )
         parent_group.add_command(plugin_typer)
 
     def _find_typer_group_at_path(

@@ -22,8 +22,11 @@ class CommandPath:
     def __hash__(self):
         return hash(self._path_segments)
 
-    def __str__(self):
-        "snow " + " ".join(self.path_segments)
+    def __eq__(self, other):
+        return self._path_segments == other._path_segments
+
+    def __str__(self) -> str:
+        return "snow " + " ".join(self.path_segments)
 
 
 SNOWCLI_ROOT_COMMAND_PATH = CommandPath(path_segments=[])

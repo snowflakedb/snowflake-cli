@@ -32,7 +32,12 @@ class CommandPluginsLoader:
 
     def register_only_builtin_plugins(self) -> None:
         for (plugin_name, plugin) in builtin_plugin_name_to_plugin_spec.items():
-            self._plugin_manager.register(plugin=plugin, name=plugin_name)
+            try:
+                self._plugin_manager.register(plugin=plugin, name=plugin_name)
+            except Exception as ex:
+                log_exception(
+                    f"Cannot register plugin [{plugin_name}]: {ex.__str__()}", ex
+                )
 
     def load_all_registered_plugins(self) -> List[LoadedCommandPlugin]:
         for (plugin_name, plugin) in self._plugin_manager.list_name_plugin():
@@ -58,7 +63,7 @@ class CommandPluginsLoader:
                 log.error(
                     f"Cannot load plugin [{plugin_name}] "
                     f"because it defines the same command [{loaded_plugin.command_spec.full_command_path}] "
-                    f"as already loaded plugin [{other_plugin_with_the_same_command_path}]."
+                    f"as already loaded plugin [{other_plugin_with_the_same_command_path.plugin_name}]."
                 )
                 return None
             self._loaded_plugins[plugin_name] = loaded_plugin
@@ -81,10 +86,14 @@ class CommandPluginsLoader:
     def _load_builtin_plugin_spec(
         self, plugin_name: str, plugin
     ) -> Optional[LoadedCommandPlugin]:
-        return LoadedBuiltInCommandPlugin(
-            plugin_name=plugin_name,
-            command_spec=self._load_command_spec(plugin_name, plugin),
-        )
+        command_spec = self._load_command_spec(plugin_name, plugin)
+        if command_spec:
+            return LoadedBuiltInCommandPlugin(
+                plugin_name=plugin_name,
+                command_spec=command_spec,
+            )
+        else:
+            return None
 
     @staticmethod
     def _load_command_spec(plugin_name: str, plugin) -> Optional[CommandSpec]:
