@@ -17,6 +17,11 @@ from snowflake.connector.constants import CONFIG_FILE
 from snowflake.connector.config_manager import ConfigManager
 
 log = logging.getLogger(__name__)
+_DEFAULT_CONNECTION_KEY = "default_connection"
+
+
+class Empty:
+    pass
 
 
 class CliConfigManager(ConfigManager):
@@ -48,15 +53,15 @@ class CliConfigManager(ConfigManager):
         except (NonExistentKey, MissingConfigOptionError):
             return False
 
-    def get(self, *path, key: str, default: Optional[Any] = None) -> Any:
+    def get(self, *path, key: str, default: Optional[Any] = Empty) -> Any:
         """Looks for given key under nested path in toml file."""
         env_variable = self._get_env_value(*path, key=key)
         if env_variable:
             return env_variable
         try:
             return self.get_section(*path)[key]
-        except (NonExistentKey, MissingConfigOptionError):
-            if default:
+        except (KeyError, NonExistentKey, MissingConfigOptionError):
+            if default is not Empty:
                 return default
             raise
 
@@ -146,7 +151,13 @@ cli_config: CliConfigManager = CliConfigManager()  # type: ignore
 _DEFAULT_CONNECTION = "dev"
 
 
-def get_default_connection():
-    return cli_config.get(
-        "options", key="default_connection", default=_DEFAULT_CONNECTION
+def get_default_connection() -> str:
+    default_connection_name = cli_config.get(
+        "options", key=_DEFAULT_CONNECTION_KEY, default=_DEFAULT_CONNECTION
     )
+    if default_connection_name and default_connection_name != _DEFAULT_CONNECTION:
+        return default_connection_name
+    connections = cli_config.get_section("connections")
+    if len(connections) == 1:
+        return list(connections.keys())[0]
+    return _DEFAULT_CONNECTION
