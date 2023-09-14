@@ -1,4 +1,5 @@
 import pytest
+import sys
 
 from tests_integration.snowflake_connector import snowflake_session, test_database
 from tests_integration.testing_utils.naming_utils import object_name_provider
@@ -13,6 +14,10 @@ from tests_integration.testing_utils.working_directory_utils import (
 )
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Skip for windows, missing generated coverage files on stage",
+)
 @pytest.mark.integration
 def test_procedure_coverage_flow(_test_steps):
     _test_steps.assert_that_no_entities_are_in_snowflake()

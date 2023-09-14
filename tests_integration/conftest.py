@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import functools
 import json
+import tempfile
+import shutil
+import os
+
 import pytest
 from dataclasses import dataclass
 from pathlib import Path
 from snowcli.app.cli_app import app
-from tempfile import NamedTemporaryFile
 from typer import Typer
 from typer.testing import CliRunner
 from typing import List, Dict, Any, Optional
@@ -23,11 +26,12 @@ class CommandResult:
 
 @pytest.fixture(scope="session")
 def test_snowcli_config():
-    test_config = TEST_DIR / "config/connection_configs.toml"
-    with NamedTemporaryFile(suffix=".toml", mode="w+") as fh:
-        fh.write(test_config.read_text())
-        fh.flush()
-        yield fh.name
+    test_config_name = "connection_configs.toml"
+    test_config = TEST_DIR / "config" / test_config_name
+    with tempfile.TemporaryDirectory() as td:
+        test_config_path = os.path.join(td, test_config_name)
+        shutil.copyfile(test_config, test_config_path)
+        yield test_config_path
 
 
 @pytest.fixture(scope="session")
@@ -43,6 +47,7 @@ class SnowCLIRunner(CliRunner):
 
     @functools.wraps(CliRunner.invoke)
     def _invoke(self, *a, **kw):
+        kw.update(catch_exceptions=False)
         return super().invoke(self.app, *a, **kw)
 
     def invoke_with_config(self, *args, **kwargs) -> CommandResult:
@@ -65,7 +70,6 @@ class SnowCLIRunner(CliRunner):
             ],
             **kwargs,
         )
-
         if result.output == "" or result.output.strip() == "Done":
             return CommandResult(result.exit_code, json=[])
         return CommandResult(result.exit_code, json.loads(result.output))
