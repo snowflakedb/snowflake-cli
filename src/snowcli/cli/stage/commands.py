@@ -12,20 +12,20 @@ from snowcli.output.types import QueryResult, SingleQueryResult, CommandResult
 app = typer.Typer(
     name="stage",
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    help="Manage stages",
+    help="Manages stages.",
 )
 
-StageNameOption = typer.Argument(..., help="Stage name.")
+StageNameOption = typer.Argument(..., help="Name of the stage.")
 
 
 @app.command("list")
 @with_output
 @global_options_with_connection
 def stage_list(
-    stage_name: str = typer.Argument(None, help="Name of stage"), **options
+    stage_name: str = typer.Argument(None, help="Name of the stage."), **options
 ) -> CommandResult:
     """
-    List stage contents or shows available stages if stage name not provided.
+    Lists the stage contents or shows available stages if the stage name is omitted.
     """
     manager = StageManager()
 
@@ -48,12 +48,12 @@ def stage_get(
         dir_okay=True,
         writable=True,
         resolve_path=True,
-        help="Directory location to store downloaded files",
+        help="Directory location to store downloaded files. If omitted, the uploads files in the active directory.",
     ),
     **options,
 ) -> CommandResult:
     """
-    Download all files from a stage to a local directory.
+    Downloads all files from a stage to a local directory.
     """
     cursor = StageManager().get(stage_name=stage_name, dest_path=path)
     return SingleQueryResult(cursor)
@@ -70,21 +70,21 @@ def stage_put(
         dir_okay=True,
         writable=True,
         resolve_path=True,
-        help="File or directory to upload to stage, can include a `*` in the path, like `folder/*.csv`. Make sure you put quotes around the path if it includes a `*`. ",
+        help="File or directory to upload to stage. You can use the `*` wildcard in the path, like `folder/*.csv`. If a path contains `*.`, you must enclose the path in quotes.",
     ),
     name: str = StageNameOption,
     overwrite: bool = typer.Option(
         False,
-        help="Overwrite existing files in stage",
+        help="Overwrites existing files in the stage.",
     ),
     parallel: int = typer.Option(
         4,
-        help="Number of parallel threads to use for upload",
+        help="Number of parallel threads to use when uploading files. Default: 4.",
     ),
     **options,
 ) -> CommandResult:
     """
-    Upload files to a stage from a local client
+    Uploads files to a stage from a local client.
     """
     manager = StageManager()
     local_path = str(path) + "/*" if path.is_dir() else str(path)
@@ -100,7 +100,7 @@ def stage_put(
 @global_options_with_connection
 def stage_create(name: str = StageNameOption, **options) -> CommandResult:
     """
-    Create stage if not exists.
+    Creates a named stage if it does not already exist.
     """
     cursor = StageManager().create(stage_name=name)
     return SingleQueryResult(cursor)
@@ -111,7 +111,7 @@ def stage_create(name: str = StageNameOption, **options) -> CommandResult:
 @global_options_with_connection
 def stage_drop(name: str = StageNameOption, **options) -> CommandResult:
     """
-    Drop stage
+    Drops a stage.
     """
     cursor = StageManager().drop(stage_name=name)
     return SingleQueryResult(cursor)
@@ -122,11 +122,11 @@ def stage_drop(name: str = StageNameOption, **options) -> CommandResult:
 @global_options_with_connection
 def stage_remove(
     stage_name: str = StageNameOption,
-    file_name: str = typer.Argument(..., help="File name"),
+    file_name: str = typer.Argument(..., help="Name of the file to remove."),
     **options,
 ) -> CommandResult:
     """
-    Remove file from stage
+    Removes a file from a stage.
     """
 
     cursor = StageManager().remove(stage_name=stage_name, path=file_name)

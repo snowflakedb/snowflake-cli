@@ -17,7 +17,7 @@ from snowcli.snow_connector import connect_to_snowflake
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     name="connection",
-    help="Manage connection to Snowflake",
+    help="Manages connections to Snowflake.",
 )
 log = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ def _mask_password(connection_params: dict):
 @global_options
 def list_connections(**options) -> CommandResult:
     """
-    List configured connections.
+    Lists configured connections.
     """
     connections = cli_config.get_section("connections")
     result = (
@@ -73,7 +73,7 @@ def add(
         "--connection-name",
         "-n",
         prompt="Name for this connection",
-        help="Name of the new connection",
+        help="Name of the new connection.",
         show_default=False,
     ),
     account: str = typer.Option(
@@ -82,7 +82,7 @@ def add(
         "-a",
         "--accountname",
         prompt="Snowflake account name",
-        help="Account name to be used to authenticate with Snowflake.",
+        help="Account name to use when authenticating with Snowflake.",
         show_default=False,
     ),
     user: str = typer.Option(
@@ -100,7 +100,7 @@ def add(
         "-p",
         click_type=OptionalPrompt(),
         prompt="Snowflake password",
-        help="Snowflake password",
+        help="Snowflake password.",
         hide_input=True,
     ),
     role: str = typer.Option(
@@ -141,7 +141,7 @@ def add(
         "-h",
         click_type=OptionalPrompt(),
         prompt="Connection host",
-        help="The host name the connection attempts to connect to.",
+        help="Host name the connection attempts to connect to Snowflake.",
     ),
     port: int = typer.Option(
         EmptyInput(),
@@ -149,7 +149,7 @@ def add(
         "-P",
         click_type=OptionalPrompt(),
         prompt="Connection port",
-        help="The port to communicate with on the host.",
+        help="Port to communicate with on the host.",
         callback=require_integer(field_name="port"),
     ),
     region: str = typer.Option(
@@ -162,7 +162,7 @@ def add(
     ),
     **options,
 ) -> CommandResult:
-    """Add connection to configuration file."""
+    """Adds a connection to configuration file."""
     connection_entry = {
         "account": account,
         "user": user,
@@ -192,7 +192,7 @@ def add(
 @with_output
 def test(connection: str = ConnectionOption, **options) -> CommandResult:
     """
-    Tests connection to Snowflake.
+    Tests the connection to Snowflake.
     """
     connect_to_snowflake(connection_name=connection)
     return MessageResult("OK")

@@ -14,19 +14,19 @@ from snowcli.utils import (
 
 PyPiDownloadOption = typer.Option(
     "ask",
-    help="Download non-Anaconda packages from PyPi (yes/no/ask)",
+    help="Whether to download non-Anaconda packages from PyPi. Valid values include: `yes`, `no`, `ask`. Default: `no`.",
     callback=yes_no_ask_callback,
 )
 PackageNativeLibrariesOption = typer.Option(
     "ask",
-    help="When using packages from PyPi, allow native libraries",
+    help="When using packages from PyPi, whether to allow native libraries. Valid values include: `yes`, `no`, `ask`. Default: `no`.",
     callback=yes_no_ask_callback,
 )
 CheckAnacondaForPyPiDependancies: bool = typer.Option(
     True,
     "--check-anaconda-for-pypi-deps/--no-check-anaconda-for-pypi-deps",
     "-a",
-    help="""When downloading missing Anaconda packages, check if any of their dependancies can be imported directly from Anaconda""",
+    help="""Whether to check if any of missing Anaconda packages dependencies can be imported directly from Anaconda. Valid values include: `true`, `false`, Default: `true`.""",
 )
 log = logging.getLogger(__name__)
 

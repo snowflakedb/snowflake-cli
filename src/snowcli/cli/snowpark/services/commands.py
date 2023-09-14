@@ -12,7 +12,9 @@ from snowcli.output.decorators import with_output
 from snowcli.output.types import QueryResult, SingleQueryResult, CommandResult
 
 app = typer.Typer(
-    context_settings=DEFAULT_CONTEXT_SETTINGS, name="services", help="Manage services"
+    context_settings=DEFAULT_CONTEXT_SETTINGS,
+    name="services",
+    help="Manages Snowpark services.",
 )
 
 
@@ -38,7 +40,7 @@ def create(
     **options,
 ) -> CommandResult:
     """
-    Create service
+    Creates a new Snowpark Container Services service in the current schema.
     """
     stage_manager = StageManager()
     stage_manager.create(stage_name=stage)
@@ -61,7 +63,7 @@ def desc(
     name: str = typer.Argument(..., help="Service Name"), **options
 ) -> CommandResult:
     """
-    Desc Service
+    Describes the properties of a Snowpark Container Services service.
     """
     cursor = ServiceManager().desc(service_name=name)
     return SingleQueryResult(cursor)
@@ -71,10 +73,10 @@ def desc(
 @with_output
 @global_options_with_connection
 def status(
-    name: str = typer.Argument(..., help="Service Name"), **options
+    name: str = typer.Argument(..., help="Name of the service."), **options
 ) -> CommandResult:
     """
-    Logs Service
+    Retrieves status of a Snowpark Container Services service.
     """
     cursor = ServiceManager().status(service_name=name)
     return SingleQueryResult(cursor)
@@ -85,7 +87,7 @@ def status(
 @global_options_with_connection
 def list(**options) -> CommandResult:
     """
-    List Service
+    Lists the services for which you have access privileges.
     """
     cursor = ServiceManager().show()
     return QueryResult(cursor)
@@ -95,10 +97,10 @@ def list(**options) -> CommandResult:
 @with_output
 @global_options_with_connection
 def drop(
-    name: str = typer.Argument(..., help="Service Name"), **options
+    name: str = typer.Argument(..., help="Name of the service to remove."), **options
 ) -> CommandResult:
     """
-    Drop Service
+    Removes the specified service from the current or specified schema.
     """
     cursor = ServiceManager().drop(service_name=name)
     return SingleQueryResult(cursor)
@@ -107,14 +109,14 @@ def drop(
 @app.command()
 @global_options_with_connection
 def logs(
-    name: str = typer.Argument(..., help="Service Name"),
+    name: str = typer.Argument(..., help="Name of the service."),
     container_name: str = typer.Option(
-        ..., "--container_name", "-c", help="Container Name"
+        ..., "--container_name", "-c", help="Name of the container."
     ),
     **options,
 ):
     """
-    Logs Service
+    Retrieves local logs from a Snowpark Container Services service container.
     """
     results = ServiceManager().logs(service_name=name, container_name=container_name)
     cursor = results.fetchone()
