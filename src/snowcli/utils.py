@@ -11,6 +11,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import warnings
 import git
 
@@ -26,7 +27,7 @@ import typer
 from jinja2 import Environment, FileSystemLoader
 from snowflake.connector.cursor import SnowflakeCursor
 
-if "nt" == os.name:
+if sys.platform == "win32":
     from ctypes import create_unicode_buffer, windll
 
 warnings.filterwarnings("ignore", category=UserWarning)
