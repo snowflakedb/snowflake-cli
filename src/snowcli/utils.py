@@ -611,19 +611,12 @@ def sql_to_python_return_type_mapper(resource_return_type: str) -> str:
 
 def path_resolver(path_to_file: str):
     if platform.system() == "Windows" and "~1" in path_to_file:
-        return get_full_path(path_to_file)
-    else:
-        return path_to_file
+        from ctypes import create_unicode_buffer, windll
 
+        buffer = create_unicode_buffer(BUFFER_SIZE)
+        get_long_path_name = windll.kernel32.GetLongPathNameW
+        return_value = get_long_path_name(path_to_file, buffer, BUFFER_SIZE)
 
-def get_full_path(path_to_resolve: str):
-    from ctypes import create_unicode_buffer, windll
-
-    buffer = create_unicode_buffer(BUFFER_SIZE)
-    get_long_path_name = windll.kernel32.GetLongPathNameW
-    return_value = get_long_path_name(path_to_resolve, buffer, BUFFER_SIZE)
-
-    if return_value < BUFFER_SIZE:
-        return path_to_resolve
-    else:
-        return buffer.value
+        if 0 < return_value <= BUFFER_SIZE:
+            return buffer.value
+    return path_to_file
