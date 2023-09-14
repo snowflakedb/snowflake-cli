@@ -26,6 +26,9 @@ import typer
 from jinja2 import Environment, FileSystemLoader
 from snowflake.connector.cursor import SnowflakeCursor
 
+if "nt" == os.name:
+    from ctypes import create_unicode_buffer, windll
+
 warnings.filterwarnings("ignore", category=UserWarning)
 
 YesNoAskOptions = ["yes", "no", "ask"]
@@ -37,7 +40,7 @@ templates_path = os.path.join(Path(__file__).parent, "python_templates")
 
 log = logging.getLogger(__name__)
 
-BUFFER_SIZE = 260
+BUFFER_SIZE = 4096
 
 
 # TODO: add typing to all functions
@@ -611,8 +614,6 @@ def sql_to_python_return_type_mapper(resource_return_type: str) -> str:
 
 def path_resolver(path_to_file: str):
     if platform.system() == "Windows" and "~1" in path_to_file:
-        from ctypes import create_unicode_buffer, windll
-
         buffer = create_unicode_buffer(BUFFER_SIZE)
         get_long_path_name = windll.kernel32.GetLongPathNameW
         return_value = get_long_path_name(path_to_file, buffer, BUFFER_SIZE)
