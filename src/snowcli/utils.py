@@ -37,6 +37,8 @@ templates_path = os.path.join(Path(__file__).parent, "python_templates")
 
 log = logging.getLogger(__name__)
 
+BUFFER_SIZE = 260
+
 
 # TODO: add typing to all functions
 def yes_no_ask_callback(value: str):
@@ -617,12 +619,11 @@ def path_resolver(path_to_file: str):
 def get_full_path(path_to_resolve: str):
     from ctypes import create_unicode_buffer, windll
 
-    BUFFER_SIZE = 260
     buffer = create_unicode_buffer(BUFFER_SIZE)
     get_long_path_name = windll.kernel32.GetLongPathNameW
     return_value = get_long_path_name(path_to_resolve, buffer, BUFFER_SIZE)
 
-    if return_value == 0 or return_value > 260:
+    if return_value < BUFFER_SIZE:
         return path_to_resolve
     else:
         return buffer.value
