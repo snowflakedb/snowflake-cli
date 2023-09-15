@@ -3,12 +3,11 @@
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-unstable";
     src = {
-      url = "github:Snowflake-Labs/snowcli";
+      url = "github:Snowflake-Labs/snowcli?ref=v1.1.0";  # Unpin if needed
       flake = false;
     };
-    # Effectively a nightly build
     snowflake-connector-python-src = {
-      url = "github:snowflakedb/snowflake-connector-python";
+      url = "github:snowflakedb/snowflake-connector-python?ref=v3.2.0";  # Unpin if needed
       flake = false;
     };
   };
@@ -29,16 +28,16 @@
           formatter = pkgs.nixpkgs-fmt;
           packages = rec {
             default = snowcli;
-            snowflake-connector-python-nightly-ish = python3.pkgs.snowflake-connector-python.overrideAttrs (
+            flake-snowflake-connector-python = python3.pkgs.snowflake-connector-python.overrideAttrs (
               finalAttrs: previousAttrs: {
                 src = inputs.snowflake-connector-python-src;
                 propagatedBuildInputs = previousAttrs.propagatedBuildInputs ++
-                  (builtins.attrValues { inherit (python3.pkgs) sortedcontainers packaging platformdirs tomlkit; });
+                  (builtins.attrValues { inherit (python3.pkgs) sortedcontainers packaging platformdirs tomlkit keyring; });
               }
             );
             snowcli = python3.pkgs.buildPythonApplication {
               pname = "snowflake-cli-labs";
-              version = "1.0.0";
+              version = "1.1.0";
               format = "pyproject";
               inherit (inputs) src;
 
@@ -59,10 +58,13 @@
                 rich
                 requests
                 requirements-parser
+                strictyaml
                 tomlkit
                 typer
                 chardet # needed by snowflake-connector-python
-              ] ++ [ snowflake-connector-python-nightly-ish ];
+                urllib3
+                gitpython
+              ] ++ [ flake-snowflake-connector-python ];
               meta = {
                 mainProgram = "snow";
                 description = "Snowflake CLI";
