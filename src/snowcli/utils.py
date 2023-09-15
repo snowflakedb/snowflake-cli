@@ -28,7 +28,7 @@ from jinja2 import Environment, FileSystemLoader
 from snowflake.connector.cursor import SnowflakeCursor
 
 if sys.platform == "win32":
-    from ctypes import create_unicode_buffer, windll
+    from ctypes import create_unicode_buffer, windll  # type: ignore
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -615,8 +615,8 @@ def sql_to_python_return_type_mapper(resource_return_type: str) -> str:
 
 def path_resolver(path_to_file: str):
     if platform.system() == "Windows" and "~1" in path_to_file:
-        buffer = create_unicode_buffer(BUFFER_SIZE)
-        get_long_path_name = windll.kernel32.GetLongPathNameW
+        buffer = create_unicode_buffer(BUFFER_SIZE)  # type: ignore
+        get_long_path_name = windll.kernel32.GetLongPathNameW  # type: ignore
         return_value = get_long_path_name(path_to_file, buffer, BUFFER_SIZE)
 
         if 0 < return_value <= BUFFER_SIZE:
