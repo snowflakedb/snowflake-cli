@@ -386,3 +386,20 @@ def test_deduplicate_and_sort_reqs():
 )
 def test_sql_to_python_return_type_mapper(argument: Tuple[str, str]):
     assert utils.sql_to_python_return_type_mapper(argument[0]) == argument[1]
+
+
+@mock.patch("platform.system")
+@pytest.mark.parametrize(
+    "argument, expected",
+    [
+        ("C:\Something\Something Else", "C:\Something\Something Else"),
+        (
+            "/var/folders/k8/3sdqh3nn4gg7lpr5fz0fjlqw0000gn/T/tmpja15jymq",
+            "/var/folders/k8/3sdqh3nn4gg7lpr5fz0fjlqw0000gn/T/tmpja15jymq",
+        ),
+    ],
+)
+def test_path_resolver(mock_system, argument, expected):
+    mock_system.response_value = "Windows"
+
+    assert utils.path_resolver(argument) == expected
