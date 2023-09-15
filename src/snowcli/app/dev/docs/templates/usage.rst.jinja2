@@ -6,8 +6,11 @@ Syntax
 .. code-block:: console
 
   snow {% for part in path %}{{ part }}{{ " " if not loop.last }}{% endfor %}
+{%- for param in arguments if not param.hidden %}
+    <{{ param.name }}>
+{%- endfor %}
 {%- for param in options if not param.hidden %}
-{{ "    " + (param.opts | get_main_option) }}{% if not param.is_flag %} <{{ param.name }}>{% endif %}
+    {{ (param.opts | get_main_option) }}{% if not param.is_flag %} <{{ param.name }}>{% endif %}
 {%- endfor %}
 
 Arguments
