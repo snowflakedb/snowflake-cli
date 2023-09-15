@@ -179,3 +179,7 @@ def test_connection_test(mock_connect, runner):
     result = runner.invoke_with_config(["connection", "test", "-c", "full"])
     assert result.exit_code == 0, result.output
     mock_connect.assert_called_once_with(connection_name="full")
+
+
+def test_temporary_connection(runner):
+    result = runner.invoke()
