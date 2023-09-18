@@ -48,31 +48,29 @@ class CommandPluginsLoader:
         already_loaded_plugin = self._loaded_plugins.get(plugin_name)
         if already_loaded_plugin:
             return already_loaded_plugin
-        else:
-            return self._load_new_plugin(plugin_name, plugin)
+        return self._load_new_plugin(plugin_name, plugin)
 
     def _load_new_plugin(
         self, plugin_name: str, plugin
     ) -> Optional[LoadedCommandPlugin]:
         loaded_plugin = self._load_plugin_spec(plugin_name, plugin)
-        if loaded_plugin:
-            other_plugin_with_the_same_command_path = self._loaded_command_paths.get(
-                loaded_plugin.command_spec.full_command_path
-            )
-            if other_plugin_with_the_same_command_path:
-                log.error(
-                    f"Cannot load plugin [{plugin_name}] "
-                    f"because it defines the same command [{loaded_plugin.command_spec.full_command_path}] "
-                    f"as already loaded plugin [{other_plugin_with_the_same_command_path.plugin_name}]."
-                )
-                return None
-            self._loaded_plugins[plugin_name] = loaded_plugin
-            self._loaded_command_paths[
-                loaded_plugin.command_spec.full_command_path
-            ] = loaded_plugin
-            return loaded_plugin
-        else:
+        if not loaded_plugin:
             return None
+        other_plugin_with_the_same_command_path = self._loaded_command_paths.get(
+            loaded_plugin.command_spec.full_command_path
+        )
+        if other_plugin_with_the_same_command_path:
+            log.error(
+                f"Cannot load plugin [{plugin_name}] "
+                f"because it defines the same command [{loaded_plugin.command_spec.full_command_path}] "
+                f"as already loaded plugin [{other_plugin_with_the_same_command_path.plugin_name}]."
+            )
+            return None
+        self._loaded_plugins[plugin_name] = loaded_plugin
+        self._loaded_command_paths[
+            loaded_plugin.command_spec.full_command_path
+        ] = loaded_plugin
+        return loaded_plugin
 
     def _load_plugin_spec(
         self, plugin_name: str, plugin

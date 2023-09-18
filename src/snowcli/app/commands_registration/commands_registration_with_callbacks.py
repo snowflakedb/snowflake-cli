@@ -1,4 +1,3 @@
-import logging
 from dataclasses import dataclass
 from typing import Callable, List
 
@@ -6,11 +5,9 @@ from snowcli.app.commands_registration.command_plugins_loader import (
     load_only_builtin_command_plugins,
 )
 from snowcli.app.commands_registration.typer_registration import (
-    add_plugins_to_main_typer,
+    register_commands_from_plugins,
 )
 from snowcli.utils import ThreadsafeCounter
-
-log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -53,7 +50,7 @@ class CommandsRegistrationWithCallbacks:
     @staticmethod
     def _register_builtin_plugin_commands() -> None:
         loaded_builtin_command_plugins = load_only_builtin_command_plugins()
-        add_plugins_to_main_typer(loaded_builtin_command_plugins)
+        register_commands_from_plugins(loaded_builtin_command_plugins)
 
     def _register_external_plugin_commands(self) -> None:
         pass  # TODO: To be done in a PR with external plugins

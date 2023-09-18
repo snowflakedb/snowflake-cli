@@ -12,14 +12,14 @@ log = logging.getLogger(__name__)
 log_exception = exception_logging(log)
 
 
-class AddPluginsToMainTyper:
+class TyperCommandsRegistration:
     def __init__(self, plugins: List[LoadedCommandPlugin]):
         self._plugins = plugins
         self._main_typer_command_group = (
             self._get_main_typer_command_group_from_click_context()
         )
 
-    def __call__(self, *args, **kwargs):
+    def register_commands(self):
         for plugin in self._plugins:
             try:
                 self._add_plugin_to_typer(plugin.command_spec)
@@ -82,5 +82,5 @@ class AddPluginsToMainTyper:
             return current_level_group
 
 
-def add_plugins_to_main_typer(plugins: List[LoadedCommandPlugin]) -> None:
-    return AddPluginsToMainTyper(plugins)()
+def register_commands_from_plugins(plugins: List[LoadedCommandPlugin]) -> None:
+    return TyperCommandsRegistration(plugins).register_commands()
