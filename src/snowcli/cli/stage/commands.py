@@ -72,7 +72,7 @@ def stage_put(
         resolve_path=True,
         help="File or directory to upload to stage. You can use the `*` wildcard in the path, like `folder/*.csv`. If a path contains `*.`, you must enclose the path in quotes.",
     ),
-    name: str = StageNameOption,
+    stage_name: str = StageNameOption,
     overwrite: bool = typer.Option(
         False,
         help="Overwrites existing files in the stage.",
@@ -90,7 +90,10 @@ def stage_put(
     local_path = str(path) + "/*" if path.is_dir() else str(path)
 
     cursor = manager.put(
-        local_path=local_path, stage_path=name, overwrite=overwrite, parallel=parallel
+        local_path=local_path,
+        stage_path=stage_name,
+        overwrite=overwrite,
+        parallel=parallel,
     )
     return SingleQueryResult(cursor)
 
@@ -98,22 +101,22 @@ def stage_put(
 @app.command("create")
 @with_output
 @global_options_with_connection
-def stage_create(name: str = StageNameOption, **options) -> CommandResult:
+def stage_create(stage_name: str = StageNameOption, **options) -> CommandResult:
     """
     Creates a named stage if it does not already exist.
     """
-    cursor = StageManager().create(stage_name=name)
+    cursor = StageManager().create(stage_name=stage_name)
     return SingleQueryResult(cursor)
 
 
 @app.command("drop")
 @with_output
 @global_options_with_connection
-def stage_drop(name: str = StageNameOption, **options) -> CommandResult:
+def stage_drop(stage_name: str = StageNameOption, **options) -> CommandResult:
     """
     Drops a stage.
     """
-    cursor = StageManager().drop(stage_name=name)
+    cursor = StageManager().drop(stage_name=stage_name)
     return SingleQueryResult(cursor)
 
 

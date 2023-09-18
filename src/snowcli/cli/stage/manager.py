@@ -6,6 +6,7 @@ from typing import Optional, Union
 from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.utils import path_resolver
 
 
 class StageManager(SqlExecutionMixin):
@@ -33,8 +34,9 @@ class StageManager(SqlExecutionMixin):
         overwrite: bool = False,
     ) -> SnowflakeCursor:
         stage_path = self.get_standard_stage_name(stage_path)
+        local_resolved_path = path_resolver(str(local_path))
         return self._execute_query(
-            f"put file://{local_path} {stage_path} "
+            f"put file://{local_resolved_path} {stage_path} "
             f"auto_compress=false parallel={parallel} overwrite={overwrite}"
         )
 
