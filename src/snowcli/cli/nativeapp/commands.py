@@ -45,7 +45,7 @@ def app_init(
     ),
     template: str = typer.Option(
         None,
-        help="A specific directory within the git URL to use as template for the Native Apps project. Example: native-app-basic within https://github.com/Snowflake-Labs/native-apps-templates.git.",
+        help="A specific directory within the git URL to use as template for the Native Apps project. Example: Default is native-app-basic if --git-url is https://github.com/Snowflake-Labs/native-apps-templates.git, and None if any other --git-url.",
     ),
     **options,
 ) -> CommandResult:

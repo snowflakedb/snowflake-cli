@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from re import fullmatch
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from click.exceptions import ClickException
@@ -19,13 +20,25 @@ from snowcli.cli.project.definition_manager import DefinitionManager
 
 log = logging.getLogger(__name__)
 
-SNOWFLAKELABS_GITHUB_URL = "https://github.com/Snowflake-Labs/native-app-templates"
-BASIC_TEMPLATE = "native-app-basic"
+SNOWFLAKELABS_GITHUB_URL = "https://github.com/Snowflake-Labs/native-apps-templates"
+BASIC_TEMPLATE = "native-apps-basic"
+
+# Based on first two rules for unquoted object identifier: https://docs.snowflake.com/en/sql-reference/identifiers-syntax
+PROJECT_NAME_REGEX = r"(^[a-zA-Z_])([a-zA-Z0-9_$]{0,254})"
 
 
 class InitError(ClickException):
     """
     Native app project could not be initiated due to an underlying error.
+    """
+
+    def __init__(self):
+        super().__init__(self.__doc__)
+
+
+class ProjectNameInvalidError(ClickException):
+    """
+    Intended project name does not qualify as a valid identifier.
     """
 
     def __init__(self):
@@ -54,7 +67,7 @@ class CannotInitializeAnExistingProjectError(ClickException):
 
 class DirectoryAlreadyExistsError(ClickException):
     """
-    Directory already contains a project with the intended name
+    Directory already contains a project with the intended name.
     """
 
     name: str
@@ -64,6 +77,10 @@ class DirectoryAlreadyExistsError(ClickException):
             f"This directory already contains a sub-directory called {name}. Please try a different name."
         )
         self.name = name
+
+
+def is_valid_project_name(project_name: str):
+    return fullmatch(PROJECT_NAME_REGEX, project_name) is not None
 
 
 def render_snowflake_yml(parent_to_snowflake_yml: Path):
@@ -298,8 +315,12 @@ def nativeapp_init(
 
     current_working_directory = Path.cwd()
 
+    # If the intended project name is not a valid identifier, faili init command
+    if not is_valid_project_name(name):
+        raise ProjectNameInvalidError()
+
     # If current directory is already contains a file named snowflake.yml, i.e. is a native apps project, fail init command.
-    # We do not validate the yml here though.
+    # We do not validate contents of the yml here though.
     path_to_snowflake_yml = current_working_directory / "snowflake.yml"
     if path_to_snowflake_yml.is_file():
         raise CannotInitializeAnExistingProjectError()
