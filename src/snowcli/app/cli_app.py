@@ -41,6 +41,7 @@ def _commands_registration_callback(value: bool):
     if value:
         _commands_registration.register_commands_if_ready_and_not_registered_yet()
     # required to make the tests working
+    # because a single test can execute multiple commands using always the same "app" instance
     _commands_registration.reset_running_instance_registration_state()
 
 
