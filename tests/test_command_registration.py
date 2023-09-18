@@ -9,8 +9,8 @@ from tests.testing_utils.fixtures import *
 def test_builtin_plugins_registration(runner):
     result = runner.invoke(["-h"])
     assert result.exit_code == 0
-    assert result.output.count("Manage connection to Snowflake") == 1
-    assert result.output.count("Manage Streamlit in Snowflake") == 1
+    assert result.output.count("Manages connections to Snowflake") == 1
+    assert result.output.count("Manages Streamlit in Snowflake") == 1
 
 
 @mock.patch(
@@ -23,8 +23,8 @@ def test_builtin_plugins_registration(runner):
 def test_duplicated_plugin_handling(runner):
     result = runner.invoke(["-h"])
     assert result.exit_code == 0
-    assert result.output.count("Manage connection to Snowflake") == 1
-    assert result.output.count("Manage Streamlit in Snowflake") == 0
+    assert result.output.count("Manages connections to Snowflake") == 1
+    assert result.output.count("Manages Streamlit in Snowflake") == 0
 
 
 @mock.patch("snowcli.cli.connection.plugin_spec.command_spec")
@@ -35,8 +35,8 @@ def test_conflicting_command_plugin_paths_handling(
 
     result = runner.invoke(["-h"])
     assert result.exit_code == 0
-    assert result.output.count("Manage connection to Snowflake") == 0
-    assert result.output.count("Manage Streamlit in Snowflake") == 1
+    assert result.output.count("Manages connections to Snowflake") == 0
+    assert result.output.count("Manages Streamlit in Snowflake") == 1
 
 
 @mock.patch("snowcli.cli.streamlit.plugin_spec.command_spec")
@@ -47,15 +47,15 @@ def test_conflicting_commands_handling(streamlit_command_spec_mock, runner):
 
     result = runner.invoke(["-h"])
     assert result.exit_code == 0
-    assert result.output.count("Manage connection to Snowflake") == 1
+    assert result.output.count("Manages connections to Snowflake") == 1
 
     result2 = runner.invoke(["connection", "-h"])
     assert result2.exit_code == 0
-    assert result2.output.count("List configured connections") == 1
+    assert result2.output.count("Lists configured connections") == 1
 
     result3 = runner.invoke(["connection", "list", "-h"])
     assert result3.exit_code == 0
-    assert result3.output.count("List configured connections") == 1
+    assert result3.output.count("Lists configured connections") == 1
 
 
 @mock.patch("snowcli.cli.connection.plugin_spec.command_spec")
@@ -67,8 +67,8 @@ def test_not_existing_command_group_handling(connection_command_spec_mock, runne
     result = runner.invoke(["-h"])
     assert result.exit_code == 0
     assert result.output.count("xyz123") == 0
-    assert result.output.count("Manage connection to Snowflake") == 0
-    assert result.output.count("Manage Streamlit in Snowflake") == 1
+    assert result.output.count("Manages connections to Snowflake") == 0
+    assert result.output.count("Manages Streamlit in Snowflake") == 1
 
 
 @mock.patch("snowcli.cli.connection.plugin_spec.command_spec")
@@ -77,5 +77,5 @@ def test_broken_command_spec_handling(connection_command_spec_mock, runner):
 
     result = runner.invoke(["-h"])
     assert result.exit_code == 0
-    assert result.output.count("Manage connection to Snowflake") == 0
-    assert result.output.count("Manage Streamlit in Snowflake") == 1
+    assert result.output.count("Manages connections to Snowflake") == 0
+    assert result.output.count("Manages Streamlit in Snowflake") == 1

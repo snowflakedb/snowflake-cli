@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import platform
 import threading
 from dataclasses import dataclass
 
@@ -11,6 +12,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import warnings
 import git
 
@@ -26,6 +28,7 @@ import typer
 from jinja2 import Environment, FileSystemLoader
 from snowflake.connector.cursor import SnowflakeCursor
 
+
 warnings.filterwarnings("ignore", category=UserWarning)
 
 YesNoAskOptions = ["yes", "no", "ask"]
@@ -36,6 +39,8 @@ PIP_PATH = os.environ.get("SNOWCLI_PIP_PATH", "pip")
 templates_path = os.path.join(Path(__file__).parent, "python_templates")
 
 log = logging.getLogger(__name__)
+
+BUFFER_SIZE = 4096
 
 
 # TODO: add typing to all functions
@@ -605,6 +610,19 @@ def sql_to_python_return_type_mapper(resource_return_type: str) -> str:
     }
 
     return mapping.get(resource_return_type.lower(), resource_return_type.lower())
+
+
+def path_resolver(path_to_file: str):
+    if sys.platform == "win32" and "~1" in path_to_file:
+        from ctypes import create_unicode_buffer, windll  # type: ignore
+
+        buffer = create_unicode_buffer(BUFFER_SIZE)
+        get_long_path_name = windll.kernel32.GetLongPathNameW
+        return_value = get_long_path_name(path_to_file, buffer, BUFFER_SIZE)
+
+        if 0 < return_value <= BUFFER_SIZE:
+            return buffer.value
+    return path_to_file
 
 
 T = TypeVar("T")

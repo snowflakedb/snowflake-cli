@@ -1,0 +1,12 @@
+# serializer version: 1
+# name: test_init_with_url_and_template_w_random_url_and_template
+  '''
+  definition_version: 1
+  native_app:
+    name: fake_repo
+    artifacts:
+    - setup.sql
+    - README.md
+  
+  '''
+# ---

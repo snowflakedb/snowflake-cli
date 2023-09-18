@@ -7,7 +7,9 @@ from snowcli.output.decorators import with_output
 from snowcli.output.types import ObjectResult
 
 app = typer.Typer(
-    context_settings=DEFAULT_CONTEXT_SETTINGS, name="registry", help="Manage registry"
+    context_settings=DEFAULT_CONTEXT_SETTINGS,
+    name="registry",
+    help="Manages Snowpark registries.",
 )
 
 
@@ -16,6 +18,6 @@ app = typer.Typer(
 @global_options_with_connection
 def token(environment: str = ConnectionOption, **options):
     """
-    Get token to authenticate with registry.
+    Gets the token from environment to use for authenticating with the registry.
     """
     return ObjectResult(get_token(environment))
