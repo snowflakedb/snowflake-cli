@@ -265,7 +265,7 @@ def _init_with_url_and_template(
                 depth=1,
             )
 
-            # Move native-app-basic to current_working_directory and rename to name
+            # Move native-apps-basic to current_working_directory and rename to name
             move(
                 src=current_working_directory / temp_dir / template,
                 dst=current_working_directory / project_name,

@@ -346,7 +346,7 @@ def test_init_with_url_and_template_w_native_app_url_and_template(
         current_working_directory=Path.cwd(),
         project_name=fake_repo,
         git_url="https://github.com/Snowflake-Labs/native-apps-templates",
-        template="native-app-basic",
+        template="native-apps-basic",
     )
 
     fake_repo_path = current_working_directory / fake_repo
