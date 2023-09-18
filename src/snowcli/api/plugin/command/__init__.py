@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from functools import cached_property
 from typing import List
 
+import click
 import pluggy
 from typer import Typer
 from typer.main import get_command
@@ -32,14 +34,15 @@ class CommandPath:
 SNOWCLI_ROOT_COMMAND_PATH = CommandPath(path_segments=[])
 
 
-@dataclass
+@dataclass(frozen=True)
 class CommandSpec:
     parent_command_path: CommandPath
     typer_instance: Typer
 
-    @property
-    def full_command_path(self):
-        return CommandPath(
-            self.parent_command_path.path_segments
-            + [get_command(self.typer_instance).name]
-        )
+    @cached_property
+    def command(self) -> click.Command:
+        return get_command(self.typer_instance)
+
+    @cached_property
+    def full_command_path(self) -> CommandPath:
+        return CommandPath(self.parent_command_path.path_segments + [self.command.name])

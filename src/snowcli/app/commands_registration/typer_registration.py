@@ -2,11 +2,10 @@ import logging
 from typing import List
 
 import click
-import typer
 from typer.core import TyperGroup
 
 from snowcli.app.commands_registration import LoadedCommandPlugin
-from snowcli.api.plugin.command import CommandSpec, CommandPath
+from snowcli.api.plugin.command import CommandSpec
 from snowcli.cli.exception_logging import exception_logging
 
 log = logging.getLogger(__name__)
@@ -48,12 +47,12 @@ class AddPluginsToMainTyper:
             remaining_parent_path_segments=command_spec.parent_command_path.path_segments,
             command_spec=command_spec,
         )
-        plugin_typer = typer.main.get_command(command_spec.typer_instance)
-        if plugin_typer.name in parent_group.commands:
+        command = command_spec.command
+        if command.name in parent_group.commands:
             raise RuntimeError(
                 f"Cannot add command [{command_spec.full_command_path}] because it already exists."
             )
-        parent_group.add_command(plugin_typer)
+        parent_group.add_command(command)
 
     def _find_typer_group_at_path(
         self,
