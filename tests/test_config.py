@@ -123,7 +123,7 @@ def test_get_all_connections(test_snowcli_config):
     },
     clear=True,
 )
-def test_get_default_connection_from_env(runner):
+def test_get_default_connection_from_env():
     result = get_default_connection()
     assert result == "fooBarConn"
 
@@ -132,3 +132,32 @@ def test_get_default_connection_if_not_present_in_config(test_snowcli_config):
     config_init(test_snowcli_config)
     result = get_default_connection()
     assert result == "dev"
+
+
+@pytest.mark.parametrize(
+    "config_content, expect",
+    [
+        ("""[connections]\n[options]\ndefault_connection = "conn" """, "conn"),
+        (
+            """[connections]\n[connections.other_conn]\n[options]\ndefault_connection = "conn" """,
+            "conn",
+        ),
+        ("""[connections]\n[connections.conn]\n[options]\n""", "conn"),
+        ("""[connections]\n[connections.conn]\n""", "conn"),
+        ("""[connections]\n""", "dev"),
+        (
+            """[connections]\n[connections.conn1]\n[connections.conn2]\n[options]\n """,
+            "dev",
+        ),
+    ],
+)
+def test_get_default_connection_from_config(config_content, expect):
+    with TemporaryDirectory() as tmp_dir:
+        config_path = Path(tmp_dir) / "config.toml"
+        with open(config_path, "w+") as config:
+            config.write(config_content)
+            config.flush()
+
+            config_init(config_path)
+            result = get_default_connection()
+            assert result == expect
