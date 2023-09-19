@@ -55,25 +55,28 @@ class TyperCommandsRegistration:
         self,
         command_spec: CommandSpec,
     ) -> CommandSpec:
-        command = command_spec.command
-        command_type = command_spec.command_type
-        if command_type == CommandType.COMMAND_GROUP and not isinstance(
-            command, TyperGroup
-        ):
-            return self._add_empty_callback_to_command_spec_if_required(command_spec)
+        command_spec = self._add_empty_callback_to_command_spec_if_required(
+            command_spec
+        )
         return command_spec
 
     @staticmethod
     def _add_empty_callback_to_command_spec_if_required(
         command_spec: CommandSpec,
     ) -> CommandSpec:
-        typer_instance = command_spec.typer_instance
-        typer_instance.callback()(lambda: None)
-        new_command_spec = CommandSpec(
-            parent_command_path=command_spec.parent_command_path,
-            command_type=command_spec.command_type,
-            typer_instance=typer_instance,
+        new_command_spec = command_spec
+        is_specified_as_command_group = (
+            command_spec.command_type == CommandType.COMMAND_GROUP
         )
+        is_typer_group = isinstance(command_spec.command, TyperGroup)
+        if is_specified_as_command_group and not is_typer_group:
+            typer_instance = command_spec.typer_instance
+            typer_instance.callback()(lambda: None)
+            new_command_spec = CommandSpec(
+                parent_command_path=command_spec.parent_command_path,
+                command_type=command_spec.command_type,
+                typer_instance=typer_instance,
+            )
         return new_command_spec
 
     @staticmethod
@@ -82,13 +85,13 @@ class TyperCommandsRegistration:
         parent_group: TyperGroup,
     ) -> None:
         command = command_spec.command
+        command_type = command_spec.command_type
+        is_typer_group = isinstance(command, TyperGroup)
         if command.name in parent_group.commands:
             raise RuntimeError(
                 f"Cannot add command [{command_spec.full_command_path}] because it already exists."
             )
-        if command_spec.command_type == CommandType.SINGLE_COMMAND and isinstance(
-            command, TyperGroup
-        ):
+        if command_type == CommandType.SINGLE_COMMAND and is_typer_group:
             raise RuntimeError(
                 f"Cannot add command [{command_spec.full_command_path}] "
                 + f"because its command type is {CommandType.SINGLE_COMMAND} "
@@ -96,9 +99,7 @@ class TyperCommandsRegistration:
                 + f"making it a TyperGroup ({CommandType.COMMAND_GROUP}) "
                 + f"(a callback or multiple nested commands)."
             )
-        if command_spec.command_type == CommandType.COMMAND_GROUP and not isinstance(
-            command, TyperGroup
-        ):
+        if command_type == CommandType.COMMAND_GROUP and not is_typer_group:
             raise RuntimeError(
                 f"Cannot add command [{command_spec.full_command_path}] "
                 + f"because its command type is {CommandType.COMMAND_GROUP} "

@@ -114,7 +114,7 @@ def test_conflicting_commands_handling(streamlit_command_spec_mock, runner):
     streamlit_command_spec_mock.return_value = CommandSpec(
         parent_command_path=CommandPath(["connection"]),
         command_type=CommandType.COMMAND_GROUP,
-        typer_instance=Typer(name="list", callback=lambda *args: None),
+        typer_instance=Typer(name="list", callback=lambda: None),
     )
 
     result = runner.invoke(["-h"])
