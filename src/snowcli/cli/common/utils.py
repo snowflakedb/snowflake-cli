@@ -103,6 +103,7 @@ def generic_render_template(
     env = jinja2.Environment(
         loader=jinja2.loaders.FileSystemLoader(template_path.parent),
         keep_trailing_newline=True,
+        undefined=jinja2.StrictUndefined,
     )
     filters = [render_metadata, read_file_content, procedure_from_js_file]
     for custom_filter in filters:

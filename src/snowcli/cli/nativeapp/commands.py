@@ -40,20 +40,24 @@ def app_init(
     name: str = typer.Argument(
         ..., help="Name of the Native Apps project to be initiated."
     ),
-    git_url: str = typer.Option(
+    template_repo: str = typer.Option(
         None,
-        help="A git URL to use as template for the Native Apps project. Example: https://github.com/Snowflake-Labs/native-apps-templates.git for all official Snowflake templates.",
+        help=f"""A git URL to a template repository, which can be a template itself or contain many templates inside it.
+        Example: https://github.com/Snowflake-Labs/native-apps-templates.git for all official Snowflake templates.
+        If using a private Github repo, you may be prompted to enter your Github username and password.
+        Please use your personal access token in the password prompt, and refer to
+        https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls for information on currently recommended modes of authentication.""",
     ),
     template: str = typer.Option(
         None,
-        help="A specific directory within the git URL to use as template for the Native Apps project. Example: Default is native-app-basic if --git-url is https://github.com/Snowflake-Labs/native-apps-templates.git, and None if any other --git-url.",
+        help="A specific template name within the template repo to use as template for the Native Apps project. Example: Default is basic if --template-repo is https://github.com/Snowflake-Labs/native-apps-templates.git, and None if any other --template-repo is specified.",
     ),
     **options,
 ) -> CommandResult:
     """
-    Initializes a Native Apps project, optionally with a --git-url and a --template.
+    Initialize a Native Apps project, optionally with a --template-repo and a --template.
     """
-    nativeapp_init(name, git_url, template)
+    nativeapp_init(name, template_repo, template)
     return MessageResult(
         f"Native Apps project {name} has been created in your local directory."
     )
