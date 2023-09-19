@@ -168,8 +168,8 @@ def _upload_procedure_artifact(
         stage_name=DEPLOYMENT_STAGE, comment="deployments managed by snowcli"
     )
     artifact_stage_path = procedure_manager.artifact_stage_path(procedure_identifier)
-    artifact_location = Path(DEPLOYMENT_STAGE) / artifact_stage_path
-    artifact_file = artifact_location / "app.zip"
+    artifact_location = f"{DEPLOYMENT_STAGE}/{artifact_stage_path}"
+    artifact_file = f"{artifact_location}/app.zip"
     with TemporaryDirectory() as temp_dir:
         temp_app_zip_path = prepare_app_zip(file, temp_dir)
         if install_coverage_wrapper:

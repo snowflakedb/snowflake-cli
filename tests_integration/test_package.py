@@ -1,5 +1,6 @@
 import os
 import tempfile
+from typing import List
 from zipfile import ZipFile
 
 import pytest
@@ -18,29 +19,31 @@ class TestPackage:
     STAGE_NAME = "PACKAGE_TEST"
 
     @pytest.mark.integration
-    def test_package_upload(
-        self, runner, example_file, snowflake_session, test_database
-    ):
+    def test_package_upload(self, runner, snowflake_session, test_database):
+        file_name = "package_upload.py"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            file_path = os.path.join(tmp_dir, file_name)
+            Path(file_path).touch()
 
-        result = runner.invoke_integration(
-            [
-                "snowpark",
-                "package",
-                "upload",
-                "-f",
-                f"{example_file}",
-                "-s",
-                f"{self.STAGE_NAME}",
-            ]
-        )
-        assert result.exit_code == 0
+            result = runner.invoke_integration(
+                [
+                    "snowpark",
+                    "package",
+                    "upload",
+                    "-f",
+                    f"{file_path}",
+                    "-s",
+                    f"{self.STAGE_NAME}",
+                ]
+            )
+            assert result.exit_code == 0
 
-        expect = snowflake_session.execute_string(f"LIST @{self.STAGE_NAME}")
+            expect = snowflake_session.execute_string(f"LIST @{self.STAGE_NAME}")
 
-        assert contains_row_with(
-            row_from_snowflake_session(expect),
-            {"name": f"{self.STAGE_NAME.lower()}/{example_file.name}"},
-        )
+            assert contains_row_with(
+                row_from_snowflake_session(expect),
+                {"name": f"{self.STAGE_NAME.lower()}/{file_name}"},
+            )
 
         snowflake_session.execute_string(f"DROP STAGE IF EXISTS {self.STAGE_NAME};")
 
@@ -52,10 +55,7 @@ class TestPackage:
 
         assert result.exit_code == 0
         assert os.path.isfile("PyRTF3.zip")
-
-        zip_file = ZipFile("PyRTF3.zip", "r")
-
-        assert ".packages/PyRTF/utils.py" in zip_file.namelist()
+        assert ".packages/PyRTF/utils.py" in self._get_filenames_from_zip("PyRTF3.zip")
 
     @pytest.mark.integration
     def test_package_create_with_non_anaconda_package_without_install(
@@ -69,12 +69,6 @@ class TestPackage:
         }
         assert not os.path.exists("PyRTF3.zip")
 
-    @pytest.fixture
-    def example_file(self):
-        file = NamedTemporaryFile("r", suffix=".py")
-        yield Path(file.name)
-        os.remove(file.name)
-
     @pytest.fixture(scope="function")
     def directory_for_test(self):
         init_dir = os.getcwd()
@@ -83,3 +77,9 @@ class TestPackage:
             os.chdir(tmp)
             yield tmp
             os.chdir(init_dir)
+
+    def _get_filenames_from_zip(self, filename: str) -> List[str]:
+        zip_file = ZipFile(filename, "r")
+        filenames_in_zip = zip_file.namelist()
+        zip_file.close()
+        return filenames_in_zip

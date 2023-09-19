@@ -1,3 +1,6 @@
+import tempfile
+from pathlib import Path
+
 import pytest
 import os
 
@@ -25,9 +28,12 @@ def test_stage(runner, snowflake_session, test_database, tmp_path):
     expect = snowflake_session.execute_string(f"show stages like '{stage_name}'")
     assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
 
-    with NamedTemporaryFile("w+", suffix=".txt") as tmp_file:
-        result = runner.invoke_integration(["stage", "put", tmp_file.name, stage_name])
-        filename = os.path.basename(tmp_file.name)
+    filename = "test.txt"
+    with tempfile.TemporaryDirectory() as td:
+        file_path = os.path.join(td, filename)
+        Path(file_path).touch()
+
+        result = runner.invoke_integration(["stage", "put", file_path, stage_name])
         assert contains_row_with(
             result.json,
             {"source": filename, "target": filename, "status": "UPLOADED"},
