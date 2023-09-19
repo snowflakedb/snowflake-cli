@@ -15,12 +15,6 @@ app = typer.Typer(
 )
 
 
-# Empty callback is required to create command group with only one command
-@app.callback()
-def empty_callback():
-    pass
-
-
 @app.command("status")
 @with_output
 @global_options_with_connection

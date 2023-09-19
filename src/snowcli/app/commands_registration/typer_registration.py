@@ -5,7 +5,7 @@ import click
 from typer.core import TyperGroup
 
 from snowcli.app.commands_registration import LoadedCommandPlugin
-from snowcli.api.plugin.command import CommandSpec
+from snowcli.api.plugin.command import CommandSpec, CommandType
 from snowcli.cli.exception_logging import exception_logging
 
 log = logging.getLogger(__name__)
@@ -42,17 +42,68 @@ class TyperCommandsRegistration:
         self,
         command_spec: CommandSpec,
     ) -> None:
+        command_spec = self._adjust_command_spec_if_required(command_spec)
         parent_group = self._find_typer_group_at_path(
             current_level_group=self._main_typer_command_group,
             remaining_parent_path_segments=command_spec.parent_command_path.path_segments,
             command_spec=command_spec,
         )
+        self._validate_command_spec(command_spec, parent_group)
+        parent_group.add_command(command_spec.command)
+
+    def _adjust_command_spec_if_required(
+        self,
+        command_spec: CommandSpec,
+    ) -> CommandSpec:
+        command = command_spec.command
+        command_type = command_spec.command_type
+        if command_type == CommandType.COMMAND_GROUP and not isinstance(
+            command, TyperGroup
+        ):
+            return self._add_empty_callback_to_command_spec_if_required(command_spec)
+        return command_spec
+
+    @staticmethod
+    def _add_empty_callback_to_command_spec_if_required(
+        command_spec: CommandSpec,
+    ) -> CommandSpec:
+        typer_instance = command_spec.typer_instance
+        typer_instance.callback()(lambda: None)
+        new_command_spec = CommandSpec(
+            parent_command_path=command_spec.parent_command_path,
+            command_type=command_spec.command_type,
+            typer_instance=typer_instance,
+        )
+        return new_command_spec
+
+    @staticmethod
+    def _validate_command_spec(
+        command_spec: CommandSpec,
+        parent_group: TyperGroup,
+    ) -> None:
         command = command_spec.command
         if command.name in parent_group.commands:
             raise RuntimeError(
                 f"Cannot add command [{command_spec.full_command_path}] because it already exists."
             )
-        parent_group.add_command(command)
+        if command_spec.command_type == CommandType.SINGLE_COMMAND and isinstance(
+            command, TyperGroup
+        ):
+            raise RuntimeError(
+                f"Cannot add command [{command_spec.full_command_path}] "
+                + f"because its command type is {CommandType.SINGLE_COMMAND} "
+                + f"while its implementation contains elements "
+                + f"making it a TyperGroup ({CommandType.COMMAND_GROUP}) "
+                + f"(a callback or multiple nested commands)."
+            )
+        if command_spec.command_type == CommandType.COMMAND_GROUP and not isinstance(
+            command, TyperGroup
+        ):
+            raise RuntimeError(
+                f"Cannot add command [{command_spec.full_command_path}] "
+                + f"because its command type is {CommandType.COMMAND_GROUP} "
+                + f"while its implementation is not a TyperGroup."
+            )
 
     def _find_typer_group_at_path(
         self,
