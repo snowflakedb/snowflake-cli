@@ -80,7 +80,10 @@ jobs:
           retention-days: 7
   dev-build:
     name: Do dev installation
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+          os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
         with:
