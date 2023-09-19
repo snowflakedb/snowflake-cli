@@ -1,4 +1,5 @@
 from snowcli.cli.nativeapp.init import (
+    is_valid_project_name,
     render_snowflake_yml,
     render_nativeapp_readme,
     nativeapp_init,
@@ -9,16 +10,44 @@ from snowcli.cli.nativeapp.init import (
     CannotInitializeAnExistingProjectError,
     DirectoryAlreadyExistsError,
     InitError,
+    ProjectNameInvalidError,
 )
 from snowcli.exception import MissingConfiguration
 from tests.testing_utils.fixtures import *
 from textwrap import dedent
+from secrets import choice
+from string import ascii_letters, digits
 
 PROJECT_NAME = "demo_na_project"
+MAX_ALLOWED_NUM_CHARACTERS = 255
 
 # --------------------------------------
 # ----- Tests for Helper Methods -------
 # --------------------------------------
+
+
+@pytest.mark.parametrize(
+    "project_name, expected",
+    [
+        ("_", True),  # Edge Case: Only One Character from the Allowed List
+        ("A", True),  # Edge Case: Only One Character from the Allowed List
+        ("9", False),  # Edge Case: Only One Character not from the Allowed List
+        ("_aB3_$", True),  # Test all allowed character types
+        ("__", True),  # Test all allowed character types
+        (
+            "".join(choice(ascii_letters) for i in range(MAX_ALLOWED_NUM_CHARACTERS)),
+            True,
+        ),
+        (
+            "".join(
+                choice(ascii_letters) for i in range(MAX_ALLOWED_NUM_CHARACTERS - 2)
+            ).join("*%"),
+            False,
+        ),
+    ],
+)
+def test_is_valid_project_name(project_name, expected):
+    assert is_valid_project_name(project_name) == expected
 
 
 def test_render_snowflake_yml(other_directory):
@@ -195,7 +224,7 @@ def test_init_with_url_and_no_template_w_native_app_url(mock_clone_from, temp_di
         _init_with_url_and_no_template(
             current_working_directory=Path.cwd(),
             project_name=fake_repo,
-            git_url="https://github.com/Snowflake-Labs/native-app-templates",
+            git_url="https://github.com/Snowflake-Labs/native-apps-templates",
         )
 
         dest = Path.cwd() / fake_repo
@@ -316,8 +345,8 @@ def test_init_with_url_and_template_w_native_app_url_and_template(
     _init_with_url_and_template(
         current_working_directory=Path.cwd(),
         project_name=fake_repo,
-        git_url="https://github.com/Snowflake-Labs/native-app-templates",
-        template="native-app-basic",
+        git_url="https://github.com/Snowflake-Labs/native-apps-templates",
+        template="native-apps-basic",
     )
 
     fake_repo_path = current_working_directory / fake_repo
@@ -385,3 +414,9 @@ def test_init_w_existing_yml(mock_path_is_file):
 def test_init_w_existing_directory(mock_path_exists):
     with pytest.raises(DirectoryAlreadyExistsError):
         nativeapp_init(name=PROJECT_NAME)
+
+
+@mock.patch("snowcli.cli.nativeapp.init.fullmatch", return_value=None)
+def test_init_w_invalid_project_name(mock_fullmatch):
+    with pytest.raises(ProjectNameInvalidError):
+        nativeapp_init(PROJECT_NAME)

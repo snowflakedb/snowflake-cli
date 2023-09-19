@@ -174,6 +174,44 @@ def test_lists_connection_information(runner):
     ]
 
 
+def test_second_connection_not_update_default_connection(runner, snapshot):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        tmp_file.write(
+            dedent(
+                """\
+        [connections]
+        [connections.conn]
+        username = "foo"
+        
+        [options]
+        default_connection = "conn"
+        """
+            )
+        )
+        tmp_file.flush()
+        result = runner.invoke(
+            [
+                "--config-file",
+                tmp_file.name,
+                "connection",
+                "add",
+                "--connection-name",
+                "conn2",
+                "--username",
+                "user1",
+                "--password",
+                "password1",
+                "--account",
+                "account1",
+            ]
+        )
+        tmp_file.seek(0)
+        content = tmp_file.read()
+
+        assert result.exit_code == 0, result.output
+        assert content == snapshot
+
+
 @mock.patch("snowcli.cli.connection.commands.connect_to_snowflake")
 def test_connection_test(mock_connect, runner):
     result = runner.invoke_with_config(["connection", "test", "-c", "full"])

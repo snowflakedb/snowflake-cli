@@ -26,3 +26,18 @@
   
   '''
 # ---
+# name: test_second_connection_not_update_default_connection
+  '''
+  [connections]
+  [connections.conn]
+  username = "foo"
+  
+  [connections.conn2]
+  account = "account1"
+  user = "user1"
+  password = "password1"
+  [options]
+  default_connection = "conn"
+  
+  '''
+# ---
