@@ -8,7 +8,11 @@ from snowcli.cli.sql.manager import SqlManager
 from snowcli.output.decorators import with_output
 from snowcli.output.types import QueryResult, CommandResult, MultipleResults
 
+# simple Typer with defaults because it won't become a command group as it contains only one command
+app = typer.Typer()
 
+
+@app.command(name="sql")
 @with_output
 @global_options_with_connection
 def execute_sql(
