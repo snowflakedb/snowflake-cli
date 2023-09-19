@@ -94,6 +94,11 @@ def default(
         dir_okay=False,
         is_eager=True,
     ),
+    temporary_connection: bool = typer.Option(
+        None,
+        "--temporary-connection",
+        help = "Use temporary connection, defined with flags, instead of one stored in config file"
+    ),
     pycharm_debug_library_path: str = typer.Option(
         None,
         "--pycharm-debug-library-path",
@@ -118,7 +123,7 @@ def default(
         pycharm_debug_server_host=pycharm_debug_server_host,
         pycharm_debug_server_port=pycharm_debug_server_port,
     )
-    config_init(configuration_file)
+    config_init(configuration_file, temporary_connection)
 
 
 def _add_typer_from_path(path: str):

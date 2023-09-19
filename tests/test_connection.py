@@ -182,4 +182,6 @@ def test_connection_test(mock_connect, runner):
 
 
 def test_temporary_connection(runner):
-    result = runner.invoke()
+    result = runner.invoke(["warehouse", "status"])
+
+    assert result.exit_code == 0

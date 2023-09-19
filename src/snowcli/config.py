@@ -132,7 +132,7 @@ class CliConfigManager(ConfigManager):
             dump(self.conf_file_cache, fh)
 
 
-def config_init(config_file: Path):
+def config_init(config_file: Path, temporary_connection: bool):
     """
     Initializes the app configuration. Config provided via cli flag takes precedence.
     If config file does not exist we create an empty one.
