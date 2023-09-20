@@ -3,17 +3,14 @@ from typing import Optional
 import logging
 import typer
 
-from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.decorators import global_options, global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.output.decorators import with_output
 
-from .init import nativeapp_init
-from .manager import NativeAppManager
+from snowcli.cli.nativeapp.init import nativeapp_init
+from snowcli.cli.nativeapp.manager import NativeAppManager
 
-from snowcli.output.types import (
-    CommandResult,
-    MessageResult,
-)
+from snowcli.output.types import CommandResult, MessageResult
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -51,7 +48,7 @@ def app_init(
     **options,
 ) -> CommandResult:
     """
-    Initialize a Native Apps project, optionally with a --git-url and a --template.
+    Initializes a Native Apps project, optionally with a --git-url and a --template.
     """
     nativeapp_init(name, git_url, template)
     return MessageResult(
@@ -61,7 +58,7 @@ def app_init(
 
 @app.command("bundle", hidden=True)
 @with_output
-@global_options
+@global_options_with_connection
 def app_bundle(
     project_path: Optional[str] = ProjectArgument,
     **options,
@@ -72,3 +69,21 @@ def app_bundle(
     manager = NativeAppManager(project_path)
     manager.build_bundle()
     return MessageResult(f"Bundle generated at {manager.deploy_root}")
+
+
+@app.command("run")
+@with_output
+@global_options
+def app_run(
+    project_path: Optional[str] = ProjectArgument,
+    **options,
+) -> CommandResult:
+    """
+    Creates an application package in your Snowflake account and uploads code files to its stage.
+    """
+    manager = NativeAppManager(project_path)
+    manager.build_bundle()
+    manager.app_run()
+    return MessageResult(
+        f"Application Package is now active in your Snowflake account!"
+    )
