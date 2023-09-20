@@ -16,7 +16,7 @@ from snowcli.exception import MissingConfiguration
 from tests.testing_utils.fixtures import *
 from textwrap import dedent
 from secrets import choice
-from string import ascii_letters, digits
+from string import ascii_letters
 
 PROJECT_NAME = "demo_na_project"
 MAX_ALLOWED_NUM_CHARACTERS = 255

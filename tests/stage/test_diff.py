@@ -2,10 +2,21 @@ import hashlib
 from typing import Union, Dict, List, Tuple
 from unittest import mock
 
+from snowcli.exception import SnowflakeSQLExecutionError
+from snowcli.cli.stage.manager import StageManager
+
 from tests.testing_utils.fixtures import *
 from tests.testing_utils.files_and_dirs import temp_local_dir
 
-from snowcli.cli.stage.diff import stage_diff
+from snowcli.cli.stage.diff import (
+    DiffResult,
+    delete_only_on_stage_files,
+    enumerate_files,
+    get_stage_path_from_file,
+    put_files_on_stage,
+    stage_diff,
+    sync_local_diff_with_stage,
+)
 
 STAGE_MANAGER = "snowcli.cli.stage.manager.StageManager"
 
@@ -117,3 +128,90 @@ def test_modified_file(mock_list, mock_cursor):
         assert sorted(diff_result.different) == ["README.md"]
         assert sorted(diff_result.identical) == ["my.jar", "ui/streamlit.py"]
         assert len(diff_result.only_local) == 0
+
+
+def test_get_stage_path_from_file():
+    expected = [
+        "",
+        "ui/streamlit.py",
+        "",
+        "ui/nested/",
+        "module-add/src/python/",
+    ].sort()
+    actual = []
+    with temp_local_dir(
+        {
+            **FILE_CONTENTS,
+            "ui/nested/environment.yml": "# this is a environment file\n",
+            "module-add/src/python/app.py": "# this is an app file\n",
+        }
+    ) as local_path:
+        local_files = enumerate_files(local_path)
+        for local_file in local_files:
+            relpath = str(local_file.relative_to(local_path))
+            actual.append(get_stage_path_from_file(relpath))
+    assert actual.sort() == expected
+
+
+@mock.patch(f"{STAGE_MANAGER}._remove")
+def test_delete_only_on_stage_files(mock_remove):
+    stage_name = "some_stage_name"
+    random_file = "some_file_on_stage"
+
+    delete_only_on_stage_files(StageManager(), stage_name, [random_file], "some_role")
+    mock_remove.assert_has_calls(
+        [mock.call(stage_name=stage_name, path=random_file, role="some_role")]
+    )
+
+
+@mock.patch(f"{STAGE_MANAGER}._put")
+@pytest.mark.parametrize("overwrite_param", [True, False])
+def test_put_files_on_stage(mock_put, overwrite_param):
+    stage_name = "some_stage_name"
+    with temp_local_dir(
+        {
+            "ui/nested/environment.yml": "# this is a environment file\n",
+            "README.md": "# this is an app file\n",
+        }
+    ) as local_path:
+        put_files_on_stage(
+            stage_manager=StageManager(),
+            stage_fqn=stage_name,
+            deploy_root_path=local_path,
+            files=["ui/nested/environment.yml", "README.md"],
+            role="some_role",
+            overwrite=overwrite_param,
+        )
+        expected = [
+            mock.call(
+                local_path=local_path / "ui/nested/environment.yml",
+                stage_path=f"{stage_name}/ui/nested",  # TODO: verify if trailing slash is needed, doesnt seem so from regression tests
+                role="some_role",
+                overwrite=overwrite_param,
+            ),
+            mock.call(
+                local_path=local_path / "README.md",
+                stage_path=f"{stage_name}",
+                role="some_role",
+                overwrite=overwrite_param,
+            ),
+        ]
+        assert mock_put.mock_calls == expected
+
+
+@mock.patch(f"{STAGE_MANAGER}._remove")
+def test_sync_local_diff_with_stage(mock_remove, other_directory):
+    temp_dir = Path(other_directory)
+    mock_remove.side_effect = Exception("Mock Exception")
+    mock_remove.return_value = None
+    diff: DiffResult = DiffResult()
+    diff.only_on_stage = ["some_file_on_stage"]
+    stage_name = "some_stage_name"
+
+    with pytest.raises(SnowflakeSQLExecutionError):
+        sync_local_diff_with_stage(
+            role="some_role",
+            deploy_root_path=temp_dir,
+            diff_result=diff,
+            stage_path=stage_name,
+        )
