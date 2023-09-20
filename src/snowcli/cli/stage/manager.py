@@ -2,7 +2,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 
 from pathlib import Path
-from typing import Optional, Union
+from typing import Iterable, Optional, Union
 
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -34,11 +34,32 @@ class StageManager(SqlExecutionMixin):
         parallel: int = 4,
         overwrite: bool = False,
     ) -> SnowflakeCursor:
+        *_, put_cursor = self._put(
+            local_path=local_path,
+            stage_path=stage_path,
+            parallel=parallel,
+            overwrite=overwrite,
+        )
+        return put_cursor
+
+    def _put(
+        self,
+        local_path: Union[str, Path],
+        stage_path: str,
+        role: Optional[str] = None,
+        parallel: int = 4,
+        overwrite: bool = False,
+    ) -> Iterable[SnowflakeCursor]:
+        """
+        Internal only method, created for Native Apps use case.
+        """
+        use_role = f"use role {role}; " if role else ""
         stage_path = self.get_standard_stage_name(stage_path)
         local_resolved_path = path_resolver(str(local_path))
-        return self._execute_query(
+        return self._execute_queries(
+            f"{use_role}"
             f"put file://{local_resolved_path} {stage_path} "
-            f"auto_compress=false parallel={parallel} overwrite={overwrite}"
+            f"auto_compress=false parallel={parallel} overwrite={overwrite}{';' if role else ''}"
         )
 
     def _put(
@@ -65,9 +86,21 @@ class StageManager(SqlExecutionMixin):
         return cursor
 
     def remove(self, stage_name: str, path: str) -> SnowflakeCursor:
+        *_, remove_cursor = self._remove(stage_name, path)
+        return remove_cursor
+
+    def _remove(
+        self, stage_name: str, path: str, role: Optional[str] = None
+    ) -> Iterable[SnowflakeCursor]:
+        """
+        Internal only method, created for Native Apps use case.
+        """
+        use_role = f"use role {role}; " if role else ""
         stage_name = self.get_standard_stage_name(stage_name)
         path = path if path.startswith("/") else "/" + path
-        return self._execute_query(f"remove {stage_name}{path}")
+        return self._execute_queries(
+            f"{use_role}" f"remove {stage_name}{path}{';' if role else ''}"
+        )
 
     def _remove(
         self, stage_name: str, path: str, role: Optional[str] = None

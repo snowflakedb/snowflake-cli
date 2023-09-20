@@ -41,9 +41,9 @@ def test_stage_get_default_path(mock_execute, runner, mock_cursor):
     )
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}._execute_queries")
 def test_stage_put(mock_execute, runner, mock_cursor):
-    mock_execute.return_value = mock_cursor(["row"], [])
+    mock_execute.return_value = [mock_cursor(["row"], []), mock_cursor(["row"], [])]
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke_with_config(
             [
@@ -64,9 +64,9 @@ def test_stage_put(mock_execute, runner, mock_cursor):
     )
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}._execute_queries")
 def test_stage_put_star(mock_execute, runner, mock_cursor):
-    mock_execute.return_value = mock_cursor(["row"], [])
+    mock_execute.return_value = [mock_cursor(["row"], []), mock_cursor(["row"], [])]
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke_with_config(
             [
@@ -103,9 +103,9 @@ def test_stage_drop(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with("drop stage stageName")
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}._execute_queries")
 def test_stage_remove(mock_execute, runner, mock_cursor):
-    mock_execute.return_value = mock_cursor(["row"], [])
+    mock_execute.return_value = [mock_cursor(["row"], []), mock_cursor(["row"], [])]
     result = runner.invoke_with_config(
         ["stage", "remove", "-c", "empty", "stageName", "my/file/foo.csv"]
     )
