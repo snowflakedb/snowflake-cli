@@ -1,10 +1,14 @@
 from typing import Optional
+from textwrap import dedent
+from pathlib import Path
+
 import logging
 import typer
 
-from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.decorators import global_options, global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.output.decorators import with_output
+from snowcli.cli.stage.diff import DiffResult, stage_diff
 
 from .init import nativeapp_init
 from .manager import NativeAppManager
@@ -71,3 +75,24 @@ def app_bundle(
     manager = NativeAppManager(project_path)
     manager.build_bundle()
     return MessageResult(f"Bundle generated at {manager.deploy_root}")
+
+
+@app.command("diff", hidden=True)
+@with_output
+@global_options_with_connection
+def nativeapp_stage_diff(
+    stage_fqn: str = typer.Argument(None, help="Name of stage"),
+    folder_name: str = typer.Argument(None, help="Path to local folder"),
+    **options,
+) -> MessageResult:
+    """
+    Diffs a stage with a local folder
+    """
+    diff: DiffResult = stage_diff(Path(folder_name), stage_fqn)
+    output = f"""\
+        only local:  {', '.join(diff.only_local)}
+        only stage:  {', '.join(diff.only_on_stage)}
+        mod/unknown: {', '.join(diff.different)}
+        identical:   {', '.join(diff.identical)}"""
+
+    return MessageResult(dedent(output))
