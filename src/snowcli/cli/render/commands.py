@@ -13,12 +13,6 @@ from snowcli.cli.common.utils import generic_render_template
 app = typer.Typer(context_settings=DEFAULT_CONTEXT_SETTINGS, hidden=True, name="render")
 
 
-# Empty callback is required to create command group with only one command
-@app.callback()
-def empty_callback():
-    pass
-
-
 def _parse_key_value(key_value_str: str):
     parts = key_value_str.split("=")
     if len(parts) < 2:

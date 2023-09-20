@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 from functools import cached_property
 from typing import List
 
@@ -34,9 +35,15 @@ class CommandPath:
 SNOWCLI_ROOT_COMMAND_PATH = CommandPath(path_segments=[])
 
 
+class CommandType(Enum):
+    SINGLE_COMMAND = "SINGLE_COMMAND"
+    COMMAND_GROUP = "COMMAND_GROUP"
+
+
 @dataclass(frozen=True)
 class CommandSpec:
     parent_command_path: CommandPath
+    command_type: CommandType
     typer_instance: Typer
 
     @cached_property
