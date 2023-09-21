@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib
 import logging
 from pathlib import Path
 from typing import Optional
@@ -184,30 +183,4 @@ def default(
         pycharm_debug_server_host=pycharm_debug_server_host,
         pycharm_debug_server_port=pycharm_debug_server_port,
     )
-    config_init(configuration_file)
 
-
-def _add_typer_from_path(path: str):
-    sub_module = importlib.import_module(path)
-    app.add_typer(getattr(sub_module, "app"))
-
-
-def _register_cli_typers() -> None:
-    known_sub_commands = [
-        "snowcli.cli.snowpark",
-        "snowcli.cli.connection.commands",
-        "snowcli.cli.render.commands",
-        "snowcli.cli.streamlit.commands",
-        "snowcli.cli.warehouse.commands",
-        "snowcli.cli.stage.commands",
-        "snowcli.cli.nativeapp.commands",
-    ]
-    for cmd in known_sub_commands:
-        _add_typer_from_path(cmd)
-
-    from snowcli.cli.sql import commands as sql_commands
-
-    app.command("sql")(sql_commands.execute_sql)
-
-
-_register_cli_typers()
