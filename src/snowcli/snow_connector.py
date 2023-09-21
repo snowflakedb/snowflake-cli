@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 import snowflake.connector
+import snowcli.cli.common.snow_cli_global_context
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.errors import ForbiddenError, DatabaseError
 
@@ -18,15 +19,25 @@ TEMPLATES_PATH = Path(__file__).parent / "sql"
 
 
 def connect_to_snowflake(connection_name: Optional[str] = None, **overrides) -> SnowflakeConnection:  # type: ignore
-    connection_name = (
-        connection_name if connection_name is not None else get_default_connection()
+
+    context = (
+        snowcli.cli.common.snow_cli_global_context.snow_cli_global_context_manager.get_global_context_copy()
     )
-    try:
+
+    if not context.temporary_connection:
+        connection_name = (
+            connection_name if connection_name is not None else get_default_connection()
+        )
         connection_parameters = cli_config.get_connection(connection_name)
-        if overrides:
-            connection_parameters.update(
-                {k: v for k, v in overrides.items() if v is not None}
-            )
+    else:
+        connection_parameters = {}
+
+    if overrides:
+        connection_parameters.update(
+            {k: v for k, v in overrides.items() if v is not None}
+        )
+
+    try:
         return snowflake.connector.connect(
             application=_find_command_path(),
             **connection_parameters,

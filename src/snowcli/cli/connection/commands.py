@@ -179,6 +179,7 @@ def add(
 
     try:
         cli_config.add_connection(name=connection_name, parameters=connection_entry)
+        # TODO: add dump here
     except KeyAlreadyPresent:
         raise ClickException(f"Connection {connection_name} already exists")
 

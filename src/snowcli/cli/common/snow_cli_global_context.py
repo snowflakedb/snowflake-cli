@@ -62,6 +62,7 @@ class SnowCliGlobalContext:
     connection: ConnectionDetails
     output_format: OutputFormat
     verbose: bool
+    temporary_connection: bool
 
 
 class SnowCliGlobalContextManager:
@@ -117,6 +118,7 @@ def _create_snow_cli_global_context_manager_with_default_values() -> (
             connection=ConnectionDetails(),
             output_format=OutputFormat.TABLE,
             verbose=False,
+            temporary_connection=False,
         )
     )
 

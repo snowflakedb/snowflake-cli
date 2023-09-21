@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import logging
 from pathlib import Path
 from typing import Optional
@@ -134,11 +135,6 @@ def default(
         is_eager=True,
         callback=_config_init_callback,
     ),
-    temporary_connection: bool = typer.Option(
-        None,
-        "--temporary-connection",
-        help = "Use temporary connection, defined with flags, instead of one stored in config file"
-    ),
     pycharm_debug_library_path: str = typer.Option(
         None,
         "--pycharm-debug-library-path",
@@ -188,7 +184,7 @@ def default(
         pycharm_debug_server_host=pycharm_debug_server_host,
         pycharm_debug_server_port=pycharm_debug_server_port,
     )
-    config_init(configuration_file, temporary_connection)
+    config_init(configuration_file)
 
 
 def _add_typer_from_path(path: str):

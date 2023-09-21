@@ -5,6 +5,7 @@ from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import mock
 
+from snowcli.exception import SnowflakeConnectionError
 from tests.testing_utils.fixtures import *
 
 
@@ -219,7 +220,37 @@ def test_connection_test(mock_connect, runner):
     mock_connect.assert_called_once_with(connection_name="full")
 
 
-def test_temporary_connection(runner):
-    result = runner.invoke(["warehouse", "status"])
+@mock.patch("snowflake.connector.connect")
+def test_temporary_connection(mock_conn, runner):
 
-    assert result.exit_code == 0
+    mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
+    result = runner.invoke(
+        [
+            "warehouse",
+            "status",
+            "--temporary-connection",
+            "--account",
+            "test_account",
+            "--user",
+            "snowcli_test",
+            "--password",
+            "top_secret",
+            "--warehouse",
+            "xsmall",
+            "--database",
+            "test_dv",
+            "--schema",
+            "PUBLIC",
+        ]
+    )
+
+    assert result.exit_code == 1
+    mock_conn.assert_called_once_with(
+        application="SNOWCLI.WAREHOUSE.STATUS",
+        account="test_account",
+        user="snowcli_test",
+        password="top_secret",
+        database="test_dv",
+        schema="PUBLIC",
+        warehouse="xsmall",
+    )

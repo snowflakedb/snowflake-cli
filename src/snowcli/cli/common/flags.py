@@ -123,3 +123,12 @@ DebugOption = typer.Option(
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
 )
+
+TemporaryConnectionOption = typer.Option(
+    False,
+    "--temporary-connection",
+    help="Uses connection defined with command line parameters, instead of one defined in config",
+    callback=update_callback("temporary_connection"),
+    is_flag=True,
+    rich_help_panel=_CLI_BEHAVIOUR,
+)

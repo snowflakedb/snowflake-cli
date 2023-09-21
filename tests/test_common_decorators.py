@@ -14,12 +14,14 @@ _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "format",
     "verbose",
     "debug",
+    "temporary_connection"
 ]
 
 _KNOWN_SIG_GLOBAL_PARAMETERS = [
     "format",
     "verbose",
     "debug",
+    "temporary_connection"
 ]
 
 

@@ -67,6 +67,7 @@ class CliConfigManager(ConfigManager):
 
     def get_connection(self, connection_name: str) -> dict:
         try:
+            # TODO: here we get the connection with name "temporary"
             return self.get_section("connections", connection_name)
         except NonExistentKey:
             raise MissingConfiguration(
@@ -136,8 +137,11 @@ class CliConfigManager(ConfigManager):
         with open(self.file_path, "w+") as fh:
             dump(self.conf_file_cache, fh)
 
+    def add_temporary_connection(self):
+        pass
 
-def config_init(config_file: Path, temporary_connection: bool):
+
+def config_init(config_file: Path):
     """
     Initializes the app configuration. Config provided via cli flag takes precedence.
     If config file does not exist we create an empty one.
