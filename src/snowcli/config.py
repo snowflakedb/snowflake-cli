@@ -67,7 +67,6 @@ class CliConfigManager(ConfigManager):
 
     def get_connection(self, connection_name: str) -> dict:
         try:
-            # TODO: here we get the connection with name "temporary"
             return self.get_section("connections", connection_name)
         except NonExistentKey:
             raise MissingConfiguration(
