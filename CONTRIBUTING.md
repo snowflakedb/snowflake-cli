@@ -87,3 +87,8 @@ git fetch sfcli
 git checkout <your-branch>
 git rebase sfcli/main
 ```
+
+## Known issues
+
+### `permission denied` during integration tests on Windows
+This error occurs when using NamedTemporaryFile and try to open it second time https://docs.python.org/3/library/tempfile.html#tempfile.NamedTemporaryFile

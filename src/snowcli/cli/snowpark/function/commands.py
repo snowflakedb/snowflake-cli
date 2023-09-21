@@ -149,15 +149,13 @@ def upload_snowpark_artifact(
     stage_manager.create(
         stage_name=DEPLOYMENT_STAGE, comment="deployments managed by snowcli"
     )
-    artifact_location = Path(DEPLOYMENT_STAGE) / function_manager.artifact_stage_path(
-        function_identifier
-    )
-    artifact_file = artifact_location / "app.zip"
+    artifact_location = f"{DEPLOYMENT_STAGE}/{function_manager.artifact_stage_path(function_identifier)}"
+    artifact_file = f"{artifact_location}/app.zip"
     with TemporaryDirectory() as temp_dir:
         temp_app_zip_path = prepare_app_zip(file, temp_dir)
         stage_manager.put(
             local_path=temp_app_zip_path,
-            stage_path=str(artifact_location),
+            stage_path=artifact_location,
             overwrite=overwrite,
         )
     log.info(f"{file.name} uploaded to stage {artifact_file}")

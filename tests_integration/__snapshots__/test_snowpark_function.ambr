@@ -1,4 +1,13 @@
 # serializer version: 1
+# name: test_snowpark_function_flow[.gitignore]
+  '''
+  .packages/
+  .venv/
+  app.zip
+  __pycache__
+  
+  '''
+# ---
 # name: test_snowpark_function_flow[app.py]
   '''
   from __future__ import annotations
@@ -31,15 +40,6 @@
   schema = "<SCHEMA_NAME>"
   warehouse = "<WAREHOUSE_NAME>"
   role = "<ROLE_NAME>"
-  
-  '''
-# ---
-# name: test_snowpark_function_flow[.gitignore]
-  '''
-  .packages/
-  .venv/
-  app.zip
-  __pycache__
   
   '''
 # ---

@@ -64,6 +64,7 @@ class ProcedureCoverageManager(SqlExecutionMixin):
         report_files = f"{stage_name}{stage_path}/coverage/"
 
         with tempfile.TemporaryDirectory() as temp_dir:
+            results = []
             try:
                 results = (
                     StageManager()
