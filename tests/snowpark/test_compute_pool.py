@@ -11,7 +11,7 @@ def test_create_cp(mock_connector, runner, mock_ctx, snapshot):
     result = runner.invoke(
         [
             "snowpark",
-            "cp",
+            "pool",
             "create",
             "--name",
             "cpName",
@@ -39,7 +39,7 @@ def test_list_cp(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["snowpark", "cp", "list"])
+    result = runner.invoke(["snowpark", "pool", "list"])
 
     assert result.exit_code == 0
     assert ctx.get_query() == "show compute pools;"
@@ -50,7 +50,7 @@ def test_drop_cp(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["snowpark", "cp", "drop", "cpNameToDrop"])
+    result = runner.invoke(["snowpark", "pool", "drop", "cpNameToDrop"])
 
     assert result.exit_code == 0
     assert ctx.get_query() == "drop compute pool cpNameToDrop;"
@@ -61,7 +61,7 @@ def test_stop_cp(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["snowpark", "cp", "stop", "cpNameToStop"])
+    result = runner.invoke(["snowpark", "pool", "stop", "cpNameToStop"])
 
     assert result.exit_code == 0
     assert ctx.get_query() == "alter compute pool cpNameToStop stop all;"
