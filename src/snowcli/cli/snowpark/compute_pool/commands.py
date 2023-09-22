@@ -9,7 +9,7 @@ from snowcli.output.types import SingleQueryResult, QueryResult, CommandResult
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     name="pool",
-    help="Manage compute pools.",
+    help="Manages compute pools.",
 )
 
 
