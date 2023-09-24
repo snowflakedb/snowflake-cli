@@ -87,3 +87,18 @@ def app_run(
     return MessageResult(
         f"Application Package is now active in your Snowflake account!"
     )
+
+
+@app.command("teardown")
+@with_output
+@global_options_with_connection
+def app_teardown(
+    project_path: Optional[str] = ProjectArgument,
+    **options,
+) -> CommandResult:
+    """
+    Drops an application and an application package as defined in the project definition file.
+    """
+    manager = NativeAppManager(project_path)
+    manager.teardown()
+    return MessageResult(f"Teardown is now complete.")
