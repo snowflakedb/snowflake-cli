@@ -1,6 +1,5 @@
 import typer
 
-from snowcli.cli.common.alias import build_alias
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark.compute_pool.manager import ComputePoolManager
@@ -9,8 +8,8 @@ from snowcli.output.types import SingleQueryResult, QueryResult, CommandResult
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    name="compute-pool",
-    help="Manages compute pools. You can also use `cp` as alias for this command.",
+    name="pool",
+    help="Manages compute pools.",
 )
 
 
@@ -74,10 +73,3 @@ def stop(
     """
     cursor = ComputePoolManager().stop(pool_name=name)
     return SingleQueryResult(cursor)
-
-
-app_cp = build_alias(
-    app,
-    name="cp",
-    help_str="Manages compute pools. This command is alias for `compute-pool` command",
-)

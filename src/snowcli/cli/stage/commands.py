@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 from pathlib import Path
+from snowcli.cli.stage.diff import DiffResult
 
 import typer
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
-from snowcli.output.types import QueryResult, SingleQueryResult, CommandResult
+from snowcli.output.types import (
+    ObjectResult,
+    QueryResult,
+    SingleQueryResult,
+    CommandResult,
+)
 
 app = typer.Typer(
     name="stage",
@@ -134,3 +140,25 @@ def stage_remove(
 
     cursor = StageManager().remove(stage_name=stage_name, path=file_name)
     return SingleQueryResult(cursor)
+
+
+@app.command("diff", hidden=True)
+@with_output
+@global_options_with_connection
+def stage_diff(
+    stage_name: str = typer.Argument(None, help="Fully qualified name of a stage"),
+    folder_name: str = typer.Argument(None, help="Path to local folder"),
+    **options,
+) -> ObjectResult:
+    """
+    Diffs a stage with a local folder.
+    """
+    diff: DiffResult = stage_diff(Path(folder_name), stage_name)
+    return ObjectResult(
+        {
+            "only on local": diff.only_local,
+            "only on stage": diff.only_on_stage,
+            "modified/unknown": diff.different,
+            "identical": diff.identical,
+        }
+    )
