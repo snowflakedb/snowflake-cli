@@ -222,14 +222,14 @@ def test_connection_test(mock_connect, runner):
 
 @mock.patch("snowflake.connector.connect")
 @pytest.mark.parametrize("argument", ["--temporary-connection", "-x"])
-def test_temporary_connection(mock_conn, argument, runner):
+def test_temporary_connection(mock_conn, option, runner):
 
     mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
     result = runner.invoke(
         [
             "warehouse",
             "status",
-            argument,
+            option,
             "--account",
             "test_account",
             "--user",
