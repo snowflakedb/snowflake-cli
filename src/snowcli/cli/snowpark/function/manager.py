@@ -12,8 +12,9 @@ class FunctionManager(SnowparkObjectManager):
     def _object_type(self):
         return "function"
 
-    def execute(self, expression: str) -> SnowflakeCursor:
-        return self._execute_query(f"select {expression}")
+    @property
+    def _object_execute(self):
+        return "select"
 
     def create(
         self,

@@ -161,14 +161,13 @@ class SnowparkTestSteps:
     def snowpark_execute_should_return_expected_value(
         self, entity_name: str, arguments: str, expected_value: Any
     ) -> None:
-        name_with_arguments = f"{entity_name}{arguments}"
+        identifier = entity_name + arguments
         result = self._setup.runner.invoke_integration(
             [
                 "snowpark",
                 self.test_type.value,
                 "execute",
-                f"--{self.test_type.value}",
-                name_with_arguments,
+                identifier,
             ]
         )
 
@@ -176,7 +175,7 @@ class SnowparkTestSteps:
         assert_that_result_contains_row_with(
             result,
             {
-                name_with_arguments.upper()
+                identifier.upper()
                 if self.test_type == TestType.FUNCTION
                 else entity_name.upper(): expected_value
             },
@@ -190,10 +189,7 @@ class SnowparkTestSteps:
                 "snowpark",
                 self.test_type.value,
                 "describe",
-                "--name",
-                entity_name,
-                "--input-parameters",
-                arguments,
+                entity_name + arguments,
             ]
         )
         assert_that_result_is_successful(result)
@@ -259,13 +255,10 @@ class SnowparkTestSteps:
             "snowpark",
             self.test_type.value,
             "create",
-            "--name",
-            entity_name,
+            entity_name + "()",
             "--handler",
             "app.hello",
-            "--input-parameters",
-            "()",
-            "--return-type",
+            "--returns",
             "string",
         ]
 
@@ -291,13 +284,10 @@ class SnowparkTestSteps:
                 "snowpark",
                 self.test_type.value,
                 "update",
-                "--name",
-                entity_name,
+                entity_name + "()",
                 "--handler",
                 "app.hello",
-                "--input-parameters",
-                "()",
-                "--return-type",
+                "--returns",
                 "string",
             ]
         )
@@ -325,13 +315,10 @@ class SnowparkTestSteps:
                 "snowpark",
                 self.test_type.value,
                 "update",
-                "--name",
-                entity_name,
+                entity_name + "()",
                 "--handler",
                 "app.hello",
-                "--input-parameters",
-                "()",
-                "--return-type",
+                "--returns",
                 "int",
             ]
         )
@@ -350,39 +337,13 @@ class SnowparkTestSteps:
                 "snowpark",
                 self.test_type.value,
                 "drop",
-                "--name",
-                entity_name,
-                "--input-parameters",
-                arguments,
+                entity_name + arguments,
             ]
         )
         assert_that_result_is_successful(result)
 
-    def procedure_coverage_report_should_raise_error_when_there_is_no_coverage_report(
-        self, procedure_name: str, arguments: str
-    ):
-
-        result = self._setup.runner.invoke_integration_without_format(
-            [
-                "snowpark",
-                "procedure",
-                "coverage",
-                "report",
-                "-n",
-                procedure_name,
-                "-i",
-                arguments,
-            ]
-        )
-
-        assert result.exit_code == 1
-        assert result.json == None
-        assert result.output
-        assert "Aborted.\n" in result.output
-        assert not os.path.exists(".coverage")
-
     def procedure_coverage_should_return_report_when_files_are_present_on_stage(
-        self, procedure_name, arguments
+        self, identifier: str
     ):
         result = self._setup.runner.invoke_integration(
             [
@@ -390,10 +351,7 @@ class SnowparkTestSteps:
                 "procedure",
                 "coverage",
                 "report",
-                "-n",
-                procedure_name,
-                "-i",
-                arguments,
+                identifier,
                 "--output-format",
                 "json",
             ]
@@ -408,23 +366,19 @@ class SnowparkTestSteps:
         assert "percent_covered" in coverage["totals"].keys()
         assert "excluded_lines" in coverage["totals"].keys()
 
-    def coverage_clear_should_execute_succesfully(self, procedure_name, arguments):
+    def coverage_clear_should_execute_successfully(self, identifier: str):
         result = self._setup.runner.invoke_integration(
             [
                 "snowpark",
                 "procedure",
                 "coverage",
                 "clear",
-                "-n",
-                procedure_name,
-                "-i",
-                arguments,
+                identifier,
             ]
         )
 
         assert result.exit_code == 0
-        print(result.json)
-        assert result.json["result"] == "removed"
+        assert result.json["result"] == "removed"  # type: ignore
 
     def assert_that_no_entities_are_in_snowflake(self) -> None:
         self.assert_that_only_these_entities_are_in_snowflake()

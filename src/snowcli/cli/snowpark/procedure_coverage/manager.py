@@ -31,8 +31,7 @@ class UnknownOutputFormatError(ClickException):
 class ProcedureCoverageManager(SqlExecutionMixin):
     def report(
         self,
-        name: str,
-        input_parameters: str,
+        identifier: str,
         output_format: ReportOutputOptions,
         store_as_comment: bool,
     ) -> str:
@@ -40,10 +39,7 @@ class ProcedureCoverageManager(SqlExecutionMixin):
         deploy_dict = get_deploy_names(
             conn.database,
             conn.schema,
-            generate_deploy_stage_name(
-                name,
-                input_parameters,
-            ),
+            generate_deploy_stage_name(identifier),
         )
         coverage_file = ".coverage"
         # the coverage databases will include paths like "/home/udf/132735964617982/app.zip/app.py", where they ran on Snowflake
@@ -113,23 +109,17 @@ class ProcedureCoverageManager(SqlExecutionMixin):
                 log.info(
                     f"Storing total coverage value of {str(coverage_percentage)} as a procedure comment."
                 )
-                signature = name + self._generate_signature_from_params(
-                    input_parameters
-                )
                 self._execute_query(
-                    f"ALTER PROCEDURE {signature} SET COMMENT = $${str(coverage_percentage)}$$"
+                    f"ALTER PROCEDURE {identifier} SET COMMENT = $${str(coverage_percentage)}$$"
                 )
             return message
 
-    def clear(self, name: str, input_parameters: str) -> SnowflakeCursor:
+    def clear(self, identifier: str) -> SnowflakeCursor:
         conn = self._conn
         deploy_dict = get_deploy_names(
             conn.database,
             conn.schema,
-            generate_deploy_stage_name(
-                name,
-                input_parameters,
-            ),
+            generate_deploy_stage_name(identifier),
         )
         coverage_path = f"""{deploy_dict["directory"]}/coverage"""
         cursor = StageManager().remove(
@@ -137,11 +127,6 @@ class ProcedureCoverageManager(SqlExecutionMixin):
         )
         log.info("Deleted the following coverage results from the stage:")
         return cursor
-
-    def _generate_signature_from_params(self, params: str) -> str:
-        if params == "()":
-            return "()"
-        return "(" + " ".join(params.split()[1::2]) + ")"
 
 
 def get_deploy_names(database, schema, name) -> dict:
