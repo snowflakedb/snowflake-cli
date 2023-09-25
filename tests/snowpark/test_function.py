@@ -30,16 +30,13 @@ def test_create_function(
                 "snowpark",
                 "function",
                 "create",
-                "--name",
-                "functionName",
+                "functionName(a string, b number)",
                 "--file",
                 fh.name,
                 "--handler",
                 "main.py:app",
-                "--return-type",
+                "--returns",
                 "table(variant)",
-                "--input-parameters",
-                "(a string, b number)",
                 "--overwrite",
             ]
         )
@@ -126,16 +123,13 @@ def _update_function(
             "snowpark",
             "function",
             "update",
-            "--name",
-            "functionName",
+            "functionName(a string, b number)",
             "--file",
             str(app),
             "--handler",
             "main.py:app",
-            "--return-type",
+            "--returns",
             "table(variant)",
-            "--input-parameters",
-            "(a string, b number)",
         ]
     )
     queries = ctx.get_queries()
@@ -250,7 +244,6 @@ def test_execute_function(mock_connector, runner, mock_ctx):
             "snowpark",
             "function",
             "execute",
-            "--function",
             "functionName(42, 'string')",
         ]
     )
@@ -268,7 +261,6 @@ def test_describe_function_from_signature(mock_connector, runner, mock_ctx):
             "snowpark",
             "function",
             "describe",
-            "--function",
             "functionName(int, string, variant)",
         ]
     )
@@ -286,10 +278,7 @@ def test_describe_function_from_name(mock_connector, runner, mock_ctx):
             "snowpark",
             "function",
             "describe",
-            "--name",
-            "functionName",
-            "--input-parameters",
-            "(int, string, variant)",
+            "functionName(int, string, variant)",
         ]
     )
 
@@ -324,11 +313,10 @@ def test_drop_function_from_signature(mock_connector, runner, mock_ctx):
             "snowpark",
             "function",
             "drop",
-            "--function",
             "functionName(int, string, variant)",
         ]
     )
-
+    print(result.output)
     assert result.exit_code == 0, result._output
     assert ctx.get_query() == "drop function functionName(int, string, variant)"
 
@@ -342,10 +330,7 @@ def test_drop_function_from_name(mock_connector, runner, mock_ctx):
             "snowpark",
             "function",
             "drop",
-            "--name",
-            "functionName",
-            "--input-parameters",
-            "(int, string, variant)",
+            "functionName(int, string, variant)",
         ]
     )
 
