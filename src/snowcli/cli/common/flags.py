@@ -29,6 +29,7 @@ ConnectionOption = typer.Option(
 TemporaryConnectionOption = typer.Option(
     False,
     "--temporary-connection",
+    "-x",
     help="Uses connection defined with command line parameters, instead of one defined in config",
     callback=ConnectionDetails.update_callback("temporary_connection"),
     is_flag=True,
