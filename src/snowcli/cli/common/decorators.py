@@ -112,6 +112,12 @@ GLOBAL_CONNECTION_OPTIONS = [
         annotation=Optional[str],
         default=WarehouseOption,
     ),
+    inspect.Parameter(
+        "temporary_connection",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[bool],
+        default=TemporaryConnectionOption,
+    ),
 ]
 
 GLOBAL_OPTIONS = [
@@ -132,12 +138,6 @@ GLOBAL_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[bool],
         default=DebugOption,
-    ),
-    inspect.Parameter(
-        "temporary_connection",
-        inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[bool],
-        default=TemporaryConnectionOption,
     ),
 ]
 

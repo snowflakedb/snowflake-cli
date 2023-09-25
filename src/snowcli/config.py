@@ -136,9 +136,6 @@ class CliConfigManager(ConfigManager):
         with open(self.file_path, "w+") as fh:
             dump(self.conf_file_cache, fh)
 
-    def add_temporary_connection(self):
-        pass
-
 
 def config_init(config_file: Path):
     """

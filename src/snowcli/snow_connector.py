@@ -18,13 +18,9 @@ log = logging.getLogger(__name__)
 TEMPLATES_PATH = Path(__file__).parent / "sql"
 
 
-def connect_to_snowflake(connection_name: Optional[str] = None, **overrides) -> SnowflakeConnection:  # type: ignore
+def connect_to_snowflake(temporary_connection: bool = False, connection_name: Optional[str] = None, **overrides) -> SnowflakeConnection:  # type: ignore
 
-    context = (
-        snowcli.cli.common.snow_cli_global_context.snow_cli_global_context_manager.get_global_context_copy()
-    )
-
-    if not context.temporary_connection:
+    if not temporary_connection:
         connection_name = (
             connection_name if connection_name is not None else get_default_connection()
         )

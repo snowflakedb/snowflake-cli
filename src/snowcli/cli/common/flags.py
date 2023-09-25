@@ -26,6 +26,15 @@ ConnectionOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+TemporaryConnectionOption = typer.Option(
+    False,
+    "--temporary-connection",
+    help="Uses connection defined with command line parameters, instead of one defined in config",
+    callback=ConnectionDetails.update_callback("temporary_connection"),
+    is_flag=True,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
 AccountOption = typer.Option(
     None,
     "--account",
@@ -120,15 +129,6 @@ DebugOption = typer.Option(
     "--debug",
     help="Displays log entries for log levels `debug` and higher; debug logs contains additional information.",
     callback=update_callback("enable_tracebacks"),
-    is_flag=True,
-    rich_help_panel=_CLI_BEHAVIOUR,
-)
-
-TemporaryConnectionOption = typer.Option(
-    False,
-    "--temporary-connection",
-    help="Uses connection defined with command line parameters, instead of one defined in config",
-    callback=update_callback("temporary_connection"),
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
 )
