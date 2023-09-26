@@ -2,14 +2,19 @@ import sys
 from pathlib import Path
 
 import typer
-
-from snowcli.cli.common.decorators import global_options_with_connection
+from snowcli.output.formats import OutputFormat
+from snowcli.cli.common.decorators import global_options_with_connection, GLOBAL_OPTIONS
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark.common import print_log_lines
 from snowcli.cli.snowpark.services.manager import ServiceManager
-from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
-from snowcli.output.types import QueryResult, SingleQueryResult, CommandResult
+from snowcli.output.types import (
+    QueryResult,
+    SingleQueryResult,
+    QueryJsonValueResult,
+    CommandResult,
+)
+from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -23,7 +28,7 @@ app = typer.Typer(
 @global_options_with_connection
 def create(
     name: str = typer.Option(..., "--name", "-n", help="Job Name"),
-    compute_pool: str = typer.Option(..., "--compute_pool", "-c", help="Compute Pool"),
+    compute_pool: str = typer.Option(..., "--compute_pool", "-p", help="Compute Pool"),
     spec_path: Path = typer.Option(
         ...,
         "--spec_path",
@@ -36,22 +41,17 @@ def create(
     num_instances: int = typer.Option(
         1, "--num_instances", "-num", help="Number of instances"
     ),
-    stage: str = typer.Option("SOURCE_STAGE", "--stage", "-l", help="Stage name"),
     **options,
 ) -> CommandResult:
     """
     Creates a new Snowpark Container Services service in the current schema.
     """
-    stage_manager = StageManager()
-    stage_manager.create(stage_name=stage)
-    stage_manager.put(local_path=str(spec_path), stage_path=stage, overwrite=True)
 
     cursor = ServiceManager().create(
         service_name=name,
         num_instances=num_instances,
         compute_pool=compute_pool,
         spec_path=spec_path,
-        stage=stage,
     )
     return SingleQueryResult(cursor)
 
@@ -79,7 +79,7 @@ def status(
     Retrieves status of a Snowpark Container Services service.
     """
     cursor = ServiceManager().status(service_name=name)
-    return SingleQueryResult(cursor)
+    return QueryJsonValueResult(cursor)
 
 
 @app.command()
@@ -111,7 +111,7 @@ def drop(
 def logs(
     name: str = typer.Argument(..., help="Name of the service."),
     container_name: str = typer.Option(
-        ..., "--container_name", "-c", help="Name of the container."
+        ..., "--container_name", "-n", help="Name of the container."
     ),
     **options,
 ):

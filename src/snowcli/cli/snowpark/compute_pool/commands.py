@@ -1,5 +1,7 @@
+from enum import Enum
 import typer
 
+import click
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark.compute_pool.manager import ComputePoolManager
@@ -11,6 +13,22 @@ app = typer.Typer(
     name="pool",
     help="Manages compute pools.",
 )
+
+
+class InstanceFamily(str, Enum):
+    STANDARD_1 = "STANDARD_1"
+    STANDARD_2 = "STANDARD_2"
+    STANDARD_5 = "STANDARD_5"
+    HIGH_MEMORY_1 = "HIGH_MEMORY_1"
+    HIGH_MEMORY_2 = "HIGH_MEMORY_2"
+    HIGH_MEMORY_5 = "HIGH_MEMORY_5"
+    GPU_3 = "GPU_3"
+    GPU_5 = "GPU_5"
+    GPU_7 = "GPU_7"
+    GPU_10 = "GPU_10"
+
+
+INSTANCE_FAMILY_OPTIONS = [instance.upper() for instance in InstanceFamily]
 
 
 @app.command()
@@ -25,7 +43,8 @@ def create(
         ...,
         "--family",
         "-f",
-        help="Name of the instance family. For more information about instance families, refer to the SQL CREATE COMPUTE POLL command.",
+        click_type=click.Choice(INSTANCE_FAMILY_OPTIONS),
+        help="Name of the instance family. For more information about instance families, refer to the SQL CREATE COMPUTE POOL command.",
     ),
     **options,
 ) -> CommandResult:
