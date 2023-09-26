@@ -39,11 +39,10 @@ def create(
     num_instances: int = typer.Option(
         ..., "--num", "-d", help="Number of compute pool instances."
     ),
-    instance_family: str = typer.Option(
+    instance_family: InstanceFamily = typer.Option(
         ...,
         "--family",
         "-f",
-        click_type=click.Choice(INSTANCE_FAMILY_OPTIONS),
         help="Name of the instance family. For more information about instance families, refer to the SQL CREATE COMPUTE POOL command.",
     ),
     **options,
