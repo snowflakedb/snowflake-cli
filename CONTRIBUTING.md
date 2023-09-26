@@ -24,13 +24,23 @@ pip install -e ".[dev]"
 
 Every integration test should have `integration` mark. By default, integration tests are not execute when running `pytest`.
 
-To execute only unit tests run `pytest`.
-
 To execute only integration tests run `pytest -m integration`.
 
-### Connection parameters for integration tests
+### Connection parameters in `config.toml`
 
-Parameters have to be set in environment parameters and must use the following format:
+Add the following connection to your `config.toml`
+
+```toml
+[connections.integration]
+host = <host>
+account = <account_name>
+user = <user>
+password = <password>
+```
+
+### Connection parameters in environment parameters
+
+Parameters must use the following format:
 
 ``SNOWFLAKE_CONNECTIONS_INTEGRATION_<key>=<value>``
 
@@ -43,6 +53,17 @@ List of required parameter keys:
 - account
 - user
 - password
+
+### User requirements
+
+The user requires a default role with the following grants
+
+```snowflake
+grant create database on account to role <role_name>;
+grant create role on account to role <role_name>;
+grant usage on warehouse xsmall to role <role_name>;
+grant operate on warehouse xsmall to role <role_name>;
+```
 
 ## Remote debugging with PyCharm or IntelliJ
 
