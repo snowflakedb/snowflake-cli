@@ -1,20 +1,25 @@
 from __future__ import annotations
 
 import logging
+import typer
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-import typer
-
 from snowcli.cli.common.decorators import global_options_with_connection, global_options
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
+from snowcli.cli.common.flags import (
+    DEFAULT_CONTEXT_SETTINGS,
+    identifier_argument,
+    execution_identifier_argument,
+)
 from snowcli.cli.constants import DEPLOYMENT_STAGE
 from snowcli.cli.snowpark.function.manager import FunctionManager
 from snowcli.cli.snowpark_shared import (
-    CheckAnacondaForPyPiDependancies,
+    CheckAnacondaForPyPiDependencies,
     PackageNativeLibrariesOption,
     PyPiDownloadOption,
     snowpark_package,
+    ReturnsOption,
+    OverwriteOption,
 )
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
@@ -41,32 +46,33 @@ app = typer.Typer(
     help="Manages user defined functions.",
 )
 
+FileOption = typer.Option(
+    "app.zip",
+    "--file",
+    "-f",
+    help="Path to the file or folder to containing the function code. If you specify a directory, the procedure deploys the function in the default `app.zip` file.",
+    exists=False,
+)
+
 HandlerOption = typer.Option(
     ...,
     "--handler",
     "-h",
-    help="Path to the file containing the handler code for the stored procedure.",
+    help="Path to the file containing the handler code for the stored function.",
 )
 
-InputParametersOption = typer.Option(
-    ...,
-    "--input-parameters",
-    "-i",
-    help="Input parameters for this function as a comma-separated string, such as (`message string`, `count int`).",
+LikeOption = typer.Option(
+    "%%",
+    "--like",
+    "-l",
+    help='Regular expression for filtering the functions by name. For example, `list --like "my%"` lists all functions in the **dev** (default) environment that begin with “my”.',
 )
 
-OptionalInputParametersOption = typer.Option(
-    None,
-    "--input-parameters",
-    "-i",
-    help="Input parameters for this function as a comma-separated string, such as (message string, count int)",
-)
-
-ReturnTypeOption = typer.Option(
-    ...,
-    "--return-type",
-    "-r",
-    help="Data type for the function to return.",
+ReplaceOption = typer.Option(
+    False,
+    "--replace-always",
+    "-a",
+    help="Replace function, even if no detected changes to metadata",
 )
 
 
@@ -87,29 +93,12 @@ def function_init(**options):
 def function_create(
     pypi_download: str = PyPiDownloadOption,
     package_native_libraries: str = PackageNativeLibrariesOption,
-    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
-    name: str = typer.Option(
-        ...,
-        "--name",
-        "-n",
-        help="Name of the function.",
-    ),
-    file: Path = typer.Option(
-        "app.zip",
-        "--file",
-        "-f",
-        help="Path to the file or folder to deploy.",
-        exists=False,
-    ),
+    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
+    identifier: str = identifier_argument("function", "hello(number int, name string)"),
+    file: Path = FileOption,
     handler: str = HandlerOption,
-    input_parameters: str = InputParametersOption,
-    return_type: str = ReturnTypeOption,
-    overwrite: bool = typer.Option(
-        False,
-        "--overwrite",
-        "-o",
-        help="Whether to replace an existing function with this one.",
-    ),
+    return_type: str = ReturnsOption,
+    overwrite: bool = OverwriteOption,
     **options,
 ) -> CommandResult:
     """Creates a python UDF or UDTF using a local artifact."""
@@ -122,18 +111,17 @@ def function_create(
     sm = StageManager()
     fm = FunctionManager()
 
-    function_identifier = fm.identifier(name=name, signature=input_parameters)
     artifact_file = upload_snowpark_artifact(
         function_manager=fm,
         stage_manager=sm,
-        function_identifier=function_identifier,
+        function_identifier=identifier,
         file=file,
         overwrite=overwrite,
     )
 
     packages = get_snowflake_packages()
     cursor = fm.create(
-        identifier=function_identifier,
+        identifier=identifier,
         handler=handler,
         return_type=return_type,
         artifact_file=str(artifact_file),
@@ -167,25 +155,13 @@ def upload_snowpark_artifact(
 @global_options_with_connection
 def function_update(
     pypi_download: str = PyPiDownloadOption,
-    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
+    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
     package_native_libraries: str = PackageNativeLibrariesOption,
-    name: str = typer.Option(..., "--name", "-n", help="Name of the function."),
-    file: Path = typer.Option(
-        "app.zip",
-        "--file",
-        "-f",
-        help="Path to the file or folder with the updated function definition.",
-        exists=False,
-    ),
+    identifier: str = identifier_argument("function", "hello(number int, name string)"),
+    file: Path = FileOption,
     handler: str = HandlerOption,
-    input_parameters: str = InputParametersOption,
-    return_type: str = ReturnTypeOption,
-    replace: bool = typer.Option(
-        False,
-        "--replace-always",
-        "-a",
-        help="Whether to replace the function even in no changes to the metadata are detected.",
-    ),
+    return_type: str = ReturnsOption,
+    replace: bool = ReplaceOption,
     **options,
 ) -> CommandResult:
     """Updates an existing python UDF or UDTF using a local artifact."""
@@ -197,7 +173,6 @@ def function_update(
 
     fm = FunctionManager()
     sm = StageManager()
-    identifier = fm.identifier(name=name, signature=input_parameters)
 
     try:
         current_state = fm.describe(identifier)
@@ -257,7 +232,7 @@ def function_update(
 @with_output
 def function_package(
     pypi_download: str = PyPiDownloadOption,
-    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
+    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
     package_native_libraries: str = PackageNativeLibrariesOption,
     **options,
 ) -> CommandResult:
@@ -274,16 +249,13 @@ def function_package(
 @with_output
 @global_options_with_connection
 def function_execute(
-    function: str = typer.Option(
-        ...,
-        "--function",
-        "-f",
-        help="String containing the function signature with its parameters, such as 'hello(int, string)'.",
+    execution_identifier: str = execution_identifier_argument(
+        "function", "hello(1, 'world')"
     ),
     **options,
 ) -> CommandResult:
     """Executes a function in a Snowflake environment."""
-    cursor = FunctionManager().execute(expression=function)
+    cursor = FunctionManager().execute(execution_identifier=execution_identifier)
     return SingleQueryResult(cursor)
 
 
@@ -291,22 +263,11 @@ def function_execute(
 @with_output
 @global_options_with_connection
 def function_describe(
-    name: str = typer.Option("", "--name", "-n", help="Name of the function."),
-    input_parameters: str = OptionalInputParametersOption,
-    function: str = typer.Option(
-        "",
-        "--function",
-        "-f",
-        help="String containing the function signature with its parameters, such as 'hello(int, string)'.",
-    ),
+    identifier: str = identifier_argument("function", "hello(int, string)"),
     **options,
 ) -> CommandResult:
     """Describes a Snowflake function."""
-    cursor = FunctionManager().describe(
-        identifier=FunctionManager.identifier(
-            name=name, signature=input_parameters, name_and_signature=function
-        )
-    )
+    cursor = FunctionManager().describe(identifier=identifier)
     return QueryResult(cursor)
 
 
@@ -314,12 +275,7 @@ def function_describe(
 @with_output
 @global_options_with_connection
 def function_list(
-    like: str = typer.Option(
-        "%%",
-        "--like",
-        "-l",
-        help='Regular expression for filtering the functions by name. For example, `list --file "my%"` lists all functions in the **dev** (default) environment that begin with “my”.',
-    ),
+    like: str = LikeOption,
     **options,
 ) -> CommandResult:
     """Displays the functions available in a specified environment, with the option to filter the results."""
@@ -331,20 +287,9 @@ def function_list(
 @with_output
 @global_options_with_connection
 def function_drop(
-    name: str = typer.Option("", "--name", "-n", help="Name of the function."),
-    input_parameters: str = OptionalInputParametersOption,
-    signature: str = typer.Option(
-        "",
-        "--function",
-        "-f",
-        help="String containing the function signature with its parameters, such as 'hello(int, string)'.",
-    ),
+    identifier: str = identifier_argument("function", "hello(int, string)"),
     **options,
 ) -> CommandResult:
     """Deletes a function from a specified environment."""
-    cursor = FunctionManager().drop(
-        identifier=FunctionManager.identifier(
-            name=name, signature=input_parameters, name_and_signature=signature
-        )
-    )
+    cursor = FunctionManager().drop(identifier=identifier)
     return SingleQueryResult(cursor)

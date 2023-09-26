@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from typing import List
 
 import click
 import logging
@@ -17,17 +18,34 @@ PyPiDownloadOption = typer.Option(
     help="Whether to download non-Anaconda packages from PyPi. Valid values include: `yes`, `no`, `ask`. Default: `no`.",
     callback=yes_no_ask_callback,
 )
+
 PackageNativeLibrariesOption = typer.Option(
     "ask",
     help="When using packages from PyPi, whether to allow native libraries. Valid values include: `yes`, `no`, `ask`. Default: `no`.",
     callback=yes_no_ask_callback,
 )
-CheckAnacondaForPyPiDependancies: bool = typer.Option(
+
+CheckAnacondaForPyPiDependencies: bool = typer.Option(
     True,
     "--check-anaconda-for-pypi-deps/--no-check-anaconda-for-pypi-deps",
     "-a",
     help="""Whether to check if any of missing Anaconda packages dependencies can be imported directly from Anaconda. Valid values include: `true`, `false`, Default: `true`.""",
 )
+
+ReturnsOption = typer.Option(
+    ...,
+    "--returns",
+    "-r",
+    help="Data type for the procedure to return.",
+)
+
+OverwriteOption = typer.Option(
+    False,
+    "--overwrite",
+    "-o",
+    help="Whether to replace an existing procedure with this one.",
+)
+
 log = logging.getLogger(__name__)
 
 

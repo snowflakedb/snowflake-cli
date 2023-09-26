@@ -4,8 +4,7 @@ from snowcli.cli.snowpark.procedure_coverage.manager import get_deploy_names
 from tests.testing_utils.fixtures import *
 
 
-PROCEDURE_NAME = "test_procedure"
-INPUT_PARAMETERS = "()"
+IDENTIFIER = "test_procedure(a int, b string)"
 
 
 @mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.coverage")
@@ -26,10 +25,7 @@ def test_procedure_coverage_report_error_when_no_report_on_stage(
             "procedure",
             "coverage",
             "report",
-            "--name",
-            PROCEDURE_NAME,
-            "--input-parameters",
-            INPUT_PARAMETERS,
+            IDENTIFIER,
         ]
     )
 
@@ -58,10 +54,7 @@ def test_procedure_coverage_report_create_default_report(
             "procedure",
             "coverage",
             "report",
-            "--name",
-            PROCEDURE_NAME,
-            "--input-parameters",
-            INPUT_PARAMETERS,
+            IDENTIFIER,
         ]
     )
 
@@ -100,10 +93,7 @@ def test_procedure_coverage_report_create_html_report(
             "procedure",
             "coverage",
             "report",
-            "--name",
-            PROCEDURE_NAME,
-            "--input-parameters",
-            INPUT_PARAMETERS,
+            IDENTIFIER,
             "--output-format",
             "html",
         ]
@@ -145,10 +135,7 @@ def test_procedure_coverage_report_create_json_report(
             "procedure",
             "coverage",
             "report",
-            "--name",
-            PROCEDURE_NAME,
-            "--input-parameters",
-            INPUT_PARAMETERS,
+            IDENTIFIER,
             "--output-format",
             "json",
         ]
@@ -190,10 +177,7 @@ def test_procedure_coverage_report_create_lcov_report(
             "procedure",
             "coverage",
             "report",
-            "--name",
-            PROCEDURE_NAME,
-            "--input-parameters",
-            INPUT_PARAMETERS,
+            IDENTIFIER,
             "--output-format",
             "lcov",
         ]
@@ -231,10 +215,7 @@ def test_procedure_coverage_report_store_as_comment(
             "procedure",
             "coverage",
             "report",
-            "--name",
-            PROCEDURE_NAME,
-            "--input-parameters",
-            INPUT_PARAMETERS,
+            IDENTIFIER,
             "--store-as-comment",
         ]
     )
@@ -245,7 +226,10 @@ def test_procedure_coverage_report_store_as_comment(
         data_paths=[str(tmp_dir_path / "1.coverage")]
     )
     assert mock_combined_coverage.html_report.called
-    assert ctx.get_query() == "ALTER PROCEDURE test_procedure() SET COMMENT = $$91$$"
+    assert (
+        ctx.get_query()
+        == "ALTER PROCEDURE test_procedure(a int, b string) SET COMMENT = $$91$$"
+    )
 
 
 @mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.StageManager")
@@ -263,17 +247,14 @@ def test_procedure_coverage_clear(
             "procedure",
             "coverage",
             "clear",
-            "--name",
-            PROCEDURE_NAME,
-            "--input-parameters",
-            INPUT_PARAMETERS,
+            IDENTIFIER,
         ]
     )
 
     assert result.exit_code == 0
     mock_stage_manager().remove.assert_called_once_with(
         stage_name="MockDatabase.MockSchema.deployments",
-        path="/test_procedure/coverage",
+        path="/test_procedure_a_int_b_string/coverage",
     )
 
 

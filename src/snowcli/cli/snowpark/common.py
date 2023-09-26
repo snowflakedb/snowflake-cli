@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from typing import TextIO, Optional
+from typing import TextIO, Optional, List
 
 import click
 from snowflake.connector.cursor import SnowflakeCursor
@@ -47,32 +47,15 @@ class SnowparkObjectManager(SqlExecutionMixin):
     def _object_type(self):
         raise NotImplementedError()
 
+    @property
+    def _object_execute(self):
+        raise NotImplementedError()
+
     def create(self, *args, **kwargs) -> SnowflakeCursor:
         raise NotImplementedError()
 
-    def execute(self, expression: str) -> SnowflakeCursor:
-        raise NotImplementedError()
-
-    @staticmethod
-    def identifier(
-        name: Optional[str] = None,
-        signature: Optional[str] = None,
-        name_and_signature: Optional[str] = None,
-    ):
-        if all([name, signature, name_and_signature]):
-            raise click.ClickException(
-                "Provide only one, name and arguments or full signature. Both provided."
-            )
-
-        if not (name and signature) and not name_and_signature:
-            raise click.ClickException(
-                "Provide either name and arguments or full signature. None provided."
-            )
-
-        if name and signature:
-            name_and_signature = name + signature
-
-        return name_and_signature
+    def execute(self, execution_identifier: str) -> SnowflakeCursor:
+        return self._execute_query(f"{self._object_execute} {execution_identifier}")
 
     def drop(self, identifier: str) -> SnowflakeCursor:
         return self._execute_query(f"drop {self._object_type} {identifier}")

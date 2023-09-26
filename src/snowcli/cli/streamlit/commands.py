@@ -8,7 +8,7 @@ from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.streamlit.manager import StreamlitManager
 from snowcli.output.decorators import with_output
 from snowcli.cli.snowpark_shared import (
-    CheckAnacondaForPyPiDependancies,
+    CheckAnacondaForPyPiDependencies,
     PackageNativeLibrariesOption,
     PyPiDownloadOption,
 )
@@ -151,7 +151,7 @@ def streamlit_deploy(
         help="Whether to package all code and dependencies into a zip file. Valid values: `true`, `false`. Default: `false`.",
     ),
     pypi_download: str = PyPiDownloadOption,
-    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
+    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
     package_native_libraries: str = PackageNativeLibrariesOption,
     excluded_anaconda_deps: str = typer.Option(
         None,
