@@ -19,7 +19,12 @@ class _Node:
             ch.print()
 
     def print_with_options(self):
-        pass #TODO: fill this
+        print("\n    " * self.level, self.name)
+        for k in self.options:
+            print("    " * (self.level + 1), k, ": ", ",".join(self.options[k]))
+
+        for ch in self.children.values():
+            ch.print_with_options()
 
 
 

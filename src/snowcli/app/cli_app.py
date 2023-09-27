@@ -86,7 +86,7 @@ def _options_structure_callback(value: bool):
     if value:
         ctx = click.get_current_context()
         structure = generate_commands_structure(ctx.command)
-        print(ctx)
+        structure.print_with_options()
         raise typer.Exit()
 
 
