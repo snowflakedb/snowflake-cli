@@ -85,7 +85,9 @@ def _version_callback(value: bool):
 def _options_structure_callback(value: bool):
     if value:
         ctx = click.get_current_context()
+        structure = generate_commands_structure(ctx.command)
         print(ctx)
+        raise typer.Exit()
 
 
 @_do_not_execute_on_completion

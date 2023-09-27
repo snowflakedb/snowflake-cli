@@ -18,6 +18,10 @@ class _Node:
         for ch in self.children.values():
             ch.print()
 
+    def print_with_options(self):
+        pass #TODO: fill this
+
+
 
 def generate_commands_structure(command: Command, root: _Node | None = None):
     """
@@ -26,6 +30,9 @@ def generate_commands_structure(command: Command, root: _Node | None = None):
     """
     if not root:
         root = _Node(name="snow")
+
+    if command.params:
+        root.options = {param.human_readable_name : param.opts for param in command.params}
 
     if hasattr(command, "commands"):
         for command_name, command_info in command.commands.items():
