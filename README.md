@@ -31,7 +31,7 @@ Snowflake CLI lets you locally run and debug Snowflake apps, and has the followi
 
 Snowflake CLI has the following limitation:
 
-- To run Streamlit in Snowflake using Snowflake CLI, your Snowflake account must have access to the Streamlit private preview.
+- To run Streamlit in Snowflake using Snowflake CLI, your Snowflake account must have access to the Streamlit public preview.
 
 ## Install Snowflake CLI
 
@@ -72,7 +72,7 @@ You should now be able to run `snow` and get the CLI message.
 
 ## Get started using Snowflake CLI
 
-Use Snowflake CLI to build a function or stored procedure, or create a streamlit if you have access to the Streamlit in Snowflake private preview.
+Use Snowflake CLI to build a function or stored procedure, or create a streamlit if you have access to the Streamlit in Snowflake public preview.
 
 ### Prerequisites
 

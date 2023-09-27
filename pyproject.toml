@@ -22,7 +22,7 @@ dependencies = [
   "tomlkit==0.12.1",
   "typer==0.9.0",
   "urllib3<1.27,>=1.21.1",
-  "GitPython==3.1.36",
+  "GitPython==3.1.37",
 
 ]
 classifiers = [
