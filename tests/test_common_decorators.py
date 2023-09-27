@@ -11,16 +11,13 @@ _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "schema",
     "role",
     "warehouse",
+    "temporary_connection",
     "format",
     "verbose",
     "debug",
 ]
 
-_KNOWN_SIG_GLOBAL_PARAMETERS = [
-    "format",
-    "verbose",
-    "debug",
-]
+_KNOWN_SIG_GLOBAL_PARAMETERS = ["format", "verbose", "debug"]
 
 
 def _extract_arguments(func):

@@ -14,6 +14,7 @@
 * `snow snowpark registry` was replaced with `snow registry` command.
 
 ## New additions
+* `--temporary-connection` flag, that allows you to connect, without anything declared in config file
 
 ## Fixes and improvements
 * Too long texts in table cells are now wrapped instead of cropped
