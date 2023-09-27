@@ -20,7 +20,7 @@ from snowcli.app.main_typer import SnowCliMainTyper
 from snowcli.config import config_init, cli_config
 from snowcli.output.formats import OutputFormat
 from snowcli.output.printing import print_result
-from snowcli.output.types import CollectionResult
+from snowcli.output.types import CollectionResult, ObjectResult
 
 app: SnowCliMainTyper = SnowCliMainTyper()
 log = logging.getLogger(__name__)
@@ -85,8 +85,9 @@ def _version_callback(value: bool):
 def _options_structure_callback(value: bool):
     if value:
         ctx = click.get_current_context()
-        structure = generate_commands_structure(ctx.command)
-        structure.print_with_options()
+        generate_commands_structure(ctx.command).print_with_options()
+
+
         raise typer.Exit()
 
 

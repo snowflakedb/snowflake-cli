@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Dict, Optional, List
 
@@ -18,10 +19,20 @@ class _Node:
         for ch in self.children.values():
             ch.print()
 
-    def print_with_options(self):
-        print("\n    " * self.level, self.name)
-        for k in self.options:
-            print("    " * (self.level + 1), k, ": ", ",".join(self.options[k]))
+    def print_with_options(self, options_dict = {}):
+        options_dict[self.name] = self.options
+
+        for ch in self.children.values():
+            options_dict[ch.name] = ch.print_with_options(options_dict)
+
+        return options_dict
+        # options_json = json.dumps(self.options)
+        # print(options_json)
+        # print("    " * self.level, self.name)
+        # if self.options:
+        #     print("    " * (self.level +1), "options:")
+        #     for k in self.options:
+        #         print("    " * (self.level + 2), k, ": ", ",".join(self.options[k]))
 
         for ch in self.children.values():
             ch.print_with_options()
