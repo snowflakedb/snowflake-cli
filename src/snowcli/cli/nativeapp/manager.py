@@ -32,6 +32,7 @@ from snowflake.connector.cursor import DictCursor
 
 SPECIAL_COMMENT = "GENERATED_BY_SNOWCLI"
 COMMENT_COL = "comment"
+OWNER_COL = "owner"
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +51,15 @@ class CouldNotDropObjectError(ClickException):
 
     def __init__(self, message: str):
         super().__init__(message=message)
+
+
+class UnexpectedOwnerError(ClickException):
+    """An operation is blocked becuase an object is owned by an unexpected role."""
+
+    def __init__(self, item: str, expected_owner: str, actual_owner: str):
+        super().__init__(
+            f"Cannot operate on {item}: owned by {actual_owner} (expected {expected_owner})"
+        )
 
 
 class NativeAppManager(SqlExecutionMixin):
@@ -150,6 +160,12 @@ class NativeAppManager(SqlExecutionMixin):
 
                 if row_comment != SPECIAL_COMMENT:
                     raise ApplicationPackageAlreadyExistsError(app_pkg)
+
+                actual_owner = show_app_row[OWNER_COL]
+                if actual_owner != self.app_pkg_role:
+                    raise UnexpectedOwnerError(
+                        self.app_name, self.app_role, actual_owner
+                    )
 
             # Upload files from deploy root local folder to the above stage
             self.sync_deploy_root_with_stage(app_pkg_role, app_pkg)

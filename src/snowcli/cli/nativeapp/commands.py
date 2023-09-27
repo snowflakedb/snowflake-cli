@@ -3,7 +3,10 @@ from typing import Optional
 import logging
 import typer
 
-from snowcli.cli.common.decorators import global_options, global_options_with_connection
+from snowcli.cli.common.decorators import (
+    global_options_with_connection,
+    global_options,
+)
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.output.decorators import with_output
 
@@ -58,7 +61,7 @@ def app_init(
 
 @app.command("bundle", hidden=True)
 @with_output
-@global_options_with_connection
+@global_options
 def app_bundle(
     project_path: Optional[str] = ProjectArgument,
     **options,
@@ -80,6 +83,8 @@ def app_run(
 ) -> CommandResult:
     """
     Creates an application package in your Snowflake account and uploads code files to its stage.
+    As a note, this command does not accept role or warehouse overrides to your config.toml file,
+    because your native app definition in snowflake.yml/snowflake.local.yml is used for any overrides.
     """
     manager = NativeAppManager(project_path)
     manager.build_bundle()
@@ -98,6 +103,8 @@ def app_teardown(
 ) -> CommandResult:
     """
     Drops an application and an application package as defined in the project definition file.
+    As a note, this command does not accept role or warehouse overrides to your config.toml file,
+    because your native app definition in snowflake.yml/snowflake.local.yml is used for any overrides.
     """
     manager = NativeAppManager(project_path)
     manager.teardown()
