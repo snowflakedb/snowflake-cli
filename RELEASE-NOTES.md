@@ -16,3 +16,9 @@
 ## New additions
 
 ## Fixes and improvements
+* Split global options into separate section in `help`
+* Avoiding unnecessary replace in function/procedure update
+* Added global options to all commands
+* Updated help messages
+* Fixed problem with Windows shortened paths
+* If only one connection is configured, will be used as default
