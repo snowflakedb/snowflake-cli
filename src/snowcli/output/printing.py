@@ -56,7 +56,7 @@ def _print_multiple_table_results(obj: CollectionResult):
     first_item = next(items)
     table = _get_table()
     for column in first_item.keys():
-        table.add_column(column)
+        table.add_column(column, overflow="fold")
     with Live(table, refresh_per_second=4):
         table.add_row(*[str(i) for i in first_item.values()])
         for item in items:
@@ -95,8 +95,8 @@ def print_unstructured(obj: CommandResult | None):
 
 def _print_single_table(obj):
     table = _get_table()
-    table.add_column("key")
-    table.add_column("value")
+    table.add_column("key", overflow="fold")
+    table.add_column("value", overflow="fold")
     for key, value in obj.result.items():
         table.add_row(str(key), str(value))
     print(table)
