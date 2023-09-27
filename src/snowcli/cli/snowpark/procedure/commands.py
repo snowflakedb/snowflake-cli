@@ -4,23 +4,30 @@ import logging
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import List
 
 
 import typer
 
 from snowcli import utils
 from snowcli.cli.common.decorators import global_options_with_connection, global_options
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.flags import (
+    DEFAULT_CONTEXT_SETTINGS,
+    identifier_argument,
+    execution_identifier_argument,
+)
 from snowcli.cli.constants import DEPLOYMENT_STAGE
 from snowcli.cli.snowpark.procedure.manager import ProcedureManager
 from snowcli.cli.snowpark.procedure_coverage.commands import (
     app as procedure_coverage_app,
 )
 from snowcli.cli.snowpark_shared import (
-    CheckAnacondaForPyPiDependancies,
+    CheckAnacondaForPyPiDependencies,
     PackageNativeLibrariesOption,
     PyPiDownloadOption,
     snowpark_package,
+    OverwriteOption,
+    ReturnsOption,
 )
 from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
@@ -49,6 +56,47 @@ app = typer.Typer(
 )
 app.add_typer(procedure_coverage_app)
 
+FileOption = typer.Option(
+    "app.zip",
+    "--file",
+    "-f",
+    help="Path to the file or folder to containing the procedure code. If you specify a directory, the procedure deploys the procedure in the default `app.zip` file.",
+    exists=False,
+)
+
+HandlerOption = typer.Option(
+    ...,
+    "--handler",
+    "-h",
+    help="Path to the file containing the handler code for the stored procedure.",
+)
+
+LikeOption = typer.Option(
+    "%%",
+    "--like",
+    "-l",
+    help='Regular expression for filtering the procedure by name. For example, `list --like "my%"` lists all procedures in the **dev** (default) environment that begin with “my”.',
+)
+
+ReplaceOption = typer.Option(
+    False,
+    "--replace-always",
+    "-a",
+    help="Replace procedure, even if no detected changes to metadata",
+)
+
+ExecuteAsCaller = typer.Option(
+    False,
+    "--execute-as-caller",
+    help="Execute as caller.",
+)
+
+InstallCoverageWrapper = typer.Option(
+    False,
+    "--install-coverage-wrapper",
+    help="Whether to wrap the procedure with a code coverage measurement tool, so a coverage report can be later retrieved.",
+)
+
 
 @app.command("init")
 @global_options
@@ -66,55 +114,17 @@ def procedure_init(**options) -> CommandResult:
 @global_options_with_connection
 def procedure_create(
     pypi_download: str = PyPiDownloadOption,
-    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
+    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
     package_native_libraries: str = PackageNativeLibrariesOption,
-    name: str = typer.Option(
-        ...,
-        "--name",
-        "-n",
-        help="Name of the procedure.",
+    identifier: str = identifier_argument(
+        "procedure", "hello(number int, name string)"
     ),
-    file: Path = typer.Option(
-        "app.zip",
-        "--file",
-        "-f",
-        help="Path to the file or folder to containing the procedure code. If you specify a directory, the procedure deploys the procedure in the default `app.zip` file.",
-        exists=False,
-    ),
-    handler: str = typer.Option(
-        ...,
-        "--handler",
-        "-h",
-        help="Name of the handler module.",
-    ),
-    input_parameters: str = typer.Option(
-        ...,
-        "--input-parameters",
-        "-i",
-        help="Input parameters for this function as a comma-separated string, such as (`message string`, `count int`).",
-    ),
-    return_type: str = typer.Option(
-        ...,
-        "--return-type",
-        "-r",
-        help="Data type for the procedure to return.",
-    ),
-    overwrite: bool = typer.Option(
-        False,
-        "--overwrite",
-        "-o",
-        help="Whether to replace an existing procedure with this one.",
-    ),
-    execute_as_caller: bool = typer.Option(
-        False,
-        "--execute-as-caller",
-        help="Execute as caller",
-    ),
-    install_coverage_wrapper: bool = typer.Option(
-        False,
-        "--install-coverage-wrapper",
-        help="Whether to wrap the procedure with a code coverage measurement tool, so a coverage report can be later retrieved.",
-    ),
+    file: Path = FileOption,
+    handler: str = HandlerOption,
+    return_type: str = ReturnsOption,
+    overwrite: bool = OverwriteOption,
+    execute_as_caller: bool = ExecuteAsCaller,
+    install_coverage_wrapper: bool = InstallCoverageWrapper,
     **options,
 ) -> CommandResult:
     """Creates a stored python procedure using a local artifact."""
@@ -126,23 +136,20 @@ def procedure_create(
     sm = StageManager()
     pm = ProcedureManager()
 
-    procedure_identifier = pm.identifier(name=name, signature=input_parameters)
     artifact_file, new_handler = _upload_procedure_artifact(
         stage_manager=sm,
         procedure_manager=pm,
         file=file,
         handler=handler,
-        input_parameters=input_parameters,
         install_coverage_wrapper=install_coverage_wrapper,
-        name=name,
         overwrite=overwrite,
-        procedure_identifier=procedure_identifier,
+        identifier=identifier,
     )
 
     packages = get_snowflake_packages()
 
     cursor = pm.create(
-        identifier=procedure_identifier,
+        identifier=identifier,
         handler=new_handler,
         return_type=return_type,
         artifact_file=str(artifact_file),
@@ -158,24 +165,25 @@ def _upload_procedure_artifact(
     procedure_manager,
     file,
     handler,
-    input_parameters,
     install_coverage_wrapper,
-    name,
     overwrite,
-    procedure_identifier,
+    identifier,
 ):
     stage_manager.create(
         stage_name=DEPLOYMENT_STAGE, comment="deployments managed by snowcli"
     )
-    artifact_stage_path = procedure_manager.artifact_stage_path(procedure_identifier)
+    artifact_stage_path = procedure_manager.artifact_stage_path(identifier)
     artifact_location = f"{DEPLOYMENT_STAGE}/{artifact_stage_path}"
     artifact_file = f"{artifact_location}/app.zip"
     with TemporaryDirectory() as temp_dir:
         temp_app_zip_path = prepare_app_zip(file, temp_dir)
         if install_coverage_wrapper:
+            signature_start_index = identifier.index("(")
+            name = identifier[0:signature_start_index]
+            signature = identifier[signature_start_index:]
             handler = _replace_handler_in_zip(
                 proc_name=name,
-                proc_signature=input_parameters,
+                proc_signature=signature,
                 handler=handler,
                 coverage_reports_stage=DEPLOYMENT_STAGE,
                 coverage_reports_stage_path=f"/{artifact_stage_path}/coverage",
@@ -195,54 +203,17 @@ def _upload_procedure_artifact(
 @global_options_with_connection
 def procedure_update(
     pypi_download: str = PyPiDownloadOption,
-    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
+    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
     package_native_libraries: str = PackageNativeLibrariesOption,
-    name: str = typer.Option(
-        ...,
-        "--name",
-        "-n",
-        help="Name of the procedure.",
+    identifier: str = identifier_argument(
+        "procedure", "hello(number int, name string)"
     ),
-    file: Path = typer.Option(
-        "app.zip",
-        "--file",
-        "-f",
-        help="Path to the file or folder to deploy.",
-        exists=False,
-    ),
-    handler: str = typer.Option(
-        ...,
-        "--handler",
-        "-h",
-        help="Path to the file containing the handler code for the stored procedure.",
-    ),
-    input_parameters: str = typer.Option(
-        ...,
-        "--input-parameters",
-        "-i",
-        help="Input parameters for this function as a comma-separated string, such as (`message string`, `count int`).",
-    ),
-    return_type: str = typer.Option(
-        ...,
-        "--return-type",
-        "-r",
-        help="Data type for the procedure to return.",
-    ),
-    replace: bool = typer.Option(
-        False,
-        "--replace-always",
-        help="Whether to replace an existing procedure with this one, even if the metadata contains no detected changes.",
-    ),
-    execute_as_caller: bool = typer.Option(
-        False,
-        "--execute-as-caller",
-        help="Whether to execute this procedure as the caller (Default: `false`).",
-    ),
-    install_coverage_wrapper: bool = typer.Option(
-        False,
-        "--install-coverage-wrapper",
-        help="Whether to wrap the procedure with a code coverage measurement tool, so a coverage report can be later retrieved.",
-    ),
+    file: Path = FileOption,
+    handler: str = HandlerOption,
+    return_type: str = ReturnsOption,
+    replace: bool = ReplaceOption,
+    execute_as_caller: bool = ExecuteAsCaller,
+    install_coverage_wrapper: bool = InstallCoverageWrapper,
     **options,
 ) -> CommandResult:
     """Updates a procedure in a specified environment."""
@@ -254,7 +225,6 @@ def procedure_update(
 
     pm = ProcedureManager()
     sm = StageManager()
-    identifier = pm.identifier(name=name, signature=input_parameters)
 
     try:
         current_state = pm.describe(identifier)
@@ -299,11 +269,9 @@ def procedure_update(
         procedure_manager=pm,
         file=file,
         handler=handler,
-        input_parameters=input_parameters,
         install_coverage_wrapper=install_coverage_wrapper,
-        name=name,
         overwrite=True,
-        procedure_identifier=identifier,
+        identifier=identifier,
     )
 
     if replace:
@@ -327,7 +295,7 @@ def procedure_update(
 @with_output
 def procedure_package(
     pypi_download: str = PyPiDownloadOption,
-    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependancies,
+    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
     package_native_libraries: str = PackageNativeLibrariesOption,
     **options,
 ) -> CommandResult:
@@ -344,16 +312,13 @@ def procedure_package(
 @with_output
 @global_options_with_connection
 def procedure_execute(
-    signature: str = typer.Option(
-        ...,
-        "--procedure",
-        "-p",
-        help="String containing the procedure signature with its parameters, such as `greeting('hello', 'italian')`. The parameters must exactly match those provided when creating the procedure.",
+    execution_identifier: str = execution_identifier_argument(
+        "procedure", "hello(1, 'world')"
     ),
     **options,
 ) -> CommandResult:
     """Executes a procedure in a specified environment."""
-    cursor = ProcedureManager().execute(expression=signature)
+    cursor = ProcedureManager().execute(execution_identifier=execution_identifier)
     return SingleQueryResult(cursor)
 
 
@@ -361,29 +326,11 @@ def procedure_execute(
 @with_output
 @global_options_with_connection
 def procedure_describe(
-    name: str = typer.Option("", "--name", "-n", help="Name of the procedure"),
-    input_parameters: str = typer.Option(
-        "",
-        "--input-parameters",
-        "-i",
-        help="Input parameters for this function as a comma-separated string, such as (`message string`, `count int`).",
-    ),
-    signature: str = typer.Option(
-        "",
-        "--procedure",
-        "-p",
-        help="String containing the procedure signature with its inputs, such as 'hello(int, string)'.",
-    ),
+    identifier: str = identifier_argument("procedure", "hello(int, string)"),
     **options,
 ) -> CommandResult:
     """Describes the specified stored procedure, including the stored procedure signature (i.e. arguments), return value, language, and body (i.e. definition)."""
-    cursor = ProcedureManager().describe(
-        ProcedureManager.identifier(
-            name=name,
-            signature=input_parameters,
-            name_and_signature=signature,
-        )
-    )
+    cursor = ProcedureManager().describe(identifier=identifier)
     return QueryResult(cursor)
 
 
@@ -391,12 +338,7 @@ def procedure_describe(
 @with_output
 @global_options_with_connection
 def procedure_list(
-    like: str = typer.Option(
-        "%%",
-        "--like",
-        "-l",
-        help='Regular expression for filtering the functions by name. For example, `list --file "my%"` lists all functions in the **dev** (default) environment that begin with “my”.',
-    ),
+    like: str = LikeOption,
     **options,
 ) -> CommandResult:
     """Lists available procedures."""
@@ -408,31 +350,11 @@ def procedure_list(
 @with_output
 @global_options_with_connection
 def procedure_drop(
-    name: str = typer.Option(
-        "", "--name", "-n", help="Name of the procedure to remove."
-    ),
-    input_parameters: str = typer.Option(
-        "",
-        "--input-parameters",
-        "-i",
-        help="Input parameters for this function as a comma-separated string, such as (`message string`, `count int`).",
-    ),
-    signature: str = typer.Option(
-        "",
-        "--procedure",
-        "-p",
-        help="String containing the procedure signature with its inputs, such as 'hello(int, string)'.",
-    ),
+    identifier: str = identifier_argument("procedure", "hello(int, string)"),
     **options,
 ) -> CommandResult:
     """Drops a Snowflake procedure."""
-    cursor = ProcedureManager().drop(
-        ProcedureManager.identifier(
-            name=name,
-            signature=input_parameters,
-            name_and_signature=signature,
-        )
-    )
+    cursor = ProcedureManager().drop(identifier=identifier)
     return SingleQueryResult(cursor)
 
 
