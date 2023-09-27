@@ -16,6 +16,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Too long texts in table cells are now wrapped instead of cropped
 * Split global options into separate section in `help`
 * Avoiding unnecessary replace in function/procedure update
 * Added global options to all commands
