@@ -4,6 +4,7 @@ import inspect
 from functools import wraps
 from inspect import Signature
 from typing import Callable, Optional, get_type_hints, List
+from copy import deepcopy
 
 from snowcli.cli import loggers
 from snowcli.cli.common.flags import (
@@ -43,6 +44,18 @@ def global_options_with_connection(func: Callable):
     """
     return _options_decorator_factory(
         func, [*GLOBAL_CONNECTION_OPTIONS, *GLOBAL_OPTIONS]
+    )
+
+
+def global_limited_options_with_connection(func: Callable):
+    """
+    Decorator providing default flags including connection flags for overriding
+    global parameters. Values are updated in global SnowCLI state.
+
+    To use this decorator your command needs to accept **options as last argument.
+    """
+    return _options_decorator_factory(
+        func, [*GLOBAL_CONNECTION_LIMITED_OPTIONS, *GLOBAL_OPTIONS]
     )
 
 
@@ -140,6 +153,11 @@ GLOBAL_OPTIONS = [
         default=DebugOption,
     ),
 ]
+
+GLOBAL_CONNECTION_LIMITED_OPTIONS = filter(
+    lambda param: (param.name != "role") and (param.name != "warehouse"),
+    deepcopy(GLOBAL_CONNECTION_OPTIONS),
+)
 
 
 def _extend_signature_with_global_options(
