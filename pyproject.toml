@@ -45,10 +45,6 @@ dev = [
   "syrupy==4.5.0",
   "tox==4.6.4",
 ]
-local-integration-tests = [
-  "snowflakecli-test-multilingual-hello-plugin @ {root:uri}/test_external_plugins/multilingual_hello_command_group", #example of external plugin used in integration tests
-  "snowflakecli-test-snowpark-hello-plugin @ {root:uri}/test_external_plugins/snowpark_hello_single_command", #example of external plugin used in integration tests
-]
 
 [project.urls]
 "Source code" = "https://github.com/Snowflake-Labs/snowcli"
@@ -67,9 +63,6 @@ exclude = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/snowcli", "src/templates"]
-
-[tool.hatch.metadata]
-allow-direct-references = true
 
 [tool.ruff]
 line-length = 88

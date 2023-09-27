@@ -17,7 +17,7 @@ a wrapper for virtual environments like [pyenv](https://github.com/pyenv/pyenv).
 Once you created a dedicated virtual environment you can install SnowCLI in editable mode with all required dependencies:
 
 ```bash
-pip install -e ".[dev,local-integration-tests]"
+pip install -e ".[dev]"
 ```
 
 ## Integration tests
@@ -25,6 +25,14 @@ pip install -e ".[dev,local-integration-tests]"
 Every integration test should have `integration` mark. By default, integration tests are not execute when running `pytest`.
 
 To execute only integration tests run `pytest -m integration`.
+
+### Installation of external plugins used in integration tests
+
+To run integration tests you have to install external plugins which are part of the repository:
+```bash
+pip install -e test_external_plugins/snowpark_hello_single_command
+pip install -e test_external_plugins/multilingual_hello_command_group
+```
 
 ### Connection parameters in `config.toml`
 
