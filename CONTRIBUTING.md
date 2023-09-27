@@ -17,7 +17,7 @@ a wrapper for virtual environments like [pyenv](https://github.com/pyenv/pyenv).
 Once you created a dedicated virtual environment you can install SnowCLI in editable mode with all required dependencies:
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev,local-integration-tests]"
 ```
 
 ## Integration tests
