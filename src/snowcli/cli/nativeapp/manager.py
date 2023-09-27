@@ -1,5 +1,4 @@
 from __future__ import annotations
-from collections import OrderedDict
 
 import logging
 from pathlib import Path
@@ -17,8 +16,6 @@ from snowcli.cli.project.definition import (
     default_role,
     default_application,
 )
-from snowcli.output.printing import print_result
-from snowcli.output.types import ObjectResult
 from snowcli.cli.stage.diff import (
     DiffResult,
     stage_diff,
@@ -169,16 +166,19 @@ class NativeAppManager(SqlExecutionMixin):
         )
 
         with self.use_role(object_role):
+            show_obj_query = f"{query_dict['show']} '{object_name}'"
             show_obj_cursor = self._execute_query(
-                f"{query_dict['show']} '{object_name}'", cursor_class=DictCursor
+                show_obj_query, cursor_class=DictCursor
             )
 
-            if show_obj_cursor.rowcount == 0:
+            if show_obj_cursor.rowcount is None:
+                raise SnowflakeSQLExecutionError(show_obj_query)
+            elif show_obj_cursor.rowcount == 0:
                 raise CouldNotDropObjectError(
-                    f"Role {object_role} does not own any {log_object_type.lower()} with name {object_name}!"
+                    f"Role {object_role} does not own any {log_object_type.lower()} with the name {object_name}!"
                 )
             elif show_obj_cursor.rowcount > 0:
-                # There can only be one possible pre-existing app pkg with the same name
+                # There can only be one possible pre-existing object with the same name
                 show_obj_row = show_obj_cursor.fetchone()
                 row_comment = show_obj_row[
                     COMMENT_COL
@@ -188,11 +188,14 @@ class NativeAppManager(SqlExecutionMixin):
                     raise CouldNotDropObjectError(
                         f"{log_object_type} {object_name} was not created by SnowCLI. Cannot drop the {log_object_type.lower()}."
                     )
-            else:  # rowcount is None
-                raise SnowflakeSQLExecutionError()
 
             log.info(f"Dropping {log_object_type.lower()} {object_name} now.")
-            self._execute_query(f"{query_dict['drop']} {object_name}")
+            drop_query = f"{query_dict['drop']} {object_name}"
+            try:
+                self._execute_query(drop_query)
+            except:
+                # Case if an object exists but owned by a different role.
+                raise SnowflakeSQLExecutionError(drop_query)
             log.info(f"Dropped {log_object_type.lower()} {object_name} successfully.")
 
     def teardown(self) -> None:

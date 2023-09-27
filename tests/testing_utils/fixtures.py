@@ -127,6 +127,10 @@ def mock_cursor():
             return self._rows
 
         @property
+        def rowcount(self):
+            return len(self._rows)
+
+        @property
         def description(self):
             yield from self._columns
 

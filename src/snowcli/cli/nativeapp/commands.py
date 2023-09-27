@@ -73,7 +73,7 @@ def app_bundle(
 
 @app.command("run")
 @with_output
-@global_options
+@global_options_with_connection
 def app_run(
     project_path: Optional[str] = ProjectArgument,
     **options,
