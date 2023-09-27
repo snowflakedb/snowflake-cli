@@ -26,6 +26,16 @@ ConnectionOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+TemporaryConnectionOption = typer.Option(
+    False,
+    "--temporary-connection",
+    "-x",
+    help="Uses connection defined with command line parameters, instead of one defined in config",
+    callback=ConnectionDetails.update_callback("temporary_connection"),
+    is_flag=True,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
 AccountOption = typer.Option(
     None,
     "--account",

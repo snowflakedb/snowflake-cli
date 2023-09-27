@@ -17,6 +17,7 @@ class ConnectionDetails:
     schema: Optional[str] = None
     user: Optional[str] = None
     warehouse: Optional[str] = None
+    temporary_connection: bool = False
 
     def _resolve_connection_params(self):
         from snowcli.cli.common.decorators import GLOBAL_CONNECTION_OPTIONS
@@ -24,7 +25,7 @@ class ConnectionDetails:
         params = {}
         for option in GLOBAL_CONNECTION_OPTIONS:
             override = option.name
-            if override == "connection":
+            if override == "connection" or override == "temporary_connection":
                 continue
             override_value = getattr(self, override)
             if override_value is not None:
@@ -33,7 +34,9 @@ class ConnectionDetails:
 
     def build_connection(self):
         return connect_to_snowflake(
-            connection_name=self.connection_name, **self._resolve_connection_params()
+            temporary_connection=self.temporary_connection,
+            connection_name=self.connection_name,
+            **self._resolve_connection_params()
         )
 
     @staticmethod
