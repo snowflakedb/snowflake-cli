@@ -6,6 +6,7 @@ from snowcli.cli.sql import plugin_spec as sql_plugin_spec
 from snowcli.cli.stage import plugin_spec as stage_plugin_spec
 from snowcli.cli.streamlit import plugin_spec as streamlit_plugin_spec
 from snowcli.cli.warehouse import plugin_spec as warehouse_plugin_spec
+from snowcli.cli.registry import plugin_spec as registry_plugins_spec
 
 # plugin name to plugin spec
 builtin_plugin_name_to_plugin_spec = {
@@ -17,4 +18,5 @@ builtin_plugin_name_to_plugin_spec = {
     "stage": stage_plugin_spec,
     "streamlit": streamlit_plugin_spec,
     "warehouse": warehouse_plugin_spec,
+    "registry": registry_plugins_spec,
 }

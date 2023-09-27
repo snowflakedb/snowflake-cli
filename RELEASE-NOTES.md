@@ -11,6 +11,7 @@
   * Combined options `--name` and `--input-parameters` to `identifier` argument
 * Changed path to coverage reports on stage, previously created procedures with coverage will not work, have to be recreated
 * Snowpark command `compute-pool` and its alias `cp` were replaced by `pool` command.
+* `snow snowpark registry` was replaced with `snow registry` command.
 
 ## New additions
 
