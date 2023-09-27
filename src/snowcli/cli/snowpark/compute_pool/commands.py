@@ -28,9 +28,6 @@ class InstanceFamily(str, Enum):
     GPU_10 = "GPU_10"
 
 
-INSTANCE_FAMILY_OPTIONS = [instance.upper() for instance in InstanceFamily]
-
-
 @app.command()
 @with_output
 @global_options_with_connection

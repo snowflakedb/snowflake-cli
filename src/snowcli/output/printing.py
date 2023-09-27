@@ -21,7 +21,7 @@ from snowcli.output.types import (
     QueryResult,
 )
 
-NO_ITEMS_FOUND: str = "NO ROWS FOUND"
+NO_ITEMS_FOUND: str = "No data"
 
 
 class CustomJSONEncoder(JSONEncoder):
