@@ -51,6 +51,10 @@ class StageManager(SqlExecutionMixin):
     ) -> SnowflakeCursor:
         """
         Internal only method, created for Native Apps use case.
+        This method will take a file path from the user's system and put it into a Snowflake stage,
+        which includes its fully qualified name as well as the path within the stage.
+        If provided with a role, then temporarily use this role to perform the operation above,
+        and switch back to the original role for the next commands to run.
         """
         with self.use_role(role) if role else nullcontext():
             stage_path = self.get_standard_stage_name(stage_path)
@@ -70,6 +74,10 @@ class StageManager(SqlExecutionMixin):
     ) -> SnowflakeCursor:
         """
         Internal only method, created for Native Apps use case.
+        This method will take a file path that exists on a Snowflake stage,
+        and remove it from the stage.
+        If provided with a role, then temporarily use this role to perform the operation above,
+        and switch back to the original role for the next commands to run.
         """
         with self.use_role(role) if role else nullcontext():
             stage_name = self.get_standard_stage_name(stage_name)
