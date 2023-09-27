@@ -78,14 +78,6 @@ Use Snowflake CLI to build a function or stored procedure, or create a streamlit
 
 You should add your credentials to connect to Snowflake before you can use Snowflake CLI. You can add your Snowflake credentials using any of the following methods.
 
-#### Temporary connection
-
-If you don`t want to store your credentials, or you are performing one-time operation on an account, you won't use frequently, you can provide all necessary data, using command
-line flags and `--temporary-connection` option:
-```commandline
-$ snow snowpark warehouse status --temporary-connection --acount "my_account" --user "my_username" --password "my_password"
-```
-
 
 #### Add credentials with Snowflake CLI
 
