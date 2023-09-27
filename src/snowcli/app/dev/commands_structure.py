@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict
+from typing import Dict, Optional, List
 
 from click import Command
 
@@ -11,6 +11,7 @@ class _Node:
     name: str
     children: Dict[str, _Node] = field(default_factory=dict)
     level: int = 0
+    options: Dict[str, List[str]] = field(default_factory=dict)
 
     def print(self):
         print("    " * self.level, self.name)
@@ -32,3 +33,7 @@ def generate_commands_structure(command: Command, root: _Node | None = None):
                 root.children[command_name] = _Node(command_name, level=root.level + 1)
             generate_commands_structure(command_info, root.children[command_name])
     return root
+
+
+def generate_options_structure(command: Command, root: Optional[_Node] = None):
+    pass

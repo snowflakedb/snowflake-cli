@@ -25,3 +25,8 @@ def test_namespace(namespace, expected, runner):
     assert result.exit_code == 0
 
     assert expected in result.output
+
+def test_options_structure(runner):
+    result = runner.invoke(["--options-structure"])
+
+    assert result.exit_code == 0

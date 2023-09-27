@@ -80,6 +80,13 @@ def _version_callback(value: bool):
         typer.echo(f"SnowCLI Version: {__about__.VERSION}")
         raise typer.Exit()
 
+@_do_not_execute_on_completion
+@_commands_registration.after
+def _options_structure_callback(value: bool):
+    if value:
+        ctx = click.get_current_context()
+        print(ctx)
+
 
 @_do_not_execute_on_completion
 def _info_callback(value: bool):
@@ -118,6 +125,14 @@ def default(
         help="Prints Snowflake CLI structure of commands",
         callback=_commands_structure_callback,
         is_eager=True,
+    ),
+    options_structure: bool = typer.Option(
+        None,
+        "--options-structure",
+        hidden=True,
+        help="Prints options for all commands", #TODO: improve this message,
+        callback= _options_structure_callback,
+        is_eager=True
     ),
     info: bool = typer.Option(
         None,
