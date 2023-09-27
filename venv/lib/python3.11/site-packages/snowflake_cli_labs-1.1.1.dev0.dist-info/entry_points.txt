@@ -1,0 +1,2 @@
+[console_scripts]
+snow = snowcli.app.__main__:main
