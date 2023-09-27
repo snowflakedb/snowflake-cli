@@ -12,3 +12,8 @@ class LoadedCommandPlugin:
 @dataclass
 class LoadedBuiltInCommandPlugin(LoadedCommandPlugin):
     pass
+
+
+@dataclass
+class LoadedExternalCommandPlugin(LoadedCommandPlugin):
+    pass

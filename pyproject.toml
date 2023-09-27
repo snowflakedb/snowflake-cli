@@ -42,6 +42,8 @@ dev = [
   "coverage==7.3.1",
   "pre-commit==3.4.0",
   "pytest==7.4.2",
+  "snowflakecli-test-multilingual-hello-plugin @ {root:uri}/test_external_plugins/multilingual_hello_command_group", #example of external plugin used in integration tests
+  "snowflakecli-test-snowpark-hello-plugin @ {root:uri}/test_external_plugins/snowpark_hello_single_command", #example of external plugin used in integration tests
   "syrupy==4.5.0",
   "tox==4.6.4",
 ]
@@ -63,6 +65,9 @@ exclude = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/snowcli", "src/templates"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.ruff]
 line-length = 88
