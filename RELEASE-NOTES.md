@@ -2,14 +2,15 @@
 
 ## Backward incompatibility
 * In `snowpark function` command:
-  * Combined options `--function` and `--input-parameters` to `identifier` argument
-  * Changed name of option from `--return-type` to `returns`
+  * Combined options `--function` and `--input-parameters` to `identifier` argument.
+  * Changed name of option from `--return-type` to `returns`.
 * In `snowpark procedure` command:
-  * Combined options `--procedure` and `--input-parameters` to `identifier` argument
-  * Changed name of option from `--return-type` to `--returns`
+  * Combined options `--procedure` and `--input-parameters` to `identifier` argument.
+  * Changed name of option from `--return-type` to `--returns`.
 * In `snowpark procedure coverage` command:
-  * Combined options `--name` and `--input-parameters` to `identifier` argument
-* Changed path to coverage reports on stage, previously created procedures with coverage will not work, have to be recreated
+  * Combined options `--name` and `--input-parameters` to `identifier` argument.
+* Changed path to coverage reports on stage, previously created procedures with coverage will not work, have to be recreated.
+* Update function or procedure will upload function/procedure code to new path on stage. Previous code will remain under old path on stage.
 * Snowpark command `compute-pool` and its alias `cp` were replaced by `pool` command.
 * `snow snowpark registry` was replaced with `snow registry` command.
 

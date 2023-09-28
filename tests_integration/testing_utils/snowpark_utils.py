@@ -213,6 +213,13 @@ class SnowparkTestSteps:
                 actual_file_path=file, snapshot=self._setup.snapshot(name=file)
             )
 
+    def add_parameters_to_procedure(self, parameters: str):
+        replace_text_in_file(
+            file_path="app.py",
+            to_replace="def hello(session: Session) -> str:",
+            replacement=f"def hello(session: Session, {parameters}) -> str:",
+        )
+
     def requirements_file_should_contain_coverage(self, file_name="requirements.txt"):
         assert os.path.exists(file_name)
 
@@ -240,13 +247,15 @@ class SnowparkTestSteps:
             "requirements.snowflake.txt",
         )
 
-    def snowpark_create_should_finish_successfully(self) -> str:
-        return self.run_create()
+    def snowpark_create_should_finish_successfully(self, parameters: str = "()") -> str:
+        return self.run_create(parameters)
 
-    def snowpark_create_with_coverage_wrapper_should_finish_succesfully(self) -> str:
-        return self.run_create("--install-coverage-wrapper")
+    def snowpark_create_with_coverage_wrapper_should_finish_successfully(
+        self, parameters: str = "()"
+    ) -> str:
+        return self.run_create(parameters, "--install-coverage-wrapper")
 
-    def run_create(self, additional_arguments=""):
+    def run_create(self, parameters: str = "()", additional_arguments: str = ""):
         entity_name = (
             self._setup.test_object_name_provider.create_and_get_next_object_name()
         )
@@ -255,7 +264,7 @@ class SnowparkTestSteps:
             "snowpark",
             self.test_type.value,
             "create",
-            entity_name + "()",
+            entity_name + parameters,
             "--handler",
             "app.hello",
             "--returns",

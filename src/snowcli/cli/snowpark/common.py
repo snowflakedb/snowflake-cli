@@ -7,6 +7,7 @@ import click
 from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.utils import generate_deploy_stage_name
 
 if not sys.stdout.closed and sys.stdout.isatty():
     GREEN = "\033[32m"
@@ -71,22 +72,4 @@ class SnowparkObjectManager(SqlExecutionMixin):
 
     @staticmethod
     def artifact_stage_path(identifier: str):
-        return (
-            identifier.replace(
-                "(",
-                "",
-            )
-            .replace(
-                ")",
-                "",
-            )
-            .replace(
-                " ",
-                "_",
-            )
-            .replace(
-                ",",
-                "",
-            )
-            .lower()
-        )
+        return generate_deploy_stage_name(identifier).lower()
