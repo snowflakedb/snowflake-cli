@@ -8,6 +8,10 @@ import click
 import typer
 
 from snowcli import __about__
+from snowcli.api import api_provider, Api
+from snowcli.app.api_impl.plugin.plugin_config_provider_impl import (
+    PluginConfigProviderImpl,
+)
 from snowcli.app.commands_registration.commands_registration_with_callbacks import (
     CommandsRegistrationWithCallbacks,
 )
@@ -25,7 +29,10 @@ from snowcli.output.types import CollectionResult
 app: SnowCliMainTyper = SnowCliMainTyper()
 log = logging.getLogger(__name__)
 
-_commands_registration = CommandsRegistrationWithCallbacks()
+_api = Api(plugin_config_provider=PluginConfigProviderImpl())
+api_provider.register_api(_api)
+
+_commands_registration = CommandsRegistrationWithCallbacks(_api.plugin_config_provider)
 
 
 def _do_not_execute_on_completion(callback):

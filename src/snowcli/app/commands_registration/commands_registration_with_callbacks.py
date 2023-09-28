@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 from typing import Callable, List
 
+from snowcli.api.plugin.plugin_config import PluginConfigProvider
 from snowcli.app.commands_registration.command_plugins_loader import (
     load_only_builtin_command_plugins,
+    load_builtin_and_external_command_plugins,
 )
 from snowcli.app.commands_registration.typer_registration import (
     register_commands_from_plugins,
@@ -16,7 +18,8 @@ class CommandRegistrationConfig:
 
 
 class CommandsRegistrationWithCallbacks:
-    def __init__(self):
+    def __init__(self, plugin_config_provider: PluginConfigProvider):
+        self._plugin_config_provider = plugin_config_provider
         self._counter_of_callbacks_required_before_registration: ThreadsafeCounter = (
             ThreadsafeCounter(0)
         )
@@ -38,22 +41,28 @@ class CommandsRegistrationWithCallbacks:
             self._register_commands_from_plugins()
 
     def _register_commands_from_plugins(self) -> None:
-        self._register_builtin_plugin_commands()
-
         if self._commands_registration_config.enable_external_command_plugins:
-            self._register_external_plugin_commands()
+            self._register_builtin_and_enabled_external_plugin_commands()
+        else:
+            self._register_only_builtin_plugin_commands()
 
         self._commands_already_registered = True
         for callback in self._callbacks_after_registration:
             callback()
 
     @staticmethod
-    def _register_builtin_plugin_commands() -> None:
-        loaded_builtin_command_plugins = load_only_builtin_command_plugins()
-        register_commands_from_plugins(loaded_builtin_command_plugins)
+    def _register_only_builtin_plugin_commands() -> None:
+        loaded_command_plugins = load_only_builtin_command_plugins()
+        register_commands_from_plugins(loaded_command_plugins)
 
-    def _register_external_plugin_commands(self) -> None:
-        pass  # TODO: To be done in a PR with external plugins
+    def _register_builtin_and_enabled_external_plugin_commands(self):
+        enabled_external_plugins = (
+            self._plugin_config_provider.get_enabled_plugin_names()
+        )
+        loaded_command_plugins = load_builtin_and_external_command_plugins(
+            enabled_external_plugins
+        )
+        register_commands_from_plugins(loaded_command_plugins)
 
     def disable_external_command_plugins(self):
         self._commands_registration_config.enable_external_command_plugins = False
@@ -76,4 +85,5 @@ class CommandsRegistrationWithCallbacks:
     def reset_running_instance_registration_state(self):
         self._commands_already_registered = False
         self._counter_of_callbacks_invoked_before_registration.set(0)
+        self._callbacks_after_registration.clear()
         self._commands_registration_config.enable_external_command_plugins = True

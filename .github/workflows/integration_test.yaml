@@ -26,6 +26,8 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+          pip install -e test_external_plugins/snowpark_hello_single_command
+          pip install -e test_external_plugins/multilingual_hello_command_group
       - name: Run integration tests
         env:
           SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}

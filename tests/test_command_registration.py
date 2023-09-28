@@ -16,6 +16,19 @@ def test_builtin_plugins_registration(runner):
     assert result.exit_code == 0
     assert result.output.count("Manages connections to Snowflake") == 1
     assert result.output.count("Manages Streamlit in Snowflake") == 1
+    assert result.output.count("Executes Snowflake query") == 1
+
+
+def test_multiple_use_of_test_runner(runner):
+    def assert_result_is_correct(result):
+        assert result.exit_code == 0
+        assert result.output.count("Manages connections to Snowflake") == 1
+        assert result.output.count("Manages Streamlit in Snowflake") == 1
+        assert result.output.count("Manages warehouses") == 1
+        assert result.output.count("Executes Snowflake query") == 1
+
+    assert_result_is_correct(runner.invoke(["-h"]))
+    assert_result_is_correct(runner.invoke(["-h"]))
 
 
 @mock.patch("snowcli.cli.connection.plugin_spec.command_spec")
@@ -152,4 +165,32 @@ def test_broken_command_spec_handling(connection_command_spec_mock, runner):
     result = runner.invoke(["-h"])
     assert result.exit_code == 0
     assert result.output.count("Manages connections to Snowflake") == 0
+    assert result.output.count("Manages Streamlit in Snowflake") == 1
+
+
+@mock.patch(
+    "snowcli.app.api_impl.plugin.plugin_config_provider_impl.PluginConfigProviderImpl.get_enabled_plugin_names"
+)
+def test_not_existing_external_entrypoint_handling(enabled_plugin_names_mock, runner):
+    enabled_plugin_names_mock.return_value = ["xyz123"]
+
+    result = runner.invoke(["-h"])
+    assert result.exit_code == 0
+    assert result.output.count("Manages connections to Snowflake") == 1
+    assert result.output.count("Manages Streamlit in Snowflake") == 1
+
+
+@mock.patch("pluggy.PluginManager.load_setuptools_entrypoints")
+@mock.patch(
+    "snowcli.app.api_impl.plugin.plugin_config_provider_impl.PluginConfigProviderImpl.get_enabled_plugin_names"
+)
+def test_broken_external_entrypoint_handling(
+    enabled_plugin_names_mock, load_setuptools_entrypoints_mock, runner
+):
+    enabled_plugin_names_mock.return_value = ["xyz123"]
+    load_setuptools_entrypoints_mock.side_effect = RuntimeError("Test exception")
+
+    result = runner.invoke(["-h"])
+    assert result.exit_code == 0
+    assert result.output.count("Manages connections to Snowflake") == 1
     assert result.output.count("Manages Streamlit in Snowflake") == 1
