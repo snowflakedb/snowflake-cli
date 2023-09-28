@@ -1,4 +1,4 @@
-import yaml
+import strictyaml
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -45,8 +45,8 @@ class TestServiceManager(unittest.TestCase):
         compute_pool = "test_pool"
         spec_path = "/path/to/spec.yaml"
         num_instances = 42
-        mock_read_yaml.side_effect = yaml.YAMLError("Invalid YAML")
-        with self.assertRaises(yaml.YAMLError):
+        mock_read_yaml.side_effect = strictyaml.YAMLError("Invalid YAML")
+        with self.assertRaises(strictyaml.YAMLError):
             self.service_manager.create(
                 service_name, compute_pool, Path(spec_path), num_instances
             )
@@ -103,74 +103,6 @@ class TestServiceManager(unittest.TestCase):
         mock_execute_schema_query.assert_called_once_with(expected_query)
         self.assertEqual(result, cursor)
 
-
-<<<<<<< HEAD
-@mock.patch("snowflake.connector.connect")
-def test_desc_service(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-    service_name = "test_service"
-
-    result = runner.invoke(["snowpark", "services", "desc", service_name])
-
-    assert result.exit_code == 0, result.output
-    assert ctx.get_query() == f"desc service {service_name}"
-
-
-@mock.patch("snowflake.connector.connect")
-def test_list_service(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-
-    result = runner.invoke(["snowpark", "services", "list"])
-
-    assert result.exit_code == 0, result.output
-    assert ctx.get_query() == "show services"
-
-
-@mock.patch("snowflake.connector.connect")
-def test_drop_service(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-
-    result = runner.invoke(["snowpark", "services", "drop", "serviceName"])
-
-    assert result.exit_code == 0, result.output
-    assert ctx.get_query() == "drop service serviceName"
-
-
-@mock.patch("snowflake.connector.connect")
-def test_service_status(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-
-    result = runner.invoke(["snowpark", "services", "status", "serviceName"])
-
-    assert result.exit_code == 0, result.output
-    assert ctx.get_query() == "CALL SYSTEM$GET_SERVICE_STATUS('serviceName')"
-
-
-@mock.patch("snowflake.connector.connect")
-def test_service_logs(mock_connector, runner, mock_ctx, snapshot):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-
-    result = runner.invoke(
-        [
-            "snowpark",
-            "services",
-            "logs",
-            "--container_name",
-            "containerName",
-            "serviceName",
-        ]
-    )
-
-    assert result.exit_code == 0, result.output
-    assert (
-        ctx.get_query()
-        == "call SYSTEM$GET_SERVICE_LOGS('serviceName', '0', 'containerName');"
-    )
 
 if __name__ == "__main__":
     unittest.main()

@@ -44,13 +44,6 @@ class SqlExecutionMixin:
         self.check_database_and_schema()
         return self._execute_query(query)
 
-    def _execute_query(self, query: str):
-        *_, last_result = self._conn.execute_string(dedent(query))
-        return last_result
-
-    def _execute_queries(self, queries: str):
-        return self._conn.execute_string(dedent(queries))
-
     def check_database_and_schema(self) -> None:
         database = self._conn.database
         schema = self._conn.schema
