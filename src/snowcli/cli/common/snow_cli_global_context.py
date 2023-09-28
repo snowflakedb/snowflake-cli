@@ -1,6 +1,7 @@
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable, Optional, Union
+from snowcli.cli.project.definition import load_project_definition
 
 from snowflake.connector import SnowflakeConnection
 
@@ -21,9 +22,32 @@ class ConnectionDetails:
     temporary_connection: bool = False
 
     def _resolve_connection_params(self):
-        from snowcli.cli.common.decorators import GLOBAL_CONNECTION_OPTIONS
+        from snowcli.cli.common.decorators import (
+            GLOBAL_CONNECTION_OPTIONS,
+            PROJECT_DEFINITION_YAML,
+        )
 
         params = {}
+
+        # This is where I should resolve the connection from snowflakw.yml first
+        override_yml = getattr(self, PROJECT_DEFINITION_YAML.name)
+        # need path to snowflake.yml for then calling load_project_definition(List[snowflake.yml, snowflake.override.yml])
+        allowed_project_definition_overrides: set(str) = {
+            "role",
+            "schema",
+            "database",
+            "warehouse",
+        }
+        project_definition_overrides: dict = (
+            {}
+        )  # ret value from load_project_definition
+        for option in project_definition_overrides:
+            if option in allowed_project_definition_overrides:
+                params[option] = project_definition_overrides[option]
+
+        # Another way is to pass definition manager to sql execution mixin
+        # but also these overrides dont exist in snowflake.yml yet?
+
         for option in GLOBAL_CONNECTION_OPTIONS:
             override = option.name
             if override == "connection" or override == "temporary_connection":

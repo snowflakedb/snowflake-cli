@@ -20,6 +20,7 @@ from snowcli.cli.common.flags import (
     VerboseOption,
     DebugOption,
     TemporaryConnectionOption,
+    ProjectDefinitionOption,
 )
 from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 from snowcli.output.formats import OutputFormat
@@ -44,6 +45,18 @@ def global_options_with_connection(func: Callable):
     """
     return _options_decorator_factory(
         func, [*GLOBAL_CONNECTION_OPTIONS, *GLOBAL_OPTIONS]
+    )
+
+
+def project_definition_with_global_options_with_connection(func: Callable):
+    """
+    Decorator providing default flags including connection flags for overriding
+    global parameters. Values are updated in global SnowCLI state.
+
+    To use this decorator your command needs to accept **options as last argument.
+    """
+    return _options_decorator_factory(
+        func, [PROJECT_DEFINITION_YAML, *GLOBAL_CONNECTION_OPTIONS, *GLOBAL_OPTIONS]
     )
 
 
@@ -75,6 +88,13 @@ def _options_decorator_factory(
     wrapper.__signature__ = _extend_signature_with_global_options(func, additional_options)  # type: ignore
     return wrapper
 
+
+PROJECT_DEFINITION_YAML = inspect.Parameter(
+    "environment",
+    inspect.Parameter.KEYWORD_ONLY,
+    annotation=Optional[str],
+    default=ProjectDefinitionOption,
+)
 
 GLOBAL_CONNECTION_OPTIONS = [
     inspect.Parameter(

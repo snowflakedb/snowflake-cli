@@ -14,6 +14,14 @@ DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 _CONNECTION_SECTION = "Connection configuration"
 _CLI_BEHAVIOUR = "Global configuration"
 
+ProjectDefinitionOption = typer.Option(
+    None,
+    "--environment",
+    "-e",
+    help=f"Full path to a project definition yml file to override an existing snowflake.yml file.",
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
 
 ConnectionOption = typer.Option(
     None,
