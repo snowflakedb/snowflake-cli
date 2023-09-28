@@ -1,14 +1,18 @@
+import logging
 import re
 import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Optional
+from snowcli.exception import SnowflakeSQLExecutionError
 
 from snowflake.connector.cursor import SnowflakeCursor
 from .manager import StageManager
 
 MD5SUM_REGEX = r"^[A-Fa-f0-9]{32}$"
 CHUNK_SIZE_BYTES = 8192
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -137,3 +141,78 @@ def stage_diff(local_path: Path, stage_fqn: str) -> DiffResult:
         result.only_on_stage.append(relpath)
 
     return result
+
+
+def get_stage_path_from_file(filepath: str):
+    parent = str(Path(filepath).parent)
+    stage_path = "" if parent == "." else parent
+    return stage_path
+
+
+def delete_only_on_stage_files(
+    stage_manager: StageManager,
+    stage_fqn: str,
+    only_on_stage: List[str],
+    role: Optional[str] = None,
+):
+    """
+    Deletes all files from a Snowflake stage according to the input list of filenames, using a custom role.
+    """
+    for _file in only_on_stage:
+        stage_manager._remove(stage_name=stage_fqn, path=_file, role=role)
+
+
+def put_files_on_stage(
+    stage_manager: StageManager,
+    stage_fqn: str,
+    deploy_root_path: Path,
+    files: List[str],
+    role: Optional[str] = None,
+    overwrite: bool = False,
+):
+    """
+    Uploads all files given input list of filenames on your local filesystem, to a Snowflake stage, using a custom role.
+    """
+    for _file in files:
+        stage_sub_path = get_stage_path_from_file(_file)
+        full_stage_path = (
+            f"{stage_fqn}/{stage_sub_path}" if stage_sub_path else stage_fqn
+        )
+        stage_manager._put(
+            local_path=deploy_root_path / _file,
+            stage_path=full_stage_path,
+            role=role,
+            overwrite=overwrite,
+        )
+
+
+def sync_local_diff_with_stage(
+    role: str, deploy_root_path: Path, diff_result: DiffResult, stage_path: str
+):
+    """
+    Syncs a given local directory's contents with a Snowflake stage, including removing old files, and re-uploading modified and new files.
+    """
+    stage_manager = StageManager()
+    log.info(
+        f"Uploading diff-ed files from your local {deploy_root_path} directory to the Snowflake stage."
+    )
+
+    try:
+        delete_only_on_stage_files(
+            stage_manager, stage_path, diff_result.only_on_stage, role
+        )
+        put_files_on_stage(
+            stage_manager,
+            stage_path,
+            deploy_root_path,
+            diff_result.different,
+            role,
+            overwrite=True,
+        )
+        put_files_on_stage(
+            stage_manager, stage_path, deploy_root_path, diff_result.only_local, role
+        )
+    except Exception as err:
+        # Could be ProgrammingError or IntegrityError from SnowflakeCursor
+        log.error(err)
+        raise SnowflakeSQLExecutionError()
