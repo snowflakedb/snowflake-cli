@@ -3,17 +3,17 @@ from typing import Optional
 import logging
 import typer
 
-from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.decorators import (
+    global_options_with_connection,
+    global_options,
+)
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.output.decorators import with_output
 
-from .init import nativeapp_init
-from .manager import NativeAppManager
+from snowcli.cli.nativeapp.init import nativeapp_init
+from snowcli.cli.nativeapp.manager import NativeAppManager
 
-from snowcli.output.types import (
-    CommandResult,
-    MessageResult,
-)
+from snowcli.output.types import CommandResult, MessageResult
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -51,7 +51,7 @@ def app_init(
     **options,
 ) -> CommandResult:
     """
-    Initialize a Native Apps project, optionally with a --git-url and a --template.
+    Initializes a Native Apps project, optionally with a --git-url and a --template.
     """
     nativeapp_init(name, git_url, template)
     return MessageResult(
@@ -72,3 +72,40 @@ def app_bundle(
     manager = NativeAppManager(project_path)
     manager.build_bundle()
     return MessageResult(f"Bundle generated at {manager.deploy_root}")
+
+
+@app.command("run")
+@with_output
+@global_options_with_connection
+def app_run(
+    project_path: Optional[str] = ProjectArgument,
+    **options,
+) -> CommandResult:
+    """
+    Creates an application package in your Snowflake account and uploads code files to its stage.
+    As a note, this command does not accept role or warehouse overrides to your config.toml file,
+    because your native app definition in snowflake.yml/snowflake.local.yml is used for any overrides.
+    """
+    manager = NativeAppManager(project_path)
+    manager.build_bundle()
+    manager.app_run()
+    return MessageResult(
+        f"Application Package is now active in your Snowflake account!"
+    )
+
+
+@app.command("teardown")
+@with_output
+@global_options_with_connection
+def app_teardown(
+    project_path: Optional[str] = ProjectArgument,
+    **options,
+) -> CommandResult:
+    """
+    Drops an application and an application package as defined in the project definition file.
+    As a note, this command does not accept role or warehouse overrides to your config.toml file,
+    because your native app definition in snowflake.yml/snowflake.local.yml is used for any overrides.
+    """
+    manager = NativeAppManager(project_path)
+    manager.teardown()
+    return MessageResult(f"Teardown is now complete.")

@@ -4,8 +4,9 @@ import tempfile
 
 from io import StringIO
 from pathlib import Path
-from typing import Generator, List, NamedTuple
+from typing import Dict, Generator, List, NamedTuple
 from unittest import mock
+from typing import Union
 
 from snowflake.connector.cursor import SnowflakeCursor
 from tests.conftest import SnowCLIRunner
@@ -111,7 +112,7 @@ def mock_cursor():
         name: str
 
     class _MockCursor(SnowflakeCursor):
-        def __init__(self, rows: List[tuple], columns: List[str]):
+        def __init__(self, rows: List[Union[tuple, dict]], columns: List[str]):
             super().__init__(mock.Mock())
             self._rows = rows
             self._columns = [MockResultMetadata(c) for c in columns]
@@ -124,6 +125,10 @@ def mock_cursor():
 
         def fetchall(self):
             return self._rows
+
+        @property
+        def rowcount(self):
+            return len(self._rows)
 
         @property
         def description(self):
