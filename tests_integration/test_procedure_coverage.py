@@ -26,40 +26,46 @@ def test_procedure_coverage_flow(_test_steps):
     _test_steps.snowpark_list_should_return_no_data()
 
     _test_steps.snowpark_init_should_initialize_files_with_default_content()
+    _test_steps.add_parameters_to_procedure("a: int, b: str")
     _test_steps.add_requirements_to_requirements_txt(["coverage"])
     _test_steps.requirements_file_should_contain_coverage()
     _test_steps.snowpark_package_should_zip_files()
 
+    parameters = "(a int, b string)"
     procedure_name = (
-        _test_steps.snowpark_create_with_coverage_wrapper_should_finish_succesfully()
+        _test_steps.snowpark_create_with_coverage_wrapper_should_finish_successfully(
+            parameters
+        )
     )
+    identifier = procedure_name + parameters
+    stage_name = f"{procedure_name}_a_int_b_string"
 
     _test_steps.assert_that_only_these_entities_are_in_snowflake(
-        f"{procedure_name}() RETURN VARCHAR"
+        f"{procedure_name}(NUMBER, VARCHAR) RETURN VARCHAR"
     )
 
     _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-        f"deployments/{procedure_name}/app.zip"
+        f"deployments/{stage_name}/app.zip"
     )
 
     _test_steps.snowpark_execute_should_return_expected_value(
         entity_name=procedure_name,
-        arguments="()",
+        arguments="(0, 'test')",
         expected_value="Hello World!",
     )
 
     _test_steps.assert_that_only_app_and_coverage_file_are_staged_in_test_db(
-        f"deployments/{procedure_name}"
+        f"deployments/{stage_name}"
     )
 
     _test_steps.procedure_coverage_should_return_report_when_files_are_present_on_stage(
-        identifier=procedure_name
+        identifier=identifier
     )
 
-    _test_steps.coverage_clear_should_execute_successfully(identifier=procedure_name)
+    _test_steps.coverage_clear_should_execute_successfully(identifier=identifier)
 
     _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-        f"deployments/{procedure_name}/app.zip"
+        f"deployments/{stage_name}/app.zip"
     )
 
 

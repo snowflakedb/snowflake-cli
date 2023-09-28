@@ -18,6 +18,7 @@ from snowcli.cli.common.flags import (
     OutputFormatOption,
     VerboseOption,
     DebugOption,
+    TemporaryConnectionOption,
 )
 from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 from snowcli.output.formats import OutputFormat
@@ -110,6 +111,12 @@ GLOBAL_CONNECTION_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[str],
         default=WarehouseOption,
+    ),
+    inspect.Parameter(
+        "temporary_connection",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[bool],
+        default=TemporaryConnectionOption,
     ),
 ]
 
