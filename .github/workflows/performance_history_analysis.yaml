@@ -34,4 +34,4 @@ jobs:
           pip install -e ".[dev]"
       - name: Run performance tests
         run:
-          python performance_history_analysis.py --print-all-results --rev ${{ github.event.inputs.rev }} --limit_commits ${{ github.event.inputs.limit_commits }} --sample_amount ${{ github.event.inputs.sample_amount }}
+          python performance_history_analysis.py --print-all-results --rev ${{ github.event.inputs.rev }} --limit-commits ${{ github.event.inputs.limit_commits }} --sample-amount ${{ github.event.inputs.sample_amount }}
