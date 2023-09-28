@@ -570,7 +570,8 @@ def convert_resource_details_to_dict(function_details: SnowflakeCursor) -> dict:
 
 def generate_deploy_stage_name(identifier: str) -> str:
     return (
-        identifier.replace(
+        identifier.replace("()", "")
+        .replace(
             "(",
             "_",
         )

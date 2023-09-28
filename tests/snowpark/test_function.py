@@ -44,7 +44,7 @@ def test_create_function(
     assert result.exit_code == 0, result._output
     assert ctx.get_queries() == [
         "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{tmp_dir.name}/{Path(fh.name).name} @deployments/functionnamea_string_b_number"
+        f"put file://{tmp_dir.name}/{Path(fh.name).name} @deployments/functionname_a_string_b_number"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
@@ -52,7 +52,7 @@ def test_create_function(
             returns table(variant)
             language python
             runtime_version=3.8
-            imports=('@deployments/functionnamea_string_b_number/app.zip')
+            imports=('@deployments/functionname_a_string_b_number/app.zip')
             handler='main.py:app'
             packages=()
             """
@@ -95,7 +95,7 @@ def test_update_function_no_changes(
     assert queries == [
         "describe function functionName(a string, b number)",
         "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{artifact_path} @deployments/functionnamea_string_b_number auto_compress=false parallel=4 overwrite=True",
+        f"put file://{artifact_path} @deployments/functionname_a_string_b_number auto_compress=false parallel=4 overwrite=True",
     ]
     mock_package_create.assert_called_once_with("ask", True, "ask")
 
@@ -170,14 +170,14 @@ def test_update_function_needs_update_because_packages_changes(
     assert queries == [
         "describe function functionName(a string, b number)",
         "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{artifact_path} @deployments/functionnamea_string_b_number auto_compress=false parallel=4 overwrite=True",
+        f"put file://{artifact_path} @deployments/functionname_a_string_b_number auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
             create or replace function functionName(a string, b number)
             returns table(variant)
             language python
             runtime_version=3.8
-            imports=('@deployments/functionnamea_string_b_number/app.zip')
+            imports=('@deployments/functionname_a_string_b_number/app.zip')
             handler='main.py:app'
             packages=('foo=1.2.3','bar>=3.0.0')
             """
@@ -219,14 +219,14 @@ def test_update_function_needs_update_because_handler_changes(
     assert queries == [
         "describe function functionName(a string, b number)",
         "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{artifact_path} @deployments/functionnamea_string_b_number auto_compress=false parallel=4 overwrite=True",
+        f"put file://{artifact_path} @deployments/functionname_a_string_b_number auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
             create or replace function functionName(a string, b number)
             returns table(variant)
             language python
             runtime_version=3.8
-            imports=('@deployments/functionnamea_string_b_number/app.zip')
+            imports=('@deployments/functionname_a_string_b_number/app.zip')
             handler='main.py:app'
             packages=('foo=1.2.3','bar>=3.0.0')
             """

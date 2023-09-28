@@ -47,7 +47,7 @@ def test_create_procedure(
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{tmp_dir.name}/{app.name} @deployments/procedurenamea_string_b_number"
+        f"put file://{tmp_dir.name}/{app.name} @deployments/procedurename_a_string_b_number"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
@@ -55,7 +55,7 @@ def test_create_procedure(
             returns table(variant)
             language python
             runtime_version=3.8
-            imports=('@deployments/procedurenamea_string_b_number/app.zip')
+            imports=('@deployments/procedurename_a_string_b_number/app.zip')
             handler='main.py:app'
             packages=('foo=1.2.3','bar>=3.0.0')
             """
@@ -112,7 +112,7 @@ def test_create_procedure_with_coverage(
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{tmp_dir.name}/{app.name} @deployments/procedurenamea_string_b_number"
+        f"put file://{tmp_dir.name}/{app.name} @deployments/procedurename_a_string_b_number"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
@@ -120,7 +120,7 @@ def test_create_procedure_with_coverage(
             returns table(variant)
             language python
             runtime_version=3.8
-            imports=('@deployments/procedurenamea_string_b_number/app.zip')
+            imports=('@deployments/procedurename_a_string_b_number/app.zip')
             handler='snowpark_coverage.measure_coverage'
             packages=('foo=1.2.3','bar>=3.0.0')
             """
@@ -132,7 +132,7 @@ def test_create_procedure_with_coverage(
         proc_signature="(a string, b number)",
         handler="main.py:app",
         coverage_reports_stage="deployments",
-        coverage_reports_stage_path="/procedurenamea_string_b_number/coverage",
+        coverage_reports_stage_path="/procedurename_a_string_b_number/coverage",
         temp_dir=tmp_dir.name,
         zip_file_path=tmp_dir.name + "/app.py",
     )
@@ -171,7 +171,7 @@ def test_update_procedure_noting_to_be_updated(
     assert ctx.get_queries() == [
         "describe procedure procName(a string, b number)",
         "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{artifact_path} @deployments/procnamea_string_b_number auto_compress=false parallel=4 overwrite=True",
+        f"put file://{artifact_path} @deployments/procname_a_string_b_number auto_compress=false parallel=4 overwrite=True",
     ]
     mock_package_create.assert_called_once_with("ask", True, "ask")
 
@@ -246,14 +246,14 @@ def test_update_procedure_update_because_packages_changed(
     assert ctx.get_queries() == [
         "describe procedure procName(a string, b number)",
         "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{artifact_path} @deployments/procnamea_string_b_number auto_compress=false parallel=4 overwrite=True",
+        f"put file://{artifact_path} @deployments/procname_a_string_b_number auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
             create or replace procedure procName(a string, b number)
             returns table(variant)
             language python
             runtime_version=3.8
-            imports=('@deployments/procnamea_string_b_number/app.zip')
+            imports=('@deployments/procname_a_string_b_number/app.zip')
             handler='main.py:app'
             packages=('foo=1.2.3','bar>=3.0.0')
             """
@@ -294,14 +294,14 @@ def test_update_procedure_update_because_handler_changed(
     assert ctx.get_queries() == [
         "describe procedure procName(a string, b number)",
         "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{artifact_path} @deployments/procnamea_string_b_number auto_compress=false parallel=4 overwrite=True",
+        f"put file://{artifact_path} @deployments/procname_a_string_b_number auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
             create or replace procedure procName(a string, b number)
             returns table(variant)
             language python
             runtime_version=3.8
-            imports=('@deployments/procnamea_string_b_number/app.zip')
+            imports=('@deployments/procname_a_string_b_number/app.zip')
             handler='main.py:app'
             packages=('foo=1.2.3','bar>=3.0.0')
             """
@@ -343,14 +343,14 @@ def test_update_procedure_with_coverage(
     assert ctx.get_queries() == [
         "describe procedure procName(a string, b number)",
         "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{artifact_path} @deployments/procnamea_string_b_number auto_compress=false parallel=4 overwrite=True",
+        f"put file://{artifact_path} @deployments/procname_a_string_b_number auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
             create or replace procedure procName(a string, b number)
             returns table(variant)
             language python
             runtime_version=3.8
-            imports=('@deployments/procnamea_string_b_number/app.zip')
+            imports=('@deployments/procname_a_string_b_number/app.zip')
             handler='snowpark_coverage.measure_coverage'
             packages=('foo=1.2.3','bar>=3.0.0')
             """
