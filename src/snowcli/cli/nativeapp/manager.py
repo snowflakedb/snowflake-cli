@@ -345,7 +345,7 @@ class NativeAppManager(SqlExecutionMixin):
                     raise ApplicationPackageAlreadyExistsError(self.package_name)
 
                 actual_owner = show_app_row[OWNER_COL]
-                if actual_owner != self.app_pkg_role:
+                if actual_owner != self.package_role:
                     raise UnexpectedOwnerError(
                         self.app_name, self.app_role, actual_owner
                     )
