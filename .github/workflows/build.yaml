@@ -69,6 +69,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install .
           pip check
+          snow --help
           pip install -U pyinstaller
       - name: Build with pyinstaller for ${{matrix.TARGET}}
         run: ${{matrix.CMD_BUILD}}
