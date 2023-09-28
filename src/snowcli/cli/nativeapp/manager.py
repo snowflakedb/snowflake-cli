@@ -107,7 +107,7 @@ class NativeAppManager(SqlExecutionMixin):
 
     def __init__(self, search_path: Optional[str] = None):
         super().__init__()
-        self.definition_manager = DefinitionManager(search_path or "")
+        self.definition_manager = self._definition
 
     @property
     def project_root(self) -> Path:

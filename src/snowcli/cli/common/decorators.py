@@ -4,7 +4,6 @@ import inspect
 from functools import wraps
 from inspect import Signature
 from typing import Callable, Optional, get_type_hints, List
-from copy import deepcopy
 
 from snowcli.cli import loggers
 from snowcli.cli.common.flags import (
@@ -20,9 +19,14 @@ from snowcli.cli.common.flags import (
     VerboseOption,
     DebugOption,
     TemporaryConnectionOption,
+    EnvironmentOption,
     ProjectDefinitionOption,
 )
 from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
+from snowcli.cli.project.schema import (
+    AllowedSchemas,
+    InvalidSchemaInProjectDefinitionError,
+)
 from snowcli.output.formats import OutputFormat
 
 
@@ -48,53 +52,61 @@ def global_options_with_connection(func: Callable):
     )
 
 
-def project_definition_with_global_options_with_connection(func: Callable):
+def project_definition_with_global_options_with_connection(func: Callable, schema: str):
     """
     Decorator providing default flags including connection flags for overriding
     global parameters. Values are updated in global SnowCLI state.
 
     To use this decorator your command needs to accept **options as last argument.
     """
+    allowed_values = [schema.value for schema in AllowedSchemas]
+    if schema not in allowed_values:
+        raise InvalidSchemaInProjectDefinitionError(schema)
+
     return _options_decorator_factory(
-        func, [PROJECT_DEFINITION_YAML, *GLOBAL_CONNECTION_OPTIONS, *GLOBAL_OPTIONS]
-    )
-
-
-def global_limited_options_with_connection(func: Callable):
-    """
-    Decorator providing default flags including connection flags for overriding
-    global parameters. Values are updated in global SnowCLI state.
-
-    To use this decorator your command needs to accept **options as last argument.
-    """
-    return _options_decorator_factory(
-        func, [*GLOBAL_CONNECTION_LIMITED_OPTIONS, *GLOBAL_OPTIONS]
+        func,
+        [*PROJECT_DEFINITION_OPTIONS, *GLOBAL_CONNECTION_OPTIONS, *GLOBAL_OPTIONS],
+        schema,
     )
 
 
 def _execute_before_command():
+    # FYI: This global_context is currently set to None for connection details (and now project details)
     global_context = snow_cli_global_context_manager.get_global_context_copy()
     loggers.create_loggers(global_context.verbose, global_context.enable_tracebacks)
 
 
 def _options_decorator_factory(
-    func: Callable, additional_options: List[inspect.Parameter]
+    func: Callable,
+    additional_options: List[inspect.Parameter],
+    schema: Optional[str] = None,
 ):
     @wraps(func)
     def wrapper(**options):
         _execute_before_command()
+        if schema:
+            snow_cli_global_context_manager.load_definition_manager(schema)
         return func(**options)
 
     wrapper.__signature__ = _extend_signature_with_global_options(func, additional_options)  # type: ignore
     return wrapper
 
 
-PROJECT_DEFINITION_YAML = inspect.Parameter(
-    "environment",
-    inspect.Parameter.KEYWORD_ONLY,
-    annotation=Optional[str],
-    default=ProjectDefinitionOption,
-)
+PROJECT_DEFINITION_OPTIONS = [
+    inspect.Parameter(
+        "environment",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=EnvironmentOption,
+    ),
+    inspect.Parameter(
+        "project",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=ProjectDefinitionOption,
+    ),
+]
+
 
 GLOBAL_CONNECTION_OPTIONS = [
     inspect.Parameter(
@@ -173,11 +185,6 @@ GLOBAL_OPTIONS = [
         default=DebugOption,
     ),
 ]
-
-GLOBAL_CONNECTION_LIMITED_OPTIONS = filter(
-    lambda param: (param.name != "role") and (param.name != "warehouse"),
-    deepcopy(GLOBAL_CONNECTION_OPTIONS),
-)
 
 
 def _extend_signature_with_global_options(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import typer
+from os import getcwd
 
 from snowcli.cli.common.snow_cli_global_context import (
     ConnectionDetails,
@@ -16,10 +17,19 @@ _CLI_BEHAVIOUR = "Global configuration"
 
 ProjectDefinitionOption = typer.Option(
     None,
+    "--project",
+    "-p",
+    help="Path where the Native Apps project resides. Defaults to current working directory",
+    show_default=True,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+EnvironmentOption = typer.Option(
+    "snowflake.yml",
     "--environment",
     "-e",
-    help=f"Full path to a project definition yml file to override an existing snowflake.yml file.",
-    show_default=False,
+    help=f"Path to a project definition yml file to override the existing snowflake.yml file, can be absolute or relative to the --project option.",
+    show_default=True,
     rich_help_panel=_CONNECTION_SECTION,
 )
 

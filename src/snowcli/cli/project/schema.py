@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import cast
+from click.exceptions import ClickException
 from strictyaml import (
     MapCombined,
     Seq,
@@ -13,12 +14,26 @@ from strictyaml import (
     Regex,
     YAML,
 )
+from enum import Enum
 
 from .util import SCHEMA_AND_NAME, IDENTIFIER
 
 # TODO: use the util regexes to validate paths + globs
 FilePath = Str
 Glob = Str
+
+
+class AllowedSchemas(Enum):
+    NATIVE_APP = "native_app"
+
+
+class InvalidSchemaInProjectDefinitionError(ClickException):
+    """
+    Invalid Schema specified for Project Definition.
+    """
+
+    def __init__(self, schema: str):
+        super().__init__(f"Invalid Schema Name {schema} for Project Definition")
 
 
 class RelaxedMap(MapCombined):

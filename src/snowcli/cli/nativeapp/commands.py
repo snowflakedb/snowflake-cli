@@ -6,6 +6,7 @@ import typer
 from snowcli.cli.common.decorators import (
     global_options_with_connection,
     global_options,
+    project_definition_with_global_options_with_connection,
 )
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.output.decorators import with_output
@@ -95,9 +96,8 @@ def app_run(
 
 @app.command("teardown")
 @with_output
-@global_options_with_connection
+@project_definition_with_global_options_with_connection(schema="native_apps")
 def app_teardown(
-    project_path: Optional[str] = ProjectArgument,
     **options,
 ) -> CommandResult:
     """
@@ -105,6 +105,6 @@ def app_teardown(
     As a note, this command does not accept role or warehouse overrides to your config.toml file,
     because your native app definition in snowflake.yml/snowflake.local.yml is used for any overrides.
     """
-    manager = NativeAppManager(project_path)
+    manager = NativeAppManager()
     manager.teardown()
     return MessageResult(f"Teardown is now complete.")

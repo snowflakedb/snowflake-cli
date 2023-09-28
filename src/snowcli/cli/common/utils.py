@@ -113,3 +113,14 @@ def generic_render_template(
         output_file_path.write_text(rendered_result)
     else:
         print(rendered_result)
+
+
+many_to_one_mapping: dict = {
+    "database": "database",
+    "dbname": "database",
+    "schema": "schema",
+    "schemaname": "schema",
+    "role": "role",
+    "rolename": "role",
+    "warehouse": "warehouse",
+}

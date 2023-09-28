@@ -13,6 +13,11 @@ class SqlExecutionMixin:
         pass
 
     @property
+    def _definition(self):
+        # For use in Manager.py, you should be able to have full access to snowflake.yml, not limited to your own product
+        return snow_cli_global_context_manager.load_definition_manager()
+
+    @property
     def _conn(self):
         return snow_cli_global_context_manager.get_connection()
 
