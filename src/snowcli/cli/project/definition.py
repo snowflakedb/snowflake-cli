@@ -78,3 +78,19 @@ def generate_local_override_yml(project: Union[Dict, YAML]) -> YAML:
         }
 
     return as_document(local, project_override_schema)
+
+
+def default_app_package(project_name: str):
+    user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
+    return f"{project_name}_pkg_{user}"
+
+
+def default_role():
+    conn = snow_cli_global_context_manager.get_connection()
+    return conn.role
+
+
+def default_application(project_name: str):
+    print(project_name)
+    user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
+    return f"{project_name}_{user}"

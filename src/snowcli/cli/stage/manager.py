@@ -1,4 +1,5 @@
 from __future__ import annotations
+from contextlib import nullcontext
 
 from pathlib import Path
 from typing import Optional, Union
@@ -40,10 +41,49 @@ class StageManager(SqlExecutionMixin):
             f"auto_compress=false parallel={parallel} overwrite={overwrite}"
         )
 
+    def _put(
+        self,
+        local_path: Union[str, Path],
+        stage_path: str,
+        role: Optional[str] = None,
+        parallel: int = 4,
+        overwrite: bool = False,
+    ) -> SnowflakeCursor:
+        """
+        Internal only method, created for Native Apps use case.
+        This method will take a file path from the user's system and put it into a Snowflake stage,
+        which includes its fully qualified name as well as the path within the stage.
+        If provided with a role, then temporarily use this role to perform the operation above,
+        and switch back to the original role for the next commands to run.
+        """
+        with self.use_role(role) if role else nullcontext():
+            stage_path = self.get_standard_stage_name(stage_path)
+            cursor = self._execute_query(
+                f"put file://{local_path} {stage_path} "
+                f"auto_compress=false parallel={parallel} overwrite={overwrite}"
+            )
+        return cursor
+
     def remove(self, stage_name: str, path: str) -> SnowflakeCursor:
         stage_name = self.get_standard_stage_name(stage_name)
         path = path if path.startswith("/") else "/" + path
         return self._execute_query(f"remove {stage_name}{path}")
+
+    def _remove(
+        self, stage_name: str, path: str, role: Optional[str] = None
+    ) -> SnowflakeCursor:
+        """
+        Internal only method, created for Native Apps use case.
+        This method will take a file path that exists on a Snowflake stage,
+        and remove it from the stage.
+        If provided with a role, then temporarily use this role to perform the operation above,
+        and switch back to the original role for the next commands to run.
+        """
+        with self.use_role(role) if role else nullcontext():
+            stage_name = self.get_standard_stage_name(stage_name)
+            path = path if path.startswith("/") else "/" + path
+            cursor = self._execute_query(f"remove {stage_name}{path}")
+        return cursor
 
     def show(self) -> SnowflakeCursor:
         return self._execute_query("show stages")
