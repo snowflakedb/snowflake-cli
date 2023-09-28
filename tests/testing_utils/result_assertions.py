@@ -35,10 +35,5 @@ def check_options_for_duplicates(options: Dict[str, List[str]]) -> Set[str]:
     RESERVED_FLAGS = ["-h", "--help"]  # noqa: N806
     flags = [flag for option in options.values() for flag in option]
     return set(
-            [
-                flag
-                for flag in flags
-                if (flags.count(flag) > 1 or flag in RESERVED_FLAGS)
-            ]
-        )
-
+        [flag for flag in flags if (flags.count(flag) > 1 or flag in RESERVED_FLAGS)]
+    )
