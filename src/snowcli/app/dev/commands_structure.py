@@ -19,24 +19,19 @@ class _Node:
         for ch in self.children.values():
             ch.print()
 
-    def print_with_options(self, options_dict = {}):
-        options_dict[self.name] = self.options
+    def print_with_options(self):
+        options = self._prepare_options_dict()
+        pretty = json.dumps(options, indent=4)
+        print(pretty)
+
+    def _prepare_options_dict(self, options_dict={}):
+        options_dict["options"] = self.options
 
         for ch in self.children.values():
-            options_dict[ch.name] = ch.print_with_options(options_dict)
-
+            options_dict[ch.name] = ch._prepare_options_dict(
+                options_dict.get(ch.name, {})
+            )
         return options_dict
-        # options_json = json.dumps(self.options)
-        # print(options_json)
-        # print("    " * self.level, self.name)
-        # if self.options:
-        #     print("    " * (self.level +1), "options:")
-        #     for k in self.options:
-        #         print("    " * (self.level + 2), k, ": ", ",".join(self.options[k]))
-
-        for ch in self.children.values():
-            ch.print_with_options()
-
 
 
 def generate_commands_structure(command: Command, root: _Node | None = None):
@@ -48,7 +43,9 @@ def generate_commands_structure(command: Command, root: _Node | None = None):
         root = _Node(name="snow")
 
     if command.params:
-        root.options = {param.human_readable_name : param.opts for param in command.params}
+        root.options = {
+            param.human_readable_name: param.opts for param in command.params
+        }
 
     if hasattr(command, "commands"):
         for command_name, command_info in command.commands.items():

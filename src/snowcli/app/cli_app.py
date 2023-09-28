@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Optional
@@ -19,7 +20,7 @@ from snowcli.app.dev.pycharm_remote_debug import (
 from snowcli.app.main_typer import SnowCliMainTyper
 from snowcli.config import config_init, cli_config
 from snowcli.output.formats import OutputFormat
-from snowcli.output.printing import print_result
+from snowcli.output.printing import print_result, print_structured
 from snowcli.output.types import CollectionResult, ObjectResult
 
 app: SnowCliMainTyper = SnowCliMainTyper()
@@ -80,13 +81,13 @@ def _version_callback(value: bool):
         typer.echo(f"SnowCLI Version: {__about__.VERSION}")
         raise typer.Exit()
 
+
 @_do_not_execute_on_completion
 @_commands_registration.after
 def _options_structure_callback(value: bool):
     if value:
         ctx = click.get_current_context()
-        generate_commands_structure(ctx.command).print_with_options()
-
+        output_json = generate_commands_structure(ctx.command).print_with_options()
 
         raise typer.Exit()
 
@@ -133,9 +134,9 @@ def default(
         None,
         "--options-structure",
         hidden=True,
-        help="Prints options for all commands", #TODO: improve this message,
-        callback= _options_structure_callback,
-        is_eager=True
+        help="Prints options for all commands",
+        callback=_options_structure_callback,
+        is_eager=True,
     ),
     info: bool = typer.Option(
         None,
