@@ -1,4 +1,5 @@
 from click.exceptions import ClickException
+from typing import Optional
 
 
 class EnvironmentVariableNotFoundError(ClickException):
@@ -33,3 +34,17 @@ class OutputDataTypeError(ClickException):
 class CommandReturnTypeError(ClickException):
     def __init__(self, got_type: type):
         super().__init__(f"Commads have to return OutputData type, but got {got_type}")
+
+
+class SnowflakeSQLExecutionError(ClickException):
+    """
+    Could not successfully execute the Snowflake SQL statements.
+    """
+
+    def __init__(self, queries: Optional[str] = None):
+        super().__init__(
+            f"""
+                {self.__doc__}
+                {queries if queries else ""}
+            """
+        )
