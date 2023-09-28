@@ -8,14 +8,9 @@ from rich import print
 def analyse_performance_history(
     rev: str, limit_commits: int, sample_amount: int, print_all_results: bool
 ):
-    limit = limit_commits
     repo = git.Repo()
 
-    for commit in repo.iter_commits(rev=rev):
-        if limit == 0:
-            break
-        limit -= 1
-
+    for commit in repo.iter_commits(rev=rev, max_count=limit_commits):
         repo.git.checkout(commit)
         head = repo.head.commit
 
