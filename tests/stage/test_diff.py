@@ -2,6 +2,8 @@ import hashlib
 from typing import Union, Dict, List, Tuple
 from unittest import mock
 
+from snowcli.cli.stage.manager import StageManager
+
 from snowcli.exception import SnowflakeSQLExecutionError
 from snowcli.cli.stage.manager import StageManager
 

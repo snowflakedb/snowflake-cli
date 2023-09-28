@@ -11,9 +11,11 @@ from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.project.util import clean_identifier
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
-from snowcli.cli.project.definition import default_app_package, default_role
-from snowcli.output.printing import print_result
-from snowcli.output.types import ObjectResult
+from snowcli.cli.project.definition import (
+    default_app_package,
+    default_role,
+    default_application,
+)
 from snowcli.cli.stage.diff import (
     DiffResult,
     stage_diff,
@@ -39,6 +41,15 @@ class ApplicationPackageAlreadyExistsError(ClickException):
         super().__init__(
             f"An Application Package {name} already exists in account that may have been created without snowCLI. "
         )
+
+
+class CouldNotDropObjectError(ClickException):
+    """
+    Could not successfully drop the required Snowflake object.
+    """
+
+    def __init__(self, message: str):
+        super().__init__(message=message)
 
 
 class NativeAppManager(SqlExecutionMixin):
@@ -142,3 +153,77 @@ class NativeAppManager(SqlExecutionMixin):
 
             # Upload files from deploy root local folder to the above stage
             self.sync_deploy_root_with_stage(app_pkg_role, app_pkg)
+
+    def drop_object(
+        self,
+        object_name: str,
+        object_role: str,
+        object_type: str,
+        query_dict: dict,
+    ) -> None:
+        log_object_type = (
+            "Application Package" if object_type == "package" else object_type
+        )
+
+        with self.use_role(object_role):
+            show_obj_query = f"{query_dict['show']} '{object_name}'"
+            show_obj_cursor = self._execute_query(
+                show_obj_query, cursor_class=DictCursor
+            )
+
+            if show_obj_cursor.rowcount is None:
+                raise SnowflakeSQLExecutionError(show_obj_query)
+            elif show_obj_cursor.rowcount == 0:
+                raise CouldNotDropObjectError(
+                    f"Role {object_role} does not own any {log_object_type.lower()} with the name {object_name}!"
+                )
+            elif show_obj_cursor.rowcount > 0:
+                # There can only be one possible pre-existing object with the same name
+                show_obj_row = show_obj_cursor.fetchone()
+                row_comment = show_obj_row[
+                    COMMENT_COL
+                ]  # Because we use a DictCursor, we are guaranteed a dictionary instead of indexing through a list.
+
+                if row_comment != SPECIAL_COMMENT:
+                    raise CouldNotDropObjectError(
+                        f"{log_object_type} {object_name} was not created by SnowCLI. Cannot drop the {log_object_type.lower()}."
+                    )
+
+            log.info(f"Dropping {log_object_type.lower()} {object_name} now.")
+            drop_query = f"{query_dict['drop']} {object_name}"
+            try:
+                self._execute_query(drop_query)
+            except:
+                # Case if an object exists but owned by a different role.
+                raise SnowflakeSQLExecutionError(drop_query)
+            log.info(f"Dropped {log_object_type.lower()} {object_name} successfully.")
+
+    def teardown(self) -> None:
+        project_name = clean_identifier(self.definition["name"])
+
+        # Drop the application first
+        self.drop_object(
+            object_name=self.definition.get("application", {}).get(
+                "name", default_application(project_name)
+            ),
+            object_role=self.definition.get("application", {}).get(
+                "role", default_role(project_name)
+            ),
+            object_type="application",
+            query_dict={"show": "show applications like", "drop": "drop application"},
+        )
+
+        # Drop the application package next
+        self.drop_object(
+            object_name=self.definition.get("package", {}).get(
+                "name", default_app_package(project_name)
+            ),
+            object_role=self.definition.get("package", {}).get(
+                "role", default_role(project_name)
+            ),
+            object_type="package",
+            query_dict={
+                "show": "show application packages like",
+                "drop": "drop application package",
+            },
+        )
