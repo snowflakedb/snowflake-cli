@@ -91,6 +91,5 @@ def default_role():
 
 
 def default_application(project_name: str):
-    print(project_name)
     user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
     return f"{project_name}_{user}"

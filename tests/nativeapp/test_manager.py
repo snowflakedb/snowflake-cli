@@ -3,7 +3,14 @@ import pytest
 from textwrap import dedent
 from unittest import mock
 
-from snowcli.cli.nativeapp.manager import CouldNotDropObjectError, NativeAppManager
+from snowcli.cli.nativeapp.manager import (
+    CouldNotDropObjectError,
+    NativeAppManager,
+    ApplicationAlreadyExistsError,
+    UnexpectedOwnerError,
+    SPECIAL_COMMENT,
+    LOOSE_FILES_MAGIC_VERSION,
+)
 from snowcli.cli.stage.diff import DiffResult
 from snowflake.connector.cursor import DictCursor
 
@@ -28,8 +35,16 @@ mock_snowflake_yml_file = dedent(
                 - src: app/streamlit/*.py
                   dest: ui/
 
-            package:
-                scripts: package/*.sql
+            application:
+                name: myapp
+                role: app_role
+                warehouse: app_warehouse
+                debug: true
+
+             package:
+                name: app_pkg
+                scripts:
+                    - shared_content.sql
     """
 )
 
@@ -54,7 +69,7 @@ def test_sync_deploy_root_with_stage(
     mock_local_diff_with_stage, mock_stage_diff, mock_execute, temp_dir, mock_cursor
 ):
     mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
-    mock_diff_result = DiffResult()
+    mock_diff_result = DiffResult(different="setup.sql")
     mock_stage_diff.return_value = mock_diff_result
     mock_local_diff_with_stage.return_value = None
     current_working_directory = os.getcwd()
@@ -65,7 +80,8 @@ def test_sync_deploy_root_with_stage(
     )
 
     native_app_manager = NativeAppManager()
-    native_app_manager.sync_deploy_root_with_stage("new_role", "app_pkg")
+    assert mock_diff_result.has_changes()
+    native_app_manager.sync_deploy_root_with_stage("new_role")
 
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
@@ -216,3 +232,270 @@ def test_drop_object_no_special_comment(mock_execute, temp_dir, mock_cursor):
             mock.call("use role old_role"),
         ]
         mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_create_dev_app_noop(mock_execute, temp_dir, mock_cursor):
+    expected = [
+        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("use role app_role"),
+        mock.call("use warehouse app_warehouse"),
+        mock.call("show applications like 'myapp'", cursor_class=DictCursor),
+        mock.call("alter application myapp set debug_mode = True"),
+        mock.call("use role old_role"),
+    ]
+    # 1:1 with expected calls; these are return values
+    mock_execute.side_effect = [
+        mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+        None,
+        None,
+        mock_cursor(
+            [
+                {
+                    "comment": SPECIAL_COMMENT,
+                    "version": LOOSE_FILES_MAGIC_VERSION,
+                    "owner": "app_role",
+                }
+            ],
+            [],
+        ),
+        None,
+        None,
+    ]
+
+    mock_diff_result = DiffResult()
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    native_app_manager = NativeAppManager()
+    assert not mock_diff_result.has_changes()
+    native_app_manager._create_dev_app(mock_diff_result)
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_create_dev_app_recreate(mock_execute, temp_dir, mock_cursor):
+    expected = [
+        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("use role app_role"),
+        mock.call("use warehouse app_warehouse"),
+        mock.call("show applications like 'myapp'", cursor_class=DictCursor),
+        mock.call("drop application myapp"),
+        mock.call(
+            f"""
+                create application myapp
+                    from application package app_pkg
+                    using @app_pkg.app_src.stage
+                    debug_mode = True
+                    comment = {SPECIAL_COMMENT}
+                """
+        ),
+        mock.call("use role old_role"),
+    ]
+    # 1:1 with expected calls; these are return values
+    mock_execute.side_effect = [
+        mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+        None,
+        None,
+        mock_cursor(
+            [
+                {
+                    "comment": SPECIAL_COMMENT,
+                    "version": LOOSE_FILES_MAGIC_VERSION,
+                    "owner": "app_role",
+                }
+            ],
+            [],
+        ),
+        None,
+        None,
+        None,
+    ]
+
+    mock_diff_result = DiffResult(different="setup.sql")
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    native_app_manager = NativeAppManager()
+    assert mock_diff_result.has_changes()
+    native_app_manager._create_dev_app(mock_diff_result)
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_create_dev_app_create_new(mock_execute, temp_dir, mock_cursor):
+    expected = [
+        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("use role app_role"),
+        mock.call("use warehouse app_warehouse"),
+        mock.call("show applications like 'myapp'", cursor_class=DictCursor),
+        mock.call(
+            f"""
+                create application myapp
+                    from application package app_pkg
+                    using @app_pkg.app_src.stage
+                    debug_mode = True
+                    comment = {SPECIAL_COMMENT}
+                """
+        ),
+        mock.call("use role old_role"),
+    ]
+    # 1:1 with expected calls; these are return values
+    mock_execute.side_effect = [
+        mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+        None,
+        None,
+        mock_cursor([], []),
+        None,
+        None,
+    ]
+
+    mock_diff_result = DiffResult()
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    native_app_manager = NativeAppManager()
+    assert not mock_diff_result.has_changes()
+    native_app_manager._create_dev_app(mock_diff_result)
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_create_dev_app_bad_comment(mock_execute, temp_dir, mock_cursor):
+    expected = [
+        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("use role app_role"),
+        mock.call("use warehouse app_warehouse"),
+        mock.call("show applications like 'myapp'", cursor_class=DictCursor),
+        mock.call("use role old_role"),
+    ]
+    # 1:1 with expected calls; these are return values
+    mock_execute.side_effect = [
+        mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+        None,
+        None,
+        mock_cursor(
+            [
+                {
+                    "comment": "bad comment",
+                    "version": LOOSE_FILES_MAGIC_VERSION,
+                    "owner": "app_role",
+                }
+            ],
+            [],
+        ),
+        None,
+    ]
+
+    mock_diff_result = DiffResult()
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    with pytest.raises(ApplicationAlreadyExistsError):
+        native_app_manager = NativeAppManager()
+        assert not mock_diff_result.has_changes()
+        native_app_manager._create_dev_app(mock_diff_result)
+
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_create_dev_app_bad_version(mock_execute, temp_dir, mock_cursor):
+    expected = [
+        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("use role app_role"),
+        mock.call("use warehouse app_warehouse"),
+        mock.call("show applications like 'myapp'", cursor_class=DictCursor),
+        mock.call("use role old_role"),
+    ]
+    # 1:1 with expected calls; these are return values
+    mock_execute.side_effect = [
+        mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+        None,
+        None,
+        mock_cursor(
+            [
+                {
+                    "comment": SPECIAL_COMMENT,
+                    "version": "v1",
+                    "owner": "app_role",
+                }
+            ],
+            [],
+        ),
+        None,
+    ]
+
+    mock_diff_result = DiffResult()
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    with pytest.raises(ApplicationAlreadyExistsError):
+        native_app_manager = NativeAppManager()
+        assert not mock_diff_result.has_changes()
+        native_app_manager._create_dev_app(mock_diff_result)
+
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_create_dev_app_bad_owner(mock_execute, temp_dir, mock_cursor):
+    expected = [
+        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("use role app_role"),
+        mock.call("use warehouse app_warehouse"),
+        mock.call("show applications like 'myapp'", cursor_class=DictCursor),
+        mock.call("use role old_role"),
+    ]
+    # 1:1 with expected calls; these are return values
+    mock_execute.side_effect = [
+        mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+        None,
+        None,
+        mock_cursor(
+            [
+                {
+                    "comment": SPECIAL_COMMENT,
+                    "version": LOOSE_FILES_MAGIC_VERSION,
+                    "owner": "accountadmin_or_something",
+                }
+            ],
+            [],
+        ),
+        None,
+    ]
+
+    mock_diff_result = DiffResult()
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    with pytest.raises(UnexpectedOwnerError):
+        native_app_manager = NativeAppManager()
+        assert not mock_diff_result.has_changes()
+        native_app_manager._create_dev_app(mock_diff_result)
+
+    assert mock_execute.mock_calls == expected

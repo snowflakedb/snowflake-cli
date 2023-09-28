@@ -61,7 +61,7 @@ class OutsideDeployRootError(ClickException):
     def __init__(self, dest_path: Path, deploy_root: Path):
         super().__init__(
             f"""
-            self.__doc__
+            {self.__doc__}
             \ndest_path = {dest_path}
             \ndeploy_root = {deploy_root}
             """
@@ -108,6 +108,8 @@ def symlink_or_copy(src: Path, dst: Path, makedirs=True) -> None:
     if makedirs:
         dst.parent.mkdir(parents=True, exist_ok=True)
     try:
+        if dst.is_file():
+            dst.unlink()
         os.symlink(src, dst)
     except OSError:
         shutil.copy(src, dst)
@@ -144,6 +146,14 @@ def get_source_paths(artifact: ArtifactMapping, project_root: Path) -> List[Path
     return source_paths
 
 
+def resolve_without_follow(path: Path) -> Path:
+    """
+    Resolves a Path to an absolute version of itself, without following
+    symlinks like Path.resolve() does.
+    """
+    return Path(os.path.abspath(path))
+
+
 def build_bundle(
     project_root: Path, deploy_root: Path, artifacts: List[ArtifactMapping]
 ):
@@ -157,12 +167,9 @@ def build_bundle(
 
     for artifact in artifacts:
         # make sure we are only modifying files / directories inside the deploy root
-        dest_path = Path(resolved_root, artifact.dest).resolve()
+        dest_path = resolve_without_follow(Path(resolved_root, artifact.dest))
         if resolved_root != dest_path and resolved_root not in dest_path.parents:
             raise OutsideDeployRootError(dest_path, resolved_root)
-
-        if dest_path.is_file():
-            dest_path.unlink()
 
         source_paths = get_source_paths(artifact, project_root)
 
