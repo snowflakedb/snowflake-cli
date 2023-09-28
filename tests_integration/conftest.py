@@ -4,7 +4,6 @@ import functools
 import json
 import tempfile
 import shutil
-import os
 
 import pytest
 from dataclasses import dataclass
@@ -15,6 +14,7 @@ from typer.testing import CliRunner
 from typing import List, Dict, Any, Optional
 
 TEST_DIR = Path(__file__).parent
+DEFAULT_TEST_CONFIG = "connection_configs.toml"
 
 
 @dataclass
@@ -24,14 +24,20 @@ class CommandResult:
     output: Optional[str] = None
 
 
+class TestConfigProvider:
+    def __init__(self, temp_dir_with_configs: Path):
+        self._temp_dir_with_configs = temp_dir_with_configs
+
+    def get_config_path(self, file_name: str) -> Path:
+        return self._temp_dir_with_configs / file_name
+
+
 @pytest.fixture(scope="session")
-def test_snowcli_config():
-    test_config_name = "connection_configs.toml"
-    test_config = TEST_DIR / "config" / test_config_name
+def test_snowcli_config_provider():
     with tempfile.TemporaryDirectory() as td:
-        test_config_path = os.path.join(td, test_config_name)
-        shutil.copyfile(test_config, test_config_path)
-        yield test_config_path
+        temp_dst = Path(td) / "config"
+        shutil.copytree(TEST_DIR / "config", temp_dst)
+        yield TestConfigProvider(temp_dst)
 
 
 @pytest.fixture(scope="session")
@@ -40,10 +46,18 @@ def test_root_path():
 
 
 class SnowCLIRunner(CliRunner):
-    def __init__(self, app: Typer, test_snowcli_config: str):
+    def __init__(self, app: Typer, test_config_provider: TestConfigProvider):
         super().__init__()
         self.app = app
-        self.test_snowcli_config = test_snowcli_config
+        self._test_config_provider = test_config_provider
+        self._test_config_path = self._test_config_provider.get_config_path(
+            DEFAULT_TEST_CONFIG
+        )
+
+    def use_config(self, config_file_name: str) -> None:
+        self._test_config_path = self._test_config_provider.get_config_path(
+            config_file_name
+        )
 
     @functools.wraps(CliRunner.invoke)
     def _invoke(self, *a, **kw):
@@ -52,7 +66,7 @@ class SnowCLIRunner(CliRunner):
 
     def invoke_with_config(self, *args, **kwargs) -> CommandResult:
         result = self._invoke(
-            ["--config-file", self.test_snowcli_config, *args[0]],
+            ["--config-file", self._test_config_path, *args[0]],
             **kwargs,
         )
         return CommandResult(result.exit_code, output=result.output)
@@ -61,7 +75,7 @@ class SnowCLIRunner(CliRunner):
         result = self._invoke(
             [
                 "--config-file",
-                self.test_snowcli_config,
+                self._test_config_path,
                 *args[0],
                 "--format",
                 "JSON",
@@ -78,7 +92,7 @@ class SnowCLIRunner(CliRunner):
         result = self._invoke(
             [
                 "--config-file",
-                self.test_snowcli_config,
+                self._test_config_path,
                 *args[0],
                 "-c",
                 "integration",
@@ -89,5 +103,5 @@ class SnowCLIRunner(CliRunner):
 
 
 @pytest.fixture
-def runner(test_snowcli_config):
-    return SnowCLIRunner(app, test_snowcli_config)
+def runner(test_snowcli_config_provider):
+    return SnowCLIRunner(app, test_snowcli_config_provider)

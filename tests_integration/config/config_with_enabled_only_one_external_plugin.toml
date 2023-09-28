@@ -1,0 +1,10 @@
+[connections.dev]
+[connections.integration]
+schema = "public"
+
+
+[snowcli.plugins.snowpark-hello]
+enabled = true
+
+[snowcli.plugins.snowpark-hello.config]
+greeting = "Hello"

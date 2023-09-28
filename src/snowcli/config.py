@@ -88,6 +88,10 @@ class CliConfigManager(ConfigManager):
             name="connections",
             parse_str=tomlkit.parse,
         )
+        self.add_option(
+            name="snowcli",
+            parse_str=tomlkit.parse,
+        )
 
     def _find_section(self, *path) -> TOMLDocument:
         section = self
