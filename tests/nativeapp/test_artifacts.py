@@ -11,7 +11,7 @@ from snowcli.cli.nativeapp.artifacts import (
     GlobMatchedNothingError,
     SourceNotFoundError,
     TooManyFilesError,
-    OutsideDeployRootError,
+    NotInDeployRootError,
 )
 from snowcli.cli.project.definition import load_project_definition
 
@@ -87,20 +87,27 @@ def test_glob_matched_nothing(project_definition_files):
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
-def test_outside_deploy_root_two_ways(project_definition_files):
+def test_outside_deploy_root_three_ways(project_definition_files):
     project_root = project_definition_files[0].parent
-    with pytest.raises(OutsideDeployRootError):
+    with pytest.raises(NotInDeployRootError):
         build_bundle(
             project_root,
             deploy_root=Path(project_root, "deploy"),
             artifacts=[ArtifactMapping("setup.sql", "..")],
         )
 
-    with pytest.raises(OutsideDeployRootError):
+    with pytest.raises(NotInDeployRootError):
         build_bundle(
             project_root,
             deploy_root=Path(project_root, "deploy"),
             artifacts=[ArtifactMapping("setup.sql", "/")],
+        )
+
+    with pytest.raises(NotInDeployRootError):
+        build_bundle(
+            project_root,
+            deploy_root=Path(project_root, "deploy"),
+            artifacts=[ArtifactMapping("app", ".")],
         )
 
 
