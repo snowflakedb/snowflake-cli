@@ -31,7 +31,7 @@ def find_conflicts_in_options_dict(path: str, options_dict: Dict[str, Any]):
     return None
 
 
-def check_options_for_duplicates(options: Dict[str, List[str]]) -> list[str]:
+def check_options_for_duplicates(options: Dict[str, List[str]]) -> List[str]:
     RESERVED_FLAGS = ["-h", "--help"]  # noqa: N806
     flags = [flag for option in options.values() for flag in option]
     return list(

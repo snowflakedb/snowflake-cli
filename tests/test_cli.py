@@ -30,7 +30,7 @@ def test_namespace(namespace, expected, runner):
     assert expected in result.output
 
 
-@pytest.mark.skip   #skipped until we solve all conflicts
+@pytest.mark.skip  # skipped until we solve all conflicts
 def test_options_structure(runner):
     result = runner.invoke(["--options-structure"])
     assert result.exit_code == 0
