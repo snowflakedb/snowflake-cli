@@ -85,7 +85,7 @@ def test_service_status(mock_connector, runner, mock_ctx):
     result = runner.invoke(["snowpark", "services", "status", "serviceName"])
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_query() == "CALL SYSTEM$GET_SERVICE_STATUS(('serviceName')"
+    assert ctx.get_query() == "CALL SYSTEM$GET_SERVICE_STATUS('serviceName')"
 
 
 @mock.patch("snowflake.connector.connect")
