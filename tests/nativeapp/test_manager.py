@@ -41,7 +41,7 @@ mock_snowflake_yml_file = dedent(
                 warehouse: app_warehouse
                 debug: true
 
-             package:
+            package:
                 name: app_pkg
                 scripts:
                     - shared_content.sql
