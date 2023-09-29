@@ -12,6 +12,7 @@ from strictyaml import (
     Decimal,
     Regex,
     YAML,
+    EmptyList,
 )
 
 from .util import SCHEMA_AND_NAME, IDENTIFIER
@@ -81,10 +82,34 @@ native_app_schema = RelaxedMap(
     }
 )
 
+Argument = RelaxedMap({"name": Str(), "type": Str()})
+
+_callable_mapping = {
+    "name": Regex(IDENTIFIER),
+    "handler": Str(),
+    "returns": Str(),
+    "signature": Seq(Argument) | EmptyList(),
+    # "file": FilePath(),  # should be the name of the artifact to build
+    # Not supported in snowcli yet
+    # Optional("imports"): Seq(Str),
+    # Optional("language"): Str(),
+    # Optional("packages"): Seq(Str),
+    # Optional("runtime_version"): Str(),
+    # Optional("comment"): Str(),
+}
+
+FunctionMapping = RelaxedMap(_callable_mapping)
+
+ProcedureMapping = RelaxedMap(
+    {**_callable_mapping, Optional("execute_as_owner"): Bool()}
+)
+
 project_schema = RelaxedMap(
     {
         "definition_version": Int(),
-        "native_app": native_app_schema,
+        Optional("native_app"): native_app_schema,
+        Optional("functions"): Seq(FunctionMapping),
+        Optional("procedures"): Seq(ProcedureMapping),
     }
 )
 

@@ -1,0 +1,14 @@
+definition_version: 1
+functions:
+  - name: func1
+    handler: "app.func1_handler"
+    signature:
+      - name: "a"
+        type: "string"
+      - name: "b"
+        type: "variant"
+    returns: string
+  - name: func2
+    handler: "app.func2_handler"
+    signature: ""
+    returns: variant
