@@ -1,3 +1,4 @@
+from enum import Enum
 import typer
 
 from snowcli.cli.common.alias import build_alias
@@ -14,6 +15,19 @@ app = typer.Typer(
 )
 
 
+class InstanceFamily(str, Enum):
+    STANDARD_1 = "STANDARD_1"
+    STANDARD_2 = "STANDARD_2"
+    STANDARD_5 = "STANDARD_5"
+    HIGH_MEMORY_1 = "HIGH_MEMORY_1"
+    HIGH_MEMORY_2 = "HIGH_MEMORY_2"
+    HIGH_MEMORY_5 = "HIGH_MEMORY_5"
+    GPU_3 = "GPU_3"
+    GPU_5 = "GPU_5"
+    GPU_7 = "GPU_7"
+    GPU_10 = "GPU_10"
+
+
 @app.command()
 @with_output
 @global_options_with_connection
@@ -22,11 +36,11 @@ def create(
     num_instances: int = typer.Option(
         ..., "--num", "-d", help="Number of compute pool instances."
     ),
-    instance_family: str = typer.Option(
+    instance_family: InstanceFamily = typer.Option(
         ...,
         "--family",
         "-f",
-        help="Name of the instance family. For more information about instance families, refer to the SQL CREATE COMPUTE POLL command.",
+        help="Name of the instance family. For more information about instance families, refer to the SQL CREATE COMPUTE POOL command.",
     ),
     **options,
 ) -> CommandResult:

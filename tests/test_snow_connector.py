@@ -43,7 +43,9 @@ def test_command_context_is_passed_to_snowflake_connection(
     mock_connect.assert_called_once_with(application=expected)
 
 
-@mock.patch("snowcli.cli.snowpark.registry.manager.snow_cli_global_context_manager.get_connection")
+@mock.patch(
+    "snowcli.cli.snowpark.registry.manager.snow_cli_global_context_manager.get_connection"
+)
 def test_registry_get_token(mock_conn, runner):
     mock_conn.return_value._rest._token_request.return_value = {
         "data": {

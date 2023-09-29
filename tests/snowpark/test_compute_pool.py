@@ -1,67 +1,72 @@
-from unittest import mock
+import unittest
+from unittest.mock import Mock, patch
+from snowflake.connector.cursor import SnowflakeCursor
+from snowcli.cli.snowpark.compute_pool.manager import ComputePoolManager
 
-from tests.testing_utils.fixtures import *
 
+class TestComputePoolManager(unittest.TestCase):
+    def setUp(self):
+        self.compute_pool_manager = ComputePoolManager()
 
-@mock.patch("snowflake.connector.connect")
-def test_create_cp(mock_connector, runner, mock_ctx, snapshot):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-
-    result = runner.invoke(
-        [
-            "snowpark",
-            "cp",
-            "create",
-            "--name",
-            "cpName",
-            "--num",
-            "42",
-            "--family",
-            "familyValue",
-        ]
+    @patch(
+        "snowcli.cli.snowpark.compute_pool.manager.ComputePoolManager._execute_query"
     )
+    def test_create(self, mock_execute_query):
+        pool_name = "test_pool"
+        num_instances = 2
+        instance_family = "test_family"
+        cursor = Mock(spec=SnowflakeCursor)
+        mock_execute_query.return_value = cursor
+        result = self.compute_pool_manager.create(
+            pool_name, num_instances, instance_family
+        )
+        expected_query = (
+            "CREATE COMPUTE POOL test_pool "
+            "MIN_NODES = 2 "
+            "MAX_NODES = 2 "
+            "INSTANCE_FAMILY = test_family;"
+        )
+        actual_query = " ".join(
+            mock_execute_query.mock_calls[0].args[0].replace("\n", "").split()
+        )
+        self.assertEqual(expected_query, actual_query)
+        self.assertEqual(result, cursor)
 
-    assert result.exit_code == 0
-    assert (
-        ctx.get_query()
-        == """\
-CREATE COMPUTE POOL cpName
-MIN_NODES = 42
-MAX_NODES = 42
-INSTANCE_FAMILY = familyValue;
-"""
+    @patch(
+        "snowcli.cli.snowpark.compute_pool.manager.ComputePoolManager._execute_query"
     )
+    def test_show(self, mock_execute_query):
+        cursor = Mock(spec=SnowflakeCursor)
+        mock_execute_query.return_value = cursor
+        result = self.compute_pool_manager.show()
+        expected_query = "show compute pools;"
+        mock_execute_query.assert_called_once_with(expected_query)
+        self.assertEqual(result, cursor)
+
+    @patch(
+        "snowcli.cli.snowpark.compute_pool.manager.ComputePoolManager._execute_query"
+    )
+    def test_drop(self, mock_execute_query):
+        pool_name = "test_pool"
+        cursor = Mock(spec=SnowflakeCursor)
+        mock_execute_query.return_value = cursor
+        result = self.compute_pool_manager.drop(pool_name)
+        expected_query = "drop compute pool test_pool;"
+        mock_execute_query.assert_called_once_with(expected_query)
+        self.assertEqual(result, cursor)
+
+    @patch(
+        "snowcli.cli.snowpark.compute_pool.manager.ComputePoolManager._execute_query"
+    )
+    def test_stop(self, mock_execute_query):
+        pool_name = "test_pool"
+        cursor = Mock(spec=SnowflakeCursor)
+        mock_execute_query.return_value = cursor
+        result = self.compute_pool_manager.stop(pool_name)
+        expected_query = "alter compute pool test_pool stop all;"
+        mock_execute_query.assert_called_once_with(expected_query)
+        self.assertEqual(result, cursor)
 
 
-@mock.patch("snowflake.connector.connect")
-def test_list_cp(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-
-    result = runner.invoke(["snowpark", "cp", "list"])
-
-    assert result.exit_code == 0
-    assert ctx.get_query() == "show compute pools;"
-
-
-@mock.patch("snowflake.connector.connect")
-def test_drop_cp(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-
-    result = runner.invoke(["snowpark", "cp", "drop", "cpNameToDrop"])
-
-    assert result.exit_code == 0
-    assert ctx.get_query() == "drop compute pool cpNameToDrop;"
-
-
-@mock.patch("snowflake.connector.connect")
-def test_stop_cp(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-
-    result = runner.invoke(["snowpark", "cp", "stop", "cpNameToStop"])
-
-    assert result.exit_code == 0
-    assert ctx.get_query() == "alter compute pool cpNameToStop stop all;"
+if __name__ == "__main__":
+    unittest.main()

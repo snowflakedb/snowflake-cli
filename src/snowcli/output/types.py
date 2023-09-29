@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import typing as t
 
 from snowflake.connector.cursor import SnowflakeCursor
@@ -62,6 +63,18 @@ class SingleQueryResult(ObjectResult):
         results = list(QueryResult(cursor).result)
         if results:
             return results[0]
+        return None
+
+
+class QueryJsonValueResult(QueryResult):
+    def __init__(self, cursor: SnowflakeCursor):
+        super().__init__(cursor)
+
+    def _prepare_payload(self, cursor):
+        results = list(QueryResult(cursor).result)
+        if results:
+            # Return value of the first tuple
+            return json.loads(list(results[0].items())[0][1])
         return None
 
 
