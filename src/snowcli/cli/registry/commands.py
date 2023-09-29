@@ -45,7 +45,7 @@ def list_images(
     repos = []
     query: Optional[str] = f"{api_url}/_catalog?n=10"
 
-    while query is not None:
+    while query:
         # Make paginated catalog requests
         response = requests.get(
             query, headers={"Authorization": f"Bearer {bearer_login}"}
