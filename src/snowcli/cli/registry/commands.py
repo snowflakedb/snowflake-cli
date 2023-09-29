@@ -52,7 +52,7 @@ def list_images(
         )
 
         if response.status_code != 200:
-            print("Call to the registry failed", response.text)
+            return MessageResult("Call to the registry failed {response.text}")
 
         data = json.loads(response.text)
         if "repositories" in data:
