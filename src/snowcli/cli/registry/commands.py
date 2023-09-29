@@ -7,7 +7,7 @@ from typing import Optional
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.output.decorators import with_output
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
-from snowcli.output.types import CollectionResult, CommandResult, MessageResult
+from snowcli.output.types import MessageResult
 from snowcli.cli.registry.manager import RegistryManager
 
 app = typer.Typer(
