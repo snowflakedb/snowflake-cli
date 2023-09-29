@@ -35,11 +35,12 @@ def list_images(
     ),
     **options,
 ):
-    database = RegistryManager().get_database()
-    schema = RegistryManager().get_schema()
-    url = RegistryManager().get_repository_url(repo_name)
-    api_url = RegistryManager().get_repository_api_url(url)
-    bearer_login = RegistryManager().login_to_registry(api_url)
+    registry_manager = RegistryManager()
+    database = registry_manager.get_database()
+    schema = registry_manager.get_schema()
+    url = registry_manager.get_repository_url(repo_name)
+    api_url = registry_manager.get_repository_api_url(url)
+    bearer_login = registry_manager.login_to_registry(api_url)
 
     repos = []
     query: Optional[str] = f"{api_url}/_catalog?n=10"
@@ -89,9 +90,10 @@ def list_tags(
     **options,
 ):
 
-    url = RegistryManager().get_repository_url(repo_name)
-    api_url = RegistryManager().get_repository_api_url(url)
-    bearer_login = RegistryManager().login_to_registry(api_url)
+    registry_manager = RegistryManager()
+    url = registry_manager.get_repository_url(repo_name)
+    api_url = registry_manager.get_repository_api_url(url)
+    bearer_login = registry_manager.login_to_registry(api_url)
 
     repo_name = image_name.split("/")[2]
     image_realname = "/".join(image_name.split("/")[3:])
