@@ -5,7 +5,9 @@ import typer
 from typing import Optional
 
 from snowcli.cli.common.decorators import global_options_with_connection
+from snowcli.output.decorators import with_output
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
+from snowcli.output.types import CollectionResult, CommandResult, MessageResult
 from snowcli.cli.registry.manager import RegistryManager
 
 app = typer.Typer(
@@ -25,6 +27,7 @@ def token(**options):
 
 
 @app.command("list-images")
+@with_output
 @global_options_with_connection
 def list_images(
     repo_name: str = typer.Option(
@@ -34,7 +37,7 @@ def list_images(
         help="Name of the image repository as seen in `show image repositories`",
     ),
     **options,
-):
+) -> MessageResult:
     registry_manager = RegistryManager()
     database = registry_manager.get_database()
     schema = registry_manager.get_schema()
@@ -64,15 +67,17 @@ def list_images(
         else:
             query = None
 
-    sys.stdout.write("Images in this repository:\n\n")
+    message = "Images in this repository:\n\n"
     for repo in repos:
         prefix = f"{database}/{schema}/{repo_name}/"
         repo = repo.replace("baserepo/", prefix)
+        message = f"{message}{repo}\n"
 
-        sys.stdout.write(f"{repo}\n")
+    return MessageResult(message)
 
 
 @app.command("list-tags")
+@with_output
 @global_options_with_connection
 def list_tags(
     repo_name: str = typer.Option(
@@ -88,7 +93,7 @@ def list_tags(
         help="Name of the image as shown in the output of list-images",
     ),
     **options,
-):
+) -> MessageResult:
 
     registry_manager = RegistryManager()
     url = registry_manager.get_repository_url(repo_name)
@@ -120,6 +125,8 @@ def list_tags(
         else:
             query = None
 
-    sys.stdout.write("Tags for this image:\n\n")
+    message = "Tags for this image:\n\n"
     for tag in tags:
-        sys.stdout.write(f"{image_name}:{tag}\n")
+        message = f"{message}{image_name}:{tag}\n"
+
+    return MessageResult(message)
