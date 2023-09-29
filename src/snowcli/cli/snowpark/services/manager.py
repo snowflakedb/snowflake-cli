@@ -36,7 +36,7 @@ class ServiceManager(SqlExecutionMixin):
         return self._execute_query("show services")
 
     def status(self, service_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"CALL SYSTEM$GET_SERVICE_STATUS(('{service_name}')")
+        return self._execute_query(f"CALL SYSTEM$GET_SERVICE_STATUS('{service_name}')")
 
     def drop(self, service_name: str) -> SnowflakeCursor:
         return self._execute_query(f"drop service {service_name}")

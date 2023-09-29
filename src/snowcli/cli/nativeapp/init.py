@@ -315,7 +315,7 @@ def nativeapp_init(
 
     current_working_directory = Path.cwd()
 
-    # If the intended project name is not a valid identifier, faili init command
+    # If the intended project name is not a valid identifier, fail init command
     if not is_valid_project_name(name):
         raise ProjectNameInvalidError()
 
