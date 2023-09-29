@@ -51,8 +51,7 @@ class RegistryManager(SqlExecutionMixin):
         resp = requests.get(login_url, headers={"Authorization": f"Basic {creds}"})
 
         if resp.status_code != 200:
-            print("Failed to login to the repository", resp.text)
-            sys.exit(1)
+            raise ClickException(f"Failed to login to the repository  {resp.text}")
 
         return json.loads(resp.text)["token"]
 
