@@ -14,7 +14,6 @@ from tests_integration.testing_utils.working_directory_utils import (
     temporary_working_directory,
     temporary_working_directory_ctx,
 )
-from tests_integration.conftest import SnowCLIRunner
 
 
 @pytest.mark.integration
@@ -36,7 +35,7 @@ def test_snowpark_function_flow(
             parameter_path="functions.0.name",
             value=function_name,
         )
-        _test_steps.run_deploy()
+        _test_steps.run_deploy(function_name)
 
         _test_steps.assert_that_only_these_entities_are_in_snowflake(
             f"{function_name}(VARCHAR) RETURN VARCHAR"
@@ -61,6 +60,15 @@ def test_snowpark_function_flow(
             expected_value="Hello foo!",
         )
 
+        _test_steps.snowpark_deploy_should_not_replace_if_the_signature_does_not_change(
+            function_name
+        )
+        _test_steps.snowpark_execute_should_return_expected_value(
+            entity_name=function_name,
+            arguments="('anything')",
+            expected_value="Hello Snowflakes!",
+        )
+
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(
             f"deployments/{function_name}_name_string/app.zip"
         )
@@ -72,23 +80,23 @@ def test_snowpark_function_flow(
         )
         _test_steps.run_deploy("--replace")
 
-    _test_steps.snowpark_describe_should_return_entity_description(
-        entity_name=function_name,
-        arguments="(VARCHAR)",
-        signature="(NAME VARCHAR)",
-        returns="VARIANT",
-    )
+        _test_steps.snowpark_describe_should_return_entity_description(
+            entity_name=function_name,
+            arguments="(VARCHAR)",
+            signature="(NAME VARCHAR)",
+            returns="VARIANT",
+        )
 
-    _test_steps.snowpark_drop_should_finish_successfully(
-        entity_name=function_name,
-        arguments="(VARCHAR)",
-    )
-    _test_steps.assert_that_no_entities_are_in_snowflake()
-    _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-        f"deployments/{function_name}_name_string/app.zip"
-    )
+        _test_steps.snowpark_drop_should_finish_successfully(
+            entity_name=function_name,
+            arguments="(VARCHAR)",
+        )
+        _test_steps.assert_that_no_entities_are_in_snowflake()
+        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+            f"deployments/{function_name}_name_string/app.zip"
+        )
 
-    _test_steps.snowpark_list_should_return_no_data()
+        _test_steps.snowpark_list_should_return_no_data()
 
 
 @pytest.fixture
