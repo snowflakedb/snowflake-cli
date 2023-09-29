@@ -8,6 +8,7 @@ from rich import box, print
 from rich.live import Live
 from rich.table import Table
 from typing import Union
+import json
 
 from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 from snowcli.output.formats import OutputFormat
@@ -19,6 +20,8 @@ from snowcli.output.types import (
     MultipleResults,
     QueryResult,
 )
+
+NO_ITEMS_FOUND: str = "No data"
 
 
 class CustomJSONEncoder(JSONEncoder):
@@ -53,7 +56,12 @@ def _print_multiple_table_results(obj: CollectionResult):
     if isinstance(obj, QueryResult):
         print(obj.query)
     items = obj.result
-    first_item = next(items)
+    try:
+        first_item = next(items)
+    except StopIteration:
+        print(NO_ITEMS_FOUND)
+        print()
+        return
     table = _get_table()
     for column in first_item.keys():
         table.add_column(column, overflow="fold")
@@ -73,7 +81,7 @@ def print_structured(result: CommandResult):
     """Handles outputs like json, yml and other structured and parsable formats."""
     import json
 
-    return json.dump(result, sys.stdout, cls=CustomJSONEncoder)
+    return json.dump(result, sys.stdout, cls=CustomJSONEncoder, indent=4)
 
 
 def print_unstructured(obj: CommandResult | None):
