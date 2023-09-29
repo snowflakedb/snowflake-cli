@@ -28,7 +28,7 @@ class RegistryManager(SqlExecutionMixin):
         # disable session deletion
         self._conn._all_async_queries_finished = lambda: False
         if self._conn._rest is None:
-            raise Exception("error in connection object")
+            raise Exception("Failed to connect to Snowflake to retrieve token.")
         # obtain and create the token
         token_data = self._conn._rest._token_request("ISSUE")
 
@@ -61,11 +61,11 @@ class RegistryManager(SqlExecutionMixin):
         schema = self.get_schema()
 
         registry_query = f"""
-use role {role};
-use database {database};
-use schema {schema};
-show image repositories like '{repo_name}';
-"""
+            use role {role};
+            use database {database};
+            use schema {schema};
+            show image repositories like '{repo_name}';
+            """
         return self._execute_query(registry_query)
 
     def get_repository_url(self, repo_name):
@@ -81,11 +81,12 @@ show image repositories like '{repo_name}';
             )
             sys.exit(1)
         else:
-            assert (
-                len(results) == 1
-            ), f"Found more than one repositories with name {repo_name}. This is unexpected."
-            return f"https://{results[0][4]}"
+            if len(results) > 1:
+                raise Exception(f"Found more than one repositories with name {repo_name}. This is unexpected.")
 
+        return f"https://{results[0][4]}"
+
+    
     def get_repository_api_url(self, repo_url):
         """
         Converts a repo URL to a registry OCI API URL.
