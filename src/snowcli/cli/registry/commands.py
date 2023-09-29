@@ -16,8 +16,8 @@ app = typer.Typer(
 @app.command("token")
 @with_output
 @global_options_with_connection
-def token(environment: str = ConnectionOption, **options):
+def token(**options):
     """
     Gets the token from environment to use for authenticating with the registry.
     """
-    return ObjectResult(get_token(environment))
+    return ObjectResult(get_token())
