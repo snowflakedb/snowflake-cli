@@ -53,7 +53,3 @@ def generate_commands_structure(command: Command, root: _Node | None = None):
                 root.children[command_name] = _Node(command_name, level=root.level + 1)
             generate_commands_structure(command_info, root.children[command_name])
     return root
-
-
-def generate_options_structure(command: Command, root: Optional[_Node] = None):
-    pass
