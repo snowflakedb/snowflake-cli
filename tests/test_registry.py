@@ -3,7 +3,9 @@ from unittest import mock
 from tests.testing_utils.fixtures import *
 
 
-@mock.patch("snowcli.cli.registry.manager.connect_to_snowflake")
+@mock.patch(
+    "snowcli.cli.registry.manager.snow_cli_global_context_manager.get_connection"
+)
 def test_registry_get_token(mock_conn, runner):
     mock_conn.return_value._rest._token_request.return_value = {
         "data": {
