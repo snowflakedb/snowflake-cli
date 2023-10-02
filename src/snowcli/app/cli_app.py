@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Optional
@@ -19,8 +20,8 @@ from snowcli.app.dev.pycharm_remote_debug import (
 from snowcli.app.main_typer import SnowCliMainTyper
 from snowcli.config import config_init, cli_config
 from snowcli.output.formats import OutputFormat
-from snowcli.output.printing import print_result
-from snowcli.output.types import CollectionResult
+from snowcli.output.printing import print_result, print_structured
+from snowcli.output.types import CollectionResult, ObjectResult
 
 app: SnowCliMainTyper = SnowCliMainTyper()
 log = logging.getLogger(__name__)
@@ -82,6 +83,16 @@ def _version_callback(value: bool):
 
 
 @_do_not_execute_on_completion
+@_commands_registration.after
+def _options_structure_callback(value: bool):
+    if value:
+        ctx = click.get_current_context()
+        output_json = generate_commands_structure(ctx.command).print_with_options()
+
+        raise typer.Exit()
+
+
+@_do_not_execute_on_completion
 def _info_callback(value: bool):
     if value:
         result = CollectionResult(
@@ -117,6 +128,14 @@ def default(
         hidden=True,
         help="Prints Snowflake CLI structure of commands",
         callback=_commands_structure_callback,
+        is_eager=True,
+    ),
+    options_structure: bool = typer.Option(
+        None,
+        "--options-structure",
+        hidden=True,
+        help="Prints options for all commands",
+        callback=_options_structure_callback,
         is_eager=True,
     ),
     info: bool = typer.Option(
