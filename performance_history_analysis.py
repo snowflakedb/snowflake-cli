@@ -40,7 +40,7 @@ def _print_results_for_single_commit(
         print(all_results.__str__() + "\n")
 
 
-def _print_summary_commits_with_highest_performance_decrease(
+def _print_summary_performance_descending(
     commits_with_results: List[Tuple[Commit, float]]
 ) -> None:
     commits_with_diffs: List[Tuple[Commit, Decimal]] = []
@@ -54,7 +54,7 @@ def _print_summary_commits_with_highest_performance_decrease(
     sorted_list_of_diffs: List[Tuple[Commit, Decimal]] = sorted(
         commits_with_diffs, key=lambda e: e[1], reverse=True
     )
-    print("\nCommits causing the highest decrease in performance:")
+    print("\nCommits causing performance descending:")
     for (commit, diff) in sorted_list_of_diffs:
         print(
             f"Diff [{diff}] after commit {commit} ({commit.authored_datetime}) -> {commit.message.splitlines()[0]}"
@@ -81,7 +81,7 @@ def _analyse_performance_history(
             head, chosen_result, all_results, print_all_results
         )
 
-    _print_summary_commits_with_highest_performance_decrease(commits_with_results)
+    _print_summary_performance_descending(commits_with_results)
     repo.git.checkout(active_branch)
 
 
