@@ -21,8 +21,7 @@ class _Node:
 
     def print_with_options(self):
         options = self._prepare_options_dict()
-        pretty = json.dumps(options, indent=4)
-        print(pretty)
+        print(json.dumps(options, indent=4))
 
     def _prepare_options_dict(self, options_dict={}):
         options_dict["options"] = self.options

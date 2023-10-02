@@ -49,8 +49,8 @@ def find_conflicts_in_options_dict(path: str, options_dict: Dict[str, Any]):
         keys.remove("options")
 
     for key in keys:
-        if key_duplicates := find_conflicts_in_options_dict(key, options_dict[key]):
-            duplicates[key] = key_duplicates
+        if key_duplicates := find_conflicts_in_options_dict(f"{path} {key}", options_dict[key]):
+            duplicates.update(key_duplicates)
 
     if duplicates:
         return duplicates
