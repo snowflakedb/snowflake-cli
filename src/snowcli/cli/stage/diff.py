@@ -34,6 +34,13 @@ class DiffResult:
     only_on_stage: List[str] = field(default_factory=list)
     "Files that only exist on the stage"
 
+    def has_changes(self) -> bool:
+        return (
+            len(self.different) > 0
+            or len(self.only_local) > 0
+            or len(self.only_on_stage) > 0
+        )
+
 
 def is_valid_md5sum(checksum: str) -> bool:
     """

@@ -45,27 +45,32 @@ class TooManyFilesError(ClickException):
     dest_path: Path
 
     def __init__(self, dest_path: Path):
-        super().__init__(f"self.__doc__\ndest_path = {dest_path}")
+        super().__init__(f"{self.__doc__}\ndest_path = {dest_path}")
         self.dest_path = dest_path
 
 
-class OutsideDeployRootError(ClickException):
+class NotInDeployRootError(ClickException):
     """
-    The specified path is outside of the deploy root.
-    This can happen when a relative path with ".." is provided.
+    The specified destination path is outside of the deploy root, or
+    would entirely replace it. This can happen when a relative path
+    with ".." is provided, or when "." is used as the destination
+    (use "./" instead to copy into the deploy root).
     """
 
+    artifact_src: str
     dest_path: Path
     deploy_root: Path
 
-    def __init__(self, dest_path: Path, deploy_root: Path):
+    def __init__(self, artifact_src: str, dest_path: Path, deploy_root: Path):
         super().__init__(
             f"""
-            self.__doc__
-            \ndest_path = {dest_path}
-            \ndeploy_root = {deploy_root}
+            {self.__doc__}
+            artifact_src = {artifact_src}
+            dest_path = {dest_path}
+            deploy_root = {deploy_root}
             """
         )
+        self.artifact_src = artifact_src
         self.dest_path = dest_path
         self.deploy_root = deploy_root
 
@@ -89,16 +94,28 @@ def specifies_directory(s: str) -> bool:
     """
     Does the path (as seen from the project definition) refer to
     a directory? For destination paths, we enforce the usage of a
-    trailing slash (i.e. \ for windows; / for others).
+    trailing forward slash (/). Note that we use the forward slash
+    even on Windows so that snowflake.yml can be shared between OSes.
 
     This means that to put a file in the root of the stage, we need
     to specify "./" as its destination, or omit it (but only if the
     file already lives in the project root).
     """
-    return s.endswith(os.sep)
+    return s.endswith("/")
 
 
-def symlink_or_copy(src: Path, dst: Path, makedirs=True) -> None:
+def delete(path: Path) -> None:
+    """
+    Obliterates whatever is at the given path, or is a no-op if the
+    given path does not represent a file or directory that exists.
+    """
+    if os.path.isfile(path) or os.path.islink(path):
+        os.remove(path)  # remove the file
+    elif os.path.isdir(path):
+        shutil.rmtree(path)  # remove dir and all contains
+
+
+def symlink_or_copy(src: Path, dst: Path, makedirs=True, overwrite=True) -> None:
     """
     Tries to create a symlink to src at dst; failing that (i.e. in Windows
     without Administrator / Developer Mode) copies the file from src to dst instead.
@@ -107,6 +124,8 @@ def symlink_or_copy(src: Path, dst: Path, makedirs=True) -> None:
     """
     if makedirs:
         dst.parent.mkdir(parents=True, exist_ok=True)
+    if overwrite:
+        delete(dst)
     try:
         os.symlink(src, dst)
     except OSError:
@@ -114,6 +133,11 @@ def symlink_or_copy(src: Path, dst: Path, makedirs=True) -> None:
 
 
 def translate_artifact(item: Union[dict, str]) -> ArtifactMapping:
+    """
+    Builds an artifact mapping from a project definition value.
+    Validation is done later when we actually resolve files / folders.
+    """
+
     if isinstance(item, dict):
         return ArtifactMapping(item["src"], item.get("dest", item["src"]))
 
@@ -128,6 +152,8 @@ def get_source_paths(artifact: ArtifactMapping, project_root: Path) -> List[Path
     """
     Expands globs, ensuring at least one file exists that matches artifact.src.
     Returns a list of paths that resolve to actual files in the project root dir structure.
+    If a glob does not specify a directory (i.e. does not end with a path separator)
+
     """
     source_paths: List[Path]
 
@@ -144,6 +170,14 @@ def get_source_paths(artifact: ArtifactMapping, project_root: Path) -> List[Path
     return source_paths
 
 
+def resolve_without_follow(path: Path) -> Path:
+    """
+    Resolves a Path to an absolute version of itself, without following
+    symlinks like Path.resolve() does.
+    """
+    return Path(os.path.abspath(path))
+
+
 def build_bundle(
     project_root: Path, deploy_root: Path, artifacts: List[ArtifactMapping]
 ):
@@ -156,21 +190,22 @@ def build_bundle(
         raise ValueError(f"Deploy root {resolved_root} exists, but is not a directory!")
 
     for artifact in artifacts:
-        # make sure we are only modifying files / directories inside the deploy root
-        dest_path = Path(resolved_root, artifact.dest).resolve()
-        if resolved_root != dest_path and resolved_root not in dest_path.parents:
-            raise OutsideDeployRootError(dest_path, resolved_root)
-
-        if dest_path.is_file():
-            dest_path.unlink()
-
+        dest_path = resolve_without_follow(Path(resolved_root, artifact.dest))
         source_paths = get_source_paths(artifact, project_root)
 
         if specifies_directory(artifact.dest):
+            # make sure we are only modifying files / directories inside the deploy root
+            if resolved_root != dest_path and resolved_root not in dest_path.parents:
+                raise NotInDeployRootError(artifact.src, dest_path, resolved_root)
+
             # copy all files as children of the given destination path
             for source_path in source_paths:
                 symlink_or_copy(source_path, dest_path / source_path.name)
         else:
+            # ensure we are copying into the deploy root, not replacing it!
+            if resolved_root not in dest_path.parents:
+                raise NotInDeployRootError(artifact.src, dest_path, resolved_root)
+
             if len(source_paths) == 1:
                 # copy a single file as the given destination path
                 symlink_or_copy(source_paths[0], dest_path)
