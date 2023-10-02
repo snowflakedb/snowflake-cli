@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 from typing import Optional
@@ -24,8 +23,8 @@ from snowcli.app.dev.pycharm_remote_debug import (
 from snowcli.app.main_typer import SnowCliMainTyper
 from snowcli.config import config_init, cli_config
 from snowcli.output.formats import OutputFormat
-from snowcli.output.printing import print_result, print_structured
-from snowcli.output.types import CollectionResult, ObjectResult
+from snowcli.output.printing import print_result
+from snowcli.output.types import CollectionResult
 
 app: SnowCliMainTyper = SnowCliMainTyper()
 log = logging.getLogger(__name__)
@@ -94,8 +93,6 @@ def _version_callback(value: bool):
 def _options_structure_callback(value: bool):
     if value:
         ctx = click.get_current_context()
-        output_json = generate_commands_structure(ctx.command).print_with_options()
-
         raise typer.Exit()
 
 
