@@ -14,12 +14,9 @@ from strictyaml import (
     YAML,
 )
 
-IDENTIFIER = r'(?:("[^"]*(""[^"]*)*")|([A-Za-z_][\w$]{0,254}))'
-SCHEMA_AND_NAME = f"{IDENTIFIER}[.]{IDENTIFIER}"
-GLOB_REGEX = r"^[a-zA-Z0-9_\-./*?**\p{L}\p{N}]+$"
-RELATIVE_PATH = r"^[^/][\p{L}\p{N}_\-.][^/]*$"
+from .util import SCHEMA_AND_NAME, IDENTIFIER
 
-# TODO: use the above regexes to validate paths + globs
+# TODO: use the util regexes to validate paths + globs
 FilePath = Str
 Glob = Str
 
@@ -60,17 +57,15 @@ PathMapping = RelaxedMap(
     }
 )
 
-DEFAULT_PACKAGE_SCRIPTS = "package/*.sql"
 native_app_schema = RelaxedMap(
     {
         "name": Str(),
         "artifacts": Seq(FilePath() | PathMapping),
         Optional("deploy_root", default="output/deploy/"): FilePath(),
         Optional("source_stage", default="app_src.stage"): Regex(SCHEMA_AND_NAME),
-        Optional("package", default=dict(scripts=DEFAULT_PACKAGE_SCRIPTS)): RelaxedMap(
+        Optional("package"): RelaxedMap(
             {
-                Optional("scripts", default=DEFAULT_PACKAGE_SCRIPTS): Glob()
-                | UniqueSeq(Glob()),
+                Optional("scripts", default=None): UniqueSeq(FilePath()),
                 Optional("role"): Regex(IDENTIFIER),
                 Optional("name"): Regex(IDENTIFIER),
             }

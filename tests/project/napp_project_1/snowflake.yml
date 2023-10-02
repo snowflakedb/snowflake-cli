@@ -13,4 +13,6 @@ native_app:
       dest: ui/
 
   package:
-    scripts: package/*.sql
+    scripts:
+      - 001-shared.sql
+      - 002-shared.sql

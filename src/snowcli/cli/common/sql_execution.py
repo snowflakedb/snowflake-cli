@@ -36,9 +36,11 @@ class SqlExecutionMixin:
         is_different_role = new_role.lower() != prev_role.lower()
         if is_different_role:
             self._execute_query(f"use role {new_role}")
-        yield
-        if is_different_role:
-            self._execute_query(f"use role {prev_role}")
+        try:
+            yield
+        finally:
+            if is_different_role:
+                self._execute_query(f"use role {prev_role}")
 
     def _execute_schema_query(self, query: str):
         self.check_database_and_schema()
