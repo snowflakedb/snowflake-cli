@@ -161,3 +161,6 @@ def test_get_default_connection_from_config(config_content, expect):
             config_init(config_path)
             result = get_default_connection()
             assert result == expect
+
+def test_default_connection_in_env_variable(runner):
+    pass

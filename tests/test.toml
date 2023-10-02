@@ -1,3 +1,5 @@
+[options]
+default_connection = "dev"
 [connections]
 [connections.full]
 account = "dev_account"
