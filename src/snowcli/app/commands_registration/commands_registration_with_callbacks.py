@@ -76,4 +76,5 @@ class CommandsRegistrationWithCallbacks:
     def reset_running_instance_registration_state(self):
         self._commands_already_registered = False
         self._counter_of_callbacks_invoked_before_registration.set(0)
+        self._callbacks_after_registration.clear()
         self._commands_registration_config.enable_external_command_plugins = True

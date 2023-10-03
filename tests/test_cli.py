@@ -1,7 +1,5 @@
 import json
-from typing import Dict, Any, List, Set
-
-import pytest
+from typing import Dict, Any, Set
 
 from tests.testing_utils.fixtures import *
 
@@ -30,7 +28,6 @@ def test_namespace(namespace, expected, runner):
     assert expected in result.output
 
 
-@pytest.mark.skip  # skipped until we solve all conflicts
 def test_options_structure(runner):
     result = runner.invoke(["--options-structure"])
     assert result.exit_code == 0
@@ -49,8 +46,10 @@ def find_conflicts_in_options_dict(path: str, options_dict: Dict[str, Any]):
         keys.remove("options")
 
     for key in keys:
-        if key_duplicates := find_conflicts_in_options_dict(key, options_dict[key]):
-            duplicates[key] = key_duplicates
+        if key_duplicates := find_conflicts_in_options_dict(
+            f"{path} {key}", options_dict[key]
+        ):
+            duplicates.update(key_duplicates)
 
     if duplicates:
         return duplicates
@@ -59,7 +58,7 @@ def find_conflicts_in_options_dict(path: str, options_dict: Dict[str, Any]):
 
 
 def check_options_for_duplicates(options: Dict[str, List[str]]) -> Set[str]:
-    RESERVED_FLAGS = ["-h", "--help"]  # noqa: N806
+    RESERVED_FLAGS = ["--help"]  # noqa: N806
     flags = [flag for option in options.values() for flag in option]
     return set(
         [flag for flag in flags if (flags.count(flag) > 1 or flag in RESERVED_FLAGS)]
