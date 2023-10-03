@@ -10,9 +10,9 @@ from tests.testing_utils.fixtures import *
 @mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
 @mock.patch("snowcli.cli.snowpark.function.commands.TemporaryDirectory")
 def test_deploy_function_unknown_name(
-    mock_tmp_dir, mock_package_create, mock_connector, runner, project_file
+    mock_tmp_dir, mock_package_create, mock_connector, runner, project_directory
 ):
-    with project_file("snowpark_functions"):
+    with project_directory("snowpark_functions"):
         result = runner.invoke(
             ["snowpark", "function", "deploy", "unknownFunc"],
         )
@@ -24,9 +24,9 @@ def test_deploy_function_unknown_name(
 @mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
 @mock.patch("snowcli.cli.snowpark.function.commands.TemporaryDirectory")
 def test_deploy_function_no_functions(
-    mock_tmp_dir, mock_package_create, mock_connector, runner, project_file
+    mock_tmp_dir, mock_package_create, mock_connector, runner, project_directory
 ):
-    with project_file("empty_project"):
+    with project_directory("empty_project"):
         result = runner.invoke(
             [
                 "snowpark",
@@ -47,14 +47,14 @@ def test_deploy_function(
     mock_connector,
     runner,
     mock_ctx_function_not_exist,
-    project_file,
+    project_directory,
 ):
     tmp_dir_1 = TemporaryDirectory()
     tmp_dir_2 = TemporaryDirectory()
     mock_tmp_dir.side_effect = [tmp_dir_1, tmp_dir_2]
     ctx = mock_ctx_function_not_exist()
     mock_connector.return_value = ctx
-    with project_file("snowpark_functions"):
+    with project_directory("snowpark_functions"):
         result = runner.invoke(
             [
                 "snowpark",
@@ -95,7 +95,7 @@ def test_deploy_function_selected_multiple_names(
     mock_connector,
     runner,
     mock_ctx_function_not_exist,
-    project_file,
+    project_directory,
 ):
     tmp_dir_1 = TemporaryDirectory()
     tmp_dir_2 = TemporaryDirectory()
@@ -103,7 +103,7 @@ def test_deploy_function_selected_multiple_names(
 
     ctx = mock_ctx_function_not_exist()
     mock_connector.return_value = ctx
-    with project_file("snowpark_functions"):
+    with project_directory("snowpark_functions"):
         result = runner.invoke(
             ["snowpark", "function", "deploy", "func1", "func2"],
             catch_exceptions=False,
@@ -157,7 +157,7 @@ def test_deploy_function_no_changes(
     mock_ctx,
     mock_cursor,
     temp_dir,
-    project_file,
+    project_directory,
 ):
     rows = [
         ("packages", '["foo=1.2.3", "bar>=3.0.0"]'),
@@ -173,7 +173,7 @@ def test_deploy_function_no_changes(
         mock_ctx,
         mock_cursor,
         mock_tmp_dir,
-        project_file,
+        project_directory,
         "--replace",
     )
 
@@ -198,7 +198,7 @@ def test_deploy_function_needs_update_because_packages_changes(
     mock_ctx_function_not_exist,
     mock_cursor,
     temp_dir,
-    project_file,
+    project_directory,
 ):
     rows = [
         ("packages", '["foo=1.2.3"]'),
@@ -214,7 +214,7 @@ def test_deploy_function_needs_update_because_packages_changes(
         mock_ctx_function_not_exist,
         mock_cursor,
         mock_tmp_dir,
-        project_file,
+        project_directory,
     )
 
     assert result.exit_code == 0, result.output
@@ -248,7 +248,7 @@ def test_deploy_function_needs_update_because_handler_changes(
     mock_ctx_function_not_exist,
     mock_cursor,
     temp_dir,
-    project_file,
+    project_directory,
 ):
     rows = [
         ("packages", '["foo=1.2.3", "bar>=3.0.0"]'),
@@ -264,7 +264,7 @@ def test_deploy_function_needs_update_because_handler_changes(
         mock_ctx_function_not_exist,
         mock_cursor,
         mock_tmp_dir,
-        project_file,
+        project_directory,
     )
 
     assert result.exit_code == 0, result.output
@@ -398,7 +398,7 @@ def _deploy_function(
     mock_ctx,
     mock_cursor,
     mock_tmp_dir,
-    project_file,
+    project_directory,
     *args,
 ):
     tmp_dir = TemporaryDirectory()
@@ -410,7 +410,7 @@ def _deploy_function(
     )
     app = Path(execute_in_tmp_dir) / "app.zip"
     app.touch()
-    with project_file("snowpark_functions"):
+    with project_directory("snowpark_functions"):
         result = runner.invoke_with_config(
             [
                 "snowpark",

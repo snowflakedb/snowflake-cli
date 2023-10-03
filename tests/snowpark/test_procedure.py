@@ -1,5 +1,8 @@
 from tempfile import TemporaryDirectory
 from textwrap import dedent
+
+from snowflake.connector import ProgrammingError
+
 from tests.testing_utils.fixtures import *
 
 
