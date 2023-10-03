@@ -32,6 +32,24 @@ class ProjectDefinitionDetails:
         )
         return self.definition_manager
 
+    @staticmethod
+    def _project_definition_update(param_name: str, value: str):
+        def modifications(context: SnowCliGlobalContext) -> SnowCliGlobalContext:
+            setattr(context.project_definition, param_name, value)
+            # In addition to setting the attribute, do I need to call self.load_definition here?
+            return context
+
+        snow_cli_global_context_manager.update_global_context_for_project_definition(
+            modifications
+        )
+        return value
+
+    @staticmethod
+    def update_callback(param_name: str):
+        return lambda value: ProjectDefinitionDetails._project_definition_update(
+            param_name=param_name, value=value
+        )
+
 
 @dataclass
 class ConnectionDetails:
@@ -79,7 +97,7 @@ class ConnectionDetails:
         return value
 
     @staticmethod
-    def update_callback(param_name: str):
+    def update_callback(param_name: str):  # This is just for setting attribute values
         return lambda value: ConnectionDetails._connection_update(
             param_name=param_name, value=value
         )
@@ -116,6 +134,16 @@ class SnowCliGlobalContextManager:
         Returns deep copy of global state.
         """
         return deepcopy(self._global_context)
+
+    def update_global_context_for_project_definition(
+        self, update: Callable[[SnowCliGlobalContext], SnowCliGlobalContext]
+    ) -> None:
+        """
+        Updates global state using provided function.
+        The resulting object will be deep copied before storing in the manager.
+        """
+        self._global_context = deepcopy(update(self.get_global_context_copy()))
+        self._cached_definition_manager = None
 
     def update_global_context(
         self, update: Callable[[SnowCliGlobalContext], SnowCliGlobalContext]

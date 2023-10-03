@@ -6,7 +6,7 @@ import typer
 from snowcli.cli.common.decorators import (
     global_options_with_connection,
     global_options,
-    project_definition_with_global_options_with_connection,
+    project_definition,
 )
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.output.decorators import with_output
@@ -96,7 +96,8 @@ def app_run(
 
 @app.command("teardown")
 @with_output
-@project_definition_with_global_options_with_connection(schema="native_apps")
+@global_options_with_connection
+@project_definition(schema="native_apps")
 def app_teardown(
     **options,
 ) -> CommandResult:

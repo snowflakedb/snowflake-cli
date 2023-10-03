@@ -52,22 +52,19 @@ def global_options_with_connection(func: Callable):
     )
 
 
-def project_definition_with_global_options_with_connection(func: Callable, schema: str):
+def project_definition(func: Callable, schema: str):
     """
     Decorator providing default flags including connection flags for overriding
     global parameters. Values are updated in global SnowCLI state.
 
     To use this decorator your command needs to accept **options as last argument.
     """
+    # This has to be innermost, and global_options_with_connection
     allowed_values = [schema.value for schema in AllowedSchemas]
     if schema not in allowed_values:
         raise InvalidSchemaInProjectDefinitionError(schema)
 
-    return _options_decorator_factory(
-        func,
-        [*PROJECT_DEFINITION_OPTIONS, *GLOBAL_CONNECTION_OPTIONS, *GLOBAL_OPTIONS],
-        schema,
-    )
+    return _options_decorator_factory(func, PROJECT_DEFINITION_OPTIONS, schema)
 
 
 def _execute_before_command():
@@ -83,7 +80,7 @@ def _options_decorator_factory(
 ):
     @wraps(func)
     def wrapper(**options):
-        _execute_before_command()
+        _execute_before_command()  # happens after Callbacks (in typer Option)
         if schema:
             snow_cli_global_context_manager.load_definition_manager(schema)
         return func(**options)
