@@ -1,17 +1,6 @@
-# v2.0.0
+# v1.1.1
 
 ## Backward incompatibility
-* In `snowpark function` command:
-  * Combined options `--function` and `--input-parameters` to `identifier` argument
-  * Changed name of option from `--return-type` to `returns`
-* In `snowpark procedure` command:
-  * Combined options `--procedure` and `--input-parameters` to `identifier` argument
-  * Changed name of option from `--return-type` to `--returns`
-* In `snowpark procedure coverage` command:
-  * Combined options `--name` and `--input-parameters` to `identifier` argument
-* Changed path to coverage reports on stage, previously created procedures with coverage will not work, have to be recreated
-* Snowpark command `compute-pool` and its alias `cp` were replaced by `pool` command.
-* `snow snowpark registry` was replaced with `snow registry` command.
 
 ## New additions
 
@@ -23,3 +12,6 @@
 * Updated help messages
 * Fixed problem with Windows shortened paths
 * If only one connection is configured, will be used as default
+* Fixed registry token connection issues
+* Fixes in commands belonging to `snow snowpark compute-pool` and `snow snowpark services` groups
+* Removed duplicated short option names in a few commands

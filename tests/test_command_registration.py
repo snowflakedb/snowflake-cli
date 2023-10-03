@@ -90,6 +90,10 @@ def test_exception_handling_if_single_command_has_multiple_commands(
         "connection2": connection_plugin_spec,
     },
 )
+@mock.patch(
+    "snowcli.app.commands_registration.duplicated_options_exclusion._secondary_option_names_duplicates",
+    [],
+)
 def test_duplicated_plugin_handling(runner):
     result = runner.invoke(["-h"])
     assert result.exit_code == 0

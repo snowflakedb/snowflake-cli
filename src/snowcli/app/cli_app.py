@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 from typing import Optional
@@ -20,13 +19,18 @@ from snowcli.app.dev.pycharm_remote_debug import (
 from snowcli.app.main_typer import SnowCliMainTyper
 from snowcli.config import config_init, cli_config
 from snowcli.output.formats import OutputFormat
-from snowcli.output.printing import print_result, print_structured
-from snowcli.output.types import CollectionResult, ObjectResult
+from snowcli.output.printing import print_result
+from snowcli.output.types import CollectionResult
 
 app: SnowCliMainTyper = SnowCliMainTyper()
 log = logging.getLogger(__name__)
 
 _commands_registration = CommandsRegistrationWithCallbacks()
+
+
+def _exit_with_cleanup():
+    _commands_registration.reset_running_instance_registration_state()
+    raise typer.Exit()
 
 
 def _do_not_execute_on_completion(callback):
@@ -63,7 +67,7 @@ def _docs_callback(value: bool):
     if value:
         ctx = click.get_current_context()
         generate_docs(Path("gen_docs"), ctx.command)
-        raise typer.Exit()
+        _exit_with_cleanup()
 
 
 @_do_not_execute_on_completion
@@ -72,14 +76,14 @@ def _commands_structure_callback(value: bool):
     if value:
         ctx = click.get_current_context()
         generate_commands_structure(ctx.command).print()
-        raise typer.Exit()
+        _exit_with_cleanup()
 
 
 @_do_not_execute_on_completion
 def _version_callback(value: bool):
     if value:
         typer.echo(f"SnowCLI Version: {__about__.VERSION}")
-        raise typer.Exit()
+        _exit_with_cleanup()
 
 
 @_do_not_execute_on_completion
@@ -87,9 +91,8 @@ def _version_callback(value: bool):
 def _options_structure_callback(value: bool):
     if value:
         ctx = click.get_current_context()
-        output_json = generate_commands_structure(ctx.command).print_with_options()
-
-        raise typer.Exit()
+        generate_commands_structure(ctx.command).print_with_options()
+        _exit_with_cleanup()
 
 
 @_do_not_execute_on_completion
@@ -102,7 +105,7 @@ def _info_callback(value: bool):
             ],
         )
         print_result(result, output_format=OutputFormat.JSON)
-        raise typer.Exit()
+        _exit_with_cleanup()
 
 
 @app.callback()

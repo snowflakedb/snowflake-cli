@@ -183,7 +183,6 @@ def function_update(
     replace: bool = typer.Option(
         False,
         "--replace-always",
-        "-a",
         help="Whether to replace the function even in no changes to the metadata are detected.",
     ),
     **options,

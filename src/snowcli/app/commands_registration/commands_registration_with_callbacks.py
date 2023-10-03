@@ -4,6 +4,9 @@ from typing import Callable, List
 from snowcli.app.commands_registration.command_plugins_loader import (
     load_only_builtin_command_plugins,
 )
+from snowcli.app.commands_registration.duplicated_options_exclusion import (
+    exclude_duplicated_secondary_option_names,
+)
 from snowcli.app.commands_registration.typer_registration import (
     register_commands_from_plugins,
 )
@@ -43,6 +46,9 @@ class CommandsRegistrationWithCallbacks:
         if self._commands_registration_config.enable_external_command_plugins:
             self._register_external_plugin_commands()
 
+        # temporary workaround of issues with duplicated options only for v1.1.1
+        exclude_duplicated_secondary_option_names()
+
         self._commands_already_registered = True
         for callback in self._callbacks_after_registration:
             callback()
@@ -76,4 +82,5 @@ class CommandsRegistrationWithCallbacks:
     def reset_running_instance_registration_state(self):
         self._commands_already_registered = False
         self._counter_of_callbacks_invoked_before_registration.set(0)
+        self._callbacks_after_registration.clear()
         self._commands_registration_config.enable_external_command_plugins = True
