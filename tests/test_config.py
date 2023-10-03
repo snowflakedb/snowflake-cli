@@ -161,3 +161,29 @@ def test_get_default_connection_from_config(config_content, expect):
             config_init(config_path)
             result = get_default_connection()
             assert result == expect
+
+
+@pytest.mark.parametrize(
+    "config_content",
+    [
+        """[connections]\n[options]\ndefault_connection = "conn" """,
+        """[connections]\n[connections.conn1]\n[connections.conn2]\n[options]\n """,
+        """[connections]\n[connections.conn1]\n[connections.conn2]\n[options]\ndefault_connection = "conn" """,
+        """[connections]\n[connections.conn1]\n[connections.conn2]\n[connections.dev]\n[options]\ndefault_connection = "conn" """,
+    ],
+)
+@mock.patch.dict(
+    os.environ, {"SNOWFLAKE_OPTIONS_DEFAULT_CONNECTION": "conn1234"}, clear=True
+)
+def test_if_default_connection_in_env_variable_overrides_config(
+    config_content,
+):
+    with TemporaryDirectory() as tmp_dir:
+        config_path = Path(tmp_dir) / "config.toml"
+        with open(config_path, "w+") as config:
+            config.write(config_content)
+            config.flush()
+
+    config_init(config_path)
+    result = get_default_connection()
+    assert result == "conn1234"
