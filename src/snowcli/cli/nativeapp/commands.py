@@ -94,7 +94,26 @@ def app_run(
     manager = NativeAppManager(project_path)
     manager.build_bundle()
     manager.app_run()
-    return MessageResult(f'Your application ("{manager.app_name}") is now live!')
+    return MessageResult(
+        f'Your application ("{manager.app_name}") is now live:\n'
+        + manager.get_snowsight_url()
+    )
+
+
+@app.command("open")
+@with_output
+@global_options_with_connection
+def app_open(
+    project_path: Optional[str] = ProjectArgument,
+    **options,
+) -> CommandResult:
+    """
+    Opens the deployed application inside of your browser.
+    Assumes that the application has been deployed.
+    """
+    manager = NativeAppManager(project_path)
+    typer.launch(manager.get_snowsight_url())
+    return MessageResult(f"Application opened in browser.")
 
 
 @app.command("teardown")
