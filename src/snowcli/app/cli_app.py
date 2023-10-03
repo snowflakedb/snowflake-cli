@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 import click
 import typer
+from click import Context
 
 from snowcli import __about__
 from snowcli.api import api_provider, Api
@@ -35,6 +37,15 @@ api_provider.register_api(_api)
 _commands_registration = CommandsRegistrationWithCallbacks(_api.plugin_config_provider)
 
 
+@dataclass
+class AppContextHolder:
+    # needed to access the context from tests
+    app_context: Optional[Context] = None
+
+
+app_context_holder = AppContextHolder()
+
+
 def _do_not_execute_on_completion(callback):
     def enriched_callback(value):
         if click.get_current_context().resilient_parsing:
@@ -50,6 +61,7 @@ def _commands_registration_callback(value: bool):
     # required to make the tests working
     # because a single test can execute multiple commands using always the same "app" instance
     _commands_registration.reset_running_instance_registration_state()
+    app_context_holder.app_context = click.get_current_context()
 
 
 @_commands_registration.before
