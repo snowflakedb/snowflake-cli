@@ -3,6 +3,7 @@ import requests
 import sys
 import base64
 from urllib.parse import urlparse
+from click import ClickException
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
@@ -51,7 +52,7 @@ class RegistryManager(SqlExecutionMixin):
         resp = requests.get(login_url, headers={"Authorization": f"Basic {creds}"})
 
         if resp.status_code != 200:
-            raise ClickException(f"Failed to login to the repository  {resp.text}")
+            raise ClickException(f"Failed to login to the repository {resp.text}")
 
         return json.loads(resp.text)["token"]
 
@@ -66,6 +67,7 @@ class RegistryManager(SqlExecutionMixin):
             use schema {schema};
             show image repositories like '{repo_name}';
             """
+
         return self._execute_query(registry_query)
 
     def get_repository_url(self, repo_name):
@@ -82,11 +84,12 @@ class RegistryManager(SqlExecutionMixin):
             sys.exit(1)
         else:
             if len(results) > 1:
-                raise Exception(f"Found more than one repositories with name {repo_name}. This is unexpected.")
+                raise Exception(
+                    f"Found more than one repositories with name {repo_name}. This is unexpected."
+                )
 
         return f"https://{results[0][4]}"
 
-    
     def get_repository_api_url(self, repo_url):
         """
         Converts a repo URL to a registry OCI API URL.
