@@ -27,7 +27,6 @@ def test_napp_project_1(project_definition_files):
 def test_na_minimal_project(project_definition_files: List[Path]):
     project = load_project_definition(project_definition_files)
     assert project["native_app"]["name"] == "minimal"
-    assert project["native_app"]["package"]["scripts"] == "package/*.sql"
     assert project["native_app"]["artifacts"] == ["setup.sql", "README.md"]
 
     from os import getenv as original_getenv

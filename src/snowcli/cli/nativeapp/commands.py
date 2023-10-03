@@ -82,16 +82,15 @@ def app_run(
     **options,
 ) -> CommandResult:
     """
-    Creates an application package in your Snowflake account and uploads code files to its stage.
-    As a note, this command does not accept role or warehouse overrides to your config.toml file,
-    because your native app definition in snowflake.yml/snowflake.local.yml is used for any overrides.
+    Creates an application package in your Snowflake account, uploads code files to its stage,
+    then creates a development-mode instance of that application. As a note, this command does not
+    accept role or warehouse overrides to your config.toml file, because your native app definition
+    in snowflake.yml/snowflake.local.yml is used for any overrides.
     """
     manager = NativeAppManager(project_path)
     manager.build_bundle()
     manager.app_run()
-    return MessageResult(
-        f"Application Package is now active in your Snowflake account!"
-    )
+    return MessageResult(f'Your application ("{manager.app_name}") is now live!')
 
 
 @app.command("teardown")
