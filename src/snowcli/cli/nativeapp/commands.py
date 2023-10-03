@@ -112,8 +112,13 @@ def app_open(
     Assumes that the application has been deployed.
     """
     manager = NativeAppManager(project_path)
-    typer.launch(manager.get_snowsight_url())
-    return MessageResult(f"Application opened in browser.")
+    if manager.app_exists():
+        typer.launch(manager.get_snowsight_url())
+        return MessageResult(f"Application opened in browser.")
+    else:
+        return MessageResult(
+            'Application not yet deployed! Please run "snow app run" first.'
+        )
 
 
 @app.command("teardown")

@@ -315,6 +315,14 @@ class NativeAppManager(SqlExecutionMixin):
                 """,
             )
 
+    def app_exists(self) -> bool:
+        """Returns True iff the application exists on Snowflake."""
+        with self.use_role(self.app_role):
+            show_app_cursor = self._execute_query(
+                f"show applications like '{self.app_name}'", cursor_class=DictCursor
+            )
+            return show_app_cursor.rowcount != 0
+
     def app_run(self) -> None:
         """
         Implementation of the "snow app run" dev command.
