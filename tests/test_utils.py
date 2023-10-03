@@ -6,7 +6,7 @@ from distutils.dir_util import copy_tree
 from pathlib import Path, PosixPath
 from requirements.requirement import Requirement
 import typer
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, mock_open
 from zipfile import ZipFile
 
 from snowcli import utils
@@ -264,11 +264,24 @@ def test_standard_zip_dir_with_env_variable(
     assert Path(temp_file_in_other_directory).name in zip_file.namelist()
 
 
-def test_get_snowflake_packages(temp_dir, correct_requirements_snowflake_txt):
-
-    result = utils.get_snowflake_packages()
-
-    assert result == test_data.requirements
+@pytest.mark.parametrize(
+    "contents, expected",
+    [
+        (
+            """pytest==1.0.0\nDjango==3.2.1\nawesome_lib==3.3.3""",
+            ["pytest==1.0.0", "Django==3.2.1", "awesome_lib==3.3.3"],
+        ),
+        ("""toml # some-comment""", ["toml"]),
+        ("", []),
+        ("""some-package==1.2.3#incorrect_comment""", ["some-package==1.2.3"]),
+    ],
+)
+def test_get_packages(contents, expected, correct_requirements_snowflake_txt):
+    with patch("builtins.open", mock_open(read_data=contents)) as mock_file:
+        mock_file.return_value.__iter__.return_value = contents.splitlines()
+        result = utils.get_snowflake_packages()
+    mock_file.assert_called_with("requirements.snowflake.txt", encoding="utf-8")
+    assert result == expected
 
 
 def test_get_snowflake_packages_delta(temp_dir, correct_requirements_snowflake_txt):
