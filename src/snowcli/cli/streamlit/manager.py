@@ -5,7 +5,7 @@ import typer
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.cursor import SnowflakeCursor, DictCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.snowpark_shared import snowpark_package
@@ -14,6 +14,8 @@ from snowcli.utils import (
     generate_streamlit_environment_file,
     generate_streamlit_package_wrapper,
 )
+from snowcli.cli.connection.util import get_account, get_deployment
+from snowcli.cli.project.util import identifier_as_part
 
 log = logging.getLogger(__name__)
 
@@ -95,11 +97,7 @@ class StreamlitManager(SqlExecutionMixin):
         qualified_name = self.qualified_name(streamlit_name)
         streamlit_stage_name = f"snow://streamlit/{qualified_name}/default_checkout"
         stage_manager.put(str(file), streamlit_stage_name, 4, True)
-        query_result = self._execute_query(
-            f"call SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('{streamlit_name}')"
-        )
-        base_url = query_result.fetchone()[0]
-        url = self._get_url(base_url, qualified_name)
+        url = self._get_url(streamlit_name)
 
         if open_in_browser:
             typer.launch(url)
@@ -146,33 +144,30 @@ class StreamlitManager(SqlExecutionMixin):
         if env_file:
             stage_manager.put(str(env_file), stage_name, 4, True)
 
-    def _get_url(self, base_url: str, qualified_name: str) -> str:
-        connection = self._conn
-
-        if not connection.host:
-            return base_url
-
-        host_parts = connection.host.split(".")
-
-        if len(host_parts) == 3:
-            return base_url
-
-        if len(host_parts) != 6:
-            log.error(
-                f"The connection host ({connection.host}) was missing or not in "
-                "the expected format "
-                "(<account>.<deployment>.snowflakecomputing.com)"
+    def _get_url(self, streamlit_name: str) -> str:
+        try:
+            cursor = self._execute_query(
+                f"select system$get_snowsight_host()",
+                cursor_class=DictCursor,
             )
-            raise typer.Exit()
-        else:
-            account_name = host_parts[0]
-            deployment = ".".join(host_parts[1:4])
+            snowsight_host = cursor.fetchone()["SYSTEM$GET_SNOWSIGHT_HOST()"]
+        except:
+            # if we cannot determine the host, assume we're on prod
+            snowsight_host = "https://app.snowflake.com"
 
-        snowflake_host = connection.host or "app.snowflake.com"
+        deployment = get_deployment(self._conn)
+        account = get_account(self._conn)
         return (
-            f"https://{snowflake_host}/{deployment}/{account_name}/"
-            f"#/streamlit-apps/{qualified_name.upper()}"
+            f"https://{snowsight_host}/{deployment}/{account}/"
+            f"#/streamlit-apps/{self.qualified_name_for_url(streamlit_name)}"
         )
 
     def qualified_name(self, object_name: str):
         return f"{self._conn.database}.{self._conn.schema}.{object_name}"
+
+    def qualified_name_for_url(self, object_name: str):
+        return (
+            f"{identifier_as_part(self._conn.database)}."
+            f"{identifier_as_part(self._conn.schema)}."
+            f"{identifier_as_part(object_name)}"
+        )
