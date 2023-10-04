@@ -15,4 +15,9 @@
 * If only one connection is configured, will be used as default
 * Fixed registry token connection issues
 * Fixes in commands belonging to `snow snowpark compute-pool` and `snow snowpark services` groups
-* Removed duplicated short option names in a few commands
+* Removed duplicated short option names in a few commands by:
+  * Removing `-p` short option for `--password` option for all commands (backward incompatibility affecting all the commands using a connection) (it was conflicting with various options in a few commands)
+  * Removing `-a` short option for `--replace-always` in `snow snowpark function update` command (it was conflicting with short version of `--check-anaconda-for-pypi-deps`)
+  * Removing `-c` short option for `--compute-pool` in `snow snowpark jobs create` (it was conflicting with short version of global `--connection` option)
+  * Removing `-c` short option for `--container-name` in `snow snowpark jobs logs` (it was conflicting with short version of global `--connection` option)
+* Fixed parsing of specs yaml in `snow snowpark services create` command
