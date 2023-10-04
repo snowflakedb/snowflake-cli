@@ -4,6 +4,9 @@
 * Removed short version `-p` of `--password` option.
 
 ## New additions
+* Added commands:
+  * `snow snowpark registry list-images`
+  * `snow snowpark registry list-tags`
 
 ## Fixes and improvements
 * Too long texts in table cells are now wrapped instead of cropped
