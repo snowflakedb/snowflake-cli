@@ -68,13 +68,13 @@ def list_images(
         else:
             query = None
 
-    message = "Images in this repository:\n\n"
+    images = []
     for repo in repos:
         prefix = f"{database}/{schema}/{repo_name}/"
         repo = repo.replace("baserepo/", prefix)
-        message = f"{message}{repo}\n"
+        images.append({"image": repo})
 
-    return MessageResult(message)
+    return CollectionResult(images)
 
 
 @app.command("list-tags")
