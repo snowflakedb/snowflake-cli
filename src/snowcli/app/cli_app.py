@@ -46,6 +46,11 @@ class AppContextHolder:
 app_context_holder = AppContextHolder()
 
 
+def _exit_with_cleanup():
+    _commands_registration.reset_running_instance_registration_state()
+    raise typer.Exit()
+
+
 def _do_not_execute_on_completion(callback):
     def enriched_callback(value):
         if click.get_current_context().resilient_parsing:
@@ -81,7 +86,7 @@ def _docs_callback(value: bool):
     if value:
         ctx = click.get_current_context()
         generate_docs(Path("gen_docs"), ctx.command)
-        raise typer.Exit()
+        _exit_with_cleanup()
 
 
 @_do_not_execute_on_completion
@@ -90,14 +95,23 @@ def _commands_structure_callback(value: bool):
     if value:
         ctx = click.get_current_context()
         generate_commands_structure(ctx.command).print()
-        raise typer.Exit()
+        _exit_with_cleanup()
 
 
 @_do_not_execute_on_completion
 def _version_callback(value: bool):
     if value:
         typer.echo(f"SnowCLI Version: {__about__.VERSION}")
-        raise typer.Exit()
+        _exit_with_cleanup()
+
+
+@_do_not_execute_on_completion
+@_commands_registration.after
+def _options_structure_callback(value: bool):
+    if value:
+        ctx = click.get_current_context()
+        generate_commands_structure(ctx.command).print_with_options()
+        _exit_with_cleanup()
 
 
 @_do_not_execute_on_completion
@@ -110,7 +124,7 @@ def _info_callback(value: bool):
             ],
         )
         print_result(result, output_format=OutputFormat.JSON)
-        raise typer.Exit()
+        _exit_with_cleanup()
 
 
 @app.callback()
@@ -136,6 +150,14 @@ def default(
         hidden=True,
         help="Prints Snowflake CLI structure of commands",
         callback=_commands_structure_callback,
+        is_eager=True,
+    ),
+    options_structure: bool = typer.Option(
+        None,
+        "--options-structure",
+        hidden=True,
+        help="Prints options for all commands",
+        callback=_options_structure_callback,
         is_eager=True,
     ),
     info: bool = typer.Option(
