@@ -157,6 +157,7 @@ def test_get_default_connection_from_config(config_content, expect):
         with open(config_path, "w+") as config:
             config.write(config_content)
             config.flush()
+            os.chmod(config_path, 0o700)
 
             config_init(config_path)
             result = get_default_connection()
@@ -183,7 +184,8 @@ def test_if_default_connection_in_env_variable_overrides_config(
         with open(config_path, "w+") as config:
             config.write(config_content)
             config.flush()
+            os.chmod(config_path, 0o700)
 
-    config_init(config_path)
-    result = get_default_connection()
-    assert result == "conn1234"
+            config_init(config_path)
+            result = get_default_connection()
+            assert result == "conn1234"
