@@ -33,29 +33,25 @@ class StreamlitManager(SqlExecutionMixin):
         self,
         streamlit_name: str,
         file: Path,
-        from_stage: str,
+        stage: str,
         use_packaging_workaround: bool,
     ) -> SnowflakeCursor:
         connection = self._conn
-        if from_stage:
-            standard_page_name = StageManager.get_standard_stage_name(from_stage)
-            from_stage_command = f"FROM {standard_page_name}"
-        else:
-            from_stage_command = ""
+        standard_page_name = StageManager.get_standard_stage_name(stage)
         main_file = (
             "streamlit_app_launcher.py" if use_packaging_workaround else file.name
         )
 
         return self._execute_query(
             f"""
-            create streamlit {streamlit_name}
-            {from_stage_command}
+            CREATE STREAMLIT {streamlit_name}
+            ROOT_LOCATION = '{standard_page_name}'
             MAIN_FILE = '{main_file}'
-            QUERY_WAREHOUSE = {connection.warehouse};
-
-            alter streamlit {streamlit_name} checkout;
         """
         )
+
+    def checkout(self, streamlit_name: str):
+        return self._execute_query(f"alter streamlit {streamlit_name} checkout;")
 
     def share(self, streamlit_name: str, to_role: str) -> SnowflakeCursor:
         return self._execute_query(

@@ -3,7 +3,7 @@ import typer
 from pathlib import Path
 from typing import Optional
 
-from snowcli.cli.common.decorators import global_options_with_connection
+from snowcli.cli.common.decorators import global_options_with_connection, global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.streamlit.manager import StreamlitManager
 from snowcli.output.decorators import with_output
@@ -20,6 +20,7 @@ from snowcli.output.types import (
     MessageResult,
     MultipleResults,
 )
+from snowcli.utils import create_project_template
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -27,6 +28,22 @@ app = typer.Typer(
     help="Manages Streamlit in Snowflake.",
 )
 log = logging.getLogger(__name__)
+
+
+@app.command("init")
+@with_output
+@global_options
+def streamlit_init(
+    project_name: str = typer.Argument(
+        "example_streamlit", help="Name of the streamlit project you want to create."
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Initializes this directory with a sample set of files for creating a streamlit dashboard.
+    """
+    create_project_template("default_streamlit", project_directory=project_name)
+    return MessageResult(f"Initialized the new project in {project_name}/")
 
 
 @app.command("list")
@@ -66,10 +83,8 @@ def streamlit_create(
     name: str = typer.Argument(..., help="Name of streamlit to create."),
     file: Path = typer.Option(
         "streamlit_app.py",
-        exists=True,
-        readable=True,
         file_okay=True,
-        help="Path to the Streamlit Python application (`streamlit_app.py`) file.",
+        help="Path on stage to the main file of Streamlit application.",
     ),
     from_stage: Optional[str] = typer.Option(
         None,
@@ -84,13 +99,20 @@ def streamlit_create(
     """
     Creates a new Streamlit application object in Snowflake. The streamlit is created in database and schema configured in the connection.
     """
-    cursor = StreamlitManager().create(
+    sm = StreamlitManager()
+    results = MultipleResults()
+    create_result = sm.create(
         streamlit_name=name,
         file=file,
-        from_stage=from_stage,
+        stage=from_stage,
         use_packaging_workaround=use_packaging_workaround,
     )
-    return SingleQueryResult(cursor)
+    results.add(SingleQueryResult(create_result))
+
+    checkout_result = sm.checkout(streamlit_name=name)
+    results.add(SingleQueryResult(checkout_result))
+
+    return results
 
 
 @app.command("share")

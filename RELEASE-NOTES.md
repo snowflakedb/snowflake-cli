@@ -16,8 +16,10 @@
 
 ## New additions
 * `--temporary-connection` flag, that allows you to connect, without anything declared in config file
+* `snow streamlit init` command that creates a new streamlit project.
 
 ## Fixes and improvements
+* Adjust streamlit commands to PuPr syntax
 * Too long texts in table cells are now wrapped instead of cropped
 * Split global options into separate section in `help`
 * Avoiding unnecessary replace in function/procedure update
