@@ -138,7 +138,8 @@ def test_deploy_streamlit(
 ):
     ctx = mock_ctx(
         mock_cursor(
-            rows=["snowflake.com"], columns=["SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME"]
+            rows=[{"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"}],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
         )
     )
     mock_connector.return_value = ctx
@@ -149,10 +150,7 @@ def test_deploy_streamlit(
         )
 
         assert result.exit_code == 0, result.output
-        assert (
-            ctx.get_query()
-            == f"call SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('{STREAMLIT_NAME}')"
-        )
+        assert ctx.get_query() == f"select system$get_snowsight_host()"
         mock_stage_manager().put.assert_called_once_with(
             file.name,
             f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout",
@@ -160,7 +158,7 @@ def test_deploy_streamlit(
             True,
         )
         mock_typer.launch.assert_called_once_with(
-            f"https://account.test.region.aws.snowflakecomputing.com/test.region.aws/account/#/streamlit-apps/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}"
+            f"https://snowsight.domain/test.region.aws/account/#/streamlit-apps/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}"
         )
 
 
@@ -178,7 +176,8 @@ def test_deploy_streamlit_with_packaging_workaround(
 ):
     ctx = mock_ctx(
         mock_cursor(
-            rows=["snowflake.com"], columns=["SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME"]
+            rows=[{"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"}],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
         )
     )
     mock_connector.return_value = ctx
@@ -196,10 +195,7 @@ def test_deploy_streamlit_with_packaging_workaround(
         )
 
         assert result.exit_code == 0, result.output
-        assert (
-            ctx.get_query()
-            == f"call SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('{STREAMLIT_NAME}')"
-        )
+        assert ctx.get_query() == f"select system$get_snowsight_host()"
         mock_snowpark_package.assert_called_once_with("ask", True, "ask")
 
         mock_stage_manager().put.assert_has_calls(
