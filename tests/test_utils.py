@@ -274,6 +274,11 @@ def test_standard_zip_dir_with_env_variable(
         ("""toml # some-comment""", ["toml"]),
         ("", []),
         ("""some-package==1.2.3#incorrect_comment""", ["some-package==1.2.3"]),
+        ("""#only comment here""", []),
+        (
+            """pytest==1.0\n# comment\nawesome_lib==3.3.3""",
+            ["pytest==1.0", "awesome_lib==3.3.3"],
+        ),
     ],
 )
 def test_get_packages(contents, expected, correct_requirements_snowflake_txt):

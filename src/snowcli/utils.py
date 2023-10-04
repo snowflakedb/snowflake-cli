@@ -536,7 +536,7 @@ def get_list_of_files_to_pack(
 def get_snowflake_packages() -> List[str]:
     if os.path.exists("requirements.snowflake.txt"):
         with open("requirements.snowflake.txt", encoding="utf-8") as f:
-            return [line.split("#")[0].strip() for line in f]
+            return [req for line in f if (req := line.split("#")[0].strip())]
     else:
         return []
 
