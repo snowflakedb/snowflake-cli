@@ -2,6 +2,7 @@ import logging
 import typer
 from click.exceptions import ClickException
 from snowflake.connector import SnowflakeConnection
+from snowflake.connector.cursor import DictCursor
 
 LOCAL_DEPLOYMENT: str = "us-west-2"
 
@@ -47,3 +48,19 @@ def get_account(conn: SnowflakeConnection) -> str:
 
     host_parts = conn.host.split(".")
     return host_parts[0]
+
+
+def make_snowsight_url(conn: SnowflakeConnection, path: str) -> str:
+    """Returns a URL on the correct Snowsight instance for the connected account."""
+    try:
+        *_, cursor = conn.execute_string(
+            f"select system$get_snowsight_host()", cursor_class=DictCursor
+        )
+        snowsight_host = cursor.fetchone()["SYSTEM$GET_SNOWSIGHT_HOST()"]
+    except Exception as e:
+        # if we cannot determine the host, assume we're on prod
+        snowsight_host = "https://app.snowflake.com"
+
+    deployment = get_deployment(conn)
+    account = get_account(conn)
+    return f"{snowsight_host}/{deployment}/{account}/{path}"

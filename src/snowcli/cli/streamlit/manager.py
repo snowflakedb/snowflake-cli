@@ -5,7 +5,7 @@ import typer
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from snowflake.connector.cursor import SnowflakeCursor, DictCursor
+from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.snowpark_shared import snowpark_package
@@ -14,7 +14,7 @@ from snowcli.utils import (
     generate_streamlit_environment_file,
     generate_streamlit_package_wrapper,
 )
-from snowcli.cli.connection.util import get_account, get_deployment
+from snowcli.cli.connection.util import make_snowsight_url
 from snowcli.cli.project.util import identifier_as_part
 
 log = logging.getLogger(__name__)
@@ -145,21 +145,9 @@ class StreamlitManager(SqlExecutionMixin):
             stage_manager.put(str(env_file), stage_name, 4, True)
 
     def _get_url(self, streamlit_name: str) -> str:
-        try:
-            cursor = self._execute_query(
-                f"select system$get_snowsight_host()",
-                cursor_class=DictCursor,
-            )
-            snowsight_host = cursor.fetchone()["SYSTEM$GET_SNOWSIGHT_HOST()"]
-        except:
-            # if we cannot determine the host, assume we're on prod
-            snowsight_host = "https://app.snowflake.com"
-
-        deployment = get_deployment(self._conn)
-        account = get_account(self._conn)
-        return (
-            f"https://{snowsight_host}/{deployment}/{account}/"
-            f"#/streamlit-apps/{self.qualified_name_for_url(streamlit_name)}"
+        return make_snowsight_url(
+            self._conn,
+            f"#/streamlit-apps/{self.qualified_name_for_url(streamlit_name)}",
         )
 
     def qualified_name(self, object_name: str):

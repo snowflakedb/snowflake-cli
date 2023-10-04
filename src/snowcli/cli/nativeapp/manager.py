@@ -35,7 +35,7 @@ from snowcli.cli.nativeapp.artifacts import (
     translate_artifact,
     ArtifactMapping,
 )
-from snowcli.cli.connection.util import get_account, get_deployment
+from snowcli.cli.connection.util import make_snowsight_url
 
 from snowflake.connector.cursor import DictCursor
 
@@ -373,21 +373,8 @@ class NativeAppManager(SqlExecutionMixin):
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
-
-        try:
-            cursor = self._execute_query(
-                f"select system$get_snowsight_host()",
-                cursor_class=DictCursor,
-            )
-            snowsight_host = cursor.fetchone()["SYSTEM$GET_SNOWSIGHT_HOST()"]
-        except:
-            # if we cannot determine the host, assume we're on prod
-            snowsight_host = "https://app.snowflake.com"
-
-        deployment = get_deployment(self._conn)
-        account = get_account(self._conn)
         name = identifier_as_part(self.app_name.upper())
-        return f"{snowsight_host}/{deployment}/{account}/#/apps/application/{name}"
+        return make_snowsight_url(self._conn, f"/#/apps/application/{name}")
 
     def drop_object(
         self,
