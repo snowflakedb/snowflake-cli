@@ -58,17 +58,20 @@ def get_account(conn: SnowflakeConnection) -> str:
     return host_parts[0]
 
 
-def make_snowsight_url(conn: SnowflakeConnection, path: str) -> str:
-    """Returns a URL on the correct Snowsight instance for the connected account."""
+def get_snowsight_host(conn: SnowflakeConnection) -> str:
     try:
         *_, cursor = conn.execute_string(
             f"select system$get_snowsight_host()", cursor_class=DictCursor
         )
-        snowsight_host = cursor.fetchone()["SYSTEM$GET_SNOWSIGHT_HOST()"]
+        return cursor.fetchone()["SYSTEM$GET_SNOWSIGHT_HOST()"]
     except Exception as e:
         # if we cannot determine the host, assume we're on prod
-        snowsight_host = "https://app.snowflake.com"
+        return "https://app.snowflake.com"
 
+
+def make_snowsight_url(conn: SnowflakeConnection, path: str) -> str:
+    """Returns a URL on the correct Snowsight instance for the connected account."""
+    snowsight_host = get_snowsight_host(conn)
     deployment = get_deployment(conn)
     account = get_account(conn)
     path_with_slash = path if path.startswith("/") else f"/{path}"
