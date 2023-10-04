@@ -126,9 +126,9 @@ def list_tags(
         else:
             query = None
 
-    tags_messages = []
+    tags_list = []
     for tag in tags:
         image_tag = f"{image_name}:{tag}"
-        tags_message.append({"tag": image_tag})
+        tags_list.append({"tag": image_tag})
 
-    return CollectionResult(tag_messages)
+    return CollectionResult(tags_list)
