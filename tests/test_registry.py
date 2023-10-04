@@ -71,7 +71,6 @@ def test_list_images(
 
     list_images(repo_name="IMAGES")
     captured = capsys.readouterr()
-    print(captured.out)
     assert "DB/SCHEMA/IMAGES/super-cool-repo" in captured.out
 
 
@@ -126,5 +125,4 @@ def test_list_tags(
 
     list_tags(repo_name="IMAGES", image_name="DB/SCHEMA/IMAGES/super-cool-repo")
     captured = capsys.readouterr()
-    print(captured.out)
     assert "DB/SCHEMA/IMAGES/super-cool-repo" in captured.out
