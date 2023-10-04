@@ -569,9 +569,11 @@ def test_app_does_not_exist(mock_execute, temp_dir, mock_cursor):
 @mock.patch("snowcli.cli.connection.util.get_deployment")
 @mock.patch("snowcli.cli.connection.util.get_account")
 @mock.patch("snowcli.cli.connection.util.get_snowsight_host")
+@mock.patch("snowcli.cli.common.snow_cli_global_context.connect_to_snowflake")
 def test_get_snowsight_url(
-    mock_snowsight_host, mock_account, mock_deployment, temp_dir
+    mock_conn, mock_snowsight_host, mock_account, mock_deployment, temp_dir
 ):
+    mock_conn.return_value = None
     mock_snowsight_host.return_value = "https://host"
     mock_deployment.return_value = "deployment"
     mock_account.return_value = "account"
