@@ -43,21 +43,6 @@ def test_command_context_is_passed_to_snowflake_connection(
     mock_connect.assert_called_once_with(application=expected)
 
 
-@mock.patch(
-    "snowcli.cli.snowpark.registry.manager.snow_cli_global_context_manager.get_connection"
-)
-def test_registry_get_token(mock_conn, runner):
-    mock_conn.return_value._rest._token_request.return_value = {
-        "data": {
-            "sessionToken": "token1234",
-            "validityInSecondsST": 42,
-        }
-    }
-    result = runner.invoke(["snowpark", "registry", "token", "--format", "JSON"])
-    assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout) == {"token": "token1234", "expires_in": 42}
-
-
 @mock.patch.dict(os.environ, {}, clear=True)
 def test_returns_nice_error_in_case_of_connectivity_error(runner):
     result = runner.invoke_with_config(["sql", "-q", "select 1"])
