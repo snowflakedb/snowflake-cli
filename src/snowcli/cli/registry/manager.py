@@ -78,7 +78,7 @@ class RegistryManager(SqlExecutionMixin):
 
         results = result_set.fetchall()
         if len(results) == 0:
-raise ClickException(
+            raise ClickException(
                 f"Specified repository name {repo_name} not found in database {database} and schema {schema}"
             )
         else:
