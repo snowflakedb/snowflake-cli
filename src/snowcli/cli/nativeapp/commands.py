@@ -108,8 +108,8 @@ def app_open(
     **options,
 ) -> CommandResult:
     """
-    Opens the deployed application inside of your browser.
-    Assumes that the application has been deployed.
+    Opens the (development mode) application inside of your browser,
+    once it has been installed in your account.
     """
     manager = NativeAppManager(project_path)
     if manager.app_exists():
