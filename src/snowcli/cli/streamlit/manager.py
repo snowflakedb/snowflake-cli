@@ -14,7 +14,7 @@ from snowcli.utils import (
     generate_streamlit_environment_file,
     generate_streamlit_package_wrapper,
 )
-from snowcli.cli.connection.util import make_snowsight_url
+from snowcli.cli.connection.util import make_snowsight_url, MissingConnectionHostError
 from snowcli.cli.project.util import identifier_as_part
 
 log = logging.getLogger(__name__)
@@ -145,10 +145,17 @@ class StreamlitManager(SqlExecutionMixin):
             stage_manager.put(str(env_file), stage_name, 4, True)
 
     def _get_url(self, streamlit_name: str) -> str:
-        return make_snowsight_url(
-            self._conn,
-            f"#/streamlit-apps/{self.qualified_name_for_url(streamlit_name)}",
-        )
+        try:
+            return make_snowsight_url(
+                self._conn,
+                f"/#/streamlit-apps/{self.qualified_name_for_url(streamlit_name)}",
+            )
+        except MissingConnectionHostError as e:
+            print(str(e))
+            print(self._conn.host)
+            print(self._conn._host)
+            # FIXME: REMOVE THIS
+            return "https://app.snowflake.com"
 
     def qualified_name(self, object_name: str):
         return f"{self._conn.database}.{self._conn.schema}.{object_name}"
