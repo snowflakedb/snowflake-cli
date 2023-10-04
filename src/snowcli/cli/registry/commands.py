@@ -7,7 +7,7 @@ from typing import Optional
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.output.decorators import with_output
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
-from snowcli.output.types import MessageResult, ObjectResult
+from snowcli.output.types import CollectionResult, ObjectResult
 from snowcli.cli.registry.manager import RegistryManager
 
 app = typer.Typer(
@@ -20,7 +20,7 @@ app = typer.Typer(
 @app.command("token")
 @global_options_with_connection
 @with_output
-def token(**options):
+def token(**options) -> ObjectResult:
     """
     Gets the token from environment to use for authenticating with the registry.
     """
@@ -38,7 +38,7 @@ def list_images(
         help="Name of the image repository as seen in `show image repositories`",
     ),
     **options,
-) -> MessageResult:
+) -> CollectionResult:
     registry_manager = RegistryManager()
     database = registry_manager.get_database()
     schema = registry_manager.get_schema()
@@ -56,7 +56,7 @@ def list_images(
         )
 
         if response.status_code != 200:
-            return MessageResult(f"Call to the registry failed {response.text}")
+            return CollectionResult({"error": f"Call to the registry failed {response.text}"})
 
         data = json.loads(response.text)
         if "repositories" in data:
@@ -94,7 +94,7 @@ def list_tags(
         help="Name of the image as shown in the output of list-images",
     ),
     **options,
-) -> MessageResult:
+) -> CollectionResult:
 
     registry_manager = RegistryManager()
     url = registry_manager.get_repository_url(repo_name)
@@ -126,8 +126,9 @@ def list_tags(
         else:
             query = None
 
-    message = "Tags for this image:\n\n"
+    tags_messages = []
     for tag in tags:
-        message = f"{message}{image_name}:{tag}\n"
+        image_tag = f"{image_name}:{tag}"
+        tags_message.append("tag": image_tag})
 
-    return MessageResult(message)
+    return CollectionResult(tag_messages)
