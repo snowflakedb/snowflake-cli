@@ -21,7 +21,9 @@ class MissingConnectionHostError(ClickException):
 def get_deployment(conn: SnowflakeConnection) -> str:
     """
     Determines the deployment this connection refers to; useful
-    to generate URLs that point to Snowsight.
+    to generate URLs that point to Snowsight. If there is not enough
+    information to determine the deployment, we return the organization
+    name instead, as this can be used in production Snowsight.
     """
     if not conn.host:
         raise MissingConnectionHostError(conn)
@@ -30,10 +32,16 @@ def get_deployment(conn: SnowflakeConnection) -> str:
     if host_parts[-1] == "local":
         return LOCAL_DEPLOYMENT
 
-    if len(host_parts) != 6:
-        raise MissingConnectionHostError(conn)
+    if len(host_parts) == 6:
+        return ".".join(host_parts[1:4])
 
-    return ".".join(host_parts[1:4])
+    try:
+        *_, cursor = conn.execute_string(
+            f"select system$return_current_org_name()", cursor_class=DictCursor
+        )
+        return cursor.fetchone()["SYSTEM$RETURN_CURRENT_ORG_NAME()"]
+    except Exception as e:
+        raise MissingConnectionHostError(conn)
 
 
 def get_account(conn: SnowflakeConnection) -> str:
