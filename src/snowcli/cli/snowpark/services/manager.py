@@ -31,9 +31,7 @@ class ServiceManager(SqlExecutionMixin):
 
     def _read_yaml(self, path: Path) -> str:
         # TODO(aivanou): Add validation towards schema
-        with open(path, "r") as content:
-            spec_obj = strictyaml.load(content)
-            return json.dumps(spec_obj)
+        return json.dumps(strictyaml.load(Path(path).read_text()).data)
 
     def desc(self, service_name: str) -> SnowflakeCursor:
         return self._execute_schema_query(f"desc service {service_name}")
