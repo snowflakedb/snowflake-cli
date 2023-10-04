@@ -16,3 +16,4 @@
 * Fixed registry token connection issues
 * Fixes in commands belonging to `snow snowpark compute-pool` and `snow snowpark services` groups
 * Removed duplicated short option names in a few commands
+* Fixed parsing of specs yaml in `snow snowpark services create` command
