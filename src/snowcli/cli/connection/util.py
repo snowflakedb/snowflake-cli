@@ -63,4 +63,5 @@ def make_snowsight_url(conn: SnowflakeConnection, path: str) -> str:
 
     deployment = get_deployment(conn)
     account = get_account(conn)
-    return f"{snowsight_host}/{deployment}/{account}/{path}"
+    path_with_slash = path if path.startswith("/") else f"/{path}"
+    return f"{snowsight_host}/{deployment}/{account}{path_with_slash}"
