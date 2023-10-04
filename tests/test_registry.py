@@ -4,11 +4,10 @@ from tests.testing_utils.fixtures import *
 from snowcli.cli.registry.manager import RegistryManager
 from snowcli.cli.registry.commands import list_images, list_tags
 
-@mock.patch(
-    "snowcli.cli.registry.manager.RegistryManager._conn"
-)
+
+@mock.patch("snowcli.cli.registry.manager.RegistryManager._conn")
 @mock.patch("snowcli.cli.registry.manager.RegistryManager._execute_query")
-def test_registry_get_token_2(mock_execute, mock_conn, mock_cursor,  runner):
+def test_registry_get_token_2(mock_execute, mock_conn, mock_cursor, runner):
     mock_execute.return_value = mock_cursor(
         ["row"], ["Statement executed successfully"]
     )
