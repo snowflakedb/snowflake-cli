@@ -17,7 +17,7 @@ _CONNECTION_SECTION = "Connection configuration"
 _CLI_BEHAVIOUR = "Global configuration"
 
 ProjectDefinitionOption = typer.Option(
-    None,
+    getcwd(),
     "--project",
     "-p",
     help="Path where the Native Apps project resides. Defaults to current working directory",

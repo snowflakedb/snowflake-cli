@@ -81,7 +81,9 @@ def _options_decorator_factory(
     @wraps(func)
     def wrapper(**options):
         _execute_before_command()  # happens after Callbacks (in typer Option)
-        if schema:
+        if (
+            schema
+        ):  # Call get_definition_manager here while we have access to schema, and so that it is now cached for the rest of the command life.
             snow_cli_global_context_manager.load_definition_manager(schema)
         return func(**options)
 

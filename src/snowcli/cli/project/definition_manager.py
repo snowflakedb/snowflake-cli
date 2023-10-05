@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List
 import functools
 from typing import Optional
-from snowcli.exception import MissingConfiguration
+from snowcli.exception import MissingConfiguration, InvalidPathError
 from snowcli.cli.project.definition import load_project_definition
 
 
@@ -16,7 +16,21 @@ class DefinitionManager:
     project_root: Path
     _project_config_paths: List[Path]
 
-    def __init__(self, project_arg: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        project_arg: Optional[str] = None,
+        environment_override: Optional[str] = None,
+    ):
+        if environment_override:
+            self.init_without_environment_override(project_arg)
+        else:
+            self.init_with_environment_override(
+                str(project_arg), str(environment_override)
+            )
+
+    def init_without_environment_override(
+        self, project_arg: Optional[str] = None
+    ) -> None:
         search_path = os.getcwd()
         if project_arg:
             search_path = os.path.abspath(project_arg)
@@ -26,6 +40,36 @@ class DefinitionManager:
                 f"Cannot find project definition (snowflake.yml). Please provide a path to the project or run this command in a valid project directory."
             )
         self._project_config_paths = config_files
+
+    def init_with_environment_override(
+        self, project_path: str, environment_override: str
+    ) -> None:
+        project_root = Path(project_path)
+        if project_root.exists():
+            self.project_root = project_root
+        else:
+            raise InvalidPathError(
+                f"The path {project_path} does not exist. Please provide a valid path to the project or run this command in a valid project directory."
+            )
+
+        override_path = Path.joinpath(project_root, environment_override)
+        if not self._base_definition_file_if_available(override_path.parent):
+            raise MissingConfiguration(
+                f"Cannot find project definition (snowflake.yml) at {override_path.parent}. Please provide a valid path to the project or run this command in a valid project directory."
+            )
+        self._project_config_paths = [
+            override_path.parent / self.BASE_DEFINITION_FILENAME
+        ]
+
+        if override_path.name != self.BASE_DEFINITION_FILENAME:
+            if (
+                self._definition_if_available(override_path.name, override_path.parent)
+                is None
+            ):
+                raise MissingConfiguration(
+                    f"Cannot find project definition {override_path.name} at {override_path.parent}. Please provide a valid path to the project or run this command in a valid project directory."
+                )
+            self._project_config_paths.append(override_path)
 
     def _find_definition_files(self, project_path: Path) -> Optional[List[Path]]:
         """

@@ -115,7 +115,7 @@ def generic_render_template(
         print(rendered_result)
 
 
-many_to_one_mapping: dict = {
+connection_to_definition_mapping: dict = {
     "database": "database",
     "dbname": "database",
     "schema": "schema",

@@ -97,7 +97,7 @@ def app_run(
 @app.command("teardown")
 @with_output
 @global_options_with_connection
-@project_definition(schema="native_apps")
+@project_definition(schema="native_app")
 def app_teardown(
     **options,
 ) -> CommandResult:

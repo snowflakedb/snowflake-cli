@@ -11,6 +11,10 @@ class MissingConfiguration(ClickException):
     pass
 
 
+class InvalidPathError(ClickException):
+    pass
+
+
 class InvalidConnectionConfiguration(ClickException):
     def format_message(self):
         return f"Invalid connection configuration. {self.message}"

@@ -2,6 +2,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 
 from textwrap import dedent
+from functools import cached_property
 
 from snowflake.connector.errors import ProgrammingError
 from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
@@ -12,12 +13,12 @@ class SqlExecutionMixin:
     def __init__(self):
         pass
 
-    @property
+    @cached_property
     def _definition(self):
         # For use in Manager.py, you should be able to have full access to snowflake.yml, not limited to your own product
-        return snow_cli_global_context_manager.load_definition_manager()
+        return snow_cli_global_context_manager.get_definition_manager
 
-    @property
+    @cached_property
     def _conn(self):
         return snow_cli_global_context_manager.get_connection()
 

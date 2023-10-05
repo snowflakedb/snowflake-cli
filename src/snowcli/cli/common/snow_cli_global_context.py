@@ -1,8 +1,9 @@
 from copy import deepcopy
 from dataclasses import dataclass
+import functools
 from typing import Callable, Optional, Union
 from snowcli.cli.project.definition_manager import DefinitionManager
-from snowcli.cli.common.utils import many_to_one_mapping
+from snowcli.cli.common.utils import connection_to_definition_mapping
 
 from snowflake.connector import SnowflakeConnection
 
@@ -16,7 +17,7 @@ class ProjectDefinitionDetails:
     environment_override: Optional[str] = None
     definition_manager: DefinitionManager = None
 
-    def load_definition(self):
+    def get_definition_manager(self):
         from snowcli.cli.common.decorators import PROJECT_DEFINITION_OPTIONS
 
         for option in PROJECT_DEFINITION_OPTIONS:
@@ -26,7 +27,6 @@ class ProjectDefinitionDetails:
             else:
                 self.environment_override = getattr(self, override)
 
-        # Assume: Overload the DefinitionManager __init__ to accept both -p and -e args
         self.definition_manager = DefinitionManager(
             self.project_path, self.environment_override
         )
@@ -35,7 +35,7 @@ class ProjectDefinitionDetails:
     @staticmethod
     def _project_definition_update(param_name: str, value: str):
         def modifications(context: SnowCliGlobalContext) -> SnowCliGlobalContext:
-            setattr(context.project_definition, param_name, value)
+            setattr(context.project_definition_details, param_name, value)
             # In addition to setting the attribute, do I need to call self.load_definition here?
             return context
 
@@ -63,7 +63,7 @@ class ConnectionDetails:
     warehouse: Optional[str] = None
     temporary_connection: bool = False
 
-    def _resolve_connection_params(self, project_definition: dict):
+    def _resolve_connection_params(self, project_definition: Optional[dict]):
         from snowcli.cli.common.decorators import GLOBAL_CONNECTION_OPTIONS
 
         params = {}
@@ -72,15 +72,21 @@ class ConnectionDetails:
             override = option.name
             if override == "connection" or override == "temporary_connection":
                 continue
-            definition_override = project_definition[many_to_one_mapping[override]]
+
             override_value = getattr(self, override)
             if override_value is not None:
                 params[override] = override_value
-            elif definition_override is not None:
-                params[override] = definition_override
+            elif project_definition:
+                if (
+                    override in connection_to_definition_mapping
+                    and connection_to_definition_mapping[override] in project_definition
+                ):
+                    params[override] = project_definition[
+                        connection_to_definition_mapping[override]
+                    ]
         return params
 
-    def build_connection(self, project_definition: dict):
+    def build_connection(self, project_definition: Optional[dict]):
         return connect_to_snowflake(
             temporary_connection=self.temporary_connection,
             connection_name=self.connection_name,
@@ -111,7 +117,7 @@ class SnowCliGlobalContext:
 
     enable_tracebacks: bool
     connection: ConnectionDetails
-    project_definition: ProjectDefinitionDetails
+    project_definition_details: ProjectDefinitionDetails
     output_format: OutputFormat
     verbose: bool
 
@@ -161,8 +167,12 @@ class SnowCliGlobalContextManager:
         self._definition_schema_name = schema
         if force_rebuild or not self._cached_definition_manager:
             self._cached_definition_manager = (
-                self.get_global_context_copy().project_definition.load_definition()
+                self.get_global_context_copy().project_definition_details.get_definition_manager()
             )
+        return self._cached_definition_manager
+
+    @functools.cached_property
+    def get_definition_manager(self) -> DefinitionManager:
         return self._cached_definition_manager
 
     def get_connection(self, force_rebuild=False) -> SnowflakeConnection:
@@ -173,13 +183,10 @@ class SnowCliGlobalContextManager:
         case a new connector will be returned.
         """
         schema_definition = {}
-        if self._cached_definition_manager:
-            try:
-                schema_definition = self._cached_definition_manager.project_definition[
-                    self._definition_schema_name
-                ]
-            except:
-                pass
+        # self.get_definition_manager is not None at this point because self.load_definition_manager should have already been called from the decorator
+        schema_definition = self.get_definition_manager.project_definition.get(
+            self._definition_schema_name, None
+        )
 
         if force_rebuild or not self._cached_connector:
             self._cached_connector = (
@@ -200,7 +207,7 @@ def _create_snow_cli_global_context_manager_with_default_values() -> (
         SnowCliGlobalContext(
             enable_tracebacks=True,
             connection=ConnectionDetails(),
-            project_definition=ProjectDefinitionDetails(),
+            project_definition_details=ProjectDefinitionDetails(),
             output_format=OutputFormat.TABLE,
             verbose=False,
         )
