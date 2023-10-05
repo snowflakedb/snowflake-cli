@@ -174,6 +174,7 @@ def default(
     disable_external_command_plugins: bool = typer.Option(
         None,
         "--disable-external-command-plugins",
+        hidden=True,
         help="Disable external command plugins",
         callback=_disable_external_command_plugins_callback,
         is_eager=True,
