@@ -142,7 +142,7 @@ def mock_cursor():
 
 
 @pytest.fixture
-def other_directory() -> Generator:
+def other_directory():
     tmp_dir = tempfile.TemporaryDirectory()
     yield tmp_dir.name
     tmp_dir.cleanup()

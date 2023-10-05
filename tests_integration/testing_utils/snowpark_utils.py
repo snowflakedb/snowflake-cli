@@ -33,6 +33,8 @@ class TestType(Enum):
     FUNCTION = "function"
     PROCEDURE = "procedure"
 
+    __test__ = False
+
 
 class SnowparkTestSetup:
     def __init__(

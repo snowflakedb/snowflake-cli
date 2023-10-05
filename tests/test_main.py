@@ -4,12 +4,11 @@ from __future__ import annotations
 import json
 import typing as t
 
-import click
 from click import Command
 from typer.core import TyperArgument
-from typer.main import get_command
 
 from snowcli.__about__ import VERSION
+from snowcli.app.cli_app import app_context_holder
 from snowcli.config import cli_config
 from tests.testing_utils.fixtures import *
 
@@ -57,10 +56,11 @@ def test_info_callback(runner):
     ]
 
 
-def test_all_commands_has_proper_documentation():
-    from snowcli.app.cli_app import app
+def test_all_commands_has_proper_documentation(runner):
+    # invoke any command to populate app context (plugins registration)
+    runner.invoke("--help")
 
-    ctx = click.Context(get_command(app))
+    ctx = app_context_holder.app_context
     errors = []
 
     def _check(command: Command, path: t.Optional[t.List] = None):
