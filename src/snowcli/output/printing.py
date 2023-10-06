@@ -81,7 +81,7 @@ def print_structured(result: CommandResult):
     """Handles outputs like json, yml and other structured and parsable formats."""
     import json
 
-    return json.dump(result, sys.stdout, cls=CustomJSONEncoder)
+    print(json.dumps(result, cls=CustomJSONEncoder))
 
 
 def print_unstructured(obj: CommandResult | None):
