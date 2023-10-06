@@ -7,7 +7,7 @@ from snowcli.cli.registry.commands import list_images, list_tags
 
 @mock.patch("snowcli.cli.registry.manager.RegistryManager._conn")
 @mock.patch("snowcli.cli.registry.manager.RegistryManager._execute_query")
-def test_registry_get_token_2(mock_execute, mock_conn, mock_cursor, runner):
+def test_registry_get_token_2(mock_execute, mock_conn, mock_cursor, runner, snapshot):
     mock_execute.return_value = mock_cursor(
         ["row"], ["Statement executed successfully"]
     )
@@ -19,10 +19,7 @@ def test_registry_get_token_2(mock_execute, mock_conn, mock_cursor, runner):
     }
     result = runner.invoke(["registry", "token", "--format", "JSON"])
     assert result.exit_code == 0, result.output
-    assert (
-        result.stdout
-        == '{"token": "ekjnfrjnkerjknknerjknrekjnfjknjknrjkrejrfmq3i4r41rr4cr134r1", "expires_in": 42}'
-    )
+    assert result.stdout == snapshot
     assert json.loads(result.stdout) == {
         "token": "ekjnfrjnkerjknknerjknrekjnfjknjknrjkrejrfmq3i4r41rr4cr134r1",
         "expires_in": 42,

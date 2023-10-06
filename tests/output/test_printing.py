@@ -289,18 +289,18 @@ def test_print_with_no_data_table(capsys):
 
 def test_print_with_no_data_in_query_json(capsys, _empty_cursor):
     print_result(QueryResult(_empty_cursor()), output_format=OutputFormat.JSON)
-    assert _get_output(capsys) == "[]"
+    assert _get_output(capsys) == "[]\n"
 
 
 def test_print_with_no_data_in_single_value_query_json(capsys, _empty_cursor):
     print_result(SingleQueryResult(_empty_cursor()), output_format=OutputFormat.JSON)
-    assert _get_output(capsys) == "null"
+    assert _get_output(capsys) == "null\n"
 
 
 def test_print_with_no_response_json(capsys):
     print_result(None, output_format=OutputFormat.JSON)
 
-    assert _get_output(capsys) == "null"
+    assert _get_output(capsys) == "null\n"
 
 
 def _mock_output_format(mock_context, format):
