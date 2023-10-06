@@ -4,7 +4,7 @@ import sys
 from datetime import datetime
 from json import JSONEncoder
 from pathlib import Path
-from rich import box, print
+from rich import box, print, print_json
 from rich.live import Live
 from rich.table import Table
 from typing import Union
@@ -81,7 +81,7 @@ def print_structured(result: CommandResult):
     """Handles outputs like json, yml and other structured and parsable formats."""
     import json
 
-    print(json.dumps(result, cls=CustomJSONEncoder))
+    print_json(json.dumps(result, cls=CustomJSONEncoder))
 
 
 def print_unstructured(obj: CommandResult | None):

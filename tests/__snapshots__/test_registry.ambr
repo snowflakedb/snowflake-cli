@@ -1,8 +1,10 @@
 # serializer version: 1
 # name: test_registry_get_token_2
   '''
-  {"token": "ekjnfrjnkerjknknerjknrekjnfjknjknrjkrejrfmq3i4r41rr4cr134r1", 
-  "expires_in": 42}
+  {
+    "token": "ekjnfrjnkerjknknerjknrekjnfjknjknrjkrejrfmq3i4r41rr4cr134r1",
+    "expires_in": 42
+  }
   
   '''
 # ---
