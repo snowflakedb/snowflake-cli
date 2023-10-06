@@ -27,7 +27,7 @@ def token(**options) -> ObjectResult:
     """
     Gets the token from environment to use for authenticating with the registry. Example usage with docker:
 
-    snow snowpark registry token --format=JSON | docker login YOUR_HOST -u 0sessiontoken --password-stdin
+    snow registry token --format=JSON | docker login YOUR_HOST -u 0sessiontoken --password-stdin
 
     """
     return ObjectResult(RegistryManager().get_token())
