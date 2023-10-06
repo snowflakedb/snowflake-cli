@@ -13,13 +13,20 @@ def test_registry_get_token_2(mock_execute, mock_conn, mock_cursor, runner):
     )
     mock_conn._rest._token_request.return_value = {
         "data": {
-            "sessionToken": "token1234",
+            "sessionToken": "ekjnfrjnkerjknknerjknrekjnfjknjknrjkrejrfmq3i4r41rr4cr134r1",
             "validityInSecondsST": 42,
         }
     }
     result = runner.invoke(["registry", "token", "--format", "JSON"])
     assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout) == {"token": "token1234", "expires_in": 42}
+    assert (
+        result.stdout
+        == '{"token": "ekjnfrjnkerjknknerjknrekjnfjknjknrjkrejrfmq3i4r41rr4cr134r1", "expires_in": 42}'
+    )
+    assert json.loads(result.stdout) == {
+        "token": "ekjnfrjnkerjknknerjknrekjnfjknjknrjkrejrfmq3i4r41rr4cr134r1",
+        "expires_in": 42,
+    }
 
 
 @mock.patch("snowcli.cli.registry.commands.requests.get")
