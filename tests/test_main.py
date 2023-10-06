@@ -109,7 +109,7 @@ def test_if_there_are_no_option_duplicates(runner):
                 _check(command_info, [*path, command_name])
 
     def check_options_for_duplicates(params: t.List[TyperOption]) -> t.Set[str]:
-        RESERVED_FLAGS = ["-h", "--help"]  # noqa: N806
+        RESERVED_FLAGS = ["--help"]  # noqa: N806
 
         flags = [flag for param in params for flag in param.opts]
         return set(
