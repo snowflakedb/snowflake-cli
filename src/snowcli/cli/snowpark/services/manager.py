@@ -1,8 +1,5 @@
-import json
-import os
 from pathlib import Path
 
-import strictyaml
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -31,7 +28,12 @@ class ServiceManager(SqlExecutionMixin):
 
     def _read_yaml(self, path: Path) -> str:
         # TODO(aivanou): Add validation towards schema
-        return json.dumps(strictyaml.load(Path(path).read_text()).data)
+        import yaml
+        import json
+
+        with open(path) as fh:
+            data = yaml.safe_load(fh)
+        return json.dumps(data)
 
     def desc(self, service_name: str) -> SnowflakeCursor:
         return self._execute_schema_query(f"desc service {service_name}")
