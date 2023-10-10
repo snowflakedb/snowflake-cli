@@ -48,7 +48,12 @@ def _put_query(source: str, dest: str):
 def test_deploy_streamlit_single_file(
     mock_connector, mock_typer, mock_cursor, runner, mock_ctx
 ):
-    ctx = mock_ctx()
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[{"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"}],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
     mock_connector.return_value = ctx
 
     with NamedTemporaryFile(suffix=".py") as file:
@@ -206,7 +211,7 @@ def test_deploy_streamlit_main_and_pages_files(
 
     """
         ),
-        f"call SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('{STREAMLIT_NAME}')",
+        f"select system$get_snowsight_host()",
     ]
 
 
