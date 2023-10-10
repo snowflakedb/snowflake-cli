@@ -190,7 +190,6 @@ def test_init_with_url_and_no_template_fail_on_validation(temp_dir):
     assert not Path.exists(Path.cwd() / "new_project")
 
 
-#@mock.patch("snowcli.cli.nativeapp.init.Repo.clone_from", side_effect=None)
 @mock.patch("git.Repo.clone_from", side_effect=None)
 def test_init_with_url_and_no_template_w_native_app_url(mock_clone_from, temp_dir):
     # Prepare fake repository
