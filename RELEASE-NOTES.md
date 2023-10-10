@@ -1,3 +1,16 @@
+# v1.2.0
+
+## Backward incompatibility
+* Removed `snow streamlit create` command. Streamlit can be deployd using `snow streamlit deploy`
+
+## New additions
+* `snow streamlit init` command that creates a new streamlit project.
+* `snow streamlit deploy` support pages and environment.yml files.
+
+## Fixes and improvements
+* Adjust streamlit commands to PuPr syntax
+
+
 # v1.1.1
 
 ## Backward incompatibility

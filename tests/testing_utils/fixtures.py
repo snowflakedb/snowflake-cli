@@ -1,4 +1,7 @@
 import os
+import shutil
+from contextlib import contextmanager
+
 import pytest
 import tempfile
 
@@ -195,3 +198,14 @@ def test_root_path():
 def txt_file_in_a_subdir(temp_dir: str) -> Generator:
     subdir = tempfile.TemporaryDirectory(dir=temp_dir)
     yield create_temp_file(".txt", subdir.name, [])
+
+
+@pytest.fixture
+def project_file(temp_dir, test_root_path):
+    @contextmanager
+    def _temporary_project_file(project_name):
+        test_data_file = test_root_path / "test_data" / "projects" / project_name
+        shutil.copytree(test_data_file, temp_dir, dirs_exist_ok=True)
+        yield Path(temp_dir)
+
+    return _temporary_project_file

@@ -13,7 +13,7 @@ class StageManager(SqlExecutionMixin):
     @staticmethod
     def get_standard_stage_name(name: str) -> str:
         # Handle embedded stages
-        if name.startswith("snow://"):
+        if name.startswith("snow://") or name.startswith("@"):
             return name
 
         return f"@{name}"
