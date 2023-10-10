@@ -14,6 +14,7 @@
 * Snowpark command `compute-pool` and its alias `cp` were replaced by `pool` command.
 * `snow snowpark registry` was replaced with `snow registry` command.
 * Removed `snow streamlit create` command. Streamlit can be deployd using `snow streamlit deploy`
+* `snow connection test` now outputs all connection details (except for the password), along with connection status
 
 ## New additions
 * `--temporary-connection` flag, that allows you to connect, without anything declared in config file

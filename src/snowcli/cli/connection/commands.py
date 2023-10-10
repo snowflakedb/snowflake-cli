@@ -11,7 +11,12 @@ from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.config import cli_config
 from snowcli.output.decorators import with_output
-from snowcli.output.types import CollectionResult, CommandResult, MessageResult
+from snowcli.output.types import (
+    CollectionResult,
+    CommandResult,
+    MessageResult,
+    ObjectResult,
+)
 from snowcli.snow_connector import connect_to_snowflake
 
 app = typer.Typer(
@@ -194,5 +199,16 @@ def test(connection: str = ConnectionOption, **options) -> CommandResult:
     """
     Tests the connection to Snowflake.
     """
-    connect_to_snowflake(connection_name=connection)
-    return MessageResult("OK")
+    conn = connect_to_snowflake(connection_name=connection)
+    result = {
+        "Connection name": connection,
+        "Status": "OK",
+        "Host": conn.host,
+        "Account": conn.account,
+        "User": conn.user,
+        "Role": f'{conn.role or "not set"}',
+        "Database": f'{conn.database or "not set"}',
+        "Warehouse": f'{conn.warehouse or "not set"}',
+    }
+
+    return ObjectResult(result)
