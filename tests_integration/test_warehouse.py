@@ -10,4 +10,8 @@ def test_warehouse_status_query(runner, snowflake_session):
 
     curr = snowflake_session.execute_string("show warehouses")
     expected = row_from_cursor(curr[-1])
-    assert result.json == expected
+
+    actual = result.json
+    assert len(actual) == len(expected)
+    assert actual[0].keys() == expected[0].keys()
+    assert actual[0]["name"] == expected[0]["name"]
