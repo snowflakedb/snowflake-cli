@@ -5,6 +5,8 @@ from textwrap import dedent
 from unittest import mock
 from unittest.mock import call
 
+from click import ClickException
+
 from tests.testing_utils.fixtures import *
 
 STREAMLIT_NAME = "test_streamlit"
@@ -207,6 +209,24 @@ def test_deploy_streamlit_main_and_pages_files(
         ),
         f"call SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('{STREAMLIT_NAME}')",
     ]
+
+
+@pytest.mark.parametrize(
+    "opts", [("--pages-dir", "foo/bar"), ("--env-file", "foo.yml")]
+)
+@mock.patch("snowflake.connector.connect")
+def test_deploy_streamlit_nonexisting_file(
+    mock_connector, mock_cursor, runner, mock_ctx, project_file, opts
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    with project_file("example_streamlit") as pdir:
+        result = runner.invoke(
+            ["streamlit", "deploy", STREAMLIT_NAME, "--file", "main.py", *opts]
+        )
+
+        assert f"Provided file {opts[1]} does not exist" in result.output
 
 
 @mock.patch("snowflake.connector.connect")

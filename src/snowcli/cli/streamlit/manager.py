@@ -5,6 +5,7 @@ import typer
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from click import ClickException
 from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin

@@ -4,6 +4,8 @@ import typer
 from pathlib import Path
 from typing import Optional
 
+from click import ClickException
+
 from snowcli.cli.common.decorators import global_options_with_connection, global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.streamlit.manager import StreamlitManager
@@ -124,14 +126,14 @@ def streamlit_deploy(
     ),
     stage: Optional[str] = StageNameOption,
     environment_file: Path = typer.Option(
-        "environment.yml",
+        None,
         "--env-file",
         help="Environment file to use.",
         file_okay=True,
         dir_okay=False,
     ),
     pages_dir: Path = typer.Option(
-        "pages",
+        None,
         "--pages-dir",
         help="Directory with Streamlit pages",
         file_okay=False,
@@ -158,6 +160,16 @@ def streamlit_deploy(
     not exist.
     You can modify the behaviour using flags. For details check help information.
     """
+    if environment_file and not environment_file.exists():
+        raise ClickException(f"Provided file {environment_file} does not exist")
+    else:
+        environment_file = Path("environment.yml")
+
+    if pages_dir and not pages_dir.exists():
+        raise ClickException(f"Provided file {pages_dir} does not exist")
+    else:
+        pages_dir = Path("pages")
+
     url = StreamlitManager().deploy(
         streamlit_name=streamlit_name,
         environment_file=environment_file,
