@@ -373,7 +373,7 @@ class NativeAppManager(SqlExecutionMixin):
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
-        name = identifier_as_part(self.app_name.upper())
+        name = identifier_as_part(self.app_name)
         return make_snowsight_url(self._conn, f"/#/apps/application/{name}")
 
     def drop_object(
