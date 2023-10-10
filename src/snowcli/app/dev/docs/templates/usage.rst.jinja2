@@ -18,7 +18,7 @@ Arguments
 
 {%- if arguments %}
 {% for param in arguments %}
-:samp:`{% for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %} {{ '{' }}{{ param.name }}{{ '}' }}`
+:samp:`{% for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %} {{ '{' }}{{ param.make_metavar() }}{{ '}' }}`
 {% if param.help %}{{ "  " + param.help | replace("`", "``") }}{% if param.help[-1] != '.' %}.{% endif %}{% else %}  TBD{% endif %}
 {% endfor %}
 {% else %}
@@ -32,7 +32,7 @@ Options
 
 {%- if options %}
 {% for param in options if not param.hidden %}
-:samp:`{% for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %}{% if not param.is_flag %} {{ '{' }}{{ param.name }}{{ '}' }}{% endif %}`
+:samp:`{% for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %}{% if not param.is_flag %} {{ '{' }}{{ param.make_metavar() }}{{ '}' }}{% endif %}`
 {% if param.help %}{{ "  " + param.help | replace("`", "``") }}{% if param.help[-1] != '.' %}.{% endif %}{% else %}  TBD{% endif %}
 {% endfor %}
 {% else %}
