@@ -5,6 +5,7 @@ import typer
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from click import ClickException
 from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
@@ -29,34 +30,6 @@ class StreamlitManager(SqlExecutionMixin):
         )
         return description, url
 
-    def create(
-        self,
-        streamlit_name: str,
-        file: Path,
-        from_stage: str,
-        use_packaging_workaround: bool,
-    ) -> SnowflakeCursor:
-        connection = self._conn
-        if from_stage:
-            standard_page_name = StageManager.get_standard_stage_name(from_stage)
-            from_stage_command = f"FROM {standard_page_name}"
-        else:
-            from_stage_command = ""
-        main_file = (
-            "streamlit_app_launcher.py" if use_packaging_workaround else file.name
-        )
-
-        return self._execute_query(
-            f"""
-            create streamlit {streamlit_name}
-            {from_stage_command}
-            MAIN_FILE = '{main_file}'
-            QUERY_WAREHOUSE = {connection.warehouse};
-
-            alter streamlit {streamlit_name} checkout;
-        """
-        )
-
     def share(self, streamlit_name: str, to_role: str) -> SnowflakeCursor:
         return self._execute_query(
             f"grant usage on streamlit {streamlit_name} to role {to_role}"
@@ -65,50 +38,57 @@ class StreamlitManager(SqlExecutionMixin):
     def drop(self, streamlit_name: str) -> SnowflakeCursor:
         return self._execute_query(f"drop streamlit {streamlit_name}")
 
+    def get_url_from_name(self, streamlit_name: str):
+        return self._execute_query(
+            f"call SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('{streamlit_name}')"
+        ).fetchone()[0]
+
     def deploy(
         self,
         streamlit_name: str,
-        file: Path,
-        open_in_browser: bool,
-        use_packaging_workaround: bool,
-        packaging_workaround_includes_content: bool,
-        pypi_download: str,
-        check_anaconda_for_pypi_deps: bool,
-        package_native_libraries: str,
-        excluded_anaconda_deps: str,
+        main_file: Path,
+        environment_file: Optional[Path] = None,
+        pages_dir: Optional[Path] = None,
+        stage_name: Optional[str] = None,
+        warehouse: Optional[str] = None,
+        replace: Optional[bool] = False,
     ):
         stage_manager = StageManager()
 
-        # THIS WORKAROUND HAS NOT BEEN TESTED WITH THE NEW STREAMLIT SYNTAX
-        if use_packaging_workaround:
-            self._packaging_workaround(
-                streamlit_name,
-                file,
-                packaging_workaround_includes_content,
-                pypi_download,
-                check_anaconda_for_pypi_deps,
-                package_native_libraries,
-                excluded_anaconda_deps,
-                stage_manager,
-            )
+        stage_name = stage_name or "streamlit"
+        stage_name = stage_manager.to_fully_qualified_name(stage_name)
 
-        qualified_name = self.qualified_name(streamlit_name)
-        streamlit_stage_name = f"snow://streamlit/{qualified_name}/default_checkout"
-        stage_manager.put(str(file), streamlit_stage_name, 4, True)
-        query_result = self._execute_query(
-            f"call SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('{streamlit_name}')"
+        stage_manager.create(stage_name=stage_name)
+
+        root_location = stage_manager.get_standard_stage_name(
+            f"{stage_name}/{streamlit_name}"
         )
-        base_url = query_result.fetchone()[0]
-        url = self._get_url(base_url, qualified_name)
 
-        if open_in_browser:
-            typer.launch(url)
-        else:
-            return url
+        stage_manager.put(main_file, root_location, 4, True)
+
+        if environment_file and environment_file.exists():
+            stage_manager.put(environment_file, root_location, 4, True)
+
+        if pages_dir and pages_dir.exists():
+            stage_manager.put(pages_dir / "*", f"{root_location}/pages", 4, True)
+
+        replace_stmt = "OR REPLACE" if replace else ""
+        use_warehouse_stmt = f"QUERY_WAREHOUSE = {warehouse}" if warehouse else ""
+        self._execute_query(
+            f"""
+            CREATE {replace_stmt} STREAMLIT {streamlit_name}
+            ROOT_LOCATION = '{root_location}'
+            MAIN_FILE = '{main_file.name}'
+            {use_warehouse_stmt}
+        """
+        )
+
+        return self.get_url(streamlit_name)
 
     def _packaging_workaround(
         self,
         streamlit_name: str,
+        stage_name: str,
         file: Path,
         packaging_workaround_includes_content: bool,
         pypi_download: str,
@@ -125,11 +105,11 @@ class StreamlitManager(SqlExecutionMixin):
         )
 
         # upload the resulting app.zip file
-        stage_name = f"{streamlit_name}_stage"
+        stage_name = stage_name or f"{streamlit_name}_stage"
         stage_manager.put("app.zip", stage_name, 4, True)
         main_module = str(file).replace(".py", "")
         file = generate_streamlit_package_wrapper(
-            stage_name=f"{streamlit_name}_stage",
+            stage_name=stage_name,
             main_module=main_module,
             extract_zip=packaging_workaround_includes_content,
         )
@@ -146,7 +126,10 @@ class StreamlitManager(SqlExecutionMixin):
         if env_file:
             stage_manager.put(str(env_file), stage_name, 4, True)
 
-    def _get_url(self, base_url: str, qualified_name: str) -> str:
+    def get_url(self, streamlit_name: str) -> str:
+        qualified_name = self.qualified_name(streamlit_name)
+        base_url = self.get_url_from_name(streamlit_name)
+
         connection = self._conn
 
         if not connection.host:

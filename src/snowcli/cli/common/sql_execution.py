@@ -3,6 +3,7 @@ from contextlib import contextmanager
 
 from textwrap import dedent
 
+from click import ClickException
 from snowflake.connector.errors import ProgrammingError
 from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 from snowflake.connector.cursor import DictCursor
@@ -89,3 +90,21 @@ class SqlExecutionMixin:
             Use `snow connection list` to list existing connections
             """
             ) from e
+
+    def to_fully_qualified_name(self, name: str):
+        current_parts = name.split(".")
+        if len(current_parts) == 3:
+            # already fully qualified name
+            return name.upper()
+
+        if not self._conn.database:
+            raise ClickException(
+                "Default database not specified in connection details."
+            )
+
+        if len(current_parts) == 2:
+            # we assume this is schema.object
+            return f"{self._conn.database}.{name}".upper()
+
+        schema = self._conn.schema or "public"
+        return f"{self._conn.database}.{schema}.{name}".upper()
