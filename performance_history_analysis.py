@@ -3,9 +3,9 @@ from decimal import Decimal
 from timeit import default_timer as timer
 from typing import Optional, List, Tuple
 
-import git
+
 import typer
-from git import Commit
+from git import Commit, Repo
 from rich import print
 
 
@@ -64,7 +64,7 @@ def _print_summary_performance_descending(
 def _analyse_performance_history(
     rev: str, limit_commits: int, sample_amount: int, print_all_results: bool
 ):
-    repo = git.Repo()
+    repo = Repo()
     active_branch = repo.active_branch
 
     commits_with_results: List[Tuple[Commit, float]] = []

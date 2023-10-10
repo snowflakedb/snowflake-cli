@@ -9,6 +9,7 @@ EXECUTION_TIME_THRESHOLD = 1.3
 
 @pytest.mark.performance
 def test_snow_help_performance():
+
     results = []
     for _ in range(SAMPLE_AMOUNT):
         start = timer()
