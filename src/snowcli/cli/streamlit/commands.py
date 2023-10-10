@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 StageNameOption: str = typer.Option(
     "streamlit",
     "--stage",
-    help="Stage name where are Streamlit files.",
+    help="Stage name where Streamlit files will be uploaded.",
 )
 
 
@@ -38,12 +38,12 @@ StageNameOption: str = typer.Option(
 @global_options
 def streamlit_init(
     project_name: str = typer.Argument(
-        "example_streamlit", help="Name of the streamlit project you want to create."
+        "example_streamlit", help="Name of the Streamlit project you want to create."
     ),
     **options,
 ) -> CommandResult:
     """
-    Initializes this directory with a sample set of files for creating a streamlit dashboard.
+    Initializes this directory with a sample set of files for creating a Streamlit dashboard.
     """
     create_project_template("default_streamlit", project_directory=project_name)
     return MessageResult(f"Initialized the new project in {project_name}/")
