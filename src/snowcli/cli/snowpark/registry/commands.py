@@ -16,6 +16,7 @@ app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     name="registry",
     help="Manages Snowpark registries.",
+    rich_markup_mode="markdown",
 )
 
 
@@ -24,7 +25,10 @@ app = typer.Typer(
 @global_options_with_connection
 def token(**options) -> ObjectResult:
     """
-    Gets the token from environment to use for authenticating with the registry.
+    Gets the token from environment to use for authenticating with the registry. Example usage with docker:
+
+    snow registry token --format=JSON | docker login YOUR_HOST -u 0sessiontoken --password-stdin
+
     """
     return ObjectResult(RegistryManager().get_token())
 
