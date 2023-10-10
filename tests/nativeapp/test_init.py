@@ -1,7 +1,6 @@
 from snowcli.cli.nativeapp.init import (
     is_valid_project_name,
     render_snowflake_yml,
-    render_nativeapp_readme,
     nativeapp_init,
     replace_snowflake_yml_name_with_project,
     validate_and_update_snowflake_yml,
@@ -11,6 +10,7 @@ from snowcli.cli.nativeapp.init import (
     DirectoryAlreadyExistsError,
     InitError,
     ProjectNameInvalidError,
+    RenderingFromJinjaError,
 )
 from snowcli.exception import MissingConfiguration
 from tests.testing_utils.fixtures import *
@@ -81,40 +81,24 @@ def test_render_snowflake_yml(other_directory):
     assert temp_dir.joinpath("snowflake.yml").read_text() == expected
 
 
-@mock.patch("os.getenv", return_value="pytest_user")
-def test_render_nativeapp_readme(mock_get_env_username, other_directory):
+def test_render_snowflake_yml_raises_exception(other_directory):
     temp_dir = Path(other_directory)
     create_named_file(
-        file_name="README.md.jinja",
+        file_name="snowflake.yml.jinja",
         dir=temp_dir,
         contents=[
             dedent(
                 """\
-            ### Calling a function
-            SELECT {{application_name}}.versioned_schema.hello_world();
-            which should output 'hello world!'
-            ```
-            SELECT {{application_name}}.versioned_schema.hello_world();
-            ```
+            native_app:
+                name: {{project_name}}
+                artifacts:
+                    - {{one_more_variable}}
             """
             )
         ],
     )
-    expected = dedent(
-        """\
-            ### Calling a function
-            SELECT random_project_pytest_user.versioned_schema.hello_world();
-            which should output 'hello world!'
-            ```
-            SELECT random_project_pytest_user.versioned_schema.hello_world();
-            ```
-            
-            """
-    )
-    render_nativeapp_readme(temp_dir, "random_project")
-    assert Path.exists(temp_dir / "README.md")
-    assert not Path.exists(temp_dir / "README.md.jinja")
-    assert temp_dir.joinpath("README.md").read_text() == expected
+    with pytest.raises(RenderingFromJinjaError):
+        render_snowflake_yml(temp_dir)
 
 
 def test_replace_snowflake_yml_name_with_project_populated_file(other_directory):
@@ -335,13 +319,6 @@ def test_init_with_url_and_template_w_native_app_url_and_template(
             """
     )
 
-    create_named_file(
-        file_name="README.md.jinja",
-        dir=current_working_directory / fake_repo / "app",
-        contents=[dedent("{{application_name}}")],
-    )
-    expected_readme = dedent("fake_repo_pytest_user\n")
-
     _init_with_url_and_template(
         current_working_directory=Path.cwd(),
         project_name=fake_repo,
@@ -355,7 +332,6 @@ def test_init_with_url_and_template_w_native_app_url_and_template(
     assert (
         fake_repo_path.joinpath("snowflake.yml").read_text() == expected_snowflake_yml
     )
-    assert fake_repo_path.joinpath("app", "README.md").read_text() == expected_readme
 
 
 @mock.patch("snowcli.cli.nativeapp.init.Repo.clone_from", side_effect=None)
