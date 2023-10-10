@@ -21,11 +21,6 @@ def test_streamlit_create_and_deploy(
     streamlit_app_path = test_root_path / "test_files/streamlit.py"
 
     result = runner.invoke_integration(
-        ["streamlit", "create", streamlit_name, "--file", streamlit_app_path]
-    )
-    assert result.exit_code == 0
-
-    result = runner.invoke_integration(
         ["streamlit", "deploy", streamlit_name, "--file", streamlit_app_path]
     )
     assert result.exit_code == 0
@@ -69,6 +64,7 @@ def test_streamlit_create_and_deploy(
     assert row_from_snowflake_session(expect) == []
 
 
+@pytest.mark.skip("This a PrPr feature of Streamlit, this test can be reused in future")
 @pytest.mark.integration
 def test_streamlit_create_from_stage(
     runner, snowflake_session, _new_streamlit_role, test_root_path
