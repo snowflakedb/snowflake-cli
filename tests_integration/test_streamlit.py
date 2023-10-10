@@ -21,11 +21,6 @@ def test_streamlit_create_and_deploy(
     streamlit_app_path = test_root_path / "test_files/streamlit.py"
 
     result = runner.invoke_integration(
-        ["streamlit", "create", streamlit_name, "--file", streamlit_app_path]
-    )
-    assert result.exit_code == 0
-
-    result = runner.invoke_integration(
         ["streamlit", "deploy", streamlit_name, "--file", streamlit_app_path]
     )
     assert result.exit_code == 0
@@ -65,77 +60,6 @@ def test_streamlit_create_and_deploy(
     )
     expect = snowflake_session.execute_string(
         f"show streamlits like '{streamlit_name}'"
-    )
-    assert row_from_snowflake_session(expect) == []
-
-
-@pytest.mark.integration
-def test_streamlit_create_from_stage(
-    runner, snowflake_session, _new_streamlit_role, test_root_path
-):
-    stage_name = "test_streamlit_create_from_stage"
-    streamlit_name = "test_streamlit_create_from_stage_snowcli"
-    streamlit_filename = "streamlit.py"
-    streamlit_app_path = test_root_path / f"test_files/{streamlit_filename}"
-
-    expect = snowflake_session.execute_string(
-        f"create stage {stage_name}; put file://{streamlit_app_path} @{stage_name} auto_compress=false overwrite=true;"
-    )
-    assert contains_row_with(
-        rows_from_snowflake_session(expect)[1],
-        {
-            "source": streamlit_filename,
-            "target": streamlit_filename,
-            "status": "UPLOADED",
-        },
-    )
-
-    result = runner.invoke_integration(
-        [
-            "streamlit",
-            "create",
-            streamlit_name,
-            "--file",
-            streamlit_app_path,
-            "--from-stage",
-            stage_name,
-        ]
-    )
-    assert result.exit_code == 0
-
-    result = runner.invoke_integration(["streamlit", "list"])
-    expect = snowflake_session.execute_string(
-        f"show streamlits like '{streamlit_name}'"
-    )
-    assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
-
-    result = runner.invoke_integration(["streamlit", "describe", streamlit_name])
-    expect = snowflake_session.execute_string(f"describe streamlit {streamlit_name}")
-    assert contains_row_with(result.json[0], row_from_snowflake_session(expect)[0])
-    expect = snowflake_session.execute_string(
-        f"call system$generate_streamlit_url_from_name('{streamlit_name}')"
-    )
-    assert contains_row_with(result.json[1], row_from_snowflake_session(expect)[0])
-
-    result = runner.invoke_integration(["streamlit", "share", streamlit_name, "public"])
-    assert contains_row_with(
-        result.json,
-        {"status": "Statement executed successfully."},
-    )
-    expect = snowflake_session.execute_string(
-        f"use role {_new_streamlit_role}; show streamlits like '{streamlit_name}'; use role integration_tests;"
-    )
-    assert contains_row_with(
-        rows_from_snowflake_session(expect)[1], {"name": streamlit_name.upper()}
-    )
-
-    result = runner.invoke_integration(["streamlit", "drop", streamlit_name])
-    assert contains_row_with(
-        result.json,
-        {"status": f"{streamlit_name.upper()} successfully dropped."},
-    )
-    expect = snowflake_session.execute_string(
-        f"show streamlits like '%{streamlit_name}%'"
     )
     assert row_from_snowflake_session(expect) == []
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+
 import click
 import logging
 
@@ -34,10 +36,14 @@ def connect_to_snowflake(temporary_connection: bool = False, connection_name: Op
         )
 
     try:
-        return snowflake.connector.connect(
-            application=_find_command_path(),
-            **connection_parameters,
-        )
+        # Whatever output is generated when creating connection,
+        # we don't want it in our output. This is particularly important
+        # for cases when external browser and json format are used.
+        with contextlib.redirect_stdout(None):
+            return snowflake.connector.connect(
+                application=_find_command_path(),
+                **connection_parameters,
+            )
     except ForbiddenError as err:
         raise SnowflakeConnectionError(err)
     except DatabaseError as err:
