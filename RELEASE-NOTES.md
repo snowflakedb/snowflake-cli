@@ -13,11 +13,15 @@
 * Update function or procedure will upload function/procedure code to new path on stage. Previous code will remain under old path on stage.
 * Snowpark command `compute-pool` and its alias `cp` were replaced by `pool` command.
 * `snow snowpark registry` was replaced with `snow registry` command.
+* Removed `snow streamlit create` command. Streamlit can be deployd using `snow streamlit deploy`
 
 ## New additions
 * `--temporary-connection` flag, that allows you to connect, without anything declared in config file
+* `snow streamlit init` command that creates a new streamlit project.
+* `snow streamlit deploy` support pages and environment.yml files.
 
 ## Fixes and improvements
+* Adjust streamlit commands to PuPr syntax
 * Too long texts in table cells are now wrapped instead of cropped
 * Split global options into separate section in `help`
 * Avoiding unnecessary replace in function/procedure update

@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import sys
 import warnings
-import git
+
 
 from typing import Dict, List, Literal, Optional, Generic, TypeVar, Callable
 from pathlib import Path
@@ -596,10 +596,11 @@ class File:
     relpath: Optional[str] = None
 
 
-def create_project_template(template_name: str):
+def create_project_template(template_name: str, project_directory: str | None = None):
+    target = project_directory or os.getcwd()
     shutil.copytree(
         Path(importlib.util.find_spec("templates").origin).parent / template_name,  # type: ignore
-        f"{os.getcwd()}",
+        target,
         dirs_exist_ok=True,
     )
 

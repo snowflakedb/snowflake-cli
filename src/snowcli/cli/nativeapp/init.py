@@ -7,7 +7,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from click.exceptions import ClickException
 from shutil import move, rmtree
-from git import Repo
 from strictyaml import load, as_document
 
 
@@ -172,6 +171,7 @@ def _init_with_url_and_no_template(
     Returns:
         None
     """
+    from git import Repo
 
     target_directory: Optional[Path] = None
     try:
@@ -225,6 +225,7 @@ def _init_with_url_and_template(
     Returns:
         None
     """
+    from git import Repo
 
     path_to_project: Optional[Path] = None
     try:
