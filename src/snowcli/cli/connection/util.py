@@ -48,14 +48,21 @@ def get_account(conn: SnowflakeConnection) -> str:
     """
     Determines the account that this connection refers to.
     """
-    if conn.account:
-        return conn.account
+    try:
+        *_, cursor = conn.execute_string(
+            f"select current_account_name()", cursor_class=DictCursor
+        )
+        return cursor.fetchone()["CURRENT_ACCOUNT_NAME()"].lower()
+    except Exception as e:
+        # try to extract the account from the connection information
+        if conn.account:
+            return conn.account
 
-    if not conn.host:
-        raise MissingConnectionHostError(conn)
+        if not conn.host:
+            raise MissingConnectionHostError(conn)
 
-    host_parts = conn.host.split(".")
-    return host_parts[0]
+        host_parts = conn.host.split(".")
+        return host_parts[0]
 
 
 def get_snowsight_host(conn: SnowflakeConnection) -> str:
