@@ -286,7 +286,7 @@ class NativeAppManager(SqlExecutionMixin):
             )
 
             # There can only be one possible pre-existing app with the same name
-            show_app_row: dict = find_row(
+            show_app_row = find_row(
                 show_app_cursor,
                 lambda row: row[NAME_COL] == unquote_identifier(self.app_name),
             )
