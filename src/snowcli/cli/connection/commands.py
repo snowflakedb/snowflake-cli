@@ -7,7 +7,7 @@ from click import ClickException
 from click.types import StringParamType
 from tomlkit.exceptions import KeyAlreadyPresent
 
-from snowcli.cli.common.decorators import global_options
+from snowcli.cli.common.decorators import global_options, global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.config import cli_config
 from snowcli.output.decorators import with_output
@@ -188,11 +188,11 @@ def add(
 
 
 @app.command()
-@global_options
+@global_options_with_connection
 @with_output
-def test(connection: str = ConnectionOption, **options) -> CommandResult:
+def test(**options) -> CommandResult:
     """
     Tests the connection to Snowflake.
     """
-    connect_to_snowflake(connection_name=connection)
+    connect_to_snowflake(**options)
     return MessageResult("OK")

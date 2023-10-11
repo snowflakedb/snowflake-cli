@@ -217,7 +217,52 @@ def test_second_connection_not_update_default_connection(runner, snapshot):
 def test_connection_test(mock_connect, runner):
     result = runner.invoke_with_config(["connection", "test", "-c", "full"])
     assert result.exit_code == 0, result.output
-    mock_connect.assert_called_once_with(connection_name="full")
+    mock_connect.assert_called_once_with(
+        connection="full",
+        account=None,
+        user=None,
+        password=None,
+        database=None,
+        schema=None,
+        role=None,
+        warehouse=None,
+        temporary_connection=False,
+        format=None,
+        verbose=None,
+        debug=None,
+    )
+
+
+@mock.patch("snowcli.cli.connection.commands.connect_to_snowflake")
+def test_connection_temporary_connection_test(mock_connect, runner):
+    result = runner.invoke_with_config(
+        [
+            "connection",
+            "test",
+            "-x",
+            "--account",
+            "foo",
+            "--user",
+            "bar",
+            "--password",
+            "baz",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    mock_connect.assert_called_once_with(
+        connection=None,
+        account="foo",
+        user="bar",
+        password="baz",
+        database=None,
+        schema=None,
+        role=None,
+        warehouse=None,
+        temporary_connection=True,
+        format=None,
+        verbose=None,
+        debug=None,
+    )
 
 
 @mock.patch("snowflake.connector.connect")

@@ -36,7 +36,7 @@ class ConnectionDetails:
     def build_connection(self):
         return connect_to_snowflake(
             temporary_connection=self.temporary_connection,
-            connection_name=self.connection_name,
+            connection=self.connection_name,
             **self._resolve_connection_params()
         )
 

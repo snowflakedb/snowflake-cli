@@ -99,7 +99,7 @@ def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
     assert result.exit_code == 0, result.output
     mock_conn.assert_called_once_with(
         temporary_connection=False,
-        connection_name="connectionName",
+        connection="connectionName",
         account="accountnameValue",
         user="usernameValue",
         warehouse="warehouseValue",

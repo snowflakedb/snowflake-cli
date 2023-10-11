@@ -20,13 +20,11 @@ log = logging.getLogger(__name__)
 TEMPLATES_PATH = Path(__file__).parent / "sql"
 
 
-def connect_to_snowflake(temporary_connection: bool = False, connection_name: Optional[str] = None, **overrides) -> SnowflakeConnection:  # type: ignore
+def connect_to_snowflake(temporary_connection: bool = False, connection: Optional[str] = None, **overrides) -> SnowflakeConnection:  # type: ignore
 
     if not temporary_connection:
-        connection_name = (
-            connection_name if connection_name is not None else get_default_connection()
-        )
-        connection_parameters = cli_config.get_connection(connection_name)
+        connection = connection if connection is not None else get_default_connection()
+        connection_parameters = cli_config.get_connection(connection)
     else:
         connection_parameters = {}
 
