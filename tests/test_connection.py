@@ -5,6 +5,7 @@ from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import mock
 
+from snowcli.cli.common.snow_cli_global_context import ConnectionDetails
 from snowcli.exception import SnowflakeConnectionError
 from tests.testing_utils.fixtures import *
 
@@ -217,6 +218,9 @@ def test_second_connection_not_update_default_connection(runner, snapshot):
 def test_connection_test(mock_connect, runner):
     result = runner.invoke_with_config(["connection", "test", "-c", "full"])
     assert result.exit_code == 0, result.output
+    assert "Host" in result.output
+    assert "Password" not in result.output
+    assert "password" not in result.output
     mock_connect.assert_called_once_with(connection_name="full")
 
 
