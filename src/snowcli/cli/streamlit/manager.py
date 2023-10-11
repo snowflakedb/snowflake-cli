@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import logging
-import typer
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from click import ClickException
 from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
@@ -15,6 +13,8 @@ from snowcli.utils import (
     generate_streamlit_environment_file,
     generate_streamlit_package_wrapper,
 )
+from snowcli.cli.connection.util import make_snowsight_url, MissingConnectionHostError
+from snowcli.cli.project.util import identifier_as_part
 
 log = logging.getLogger(__name__)
 
@@ -37,11 +37,6 @@ class StreamlitManager(SqlExecutionMixin):
 
     def drop(self, streamlit_name: str) -> SnowflakeCursor:
         return self._execute_query(f"drop streamlit {streamlit_name}")
-
-    def get_url_from_name(self, streamlit_name: str):
-        return self._execute_query(
-            f"call SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('{streamlit_name}')"
-        ).fetchone()[0]
 
     def deploy(
         self,
@@ -127,35 +122,24 @@ class StreamlitManager(SqlExecutionMixin):
             stage_manager.put(str(env_file), stage_name, 4, True)
 
     def get_url(self, streamlit_name: str) -> str:
-        qualified_name = self.qualified_name(streamlit_name)
-        base_url = self.get_url_from_name(streamlit_name)
-
-        connection = self._conn
-
-        if not connection.host:
-            return base_url
-
-        host_parts = connection.host.split(".")
-
-        if len(host_parts) == 3:
-            return base_url
-
-        if len(host_parts) != 6:
-            log.error(
-                f"The connection host ({connection.host}) was missing or not in "
-                "the expected format "
-                "(<account>.<deployment>.snowflakecomputing.com)"
+        try:
+            return make_snowsight_url(
+                self._conn,
+                f"/#/streamlit-apps/{self.qualified_name_for_url(streamlit_name)}",
             )
-            raise typer.Exit()
-        else:
-            account_name = host_parts[0]
-            deployment = ".".join(host_parts[1:4])
-
-        snowflake_host = connection.host or "app.snowflake.com"
-        return (
-            f"https://{snowflake_host}/{deployment}/{account_name}/"
-            f"#/streamlit-apps/{qualified_name.upper()}"
-        )
+        except MissingConnectionHostError as e:
+            print(str(e))
+            print(self._conn.host)
+            print(self._conn._host)
+            # FIXME: REMOVE THIS
+            return "https://app.snowflake.com"
 
     def qualified_name(self, object_name: str):
         return f"{self._conn.database}.{self._conn.schema}.{object_name}"
+
+    def qualified_name_for_url(self, object_name: str):
+        return (
+            f"{identifier_as_part(self._conn.database)}."
+            f"{identifier_as_part(self._conn.schema)}."
+            f"{identifier_as_part(object_name)}"
+        )
