@@ -91,22 +91,20 @@ def test_deploy_streamlit_all_files_default_stage(
     mock_connector.return_value = ctx
 
     with project_file("example_streamlit") as pdir:
-        result = runner.invoke(
-            ["streamlit", "deploy", STREAMLIT_NAME, "--file", "main.py"]
-        )
+        result = runner.invoke(["streamlit", "deploy", STREAMLIT_NAME])
 
     root_path = f"@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
-        _put_query("main.py", root_path),
+        _put_query("app.py", root_path),
         _put_query("environment.yml", root_path),
         _put_query("pages/*", f"{root_path}/pages"),
         dedent(
             f"""
     CREATE  STREAMLIT {STREAMLIT_NAME}
     ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
-    MAIN_FILE = 'main.py'
+    MAIN_FILE = 'app.py'
 
     """
         ),
@@ -222,7 +220,13 @@ def test_deploy_streamlit_main_and_pages_files(
 
 
 @pytest.mark.parametrize(
-    "opts", [("--pages-dir", "foo/bar"), ("--env-file", "foo.yml")]
+    "opts",
+    [
+        ("--pages-dir", "foo/bar"),
+        ("--env-file", "foo.yml"),
+        ("--env-file", "environment.yml"),
+        ("--env-file", "pages"),
+    ],
 )
 @mock.patch("snowflake.connector.connect")
 def test_deploy_streamlit_nonexisting_file(
@@ -231,9 +235,9 @@ def test_deploy_streamlit_nonexisting_file(
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    with project_file("example_streamlit") as pdir:
+    with NamedTemporaryFile(suffix=".py") as file:
         result = runner.invoke(
-            ["streamlit", "deploy", STREAMLIT_NAME, "--file", "main.py", *opts]
+            ["streamlit", "deploy", STREAMLIT_NAME, "--file", file.name, *opts]
         )
 
         assert f"Provided file {opts[1]} does not exist" in result.output
