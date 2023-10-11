@@ -108,9 +108,7 @@ class MissingSchemaError(ClickException):
         super().__init__(f'Identifier missing a schema qualifier: "{identifier}"')
 
 
-def find_row(
-    cursor: SnowflakeCursor, predicate: Callable[[Union[dict, tuple]], bool]
-) -> Optional[Union[dict, tuple]]:
+def find_row(cursor: DictCursor, predicate: Callable[[dict], bool]) -> Optional[dict]:
     """Returns the first row that matches the predicate, or None."""
     return next(
         (row for row in cursor.fetchall() if predicate(row)),
