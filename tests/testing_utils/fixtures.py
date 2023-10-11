@@ -95,7 +95,11 @@ def mock_ctx(mock_cursor):
         def host(self):
             return "account.test.region.aws.snowflakecomputing.com"
 
-        def execute_string(self, query: str):
+        @property
+        def account(self):
+            return "account"
+
+        def execute_string(self, query: str, **kwargs):
             self.queries.append(query)
             if self.cs:
                 return (self.cs,)
