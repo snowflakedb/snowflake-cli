@@ -41,7 +41,7 @@ def list_images(
         ...,
         "--repository_name",
         "-r",
-        help="Name of the image repository as seen in `show image repositories`",
+        help="Name of the image repository shown by the `SHOW IMAGE REPOSITORIES` SQL command.",
     ),
     **options,
 ) -> CollectionResult:
@@ -92,7 +92,7 @@ def list_tags(
         ...,
         "--repository_name",
         "-r",
-        help="Name of the image repository as seen in `show image repositories`",
+        help="Name of the image repository shown by the `SHOW IMAGE REPOSITORIES` SQL command.",
     ),
     image_name: str = typer.Option(
         ...,
