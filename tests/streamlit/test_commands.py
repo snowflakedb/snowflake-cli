@@ -1,11 +1,5 @@
-import os
-import pytest
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
-from unittest import mock
-from unittest.mock import call
-
-from click import ClickException
 
 from tests.testing_utils.fixtures import *
 
@@ -51,7 +45,10 @@ def test_deploy_streamlit_single_file(
 ):
     ctx = mock_ctx(
         mock_cursor(
-            rows=[{"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"}],
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"CURRENT_ACCOUNT_NAME()": "my_account"},
+            ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
         )
     )
@@ -75,7 +72,8 @@ def test_deploy_streamlit_single_file(
 
     """
         ),
-        f"select system$get_snowsight_host()",
+        "select system$get_snowsight_host()",
+        "select CURRENT_ACCOUNT_NAME()",
     ]
 
     mock_typer.launch.assert_called_once_with(
@@ -87,7 +85,15 @@ def test_deploy_streamlit_single_file(
 def test_deploy_streamlit_all_files_default_stage(
     mock_connector, mock_cursor, runner, mock_ctx, project_file
 ):
-    ctx = mock_ctx()
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
     mock_connector.return_value = ctx
 
     with project_file("example_streamlit") as pdir:
@@ -117,7 +123,15 @@ def test_deploy_streamlit_all_files_default_stage(
 def test_deploy_streamlit_all_files_users_stage(
     mock_connector, mock_cursor, runner, mock_ctx, project_file
 ):
-    ctx = mock_ctx()
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
     mock_connector.return_value = ctx
 
     with project_file("example_streamlit") as pdir:
@@ -157,7 +171,15 @@ def test_deploy_streamlit_all_files_users_stage(
 def test_deploy_streamlit_main_and_environment_files(
     mock_connector, mock_cursor, runner, mock_ctx, project_file
 ):
-    ctx = mock_ctx()
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
     mock_connector.return_value = ctx
 
     with project_file("example_streamlit") as pdir:
@@ -191,7 +213,15 @@ def test_deploy_streamlit_main_and_environment_files(
 def test_deploy_streamlit_main_and_pages_files(
     mock_connector, mock_cursor, runner, mock_ctx, project_file
 ):
-    ctx = mock_ctx()
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
     mock_connector.return_value = ctx
 
     with project_file("example_streamlit") as pdir:
@@ -228,13 +258,7 @@ def test_deploy_streamlit_main_and_pages_files(
         ("--env-file", "pages"),
     ],
 )
-@mock.patch("snowflake.connector.connect")
-def test_deploy_streamlit_nonexisting_file(
-    mock_connector, mock_cursor, runner, mock_ctx, project_file, opts
-):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-
+def test_deploy_streamlit_nonexisting_file(runner, opts):
     with NamedTemporaryFile(suffix=".py") as file:
         result = runner.invoke(
             ["streamlit", "deploy", STREAMLIT_NAME, "--file", file.name, *opts]
