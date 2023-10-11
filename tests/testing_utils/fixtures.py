@@ -131,7 +131,6 @@ def mock_cursor():
             return None
 
         def fetchall(self):
-            print(self._rows)
             return self._rows
 
         @property
