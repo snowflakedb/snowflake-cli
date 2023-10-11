@@ -3,11 +3,11 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from functools import cached_property
-from typing import List, Optional, Literal, Union, Callable
+from typing import List, Optional, Literal, Callable
 from click.exceptions import ClickException
 from snowcli.exception import SnowflakeSQLExecutionError
 
-from snowflake.connector.cursor import DictCursor, SnowflakeCursor
+from snowflake.connector.cursor import DictCursor
 
 import jinja2
 
@@ -22,8 +22,6 @@ from snowcli.cli.project.definition import (
     default_application,
     default_role,
 )
-from snowcli.output.printing import print_result
-from snowcli.output.types import ObjectResult
 from snowcli.cli.stage.diff import (
     DiffResult,
     stage_diff,
