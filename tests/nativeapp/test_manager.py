@@ -127,8 +127,8 @@ def test_drop_object(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
-                    "name": "sample_package_name",
-                    "owner": "sample_package_role",
+                    "name": "SAMPLE_PACKAGE_NAME",
+                    "owner": "SAMPLE_PACKAGE_ROLE",
                     "blank": "blank",
                     "comment": "GENERATED_BY_SNOWCLI",
                 }
@@ -208,8 +208,8 @@ def test_drop_object_no_special_comment(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
-                    "name": "sample_package_name",
-                    "owner": "sample_package_role",
+                    "name": "SAMPLE_PACKAGE_NAME",
+                    "owner": "SAMPLE_PACKAGE_ROLE",
                     "blank": "blank",
                     "comment": "NOT_GENERATED_BY_SNOWCLI",
                 }
@@ -265,9 +265,10 @@ def test_create_dev_app_noop(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
+                    "name": "MYAPP",
                     "comment": SPECIAL_COMMENT,
                     "version": LOOSE_FILES_MAGIC_VERSION,
-                    "owner": "app_role",
+                    "owner": "APP_ROLE",
                 }
             ],
             [],
@@ -317,9 +318,10 @@ def test_create_dev_app_recreate(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
+                    "name": "MYAPP",
                     "comment": SPECIAL_COMMENT,
                     "version": LOOSE_FILES_MAGIC_VERSION,
-                    "owner": "app_role",
+                    "owner": "APP_ROLE",
                 }
             ],
             [],
@@ -402,9 +404,10 @@ def test_create_dev_app_bad_comment(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
+                    "name": "MYAPP",
                     "comment": "bad comment",
                     "version": LOOSE_FILES_MAGIC_VERSION,
-                    "owner": "app_role",
+                    "owner": "APP_ROLE",
                 }
             ],
             [],
@@ -445,6 +448,7 @@ def test_create_dev_app_bad_version(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
+                    "name": "MYAPP",
                     "comment": SPECIAL_COMMENT,
                     "version": "v1",
                     "owner": "app_role",
@@ -488,6 +492,7 @@ def test_create_dev_app_bad_owner(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
+                    "name": "MYAPP",
                     "comment": SPECIAL_COMMENT,
                     "version": LOOSE_FILES_MAGIC_VERSION,
                     "owner": "accountadmin_or_something",
@@ -529,6 +534,7 @@ def test_app_exists(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
+                    "name": "MYAPP",
                     "comment": SPECIAL_COMMENT,
                     "version": LOOSE_FILES_MAGIC_VERSION,
                     "owner": "app_role",
@@ -631,9 +637,10 @@ def test_quoting_app_teardown(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
+                    "name": "My Application",
                     "comment": SPECIAL_COMMENT,
                     "version": LOOSE_FILES_MAGIC_VERSION,
-                    "owner": "app_role",
+                    "owner": "APP_ROLE",
                 }
             ],
             [],
@@ -646,8 +653,9 @@ def test_quoting_app_teardown(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
+                    "name": "My Package",
                     "comment": SPECIAL_COMMENT,
-                    "owner": "package_role",
+                    "owner": "PACKAGE_ROLE",
                 }
             ],
             [],

@@ -14,7 +14,7 @@ from snowcli.utils import (
     generate_streamlit_package_wrapper,
 )
 from snowcli.cli.connection.util import make_snowsight_url, MissingConnectionHostError
-from snowcli.cli.project.util import identifier_as_part
+from snowcli.cli.project.util import unquote_identifier
 
 log = logging.getLogger(__name__)
 
@@ -139,7 +139,7 @@ class StreamlitManager(SqlExecutionMixin):
 
     def qualified_name_for_url(self, object_name: str):
         return (
-            f"{identifier_as_part(self._conn.database)}."
-            f"{identifier_as_part(self._conn.schema)}."
-            f"{identifier_as_part(object_name)}"
+            f"{unquote_identifier(self._conn.database)}."
+            f"{unquote_identifier(self._conn.schema)}."
+            f"{unquote_identifier(object_name)}"
         )

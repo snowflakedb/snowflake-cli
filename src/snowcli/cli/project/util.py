@@ -18,13 +18,15 @@ def clean_identifier(input):
     return re.sub(r"[^a-z0-9_$]", "", f"{input}".lower())
 
 
-def identifier_as_part(identifier: str) -> str:
+def unquote_identifier(identifier: str) -> str:
     """
-    Returns a version of this identifier that can be used inside of a URL
-    or inside of a string for a LIKE clause.
+    Returns a version of this identifier that can be used inside of a URL,
+    inside of a string for a LIKE clause, or to match an identifier passed
+    back as a value from a SQL statement.
     """
     if match := re.fullmatch(QUOTED, identifier):
         return match.group(1)
+    # unquoted identifiers are internally represented as uppercase
     return identifier.upper()
 
 

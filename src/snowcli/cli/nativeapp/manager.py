@@ -3,17 +3,17 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from functools import cached_property
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Union, Callable
 from click.exceptions import ClickException
 from snowcli.exception import SnowflakeSQLExecutionError
 
-from snowflake.connector.cursor import DictCursor
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 import jinja2
 
 from snowcli.cli.project.util import (
     clean_identifier,
-    identifier_as_part,
+    unquote_identifier,
     extract_schema,
 )
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
@@ -42,6 +42,7 @@ from snowflake.connector.cursor import DictCursor
 SPECIAL_COMMENT = "GENERATED_BY_SNOWCLI"
 LOOSE_FILES_MAGIC_VERSION = "dev_stage"
 
+NAME_COL = "name"
 COMMENT_COL = "comment"
 OWNER_COL = "owner"
 VERSION_COL = "version"
@@ -105,6 +106,16 @@ class MissingSchemaError(ClickException):
 
     def __init__(self, identifier: str):
         super().__init__(f'Identifier missing a schema qualifier: "{identifier}"')
+
+
+def find_row(
+    cursor: SnowflakeCursor, predicate: Callable[[Union[dict, tuple], bool]]
+) -> Union[dict, tuple]:
+    """Returns the first row that matches the predicate, or None."""
+    return next(
+        (row for row in cursor.fetchall() if predicate(row)),
+        None,
+    )
 
 
 class NativeAppManager(SqlExecutionMixin):
@@ -274,13 +285,17 @@ class NativeAppManager(SqlExecutionMixin):
                 self._execute_query(f"use warehouse {self.warehouse}")
 
             show_app_cursor = self._execute_query(
-                f"show applications like '{identifier_as_part(self.app_name)}'",
+                f"show applications like '{unquote_identifier(self.app_name)}'",
                 cursor_class=DictCursor,
             )
 
-            if show_app_cursor.rowcount != 0:
-                # There can only be one possible pre-existing app with the same name
-                show_app_row: dict = show_app_cursor.fetchone()
+            # There can only be one possible pre-existing app with the same name
+            show_app_row: dict = find_row(
+                show_app_cursor,
+                lambda row: row[NAME_COL] == unquote_identifier(self.app_name),
+            )
+
+            if show_app_row is not None:
                 if (
                     show_app_row[COMMENT_COL] != SPECIAL_COMMENT
                     or show_app_row[VERSION_COL] != LOOSE_FILES_MAGIC_VERSION
@@ -288,7 +303,7 @@ class NativeAppManager(SqlExecutionMixin):
                     raise ApplicationAlreadyExistsError(self.app_name)
 
                 actual_owner = show_app_row[OWNER_COL]
-                if actual_owner != self.app_role:
+                if actual_owner != unquote_identifier(self.app_role):
                     raise UnexpectedOwnerError(
                         self.app_name, self.app_role, actual_owner
                     )
@@ -320,10 +335,16 @@ class NativeAppManager(SqlExecutionMixin):
         """Returns True iff the application exists on Snowflake."""
         with self.use_role(self.app_role):
             show_app_cursor = self._execute_query(
-                f"show applications like '{identifier_as_part(self.app_name)}'",
+                f"show applications like '{unquote_identifier(self.app_name)}'",
                 cursor_class=DictCursor,
             )
-            return show_app_cursor.rowcount != 0
+            return (
+                find_row(
+                    show_app_cursor,
+                    lambda row: row[NAME_COL] == unquote_identifier(self.app_name),
+                )
+                is not None
+            )
 
     def app_run(self) -> None:
         """
@@ -331,13 +352,19 @@ class NativeAppManager(SqlExecutionMixin):
         """
         with self.use_role(self.package_role):
             show_cursor = self._execute_query(
-                f"show application packages like '{identifier_as_part(self.package_name)}'",
+                f"show application packages like '{unquote_identifier(self.package_name)}'",
                 cursor_class=DictCursor,
             )
 
             if show_cursor.rowcount is None:
                 raise SnowflakeSQLExecutionError()
-            elif show_cursor.rowcount == 0:
+
+            # There can be maximum one possible pre-existing app pkg with the same name
+            show_app_row = find_row(
+                show_cursor,
+                lambda row: row[NAME_COL] == unquote_identifier(self.package_name),
+            )
+            if show_app_row is None:
                 # Create an app pkg, with distribution = internal to avoid triggering security scan
                 log.info(
                     f"Creating new application package {self.package_name} in account."
@@ -350,8 +377,6 @@ class NativeAppManager(SqlExecutionMixin):
                     """
                 )
             else:
-                # There can only be one possible pre-existing app pkg with the same name
-                show_app_row = show_cursor.fetchone()
                 row_comment = show_app_row[
                     COMMENT_COL
                 ]  # Because we use a DictCursor, we are guaranteed a dictionary instead of indexing through a list.
@@ -360,7 +385,7 @@ class NativeAppManager(SqlExecutionMixin):
                     raise ApplicationPackageAlreadyExistsError(self.package_name)
 
                 actual_owner = show_app_row[OWNER_COL]
-                if actual_owner != self.package_role:
+                if actual_owner != unquote_identifier(self.package_role):
                     raise UnexpectedOwnerError(
                         self.app_name, self.app_role, actual_owner
                     )
@@ -375,7 +400,7 @@ class NativeAppManager(SqlExecutionMixin):
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
-        name = identifier_as_part(self.app_name)
+        name = unquote_identifier(self.app_name)
         return make_snowsight_url(self._conn, f"/#/apps/application/{name}")
 
     def drop_object(
@@ -393,28 +418,32 @@ class NativeAppManager(SqlExecutionMixin):
         )
 
         with self.use_role(object_role):
-            show_obj_query = f"{query_dict['show']} '{identifier_as_part(object_name)}'"
+            show_obj_query = f"{query_dict['show']} '{unquote_identifier(object_name)}'"
             show_obj_cursor = self._execute_query(
                 show_obj_query, cursor_class=DictCursor
             )
 
             if show_obj_cursor.rowcount is None:
                 raise SnowflakeSQLExecutionError(show_obj_query)
-            elif show_obj_cursor.rowcount == 0:
+
+            show_obj_row = find_row(
+                show_obj_cursor,
+                lambda row: row[NAME_COL] == unquote_identifier(object_name),
+            )
+            if show_obj_row is None:
                 raise CouldNotDropObjectError(
                     f"Role {object_role} does not own any {log_object_type.lower()} with the name {object_name}!"
                 )
-            elif show_obj_cursor.rowcount > 0:
-                # There can only be one possible pre-existing object with the same name
-                show_obj_row = show_obj_cursor.fetchone()
-                row_comment = show_obj_row[
-                    COMMENT_COL
-                ]  # Because we use a DictCursor, we are guaranteed a dictionary instead of indexing through a list.
 
-                if row_comment != SPECIAL_COMMENT:
-                    raise CouldNotDropObjectError(
-                        f"{log_object_type} {object_name} was not created by SnowCLI. Cannot drop the {log_object_type.lower()}."
-                    )
+            # There can only be one possible pre-existing object with the same name
+            row_comment = show_obj_row[
+                COMMENT_COL
+            ]  # Because we use a DictCursor, we are guaranteed a dictionary instead of indexing through a list.
+
+            if row_comment != SPECIAL_COMMENT:
+                raise CouldNotDropObjectError(
+                    f"{log_object_type} {object_name} was not created by SnowCLI. Cannot drop the {log_object_type.lower()}."
+                )
 
             log.info(f"Dropping {log_object_type.lower()} {object_name} now.")
             drop_query = f"{query_dict['drop']} {object_name}"
