@@ -73,7 +73,6 @@ def test_deploy_streamlit_single_file(
     """
         ),
         "select system$get_snowsight_host()",
-        "select CURRENT_ACCOUNT_NAME()",
     ]
 
     mock_typer.launch.assert_called_once_with(

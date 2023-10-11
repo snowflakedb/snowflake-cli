@@ -128,10 +128,6 @@ class StreamlitManager(SqlExecutionMixin):
                 f"/#/streamlit-apps/{self.qualified_name_for_url(streamlit_name)}",
             )
         except MissingConnectionHostError as e:
-            print(str(e))
-            print(self._conn.host)
-            print(self._conn._host)
-            # FIXME: REMOVE THIS
             return "https://app.snowflake.com"
 
     def qualified_name(self, object_name: str):
