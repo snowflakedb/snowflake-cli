@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from functools import cached_property
-from typing import List, Optional
+from typing import List, Optional, Literal
 from click.exceptions import ClickException
 from snowcli.exception import SnowflakeSQLExecutionError
 
@@ -274,7 +274,8 @@ class NativeAppManager(SqlExecutionMixin):
                 self._execute_query(f"use warehouse {self.warehouse}")
 
             show_app_cursor = self._execute_query(
-                f"show applications like '{self.app_name}'", cursor_class=DictCursor
+                f"show applications like '{identifier_as_part(self.app_name)}'",
+                cursor_class=DictCursor,
             )
 
             if show_app_cursor.rowcount != 0:
@@ -319,7 +320,8 @@ class NativeAppManager(SqlExecutionMixin):
         """Returns True iff the application exists on Snowflake."""
         with self.use_role(self.app_role):
             show_app_cursor = self._execute_query(
-                f"show applications like '{self.app_name}'", cursor_class=DictCursor
+                f"show applications like '{identifier_as_part(self.app_name)}'",
+                cursor_class=DictCursor,
             )
             return show_app_cursor.rowcount != 0
 
@@ -329,7 +331,7 @@ class NativeAppManager(SqlExecutionMixin):
         """
         with self.use_role(self.package_role):
             show_cursor = self._execute_query(
-                f"show application packages like '{self.package_name}'",
+                f"show application packages like '{identifier_as_part(self.package_name)}'",
                 cursor_class=DictCursor,
             )
 
@@ -380,15 +382,18 @@ class NativeAppManager(SqlExecutionMixin):
         self,
         object_name: str,
         object_role: str,
-        object_type: str,
+        object_type: Literal["application", "package"],
         query_dict: dict,
     ) -> None:
+        """
+        N.B. query_dict['show'] must be a like % clause
+        """
         log_object_type = (
             "Application Package" if object_type == "package" else object_type
         )
 
         with self.use_role(object_role):
-            show_obj_query = f"{query_dict['show']} '{object_name}'"
+            show_obj_query = f"{query_dict['show']} '{identifier_as_part(object_name)}'"
             show_obj_cursor = self._execute_query(
                 show_obj_query, cursor_class=DictCursor
             )
@@ -421,28 +426,18 @@ class NativeAppManager(SqlExecutionMixin):
             log.info(f"Dropped {log_object_type.lower()} {object_name} successfully.")
 
     def teardown(self) -> None:
-        project_name = clean_identifier(self.definition["name"])
-
         # Drop the application first
         self.drop_object(
-            object_name=self.definition.get("application", {}).get(
-                "name", default_application(project_name)
-            ),
-            object_role=self.definition.get("application", {}).get(
-                "role", default_role(project_name)
-            ),
+            object_name=self.app_name,
+            object_role=self.app_role,
             object_type="application",
             query_dict={"show": "show applications like", "drop": "drop application"},
         )
 
         # Drop the application package next
         self.drop_object(
-            object_name=self.definition.get("package", {}).get(
-                "name", default_app_package(project_name)
-            ),
-            object_role=self.definition.get("package", {}).get(
-                "role", default_role(project_name)
-            ),
+            object_name=self.package_name,
+            object_role=self.package_role,
             object_type="package",
             query_dict={
                 "show": "show application packages like",
