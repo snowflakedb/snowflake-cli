@@ -109,8 +109,8 @@ class MissingSchemaError(ClickException):
 
 
 def find_row(
-    cursor: SnowflakeCursor, predicate: Callable[[Union[dict, tuple], bool]]
-) -> Union[dict, tuple]:
+    cursor: SnowflakeCursor, predicate: Callable[[Union[dict, tuple]], bool]
+) -> Optional[Union[dict, tuple]]:
     """Returns the first row that matches the predicate, or None."""
     return next(
         (row for row in cursor.fetchall() if predicate(row)),
