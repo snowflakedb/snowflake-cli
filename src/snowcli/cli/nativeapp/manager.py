@@ -11,7 +11,11 @@ from snowflake.connector.cursor import DictCursor
 
 import jinja2
 
-from snowcli.cli.project.util import clean_identifier, extract_schema
+from snowcli.cli.project.util import (
+    clean_identifier,
+    identifier_as_part,
+    extract_schema,
+)
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.project.definition import (
     default_app_package,
@@ -31,6 +35,7 @@ from snowcli.cli.nativeapp.artifacts import (
     translate_artifact,
     ArtifactMapping,
 )
+from snowcli.cli.connection.util import make_snowsight_url
 
 from snowflake.connector.cursor import DictCursor
 
@@ -310,6 +315,14 @@ class NativeAppManager(SqlExecutionMixin):
                 """,
             )
 
+    def app_exists(self) -> bool:
+        """Returns True iff the application exists on Snowflake."""
+        with self.use_role(self.app_role):
+            show_app_cursor = self._execute_query(
+                f"show applications like '{self.app_name}'", cursor_class=DictCursor
+            )
+            return show_app_cursor.rowcount != 0
+
     def app_run(self) -> None:
         """
         Implementation of the "snow app run" dev command.
@@ -357,6 +370,11 @@ class NativeAppManager(SqlExecutionMixin):
             diff = self.sync_deploy_root_with_stage(self.package_role)
 
         self._create_dev_app(diff)
+
+    def get_snowsight_url(self) -> str:
+        """Returns the URL that can be used to visit this app via Snowsight."""
+        name = identifier_as_part(self.app_name)
+        return make_snowsight_url(self._conn, f"/#/apps/application/{name}")
 
     def drop_object(
         self,

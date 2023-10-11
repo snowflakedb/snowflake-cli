@@ -48,7 +48,12 @@ def _put_query(source: str, dest: str):
 def test_deploy_streamlit_single_file(
     mock_connector, mock_typer, mock_cursor, runner, mock_ctx
 ):
-    ctx = mock_ctx()
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[{"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"}],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
     mock_connector.return_value = ctx
 
     with NamedTemporaryFile(suffix=".py") as file:
@@ -68,11 +73,11 @@ def test_deploy_streamlit_single_file(
 
     """
         ),
-        f"call SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('{STREAMLIT_NAME}')",
+        f"select system$get_snowsight_host()",
     ]
 
     mock_typer.launch.assert_called_once_with(
-        f"https://account.test.region.aws.snowflakecomputing.com/test.region.aws/account/#/streamlit-apps/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}"
+        f"https://snowsight.domain/test.region.aws/account/#/streamlit-apps/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}"
     )
 
 
@@ -103,7 +108,7 @@ def test_deploy_streamlit_all_files_default_stage(
 
     """
         ),
-        f"call SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('{STREAMLIT_NAME}')",
+        f"select system$get_snowsight_host()",
     ]
 
 
@@ -142,7 +147,7 @@ def test_deploy_streamlit_all_files_users_stage(
 
     """
         ),
-        f"call SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('{STREAMLIT_NAME}')",
+        f"select system$get_snowsight_host()",
     ]
 
 
@@ -154,7 +159,6 @@ def test_deploy_streamlit_main_and_environment_files(
     mock_connector.return_value = ctx
 
     with project_file("example_streamlit") as pdir:
-
         (pdir / "pages" / "my_page.py").unlink()
         (pdir / "pages").rmdir()
 
@@ -176,7 +180,7 @@ def test_deploy_streamlit_main_and_environment_files(
 
     """
         ),
-        f"call SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('{STREAMLIT_NAME}')",
+        f"select system$get_snowsight_host()",
     ]
 
 
@@ -207,7 +211,7 @@ def test_deploy_streamlit_main_and_pages_files(
 
     """
         ),
-        f"call SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('{STREAMLIT_NAME}')",
+        f"select system$get_snowsight_host()",
     ]
 
 

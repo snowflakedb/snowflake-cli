@@ -499,3 +499,94 @@ def test_create_dev_app_bad_owner(mock_execute, temp_dir, mock_cursor):
         native_app_manager._create_dev_app(mock_diff_result)
 
     assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_app_exists(mock_execute, temp_dir, mock_cursor):
+    expected = [
+        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("use role app_role"),
+        mock.call("show applications like 'myapp'", cursor_class=DictCursor),
+        mock.call("use role old_role"),
+    ]
+    # 1:1 with expected calls; these are return values
+    mock_execute.side_effect = [
+        mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+        None,
+        mock_cursor(
+            [
+                {
+                    "comment": SPECIAL_COMMENT,
+                    "version": LOOSE_FILES_MAGIC_VERSION,
+                    "owner": "app_role",
+                }
+            ],
+            [],
+        ),
+        None,
+    ]
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    native_app_manager = NativeAppManager()
+    assert native_app_manager.app_exists() is True
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_app_does_not_exist(mock_execute, temp_dir, mock_cursor):
+    expected = [
+        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("use role app_role"),
+        mock.call("show applications like 'myapp'", cursor_class=DictCursor),
+        mock.call("use role old_role"),
+    ]
+    # 1:1 with expected calls; these are return values
+    mock_execute.side_effect = [
+        mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+        None,
+        mock_cursor([], []),
+        None,
+    ]
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    native_app_manager = NativeAppManager()
+    assert native_app_manager.app_exists() is False
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch("snowcli.cli.connection.util.get_deployment")
+@mock.patch("snowcli.cli.connection.util.get_account")
+@mock.patch("snowcli.cli.connection.util.get_snowsight_host")
+@mock.patch("snowcli.cli.common.snow_cli_global_context.connect_to_snowflake")
+def test_get_snowsight_url(
+    mock_conn, mock_snowsight_host, mock_account, mock_deployment, temp_dir
+):
+    mock_conn.return_value = None
+    mock_snowsight_host.return_value = "https://host"
+    mock_deployment.return_value = "deployment"
+    mock_account.return_value = "account"
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    native_app_manager = NativeAppManager()
+    assert (
+        native_app_manager.get_snowsight_url()
+        == "https://host/deployment/account/#/apps/application/MYAPP"
+    )
