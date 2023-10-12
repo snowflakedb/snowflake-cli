@@ -65,7 +65,7 @@ class StreamlitManager(SqlExecutionMixin):
             stage_manager.put(environment_file, root_location, 4, True)
 
         if pages_dir and pages_dir.exists():
-            stage_manager.put(pages_dir / "*", f"{root_location}/pages", 4, True)
+            stage_manager.put(pages_dir / "*.py", f"{root_location}/pages", 4, True)
 
         replace_stmt = "OR REPLACE" if replace else ""
         use_warehouse_stmt = f"QUERY_WAREHOUSE = {warehouse}" if warehouse else ""
@@ -128,10 +128,6 @@ class StreamlitManager(SqlExecutionMixin):
                 f"/#/streamlit-apps/{self.qualified_name_for_url(streamlit_name)}",
             )
         except MissingConnectionHostError as e:
-            print(str(e))
-            print(self._conn.host)
-            print(self._conn._host)
-            # FIXME: REMOVE THIS
             return "https://app.snowflake.com"
 
     def qualified_name(self, object_name: str):
