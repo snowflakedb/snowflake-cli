@@ -46,10 +46,7 @@ def connect_to_snowflake(temporary_connection: bool = False, connection_name: Op
 
     private_key = None
     if "private_key_path" in connection_parameters:
-        if (
-            "authenticator" in connection_parameters
-            and connection_parameters["authenticator"] == "SNOWFLAKE_JWT"
-        ):
+        if connection_parameters.get("authenticator") == "SNOWFLAKE_JWT":
             private_key_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
             private_key = load_pem_to_der(connection_parameters["private_key_path"])
             del connection_parameters["private_key_path"]
