@@ -43,6 +43,7 @@ mock_snowflake_yml_file = dedent(
 
             package:
                 name: app_pkg
+                role: package_role
                 scripts:
                     - shared_content.sql
     """
@@ -60,6 +61,18 @@ mock_project_definition_override = {
         },
     }
 }
+
+quoted_override_yml_file = dedent(
+    """\
+        native_app:
+            application:
+                name: >-
+                    "My Application"
+            package:
+                name: >-
+                    "My Package"
+    """
+)
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
@@ -114,8 +127,8 @@ def test_drop_object(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
-                    "name": "sample_package_name",
-                    "owner": "sample_package_role",
+                    "name": "SAMPLE_PACKAGE_NAME",
+                    "owner": "SAMPLE_PACKAGE_ROLE",
                     "blank": "blank",
                     "comment": "GENERATED_BY_SNOWCLI",
                 }
@@ -147,7 +160,7 @@ def test_drop_object(mock_execute, temp_dir, mock_cursor):
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role sample_package_role"),
         mock.call("show application packages like 'sample_package_name'"),
-        mock.call("drop applicatin package sample_package_name"),
+        mock.call("drop application package sample_package_name"),
         mock.call("use role old_role"),
     ]
     mock_execute.mock_calls == expected
@@ -195,8 +208,8 @@ def test_drop_object_no_special_comment(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
-                    "name": "sample_package_name",
-                    "owner": "sample_package_role",
+                    "name": "SAMPLE_PACKAGE_NAME",
+                    "owner": "SAMPLE_PACKAGE_ROLE",
                     "blank": "blank",
                     "comment": "NOT_GENERATED_BY_SNOWCLI",
                 }
@@ -240,7 +253,7 @@ def test_create_dev_app_noop(mock_execute, temp_dir, mock_cursor):
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
         mock.call("use warehouse app_warehouse"),
-        mock.call("show applications like 'myapp'", cursor_class=DictCursor),
+        mock.call("show applications like 'MYAPP'", cursor_class=DictCursor),
         mock.call("alter application myapp set debug_mode = True"),
         mock.call("use role old_role"),
     ]
@@ -252,9 +265,10 @@ def test_create_dev_app_noop(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
+                    "name": "MYAPP",
                     "comment": SPECIAL_COMMENT,
                     "version": LOOSE_FILES_MAGIC_VERSION,
-                    "owner": "app_role",
+                    "owner": "APP_ROLE",
                 }
             ],
             [],
@@ -283,7 +297,7 @@ def test_create_dev_app_recreate(mock_execute, temp_dir, mock_cursor):
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
         mock.call("use warehouse app_warehouse"),
-        mock.call("show applications like 'myapp'", cursor_class=DictCursor),
+        mock.call("show applications like 'MYAPP'", cursor_class=DictCursor),
         mock.call("drop application myapp"),
         mock.call(
             f"""
@@ -304,9 +318,10 @@ def test_create_dev_app_recreate(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
+                    "name": "MYAPP",
                     "comment": SPECIAL_COMMENT,
                     "version": LOOSE_FILES_MAGIC_VERSION,
-                    "owner": "app_role",
+                    "owner": "APP_ROLE",
                 }
             ],
             [],
@@ -336,7 +351,7 @@ def test_create_dev_app_create_new(mock_execute, temp_dir, mock_cursor):
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
         mock.call("use warehouse app_warehouse"),
-        mock.call("show applications like 'myapp'", cursor_class=DictCursor),
+        mock.call("show applications like 'MYAPP'", cursor_class=DictCursor),
         mock.call(
             f"""
                 create application myapp
@@ -378,7 +393,7 @@ def test_create_dev_app_bad_comment(mock_execute, temp_dir, mock_cursor):
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
         mock.call("use warehouse app_warehouse"),
-        mock.call("show applications like 'myapp'", cursor_class=DictCursor),
+        mock.call("show applications like 'MYAPP'", cursor_class=DictCursor),
         mock.call("use role old_role"),
     ]
     # 1:1 with expected calls; these are return values
@@ -389,9 +404,10 @@ def test_create_dev_app_bad_comment(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
+                    "name": "MYAPP",
                     "comment": "bad comment",
                     "version": LOOSE_FILES_MAGIC_VERSION,
-                    "owner": "app_role",
+                    "owner": "APP_ROLE",
                 }
             ],
             [],
@@ -421,7 +437,7 @@ def test_create_dev_app_bad_version(mock_execute, temp_dir, mock_cursor):
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
         mock.call("use warehouse app_warehouse"),
-        mock.call("show applications like 'myapp'", cursor_class=DictCursor),
+        mock.call("show applications like 'MYAPP'", cursor_class=DictCursor),
         mock.call("use role old_role"),
     ]
     # 1:1 with expected calls; these are return values
@@ -432,6 +448,7 @@ def test_create_dev_app_bad_version(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
+                    "name": "MYAPP",
                     "comment": SPECIAL_COMMENT,
                     "version": "v1",
                     "owner": "app_role",
@@ -464,7 +481,7 @@ def test_create_dev_app_bad_owner(mock_execute, temp_dir, mock_cursor):
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
         mock.call("use warehouse app_warehouse"),
-        mock.call("show applications like 'myapp'", cursor_class=DictCursor),
+        mock.call("show applications like 'MYAPP'", cursor_class=DictCursor),
         mock.call("use role old_role"),
     ]
     # 1:1 with expected calls; these are return values
@@ -475,6 +492,7 @@ def test_create_dev_app_bad_owner(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
+                    "name": "MYAPP",
                     "comment": SPECIAL_COMMENT,
                     "version": LOOSE_FILES_MAGIC_VERSION,
                     "owner": "accountadmin_or_something",
@@ -506,7 +524,7 @@ def test_app_exists(mock_execute, temp_dir, mock_cursor):
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
-        mock.call("show applications like 'myapp'", cursor_class=DictCursor),
+        mock.call("show applications like 'MYAPP'", cursor_class=DictCursor),
         mock.call("use role old_role"),
     ]
     # 1:1 with expected calls; these are return values
@@ -516,6 +534,7 @@ def test_app_exists(mock_execute, temp_dir, mock_cursor):
         mock_cursor(
             [
                 {
+                    "name": "MYAPP",
                     "comment": SPECIAL_COMMENT,
                     "version": LOOSE_FILES_MAGIC_VERSION,
                     "owner": "app_role",
@@ -543,7 +562,7 @@ def test_app_does_not_exist(mock_execute, temp_dir, mock_cursor):
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
-        mock.call("show applications like 'myapp'", cursor_class=DictCursor),
+        mock.call("show applications like 'MYAPP'", cursor_class=DictCursor),
         mock.call("use role old_role"),
     ]
     # 1:1 with expected calls; these are return values
@@ -590,3 +609,73 @@ def test_get_snowsight_url(
         native_app_manager.get_snowsight_url()
         == "https://host/deployment/account/#/apps/application/MYAPP"
     )
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_quoting_app_teardown(mock_execute, temp_dir, mock_cursor):
+    expected = [
+        # teardown app
+        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("use role app_role"),
+        mock.call("show applications like 'My Application'", cursor_class=DictCursor),
+        mock.call('drop application "My Application"'),
+        mock.call("use role old_role"),
+        # teardown package
+        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("use role package_role"),
+        mock.call(
+            "show application packages like 'My Package'", cursor_class=DictCursor
+        ),
+        mock.call('drop application package "My Package"'),
+        mock.call("use role old_role"),
+    ]
+    # 1:1 with expected calls; these are return values
+    mock_execute.side_effect = [
+        # teardown app
+        mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+        None,
+        mock_cursor(
+            [
+                {
+                    "name": "My Application",
+                    "comment": SPECIAL_COMMENT,
+                    "version": LOOSE_FILES_MAGIC_VERSION,
+                    "owner": "APP_ROLE",
+                }
+            ],
+            [],
+        ),
+        None,
+        None,
+        # teardown package
+        mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+        None,
+        mock_cursor(
+            [
+                {
+                    "name": "My Package",
+                    "comment": SPECIAL_COMMENT,
+                    "owner": "PACKAGE_ROLE",
+                }
+            ],
+            [],
+        ),
+        None,
+        None,
+    ]
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+    create_named_file(
+        file_name="snowflake.local.yml",
+        dir=current_working_directory,
+        contents=[quoted_override_yml_file],
+    )
+
+    native_app_manager = NativeAppManager()
+    native_app_manager.teardown()
+    assert mock_execute.mock_calls == expected
