@@ -21,7 +21,15 @@ def test_streamlit_create_and_deploy(
     streamlit_app_path = test_root_path / "test_files/streamlit.py"
 
     result = runner.invoke_integration(
-        ["streamlit", "deploy", streamlit_name, "--file", streamlit_app_path]
+        [
+            "streamlit",
+            "deploy",
+            streamlit_name,
+            "--file",
+            streamlit_app_path,
+            "--query-warehouse",
+            snowflake_session.warehouse,
+        ]
     )
     assert result.exit_code == 0
 
