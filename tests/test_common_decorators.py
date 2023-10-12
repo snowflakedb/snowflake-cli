@@ -1,6 +1,10 @@
 import typer
 
-from snowcli.cli.common.decorators import global_options_with_connection, global_options
+from snowcli.cli.common.decorators import (
+    global_options_with_connection,
+    global_options,
+    with_experimental_behaviour,
+)
 
 _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "connection",
@@ -131,3 +135,95 @@ def test_global_options_decorator_on_function_with_arguments_without_typehints()
         return options
 
     assert _extract_arguments(func) == ["name", *_KNOWN_SIG_GLOBAL_PARAMETERS]
+
+
+def test_experimental_decorator_as_standalone_decorator_of_function_without_arguments():
+    test_app = typer.Typer()
+
+    @test_app.command("foo")
+    @with_experimental_behaviour()
+    def func(**options):
+        return options
+
+    assert _extract_arguments(func) == ["experimental"]
+    assert func(experimental=True) == dict(experimental=True)
+
+
+def test_experimental_decorator_as_standalone_decorator_of_function_with_arguments():
+    test_app = typer.Typer()
+
+    @test_app.command("foo")
+    @with_experimental_behaviour()
+    def func(name: str, **options):
+        return options
+
+    assert _extract_arguments(func) == ["name", "experimental"]
+    assert func(name="solaris", experimental=True) == dict(experimental=True)
+
+
+def test_experimental_decorator_below_global_options_decorator_for_function_without_arguments():
+    test_app = typer.Typer()
+
+    @test_app.command("foo")
+    @global_options
+    @with_experimental_behaviour()
+    def func(**options):
+        return options
+
+    assert _extract_arguments(func) == ["experimental", *_KNOWN_SIG_GLOBAL_PARAMETERS]
+    assert func(experimental=True, format="JSON") == dict(
+        experimental=True, format="JSON"
+    )
+
+
+def test_experimental_decorator_below_global_options_decorator_for_function_with_arguments():
+    test_app = typer.Typer()
+
+    @test_app.command("foo")
+    @global_options
+    @with_experimental_behaviour()
+    def func(name: str, **options):
+        return options
+
+    assert _extract_arguments(func) == [
+        "name",
+        "experimental",
+        *_KNOWN_SIG_GLOBAL_PARAMETERS,
+    ]
+    assert func(name="solaris", experimental=True, format="JSON") == dict(
+        experimental=True, format="JSON"
+    )
+
+
+def test_experimental_decorator_above_global_options_decorator_for_function_without_arguments():
+    test_app = typer.Typer()
+
+    @test_app.command("foo")
+    @with_experimental_behaviour()
+    @global_options
+    def func(**options):
+        return options
+
+    assert _extract_arguments(func) == [*_KNOWN_SIG_GLOBAL_PARAMETERS, "experimental"]
+    assert func(experimental=True, format="JSON") == dict(
+        experimental=True, format="JSON"
+    )
+
+
+def test_experimental_decorator_above_global_options_decorator_for_function_with_arguments():
+    test_app = typer.Typer()
+
+    @test_app.command("foo")
+    @with_experimental_behaviour()
+    @global_options
+    def func(name: str, **options):
+        return options
+
+    assert _extract_arguments(func) == [
+        "name",
+        *_KNOWN_SIG_GLOBAL_PARAMETERS,
+        "experimental",
+    ]
+    assert func(name="solaris", experimental=True, format="JSON") == dict(
+        experimental=True, format="JSON"
+    )

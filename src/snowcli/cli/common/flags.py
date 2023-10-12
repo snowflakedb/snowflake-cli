@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 import typer
 
 from snowcli.cli.common.snow_cli_global_context import (
@@ -145,3 +147,21 @@ DebugOption = typer.Option(
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
 )
+
+
+def experimental_option(
+    experimental_behaviour_description: Optional[str] = None,
+) -> typer.Option:
+    help_text = (
+        f"Turns on experimental behaviour of the command: {experimental_behaviour_description}"
+        if experimental_behaviour_description
+        else "Turns on experimental behaviour of the command."
+    )
+    return typer.Option(
+        None,
+        "--experimental",
+        help=help_text,
+        callback=update_callback("experimental"),
+        is_flag=True,
+        rich_help_panel=_CLI_BEHAVIOUR,
+    )
