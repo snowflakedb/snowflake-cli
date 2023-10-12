@@ -23,7 +23,9 @@ def merge_left(target: Union[Dict, YAML], source: Union[Dict, YAML]) -> None:
     Modifies the original dict-like "target".
     """
     for k, v in source.items():
-        if k in target and (isinstance(v, dict) or isinstance(v, YAML)):
+        if k in target and (
+            isinstance(v, dict) or (isinstance(v, YAML) and not v.is_scalar())
+        ):
             # assumption: all inputs have been validated.
             assert isinstance(target[k], dict) or isinstance(target[k], YAML)
             merge_left(target[k], v)
