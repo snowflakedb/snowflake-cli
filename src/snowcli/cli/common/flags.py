@@ -85,6 +85,9 @@ PrivatekeypathOption = typer.Option(
     callback=ConnectionDetails.update_callback("private_key_path"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
+    exists=True,
+    file_okay=True,
+    dir_okay=False,
 )
 
 DatabaseOption = typer.Option(
