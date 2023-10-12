@@ -107,7 +107,7 @@ def load_pem_to_der(private_key_path: str) -> bytes:
         ENCRYPTED_PKCS8_PK_HEADER
     ) and not private_key_pem.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
         raise Exception(
-            "Private key provided is not in PKCS#8 format. " "Pleas use correct format."
+            "Private key provided is not in PKCS#8 format. Please use correct format."
         )
 
     if private_key_pem.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
