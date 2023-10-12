@@ -17,12 +17,6 @@ from snowflake.connector.errors import ForbiddenError, DatabaseError
 from snowcli.config import cli_config, get_default_connection
 from snowcli.exception import SnowflakeConnectionError, InvalidConnectionConfiguration
 
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.serialization import Encoding
-from cryptography.hazmat.primitives.serialization import NoEncryption
-from cryptography.hazmat.primitives.serialization import PrivateFormat
-from cryptography.hazmat.primitives.serialization import load_pem_private_key
-
 log = logging.getLogger(__name__)
 TEMPLATES_PATH = Path(__file__).parent / "sql"
 ENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN ENCRYPTED PRIVATE KEY-----"
@@ -90,6 +84,12 @@ def load_pem_to_der(private_key_path: str) -> bytes:
     Given a private key file path (in PEM format), decode key data into DER
     format
     """
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives.serialization import Encoding
+    from cryptography.hazmat.primitives.serialization import NoEncryption
+    from cryptography.hazmat.primitives.serialization import PrivateFormat
+    from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
     with open(private_key_path, "rb") as f:
         private_key_pem = f.read()
 

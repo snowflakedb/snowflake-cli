@@ -259,3 +259,63 @@ def test_temporary_connection(mock_conn, option, runner):
         schema="PUBLIC",
         warehouse="xsmall",
     )
+
+
+@mock.patch("snowflake.connector.connect")
+@pytest.mark.parametrize("option", ["--temporary-connection", "-x"])
+def test_key_pair_authentication(mock_conn, option, runner):
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives import serialization
+
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+    private_key_pass = b"password"
+
+    encrypted_pem_private_key = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.BestAvailableEncryption(private_key_pass),
+    )
+
+    with NamedTemporaryFile("w+", suffix=".p8") as tmp_file:
+        tmp_file.write(
+            dedent("\n".join(encrypted_pem_private_key.decode().splitlines()))
+        )
+        tmp_file.flush()
+
+        os.environ["PRIVATE_KEY_PASSPHRASE"] = "password"
+
+        mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
+        result = runner.invoke(
+            [
+                "warehouse",
+                "status",
+                option,
+                "--account",
+                "test_account",
+                "--user",
+                "snowcli_test",
+                "--authenticator",
+                "SNOWFLAKE_JWT",
+                "--private-key-path",
+                tmp_file.name,
+                "--warehouse",
+                "xsmall",
+                "--database",
+                "test_dv",
+                "--schema",
+                "PUBLIC",
+            ]
+        )
+
+    assert result.exit_code == 1
+    mock_conn.assert_called_once_with(
+        application="SNOWCLI.WAREHOUSE.STATUS",
+        private_key=mock.ANY,
+        account="test_account",
+        user="snowcli_test",
+        authenticator="SNOWFLAKE_JWT",
+        database="test_dv",
+        schema="PUBLIC",
+        warehouse="xsmall",
+    )
