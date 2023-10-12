@@ -7,10 +7,9 @@ from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark.common import print_log_lines
 from snowcli.cli.snowpark.jobs.manager import JobManager
-from snowcli.cli.stage.manager import StageManager
 from snowcli.output.decorators import with_output
 
-from snowcli.output.types import SingleQueryResult, CommandResult
+from snowcli.output.types import SingleQueryResult, CommandResult, QueryJsonValueResult
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS, name="jobs", help="Manage jobs"
@@ -33,24 +32,12 @@ def create(
         dir_okay=False,
         exists=True,
     ),
-    stage: str = typer.Option(
-        "SOURCE_STAGE",
-        "--stage",
-        "-l",
-        help="Name of the stage in which to create the job.",
-    ),
     **options,
 ) -> CommandResult:
     """
     Creates a job to run in a compute pool.
     """
-    stage_manager = StageManager()
-    stage_manager.create(stage_name=stage)
-    stage_manager.put(local_path=str(spec_path), stage_path=stage, overwrite=True)
-
-    cursor = JobManager().create(
-        compute_pool=compute_pool, spec_path=spec_path, stage=stage
-    )
+    cursor = JobManager().create(compute_pool=compute_pool, spec_path=spec_path)
     return SingleQueryResult(cursor)
 
 
@@ -93,7 +80,7 @@ def status(
     Returns the status of a named Snowpark Container Services job.
     """
     cursor = JobManager().status(job_name=id)
-    return SingleQueryResult(cursor)
+    return QueryJsonValueResult(cursor)
 
 
 @app.command()
