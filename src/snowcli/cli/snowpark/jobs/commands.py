@@ -9,7 +9,7 @@ from snowcli.cli.snowpark.common import print_log_lines
 from snowcli.cli.snowpark.jobs.manager import JobManager
 from snowcli.output.decorators import with_output
 
-from snowcli.output.types import SingleQueryResult, CommandResult, QueryJsonValueResult
+from snowcli.output.types import SingleQueryResult, CommandResult
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS, name="jobs", help="Manage jobs"
@@ -80,7 +80,7 @@ def status(
     Returns the status of a named Snowpark Container Services job.
     """
     cursor = JobManager().status(job_name=id)
-    return QueryJsonValueResult(cursor)
+    return SingleQueryResult(cursor)
 
 
 @app.command()
