@@ -122,8 +122,7 @@ def _extend_signature_with_additional_options(
         *existing_parameters_with_evaluated_types,
         *additional_options,
     ]
-    sig = sig.replace(parameters=parameters)
-    return sig
+    return sig.replace(parameters=parameters)
 
 
 def _is_options_parameter(param: inspect.Parameter) -> bool:
