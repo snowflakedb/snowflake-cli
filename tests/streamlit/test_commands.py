@@ -104,7 +104,7 @@ def test_deploy_streamlit_all_files_default_stage(
         "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
         _put_query("app.py", root_path),
         _put_query("environment.yml", root_path),
-        _put_query("pages/*", f"{root_path}/pages"),
+        _put_query("pages/*.py", f"{root_path}/pages"),
         dedent(
             f"""
     CREATE  STREAMLIT {STREAMLIT_NAME}
@@ -152,7 +152,7 @@ def test_deploy_streamlit_all_files_users_stage(
         "create stage if not exists MOCKDATABASE.MOCKSCHEMA.MY_FANCY_STAGE",
         _put_query("main.py", root_path),
         _put_query("environment.yml", root_path),
-        _put_query("pages/*", f"{root_path}/pages"),
+        _put_query("pages/*.py", f"{root_path}/pages"),
         dedent(
             f"""
     CREATE  STREAMLIT {STREAMLIT_NAME}
@@ -234,7 +234,7 @@ def test_deploy_streamlit_main_and_pages_files(
     assert ctx.get_queries() == [
         "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
         _put_query("main.py", root_path),
-        _put_query("pages/*", f"{root_path}/pages"),
+        _put_query("pages/*.py", f"{root_path}/pages"),
         dedent(
             f"""
     CREATE  STREAMLIT {STREAMLIT_NAME}
