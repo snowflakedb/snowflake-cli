@@ -158,7 +158,7 @@ def streamlit_deploy(
         callback=_default_file_callback("pages_dir"),
     ),
     query_warehouse: Optional[str] = typer.Option(
-        None, "--query-warehouse", help="Query warehouse for this Streamlit."
+        ..., "--query-warehouse", help="Query warehouse for this Streamlit."
     ),
     replace: Optional[bool] = typer.Option(
         False,
@@ -173,9 +173,9 @@ def streamlit_deploy(
 ) -> CommandResult:
     """
     Uploads local files to specified stage and creates a Streamlit dashboard using the files. You must specify the
-    main python file. By default, the command will upload environment.yml and pages/ folder  if present. If you
-    don't provide any stage name then 'streamlit' stage will be used. If provided stage will be created if it does
-    not exist.
+    main python file and query warehouse. By default, the command will upload environment.yml and pages/ folder
+    if present. If you don't provide any stage name then 'streamlit' stage will be used. If provided stage will be
+    created if it does not exist.
     You can modify the behaviour using flags. For details check help information.
     """
     url = StreamlitManager().deploy(
