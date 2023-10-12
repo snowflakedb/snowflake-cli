@@ -65,7 +65,7 @@ class StreamlitManager(SqlExecutionMixin):
             stage_manager.put(environment_file, root_location, 4, True)
 
         if pages_dir and pages_dir.exists():
-            stage_manager.put(pages_dir / "*", f"{root_location}/pages", 4, True)
+            stage_manager.put(pages_dir / "*.py", f"{root_location}/pages", 4, True)
 
         replace_stmt = "OR REPLACE" if replace else ""
         use_warehouse_stmt = f"QUERY_WAREHOUSE = {warehouse}" if warehouse else ""

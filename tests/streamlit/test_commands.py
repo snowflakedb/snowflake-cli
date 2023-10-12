@@ -1,15 +1,10 @@
-import os
-import pytest
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
-from unittest import mock
-from unittest.mock import call
-
-from click import ClickException
 
 from tests.testing_utils.fixtures import *
 
 STREAMLIT_NAME = "test_streamlit"
+TEST_WAREHOUSE = "test_warehouse"
 
 
 @mock.patch("snowflake.connector.connect")
@@ -51,7 +46,10 @@ def test_deploy_streamlit_single_file(
 ):
     ctx = mock_ctx(
         mock_cursor(
-            rows=[{"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"}],
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"CURRENT_ACCOUNT_NAME()": "my_account"},
+            ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
         )
     )
@@ -60,7 +58,16 @@ def test_deploy_streamlit_single_file(
 
     with NamedTemporaryFile(suffix=".py") as file:
         result = runner.invoke(
-            ["streamlit", "deploy", STREAMLIT_NAME, "--file", file.name, "--open"]
+            [
+                "streamlit",
+                "deploy",
+                STREAMLIT_NAME,
+                "--file",
+                file.name,
+                "--open",
+                "--query-warehouse",
+                TEST_WAREHOUSE,
+            ]
         )
 
     assert result.exit_code == 0, result.output
@@ -72,7 +79,7 @@ def test_deploy_streamlit_single_file(
     CREATE  STREAMLIT {STREAMLIT_NAME}
     ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
     MAIN_FILE = '{Path(file.name).name}'
-
+    QUERY_WAREHOUSE = test_warehouse
     """
         ),
     ]
@@ -86,27 +93,35 @@ def test_deploy_streamlit_single_file(
 def test_deploy_streamlit_all_files_default_stage(
     mock_connector, mock_cursor, runner, mock_ctx, project_file
 ):
-    ctx = mock_ctx()
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
     mock_connector.return_value = ctx
 
     with project_file("example_streamlit") as pdir:
         result = runner.invoke(
-            ["streamlit", "deploy", STREAMLIT_NAME, "--file", "main.py"]
+            ["streamlit", "deploy", STREAMLIT_NAME, "--query-warehouse", TEST_WAREHOUSE]
         )
 
     root_path = f"@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
-        _put_query("main.py", root_path),
+        _put_query("app.py", root_path),
         _put_query("environment.yml", root_path),
-        _put_query("pages/*", f"{root_path}/pages"),
+        _put_query("pages/*.py", f"{root_path}/pages"),
         dedent(
             f"""
     CREATE  STREAMLIT {STREAMLIT_NAME}
     ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
-    MAIN_FILE = 'main.py'
-
+    MAIN_FILE = 'app.py'
+    QUERY_WAREHOUSE = test_warehouse
     """
         ),
     ]
@@ -116,7 +131,15 @@ def test_deploy_streamlit_all_files_default_stage(
 def test_deploy_streamlit_all_files_users_stage(
     mock_connector, mock_cursor, runner, mock_ctx, project_file
 ):
-    ctx = mock_ctx()
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
     mock_connector.return_value = ctx
 
     with project_file("example_streamlit") as pdir:
@@ -129,6 +152,8 @@ def test_deploy_streamlit_all_files_users_stage(
                 "main.py",
                 "--stage",
                 "MY_FANCY_STAGE",
+                "--query-warehouse",
+                TEST_WAREHOUSE,
             ]
         )
 
@@ -138,13 +163,13 @@ def test_deploy_streamlit_all_files_users_stage(
         "create stage if not exists MOCKDATABASE.MOCKSCHEMA.MY_FANCY_STAGE",
         _put_query("main.py", root_path),
         _put_query("environment.yml", root_path),
-        _put_query("pages/*", f"{root_path}/pages"),
+        _put_query("pages/*.py", f"{root_path}/pages"),
         dedent(
             f"""
     CREATE  STREAMLIT {STREAMLIT_NAME}
     ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.MY_FANCY_STAGE/{STREAMLIT_NAME}'
     MAIN_FILE = 'main.py'
-
+    QUERY_WAREHOUSE = test_warehouse
     """
         ),
     ]
@@ -154,7 +179,15 @@ def test_deploy_streamlit_all_files_users_stage(
 def test_deploy_streamlit_main_and_environment_files(
     mock_connector, mock_cursor, runner, mock_ctx, project_file
 ):
-    ctx = mock_ctx()
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
     mock_connector.return_value = ctx
 
     with project_file("example_streamlit") as pdir:
@@ -162,7 +195,15 @@ def test_deploy_streamlit_main_and_environment_files(
         (pdir / "pages").rmdir()
 
         result = runner.invoke(
-            ["streamlit", "deploy", STREAMLIT_NAME, "--file", "main.py"]
+            [
+                "streamlit",
+                "deploy",
+                STREAMLIT_NAME,
+                "--file",
+                "main.py",
+                "--query-warehouse",
+                TEST_WAREHOUSE,
+            ]
         )
 
     root_path = f"@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}"
@@ -176,7 +217,7 @@ def test_deploy_streamlit_main_and_environment_files(
     CREATE  STREAMLIT {STREAMLIT_NAME}
     ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
     MAIN_FILE = 'main.py'
-
+    QUERY_WAREHOUSE = test_warehouse
     """
         ),
     ]
@@ -186,13 +227,29 @@ def test_deploy_streamlit_main_and_environment_files(
 def test_deploy_streamlit_main_and_pages_files(
     mock_connector, mock_cursor, runner, mock_ctx, project_file
 ):
-    ctx = mock_ctx()
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
     mock_connector.return_value = ctx
 
     with project_file("example_streamlit") as pdir:
         (pdir / "environment.yml").unlink()
         result = runner.invoke(
-            ["streamlit", "deploy", STREAMLIT_NAME, "--file", "main.py"]
+            [
+                "streamlit",
+                "deploy",
+                STREAMLIT_NAME,
+                "--file",
+                "main.py",
+                "--query-warehouse",
+                TEST_WAREHOUSE,
+            ]
         )
 
     root_path = f"@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}"
@@ -200,31 +257,40 @@ def test_deploy_streamlit_main_and_pages_files(
     assert ctx.get_queries() == [
         "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
         _put_query("main.py", root_path),
-        _put_query("pages/*", f"{root_path}/pages"),
+        _put_query("pages/*.py", f"{root_path}/pages"),
         dedent(
             f"""
     CREATE  STREAMLIT {STREAMLIT_NAME}
     ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
     MAIN_FILE = 'main.py'
-
+    QUERY_WAREHOUSE = test_warehouse
     """
         ),
     ]
 
 
 @pytest.mark.parametrize(
-    "opts", [("--pages-dir", "foo/bar"), ("--env-file", "foo.yml")]
+    "opts",
+    [
+        ("--pages-dir", "foo/bar"),
+        ("--env-file", "foo.yml"),
+        ("--env-file", "environment.yml"),
+        ("--env-file", "pages"),
+    ],
 )
-@mock.patch("snowflake.connector.connect")
-def test_deploy_streamlit_nonexisting_file(
-    mock_connector, mock_cursor, runner, mock_ctx, project_file, opts
-):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-
-    with project_file("example_streamlit") as pdir:
+def test_deploy_streamlit_nonexisting_file(runner, opts):
+    with NamedTemporaryFile(suffix=".py") as file:
         result = runner.invoke(
-            ["streamlit", "deploy", STREAMLIT_NAME, "--file", "main.py", *opts]
+            [
+                "streamlit",
+                "deploy",
+                STREAMLIT_NAME,
+                "--file",
+                file.name,
+                "--query-warehouse",
+                TEST_WAREHOUSE,
+                *opts,
+            ]
         )
 
         assert f"Provided file {opts[1]} does not exist" in result.output
