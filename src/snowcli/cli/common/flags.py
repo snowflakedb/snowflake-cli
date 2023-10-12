@@ -67,6 +67,26 @@ PasswordOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+AuthenticatorOption = typer.Option(
+    None,
+    "--authenticator",
+    help="Snowflake authenticator. Overrides the value specified for the connection.",
+    hide_input=True,
+    callback=ConnectionDetails.update_callback("authenticator"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+PrivatekeypathOption = typer.Option(
+    None,
+    "--private_key_path",
+    help="Snowflake private key path. Overrides the value specified for the connection.",
+    hide_input=True,
+    callback=ConnectionDetails.update_callback("private_key_path"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
 DatabaseOption = typer.Option(
     None,
     "--database",

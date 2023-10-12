@@ -4,6 +4,7 @@ import contextlib
 
 import click
 import logging
+import os
 
 from pathlib import Path
 from typing import Optional
@@ -16,8 +17,16 @@ from snowflake.connector.errors import ForbiddenError, DatabaseError
 from snowcli.config import cli_config, get_default_connection
 from snowcli.exception import SnowflakeConnectionError, InvalidConnectionConfiguration
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.serialization import Encoding
+from cryptography.hazmat.primitives.serialization import NoEncryption
+from cryptography.hazmat.primitives.serialization import PrivateFormat
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
 log = logging.getLogger(__name__)
 TEMPLATES_PATH = Path(__file__).parent / "sql"
+ENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN ENCRYPTED PRIVATE KEY-----"
+UNENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN PRIVATE KEY-----"
 
 
 def connect_to_snowflake(temporary_connection: bool = False, connection_name: Optional[str] = None, **overrides) -> SnowflakeConnection:  # type: ignore
@@ -35,15 +44,36 @@ def connect_to_snowflake(temporary_connection: bool = False, connection_name: Op
             {k: v for k, v in overrides.items() if v is not None}
         )
 
+    private_key = None
+    if "private_key_path" in connection_parameters:
+        if (
+            "authenticator" in connection_parameters
+            and connection_parameters["authenticator"] == "SNOWFLAKE_JWT"
+        ):
+            private_key_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
+            private_key = load_pem_to_der(connection_parameters["private_key_path"])
+            del connection_parameters["private_key_path"]
+        else:
+            raise Exception(
+                "Private Key authentication requires authenticator set to SNOWFLAKE_JWT"
+            )
+
     try:
         # Whatever output is generated when creating connection,
         # we don't want it in our output. This is particularly important
         # for cases when external browser and json format are used.
         with contextlib.redirect_stdout(None):
-            return snowflake.connector.connect(
-                application=_find_command_path(),
-                **connection_parameters,
-            )
+            if private_key is None:
+                return snowflake.connector.connect(
+                    application=_find_command_path(),
+                    **connection_parameters,
+                )
+            else:
+                return snowflake.connector.connect(
+                    application=_find_command_path(),
+                    private_key=private_key,
+                    **connection_parameters,
+                )
     except ForbiddenError as err:
         raise SnowflakeConnectionError(err)
     except DatabaseError as err:
@@ -56,3 +86,46 @@ def _find_command_path():
         # Example: SNOWCLI.WAREHOUSE.STATUS
         return ".".join(["SNOWCLI", *ctx.command_path.split(" ")[1:]]).upper()
     return "SNOWCLI"
+
+
+def load_pem_to_der(private_key_path: str) -> bytes:
+    """
+    Given a private key file path (in PEM format), decode key data into DER
+    format
+    """
+    with open(private_key_path, "rb") as f:
+        private_key_pem = f.read()
+
+    private_key_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
+    if (
+        private_key_pem.startswith(ENCRYPTED_PKCS8_PK_HEADER)
+        and private_key_passphrase is None
+    ):
+        raise Exception(
+            "Encrypted private key, you must provide the"
+            "passphrase in the environment variable PRIVATE_KEY_PASSPHRASE"
+        )
+
+    if not private_key_pem.startswith(
+        ENCRYPTED_PKCS8_PK_HEADER
+    ) and not private_key_pem.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
+        raise Exception(
+            "Private key provided is not in PKCS#8 format. " "Pleas use correct format."
+        )
+
+    if private_key_pem.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
+        private_key_passphrase = None
+
+    private_key = load_pem_private_key(
+        private_key_pem,
+        str.encode(private_key_passphrase)
+        if private_key_passphrase is not None
+        else private_key_passphrase,
+        default_backend(),
+    )
+
+    return private_key.private_bytes(
+        encoding=Encoding.DER,
+        format=PrivateFormat.PKCS8,
+        encryption_algorithm=NoEncryption(),
+    )
