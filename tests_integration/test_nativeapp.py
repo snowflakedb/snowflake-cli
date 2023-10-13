@@ -129,7 +129,7 @@ def test_nativeapp_run_existing(
                         f"select count(*) from {app_name}.core.shared_view"
                     )
                 ),
-                {"COUNT(*)": 1},
+                {"COUNT(*)": "1"},
             )
             test_string = "TEST STRING"
             assert contains_row_with(
