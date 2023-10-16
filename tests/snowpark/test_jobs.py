@@ -19,7 +19,7 @@ def test_create_job(mock_connector, runner, mock_ctx):
                 "snowpark",
                 "jobs",
                 "create",
-                "--compute_pool",
+                "--compute-pool",
                 "testPool",
                 "--spec-path",
                 filepath,
@@ -64,7 +64,7 @@ def test_job_logs(mock_connector, runner, mock_ctx):
     mock_connector.return_value = ctx
 
     result = runner.invoke(
-        ["snowpark", "jobs", "logs", "--container_name", "containerName", "jobName"]
+        ["snowpark", "jobs", "logs", "--container-name", "containerName", "jobName"]
     )
 
     assert result.exit_code == 0, result.output

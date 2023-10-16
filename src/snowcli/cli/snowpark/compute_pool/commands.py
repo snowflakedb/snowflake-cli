@@ -1,7 +1,6 @@
 from enum import Enum
-import typer
 
-import click
+import typer
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.snowpark.compute_pool.manager import ComputePoolManager
@@ -32,14 +31,13 @@ class InstanceFamily(str, Enum):
 @with_output
 @global_options_with_connection
 def create(
-    name: str = typer.Option(..., "--name", "-n", help="Name of the compute pool."),
+    name: str = typer.Option(..., "--name", help="Name of the compute pool."),
     num_instances: int = typer.Option(
-        ..., "--num", "-d", help="Number of compute pool instances."
+        ..., "--num", help="Number of compute pool instances."
     ),
     instance_family: InstanceFamily = typer.Option(
         ...,
         "--family",
-        "-f",
         help="Name of the instance family. For more information about instance families, refer to the SQL CREATE COMPUTE POOL command.",
     ),
     **options,

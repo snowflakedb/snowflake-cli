@@ -26,7 +26,6 @@ def create(
     spec_path: Path = typer.Option(
         ...,
         "--spec-path",
-        "-s",
         help="Path to the `spec.yaml` file containing the job details.",
         file_okay=True,
         dir_okay=False,

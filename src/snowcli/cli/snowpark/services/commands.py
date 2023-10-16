@@ -25,20 +25,17 @@ app = typer.Typer(
 @with_output
 @global_options_with_connection
 def create(
-    name: str = typer.Option(..., "--name", "-n", help="Job Name"),
-    compute_pool: str = typer.Option(..., "--compute_pool", "-pl", help="Compute Pool"),
+    name: str = typer.Option(..., "--name", help="Job Name"),
+    compute_pool: str = typer.Option(..., "--compute-pool", help="Compute Pool"),
     spec_path: Path = typer.Option(
         ...,
-        "--spec_path",
-        "-s",
+        "--spec-path",
         help="Spec Path",
         file_okay=True,
         dir_okay=False,
         exists=True,
     ),
-    num_instances: int = typer.Option(
-        1, "--num_instances", "-num", help="Number of instances"
-    ),
+    num_instances: int = typer.Option(1, "--num-instances", help="Number of instances"),
     **options,
 ) -> CommandResult:
     """
@@ -109,10 +106,10 @@ def drop(
 def logs(
     name: str = typer.Argument(..., help="Name of the service."),
     container_name: str = typer.Option(
-        ..., "--container_name", "-n", help="Name of the container."
+        ..., "--container-name", help="Name of the container."
     ),
-    instance_id: str = typer.Option(..., "--instance_id", "-i", help="Instance Id."),
-    num_lines: int = typer.Option(500, "--num_lines", "-l", help="Num Lines"),
+    instance_id: str = typer.Option(..., "--instance-id", help="Instance Id."),
+    num_lines: int = typer.Option(500, "--num-lines", help="Num Lines"),
     **options,
 ):
     """
