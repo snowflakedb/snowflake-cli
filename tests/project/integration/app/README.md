@@ -1,3 +1,4 @@
 # README
 
-This is the app/README.md file.
+This directory contains an extremely simple application that is used for
+integration testing SnowCLI.
