@@ -106,15 +106,6 @@ def _version_callback(value: bool):
 
 
 @_do_not_execute_on_completion
-@_commands_registration.after
-def _options_structure_callback(value: bool):
-    if value:
-        ctx = click.get_current_context()
-        generate_commands_structure(ctx.command).print_with_options()
-        _exit_with_cleanup()
-
-
-@_do_not_execute_on_completion
 def _info_callback(value: bool):
     if value:
         result = CollectionResult(
@@ -150,14 +141,6 @@ def default(
         hidden=True,
         help="Prints Snowflake CLI structure of commands",
         callback=_commands_structure_callback,
-        is_eager=True,
-    ),
-    options_structure: bool = typer.Option(
-        None,
-        "--options-structure",
-        hidden=True,
-        help="Prints options for all commands",
-        callback=_options_structure_callback,
         is_eager=True,
     ),
     info: bool = typer.Option(

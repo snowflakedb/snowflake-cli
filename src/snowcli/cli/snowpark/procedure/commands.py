@@ -81,7 +81,6 @@ LikeOption = typer.Option(
 ReplaceOption = typer.Option(
     False,
     "--replace-always",
-    "-a",
     help="Replace procedure, even if no detected changes to metadata",
 )
 
