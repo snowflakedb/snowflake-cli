@@ -17,7 +17,7 @@ from snowcli.cli.project.definition_manager import DefinitionManager
 
 log = logging.getLogger(__name__)
 
-SNOWFLAKELABS_GITHUB_URL = "https://github.com/Snowflake-Labs/native-apps-templates"
+SNOWFLAKELABS_GITHUB_URL = "https://github.com/snowflakedb/native-apps-templates"
 BASIC_TEMPLATE = "basic"
 
 # Based on first two rules for unquoted object identifier: https://docs.snowflake.com/en/sql-reference/identifiers-syntax
