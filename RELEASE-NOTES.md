@@ -23,7 +23,7 @@
 
 ## Fixes and improvements
 * Adjust streamlit commands to PuPr syntax
-* Removed duplicated short version `-a` for `--replace-always` option in `snow snowpark function update` command (it was conflicting with short version of `--check-anaconda-for-pypi-deps`).
+* Resolved `-a` option conflict in `snow snowpark procedure update` command by removing short version of `--replace-always` option (it was conflicting with short version of `--check-anaconda-for-pypi-deps`).
 
 # v1.1.1
 
