@@ -261,19 +261,39 @@ def test_temporary_connection(mock_conn, option, runner):
     )
 
 
+@mock.patch.dict(
+    os.environ,
+    {
+        "PRIVATE_KEY_PASSPHRASE": "password",
+    },
+    clear=True,
+)
 @mock.patch("snowflake.connector.connect")
 def test_key_pair_authentication(mock_conn, runner):
     from cryptography.hazmat.primitives.asymmetric import rsa
     from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.backends import default_backend
 
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-
-    private_key_pass = b"password"
 
     encrypted_pem_private_key = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.BestAvailableEncryption(private_key_pass),
+        encryption_algorithm=serialization.BestAvailableEncryption(
+            os.getenv("PRIVATE_KEY_PASSPHRASE").encode("utf-8")
+        ),
+    )
+
+    private_key = serialization.load_pem_private_key(
+        encrypted_pem_private_key,
+        str.encode(os.getenv("PRIVATE_KEY_PASSPHRASE")),
+        default_backend(),
+    )
+
+    private_key = private_key.private_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
     )
 
     with NamedTemporaryFile("w+", suffix=".p8") as tmp_file:
@@ -281,8 +301,6 @@ def test_key_pair_authentication(mock_conn, runner):
             dedent("\n".join(encrypted_pem_private_key.decode().splitlines()))
         )
         tmp_file.flush()
-
-        os.environ["PRIVATE_KEY_PASSPHRASE"] = "password"
 
         mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
         result = runner.invoke(
@@ -310,7 +328,7 @@ def test_key_pair_authentication(mock_conn, runner):
     assert result.exit_code == 1
     mock_conn.assert_called_once_with(
         application="SNOWCLI.WAREHOUSE.STATUS",
-        private_key=mock.ANY,
+        private_key=private_key,
         account="test_account",
         user="snowcli_test",
         authenticator="SNOWFLAKE_JWT",
