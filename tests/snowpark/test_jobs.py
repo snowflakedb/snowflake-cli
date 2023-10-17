@@ -10,10 +10,16 @@ def test_create_job(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
+    test_spec = """
+spec:
+  containers:
+  - name: main
+    image: public.ecr.aws/myrepo:latest
+    """
     with TemporaryDirectory() as temp_dir:
         filepath = os.path.join(temp_dir, "test")
         with open(filepath, "w") as fh:
-            fh.write("test data")
+            fh.write(test_spec)
         runner.invoke(
             [
                 "snowpark",
@@ -25,13 +31,15 @@ def test_create_job(mock_connector, runner, mock_ctx):
                 filepath,
             ]
         )
+        with open("/Users/aivanou/code/snowcli-aivanou/test.txt", "w") as fh:
+            fh.write(ctx.get_query())
     assert ctx.get_query() == (
         "USE DATABASE MockDatabase\n"
         "USE MockDatabase.MockSchema\n"
         "EXECUTE SERVICE\n"
         "IN COMPUTE POOL testPool\n"
         "FROM SPECIFICATION '\n"
-        '"test data"\n'
+        '{"spec": {"containers": [{"name": "main", "image": "public.ecr.aws/myrepo:latest"}]}}\n'
         "'\n"
     )
 
