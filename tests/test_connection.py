@@ -262,8 +262,7 @@ def test_temporary_connection(mock_conn, option, runner):
 
 
 @mock.patch("snowflake.connector.connect")
-@pytest.mark.parametrize("option", ["--temporary-connection", "-x"])
-def test_key_pair_authentication(mock_conn, option, runner):
+def test_key_pair_authentication(mock_conn, runner):
     from cryptography.hazmat.primitives.asymmetric import rsa
     from cryptography.hazmat.primitives import serialization
 
@@ -290,7 +289,7 @@ def test_key_pair_authentication(mock_conn, option, runner):
             [
                 "warehouse",
                 "status",
-                option,
+                "--temporary-connection",
                 "--account",
                 "test_account",
                 "--user",

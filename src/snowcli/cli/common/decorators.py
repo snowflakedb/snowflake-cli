@@ -16,7 +16,7 @@ from snowcli.cli.common.flags import (
     WarehouseOption,
     PasswordOption,
     AuthenticatorOption,
-    PrivatekeypathOption,
+    PrivateKeyPathOption,
     OutputFormatOption,
     VerboseOption,
     DebugOption,
@@ -182,7 +182,7 @@ GLOBAL_CONNECTION_OPTIONS = [
         "private_key_path",
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[str],
-        default=PrivatekeypathOption,
+        default=PrivateKeyPathOption,
     ),
     inspect.Parameter(
         "database",
