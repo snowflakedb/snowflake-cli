@@ -45,7 +45,7 @@ def connect_to_snowflake(temporary_connection: bool = False, connection_name: Op
             private_key = load_pem_to_der(connection_parameters["private_key_path"])
             del connection_parameters["private_key_path"]
         else:
-            raise Exception(
+            raise ClickException(
                 "Private Key authentication requires authenticator set to SNOWFLAKE_JWT"
             )
 
