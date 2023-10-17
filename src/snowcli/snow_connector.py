@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 
 import click
+from click.exceptions import ClickException
 import logging
 import os
 
@@ -41,7 +42,6 @@ def connect_to_snowflake(temporary_connection: bool = False, connection_name: Op
     private_key = None
     if "private_key_path" in connection_parameters:
         if connection_parameters.get("authenticator") == "SNOWFLAKE_JWT":
-            private_key_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
             private_key = load_pem_to_der(connection_parameters["private_key_path"])
             del connection_parameters["private_key_path"]
         else:
@@ -98,7 +98,7 @@ def load_pem_to_der(private_key_path: str) -> bytes:
         private_key_pem.startswith(ENCRYPTED_PKCS8_PK_HEADER)
         and private_key_passphrase is None
     ):
-        raise Exception(
+        raise ClickException(
             "Encrypted private key, you must provide the"
             "passphrase in the environment variable PRIVATE_KEY_PASSPHRASE"
         )
@@ -106,7 +106,7 @@ def load_pem_to_der(private_key_path: str) -> bytes:
     if not private_key_pem.startswith(
         ENCRYPTED_PKCS8_PK_HEADER
     ) and not private_key_pem.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
-        raise Exception(
+        raise ClickException(
             "Private key provided is not in PKCS#8 format. Please use correct format."
         )
 
