@@ -79,7 +79,7 @@ AuthenticatorOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
-PrivatekeypathOption = typer.Option(
+PrivateKeyPathOption = typer.Option(
     None,
     "--private-key-path",
     help="Snowflake private key path. Overrides the value specified for the connection.",
