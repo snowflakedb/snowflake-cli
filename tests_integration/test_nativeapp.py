@@ -28,7 +28,6 @@ def pushd(dir: Path):
         os.chdir(cwd)
 
 
-@pytest.mark.skip
 @pytest.mark.integration
 def test_nativeapp_init_run_without_modifications(
     runner,
@@ -36,7 +35,7 @@ def test_nativeapp_init_run_without_modifications(
     temp_dir,
 ):
     project_name = "myapp"
-    result = runner.invoke_integration(
+    result = runner.invoke_with_config(
         ["app", "init", project_name],
         env=TEST_ENV,
     )
@@ -54,27 +53,21 @@ def test_nativeapp_init_run_without_modifications(
             package_name = f"{project_name}_pkg_{USER_NAME}".upper()
             app_name = f"{project_name}_{USER_NAME}".upper()
             assert contains_row_with(
-                dict(name=package_name),
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
                         f"show application packages like '{package_name}'",
                     )
                 ),
+                dict(name=package_name),
             )
             assert contains_row_with(
-                dict(name=app_name),
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
                         f"show applications like '{app_name}'",
                     )
                 ),
+                dict(name=app_name),
             )
-
-            result = runner.invoke_integration(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
-            assert result.exit_code == 0
 
         finally:
             # make sure we always delete the app
@@ -129,7 +122,7 @@ def test_nativeapp_run_existing(
                         f"select count(*) from {app_name}.core.shared_view"
                     )
                 ),
-                {"COUNT(*)": "1"},
+                {"COUNT(*)": 1},
             )
             test_string = "TEST STRING"
             assert contains_row_with(
