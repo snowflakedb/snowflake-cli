@@ -31,8 +31,6 @@ spec:
                 filepath,
             ]
         )
-        with open("/Users/aivanou/code/snowcli-aivanou/test.txt", "w") as fh:
-            fh.write(ctx.get_query())
     assert ctx.get_query() == (
         "USE DATABASE MockDatabase\n"
         "USE MockDatabase.MockSchema\n"
