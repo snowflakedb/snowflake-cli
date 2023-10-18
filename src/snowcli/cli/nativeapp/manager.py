@@ -212,19 +212,21 @@ class NativeAppManager(SqlExecutionMixin):
             )
 
         # Perform a diff operation and display results to the user for informational purposes
-        print(
+        log.warn(
             f'Performing a diff between the Snowflake stage and your local deploy_root ("{self.deploy_root}") directory.'
         )
         diff: DiffResult = stage_diff(self.deploy_root, self.stage_fqn)
-        print("Listing results of diff:")
-        print(f"New files only on your local: {','.join(diff.only_local)}")
-        print(f"New files only on the stage: {','.join(diff.only_on_stage)}")
-        print(f"Existing files modified or status unknown: {','.join(diff.different)}")
-        print(f"Existing files identical to the stage: {','.join(diff.identical)}")
+        log.warn("Listing results of diff:")
+        log.warn(f"New files only on your local: {','.join(diff.only_local)}")
+        log.warn(f"New files only on the stage: {','.join(diff.only_on_stage)}")
+        log.warn(
+            f"Existing files modified or status unknown: {','.join(diff.different)}"
+        )
+        log.warn(f"Existing files identical to the stage: {','.join(diff.identical)}")
 
         # Upload diff-ed files to app pkg stage
         if diff.has_changes():
-            print(
+            log.warn(
                 f"Uploading diff-ed files from your local {self.deploy_root} directory to the Snowflake stage."
             )
             sync_local_diff_with_stage(
