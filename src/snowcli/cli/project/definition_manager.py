@@ -9,6 +9,15 @@ from snowcli.exception import MissingConfiguration
 from snowcli.cli.project.definition import load_project_definition
 
 
+def _compat_is_mount(path: Path):
+    try:
+        return path.is_mount()
+    except NotImplementedError:
+        # If we can't figure out if path is mount then let's assume it is
+        # Windows support added in Python 3.12
+        return True
+
+
 class DefinitionManager:
     BASE_DEFINITION_FILENAME = "snowflake.yml"
     USER_DEFINITION_FILENAME = "snowflake.local.yml"
@@ -34,10 +43,10 @@ class DefinitionManager:
         a filesystem boundary or hit the user's HOME directory.
         """
         parent_path = project_path
-        starting_mount = project_path.is_mount()
+        starting_mount = _compat_is_mount(project_path)
         while parent_path:
             if (
-                project_path.is_mount() != starting_mount
+                _compat_is_mount(project_path) != starting_mount
                 or parent_path.parent == parent_path
                 or parent_path == Path.home()
             ):
