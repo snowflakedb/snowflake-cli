@@ -91,7 +91,6 @@ def test_all_commands_has_proper_documentation(runner):
     assert len(errors) == 0, "\n".join(errors)
 
 
-@pytest.mark.skip  # TODO : unskip after resolving all options conflicts
 def test_if_there_are_no_option_duplicates(runner):
     runner.invoke("--help")
 

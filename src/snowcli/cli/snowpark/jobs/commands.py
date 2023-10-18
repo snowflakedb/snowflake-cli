@@ -22,7 +22,7 @@ app = typer.Typer(
 @global_options_with_connection
 def create(
     compute_pool: str = typer.Option(
-        ..., "--compute-pool", "-c", help="Name of the pool in which to run the job."
+        ..., "--compute-pool", help="Name of the pool in which to run the job."
     ),
     spec_path: Path = typer.Option(
         ...,
@@ -70,7 +70,7 @@ def desc(id: str = typer.Argument(..., help="Job id"), **options) -> CommandResu
 def logs(
     id: str = typer.Argument(..., help="Job id"),
     container_name: str = typer.Option(
-        ..., "--container-name", "-c", help="Name of the container."
+        ..., "--container-name", help="Name of the container."
     ),
     **options,
 ):

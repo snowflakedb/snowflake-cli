@@ -61,7 +61,6 @@ UserOption = typer.Option(
 PasswordOption = typer.Option(
     None,
     "--password",
-    "-p",
     help="Snowflake password. Overrides the value specified for the connection.",
     hide_input=True,
     callback=ConnectionDetails.update_callback("password"),
