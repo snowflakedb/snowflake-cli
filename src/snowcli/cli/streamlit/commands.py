@@ -118,7 +118,7 @@ def streamlit_drop(
 def streamlit_deploy(
     streamlit_name: str = typer.Argument(..., help="Name of Streamlit to deploy."),
     file: Path = typer.Option(
-        "streamlit_app.py",
+        "app.py",
         exists=True,
         readable=True,
         file_okay=True,
