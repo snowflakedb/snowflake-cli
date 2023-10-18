@@ -92,7 +92,7 @@ def test_nativeapp_run_existing(
             ["app", "run"],
             env=TEST_ENV,
         )
-        print(result.output)
+        print(result.output.encode("utf-8"))
         assert result.exit_code == 0
 
         try:
