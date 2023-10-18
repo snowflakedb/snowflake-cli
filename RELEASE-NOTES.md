@@ -6,9 +6,11 @@
 ## New additions
 * `snow streamlit init` command that creates a new streamlit project.
 * `snow streamlit deploy` support pages and environment.yml files.
+* Support for private key authentication
 
 ## Fixes and improvements
 * Adjust streamlit commands to PuPr syntax
+* Fix URL to streamlit dashboards
 
 
 # v1.1.1
