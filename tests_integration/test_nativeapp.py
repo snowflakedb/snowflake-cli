@@ -89,7 +89,7 @@ def test_nativeapp_run_existing(
     dir = project_definition_files[0].parent
     with pushd(dir):
         result = runner.invoke_integration(
-            ["app", "run"],
+            ["app", "run", "--debug"],
             env=TEST_ENV,
         )
         print(result.output.encode("utf-8") if result.output else None)
