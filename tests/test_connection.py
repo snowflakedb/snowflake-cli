@@ -5,6 +5,7 @@ from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import mock
 
+from src.snowcli.exception import SnowflakeConnectionError
 from tests.testing_utils.fixtures import *
 
 
@@ -217,3 +218,81 @@ def test_connection_test(mock_connect, runner):
     result = runner.invoke_with_config(["connection", "test", "-c", "full"])
     assert result.exit_code == 0, result.output
     mock_connect.assert_called_once_with(connection_name="full")
+
+
+@mock.patch.dict(
+    os.environ,
+    {
+        "PRIVATE_KEY_PASSPHRASE": "password",
+    },
+    clear=True,
+)
+@mock.patch("snowflake.connector.connect")
+def test_key_pair_authentication(mock_conn, runner):
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.backends import default_backend
+
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+    encrypted_pem_private_key = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.BestAvailableEncryption(
+            os.getenv("PRIVATE_KEY_PASSPHRASE").encode("utf-8")
+        ),
+    )
+
+    private_key = serialization.load_pem_private_key(
+        encrypted_pem_private_key,
+        str.encode(os.getenv("PRIVATE_KEY_PASSPHRASE")),
+        default_backend(),
+    )
+
+    private_key = private_key.private_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+
+    with NamedTemporaryFile("w+", suffix=".p8") as tmp_file:
+        tmp_file.write(
+            dedent("\n".join(encrypted_pem_private_key.decode().splitlines()))
+        )
+        tmp_file.flush()
+
+        mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
+        result = runner.invoke_with_config(
+            [
+                "warehouse",
+                "status",
+                "--account",
+                "test_account",
+                "--user",
+                "snowcli_test",
+                "--authenticator",
+                "SNOWFLAKE_JWT",
+                "--private-key-path",
+                tmp_file.name,
+                "--warehouse",
+                "xsmall",
+                "--database",
+                "test_dv",
+                "--schema",
+                "PUBLIC",
+            ],
+        )
+
+    assert result.exit_code == 1
+    mock_conn.assert_called_once_with(
+        application="SNOWCLI.WAREHOUSE.STATUS",
+        private_key=private_key,
+        database="test_dv",
+        schema="PUBLIC",
+        role="test_role",
+        warehouse="xsmall",
+        password="dummy_password",
+        account="test_account",
+        user="snowcli_test",
+        authenticator="SNOWFLAKE_JWT",
+    )
