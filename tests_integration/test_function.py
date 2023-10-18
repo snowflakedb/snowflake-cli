@@ -17,7 +17,7 @@ from tests_integration.conftest import SnowCLIRunner
 
 
 @pytest.mark.integration
-def test_snowpark_function_flow(_test_steps):
+def test_snowpark_function_flow(_test_steps, project_file):
     _test_steps.assert_that_no_entities_are_in_snowflake()
     _test_steps.assert_that_no_files_are_staged_in_test_db()
 
@@ -26,65 +26,79 @@ def test_snowpark_function_flow(_test_steps):
     _test_steps.snowpark_init_should_initialize_files_with_default_content()
     _test_steps.snowpark_package_should_zip_files()
 
-    function_name = _test_steps.snowpark_create_should_finish_successfully()
+    function_name = _test_steps.get_entity_name()
+
+    with project_file(
+        "snowpark_functions",
+        merge_project_definition={
+            "functions": [
+                {
+                    "name": function_name,
+                    "handler": "app.hello",
+                    "signature": [{"name": "name", "type": "string"}],
+                    "returns": "string",
+                }
+            ]
+        },
+    ):
+        _test_steps.run_deploy()
+
     _test_steps.assert_that_only_these_entities_are_in_snowflake(
-        f"{function_name}() RETURN VARCHAR"
+        f"{function_name}(VARCHAR) RETURN VARCHAR"
     )
     _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-        f"deployments/{function_name}/app.zip"
+        f"deployments/{function_name}_name_string/app.zip"
     )
 
     _test_steps.snowpark_list_should_return_entity_at_first_place(
         entity_name=function_name,
-        arguments="()",
+        arguments="(VARCHAR)",
         result_type="VARCHAR",
     )
 
     _test_steps.snowpark_describe_should_return_entity_description(
-        entity_name=function_name,
-        arguments="()",
+        entity_name=function_name, arguments="(VARCHAR)", signature="(NAME VARCHAR)"
     )
 
     _test_steps.snowpark_execute_should_return_expected_value(
         entity_name=function_name,
-        arguments="()",
-        expected_value="Hello World!",
+        arguments="('foo')",
+        expected_value="Hello foo!",
     )
 
-    _test_steps.snowpark_update_should_not_replace_if_the_signature_does_not_change(
-        function_name
-    )
-    _test_steps.snowpark_execute_should_return_expected_value(
-        entity_name=function_name, arguments="()", expected_value="Hello Snowflakes!"
-    )
-
-    _test_steps.snowpark_update_should_finish_successfully(function_name)
-    _test_steps.assert_that_only_these_entities_are_in_snowflake(
-        f"{function_name}() RETURN NUMBER"
-    )
     _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-        f"deployments/{function_name}/app.zip"
+        f"deployments/{function_name}_name_string/app.zip"
     )
 
-    _test_steps.snowpark_list_should_return_entity_at_first_place(
-        entity_name=function_name,
-        arguments="()",
-        result_type="NUMBER",
-    )
+    with project_file(
+        "snowpark_functions",
+        merge_project_definition={
+            "functions": [
+                {
+                    "name": function_name,
+                    "handler": "app.hello",
+                    "signature": [{"name": "name", "type": "string"}],
+                    "returns": "variant",
+                }
+            ]
+        },
+    ):
+        _test_steps.run_deploy("--replace")
 
-    _test_steps.snowpark_execute_should_return_expected_value(
+    _test_steps.snowpark_describe_should_return_entity_description(
         entity_name=function_name,
-        arguments="()",
-        expected_value=1,
+        arguments="(VARCHAR)",
+        signature="(NAME VARCHAR)",
+        returns="VARIANT",
     )
 
     _test_steps.snowpark_drop_should_finish_successfully(
         entity_name=function_name,
-        arguments="()",
+        arguments="(VARCHAR)",
     )
     _test_steps.assert_that_no_entities_are_in_snowflake()
     _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-        f"deployments/{function_name}/app.zip"
+        f"deployments/{function_name}_name_string/app.zip"
     )
 
     _test_steps.snowpark_list_should_return_no_data()

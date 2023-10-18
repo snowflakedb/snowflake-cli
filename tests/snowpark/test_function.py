@@ -26,8 +26,8 @@ def test_create_function(
             [
                 "snowpark",
                 "function",
-                "create",
-                "--replace-always",
+                "deploy",
+                "--replace",
             ],
             catch_exceptions=False,
         )

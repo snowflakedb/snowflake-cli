@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import functools
 import json
+import os
 import tempfile
 import shutil
+from contextlib import contextmanager
 
 import pytest
 from dataclasses import dataclass
@@ -105,3 +107,37 @@ class SnowCLIRunner(CliRunner):
 @pytest.fixture
 def runner(test_snowcli_config_provider):
     return SnowCLIRunner(app, test_snowcli_config_provider)
+
+
+@pytest.fixture
+def temp_dir():
+    initial_dir = os.getcwd()
+    tmp = tempfile.TemporaryDirectory()
+    os.chdir(tmp.name)
+    yield tmp.name
+    os.chdir(initial_dir)
+    tmp.cleanup()
+
+
+@pytest.fixture
+def project_file(temp_dir, test_root_path):
+    @contextmanager
+    def _temporary_project_directory(
+        project_name, merge_project_definition: Optional[dict] = None
+    ):
+        test_data_file = test_root_path / "test_data" / "projects" / project_name
+        shutil.copytree(test_data_file, temp_dir, dirs_exist_ok=True)
+        if merge_project_definition:
+            import strictyaml
+            from src.snowcli.cli.project.definition import merge_left
+            from strictyaml import as_document
+
+            project_definition = strictyaml.load(Path("snowflake.yml").read_text()).data
+            merge_left(project_definition, merge_project_definition)
+            with open(Path(temp_dir) / "snowflake.yml", "w") as file:
+
+                file.write(as_document(project_definition).as_yaml())
+
+        yield Path(temp_dir)
+
+    return _temporary_project_directory

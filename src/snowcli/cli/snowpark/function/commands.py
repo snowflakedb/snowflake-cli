@@ -73,7 +73,7 @@ LikeOption = typer.Option(
 
 ReplaceOption = typer.Option(
     False,
-    "--replace-always",
+    "--replace",
     help="Replace function, even if no detected changes to metadata",
 )
 
@@ -89,10 +89,10 @@ def function_init(**options):
     return MessageResult("Done")
 
 
-@app.command("create")
+@app.command("deploy")
 @with_output
 @global_options_with_connection
-def function_create(
+def function_deploy(
     function_names: List[str] = typer.Option(
         None, help="Functions names. Multiple can be provided."
     ),
@@ -105,6 +105,7 @@ def function_create(
     """Creates a python UDF or UDTF using a local artifact."""
     dm = DefinitionManager()
     functions = dm.project_definition.get("functions")
+
     if not functions:
         return MessageResult("No functions were specified in project definition.")
 

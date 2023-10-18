@@ -15,37 +15,36 @@
   import sys
   
   
-  def hello() -> str:
-      return "Hello World!"
+  def hello(name: str) -> str:
+      return f"Hello {name}!"
   
   
   # For local debugging. Be aware you may need to type-convert arguments if
   # you add input parameters
   if __name__ == "__main__":
       if len(sys.argv) > 1:
-          print(hello(sys.argv[1:]))  # type: ignore
+          print(hello(sys.argv[1]))  # type: ignore
       else:
-          print(hello())  # type: ignore
-  
-  '''
-# ---
-# name: test_snowpark_function_flow[config.toml]
-  '''
-  # Can create multiple --environments (default 'dev')
-  
-  [connections]
-  [connections.dev]
-  account = "<ACCOUNT_NAME>"
-  database = "<DATABASE_NAME>"
-  schema = "<SCHEMA_NAME>"
-  warehouse = "<WAREHOUSE_NAME>"
-  role = "<ROLE_NAME>"
+          print(hello("world"))
   
   '''
 # ---
 # name: test_snowpark_function_flow[requirements.txt]
   '''
   snowflake-snowpark-python
+  
+  '''
+# ---
+# name: test_snowpark_function_flow[snowflake.yml]
+  '''
+  definition_version: 1
+  functions:
+    - name: hello
+      handler: "app.hello"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
   
   '''
 # ---
