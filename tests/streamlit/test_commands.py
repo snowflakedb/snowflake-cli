@@ -75,11 +75,10 @@ def test_deploy_streamlit_single_file(
 
     """
         ),
-        f"select system$get_snowsight_host()",
     ]
 
     mock_typer.launch.assert_called_once_with(
-        f"https://snowsight.domain/test.region.aws/my_account/#/streamlit-apps/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}"
+        f"https://app.snowflake.com/test.region.aws/my_account/#/streamlit-apps/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}"
     )
 
 
@@ -110,8 +109,6 @@ def test_deploy_streamlit_all_files_default_stage(
 
     """
         ),
-        f"select system$get_snowsight_host()",
-        f"select current_account_name()",
     ]
 
 
@@ -150,8 +147,6 @@ def test_deploy_streamlit_all_files_users_stage(
 
     """
         ),
-        f"select system$get_snowsight_host()",
-        f"select current_account_name()",
     ]
 
 
@@ -184,8 +179,6 @@ def test_deploy_streamlit_main_and_environment_files(
 
     """
         ),
-        f"select system$get_snowsight_host()",
-        f"select current_account_name()",
     ]
 
 
@@ -216,8 +209,6 @@ def test_deploy_streamlit_main_and_pages_files(
 
     """
         ),
-        f"select system$get_snowsight_host()",
-        f"select current_account_name()",
     ]
 
 
