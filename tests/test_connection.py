@@ -231,6 +231,7 @@ def test_temporary_connection(mock_conn, option, runner):
     mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
     result = runner.invoke(
         [
+            "object",
             "warehouse",
             "status",
             option,
@@ -251,7 +252,7 @@ def test_temporary_connection(mock_conn, option, runner):
 
     assert result.exit_code == 1
     mock_conn.assert_called_once_with(
-        application="SNOWCLI.WAREHOUSE.STATUS",
+        application="SNOWCLI.OBJECT.WAREHOUSE.STATUS",
         account="test_account",
         user="snowcli_test",
         password="top_secret",
@@ -305,6 +306,7 @@ def test_key_pair_authentication(mock_conn, runner):
         mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
         result = runner.invoke(
             [
+                "object",
                 "warehouse",
                 "status",
                 "--temporary-connection",
@@ -327,7 +329,7 @@ def test_key_pair_authentication(mock_conn, runner):
 
     assert result.exit_code == 1
     mock_conn.assert_called_once_with(
-        application="SNOWCLI.WAREHOUSE.STATUS",
+        application="SNOWCLI.OBJECT.WAREHOUSE.STATUS",
         private_key=private_key,
         account="test_account",
         user="snowcli_test",

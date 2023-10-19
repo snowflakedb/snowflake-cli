@@ -11,7 +11,9 @@ STAGE_MANAGER = "snowcli.cli.object.stage.manager.StageManager"
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_list(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke_with_config(["object","stage", "list", "-c", "empty", "stageName"])
+    result = runner.invoke_with_config(
+        ["object", "stage", "list", "-c", "empty", "stageName"]
+    )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with("ls @stageName")
 
@@ -21,7 +23,7 @@ def test_stage_get(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke_with_config(
-            ["object","stage", "get", "-c", "empty", "stageName", str(tmp_dir)]
+            ["object", "stage", "get", "-c", "empty", "stageName", str(tmp_dir)]
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
@@ -32,10 +34,12 @@ def test_stage_get(mock_execute, runner, mock_cursor):
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_get_default_path(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke_with_config(["object","stage", "get", "-c", "empty", "stageName"])
+    result = runner.invoke_with_config(
+        ["object", "stage", "get", "-c", "empty", "stageName"]
+    )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        f'get @stageName file://{Path(".").resolve()}/'
+        f'get @stageName file://{Path("").resolve()}/'
     )
 
 
@@ -45,6 +49,7 @@ def test_stage_put(mock_execute, runner, mock_cursor):
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke_with_config(
             [
+                "object",
                 "stage",
                 "put",
                 "-c",
@@ -68,6 +73,7 @@ def test_stage_put_star(mock_execute, runner, mock_cursor):
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke_with_config(
             [
+                "object",
                 "stage",
                 "put",
                 "-c",
@@ -88,7 +94,9 @@ def test_stage_put_star(mock_execute, runner, mock_cursor):
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_create(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke_with_config(["stage", "create", "-c", "empty", "stageName"])
+    result = runner.invoke_with_config(
+        ["object", "stage", "create", "-c", "empty", "stageName"]
+    )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with("create stage if not exists stageName")
 
@@ -96,7 +104,9 @@ def test_stage_create(mock_execute, runner, mock_cursor):
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_drop(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke_with_config(["stage", "drop", "-c", "empty", "stageName"])
+    result = runner.invoke_with_config(
+        ["object", "stage", "drop", "-c", "empty", "stageName"]
+    )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with("drop stage stageName")
 
@@ -105,7 +115,7 @@ def test_stage_drop(mock_execute, runner, mock_cursor):
 def test_stage_remove(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke_with_config(
-        ["stage", "remove", "-c", "empty", "stageName", "my/file/foo.csv"]
+        ["object", "stage", "remove", "-c", "empty", "stageName", "my/file/foo.csv"]
     )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with("remove @stageName/my/file/foo.csv")

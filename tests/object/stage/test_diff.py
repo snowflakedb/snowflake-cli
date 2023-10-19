@@ -17,7 +17,7 @@ from snowcli.cli.object.stage.diff import (
     sync_local_diff_with_stage,
 )
 
-STAGE_MANAGER = "snowcli.cli.stage.manager.StageManager"
+STAGE_MANAGER = "snowcli.cli.object.stage.manager.StageManager"
 
 FILE_CONTENTS = {
     "README.md": "This is a README\n",

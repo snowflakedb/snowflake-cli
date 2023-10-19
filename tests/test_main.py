@@ -32,12 +32,12 @@ def test_custom_config_path(mock_conn, runner, mock_cursor):
         mock_cursor(["row"], []),
     ]
     result = runner.invoke(
-        ["--config-file", str(config_file), "warehouse", "status"],
+        ["--config-file", str(config_file),"object", "warehouse", "status"],
         catch_exceptions=False,
     )
     assert result.exit_code == 0, result.output
     mock_conn.assert_called_once_with(
-        application="SNOWCLI.WAREHOUSE.STATUS",
+        application="SNOWCLI.OBJECT.WAREHOUSE.STATUS",
         database="db_for_test",
         schema="test_public",
         role="test_role",

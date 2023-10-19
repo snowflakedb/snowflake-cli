@@ -11,7 +11,7 @@ from snowcli.cli.registry import plugin_spec as registry_plugins_spec
 builtin_plugin_name_to_plugin_spec = {
     "connection": connection_plugin_spec,
     "nativeapp": nativeapp_plugin_spec,
-    "object" : object_plugin_spec,
+    "object": object_plugin_spec,
     "render": render_plugin_spec,
     "snowpark": snowpark_plugin_spec,
     "sql": sql_plugin_spec,
