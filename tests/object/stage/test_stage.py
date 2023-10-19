@@ -38,9 +38,7 @@ def test_stage_get_default_path(mock_execute, runner, mock_cursor):
         ["object", "stage", "get", "-c", "empty", "stageName"]
     )
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with(
-        f'get @stageName file://{Path("").resolve()}/'
-    )
+    mock_execute.assert_called_once_with(f'get @stageName file://{Path("").resolve()}/')
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")

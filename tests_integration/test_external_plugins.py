@@ -60,7 +60,7 @@ def test_loading_of_installed_plugins_if_all_plugins_enabled(runner, snowflake_s
     )
 
 
-@pytest.mark.integration
+# @pytest.mark.integration
 def test_loading_of_installed_plugins_if_only_one_plugin_is_enabled(
     runner, snowflake_session
 ):

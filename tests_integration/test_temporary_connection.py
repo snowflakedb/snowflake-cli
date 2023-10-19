@@ -5,6 +5,7 @@ import pytest
 def test_temporary_connection(runner):
     result = runner._invoke(
         [
+            "object",
             "warehouse",
             "status",
             "--temporary-connection",

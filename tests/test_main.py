@@ -32,7 +32,7 @@ def test_custom_config_path(mock_conn, runner, mock_cursor):
         mock_cursor(["row"], []),
     ]
     result = runner.invoke(
-        ["--config-file", str(config_file),"object", "warehouse", "status"],
+        ["--config-file", str(config_file), "object", "warehouse", "status"],
         catch_exceptions=False,
     )
     assert result.exit_code == 0, result.output
