@@ -1,0 +1,13 @@
+# serializer version: 1
+# name: test_show_warehouses
+  '''
+  SELECT A MOCK QUERY
+  +------------------+
+  | name | state     |
+  |------+-----------|
+  | foo  | suspended |
+  | bar  | running   |
+  +------------------+
+  
+  '''
+# ---

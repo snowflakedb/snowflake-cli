@@ -15,6 +15,7 @@
 * `snow snowpark registry` was replaced with `snow registry` command.
 * Removed `snow streamlit create` command. Streamlit can be deployd using `snow streamlit deploy`
 * `snow connection test` now outputs all connection details (except for the password), along with connection status
+* Moved `snow stage` and `snow warehouse` from top-level to `snow object` subgroup
 
 ## New additions
 * `--temporary-connection` flag, that allows you to connect, without anything declared in config file
