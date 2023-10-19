@@ -2,6 +2,10 @@
 
 ## Backward incompatibility
 * Removed `snow streamlit create` command. Streamlit can be deployd using `snow streamlit deploy`
+* Removed short option names in compute pool commands:
+  * `-n` for `--name`, name of compute pool
+  * `-d` for `--num`, number of pool's instances
+  * `-f` for `--family`, instance family
 
 ## New additions
 * `snow streamlit init` command that creates a new streamlit project.

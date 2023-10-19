@@ -1,4 +1,5 @@
 from enum import Enum
+
 import typer
 
 from snowcli.cli.common.alias import build_alias
@@ -10,7 +11,7 @@ from snowcli.output.types import SingleQueryResult, QueryResult, CommandResult
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    name="compute-pool",
+    name="pool",
     help="Manages compute pools. You can also use `cp` as alias for this command.",
 )
 
@@ -32,14 +33,13 @@ class InstanceFamily(str, Enum):
 @with_output
 @global_options_with_connection
 def create(
-    name: str = typer.Option(..., "--name", "-n", help="Name of the compute pool."),
+    name: str = typer.Option(..., "--name", help="Name of the compute pool."),
     num_instances: int = typer.Option(
-        ..., "--num", "-d", help="Number of compute pool instances."
+        ..., "--num", help="Number of compute pool instances."
     ),
     instance_family: InstanceFamily = typer.Option(
         ...,
         "--family",
-        "-f",
         help="Name of the instance family. For more information about instance families, refer to the SQL CREATE COMPUTE POOL command.",
     ),
     **options,
@@ -93,5 +93,11 @@ def stop(
 app_cp = build_alias(
     app,
     name="cp",
-    help_str="Manages compute pools. This command is alias for `compute-pool` command",
+    help_str="Manages compute pools. This command is alias for `pool` command",
+)
+
+app_compute_pool = build_alias(
+    app,
+    name="compute-pool",
+    help_str="Manages compute pools. This command is alias for `pool` command",
 )

@@ -8,17 +8,27 @@ from snowcli.cli.common.sql_execution import SqlExecutionMixin
 
 
 class JobManager(SqlExecutionMixin):
-    def create(self, compute_pool: str, spec_path: Path, stage: str) -> SnowflakeCursor:
-        spec_filename = os.path.basename(spec_path)
-        file_hash = hashlib.md5(open(spec_path, "rb").read()).hexdigest()
-        stage_dir = os.path.join("jobs", file_hash)
-        return self._execute_query(
+    def create(self, compute_pool: str, spec_path: Path) -> SnowflakeCursor:
+        spec = self._read_yaml(spec_path)
+        return self._execute_schema_query(
             f"""\
-        EXECUTE SERVICE
-        COMPUTE_POOL =  {compute_pool}
-        spec=@{stage}/{stage_dir}/{spec_filename};
-        """
+            EXECUTE SERVICE
+            IN COMPUTE POOL {compute_pool}
+            FROM SPECIFICATION '
+            {spec}
+            '
+            """
         )
+
+    def _read_yaml(self, path: Path) -> str:
+        # TODO(aivanou): Add validation towards schema
+        # TODO(aivanou): Combine this with service manager
+        import yaml
+        import json
+
+        with open(path) as fh:
+            data = yaml.safe_load(fh)
+        return json.dumps(data)
 
     def desc(self, job_name: str) -> SnowflakeCursor:
         return self._execute_query(f"desc service {job_name}")

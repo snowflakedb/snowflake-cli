@@ -114,9 +114,9 @@ def test_logs(mock_execute_schema_query):
     container_name = "test_container"
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_schema_query.return_value = cursor
-    result = ServiceManager().logs(service_name, container_name)
+    result = ServiceManager().logs(service_name, "10", container_name, 42)
     expected_query = (
-        "call SYSTEM$GET_SERVICE_LOGS('test_service', '0', 'test_container');"
+        "call SYSTEM$GET_SERVICE_LOGS('test_service', '10', 'test_container', 42);"
     )
     mock_execute_schema_query.assert_called_once_with(expected_query)
     assert result == cursor
