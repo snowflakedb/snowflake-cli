@@ -11,6 +11,8 @@ _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "account",
     "user",
     "password",
+    "authenticator",
+    "private_key_path",
     "database",
     "schema",
     "role",
