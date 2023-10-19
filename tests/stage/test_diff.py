@@ -1,16 +1,13 @@
 import hashlib
-from typing import Union, Dict, List, Tuple
-from unittest import mock
-
-from snowcli.cli.stage.manager import StageManager
+from typing import Tuple
 
 from snowcli.exception import SnowflakeSQLExecutionError
-from snowcli.cli.stage.manager import StageManager
+from snowcli.cli.object.stage.manager import StageManager
 
 from tests.testing_utils.fixtures import *
 from tests.testing_utils.files_and_dirs import temp_local_dir
 
-from snowcli.cli.stage.diff import (
+from snowcli.cli.object.stage.diff import (
     DiffResult,
     delete_only_on_stage_files,
     enumerate_files,

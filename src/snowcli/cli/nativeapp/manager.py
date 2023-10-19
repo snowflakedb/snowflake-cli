@@ -7,8 +7,6 @@ from typing import List, Optional, Literal, Callable
 from click.exceptions import ClickException
 from snowcli.exception import SnowflakeSQLExecutionError
 
-from snowflake.connector.cursor import DictCursor
-
 import jinja2
 
 from snowcli.cli.project.util import (
@@ -22,7 +20,7 @@ from snowcli.cli.project.definition import (
     default_application,
     default_role,
 )
-from snowcli.cli.stage.diff import (
+from snowcli.cli.object.stage.diff import (
     DiffResult,
     stage_diff,
     sync_local_diff_with_stage,

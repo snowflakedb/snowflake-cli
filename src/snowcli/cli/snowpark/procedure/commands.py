@@ -4,8 +4,6 @@ import logging
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import List
-
 
 import typer
 
@@ -29,7 +27,7 @@ from snowcli.cli.snowpark_shared import (
     OverwriteOption,
     ReturnsOption,
 )
-from snowcli.cli.stage.manager import StageManager
+from snowcli.cli.object.stage.manager import StageManager
 from snowcli.output.decorators import with_output
 from snowcli.output.types import (
     MessageResult,

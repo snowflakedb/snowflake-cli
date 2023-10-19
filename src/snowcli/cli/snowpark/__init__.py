@@ -13,7 +13,7 @@ from snowcli.cli.snowpark.jobs.commands import app as jobs_app
 app = typer.Typer(
     name="snowpark",
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    help="Manages functions, procedures, and Snowpark objects.",
+    help="Manages functions, procedures, and Snowpark object.",
 )
 
 app.add_typer(function_app)  # type: ignore

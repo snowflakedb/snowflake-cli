@@ -122,7 +122,7 @@ def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
     """
     Checks if a list of packages are available in the Snowflake Anaconda channel.
     Returns a dict with two keys: 'snowflake' and 'other'.
-    Each key contains a list of Requirement objects.
+    Each key contains a list of Requirement object.
     """
     url = "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
     response = requests.get(url)

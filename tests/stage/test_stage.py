@@ -1,19 +1,17 @@
-from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest import mock
 
-from snowcli.cli.stage.manager import StageManager
+from snowcli.cli.object.stage.manager import StageManager
 from snowflake.connector.cursor import DictCursor
 
 from tests.testing_utils.fixtures import *
 
-STAGE_MANAGER = "snowcli.cli.stage.manager.StageManager"
+STAGE_MANAGER = "snowcli.cli.object.stage.manager.StageManager"
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_list(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke_with_config(["stage", "list", "-c", "empty", "stageName"])
+    result = runner.invoke_with_config(["object","stage", "list", "-c", "empty", "stageName"])
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with("ls @stageName")
 
@@ -23,7 +21,7 @@ def test_stage_get(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke_with_config(
-            ["stage", "get", "-c", "empty", "stageName", str(tmp_dir)]
+            ["object","stage", "get", "-c", "empty", "stageName", str(tmp_dir)]
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
@@ -34,7 +32,7 @@ def test_stage_get(mock_execute, runner, mock_cursor):
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_get_default_path(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke_with_config(["stage", "get", "-c", "empty", "stageName"])
+    result = runner.invoke_with_config(["object","stage", "get", "-c", "empty", "stageName"])
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
         f'get @stageName file://{Path(".").resolve()}/'
