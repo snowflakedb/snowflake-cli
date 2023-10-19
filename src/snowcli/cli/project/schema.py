@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import cast
 from strictyaml import (
     MapCombined,
     Seq,
@@ -11,7 +10,6 @@ from strictyaml import (
     Any,
     Decimal,
     Regex,
-    YAML,
     EmptyList,
 )
 
@@ -89,18 +87,11 @@ _callable_mapping = {
     "handler": Str(),
     "returns": Str(),
     "signature": Seq(Argument) | EmptyList(),
-    # "file": FilePath(),  # should be the name of the artifact to build
-    # Not supported in snowcli yet
-    # Optional("imports"): Seq(Str),
-    # Optional("language"): Str(),
-    # Optional("packages"): Seq(Str),
-    # Optional("runtime_version"): Str(),
-    # Optional("comment"): Str(),
 }
 
-FunctionMapping = RelaxedMap(_callable_mapping)
+function_schema = RelaxedMap(_callable_mapping)
 
-ProcedureMapping = RelaxedMap(
+procedure_schema = RelaxedMap(
     {**_callable_mapping, Optional("execute_as_owner"): Bool()}
 )
 
@@ -108,8 +99,8 @@ project_schema = RelaxedMap(
     {
         "definition_version": Int(),
         Optional("native_app"): native_app_schema,
-        Optional("functions"): Seq(FunctionMapping),
-        Optional("procedures"): Seq(ProcedureMapping),
+        Optional("functions"): Seq(function_schema),
+        Optional("procedures"): Seq(procedure_schema),
     }
 )
 
