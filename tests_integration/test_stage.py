@@ -14,7 +14,7 @@ from tests_integration.test_utils import (
 )
 
 
-# @pytest.mark.integration
+@pytest.mark.integration
 def test_stage(runner, snowflake_session, test_database, tmp_path):
     stage_name = "test_stage"
 

@@ -16,6 +16,6 @@ def test_show_warehouses(mock_connector, mock_cursor, runner, snapshot):
             columns=["name", "state"],
         ),
     )
-    result = runner.invoke(["object", "warehouse", "status"], catch_exceptions=False)
+    result = runner.invoke(["object", "show", "warehouses"], catch_exceptions=False)
     assert result.exit_code == 0, result.output
     assert result.output == snapshot

@@ -232,8 +232,8 @@ def test_temporary_connection(mock_conn, option, runner):
     result = runner.invoke(
         [
             "object",
-            "warehouse",
-            "status",
+            "show",
+            "warehouses",
             option,
             "--account",
             "test_account",
@@ -252,7 +252,7 @@ def test_temporary_connection(mock_conn, option, runner):
 
     assert result.exit_code == 1
     mock_conn.assert_called_once_with(
-        application="SNOWCLI.OBJECT.WAREHOUSE.STATUS",
+        application="SNOWCLI.OBJECT.SHOW.WAREHOUSES",
         account="test_account",
         user="snowcli_test",
         password="top_secret",
@@ -307,8 +307,8 @@ def test_key_pair_authentication(mock_conn, runner):
         result = runner.invoke(
             [
                 "object",
-                "warehouse",
-                "status",
+                "show",
+                "warehouses",
                 "--temporary-connection",
                 "--account",
                 "test_account",
@@ -329,7 +329,7 @@ def test_key_pair_authentication(mock_conn, runner):
 
     assert result.exit_code == 1
     mock_conn.assert_called_once_with(
-        application="SNOWCLI.OBJECT.WAREHOUSE.STATUS",
+        application="SNOWCLI.OBJECT.SHOW.WAREHOUSES",
         private_key=private_key,
         account="test_account",
         user="snowcli_test",

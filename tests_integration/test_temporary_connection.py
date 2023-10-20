@@ -6,8 +6,8 @@ def test_temporary_connection(runner):
     result = runner._invoke(
         [
             "object",
-            "warehouse",
-            "status",
+            "show",
+            "warehouses",
             "--temporary-connection",
             "--account",
             "test_acoount",
