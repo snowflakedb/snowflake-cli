@@ -245,8 +245,6 @@ def test_deploy_streamlit_main_and_pages_files(
     )
     mock_connector.return_value = ctx
 
-    # with project_file("example_streamlit") as pdir:
-    #    (pdir / "environment.yml").unlink()
     result = runner.invoke(
         [
             "streamlit",
