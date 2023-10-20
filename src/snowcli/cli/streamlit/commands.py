@@ -1,23 +1,20 @@
 import logging
-
-import click
-import typer
 from pathlib import Path
 from typing import Optional
 
+import click
+import typer
 from click import ClickException
-
-from snowcli.cli.common.decorators import global_options_with_connection, global_options
+from snowcli.cli.common.decorators import global_options, global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.streamlit.manager import StreamlitManager
 from snowcli.output.decorators import with_output
-
 from snowcli.output.types import (
     CommandResult,
-    QueryResult,
-    SingleQueryResult,
     MessageResult,
     MultipleResults,
+    QueryResult,
+    SingleQueryResult,
 )
 from snowcli.utils import create_project_template
 
@@ -169,6 +166,12 @@ def streamlit_deploy(
     open_: bool = typer.Option(
         False, "--open", help="Whether to open Streamlit in a browser.", is_flag=True
     ),
+    experimental: bool = typer.Option(
+        False,
+        "--experimental",
+        help="Use experimental new embedded stage behavior",
+        is_flag=True,
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -186,6 +189,7 @@ def streamlit_deploy(
         main_file=file,
         replace=replace,
         warehouse=query_warehouse,
+        experimental=experimental,
     )
 
     if open_:

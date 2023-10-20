@@ -4,17 +4,16 @@ import logging
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from snowflake.connector.cursor import SnowflakeCursor
-
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.cli.connection.util import MissingConnectionHostError, make_snowsight_url
+from snowcli.cli.project.util import unquote_identifier
 from snowcli.cli.snowpark_shared import snowpark_package
 from snowcli.cli.stage.manager import StageManager
 from snowcli.utils import (
     generate_streamlit_environment_file,
     generate_streamlit_package_wrapper,
 )
-from snowcli.cli.connection.util import make_snowsight_url, MissingConnectionHostError
-from snowcli.cli.project.util import unquote_identifier
+from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ class StreamlitManager(SqlExecutionMixin):
     def drop(self, streamlit_name: str) -> SnowflakeCursor:
         return self._execute_query(f"drop streamlit {streamlit_name}")
 
-    def deploy(
+    def _deploy_experimental(
         self,
         streamlit_name: str,
         main_file: Path,
@@ -48,7 +47,61 @@ class StreamlitManager(SqlExecutionMixin):
         warehouse: Optional[str] = None,
         replace: Optional[bool] = False,
     ):
+        database = self._conn.database.upper()  # type: ignore[attr-defined]
+        schema = self._conn.schema.upper()  # type: ignore[attr-defined]
+        embedded_stage_name = f"snow://streamlit/{database}.{schema}.{streamlit_name}"
+        root_location = f"{embedded_stage_name}/default_checkout"
+
+        replace_stmt = "OR REPLACE" if replace else ""
+
+        # TODO: Support from_stage
+        # from_stage_stmt = f"FROM_STAGE = '{stage_name}'" if stage_name else ""
+
+        use_warehouse_stmt = f"QUERY_WAREHOUSE = {warehouse}" if warehouse else ""
+
+        self._execute_query(
+            f"""
+            CREATE {replace_stmt} STREAMLIT {streamlit_name}
+            MAIN_FILE = '{main_file.name}'
+            {use_warehouse_stmt}
+            """
+        )
+
         stage_manager = StageManager()
+
+        stage_manager.put(main_file, root_location, 4, True)
+
+        if environment_file and environment_file.exists():
+            stage_manager.put(environment_file, root_location, 4, True)
+
+        if pages_dir and pages_dir.exists():
+            stage_manager.put(pages_dir / "*.py", f"{root_location}/pages", 4, True)
+
+        return self.get_url(streamlit_name)
+
+    def deploy(
+        self,
+        streamlit_name: str,
+        main_file: Path,
+        environment_file: Optional[Path] = None,
+        pages_dir: Optional[Path] = None,
+        stage_name: Optional[str] = None,
+        warehouse: Optional[str] = None,
+        replace: Optional[bool] = False,
+        experimental: Optional[bool] = False,
+    ):
+        stage_manager = StageManager()
+
+        if experimental:
+            return self._deploy_experimental(
+                streamlit_name,
+                main_file,
+                environment_file,
+                pages_dir,
+                stage_name,
+                warehouse,
+                replace,
+            )
 
         stage_name = stage_name or "streamlit"
         stage_name = stage_manager.to_fully_qualified_name(stage_name)
