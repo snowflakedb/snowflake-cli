@@ -7,6 +7,8 @@ import typer
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from click import ClickException
+
 from snowcli.cli.common.decorators import global_options_with_connection, global_options
 from snowcli.cli.common.flags import (
     DEFAULT_CONTEXT_SETTINGS,
@@ -93,7 +95,7 @@ def function_init(**options):
 @with_output
 @global_options_with_connection
 def function_deploy(
-    function_names: List[str] = typer.Option(
+    function_names: List[str] = typer.Argument(
         None, help="Functions names. Multiple can be provided."
     ),
     replace: bool = ReplaceOption,
@@ -105,9 +107,13 @@ def function_deploy(
     """Creates a python UDF or UDTF using a local artifact."""
     dm = DefinitionManager()
     functions = dm.project_definition.get("functions")
-
     if not functions:
-        return MessageResult("No functions were specified in project definition.")
+        raise ClickException("No functions were specified in project definition.")
+
+    defined_functions_names = [f["name"] for f in functions]
+    for name in function_names:
+        if name not in defined_functions_names:
+            raise ClickException(f"Function '{name}' is not defined in the project.")
 
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
@@ -119,11 +125,9 @@ def function_deploy(
     fm = FunctionManager()
 
     result = MultipleResults()
+
     if function_names:
         functions = [f for f in functions if f["name"] in function_names]
-
-    if not functions:
-        return MessageResult("No functions defined in this project.")
 
     sm.create(stage_name=DEPLOYMENT_STAGE, comment="deployments managed by snowcli")
 

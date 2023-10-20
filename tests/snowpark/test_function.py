@@ -1,9 +1,5 @@
-import contextlib
-import os
-from pathlib import Path
-from tempfile import NamedTemporaryFile, TemporaryDirectory
+from tempfile import TemporaryDirectory
 from textwrap import dedent
-from unittest import mock
 
 from tests.testing_utils.fixtures import *
 
@@ -11,7 +7,39 @@ from tests.testing_utils.fixtures import *
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
 @mock.patch("snowcli.cli.snowpark.function.commands.TemporaryDirectory")
-def test_create_function(
+def test_deploy_function_unknown_name(
+    mock_tmp_dir, mock_package_create, mock_connector, runner, project_file
+):
+    with project_file("snowpark_functions"):
+        result = runner.invoke(
+            ["snowpark", "function", "deploy", "unknownFunc"],
+        )
+    assert result.exit_code == 1
+    assert "Function 'unknownFunc' is not defined" in result.output
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
+@mock.patch("snowcli.cli.snowpark.function.commands.TemporaryDirectory")
+def test_deploy_function_no_functions(
+    mock_tmp_dir, mock_package_create, mock_connector, runner, project_file
+):
+    with project_file("empty_project"):
+        result = runner.invoke(
+            [
+                "snowpark",
+                "function",
+                "deploy",
+            ],
+        )
+    assert result.exit_code == 1
+    assert "No functions were specified in project" in result.output
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
+@mock.patch("snowcli.cli.snowpark.function.commands.TemporaryDirectory")
+def test_deploy_function(
     mock_tmp_dir, mock_package_create, mock_connector, runner, mock_ctx, project_file
 ):
     tmp_dir_1 = TemporaryDirectory()
@@ -21,7 +49,6 @@ def test_create_function(
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     with project_file("snowpark_functions"):
-
         result = runner.invoke(
             [
                 "snowpark",
@@ -65,6 +92,96 @@ def test_create_function(
         ),
     ]
     mock_package_create.assert_called_once_with("ask", True, "ask")
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
+@mock.patch("snowcli.cli.snowpark.function.commands.TemporaryDirectory")
+def test_deploy_function_selected_name(
+    mock_tmp_dir, mock_package_create, mock_connector, runner, mock_ctx, project_file
+):
+    tmp_dir_1 = TemporaryDirectory()
+    tmp_dir_2 = TemporaryDirectory()
+    mock_tmp_dir.side_effect = [tmp_dir_1, tmp_dir_2]
+
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    with project_file("snowpark_functions"):
+        result = runner.invoke(
+            ["snowpark", "function", "deploy", "func1"],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == [
+        "create stage if not exists deployments comment='deployments managed by snowcli'",
+        # FIRST FUNCTION
+        f"put file://{tmp_dir_1.name}/app.zip @deployments/func1_a_string_b_variant"
+        f" auto_compress=false parallel=4 overwrite=False",
+        dedent(
+            """\
+            create function func1(a string, b variant)
+            returns string
+            language python
+            runtime_version=3.8
+            imports=('@deployments/func1_a_string_b_variant/app.zip')
+            handler='app.func1_handler'
+            packages=()
+            """
+        ),
+    ]
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
+@mock.patch("snowcli.cli.snowpark.function.commands.TemporaryDirectory")
+def test_deploy_function_selected_multiple_names(
+    mock_tmp_dir, mock_package_create, mock_connector, runner, mock_ctx, project_file
+):
+    tmp_dir_1 = TemporaryDirectory()
+    tmp_dir_2 = TemporaryDirectory()
+    mock_tmp_dir.side_effect = [tmp_dir_1, tmp_dir_2]
+
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    with project_file("snowpark_functions"):
+        result = runner.invoke(
+            ["snowpark", "function", "deploy", "func1", "func2"],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == [
+        "create stage if not exists deployments comment='deployments managed by snowcli'",
+        # FIRST FUNCTION
+        f"put file://{tmp_dir_1.name}/app.zip @deployments/func1_a_string_b_variant"
+        f" auto_compress=false parallel=4 overwrite=False",
+        dedent(
+            """\
+            create function func1(a string, b variant)
+            returns string
+            language python
+            runtime_version=3.8
+            imports=('@deployments/func1_a_string_b_variant/app.zip')
+            handler='app.func1_handler'
+            packages=()
+            """
+        ),
+        # SECOND FUNCTION
+        f"put file://{tmp_dir_2.name}/app.zip @deployments/func2"
+        f" auto_compress=false parallel=4 overwrite=False",
+        dedent(
+            """\
+            create function func2()
+            returns variant
+            language python
+            runtime_version=3.8
+            imports=('@deployments/func2/app.zip')
+            handler='app.func2_handler'
+            packages=()
+            """
+        ),
+    ]
 
 
 @mock.patch("snowflake.connector.connect")
