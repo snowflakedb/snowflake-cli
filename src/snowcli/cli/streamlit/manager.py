@@ -44,7 +44,7 @@ class StreamlitManager(SqlExecutionMixin):
         environment_file: Optional[Path] = None,
         pages_dir: Optional[Path] = None,
         stage_name: Optional[str] = None,
-        warehouse: Optional[str] = None,
+        query_warehouse: Optional[str] = None,
         replace: Optional[bool] = False,
     ):
         database = self._conn.database.upper()  # type: ignore[attr-defined]
