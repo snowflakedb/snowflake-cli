@@ -245,17 +245,19 @@ def test_deploy_streamlit_main_and_pages_files(
     )
     mock_connector.return_value = ctx
 
-    result = runner.invoke(
-        [
-            "streamlit",
-            "deploy",
-            STREAMLIT_NAME,
-            "--file",
-            "main.py",
-            "--query-warehouse",
-            TEST_WAREHOUSE,
-        ]
-    )
+    with project_file("example_streamlit") as pdir:
+        (pdir / "environment.yml").unlink()
+        result = runner.invoke(
+            [
+                "streamlit",
+                "deploy",
+                STREAMLIT_NAME,
+                "--file",
+                "main.py",
+                "--query-warehouse",
+                TEST_WAREHOUSE,
+            ]
+        )
 
     root_path = f"@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
