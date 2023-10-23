@@ -9,8 +9,12 @@ test.zip
 build/
 dist/
 .idea
+*.iml
 .tox
 ./.packages
 .coverage
 gen_docs/
 /venv/
+
+^app.zip
+^snowflake.yml

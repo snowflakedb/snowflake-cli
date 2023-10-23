@@ -1,4 +1,6 @@
+import contextlib
 import os
+from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
@@ -21,5 +23,18 @@ def temporary_working_directory():
     working_directory_changer = WorkingDirectoryChanger()
     with TemporaryDirectory() as tmp_dir:
         working_directory_changer.change_working_directory_to(tmp_dir)
-        yield tmp_dir
+        yield Path(tmp_dir)
         working_directory_changer.restore_initial_working_directory()
+
+
+@pytest.fixture
+def temporary_working_directory_ctx():
+    @contextlib.contextmanager
+    def _ctx_manager():
+        working_directory_changer = WorkingDirectoryChanger()
+        with TemporaryDirectory() as tmp_dir:
+            working_directory_changer.change_working_directory_to(tmp_dir)
+            yield Path(tmp_dir)
+            working_directory_changer.restore_initial_working_directory()
+
+    return _ctx_manager
