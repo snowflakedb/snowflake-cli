@@ -60,3 +60,13 @@ def first_set_env(*keys: str):
 
 def get_env_username() -> Optional[str]:
     return first_set_env("USER", "USERNAME", "LOGNAME")
+
+
+SUPPORTED_VERSIONS = [1]
+
+
+def validate_version(version: str):
+    if version in SUPPORTED_VERSIONS:
+        raise ValueError(
+            f"Project definition version {version} is not supported by this version of Snowflake CLI. Supported versions: {SUPPORTED_VERSIONS}"
+        )

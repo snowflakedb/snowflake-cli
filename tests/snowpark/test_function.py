@@ -1,9 +1,7 @@
-import contextlib
-import os
-from pathlib import Path
-from tempfile import NamedTemporaryFile, TemporaryDirectory
+from tempfile import TemporaryDirectory
 from textwrap import dedent
-from unittest import mock
+
+from snowflake.connector import ProgrammingError
 
 from tests.testing_utils.fixtures import *
 
@@ -11,49 +9,76 @@ from tests.testing_utils.fixtures import *
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
 @mock.patch("snowcli.cli.snowpark.function.commands.TemporaryDirectory")
-def test_create_function(
-    mock_tmp_dir,
-    mock_package_create,
-    mock_connector,
-    runner,
-    mock_ctx,
-    temp_dir,
+def test_deploy_function_unknown_name(
+    mock_tmp_dir, mock_package_create, mock_connector, runner, project_file
 ):
-    tmp_dir = TemporaryDirectory()
-    mock_tmp_dir.return_value = tmp_dir
+    with project_file("snowpark_functions"):
+        result = runner.invoke(
+            ["snowpark", "function", "deploy", "unknownFunc"],
+        )
+    assert result.exit_code == 1
+    assert "Function 'unknownFunc' is not defined" in result.output
 
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-    with NamedTemporaryFile(suffix=".py") as fh:
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
+@mock.patch("snowcli.cli.snowpark.function.commands.TemporaryDirectory")
+def test_deploy_function_no_functions(
+    mock_tmp_dir, mock_package_create, mock_connector, runner, project_file
+):
+    with project_file("empty_project"):
         result = runner.invoke(
             [
                 "snowpark",
                 "function",
-                "create",
-                "functionName(a string, b number)",
-                "--file",
-                fh.name,
-                "--handler",
-                "main.py:app",
-                "--returns",
-                "table(variant)",
-                "--overwrite",
-            ]
+                "deploy",
+            ],
+        )
+    assert result.exit_code == 1
+    assert "No functions were specified in project" in result.output
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
+@mock.patch("snowcli.cli.snowpark.function.commands.TemporaryDirectory")
+def test_deploy_function(
+    mock_tmp_dir,
+    mock_package_create,
+    mock_connector,
+    runner,
+    mock_ctx_function_not_exist,
+    project_file,
+):
+    tmp_dir_1 = TemporaryDirectory()
+    tmp_dir_2 = TemporaryDirectory()
+    mock_tmp_dir.side_effect = [tmp_dir_1, tmp_dir_2]
+    ctx = mock_ctx_function_not_exist()
+    mock_connector.return_value = ctx
+    with project_file("snowpark_functions"):
+        result = runner.invoke(
+            [
+                "snowpark",
+                "function",
+                "deploy",
+                "func1",
+            ],
+            catch_exceptions=False,
         )
 
-    assert result.exit_code == 0, result._output
+    assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{tmp_dir.name}/{Path(fh.name).name} @deployments/functionname_a_string_b_number"
+        "describe function func1(string, variant)",
+        f"put file://{tmp_dir_1.name}/app.zip @deployments/func1_a_string_b_variant"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace function functionName(a string, b number)
-            returns table(variant)
+            create or replace function func1(a string, b variant)
+            returns string
             language python
             runtime_version=3.8
-            imports=('@deployments/functionname_a_string_b_number/app.zip')
-            handler='main.py:app'
+            imports=('@deployments/func1_a_string_b_variant/app.zip')
+            handler='app.func1_handler'
             packages=()
             """
         ),
@@ -64,23 +89,83 @@ def test_create_function(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
 @mock.patch("snowcli.cli.snowpark.function.commands.TemporaryDirectory")
-def test_update_function_no_changes(
+def test_deploy_function_selected_multiple_names(
+    mock_tmp_dir,
+    mock_package_create,
+    mock_connector,
+    runner,
+    mock_ctx_function_not_exist,
+    project_file,
+):
+    tmp_dir_1 = TemporaryDirectory()
+    tmp_dir_2 = TemporaryDirectory()
+    mock_tmp_dir.side_effect = [tmp_dir_1, tmp_dir_2]
+
+    ctx = mock_ctx_function_not_exist()
+    mock_connector.return_value = ctx
+    with project_file("snowpark_functions"):
+        result = runner.invoke(
+            ["snowpark", "function", "deploy", "func1", "func2"],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == [
+        "create stage if not exists deployments comment='deployments managed by snowcli'",
+        # FIRST FUNCTION
+        "describe function func1(string, variant)",
+        f"put file://{tmp_dir_1.name}/app.zip @deployments/func1_a_string_b_variant"
+        f" auto_compress=false parallel=4 overwrite=True",
+        dedent(
+            """\
+            create or replace function func1(a string, b variant)
+            returns string
+            language python
+            runtime_version=3.8
+            imports=('@deployments/func1_a_string_b_variant/app.zip')
+            handler='app.func1_handler'
+            packages=()
+            """
+        ),
+        # SECOND FUNCTION
+        "describe function func2()",
+        f"put file://{tmp_dir_2.name}/app.zip @deployments/func2"
+        f" auto_compress=false parallel=4 overwrite=True",
+        dedent(
+            """\
+            create or replace function func2()
+            returns variant
+            language python
+            runtime_version=3.8
+            imports=('@deployments/func2/app.zip')
+            handler='app.func2_handler'
+            packages=()
+            """
+        ),
+    ]
+    mock_package_create.assert_called_once_with("ask", True, "ask")
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
+@mock.patch("snowcli.cli.snowpark.function.commands.TemporaryDirectory")
+def test_deploy_function_no_changes(
     mock_tmp_dir,
     mock_package_create,
     mock_connector,
     runner,
     mock_ctx,
     mock_cursor,
-    snapshot,
     temp_dir,
+    project_file,
 ):
     rows = [
         ("packages", '["foo=1.2.3", "bar>=3.0.0"]'),
-        ("handler", "main.py:app"),
-        ("returns", "table(variant)"),
+        ("handler", "app.func1_handler"),
+        ("returns", "string"),
     ]
 
-    artifact_path, queries, result = _update_function(
+    artifact_path, queries, result = _deploy_function(
         rows,
         mock_connector,
         runner,
@@ -88,67 +173,32 @@ def test_update_function_no_changes(
         mock_ctx,
         mock_cursor,
         mock_tmp_dir,
+        project_file,
+        "--replace",
     )
 
-    assert result.exit_code == 0, result._output
+    assert result.exit_code == 0, result.output
     assert "No packages to update. Deployment complete" in result.output
     assert queries == [
-        "describe function functionName(a string, b number)",
         "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{artifact_path} @deployments/functionname_a_string_b_number auto_compress=false parallel=4 overwrite=True",
+        "describe function func1(string, variant)",
+        f"put file://{artifact_path} @deployments/func1_a_string_b_variant auto_compress=false parallel=4 overwrite=True",
     ]
     mock_package_create.assert_called_once_with("ask", True, "ask")
-
-
-def _update_function(
-    rows,
-    mock_connector,
-    runner,
-    execute_in_tmp_dir,
-    mock_ctx,
-    mock_cursor,
-    mock_tmp_dir,
-):
-    tmp_dir = TemporaryDirectory()
-    mock_tmp_dir.return_value = tmp_dir
-    ctx = mock_ctx(mock_cursor(rows=rows, columns=[]))
-    mock_connector.return_value = ctx
-    (Path(execute_in_tmp_dir) / "requirements.snowflake.txt").write_text(
-        "foo=1.2.3\nbar>=3.0.0"
-    )
-    app = Path(execute_in_tmp_dir) / "app.py"
-    app.touch()
-    result = runner.invoke_with_config(
-        [
-            "snowpark",
-            "function",
-            "update",
-            "functionName(a string, b number)",
-            "--file",
-            str(app),
-            "--handler",
-            "main.py:app",
-            "--returns",
-            "table(variant)",
-        ]
-    )
-    queries = ctx.get_queries()
-    artifact_path = f"{tmp_dir.name}/{app.name}"
-    return artifact_path, queries, result
 
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
 @mock.patch("snowcli.cli.snowpark.function.commands.TemporaryDirectory")
-def test_update_function_needs_update_because_packages_changes(
+def test_deploy_function_needs_update_because_packages_changes(
     mock_tmp_dir,
     mock_package_create,
     mock_connector,
     runner,
-    mock_ctx,
+    mock_ctx_function_not_exist,
     mock_cursor,
-    snapshot,
     temp_dir,
+    project_file,
 ):
     rows = [
         ("packages", '["foo=1.2.3"]'),
@@ -156,29 +206,30 @@ def test_update_function_needs_update_because_packages_changes(
         ("returns", "table(variant)"),
     ]
 
-    artifact_path, queries, result = _update_function(
+    artifact_path, queries, result = _deploy_function(
         rows,
         mock_connector,
         runner,
         temp_dir,
-        mock_ctx,
+        mock_ctx_function_not_exist,
         mock_cursor,
         mock_tmp_dir,
+        project_file,
     )
 
-    assert result.exit_code == 0, result._output
+    assert result.exit_code == 0, result.output
     assert queries == [
-        "describe function functionName(a string, b number)",
         "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{artifact_path} @deployments/functionname_a_string_b_number auto_compress=false parallel=4 overwrite=True",
+        "describe function func1(string, variant)",
+        f"put file://{artifact_path} @deployments/func1_a_string_b_variant auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace function functionName(a string, b number)
-            returns table(variant)
+            create or replace function func1(a string, b variant)
+            returns string
             language python
             runtime_version=3.8
-            imports=('@deployments/functionname_a_string_b_number/app.zip')
-            handler='main.py:app'
+            imports=('@deployments/func1_a_string_b_variant/app.zip')
+            handler='app.func1_handler'
             packages=('foo=1.2.3','bar>=3.0.0')
             """
         ),
@@ -189,15 +240,15 @@ def test_update_function_needs_update_because_packages_changes(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.cli.snowpark.function.commands.snowpark_package")
 @mock.patch("snowcli.cli.snowpark.function.commands.TemporaryDirectory")
-def test_update_function_needs_update_because_handler_changes(
+def test_deploy_function_needs_update_because_handler_changes(
     mock_tmp_dir,
     mock_package_create,
     mock_connector,
     runner,
-    mock_ctx,
+    mock_ctx_function_not_exist,
     mock_cursor,
-    snapshot,
     temp_dir,
+    project_file,
 ):
     rows = [
         ("packages", '["foo=1.2.3", "bar>=3.0.0"]'),
@@ -205,29 +256,30 @@ def test_update_function_needs_update_because_handler_changes(
         ("returns", "table(variant)"),
     ]
 
-    artifact_path, queries, result = _update_function(
+    artifact_path, queries, result = _deploy_function(
         rows,
         mock_connector,
         runner,
         temp_dir,
-        mock_ctx,
+        mock_ctx_function_not_exist,
         mock_cursor,
         mock_tmp_dir,
+        project_file,
     )
 
-    assert result.exit_code == 0, result._output
+    assert result.exit_code == 0, result.output
     assert queries == [
-        "describe function functionName(a string, b number)",
         "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{artifact_path} @deployments/functionname_a_string_b_number auto_compress=false parallel=4 overwrite=True",
+        "describe function func1(string, variant)",
+        f"put file://{artifact_path} @deployments/func1_a_string_b_variant auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace function functionName(a string, b number)
-            returns table(variant)
+            create or replace function func1(a string, b variant)
+            returns string
             language python
             runtime_version=3.8
-            imports=('@deployments/functionname_a_string_b_number/app.zip')
-            handler='main.py:app'
+            imports=('@deployments/func1_a_string_b_variant/app.zip')
+            handler='app.func1_handler'
             packages=('foo=1.2.3','bar>=3.0.0')
             """
         ),
@@ -336,3 +388,55 @@ def test_drop_function_from_name(mock_connector, runner, mock_ctx):
 
     assert result.exit_code == 0, result._output
     assert ctx.get_query() == "drop function functionName(int, string, variant)"
+
+
+def _deploy_function(
+    rows,
+    mock_connector,
+    runner,
+    execute_in_tmp_dir,
+    mock_ctx,
+    mock_cursor,
+    mock_tmp_dir,
+    project_file,
+    *args,
+):
+    tmp_dir = TemporaryDirectory()
+    mock_tmp_dir.return_value = tmp_dir
+    ctx = mock_ctx(mock_cursor(rows=rows, columns=[]))
+    mock_connector.return_value = ctx
+    (Path(execute_in_tmp_dir) / "requirements.snowflake.txt").write_text(
+        "foo=1.2.3\nbar>=3.0.0"
+    )
+    app = Path(execute_in_tmp_dir) / "app.zip"
+    app.touch()
+    with project_file("snowpark_functions"):
+        result = runner.invoke_with_config(
+            [
+                "snowpark",
+                "function",
+                "deploy",
+                "func1",
+                *args,
+            ]
+        )
+    queries = ctx.get_queries()
+    artifact_path = f"{tmp_dir.name}/{app.name}"
+    return artifact_path, queries, result
+
+
+@pytest.fixture
+def mock_ctx_function_not_exist(mock_cursor):
+    class _MockConnectionCtx(MockConnectionCtx):
+        def __init__(self, cursor=None, *args, **kwargs):
+            super().__init__(cursor, *args, **kwargs)
+
+        def execute_string(self, query: str, **kwargs):
+            self.queries.append(query)
+            if query == "describe function func1(string, variant)":
+                raise ProgrammingError(
+                    "Function 'FUNCTIONNAME' does not exist or not authorized"
+                )
+            return (self.cs,)
+
+    return lambda cursor=mock_cursor(["row"], []): _MockConnectionCtx(cursor)

@@ -4,6 +4,7 @@ import functools
 import json
 import tempfile
 import shutil
+from json import JSONDecodeError
 
 import pytest
 from dataclasses import dataclass
@@ -86,7 +87,10 @@ class SnowCLIRunner(CliRunner):
         )
         if result.output == "" or result.output.strip() == "Done":
             return CommandResult(result.exit_code, json=[])
-        return CommandResult(result.exit_code, json.loads(result.output))
+        try:
+            return CommandResult(result.exit_code, json.loads(result.output))
+        except JSONDecodeError:
+            raise QueryResultJsonEncoderError(result.output)
 
     def invoke_integration_without_format(self, *args, **kwargs) -> CommandResult:
         result = self._invoke(
@@ -105,3 +109,33 @@ class SnowCLIRunner(CliRunner):
 @pytest.fixture
 def runner(test_snowcli_config_provider):
     return SnowCLIRunner(app, test_snowcli_config_provider)
+
+
+@pytest.fixture
+def alter_snowflake_yml():
+    def _update(snowflake_yml_path: Path, parameter_path: str, value):
+        import yaml
+
+        with open(snowflake_yml_path) as fh:
+            yml = yaml.safe_load(fh)
+
+        parts = parameter_path.split(".")
+        current_object = yml
+        while parts:
+            part = parts.pop(0)
+            evaluated_part = int(part) if part.isdigit() else part
+
+            if parts:
+                current_object = current_object[evaluated_part]
+            else:
+                current_object[evaluated_part] = value
+
+        with open(snowflake_yml_path, "w+") as fh:
+            yaml.safe_dump(yml, fh)
+
+    return _update
+
+
+class QueryResultJsonEncoderError(RuntimeError):
+    def __init__(self, output: str):
+        super().__init__(f"Can not parse query result:\n{output}")

@@ -1,9 +1,0 @@
-# Can create multiple --environments (default 'dev')
-
-[connections]
-[connections.dev]
-account = "<ACCOUNT_NAME>"
-database = "<DATABASE_NAME>"
-schema = "<SCHEMA_NAME>"
-warehouse = "<WAREHOUSE_NAME>"
-role = "<ROLE_NAME>"

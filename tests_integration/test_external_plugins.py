@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from tests_integration.testing_utils.assertions.test_result_assertions import (
@@ -7,8 +9,19 @@ from tests_integration.testing_utils.assertions.test_result_assertions import (
 from tests_integration.snowflake_connector import snowflake_session
 
 
+@pytest.fixture(scope="module")
+def install_plugins():
+    import subprocess
+
+    path = Path(__file__).parent.parent / "test_external_plugins"
+    subprocess.check_call(["pip", "install", path / "multilingual_hello_command_group"])
+    subprocess.check_call(["pip", "install", path / "snowpark_hello_single_command"])
+
+
 @pytest.mark.integration
-def test_loading_of_installed_plugins_if_all_plugins_enabled(runner, snowflake_session):
+def test_loading_of_installed_plugins_if_all_plugins_enabled(
+    runner, snowflake_session, install_plugins
+):
     runner.use_config("config_with_enabled_all_external_plugins.toml")
 
     result_of_top_level_help = runner.invoke_with_config(["--help"])
@@ -62,7 +75,7 @@ def test_loading_of_installed_plugins_if_all_plugins_enabled(runner, snowflake_s
 
 @pytest.mark.integration
 def test_loading_of_installed_plugins_if_only_one_plugin_is_enabled(
-    runner, snowflake_session
+    runner, snowflake_session, install_plugins
 ):
     runner.use_config("config_with_enabled_only_one_external_plugin.toml")
 

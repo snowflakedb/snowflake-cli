@@ -1,9 +1,7 @@
-from typing import Tuple
-from unittest import mock
 import json
 
 from distutils.dir_util import copy_tree
-from pathlib import Path, PosixPath
+from pathlib import PosixPath
 from requirements.requirement import Requirement
 import typer
 from unittest.mock import MagicMock, patch, mock_open
@@ -289,26 +287,6 @@ def test_get_packages(contents, expected, correct_requirements_snowflake_txt):
     assert result == expected
 
 
-def test_get_snowflake_packages_delta(temp_dir, correct_requirements_snowflake_txt):
-    anaconda_package = test_data.requirements[-1]
-
-    result = utils.get_snowflake_packages_delta(anaconda_package)
-
-    assert result == test_data.requirements[:-1]
-
-
-def test_convert_resource_details_to_dict():
-    resource_details = [
-        ("packages", "{'name': 'my-awesome-package','version': '1.2.3'}"),
-        ("handler", "handler_function"),
-    ]
-
-    assert utils.convert_resource_details_to_dict(resource_details) == {
-        "packages": {"name": "my-awesome-package", "version": "1.2.3"},
-        "handler": "handler_function",
-    }
-
-
 def test_parse_requirements(correct_requirements_txt: str):
     result = utils.parse_requirements(correct_requirements_txt)
 
@@ -389,21 +367,6 @@ def test_deduplicate_and_sort_reqs():
     assert sorted_packages[0].name == "a"
     assert sorted_packages[0].specifier is True
     assert sorted_packages[0].specs == [("==", "0.9.5")]
-
-
-@pytest.mark.parametrize(
-    "argument",
-    [
-        ("NUMBER(38,0)", "int"),
-        ("TIMESTAMP_NTZ(9)", "datetime"),
-        ("TIMESTAMP_TZ(9)", "datetime"),
-        ("VARCHAR(16777216)", "string"),
-        ("FLOAT", "float"),
-        ("ARRAY", "array"),
-    ],
-)
-def test_sql_to_python_return_type_mapper(argument: Tuple[str, str]):
-    assert utils.sql_to_python_return_type_mapper(argument[0]) == argument[1]
 
 
 @mock.patch("platform.system")

@@ -541,33 +541,6 @@ def get_snowflake_packages() -> List[str]:
         return []
 
 
-def get_snowflake_packages_delta(anaconda_packages) -> List[str]:
-    updated_package_list = []
-    if os.path.exists("requirements.snowflake.txt"):
-        with open("requirements.snowflake.txt", encoding="utf-8") as f:
-            # for each line, check if it exists in anaconda_packages. If it
-            # doesn't, add it to the return string
-            for line in f:
-                if line.strip() not in anaconda_packages:
-                    updated_package_list.append(line.strip())
-        return updated_package_list
-    else:
-        return updated_package_list
-
-
-def convert_resource_details_to_dict(function_details: SnowflakeCursor) -> dict:
-    function_dict = {}
-    json_properties = ["packages", "installed_packages"]
-    for function in function_details:
-        if function[0] in json_properties:
-            function_dict[function[0]] = json.loads(
-                function[1].replace("'", '"'),
-            )
-        else:
-            function_dict[function[0]] = function[1]
-    return function_dict
-
-
 def generate_deploy_stage_name(identifier: str) -> str:
     return (
         identifier.replace("()", "")
@@ -603,26 +576,6 @@ def create_project_template(template_name: str, project_directory: str | None = 
         target,
         dirs_exist_ok=True,
     )
-
-
-def sql_to_python_return_type_mapper(resource_return_type: str) -> str:
-    """
-    Some of the python data types get converted to SQL types, when function/procedure is created.
-    So, to properly compare types, we use mapping based on:
-    https://docs.snowflake.com/en/developer-guide/udf-stored-procedure-data-type-mapping#sql-python-data-type-mappings
-
-    Mind you, this only applies to cases, in which Snowflake accepts python type as return.
-    Ie. if function returns list, it has to be declared as 'array' during creation,
-    therefore any conversion is not necessary
-    """
-    mapping = {
-        "number(38,0)": "int",
-        "timestamp_ntz(9)": "datetime",
-        "timestamp_tz(9)": "datetime",
-        "varchar(16777216)": "string",
-    }
-
-    return mapping.get(resource_return_type.lower(), resource_return_type.lower())
 
 
 def path_resolver(path_to_file: str):
