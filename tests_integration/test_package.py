@@ -18,7 +18,7 @@ from tests_integration.testing_utils.assertions.test_result_assertions import (
 class TestPackage:
     STAGE_NAME = "PACKAGE_TEST"
 
-    #@pytest.mark.integration
+    # @pytest.mark.integration
     def test_package_upload(self, runner, snowflake_session, test_database):
         file_name = "package_upload.py"
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -47,7 +47,7 @@ class TestPackage:
 
         snowflake_session.execute_string(f"DROP STAGE IF EXISTS {self.STAGE_NAME};")
 
-    #@pytest.mark.integration
+    # @pytest.mark.integration
     def test_package_create_with_non_anaconda_package(self, directory_for_test, runner):
         result = runner.invoke_integration(
             ["snowpark", "package", "create", "PyRTF3", "-y"]
