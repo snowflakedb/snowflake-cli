@@ -1,5 +1,5 @@
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import TemporaryDirectory
 from unittest import mock
 
 from tests.testing_utils.fixtures import *
@@ -10,32 +10,35 @@ def test_create_job(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    with NamedTemporaryFile(
-        prefix="spec", suffix="yaml", dir=Path(__file__).parent
-    ) as fh:
-        name = fh.name
-        result = runner.invoke(
+    test_spec = """
+spec:
+  containers:
+  - name: main
+    image: public.ecr.aws/myrepo:latest
+    """
+    with TemporaryDirectory() as temp_dir:
+        filepath = os.path.join(temp_dir, "test")
+        with open(filepath, "w") as fh:
+            fh.write(test_spec)
+        runner.invoke(
             [
                 "snowpark",
                 "jobs",
                 "create",
                 "--compute-pool",
-                "jobName",
+                "testPool",
                 "--spec-path",
-                fh.name,
-                "--stage",
-                "stageValue",
+                filepath,
             ]
         )
-
-    assert result.exit_code == 0, result.output
     assert ctx.get_query() == (
-        "create stage if not exists stageValue\n"
-        f"put file://{name} "
-        "@stageValue auto_compress=false parallel=4 overwrite=True\n"
+        "USE DATABASE MockDatabase\n"
+        "USE MockDatabase.MockSchema\n"
         "EXECUTE SERVICE\n"
-        "COMPUTE_POOL =  jobName\n"
-        f"spec=@stageValue/jobs/d41d8cd98f00b204e9800998ecf8427e/{Path(name).stem};\n"
+        "IN COMPUTE POOL testPool\n"
+        "FROM SPECIFICATION '\n"
+        '{"spec": {"containers": [{"name": "main", "image": "public.ecr.aws/myrepo:latest"}]}}\n'
+        "'\n"
     )
 
 
