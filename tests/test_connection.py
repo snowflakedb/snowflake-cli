@@ -336,3 +336,50 @@ def test_key_pair_authentication(mock_conn, runner):
         schema="PUBLIC",
         warehouse="xsmall",
     )
+
+
+@mock.patch.dict(
+    os.environ,
+    {
+        "PRIVATE_KEY_PASSPHRASE": "password",
+    },
+    clear=True,
+)
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.snow_connector._load_pem_to_der")
+def test_key_pair_authentication_from_config(mock_load, mock_conn, temp_dir, runner):
+    mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
+    mock_load.return_value = "secret value"
+
+    with NamedTemporaryFile("w+", suffix="toml") as tmp_file:
+        tmp_file.write(
+            dedent(
+                """
+               [connections.jwt]
+               account = "my_account"
+               user = "jdoe"
+               authenticator = "SNOWFLAKE_JWT"
+               private_key_path = "~/sf_private_key.p8"
+            """
+            )
+        )
+        tmp_file.flush()
+
+        result = runner.invoke(
+            [
+                "--config-file",
+                tmp_file.name,
+                "warehouse",
+                "status",
+            ]
+        )
+
+    assert result.exit_code == 1, result.output
+    mock_load.assert_called_once_with("~/sf_private_key.p8")
+    mock_conn.assert_called_once_with(
+        application="SNOWCLI.WAREHOUSE.STATUS",
+        account="my_account",
+        user="jdoe",
+        authenticator="SNOWFLAKE_JWT",
+        private_key="secret value",
+    )
