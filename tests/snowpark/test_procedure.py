@@ -428,3 +428,11 @@ def mock_ctx_procedure_not_exist(mock_cursor):
             return (self.cs,)
 
     return lambda cursor=mock_cursor(["row"], []): _MockConnectionCtx(cursor)
+
+
+@mock.patch("snowcli.cli.common.project_initialisation._create_project_template")
+def test_init_procedure(mock_create_project_template, runner, temp_dir):
+    runner.invoke(["snowpark", "procedure", "init", "my_project2"])
+    mock_create_project_template.assert_called_once_with(
+        "default_procedure", project_directory="my_project2"
+    )

@@ -6,11 +6,11 @@ import click
 import typer
 from click import ClickException
 from snowcli.cli.common.decorators import (
-    global_options,
     global_options_with_connection,
     with_experimental_behaviour,
 )
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.project_initialisation import add_init_command
 from snowcli.cli.project.definition_manager import DefinitionManager
 from snowcli.cli.streamlit.manager import StreamlitManager
 from snowcli.output.decorators import with_output
@@ -21,7 +21,6 @@ from snowcli.output.types import (
     QueryResult,
     SingleQueryResult,
 )
-from snowcli.utils import create_project_template
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -38,20 +37,7 @@ StageNameOption: str = typer.Option(
 )
 
 
-@app.command("init")
-@with_output
-@global_options
-def streamlit_init(
-    project_name: str = typer.Argument(
-        "example_streamlit", help="Name of the Streamlit project you want to create."
-    ),
-    **options,
-) -> CommandResult:
-    """
-    Initializes this directory with a sample set of files for creating a Streamlit dashboard.
-    """
-    create_project_template("default_streamlit", project_directory=project_name)
-    return MessageResult(f"Initialized the new project in {project_name}/")
+add_init_command(app, project_type="Streamlit", template="default_streamlit")
 
 
 @app.command("list")
