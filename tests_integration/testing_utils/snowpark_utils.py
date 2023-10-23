@@ -5,7 +5,7 @@ import os
 import re
 from enum import Enum
 from syrupy import SnapshotAssertion
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from snowflake.connector import SnowflakeConnection
 
@@ -110,7 +110,7 @@ class SnowparkTestSetup:
 
 class SnowparkTestSteps:
     dir_contents = {
-        "function": [".gitignore", "app.py", "config.toml", "requirements.txt"],
+        "function": [".gitignore", "app.py", "snowflake.yml", "requirements.txt"],
         "procedure": [
             "requirements.txt",
             "local_connection.py",
@@ -184,7 +184,11 @@ class SnowparkTestSteps:
         )
 
     def snowpark_describe_should_return_entity_description(
-        self, entity_name: str, arguments: str
+        self,
+        entity_name: str,
+        arguments: str,
+        signature: Optional[str] = None,
+        returns: Optional[str] = None,
     ) -> None:
         result = self._setup.runner.invoke_integration(
             [
@@ -195,8 +199,13 @@ class SnowparkTestSteps:
             ]
         )
         assert_that_result_is_successful(result)
+
+        if returns:
+            assert_that_result_contains_row_with(
+                result, {"property": "returns", "value": returns}
+            )
         assert_that_result_contains_row_with(
-            result, {"property": "signature", "value": arguments}
+            result, {"property": "signature", "value": signature or arguments}
         )
         assert result.json is not None
 
@@ -231,11 +240,12 @@ class SnowparkTestSteps:
             assert "coverage\n" in file_contents
 
     def snowpark_package_should_zip_files(self) -> None:
+        value_to_cmd = {"function": "build", "procedure": "package"}
         result = self._setup.runner.invoke_with_config(
             [
                 "snowpark",
                 self.test_type.value,
-                "package",
+                value_to_cmd[self.test_type.value],
                 "--pypi-download",
                 "yes",
                 "--format",
@@ -280,6 +290,19 @@ class SnowparkTestSteps:
 
         assert_that_result_is_successful(result)
         return entity_name
+
+    def run_deploy(self, additional_arguments: str = ""):
+        arguments = [
+            "snowpark",
+            self.test_type.value,
+            "deploy",
+        ]
+
+        if additional_arguments:
+            arguments.append(additional_arguments)
+
+        result = self._setup.runner.invoke_integration(arguments)
+        assert_that_result_is_successful(result)
 
     def snowpark_update_should_not_replace_if_the_signature_does_not_change(
         self, entity_name: str
@@ -414,6 +437,7 @@ class SnowparkTestSteps:
     def assert_that_only_these_files_are_staged_in_test_db(
         self, *expected_file_paths: str
     ) -> None:
+        f = self.get_actual_files_staged_in_db()
         assert set(self.get_actual_files_staged_in_db()) == set(expected_file_paths)
 
     def assert_that_only_app_and_coverage_file_are_staged_in_test_db(
@@ -441,3 +465,6 @@ class SnowparkTestSteps:
             with open(file_path, "a") as reqs_file:
                 for req in requirements:
                     reqs_file.write(req + "\n")
+
+    def get_entity_name(self):
+        return self._setup.test_object_name_provider.create_and_get_next_object_name()

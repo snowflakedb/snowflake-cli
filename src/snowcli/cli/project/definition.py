@@ -7,7 +7,7 @@ from strictyaml import (
     as_document,
 )
 
-from .schema import (
+from snowcli.cli.project.schema import (
     project_schema,
     project_override_schema,
 )
