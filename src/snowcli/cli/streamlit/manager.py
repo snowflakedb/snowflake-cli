@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from snowcli.cli.common.decorators import with_experimental_behaviour
+from snowcli.cli.common.experimental_behaviour import experimental_behaviour_enabled
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.connection.util import MissingConnectionHostError, make_snowsight_url
 from snowcli.cli.project.util import unquote_identifier
@@ -78,7 +78,6 @@ class StreamlitManager(SqlExecutionMixin):
             {use_warehouse_stmt}
         """
         )
-        ...
 
     def deploy(
         self,
@@ -89,10 +88,9 @@ class StreamlitManager(SqlExecutionMixin):
         stage_name: Optional[str] = None,
         query_warehouse: Optional[str] = None,
         replace: Optional[bool] = False,
-        experimental: Optional[bool] = False,
         **options,
     ):
-        if experimental:
+        if experimental_behaviour_enabled():
             """
             1. Create streamlit object
             2. Upload files to embedded stage

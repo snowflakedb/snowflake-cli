@@ -313,6 +313,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
         dedent(
             f"""
     CREATE  STREAMLIT {STREAMLIT_NAME}
+
     MAIN_FILE = 'main.py'
     QUERY_WAREHOUSE = test_warehouse
     """
