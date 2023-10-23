@@ -8,7 +8,7 @@ import logging
 import os
 
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict
 
 import snowflake.connector
 import snowcli.cli.common.snow_cli_global_context
@@ -39,36 +39,36 @@ def connect_to_snowflake(temporary_connection: bool = False, connection_name: Op
             {k: v for k, v in overrides.items() if v is not None}
         )
 
-    private_key = None
-    if "private_key_path" in connection_parameters:
-        if connection_parameters.get("authenticator") == "SNOWFLAKE_JWT":
-            private_key = load_pem_to_der(connection_parameters["private_key_path"])
-            del connection_parameters["private_key_path"]
-        else:
-            raise ClickException(
-                "Private Key authentication requires authenticator set to SNOWFLAKE_JWT"
-            )
+    connection_parameters = _update_connection_details_with_private_key(
+        connection_parameters
+    )
 
     try:
         # Whatever output is generated when creating connection,
         # we don't want it in our output. This is particularly important
         # for cases when external browser and json format are used.
         with contextlib.redirect_stdout(None):
-            if private_key is None:
-                return snowflake.connector.connect(
-                    application=_find_command_path(),
-                    **connection_parameters,
-                )
-            else:
-                return snowflake.connector.connect(
-                    application=_find_command_path(),
-                    private_key=private_key,
-                    **connection_parameters,
-                )
+            return snowflake.connector.connect(
+                application=_find_command_path(),
+                **connection_parameters,
+            )
     except ForbiddenError as err:
         raise SnowflakeConnectionError(err)
     except DatabaseError as err:
         raise InvalidConnectionConfiguration(err.msg)
+
+
+def _update_connection_details_with_private_key(connection_parameters: Dict):
+    if "private_key_path" in connection_parameters:
+        if connection_parameters.get("authenticator") == "SNOWFLAKE_JWT":
+            private_key = _load_pem_to_der(connection_parameters["private_key_path"])
+            connection_parameters["private_key"] = private_key
+            del connection_parameters["private_key_path"]
+        else:
+            raise ClickException(
+                "Private Key authentication requires authenticator set to SNOWFLAKE_JWT"
+            )
+    return connection_parameters
 
 
 def _find_command_path():
@@ -79,7 +79,7 @@ def _find_command_path():
     return "SNOWCLI"
 
 
-def load_pem_to_der(private_key_path: str) -> bytes:
+def _load_pem_to_der(private_key_path: str) -> bytes:
     """
     Given a private key file path (in PEM format), decode key data into DER
     format
