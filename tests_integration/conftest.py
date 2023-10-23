@@ -84,9 +84,10 @@ class SnowCLIRunner(CliRunner):
             ],
             **kwargs,
         )
-        if result.output == "" or result.output.strip() == "Done":
-            return CommandResult(result.exit_code, json=[])
-        return CommandResult(result.exit_code, json.loads(result.output))
+        try:
+            return CommandResult(result.exit_code, json.loads(result.output))
+        except json.decoder.JSONDecodeError:
+            return CommandResult(result.exit_code, json=[], output=result.output)
 
     def invoke_integration_without_format(self, *args, **kwargs) -> CommandResult:
         result = self._invoke(
