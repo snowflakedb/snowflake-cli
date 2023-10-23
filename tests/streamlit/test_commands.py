@@ -291,7 +291,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
     )
     mock_connector.return_value = ctx
 
-    with project_file("example_streamlit") as pdir:
+    with project_file("example_streamlit"):
         result = runner.invoke(
             [
                 "streamlit",

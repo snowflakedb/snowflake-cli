@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from snowcli.cli.common.decorators import with_experimental_behaviour
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.connection.util import MissingConnectionHostError, make_snowsight_url
 from snowcli.cli.project.util import unquote_identifier
@@ -37,36 +38,13 @@ class StreamlitManager(SqlExecutionMixin):
     def drop(self, streamlit_name: str) -> SnowflakeCursor:
         return self._execute_query(f"drop streamlit {streamlit_name}")
 
-    def _deploy_experimental(
+    def _put_streamlit_files(
         self,
-        streamlit_name: str,
+        root_location: str,
         main_file: Path,
-        environment_file: Optional[Path] = None,
-        pages_dir: Optional[Path] = None,
-        stage_name: Optional[str] = None,
-        query_warehouse: Optional[str] = None,
-        replace: Optional[bool] = False,
+        environment_file: Optional[Path],
+        pages_dir: Optional[Path],
     ):
-        database = self._conn.database.upper()  # type: ignore[attr-defined]
-        schema = self._conn.schema.upper()  # type: ignore[attr-defined]
-        embedded_stage_name = f"snow://streamlit/{database}.{schema}.{streamlit_name}"
-        root_location = f"{embedded_stage_name}/default_checkout"
-
-        replace_stmt = "OR REPLACE" if replace else ""
-
-        # TODO: Support from_stage
-        # from_stage_stmt = f"FROM_STAGE = '{stage_name}'" if stage_name else ""
-
-        use_warehouse_stmt = f"QUERY_WAREHOUSE = {warehouse}" if warehouse else ""
-
-        self._execute_query(
-            f"""
-            CREATE {replace_stmt} STREAMLIT {streamlit_name}
-            MAIN_FILE = '{main_file.name}'
-            {use_warehouse_stmt}
-            """
-        )
-
         stage_manager = StageManager()
 
         stage_manager.put(main_file, root_location, 4, True)
@@ -77,7 +55,30 @@ class StreamlitManager(SqlExecutionMixin):
         if pages_dir and pages_dir.exists():
             stage_manager.put(pages_dir / "*.py", f"{root_location}/pages", 4, True)
 
-        return self.get_url(streamlit_name)
+    def _create_streamlit(
+        self,
+        streamlit_name: str,
+        main_file: Path,
+        replace: bool | None = None,
+        query_warehouse: str | None = None,
+        from_stage_name: str | None = None,
+    ):
+        replace_stmt = "OR REPLACE" if replace else ""
+        use_warehouse_stmt = (
+            f"QUERY_WAREHOUSE = {query_warehouse}" if query_warehouse else ""
+        )
+        from_stage_stmt = (
+            f"ROOT_LOCATION = '{from_stage_name}'" if from_stage_name else ""
+        )
+        self._execute_query(
+            f"""
+            CREATE {replace_stmt} STREAMLIT {streamlit_name}
+            {from_stage_stmt}
+            MAIN_FILE = '{main_file.name}'
+            {use_warehouse_stmt}
+        """
+        )
+        ...
 
     def deploy(
         self,
@@ -86,50 +87,58 @@ class StreamlitManager(SqlExecutionMixin):
         environment_file: Optional[Path] = None,
         pages_dir: Optional[Path] = None,
         stage_name: Optional[str] = None,
-        warehouse: Optional[str] = None,
+        query_warehouse: Optional[str] = None,
         replace: Optional[bool] = False,
         experimental: Optional[bool] = False,
+        **options,
     ):
-        stage_manager = StageManager()
-
         if experimental:
-            return self._deploy_experimental(
-                streamlit_name,
-                main_file,
-                environment_file,
-                pages_dir,
-                stage_name,
-                warehouse,
-                replace,
+            """
+            1. Create streamlit object
+            2. Upload files to embedded stage
+            """
+            # TODO: Support from_stage
+            # from_stage_stmt = f"FROM_STAGE = '{stage_name}'" if stage_name else ""
+            self._create_streamlit(streamlit_name, main_file, replace, query_warehouse)
+
+            database = self._conn.database.upper()  # type: ignore[attr-defined]
+            schema = self._conn.schema.upper()  # type: ignore[attr-defined]
+            embedded_stage_name = (
+                f"snow://streamlit/{database}.{schema}.{streamlit_name}"
+            )
+            root_location = f"{embedded_stage_name}/default_checkout"
+
+            self._put_streamlit_files(
+                root_location, main_file, environment_file, pages_dir
+            )
+        else:
+            """
+            1. Create stage
+            2. Upload files to created stage
+            3. Create streamlit from stage
+            """
+            stage_manager = StageManager()
+
+            stage_name = stage_name or "streamlit"
+            stage_name = stage_manager.to_fully_qualified_name(stage_name)
+
+            stage_manager.create(stage_name=stage_name)
+
+            root_location = stage_manager.get_standard_stage_name(
+                f"{stage_name}/{streamlit_name}"
             )
 
-        stage_name = stage_name or "streamlit"
-        stage_name = stage_manager.to_fully_qualified_name(stage_name)
+            self._put_streamlit_files(
+                root_location, main_file, environment_file, pages_dir
+            )
 
-        stage_manager.create(stage_name=stage_name)
-
-        root_location = stage_manager.get_standard_stage_name(
-            f"{stage_name}/{streamlit_name}"
-        )
-
-        stage_manager.put(main_file, root_location, 4, True)
-
-        if environment_file and environment_file.exists():
-            stage_manager.put(environment_file, root_location, 4, True)
-
-        if pages_dir and pages_dir.exists():
-            stage_manager.put(pages_dir / "*.py", f"{root_location}/pages", 4, True)
-
-        replace_stmt = "OR REPLACE" if replace else ""
-        use_warehouse_stmt = f"QUERY_WAREHOUSE = {warehouse}" if warehouse else ""
-        self._execute_query(
-            f"""
-            CREATE {replace_stmt} STREAMLIT {streamlit_name}
-            ROOT_LOCATION = '{root_location}'
-            MAIN_FILE = '{main_file.name}'
-            {use_warehouse_stmt}
-        """
-        )
+            self._create_streamlit(
+                streamlit_name,
+                main_file,
+                replace,
+                query_warehouse,
+                from_stage_name=root_location,
+            )
 
         return self.get_url(streamlit_name)
 
