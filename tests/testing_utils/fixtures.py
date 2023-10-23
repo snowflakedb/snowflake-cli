@@ -7,7 +7,7 @@ import tempfile
 
 from io import StringIO
 from pathlib import Path
-from typing import Dict, Generator, List, NamedTuple
+from typing import Dict, Generator, List, NamedTuple, Optional
 from unittest import mock
 from typing import Union
 
