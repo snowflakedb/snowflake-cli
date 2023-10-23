@@ -11,6 +11,7 @@ from typing import Dict, Generator, List, NamedTuple, Optional
 from unittest import mock
 from typing import Union
 
+from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 from tests.conftest import SnowCLIRunner
 from tests.test_data import test_data
@@ -64,53 +65,51 @@ def include_paths_env_variable(other_directory: str) -> Generator:
 
 @pytest.fixture()
 def mock_ctx(mock_cursor):
-    class _MockConnectionCtx(mock.MagicMock):
-        def __init__(self, cursor=None, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.queries: List[str] = []
-            self.cs = cursor
+    return lambda cursor=mock_cursor(["row"], []): MockConnectionCtx(cursor)
 
-        def get_query(self):
-            return "\n".join(self.queries)
 
-        def get_queries(self):
-            return self.queries
+class MockConnectionCtx(mock.MagicMock):
+    def __init__(self, cursor=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.queries: List[str] = []
+        self.cs = cursor
 
-        @property
-        def warehouse(self):
-            return "MockWarehouse"
+    def get_query(self):
+        return "\n".join(self.queries)
 
-        @property
-        def database(self):
-            return "MockDatabase"
+    def get_queries(self):
+        return self.queries
 
-        @property
-        def schema(self):
-            return "MockSchema"
+    @property
+    def warehouse(self):
+        return "MockWarehouse"
 
-        @property
-        def role(self):
-            return "MockRole"
+    @property
+    def database(self):
+        return "MockDatabase"
 
-        @property
-        def host(self):
-            return "account.test.region.aws.snowflakecomputing.com"
+    @property
+    def schema(self):
+        return "MockSchema"
 
-        @property
-        def account(self):
-            return "account"
+    @property
+    def role(self):
+        return "MockRole"
 
-        def execute_string(self, query: str, **kwargs):
-            self.queries.append(query)
-            if self.cs:
-                return (self.cs,)
-            else:
-                return (mock_cursor(["row"], []),)
+    @property
+    def host(self):
+        return "account.test.region.aws.snowflakecomputing.com"
 
-        def execute_stream(self, query: StringIO):
-            return self.execute_string(query.read())
+    @property
+    def account(self):
+        return "account"
 
-    return lambda cursor=None: _MockConnectionCtx(cursor)
+    def execute_string(self, query: str, **kwargs):
+        self.queries.append(query)
+        return (self.cs,)
+
+    def execute_stream(self, query: StringIO):
+        return self.execute_string(query.read())
 
 
 @pytest.fixture

@@ -1,6 +1,8 @@
 from click.exceptions import ClickException
 from typing import Optional
 
+from snowcli.cli.constants import ObjectType
+
 
 class EnvironmentVariableNotFoundError(ClickException):
     def __init__(self, env_variable_name: str):
@@ -48,3 +50,8 @@ class SnowflakeSQLExecutionError(ClickException):
                 {queries if queries else ""}
             """
         )
+
+
+class ObjectAlreadyExistsError(ClickException):
+    def __init__(self, object_type: ObjectType, name: str):
+        super().__init__(f"{object_type.value.capitalize()} {name} already exists.")

@@ -5,7 +5,7 @@ import pytest
 from tests_integration.snowflake_connector import snowflake_session, test_database
 from tests_integration.testing_utils.naming_utils import object_name_provider
 from tests_integration.testing_utils.snowpark_utils import (
-    SnowparkTestSteps,
+    SnowparkProcedureTestSteps,
     SnowparkTestSetup,
     TestType,
 )
@@ -50,7 +50,7 @@ def test_snowpark_procedure_flow(_test_steps):
         expected_value="Hello World!",
     )
 
-    _test_steps.snowpark_update_should_not_replace_if_the_signature_does_not_change(
+    _test_steps.snowpark_deploy_should_not_replace_if_the_signature_does_not_change(
         procedure_name
     )
     _test_steps.snowpark_execute_should_return_expected_value(
@@ -59,7 +59,7 @@ def test_snowpark_procedure_flow(_test_steps):
         expected_value="Hello Snowflakes!",
     )
 
-    _test_steps.snowpark_update_should_finish_successfully(procedure_name)
+    _test_steps.snowpark_deploy_should_finish_successfully(procedure_name)
     _test_steps.assert_that_only_these_entities_are_in_snowflake(
         f"{procedure_name}() RETURN NUMBER"
     )
@@ -116,4 +116,4 @@ def _test_setup(
 
 @pytest.fixture
 def _test_steps(_test_setup):
-    yield SnowparkTestSteps(_test_setup, TestType.PROCEDURE)
+    yield SnowparkProcedureTestSteps(_test_setup, TestType.PROCEDURE)
