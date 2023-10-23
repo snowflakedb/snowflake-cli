@@ -1,0 +1,12 @@
+definition_version: 1
+native_app:
+  name: integration
+
+  artifacts:
+    - src: app/*
+      dest: ./
+
+  package:
+    scripts:
+      - package/001-shared.sql
+      - package/002-shared.sql

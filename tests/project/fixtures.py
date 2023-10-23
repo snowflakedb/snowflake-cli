@@ -5,7 +5,7 @@ from typing import Generator, List
 from pathlib import Path
 from contextlib import contextmanager
 
-PROJECT_DIR = Path(__file__).parent
+PROJECT_DIR = Path(__file__).parent.parent / "test_data" / "projects"
 
 
 @contextmanager
