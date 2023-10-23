@@ -15,6 +15,8 @@
 * `snow snowpark registry` was replaced with `snow registry` command.
 * Removed `snow streamlit create` command. Streamlit can be deployd using `snow streamlit deploy`
 * `snow connection test` now outputs all connection details (except for the password), along with connection status
+* Removed `snow snowpark function create` and `snow snowpark function update`. Procedures can be deployed using `snow snowpark function deploy`.
+* Removed `snow snowpark procedure create` and `snow snowpark procedure update`. Procedures can be deployed using `snow snowpark procedure deploy`.
 
 ## New additions
 * `--temporary-connection` flag, that allows you to connect, without anything declared in config file

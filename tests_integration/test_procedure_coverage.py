@@ -6,7 +6,7 @@ from tests_integration.testing_utils.naming_utils import object_name_provider
 from tests_integration.testing_utils.snowpark_utils import (
     SnowparkTestSetup,
     TestType,
-    SnowparkTestSteps,
+    SnowparkProcedureTestSteps,
 )
 from tests_integration.testing_utils.sql_utils import sql_test_helper
 from tests_integration.testing_utils.working_directory_utils import (
@@ -33,7 +33,7 @@ def test_procedure_coverage_flow(_test_steps):
 
     parameters = "(a int, b string)"
     procedure_name = (
-        _test_steps.snowpark_create_with_coverage_wrapper_should_finish_successfully(
+        _test_steps.snowpark_deploy_with_coverage_wrapper_should_finish_successfully(
             parameters
         )
     )
@@ -95,4 +95,4 @@ def _test_setup(
 
 @pytest.fixture
 def _test_steps(_test_setup):
-    yield SnowparkTestSteps(_test_setup, TestType.PROCEDURE)
+    yield SnowparkProcedureTestSteps(_test_setup, TestType.PROCEDURE)

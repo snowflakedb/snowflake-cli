@@ -16,20 +16,18 @@ class FunctionManager(SnowparkObjectManager):
     def _object_execute(self):
         return "select"
 
-    def create(
+    def create_or_replace(
         self,
         identifier: str,
         return_type: str,
         handler: str,
         artifact_file: str,
         packages: List[str],
-        overwrite: bool,
     ) -> SnowflakeCursor:
-        create_stmt = "create or replace" if overwrite else "create"
         packages_list = ",".join(f"'{p}'" for p in packages)
         return self._execute_query(
             f"""\
-            {create_stmt} function {identifier}
+            create or replace function {identifier}
             returns {return_type}
             language python
             runtime_version=3.8
