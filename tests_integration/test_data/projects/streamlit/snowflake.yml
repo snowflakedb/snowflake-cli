@@ -1,0 +1,6 @@
+definition_version: 1
+streamlit:
+  name: test_streamlit_deploy_snowcli
+  file: streamlit.py
+  stage: streamlit
+  query_warehouse: xsmall

@@ -1,14 +1,14 @@
 import logging
-
+from pathlib import Path
 import click
 import typer
-from pathlib import Path
 from typing import Optional
 
 from click import ClickException
 
 from snowcli.cli.common.decorators import global_options_with_connection, global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.project.definition_manager import DefinitionManager
 from snowcli.cli.streamlit.manager import StreamlitManager
 from snowcli.output.decorators import with_output
 
@@ -132,34 +132,6 @@ def _default_file_callback(param_name: str):
 @with_output
 @global_options_with_connection
 def streamlit_deploy(
-    streamlit_name: str = typer.Argument(..., help="Name of Streamlit to deploy."),
-    file: Path = typer.Option(
-        "app.py",
-        exists=True,
-        readable=True,
-        file_okay=True,
-        help="Path of the Streamlit app file.",
-    ),
-    stage: Optional[str] = StageNameOption,
-    environment_file: Path = typer.Option(
-        "environment.yml",
-        "--env-file",
-        help="Environment file to use.",
-        file_okay=True,
-        dir_okay=False,
-        callback=_default_file_callback("environment_file"),
-    ),
-    pages_dir: Path = typer.Option(
-        "pages",
-        "--pages-dir",
-        help="Directory with Streamlit pages",
-        file_okay=False,
-        dir_okay=True,
-        callback=_default_file_callback("pages_dir"),
-    ),
-    query_warehouse: Optional[str] = typer.Option(
-        ..., "--query-warehouse", help="Query warehouse for this Streamlit."
-    ),
     replace: Optional[bool] = typer.Option(
         False,
         "--replace",
@@ -178,14 +150,31 @@ def streamlit_deploy(
     created if it does not exist.
     You can modify the behaviour using flags. For details check help information.
     """
+    dm = DefinitionManager()
+    streamlit = dm.project_definition.get("streamlit")
+    if not streamlit:
+        return MessageResult("No streamlit were specified in project definition.")
+
+    environment_file = streamlit.get("environment_file", None)
+    if environment_file and not Path(environment_file).exists():
+        raise ClickException(f"Provided file {environment_file} does not exist")
+    elif environment_file is None:
+        environment_file = "environment.yml"
+
+    pages_dir = streamlit.get("pages_dir", None)
+    if pages_dir and not Path(pages_dir).exists():
+        raise ClickException(f"Provided file {pages_dir} does not exist")
+    elif pages_dir is None:
+        pages_dir = "pages"
+
     url = StreamlitManager().deploy(
-        streamlit_name=streamlit_name,
-        environment_file=environment_file,
-        pages_dir=pages_dir,
-        stage_name=stage,
-        main_file=file,
+        streamlit_name=streamlit["name"],
+        environment_file=Path(environment_file),
+        pages_dir=Path(pages_dir),
+        stage_name=streamlit["stage"],
+        main_file=Path(streamlit["file"]),
         replace=replace,
-        warehouse=query_warehouse,
+        warehouse=streamlit["query_warehouse"],
     )
 
     if open_:
