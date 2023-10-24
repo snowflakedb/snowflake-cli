@@ -1,4 +1,5 @@
 from textwrap import dedent
+
 from tests.testing_utils.fixtures import *
 
 STREAMLIT_NAME = "test_streamlit"
@@ -291,7 +292,7 @@ def test_deploy_all_streamlit_files_not_defaults(
 
 @mock.patch("snowflake.connector.connect")
 def test_deploy_streamlit_main_and_pages_files_experimental(
-    mock_connector, mock_cursor, runner, mock_ctx, project_file
+    mock_connector, mock_cursor, runner, mock_ctx, project_directory
 ):
     ctx = mock_ctx(
         mock_cursor(
@@ -304,19 +305,8 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
     )
     mock_connector.return_value = ctx
 
-    with project_file("example_streamlit"):
-        result = runner.invoke(
-            [
-                "streamlit",
-                "deploy",
-                STREAMLIT_NAME,
-                "--file",
-                "main.py",
-                "--query-warehouse",
-                TEST_WAREHOUSE,
-                "--experimental",
-            ]
-        )
+    with project_directory("example_streamlit"):
+        result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
     root_path = (
         f"snow://streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
@@ -328,11 +318,11 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
             f"""
     CREATE  STREAMLIT {STREAMLIT_NAME}
 
-    MAIN_FILE = 'main.py'
+    MAIN_FILE = 'app.py'
     QUERY_WAREHOUSE = test_warehouse
     """
         ),
-        _put_query("main.py", root_path),
+        _put_query("app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*.py", f"{root_path}/pages"),
         f"select system$get_snowsight_host()",
