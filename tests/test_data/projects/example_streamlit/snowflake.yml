@@ -1,0 +1,5 @@
+definition_version: 1
+streamlit:
+  name: test_streamlit
+  stage: streamlit
+  query_warehouse: test_warehouse

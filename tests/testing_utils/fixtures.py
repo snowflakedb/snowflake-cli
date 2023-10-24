@@ -7,12 +7,15 @@ import tempfile
 
 from io import StringIO
 from pathlib import Path
-from typing import Dict, Generator, List, NamedTuple, Optional
+from typing import Generator, List, NamedTuple, Optional
 from unittest import mock
 from typing import Union
 
-from snowflake.connector import ProgrammingError
+import strictyaml
 from snowflake.connector.cursor import SnowflakeCursor
+from strictyaml import as_document
+
+from snowcli.cli.project.definition import merge_left
 from tests.conftest import SnowCLIRunner
 from tests.test_data import test_data
 from tests.testing_utils.files_and_dirs import create_named_file, create_temp_file
@@ -209,11 +212,19 @@ def txt_file_in_a_subdir(temp_dir: str) -> Generator:
 
 
 @pytest.fixture
-def project_file(temp_dir, test_root_path):
+def project_directory(temp_dir, test_root_path):
     @contextmanager
-    def _temporary_project_file(project_name):
+    def _temporary_project_directory(
+        project_name, merge_project_definition: Optional[dict] = None
+    ):
         test_data_file = test_root_path / "test_data" / "projects" / project_name
         shutil.copytree(test_data_file, temp_dir, dirs_exist_ok=True)
+        if merge_project_definition:
+            project_definition = strictyaml.load(Path("snowflake.yml").read_text()).data
+            merge_left(project_definition, merge_project_definition)
+            with open(Path(temp_dir) / "snowflake.yml", "w") as file:
+                file.write(as_document(project_definition).as_yaml())
+
         yield Path(temp_dir)
 
-    return _temporary_project_file
+    return _temporary_project_directory
