@@ -95,12 +95,24 @@ procedure_schema = RelaxedMap(
     {**_callable_mapping, Optional("execute_as_owner"): Bool()}
 )
 
+streamlit_schema = RelaxedMap(
+    {
+        "name": Str(),
+        "stage": Str(),
+        "query_warehouse": Str(),
+        Optional("file", default="app.py"): FilePath(),
+        Optional("environment_file"): FilePath(),
+        Optional("pages_dir"): FilePath(),
+    }
+)
+
 project_schema = RelaxedMap(
     {
         "definition_version": Int(),
         Optional("native_app"): native_app_schema,
         Optional("functions"): Seq(function_schema),
         Optional("procedures"): Seq(procedure_schema),
+        Optional("streamlit"): streamlit_schema,
     }
 )
 
