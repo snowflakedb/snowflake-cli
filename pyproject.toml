@@ -77,5 +77,6 @@ select = [
 addopts = "-m 'not integration and not performance'"
 markers = [
   "integration: mark test as integration test",
-  "performance: mark test as performance test"
+  "performance: mark test as performance test",
+  "e2e: mark test to execute on SnowCLI installed in fresh virtual environment",
 ]
