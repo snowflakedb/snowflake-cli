@@ -90,6 +90,7 @@ class StreamlitManager(SqlExecutionMixin):
         replace: Optional[bool] = False,
         **options,
     ):
+        stage_manager = StageManager()
         if experimental_behaviour_enabled():
             """
             1. Create streamlit object
@@ -98,12 +99,8 @@ class StreamlitManager(SqlExecutionMixin):
             # TODO: Support from_stage
             # from_stage_stmt = f"FROM_STAGE = '{stage_name}'" if stage_name else ""
             self._create_streamlit(streamlit_name, main_file, replace, query_warehouse)
-
-            database = self._conn.database.upper()  # type: ignore[attr-defined]
-            schema = self._conn.schema.upper()  # type: ignore[attr-defined]
-            embedded_stage_name = (
-                f"snow://streamlit/{database}.{schema}.{streamlit_name}"
-            )
+            stage_path = stage_manager.to_fully_qualified_name(streamlit_name)
+            embedded_stage_name = f"snow://streamlit/{stage_path}"
             root_location = f"{embedded_stage_name}/default_checkout"
 
             self._put_streamlit_files(

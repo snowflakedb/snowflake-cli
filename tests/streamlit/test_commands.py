@@ -308,7 +308,8 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
         )
 
     root_path = (
-        f"snow://streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME}/default_checkout"
+        f"snow://streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
+        "default_checkout"
     )
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
