@@ -16,3 +16,9 @@ If not using a system-wide connection file:
 2. Run `nix run github:Snowflake-Labs/snowcli?dir=contrib/nix -- --config-file ./connections.toml connection add`
 3. Run `nix run github:Snowflake-Labs/snowcli?dir=contrib/nix -- --config-file ./connections.toml sql -c "<CONNECTION_NAME_FROM_PREVIOUS_STEP>" -q "SELECT CURRENT_ACCOUNT()"` to test
 
+# Overlay
+
+Flake provides an overlay with two packages:
+
+* `snowcli-stable` tracks the latest released version
+* `snowcli` tracks the latest commit of the `snowcli` repository
