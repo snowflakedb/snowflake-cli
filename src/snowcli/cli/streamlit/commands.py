@@ -6,8 +6,11 @@ from pathlib import Path
 from typing import Optional
 
 from click import ClickException
-
-from snowcli.cli.common.decorators import global_options_with_connection, global_options
+from snowcli.cli.common.decorators import (
+    global_options,
+    global_options_with_connection,
+    with_experimental_behaviour,
+)
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.streamlit.manager import StreamlitManager
 from snowcli.output.decorators import with_output
@@ -130,6 +133,7 @@ def _default_file_callback(param_name: str):
 
 @app.command("deploy")
 @with_output
+@with_experimental_behaviour()
 @global_options_with_connection
 def streamlit_deploy(
     streamlit_name: str = typer.Argument(..., help="Name of Streamlit to deploy."),
@@ -185,7 +189,7 @@ def streamlit_deploy(
         stage_name=stage,
         main_file=file,
         replace=replace,
-        warehouse=query_warehouse,
+        query_warehouse=query_warehouse,
     )
 
     if open_:

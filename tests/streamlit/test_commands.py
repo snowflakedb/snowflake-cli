@@ -269,6 +269,53 @@ def test_deploy_streamlit_main_and_pages_files(
     ]
 
 
+@mock.patch("snowflake.connector.connect")
+def test_deploy_streamlit_main_and_pages_files_experimental(
+    mock_connector, mock_cursor, runner, mock_ctx, project_file
+):
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
+    mock_connector.return_value = ctx
+
+    with project_file("example_streamlit"):
+        result = runner.invoke(
+            [
+                "streamlit",
+                "deploy",
+                STREAMLIT_NAME,
+                "--query-warehouse",
+                "test_warehouse",
+                "--experimental",
+            ]
+        )
+
+    root_path = (
+        f"snow://streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
+        "default_checkout"
+    )
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == [
+        dedent(
+            f"""
+    CREATE  STREAMLIT {STREAMLIT_NAME}
+
+    MAIN_FILE = 'app.py'
+    QUERY_WAREHOUSE = test_warehouse
+    """
+        ),
+        _put_query("app.py", root_path),
+        _put_query("environment.yml", f"{root_path}"),
+        _put_query("pages/*.py", f"{root_path}/pages"),
+    ]
+
+
 @pytest.mark.parametrize(
     "opts",
     [
