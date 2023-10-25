@@ -10,11 +10,10 @@ from snowcli.output.types import MessageResult, CommandResult
 import importlib
 
 
-def _create_project_template(template_name: str, project_directory: str | None = None):
-    target = project_directory or os.getcwd()
+def _create_project_template(template_name: str, project_directory: str):
     shutil.copytree(
         Path(importlib.util.find_spec("templates").origin).parent / template_name,  # type: ignore
-        target,
+        project_directory,
         dirs_exist_ok=True,
     )
 
