@@ -50,7 +50,7 @@ def _mock_test_plugin():
 def test_experimental_invocation(runner):
     result_of_help = runner.invoke(["test", "hello", "--help"])
     assert "username" in result_of_help.output
-    assert "--experimental" in result_of_help.output
+    assert "--experimental" not in result_of_help.output
     assert "--format" in result_of_help.output
 
     result_of_execution = runner.invoke(
@@ -66,7 +66,7 @@ def test_experimental_invocation(runner):
 def test_not_experimental_invocation(runner):
     result_of_help = runner.invoke(["test", "hello", "--help"])
     assert "username" in result_of_help.output
-    assert "--experimental" in result_of_help.output
+    assert "--experimental" not in result_of_help.output
     assert "--format" in result_of_help.output
 
     result_of_execution = runner.invoke(["test", "hello", "John", "--format", "JSON"])
