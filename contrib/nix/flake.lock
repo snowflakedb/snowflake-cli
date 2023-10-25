@@ -55,7 +55,9 @@
         "flake-parts": "flake-parts",
         "nixpkgs": "nixpkgs",
         "snowflake-connector-python-src": "snowflake-connector-python-src",
-        "src": "src"
+        "snowflake-connector-python-src-live": "snowflake-connector-python-src-live",
+        "src-live": "src-live",
+        "src-stable": "src-stable"
       }
     },
     "snowflake-connector-python-src": {
@@ -75,19 +77,52 @@
         "type": "github"
       }
     },
-    "src": {
+    "snowflake-connector-python-src-live": {
       "flake": false,
       "locked": {
-        "lastModified": 1693567246,
-        "narHash": "sha256-xzdnYtYQYTGhLqroasOHzvnED0Yzw7LzqinpoJz5Rj4=",
+        "lastModified": 1697579396,
+        "narHash": "sha256-4omhgCxr6wX1Q+jW6EzjtLE3vy2b7be7i13B6N82YSo=",
+        "owner": "snowflakedb",
+        "repo": "snowflake-connector-python",
+        "rev": "5b61af7cf6560b9f3f9d9e6dae5021ecc8281de0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "snowflakedb",
+        "ref": "v3.3.1",
+        "repo": "snowflake-connector-python",
+        "type": "github"
+      }
+    },
+    "src-live": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1698251434,
+        "narHash": "sha256-XDh05m1nVT3HYA1fS1lrxmjfTWS2EDC3/uhJZ2AkPMw=",
         "owner": "Snowflake-Labs",
         "repo": "snowcli",
-        "rev": "dcdffaef5269b093d15609d240ef3b72eceb5beb",
+        "rev": "48fde2027f19b4274fddb0c233901e542604abb8",
         "type": "github"
       },
       "original": {
         "owner": "Snowflake-Labs",
-        "ref": "v1.1.0",
+        "repo": "snowcli",
+        "type": "github"
+      }
+    },
+    "src-stable": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1696850912,
+        "narHash": "sha256-0j6+piLAH2Gqbjq0SfqIyBlTLp5Z3wT0Vt9NCG59QLk=",
+        "owner": "Snowflake-Labs",
+        "repo": "snowcli",
+        "rev": "f6e4d0b33c89046779b10146095b6ff3e0efdd34",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Snowflake-Labs",
+        "ref": "v1.1.1-rc3",
         "repo": "snowcli",
         "type": "github"
       }
