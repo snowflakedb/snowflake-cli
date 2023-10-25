@@ -33,7 +33,7 @@ ProjectArgument = typer.Option(
 )
 
 
-@app.command("init")
+@app.command("init", hidden=True)
 @with_output
 @global_options
 def app_init(
@@ -78,7 +78,7 @@ def app_bundle(
     return MessageResult(f"Bundle generated at {manager.deploy_root}")
 
 
-@app.command("run")
+@app.command("run", hidden=True)
 @with_output
 @global_options_with_connection
 def app_run(
@@ -100,7 +100,7 @@ def app_run(
     )
 
 
-@app.command("open")
+@app.command("open", hidden=True)
 @with_output
 @global_options_with_connection
 def app_open(
@@ -121,7 +121,7 @@ def app_open(
         )
 
 
-@app.command("teardown")
+@app.command("teardown", hidden=True)
 @with_output
 @global_options_with_connection
 def app_teardown(
