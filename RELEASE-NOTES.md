@@ -6,6 +6,10 @@
   * `-n` for `--name`, name of compute pool
   * `-d` for `--num`, number of pool's instances
   * `-f` for `--family`, instance family
+* Renamed long options in Snowpark services commands:
+  * `--compute_pool` is now `--compute-pool`
+  * `--num_instances` is now `--num-instances`
+  * `--container_name` is now `--container-name`
 
 ## New additions
 * `snow streamlit init` command that creates a new streamlit project.
