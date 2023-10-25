@@ -1,4 +1,5 @@
 from textwrap import dedent
+
 from tests.testing_utils.fixtures import *
 
 STREAMLIT_NAME = "test_streamlit"
@@ -284,6 +285,46 @@ def test_deploy_all_streamlit_files_not_defaults(
             QUERY_WAREHOUSE = streamlit_warehouse
             """
         ),
+        f"select system$get_snowsight_host()",
+        f"select current_account_name()",
+    ]
+
+
+@mock.patch("snowflake.connector.connect")
+def test_deploy_streamlit_main_and_pages_files_experimental(
+    mock_connector, mock_cursor, runner, mock_ctx, project_directory
+):
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
+    mock_connector.return_value = ctx
+
+    with project_directory("example_streamlit"):
+        result = runner.invoke(["streamlit", "deploy", "--experimental"])
+
+    root_path = (
+        f"snow://streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
+        "default_checkout"
+    )
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == [
+        dedent(
+            f"""
+    CREATE  STREAMLIT {STREAMLIT_NAME}
+
+    MAIN_FILE = 'app.py'
+    QUERY_WAREHOUSE = test_warehouse
+    """
+        ),
+        _put_query("app.py", root_path),
+        _put_query("environment.yml", f"{root_path}"),
+        _put_query("pages/*.py", f"{root_path}/pages"),
         f"select system$get_snowsight_host()",
         f"select current_account_name()",
     ]

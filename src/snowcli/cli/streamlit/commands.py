@@ -1,23 +1,25 @@
 import logging
 from pathlib import Path
-import click
-import typer
 from typing import Optional
 
+import click
+import typer
 from click import ClickException
-
-from snowcli.cli.common.decorators import global_options_with_connection, global_options
+from snowcli.cli.common.decorators import (
+    global_options,
+    global_options_with_connection,
+    with_experimental_behaviour,
+)
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.project.definition_manager import DefinitionManager
 from snowcli.cli.streamlit.manager import StreamlitManager
 from snowcli.output.decorators import with_output
-
 from snowcli.output.types import (
     CommandResult,
-    QueryResult,
-    SingleQueryResult,
     MessageResult,
     MultipleResults,
+    QueryResult,
+    SingleQueryResult,
 )
 from snowcli.utils import create_project_template
 
@@ -130,6 +132,7 @@ def _default_file_callback(param_name: str):
 
 @app.command("deploy")
 @with_output
+@with_experimental_behaviour()
 @global_options_with_connection
 def streamlit_deploy(
     replace: Optional[bool] = typer.Option(
@@ -174,7 +177,8 @@ def streamlit_deploy(
         stage_name=streamlit["stage"],
         main_file=Path(streamlit["file"]),
         replace=replace,
-        warehouse=streamlit["query_warehouse"],
+        query_warehouse=streamlit["query_warehouse"],
+        **options,
     )
 
     if open_:
