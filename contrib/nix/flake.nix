@@ -22,6 +22,9 @@
 
   outputs = inputs@{ self, nixpkgs, flake-parts, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
+      imports = [
+        inputs.flake-parts.flakeModules.easyOverlay
+      ];
       flake = { };
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
       perSystem = { config, self', inputs', pkgs, system, ... }:
@@ -104,6 +107,10 @@
                 src = inputs.src-stable;
               };
             };
+          overlayAttrs = {
+            inherit (config.packages) snowcli snowcli-stable;
+          };
+
         };
     };
 }
