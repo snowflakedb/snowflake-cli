@@ -17,6 +17,7 @@ from snowcli.output.types import CommandResult, MessageResult
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
+    hidden=True,
     name="app",
     help="Manage Native Apps in Snowflake",
 )
