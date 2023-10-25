@@ -304,16 +304,18 @@ class NativeAppManager(SqlExecutionMixin):
                         self.app_name, self.app_role, actual_owner
                     )
 
-                if not diff.has_changes():
-                    # the app already exists and is up-to-date
-                    # ensure debug_mode is up-to-date
+                if diff.has_changes():
+                    # the app needs to be upgraded
+                    log.info(f"Upgrading existing application {self.app_name}.")
                     self._execute_query(
-                        f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
+                        f"alter application {self.app_name} upgrade using @{self.stage_fqn}"
                     )
-                    return
-                else:
-                    # the app needs to be re-created; drop it
-                    self._execute_query(f"drop application {self.app_name}")
+
+                # ensure debug_mode is up-to-date
+                self._execute_query(
+                    f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
+                )
+                return
 
             # Create an app using "loose files" / stage dev mode.
             log.info(f"Creating new application {self.app_name} in account.")

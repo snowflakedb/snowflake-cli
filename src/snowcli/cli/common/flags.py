@@ -171,6 +171,7 @@ def experimental_option(
         None,
         "--experimental",
         help=help_text,
+        hidden=True,
         callback=update_callback("experimental"),
         is_flag=True,
         rich_help_panel=_CLI_BEHAVIOUR,
