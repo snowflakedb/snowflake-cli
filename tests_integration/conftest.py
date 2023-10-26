@@ -7,7 +7,6 @@ from contextlib import contextmanager
 import pytest
 import tempfile
 import shutil
-from json import JSONDecodeError
 
 from dataclasses import dataclass
 from json import JSONDecodeError
@@ -20,8 +19,13 @@ from snowcli.app.cli_app import app
 from typer import Typer
 from typer.testing import CliRunner
 from typing import List, Dict, Any, Optional
-
 from snowcli.cli.project.definition import merge_left
+
+pytest_plugins = [
+    "tests_integration.testing_utils",
+    "tests_integration.snowflake_connector",
+]
+
 
 TEST_DIR = Path(__file__).parent
 DEFAULT_TEST_CONFIG = "connection_configs.toml"

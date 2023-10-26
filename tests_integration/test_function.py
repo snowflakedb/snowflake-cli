@@ -2,17 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from tests_integration.snowflake_connector import test_database, snowflake_session
 from tests_integration.testing_utils.snowpark_utils import (
     TestType,
     SnowparkTestSetup,
     SnowparkTestSteps,
-)
-from tests_integration.testing_utils.sql_utils import sql_test_helper
-from tests_integration.testing_utils.naming_utils import object_name_provider
-from tests_integration.testing_utils.working_directory_utils import (
-    temporary_working_directory,
-    temporary_working_directory_ctx,
 )
 
 

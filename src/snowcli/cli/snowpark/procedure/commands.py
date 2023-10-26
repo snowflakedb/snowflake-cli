@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+
 import typer
 from snowflake.connector import ProgrammingError
 
@@ -15,6 +16,7 @@ from snowcli.cli.common.flags import (
     identifier_argument,
     execution_identifier_argument,
 )
+from snowcli.cli.common.project_initialisation import add_init_command
 from snowcli.cli.constants import DEPLOYMENT_STAGE, ObjectType
 from snowcli.cli.snowpark.common import (
     remove_parameter_names,
@@ -41,7 +43,6 @@ from snowcli.output.types import (
     QueryResult,
 )
 from snowcli.utils import (
-    create_project_template,
     prepare_app_zip,
     get_snowflake_packages,
 )
@@ -97,15 +98,7 @@ InstallCoverageWrapper = typer.Option(
 )
 
 
-@app.command("init")
-@global_options
-@with_output
-def procedure_init(**options) -> CommandResult:
-    """
-    Initialize this directory with a sample set of files to create a procedure.
-    """
-    create_project_template("default_procedure")
-    return MessageResult("Done")
+add_init_command(app, project_type="procedures", template="default_procedure")
 
 
 def _upload_procedure_artifact(

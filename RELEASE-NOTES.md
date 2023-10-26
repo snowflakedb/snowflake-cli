@@ -25,6 +25,7 @@
     * `--stage`
     * `--env-file`
     * `--pages-dir`
+* `init` commands for functions and procedures create new project in new directory instead of using current working directory.
 
 ## New additions
 * `--temporary-connection` flag, that allows you to connect, without anything declared in config file

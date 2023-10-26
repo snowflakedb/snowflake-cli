@@ -213,11 +213,15 @@ class SnowparkTestSteps:
         self,
     ) -> None:
         result = self._setup.runner.invoke_with_config(
-            ["snowpark", self.test_type.value, "init", "--format", "JSON"]
+            ["snowpark", self.test_type.value, "init", ".", "--format", "JSON"]
         )
         file_list = self.dir_contents[self.test_type.value]
-        assert_that_result_is_successful_and_done_is_on_output(result)
-        assert_that_current_working_directory_contains_only_following_files(*file_list)
+
+        assert result.output is not None
+        assert json.loads(result.output) == {
+            "message": "Initialized the new project in ./"
+        }
+        assert set(os.listdir()) == set(file_list)
 
         for file in file_list:
             assert_that_file_content_is_equal_to_snapshot(
@@ -550,10 +554,15 @@ class SnowparkProcedureTestSteps:
         self,
     ) -> None:
         result = self._setup.runner.invoke_with_config(
-            ["snowpark", self.test_type.value, "init", "--format", "JSON"]
+            ["snowpark", self.test_type.value, "init", ".", "--format", "JSON"]
         )
         file_list = self.dir_contents[self.test_type.value]
-        assert_that_result_is_successful_and_done_is_on_output(result)
+        assert_that_result_is_successful(result)
+        assert result.output is not None
+        assert json.loads(result.output) == {
+            "message": "Initialized the new project in ./"
+        }
+
         assert_that_current_working_directory_contains_only_following_files(*file_list)
 
         for file in file_list:
