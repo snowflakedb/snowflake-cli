@@ -18,7 +18,7 @@ To create a function in Snowflake CLI:
    .. code-block:: bash
 
     $ snow snowpark function init
-    Done
+    Initialized the new project in example_functions
 
    Snowflake CLI populates the directory with the files for a basic function, similar to the following:
 
@@ -65,7 +65,7 @@ To create a function in Snowflake CLI:
 
    .. code-block:: bash
 
-    $ snow snowpark function package -v
+    $ snow snowpark function build -v
     Done
 
    The command creates a ZIP file that matches the app name (:file:`app.zip`, in this case):
