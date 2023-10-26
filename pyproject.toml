@@ -46,6 +46,7 @@ dev = [
   "pytest==7.4.2",
   "syrupy==4.5.0",
   "tox==4.6.4",
+  "sybil==5.0.3"
 ]
 
 [project.urls]
@@ -74,8 +75,9 @@ select = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-m 'not integration and not performance'"
+addopts = "-m 'not integration and not performance and not doctest' -p no:doctest"
 markers = [
   "integration: mark test as integration test",
-  "performance: mark test as performance test"
+  "performance: mark test as performance test",
+  "doctest: mark test as documentation test"
 ]
