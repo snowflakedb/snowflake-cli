@@ -34,6 +34,7 @@ from snowcli.cli.nativeapp.artifacts import (
     ArtifactMapping,
 )
 from snowcli.cli.connection.util import make_snowsight_url
+from snowcli.cli.stage.manager import StageManager
 
 from snowflake.connector.cursor import DictCursor
 
@@ -328,11 +329,12 @@ class NativeAppManager(SqlExecutionMixin):
                         """
                     )
 
+            stage_name = StageManager.quote_stage_name(self.stage_fqn)
             self._execute_query(
                 f"""
                 create application {self.app_name}
                     from application package {self.package_name}
-                    using @{self.stage_fqn}
+                    using {stage_name}
                     debug_mode = {self.debug_mode}
                     comment = {SPECIAL_COMMENT}
                 """,
