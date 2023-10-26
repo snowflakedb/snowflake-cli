@@ -1,275 +1,317 @@
+import json
 from tempfile import TemporaryDirectory
 from textwrap import dedent
+from unittest.mock import call
 
 from snowflake.connector import ProgrammingError
 
 from tests.testing_utils.fixtures import *
 
 
+def test_deploy_function_no_procedure(runner, project_directory):
+    with project_directory("empty_project"):
+        result = runner.invoke(
+            [
+                "snowpark",
+                "procedure",
+                "deploy",
+            ],
+        )
+    assert result.exit_code == 1
+    assert "No procedures were specified in project" in result.output
+
+
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.procedure.commands.snowpark_package")
-@mock.patch("snowcli.cli.snowpark.procedure.commands.TemporaryDirectory")
+@mock.patch("snowcli.cli.snowpark.procedure.commands.ProcedureManager.describe")
 def test_deploy_procedure(
-    mock_tmp_dir,
-    mock_package_create,
-    mock_connector,
+    mock_describe,
+    mock_conn,
     runner,
-    mock_ctx_procedure_not_exist,
-    temp_dir,
+    mock_cursor,
+    mock_ctx,
+    project_directory,
 ):
-    tmp_dir = TemporaryDirectory()
-    mock_tmp_dir.return_value = tmp_dir
+    mock_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    ctx = mock_ctx()
+    mock_conn.return_value = ctx
 
-    ctx = mock_ctx_procedure_not_exist()
-    mock_connector.return_value = ctx
-
-    tmp_dir_2 = temp_dir
-    local_dir = Path(tmp_dir_2)
-    (local_dir / "requirements.snowflake.txt").write_text("foo=1.2.3\nbar>=3.0.0")
-
-    app = local_dir / "app.py"
-    app.touch()
-
-    result = runner.invoke(
-        [
-            "snowpark",
-            "procedure",
-            "deploy",
-            "procedureName(a string, b number)",
-            "--file",
-            str(app),
-            "--handler",
-            "main.py:app",
-            "--returns",
-            "table(variant)",
-        ]
-    )
+    with project_directory("snowpark_procedures"):
+        result = runner.invoke(
+            [
+                "snowpark",
+                "procedure",
+                "deploy",
+            ]
+        )
 
     assert result.exit_code == 0, result.output
+    mock_describe.assert_has_calls([call("procedureName(string)"), call("test()")])
     assert ctx.get_queries() == [
-        "describe procedure procedureName(string, number)",
         "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{tmp_dir.name}/{app.name} @deployments/procedurename_a_string_b_number"
+        f"put file://app.zip @deployments/procedurename_name_string"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace procedure procedureName(a string, b number)
-            returns table(variant)
+            create or replace procedure procedureName(name string)
+            returns string
             language python
             runtime_version=3.8
-            imports=('@deployments/procedurename_a_string_b_number/app.zip')
-            handler='main.py:app'
-            packages=('foo=1.2.3','bar>=3.0.0')
+            imports=('@deployments/procedurename_name_string/app.zip')
+            handler='app.hello'
+            packages=()
+            """
+        ),
+        f"put file://app.zip @deployments/test"
+        f" auto_compress=false parallel=4 overwrite=True",
+        dedent(
+            """\
+            create or replace procedure test()
+            returns string
+            language python
+            runtime_version=3.8
+            imports=('@deployments/test/app.zip')
+            handler='app.test'
+            packages=()
             """
         ),
     ]
-    mock_package_create.assert_called_once_with("ask", True, "ask")
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.procedure.commands.snowpark_package")
-@mock.patch("snowcli.cli.snowpark.procedure.commands.TemporaryDirectory")
-@mock.patch("snowcli.cli.snowpark.procedure.commands._replace_handler_in_zip")
+@mock.patch("snowcli.cli.snowpark.procedure.commands._alter_procedure_artifact")
+@mock.patch("snowcli.cli.snowpark.procedure.commands.ProcedureManager.describe")
 def test_deploy_procedure_with_coverage(
-    mock_coverage,
-    mock_tmp_dir,
-    mock_package_create,
-    mock_connector,
-    runner,
-    mock_ctx_procedure_not_exist,
-    snapshot,
-    temp_dir,
-):
-    tmp_dir = TemporaryDirectory()
-    mock_tmp_dir.return_value = tmp_dir
-
-    mock_coverage.return_value = "snowpark_coverage.measure_coverage"
-
-    ctx = mock_ctx_procedure_not_exist()
-    mock_connector.return_value = ctx
-
-    local_dir = Path(temp_dir)
-    (local_dir / "requirements.snowflake.txt").write_text("foo=1.2.3\nbar>=3.0.0")
-
-    app = local_dir / "app.py"
-    app.touch()
-
-    result = runner.invoke(
-        [
-            "snowpark",
-            "procedure",
-            "deploy",
-            "procedureName(a string, b number)",
-            "--file",
-            str(app),
-            "--handler",
-            "main.py:app",
-            "--returns",
-            "table(variant)",
-            "--install-coverage-wrapper",
-        ]
-    )
-
-    assert result.exit_code == 0, result.output
-    assert ctx.get_queries() == [
-        "describe procedure procedureName(string, number)",
-        "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{tmp_dir.name}/{app.name} @deployments/procedurename_a_string_b_number"
-        f" auto_compress=false parallel=4 overwrite=True",
-        dedent(
-            """\
-            create or replace procedure procedureName(a string, b number)
-            returns table(variant)
-            language python
-            runtime_version=3.8
-            imports=('@deployments/procedurename_a_string_b_number/app.zip')
-            handler='snowpark_coverage.measure_coverage'
-            packages=('foo=1.2.3','bar>=3.0.0')
-            """
-        ),
-    ]
-    mock_package_create.assert_called_once_with("ask", True, "ask")
-    mock_coverage.assert_called_once_with(
-        proc_name="procedureName",
-        proc_signature="(a string, b number)",
-        handler="main.py:app",
-        coverage_reports_stage="deployments",
-        coverage_reports_stage_path="/procedurename_a_string_b_number/coverage",
-        temp_dir=tmp_dir.name,
-        zip_file_path=tmp_dir.name + "/app.py",
-    )
-
-
-@mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.procedure.commands.snowpark_package")
-@mock.patch("snowcli.cli.snowpark.procedure.commands.TemporaryDirectory")
-def test_deploy_procedure_noting_to_be_updated(
-    mock_tmp_dir,
-    mock_package_create,
-    mock_connector,
+    mock_describe,
+    mock_alter_procedure_artifact,
+    mock_conn,
     runner,
     mock_ctx,
+    snapshot,
     temp_dir,
-    mock_cursor,
+    project_directory,
 ):
-    rows = [
-        ("packages", '["foo=1.2.3", "bar>=3.0.0"]'),
-        ("handler", "main.py:app"),
-        ("returns", "table(variant)"),
-    ]
-    artifact_path, ctx, result = _deploy_procedure(
-        temp_dir,
-        mock_connector,
-        mock_ctx,
-        mock_cursor,
-        mock_tmp_dir,
-        rows,
-        runner,
-        "--replace",
-    )
+    mock_alter_procedure_artifact.return_value = "snowpark_coverage.measure_coverage"
+
+    mock_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    ctx = mock_ctx()
+    mock_conn.return_value = ctx
+
+    with project_directory(
+        "snowpark_procedures",
+        {
+            "procedures": [
+                {
+                    "name": "foo",
+                    "signature": [{"name": "name", "type": "string"}],
+                    "handler": "foo.func",
+                    "returns": "variant",
+                }
+            ]
+        },
+    ):
+        result = runner.invoke_with_config(
+            ["snowpark", "procedure", "deploy", "--install-coverage-wrapper"]
+        )
 
     assert result.exit_code == 0, result.output
-    assert "No packages to update. Deployment complete" in result.output
+    mock_describe.assert_has_calls([call("foo(string)")])
     assert ctx.get_queries() == [
-        "describe procedure procedureName(string, number)",
         "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{artifact_path} @deployments/procedurename_a_string_b_number auto_compress=false parallel=4 overwrite=True",
-    ]
-    mock_package_create.assert_called_once_with("ask", True, "ask")
-
-
-@mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.procedure.commands.snowpark_package")
-@mock.patch("snowcli.cli.snowpark.procedure.commands.TemporaryDirectory")
-def test_deploy_procedure_update_because_packages_changed(
-    mock_tmp_dir,
-    mock_package_create,
-    mock_connector,
-    runner,
-    mock_ctx_procedure_not_exist,
-    temp_dir,
-    mock_cursor,
-):
-    rows = [
-        ("packages", '["foo=1.2.3"]'),
-        ("handler", "main.py:app"),
-        ("returns", "table(variant)"),
-    ]
-    artifact_path, ctx, result = _deploy_procedure(
-        temp_dir,
-        mock_connector,
-        mock_ctx_procedure_not_exist,
-        mock_cursor,
-        mock_tmp_dir,
-        rows,
-        runner,
-    )
-
-    assert result.exit_code == 0, result.output
-    assert ctx.get_queries() == [
-        "describe procedure procedureName(string, number)",
-        "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{artifact_path} @deployments/procedurename_a_string_b_number auto_compress=false parallel=4 overwrite=True",
+        f"put file://app.zip @deployments/foo_name_string"
+        f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace procedure procedureName(a string, b number)
-            returns table(variant)
+            create or replace procedure foo(name string)
+            returns variant
             language python
             runtime_version=3.8
-            imports=('@deployments/procedurename_a_string_b_number/app.zip')
-            handler='main.py:app'
-            packages=('foo=1.2.3','bar>=3.0.0')
+            imports=('@deployments/foo_name_string/app.zip')
+            handler='snowpark_coverage.measure_coverage'
+            packages=('coverage')
             """
         ),
     ]
-    mock_package_create.assert_called_once_with("ask", True, "ask")
+
+
+def test_coverage_wrapper_does_not_work_for_multiple_procedures(
+    project_directory, runner
+):
+    with project_directory("snowpark_procedures"):
+        result = runner.invoke_with_config(
+            ["snowpark", "procedure", "deploy", "--install-coverage-wrapper"]
+        )
+    assert result.exit_code == 1
+    assert "Using coverage wrapper is currently limited" in result.output
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.procedure.commands.snowpark_package")
-@mock.patch("snowcli.cli.snowpark.procedure.commands.TemporaryDirectory")
-def test_deploy_procedure_update_because_handler_changed(
-    mock_tmp_dir,
-    mock_package_create,
-    mock_connector,
+@mock.patch("snowcli.cli.snowpark.procedure.commands.ProcedureManager.describe")
+def test_deploy_procedure_fails_if_object_exists_and_no_replace(
+    mock_describe,
+    mock_conn,
     runner,
-    mock_ctx_procedure_not_exist,
-    temp_dir,
     mock_cursor,
+    mock_ctx,
+    project_directory,
 ):
-    rows = [
-        ("packages", '["foo=1.2.3", "bar>=3.0.0"]'),
-        ("handler", "main.py:oldApp"),
-        ("returns", "table(variant)"),
-    ]
-    artifact_path, ctx, result = _deploy_procedure(
-        temp_dir,
-        mock_connector,
-        mock_ctx_procedure_not_exist,
-        mock_cursor,
-        mock_tmp_dir,
-        rows,
-        runner,
-    )
-
-    assert result.exit_code == 0, result.output
-    assert ctx.get_queries() == [
-        "describe procedure procedureName(string, number)",
-        "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://{artifact_path} @deployments/procedurename_a_string_b_number auto_compress=false parallel=4 overwrite=True",
-        dedent(
-            """\
-            create or replace procedure procedureName(a string, b number)
-            returns table(variant)
-            language python
-            runtime_version=3.8
-            imports=('@deployments/procedurename_a_string_b_number/app.zip')
-            handler='main.py:app'
-            packages=('foo=1.2.3','bar>=3.0.0')
-            """
+    mock_describe.side_effect = [
+        mock_cursor(
+            [
+                ("packages", '["foo=1.2.3", "bar>=3.0.0"]'),
+                ("handler", "main.py:app"),
+                ("returns", "table(variant)"),
+            ],
+            columns=["key", "value"],
         ),
     ]
-    mock_package_create.assert_called_once_with("ask", True, "ask")
+    ctx = mock_ctx()
+    mock_conn.return_value = ctx
+
+    with project_directory("snowpark_procedures"):
+        result = runner.invoke_with_config(
+            [
+                "snowpark",
+                "procedure",
+                "deploy",
+            ]
+        )
+
+    assert result.exit_code == 1
+    assert "Procedure procedureName(name string) already exists." in result.output
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.cli.snowpark.procedure.commands.ProcedureManager.describe")
+def test_deploy_procedure_replace_nothing_to_update(
+    mock_describe,
+    mock_conn,
+    runner,
+    mock_cursor,
+    mock_ctx,
+    project_directory,
+):
+    mock_describe.side_effect = [
+        mock_cursor(
+            [
+                ("packages", "[]"),
+                ("handler", "app.hello"),
+                ("returns", "string"),
+            ],
+            columns=["key", "value"],
+        ),
+        mock_cursor(
+            [
+                ("packages", "[]"),
+                ("handler", "app.test"),
+                ("returns", "string"),
+            ],
+            columns=["key", "value"],
+        ),
+    ]
+    ctx = mock_ctx()
+    mock_conn.return_value = ctx
+
+    with project_directory("snowpark_procedures"):
+        result = runner.invoke_with_config(
+            ["snowpark", "procedure", "deploy", "--replace", "--format", "json"]
+        )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == [
+        {
+            "object": "procedureName(name string)",
+            "status": "packages updated",
+            "type": "procedure",
+        },
+        {"object": "test()", "status": "packages updated", "type": "procedure"},
+    ]
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.cli.snowpark.procedure.commands.ProcedureManager.describe")
+def test_deploy_procedure_replace_updates_single_object(
+    mock_describe,
+    mock_conn,
+    runner,
+    mock_cursor,
+    mock_ctx,
+    project_directory,
+):
+    mock_describe.side_effect = [
+        mock_cursor(
+            [
+                ("packages", "[]"),
+                ("handler", "app.hello"),
+                ("returns", "string"),
+            ],
+            columns=["key", "value"],
+        ),
+        mock_cursor(
+            [
+                ("packages", "[]"),
+                ("handler", "app.foo"),
+                ("returns", "string"),
+            ],
+            columns=["key", "value"],
+        ),
+    ]
+    ctx = mock_ctx()
+    mock_conn.return_value = ctx
+
+    with project_directory("snowpark_procedures"):
+        result = runner.invoke_with_config(
+            ["snowpark", "procedure", "deploy", "--replace", "--format", "json"]
+        )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == [
+        {
+            "object": "procedureName(name string)",
+            "status": "packages updated",
+            "type": "procedure",
+        },
+        {"object": "test()", "status": "definition updated", "type": "procedure"},
+    ]
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.cli.snowpark.procedure.commands.ProcedureManager.describe")
+def test_deploy_procedure_replace_creates_missing_object(
+    mock_describe,
+    mock_conn,
+    runner,
+    mock_cursor,
+    mock_ctx,
+    project_directory,
+):
+    mock_describe.side_effect = [
+        mock_cursor(
+            [
+                ("packages", "[]"),
+                ("handler", "app.hello"),
+                ("returns", "string"),
+            ],
+            columns=["key", "value"],
+        ),
+        ProgrammingError("does not exist or not authorized"),
+    ]
+    ctx = mock_ctx()
+    mock_conn.return_value = ctx
+
+    with project_directory("snowpark_procedures"):
+        result = runner.invoke_with_config(
+            ["snowpark", "procedure", "deploy", "--replace", "--format", "json"]
+        )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == [
+        {
+            "object": "procedureName(name string)",
+            "status": "packages updated",
+            "type": "procedure",
+        },
+        {"object": "test()", "status": "created", "type": "procedure"},
+    ]
 
 
 @mock.patch("snowflake.connector.connect")
@@ -373,61 +415,6 @@ def test_drop_procedure_from_name(mock_connector, runner, mock_ctx):
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "drop procedure procedureName(int, string, variant)"
-
-
-def _deploy_procedure(
-    execute_in_tmp_dir,
-    mock_connector,
-    mock_ctx,
-    mock_cursor,
-    mock_tmp_dir,
-    rows,
-    runner,
-    *args,
-):
-    tmp_dir = TemporaryDirectory()
-    mock_tmp_dir.return_value = tmp_dir
-    ctx = mock_ctx(mock_cursor(rows=rows, columns=[]))
-    mock_connector.return_value = ctx
-    local_dir = Path(execute_in_tmp_dir)
-    (local_dir / "requirements.snowflake.txt").write_text("foo=1.2.3\nbar>=3.0.0")
-    app = local_dir / "app.py"
-    app.touch()
-    artifact_path = f"{tmp_dir.name}/{app.name}"
-
-    result = runner.invoke(
-        [
-            "snowpark",
-            "procedure",
-            "deploy",
-            "procedureName(a string, b number)",
-            "--file",
-            str(app),
-            "--handler",
-            "main.py:app",
-            "--returns",
-            "table(variant)",
-            *args,
-        ]
-    )
-    return artifact_path, ctx, result
-
-
-@pytest.fixture
-def mock_ctx_procedure_not_exist(mock_cursor):
-    class _MockConnectionCtx(MockConnectionCtx):
-        def __init__(self, cursor=None, *args, **kwargs):
-            super().__init__(cursor, *args, **kwargs)
-
-        def execute_string(self, query: str, **kwargs):
-            self.queries.append(query)
-            if query == "describe procedure procedureName(string, number)":
-                raise ProgrammingError(
-                    "Procedure 'PROCEDURENAME' does not exist or not authorized"
-                )
-            return (self.cs,)
-
-    return lambda cursor=mock_cursor(["row"], []): _MockConnectionCtx(cursor)
 
 
 @mock.patch("snowcli.cli.common.project_initialisation._create_project_template")

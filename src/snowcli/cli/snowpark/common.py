@@ -64,7 +64,6 @@ def remove_parameter_names(identifier: str):
 def check_if_replace_is_required(
     object_type: ObjectType,
     current_state,
-    install_coverage_wrapper: bool,
     handler: str,
     return_type: str,
 ) -> bool:
@@ -81,14 +80,6 @@ def check_if_replace_is_required(
     updated_package_list = _get_snowflake_packages_delta(
         anaconda_packages,
     )
-
-    if object_type == ObjectType.PROCEDURE:
-        coverage_package = "coverage"
-        if install_coverage_wrapper and coverage_package not in [
-            *anaconda_packages,
-            *updated_package_list,
-        ]:
-            updated_package_list.append(coverage_package)
 
     if updated_package_list:
         diff = len(updated_package_list) - len(anaconda_packages)
@@ -189,3 +180,11 @@ class SnowparkObjectManager(SqlExecutionMixin):
     @staticmethod
     def artifact_stage_path(identifier: str):
         return generate_deploy_stage_name(identifier).lower()
+
+
+def build_udf_sproc_identifier(udf_sproc_dict):
+    arguments = ", ".join(
+        (f"{arg['name']} {arg['type']}" for arg in udf_sproc_dict["signature"])
+    )
+    identifier = f"{udf_sproc_dict['name']}({arguments})"
+    return identifier
