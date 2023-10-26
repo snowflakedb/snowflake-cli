@@ -298,16 +298,8 @@ def test_create_dev_app_recreate(mock_execute, temp_dir, mock_cursor):
         mock.call("use role app_role"),
         mock.call("use warehouse app_warehouse"),
         mock.call("show applications like 'MYAPP'", cursor_class=DictCursor),
-        mock.call("drop application myapp"),
-        mock.call(
-            f"""
-                create application myapp
-                    from application package app_pkg
-                    using @app_pkg.app_src.stage
-                    debug_mode = True
-                    comment = {SPECIAL_COMMENT}
-                """
-        ),
+        mock.call("alter application myapp upgrade using @app_pkg.app_src.stage"),
+        mock.call("alter application myapp set debug_mode = True"),
         mock.call("use role old_role"),
     ]
     # 1:1 with expected calls; these are return values

@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import logging
+from typing import List
+
 import typer
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+from click import ClickException
+from snowflake.connector import ProgrammingError
 
 from snowcli.cli.common.decorators import global_options_with_connection, global_options
 from snowcli.cli.common.flags import (
@@ -11,31 +16,33 @@ from snowcli.cli.common.flags import (
     identifier_argument,
     execution_identifier_argument,
 )
-from snowcli.cli.constants import DEPLOYMENT_STAGE
+from snowcli.cli.common.project_initialisation import add_init_command
+from snowcli.cli.constants import DEPLOYMENT_STAGE, ObjectType
+from snowcli.cli.snowpark.common import (
+    remove_parameter_names,
+    check_if_replace_is_required,
+)
+from snowcli.cli.project.definition_manager import DefinitionManager
 from snowcli.cli.snowpark.function.manager import FunctionManager
 from snowcli.cli.snowpark_shared import (
     CheckAnacondaForPyPiDependencies,
     PackageNativeLibrariesOption,
     PyPiDownloadOption,
     snowpark_package,
-    ReturnsOption,
-    OverwriteOption,
 )
 from snowcli.cli.stage.manager import StageManager
+from snowcli.exception import ObjectAlreadyExistsError
 from snowcli.output.decorators import with_output
 from snowcli.output.types import (
     MessageResult,
     SingleQueryResult,
     QueryResult,
     CommandResult,
+    MultipleResults,
 )
 from snowcli.utils import (
     prepare_app_zip,
     get_snowflake_packages,
-    create_project_template,
-    convert_resource_details_to_dict,
-    get_snowflake_packages_delta,
-    sql_to_python_return_type_mapper,
 )
 
 log = logging.getLogger(__name__)
@@ -70,163 +77,104 @@ LikeOption = typer.Option(
 
 ReplaceOption = typer.Option(
     False,
-    "--replace-always",
+    "--replace",
     help="Replace function, even if no detected changes to metadata",
 )
 
 
-@app.command("init")
-@global_options
-@with_output
-def function_init(**options):
-    """
-    Initializes this directory with a sample set of files for creating a function.
-    """
-    create_project_template("default_function")
-    return MessageResult("Done")
+add_init_command(app, project_type="functions", template="default_function")
 
 
-@app.command("create")
+@app.command("deploy")
 @with_output
 @global_options_with_connection
-def function_create(
-    pypi_download: str = PyPiDownloadOption,
-    package_native_libraries: str = PackageNativeLibrariesOption,
-    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
-    identifier: str = identifier_argument("function", "hello(number int, name string)"),
-    file: Path = FileOption,
-    handler: str = HandlerOption,
-    return_type: str = ReturnsOption,
-    overwrite: bool = OverwriteOption,
-    **options,
-) -> CommandResult:
-    """Creates a python UDF or UDTF using a local artifact."""
-    snowpark_package(
-        pypi_download,  # type: ignore[arg-type]
-        check_anaconda_for_pypi_deps,
-        package_native_libraries,  # type: ignore[arg-type]
-    )
-
-    sm = StageManager()
-    fm = FunctionManager()
-
-    artifact_file = upload_snowpark_artifact(
-        function_manager=fm,
-        stage_manager=sm,
-        function_identifier=identifier,
-        file=file,
-        overwrite=overwrite,
-    )
-
-    packages = get_snowflake_packages()
-    cursor = fm.create(
-        identifier=identifier,
-        handler=handler,
-        return_type=return_type,
-        artifact_file=str(artifact_file),
-        packages=packages,
-        overwrite=overwrite,
-    )
-    return SingleQueryResult(cursor)
-
-
-def upload_snowpark_artifact(
-    function_manager, stage_manager, function_identifier, file, overwrite
-):
-    stage_manager.create(
-        stage_name=DEPLOYMENT_STAGE, comment="deployments managed by snowcli"
-    )
-    artifact_location = f"{DEPLOYMENT_STAGE}/{function_manager.artifact_stage_path(function_identifier)}"
-    artifact_file = f"{artifact_location}/app.zip"
-    with TemporaryDirectory() as temp_dir:
-        temp_app_zip_path = prepare_app_zip(file, temp_dir)
-        stage_manager.put(
-            local_path=temp_app_zip_path,
-            stage_path=artifact_location,
-            overwrite=overwrite,
-        )
-    log.info(f"{file.name} uploaded to stage {artifact_file}")
-    return artifact_file
-
-
-@app.command("update")
-@with_output
-@global_options_with_connection
-def function_update(
-    pypi_download: str = PyPiDownloadOption,
-    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
-    package_native_libraries: str = PackageNativeLibrariesOption,
-    identifier: str = identifier_argument("function", "hello(number int, name string)"),
-    file: Path = FileOption,
-    handler: str = HandlerOption,
-    return_type: str = ReturnsOption,
+def function_deploy(
+    function_names: List[str] = typer.Argument(
+        None, help="Functions names. Multiple can be provided."
+    ),
     replace: bool = ReplaceOption,
+    pypi_download: str = PyPiDownloadOption,
+    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
+    package_native_libraries: str = PackageNativeLibrariesOption,
     **options,
 ) -> CommandResult:
-    """Updates an existing python UDF or UDTF using a local artifact."""
+    """Deploy a python UDF or UDTF using a local artifact."""
+    dm = DefinitionManager()
+    functions = dm.project_definition.get("functions")
+    if not functions:
+        raise ClickException("No functions were specified in project definition.")
+
+    defined_functions_names = [f["name"] for f in functions]
+    for name in function_names:
+        if name not in defined_functions_names:
+            raise ClickException(f"Function '{name}' is not defined in the project.")
+
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps,
         package_native_libraries,  # type: ignore[arg-type]
     )
 
-    fm = FunctionManager()
     sm = StageManager()
+    fm = FunctionManager()
+    function_exists = True
+    replace_function = False
+    results = MultipleResults()
 
-    try:
-        current_state = fm.describe(identifier)
-    except:
-        log.info(f"Function does not exists. Creating it from scratch.")
-        replace = True
-    else:
-        resource_json = convert_resource_details_to_dict(current_state)
-        anaconda_packages = resource_json["packages"]
-        log.info(
-            f"Found {len(anaconda_packages)} defined Anaconda "
-            f"packages in deployed function..."
+    if function_names:
+        functions = [f for f in functions if f["name"] in function_names]
+
+    sm.create(stage_name=DEPLOYMENT_STAGE, comment="deployments managed by snowcli")
+
+    for function in functions:
+        arguments = ", ".join(
+            (f"{arg['name']} {arg['type']}" for arg in function["signature"])
         )
-        log.info("Checking if app configuration has changed...")
-        updated_package_list = get_snowflake_packages_delta(
-            anaconda_packages,
-        )
-        if updated_package_list:
-            diff = len(updated_package_list) - len(anaconda_packages)
-            log.info(f"Found difference of {diff} packages. Replacing the function.")
-            replace = True
-        elif (
-            resource_json["handler"].lower() != handler.lower()
-            or sql_to_python_return_type_mapper(resource_json["returns"]).lower()
-            != return_type.lower()
-        ):
-            log.info(
-                "Return type or handler types do not match. Replacing the function."
+        identifier = f"{function['name']}({arguments})"
+
+        try:
+            current_state = fm.describe(remove_parameter_names(identifier))
+        except ProgrammingError as ex:
+            if ex.msg.__contains__("does not exist or not authorized"):
+                function_exists = False
+            else:
+                raise ex
+
+        if function_exists and not replace:
+            raise ObjectAlreadyExistsError(ObjectType.FUNCTION, identifier)
+
+        if function_exists:
+            replace_function = check_if_replace_is_required(
+                ObjectType.FUNCTION,
+                current_state,
+                None,
+                function["handler"],
+                function["returns"],
             )
-            replace = True
 
-    artifact_file = upload_snowpark_artifact(
-        function_manager=fm,
-        stage_manager=sm,
-        function_identifier=identifier,
-        file=file,
-        overwrite=True,
-    )
-
-    if replace:
-        packages = get_snowflake_packages()
-        cursor = fm.create(
-            identifier=identifier,
-            handler=handler,
-            return_type=return_type,
-            artifact_file=str(artifact_file),
-            packages=packages,
-            overwrite=True,
+        artifact_file = _upload_snowpark_artifact(
+            function_manager=fm,
+            stage_manager=sm,
+            function_identifier=identifier,
+            file=Path("app.zip"),
         )
-        return SingleQueryResult(cursor)
 
-    return MessageResult("No packages to update. Deployment complete!")
+        if not function_exists or replace_function:
+            packages = get_snowflake_packages()
+            cursor = fm.create_or_replace(
+                identifier=identifier,
+                handler=function["handler"],
+                return_type=function["returns"],
+                artifact_file=str(artifact_file),
+                packages=packages,
+            )
+            results.add(SingleQueryResult(cursor))
+
+        results.add(MessageResult("No packages to update. Deployment complete!"))
+    return results
 
 
-@app.command("package")
+@app.command("build")
 @global_options
 @with_output
 def function_package(
@@ -292,3 +240,22 @@ def function_drop(
     """Deletes a function from a specified environment."""
     cursor = FunctionManager().drop(identifier=identifier)
     return SingleQueryResult(cursor)
+
+
+def _upload_snowpark_artifact(
+    function_manager: FunctionManager,
+    stage_manager: StageManager,
+    function_identifier: str,
+    file: Path,
+):
+    artifact_location = f"{DEPLOYMENT_STAGE}/{function_manager.artifact_stage_path(function_identifier)}"
+    artifact_file = f"{artifact_location}/app.zip"
+    with TemporaryDirectory() as temp_dir:
+        temp_app_zip_path = prepare_app_zip(file, temp_dir)
+        stage_manager.put(
+            local_path=temp_app_zip_path,
+            stage_path=artifact_location,
+            overwrite=True,
+        )
+    log.info(f"{file.name} uploaded to stage {artifact_file}")
+    return artifact_file

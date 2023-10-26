@@ -1,25 +1,26 @@
 import logging
-
-import click
-import typer
 from pathlib import Path
 from typing import Optional
 
+import click
+import typer
 from click import ClickException
-
-from snowcli.cli.common.decorators import global_options_with_connection, global_options
+from snowcli.cli.common.decorators import (
+    global_options_with_connection,
+    with_experimental_behaviour,
+)
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.project_initialisation import add_init_command
+from snowcli.cli.project.definition_manager import DefinitionManager
 from snowcli.cli.streamlit.manager import StreamlitManager
 from snowcli.output.decorators import with_output
-
 from snowcli.output.types import (
     CommandResult,
-    QueryResult,
-    SingleQueryResult,
     MessageResult,
     MultipleResults,
+    QueryResult,
+    SingleQueryResult,
 )
-from snowcli.utils import create_project_template
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -36,20 +37,7 @@ StageNameOption: str = typer.Option(
 )
 
 
-@app.command("init")
-@with_output
-@global_options
-def streamlit_init(
-    project_name: str = typer.Argument(
-        "example_streamlit", help="Name of the Streamlit project you want to create."
-    ),
-    **options,
-) -> CommandResult:
-    """
-    Initializes this directory with a sample set of files for creating a Streamlit dashboard.
-    """
-    create_project_template("default_streamlit", project_directory=project_name)
-    return MessageResult(f"Initialized the new project in {project_name}/")
+add_init_command(app, project_type="Streamlit", template="default_streamlit")
 
 
 @app.command("list")
@@ -130,36 +118,9 @@ def _default_file_callback(param_name: str):
 
 @app.command("deploy")
 @with_output
+@with_experimental_behaviour()
 @global_options_with_connection
 def streamlit_deploy(
-    streamlit_name: str = typer.Argument(..., help="Name of Streamlit to deploy."),
-    file: Path = typer.Option(
-        "app.py",
-        exists=True,
-        readable=True,
-        file_okay=True,
-        help="Path of the Streamlit app file.",
-    ),
-    stage: Optional[str] = StageNameOption,
-    environment_file: Path = typer.Option(
-        "environment.yml",
-        "--env-file",
-        help="Environment file to use.",
-        file_okay=True,
-        dir_okay=False,
-        callback=_default_file_callback("environment_file"),
-    ),
-    pages_dir: Path = typer.Option(
-        "pages",
-        "--pages-dir",
-        help="Directory with Streamlit pages",
-        file_okay=False,
-        dir_okay=True,
-        callback=_default_file_callback("pages_dir"),
-    ),
-    query_warehouse: Optional[str] = typer.Option(
-        ..., "--query-warehouse", help="Query warehouse for this Streamlit."
-    ),
     replace: Optional[bool] = typer.Option(
         False,
         "--replace",
@@ -178,14 +139,32 @@ def streamlit_deploy(
     created if it does not exist.
     You can modify the behaviour using flags. For details check help information.
     """
+    dm = DefinitionManager()
+    streamlit = dm.project_definition.get("streamlit")
+    if not streamlit:
+        return MessageResult("No streamlit were specified in project definition.")
+
+    environment_file = streamlit.get("environment_file", None)
+    if environment_file and not Path(environment_file).exists():
+        raise ClickException(f"Provided file {environment_file} does not exist")
+    elif environment_file is None:
+        environment_file = "environment.yml"
+
+    pages_dir = streamlit.get("pages_dir", None)
+    if pages_dir and not Path(pages_dir).exists():
+        raise ClickException(f"Provided file {pages_dir} does not exist")
+    elif pages_dir is None:
+        pages_dir = "pages"
+
     url = StreamlitManager().deploy(
-        streamlit_name=streamlit_name,
-        environment_file=environment_file,
-        pages_dir=pages_dir,
-        stage_name=stage,
-        main_file=file,
+        streamlit_name=streamlit["name"],
+        environment_file=Path(environment_file),
+        pages_dir=Path(pages_dir),
+        stage_name=streamlit["stage"],
+        main_file=Path(streamlit["file"]),
         replace=replace,
-        warehouse=query_warehouse,
+        query_warehouse=streamlit["query_warehouse"],
+        **options,
     )
 
     if open_:

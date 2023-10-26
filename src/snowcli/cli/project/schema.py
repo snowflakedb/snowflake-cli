@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import cast
 from strictyaml import (
     MapCombined,
     Seq,
@@ -11,7 +10,7 @@ from strictyaml import (
     Any,
     Decimal,
     Regex,
-    YAML,
+    EmptyList,
 )
 
 from .util import SCHEMA_AND_NAME, IDENTIFIER
@@ -81,10 +80,39 @@ native_app_schema = RelaxedMap(
     }
 )
 
+Argument = RelaxedMap({"name": Str(), "type": Str()})
+
+_callable_mapping = {
+    "name": Regex(IDENTIFIER),
+    "handler": Str(),
+    "returns": Str(),
+    "signature": Seq(Argument) | EmptyList(),
+}
+
+function_schema = RelaxedMap(_callable_mapping)
+
+procedure_schema = RelaxedMap(
+    {**_callable_mapping, Optional("execute_as_owner"): Bool()}
+)
+
+streamlit_schema = RelaxedMap(
+    {
+        "name": Str(),
+        "stage": Str(),
+        "query_warehouse": Str(),
+        Optional("file", default="app.py"): FilePath(),
+        Optional("environment_file"): FilePath(),
+        Optional("pages_dir"): FilePath(),
+    }
+)
+
 project_schema = RelaxedMap(
     {
         "definition_version": Int(),
-        "native_app": native_app_schema,
+        Optional("native_app"): native_app_schema,
+        Optional("functions"): Seq(function_schema),
+        Optional("procedures"): Seq(procedure_schema),
+        Optional("streamlit"): streamlit_schema,
     }
 )
 

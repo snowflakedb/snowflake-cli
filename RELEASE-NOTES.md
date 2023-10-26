@@ -15,11 +15,23 @@
 * `snow snowpark registry` was replaced with `snow registry` command.
 * Removed `snow streamlit create` command. Streamlit can be deployd using `snow streamlit deploy`
 * `snow connection test` now outputs all connection details (except for the password), along with connection status
+* Removed `snow snowpark function create` and `snow snowpark function update`. Procedures can be deployed using `snow snowpark function deploy`.
+* Removed `snow snowpark procedure create` and `snow snowpark procedure update`. Procedures can be deployed using `snow snowpark procedure deploy`.
+* From `snow streamlit deploy` moved following parameters to `snowflake.yml`:
+  * Argument:
+    * `streamlit-name`
+  * Flags:
+    * `--file`
+    * `--stage`
+    * `--env-file`
+    * `--pages-dir`
+* `init` commands for functions and procedures create new project in new directory instead of using current working directory.
 
 ## New additions
 * `--temporary-connection` flag, that allows you to connect, without anything declared in config file
 * `snow streamlit init` command that creates a new streamlit project.
 * `snow streamlit deploy` support pages and environment.yml files.
+* Added project definition for Streamlit
 
 ## Fixes and improvements
 * Adjust streamlit commands to PuPr syntax

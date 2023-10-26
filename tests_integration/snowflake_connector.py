@@ -31,6 +31,7 @@ def snowflake_session():
         "account": _get_from_env("ACCOUNT"),
         "user": _get_from_env("USER"),
         "password": _get_from_env("PASSWORD"),
+        "host": _get_from_env("HOST", allow_none=True),
     }
     config = {k: v for k, v in config.items() if v is not None}
     connection = connector.connect(**config)
@@ -38,10 +39,10 @@ def snowflake_session():
     connection.close()
 
 
-def _get_from_env(parameter_name: str, default=None) -> str | None:
+def _get_from_env(parameter_name: str, default=None, allow_none=False) -> str | None:
     env_value = os.environ.get(f"{_ENV_PARAMETER_PREFIX}_{parameter_name}")
     if not env_value:
-        if default is None:
+        if default is None and not allow_none:
             raise EnvironmentVariableNotFoundError(
                 f"{_ENV_PARAMETER_PREFIX}_{parameter_name}"
             ) from None

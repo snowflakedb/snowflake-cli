@@ -7,11 +7,15 @@ import tempfile
 
 from io import StringIO
 from pathlib import Path
-from typing import Dict, Generator, List, NamedTuple
+from typing import Generator, List, NamedTuple, Optional
 from unittest import mock
 from typing import Union
 
+import strictyaml
 from snowflake.connector.cursor import SnowflakeCursor
+from strictyaml import as_document
+
+from snowcli.cli.project.definition import merge_left
 from tests.conftest import SnowCLIRunner
 from tests.test_data import test_data
 from tests.testing_utils.files_and_dirs import create_named_file, create_temp_file
@@ -64,53 +68,51 @@ def include_paths_env_variable(other_directory: str) -> Generator:
 
 @pytest.fixture()
 def mock_ctx(mock_cursor):
-    class _MockConnectionCtx(mock.MagicMock):
-        def __init__(self, cursor=None, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.queries: List[str] = []
-            self.cs = cursor
+    return lambda cursor=mock_cursor(["row"], []): MockConnectionCtx(cursor)
 
-        def get_query(self):
-            return "\n".join(self.queries)
 
-        def get_queries(self):
-            return self.queries
+class MockConnectionCtx(mock.MagicMock):
+    def __init__(self, cursor=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.queries: List[str] = []
+        self.cs = cursor
 
-        @property
-        def warehouse(self):
-            return "MockWarehouse"
+    def get_query(self):
+        return "\n".join(self.queries)
 
-        @property
-        def database(self):
-            return "MockDatabase"
+    def get_queries(self):
+        return self.queries
 
-        @property
-        def schema(self):
-            return "MockSchema"
+    @property
+    def warehouse(self):
+        return "MockWarehouse"
 
-        @property
-        def role(self):
-            return "MockRole"
+    @property
+    def database(self):
+        return "MockDatabase"
 
-        @property
-        def host(self):
-            return "account.test.region.aws.snowflakecomputing.com"
+    @property
+    def schema(self):
+        return "MockSchema"
 
-        @property
-        def account(self):
-            return "account"
+    @property
+    def role(self):
+        return "MockRole"
 
-        def execute_string(self, query: str, **kwargs):
-            self.queries.append(query)
-            if self.cs:
-                return (self.cs,)
-            else:
-                return (mock_cursor(["row"], []),)
+    @property
+    def host(self):
+        return "account.test.region.aws.snowflakecomputing.com"
 
-        def execute_stream(self, query: StringIO):
-            return self.execute_string(query.read())
+    @property
+    def account(self):
+        return "account"
 
-    return lambda cursor=None: _MockConnectionCtx(cursor)
+    def execute_string(self, query: str, **kwargs):
+        self.queries.append(query)
+        return (self.cs,)
+
+    def execute_stream(self, query: StringIO):
+        return self.execute_string(query.read())
 
 
 @pytest.fixture
@@ -210,11 +212,19 @@ def txt_file_in_a_subdir(temp_dir: str) -> Generator:
 
 
 @pytest.fixture
-def project_file(temp_dir, test_root_path):
+def project_directory(temp_dir, test_root_path):
     @contextmanager
-    def _temporary_project_file(project_name):
+    def _temporary_project_directory(
+        project_name, merge_project_definition: Optional[dict] = None
+    ):
         test_data_file = test_root_path / "test_data" / "projects" / project_name
         shutil.copytree(test_data_file, temp_dir, dirs_exist_ok=True)
+        if merge_project_definition:
+            project_definition = strictyaml.load(Path("snowflake.yml").read_text()).data
+            merge_left(project_definition, merge_project_definition)
+            with open(Path(temp_dir) / "snowflake.yml", "w") as file:
+                file.write(as_document(project_definition).as_yaml())
+
         yield Path(temp_dir)
 
-    return _temporary_project_file
+    return _temporary_project_directory

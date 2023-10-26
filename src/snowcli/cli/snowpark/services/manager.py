@@ -49,7 +49,9 @@ class ServiceManager(SqlExecutionMixin):
     def drop(self, service_name: str) -> SnowflakeCursor:
         return self._execute_schema_query(f"drop service {service_name}")
 
-    def logs(self, service_name: str, container_name: str):
+    def logs(
+        self, service_name: str, instance_id: str, container_name: str, num_lines: int
+    ):
         return self._execute_schema_query(
-            f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '0', '{container_name}');"
+            f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines});"
         )

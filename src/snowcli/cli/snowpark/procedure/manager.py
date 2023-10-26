@@ -16,20 +16,18 @@ class ProcedureManager(SnowparkObjectManager):
     def _object_execute(self):
         return "call"
 
-    def create(
+    def create_or_replace(
         self,
         identifier: str,
         return_type: str,
         handler: str,
         artifact_file: str,
         packages: List[str],
-        overwrite: bool,
         execute_as_caller: bool,
     ) -> SnowflakeCursor:
-        create_stmt = "create or replace" if overwrite else "create"
         packages_list = ",".join(f"'{p}'" for p in packages)
         query = f"""\
-            {create_stmt} procedure {identifier}
+            create or replace procedure {identifier}
             returns {return_type}
             language python
             runtime_version=3.8
