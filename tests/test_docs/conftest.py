@@ -15,7 +15,7 @@ def setup(temp_dir):
 class SnowCLIDocParser(CodeBlockParser):
     language = "bash"
     pytestmark = pytest.mark.doctest
-    # TODO: this still doesn`t seem to work. Check if we can
+    # TODO: this still doesn`t seem to work. Check if we can skip the doctests during regular runs
 
     def evaluate(self, example):
         values = dedent(example.parsed).strip().split("\n")
