@@ -322,6 +322,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
     QUERY_WAREHOUSE = test_warehouse
     """
         ),
+        "ALTER streamlit test_streamlit CHECKOUT",
         _put_query("app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*.py", f"{root_path}/pages"),
