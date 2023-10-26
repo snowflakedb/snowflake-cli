@@ -1,12 +1,86 @@
 # serializer version: 1
-# name: test_init_with_url_and_template_w_random_url_and_template
+# name: test_nativeapp_init_with_custom_repo
   '''
   definition_version: 1
   native_app:
-    name: fake_repo
+    name: demo_na_project
     artifacts:
-    - setup.sql
-    - README.md
+    - app/setup_script.sql
+  
+  '''
+# ---
+# name: test_nativeapp_init_with_custom_repo_expands_jinja_snowflake_yml
+  '''
+  definition_version: 1
+  native_app:
+      name: demo_na_project
+      artifacts:
+          - app/setup_script.sql
+  
+  
+  '''
+# ---
+# name: test_nativeapp_init_with_default_template_and_repo
+  '''
+  definition_version: 1
+  native_app:
+      name: demo_na_project
+      artifacts:
+          - app/setup_script.sql
+  
+  
+  '''
+# ---
+# name: test_nativeapp_init_with_explicit_case_sensitive_name
+  '''
+  definition_version: 1
+  native_app:
+      name: '"DemoNAProject"'
+      artifacts:
+          - app/setup_script.sql
+  
+  
+  '''
+# ---
+# name: test_nativeapp_init_with_explicit_case_sensitive_name_whole_repo
+  '''
+  definition_version: 1
+  native_app:
+    name: '"DemoNAProject"'
+    artifacts:
+    - app/setup_script.sql
+  
+  '''
+# ---
+# name: test_nativeapp_init_with_explicit_quoted_name
+  '''
+  definition_version: 1
+  native_app:
+      name: '"double quoted"'
+      artifacts:
+          - app/setup_script.sql
+  
+  
+  '''
+# ---
+# name: test_nativeapp_init_with_implicit_double_quoted_name
+  '''
+  definition_version: 1
+  native_app:
+    name: '"demo na app"'
+    artifacts:
+    - app/setup_script.sql
+  
+  '''
+# ---
+# name: test_nativeapp_init_with_template_name_and_default_repo
+  '''
+  definition_version: 1
+  native_app:
+      name: demo_na_project
+      artifacts:
+          - app/setup_script.sql
+  
   
   '''
 # ---

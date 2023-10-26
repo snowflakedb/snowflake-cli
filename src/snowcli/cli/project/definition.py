@@ -1,4 +1,9 @@
-from .util import clean_identifier, get_env_username
+from .util import (
+    append_to_identifier,
+    clean_identifier,
+    get_env_username,
+    to_identifier,
+)
 from pathlib import Path
 from typing import List, Union, Dict
 from strictyaml import (
@@ -69,14 +74,17 @@ def generate_local_override_yml(project: Union[Dict, YAML]) -> YAML:
     local: dict = {}
     if "native_app" in project:
         name = clean_identifier(project["native_app"]["name"])
+        app_identifier = to_identifier(name)
+        user_app_identifier = append_to_identifier(app_identifier, f"_{user}")
+        package_identifier = append_to_identifier(app_identifier, f"_pkg_{user}")
         local["native_app"] = {
             "application": {
-                "name": f"{name}_{user}",
+                "name": user_app_identifier,
                 "role": role,
                 "debug": True,
                 "warehouse": warehouse,
             },
-            "package": {"name": f"{name}_pkg_{user}", "role": role},
+            "package": {"name": package_identifier, "role": role},
         }
 
     return as_document(local, project_override_schema)
@@ -84,7 +92,7 @@ def generate_local_override_yml(project: Union[Dict, YAML]) -> YAML:
 
 def default_app_package(project_name: str):
     user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
-    return f"{project_name}_pkg_{user}"
+    return append_to_identifier(to_identifier(project_name), f"_pkg_{user}")
 
 
 def default_role():
@@ -94,4 +102,4 @@ def default_role():
 
 def default_application(project_name: str):
     user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
-    return f"{project_name}_{user}"
+    return append_to_identifier(to_identifier(project_name), f"_{user}")
