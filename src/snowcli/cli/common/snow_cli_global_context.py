@@ -17,6 +17,8 @@ class ConnectionDetails:
     schema: Optional[str] = None
     user: Optional[str] = None
     password: Optional[str] = None
+    authenticator: Optional[str] = None
+    private_key_path: Optional[str] = None
     warehouse: Optional[str] = None
     temporary_connection: bool = False
 
