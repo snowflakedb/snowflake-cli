@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import functools
 
+import pytest
 from typer import Typer
 from typer.testing import CliRunner
+
+from snowcli.cli.common import snow_cli_global_context
 
 
 class SnowCLIRunner(CliRunner):
@@ -22,3 +25,9 @@ class SnowCLIRunner(CliRunner):
             ["--config-file", self.test_snowcli_config, *args[0]],
             **kwargs,
         )
+
+
+@pytest.fixture(autouse=True)
+def reset_global_context_after_each_test(request):
+    snow_cli_global_context.reset_global_context()
+    yield
