@@ -60,4 +60,4 @@ class ObjectAlreadyExistsError(ClickException):
         msg = f"{object_type.value.capitalize()} {name} already exists."
         if replace_available:
             msg += " Use --replace flag to update objects."
-        super().__init__(f"{object_type.value.capitalize()} {name} already exists.")
+        super().__init__(msg)
