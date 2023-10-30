@@ -1,3 +1,8 @@
+# v1.2.1
+## Fixes and improvements
+* Fix homebrew installation
+
+
 # v1.2.0
 
 ## Backward incompatibility
