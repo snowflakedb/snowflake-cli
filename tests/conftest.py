@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import logging
 
 import pytest
 from typer import Typer
@@ -27,3 +28,16 @@ class SnowCLIRunner(CliRunner):
 def reset_global_context_after_each_test(request):
     snow_cli_global_context.reset_global_context()
     yield
+
+
+# This cleanup function is required to avoid random breaking of logging
+# in one test caused by presence of capsys in other test.
+# See similar issues: https://github.com/pytest-dev/pytest/issues/5502
+@pytest.fixture(autouse=True)
+def clean_logging_handlers(request):
+    for logger in [logging.getLogger()] + list(
+        logging.Logger.manager.loggerDict.values()
+    ):
+        handlers = getattr(logger, "handlers", [])
+        for handler in handlers:
+            logger.removeHandler(handler)
