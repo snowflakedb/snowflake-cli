@@ -18,10 +18,11 @@ class SnowCLIRunner(CliRunner):
 
     @functools.wraps(CliRunner.invoke)
     def invoke(self, *a, **kw):
+        return self.invoke_with_config_file(self.test_snowcli_config, *a, **kw)
+
+    def invoke_with_config_file(self, config_file: str, *a, **kw):
         kw.update(catch_exceptions=False)
-        return super().invoke(
-            self.app, ["--config-file", self.test_snowcli_config, *a[0]], **kw
-        )
+        return super().invoke(self.app, ["--config-file", config_file, *a[0]], **kw)
 
 
 @pytest.fixture(autouse=True)
