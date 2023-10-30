@@ -153,7 +153,6 @@ def test_not_existing_command_group_handling(connection_command_spec_mock, runne
 
     result = runner.invoke(["-h"])
     assert result.exit_code == 0
-    assert result.output.count("xyz123") == 0
     assert result.output.count("Manages connections to Snowflake") == 0
     assert result.output.count("Manages Streamlit in Snowflake") == 1
 

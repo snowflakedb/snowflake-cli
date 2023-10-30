@@ -144,7 +144,7 @@ def test_fails_if_existing_connection(runner):
 
 
 def test_lists_connection_information(runner):
-    result = runner.invoke_with_config(["connection", "list", "--format", "json"])
+    result = runner.invoke(["connection", "list", "--format", "json"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload == [
@@ -216,7 +216,7 @@ def test_second_connection_not_update_default_connection(runner, snapshot):
 
 @mock.patch("snowcli.cli.connection.commands.connect_to_snowflake")
 def test_connection_test(mock_connect, runner):
-    result = runner.invoke_with_config(["connection", "test", "-c", "full"])
+    result = runner.invoke(["connection", "test", "-c", "full"])
     assert result.exit_code == 0, result.output
     assert "Host" in result.output
     assert "Password" not in result.output
