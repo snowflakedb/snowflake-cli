@@ -219,7 +219,6 @@ def _init_from_template(
     use_whole_repo_as_template = git_url and not template
     if not use_whole_repo_as_template:
         git_url = git_url if git_url else OFFICIAL_TEMPLATES_GITHUB_URL
-        template_name = template if template else BASIC_TEMPLATE
 
     try:
         with TemporaryDirectory() as temp_dir:
@@ -235,15 +234,17 @@ def _init_from_template(
                 depth=1,
             )
 
-            template_root = (
-                temp_path if use_whole_repo_as_template else temp_path / template_name
-            )
-            if not template_root.is_dir():
-                raise TemplateNotFoundError(template_name=template_name)
-
             if use_whole_repo_as_template:
+                # the template is the entire git repository
+                template_root = temp_path
                 # Remove all git history before we move the repo
                 rmtree(template_root.joinpath(".git").resolve())
+            else:
+                # The template is a subdirectory of the git repository
+                template_name = template if template else BASIC_TEMPLATE
+                template_root = temp_path / template_name
+                if not template_root.is_dir():
+                    raise TemplateNotFoundError(template_name=template_name)
 
             if Path.exists(template_root / "snowflake.yml.jinja"):
                 # Render snowflake.yml file from its jinja template

@@ -74,6 +74,7 @@ def fake_clone_template_with_file(file_name: str, file_contents: str):
 
 
 def fake_clone_default_repo(url: str, to_path: str, filter: list, depth: int):
+    assert url == "https://github.com/snowflakedb/native-apps-templates"
     repo_path = Path(to_path)
     repo_path.mkdir(parents=True, exist_ok=True)
 
