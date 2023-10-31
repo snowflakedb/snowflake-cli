@@ -258,7 +258,7 @@ def test_nativeapp_init_with_default_template_and_repo(
     project = nativeapp_init(path=PROJECT_PATH, name=PROJECT_NAME)
 
     project_path = Path(PROJECT_PATH)
-    assert project_path.resolve() == project["path"].resolve()
+    assert project_path.resolve() == project.path.resolve()
     assert project_path.exists()
     assert not Path.exists(project_path / ".git")
     assert not project_path.joinpath("snowflake.yml.jinja").exists()
@@ -274,7 +274,7 @@ def test_nativeapp_init_with_template_name_and_default_repo(
     )
 
     project_path = Path(PROJECT_PATH)
-    assert project_path.resolve() == project["path"].resolve()
+    assert project_path.resolve() == project.path.resolve()
     assert project_path.exists()
     assert not Path.exists(project_path / ".git")
     assert not project_path.joinpath("snowflake.yml.jinja").exists()
@@ -288,7 +288,7 @@ def test_nativeapp_init_with_custom_repo(mock_clone_from, temp_dir, snapshot):
     )
 
     project_path = Path(PROJECT_PATH)
-    assert project_path.resolve() == project["path"].resolve()
+    assert project_path.resolve() == project.path.resolve()
     assert project_path.exists()
     assert not Path.exists(project_path / ".git")
     assert project_path.joinpath("snowflake.yml").read_text() == snapshot
@@ -303,7 +303,7 @@ def test_nativeapp_init_with_custom_repo_expands_jinja_snowflake_yml(
     )
 
     project_path = Path(PROJECT_PATH)
-    assert project_path.resolve() == project["path"].resolve()
+    assert project_path.resolve() == project.path.resolve()
     assert project_path.exists()
     assert not Path.exists(project_path / ".git")
     assert not project_path.joinpath("snowflake.yml.jinja").exists()
@@ -344,8 +344,8 @@ def test_init_expands_user(mock_init_from_template):
     expanded_project_path = Path("/home/testuser/my_app")
     with mock.patch("pathlib.Path.expanduser", return_value=expanded_project_path) as m:
         project = nativeapp_init(path="~testuser/my_app")
-    assert project["name"] == "my_app"
-    assert project["path"] == expanded_project_path.resolve()
+    assert project.name == "my_app"
+    assert project.path == expanded_project_path.resolve()
 
 
 @mock.patch("snowcli.cli.nativeapp.init._init_from_template", return_value=None)
@@ -360,7 +360,7 @@ def test_nativeapp_init_with_explicit_quoted_name(mock_clone_from, temp_dir, sna
     project = nativeapp_init(path=PROJECT_PATH, name='"double quoted"')
 
     project_path = Path(PROJECT_PATH)
-    assert project_path.resolve() == project["path"].resolve()
+    assert project_path.resolve() == project.path.resolve()
     assert project_path.exists()
     assert not Path.exists(project_path / ".git")
     assert not project_path.joinpath("snowflake.yml.jinja").exists()
@@ -374,7 +374,7 @@ def test_nativeapp_init_with_explicit_case_sensitive_name(
     project = nativeapp_init(path=PROJECT_PATH, name='"DemoNAProject"')
 
     project_path = Path(PROJECT_PATH)
-    assert project_path.resolve() == project["path"].resolve()
+    assert project_path.resolve() == project.path.resolve()
     assert project_path.exists()
     assert not Path.exists(project_path / ".git")
     assert not project_path.joinpath("snowflake.yml.jinja").exists()
@@ -390,7 +390,7 @@ def test_nativeapp_init_with_explicit_case_sensitive_name_whole_repo(
     )
 
     project_path = Path(PROJECT_PATH)
-    assert project_path.resolve() == project["path"].resolve()
+    assert project_path.resolve() == project.path.resolve()
     assert project_path.exists()
     assert not Path.exists(project_path / ".git")
     assert project_path.joinpath("snowflake.yml").read_text() == snapshot
@@ -405,7 +405,7 @@ def test_nativeapp_init_with_implicit_double_quoted_name(
     )
 
     project_path = Path(PROJECT_PATH)
-    assert project_path.resolve() == project["path"].resolve()
+    assert project_path.resolve() == project.path.resolve()
     assert project_path.exists()
     assert not Path.exists(project_path / ".git")
     assert project_path.joinpath("snowflake.yml").read_text() == snapshot

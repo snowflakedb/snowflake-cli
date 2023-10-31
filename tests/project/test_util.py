@@ -26,6 +26,7 @@ INVALID_UNQUOTED_IDENTIFIERS = (
 )
 
 VALID_QUOTED_IDENTIFIERS = (
+    '""',  # an empty quoted identifier is valid
     '"_"',
     '"a"',
     '"A"',

@@ -2,9 +2,7 @@
 # name: test_init_no_template_failure[empty_name-init_args9]
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │                                                                              │
-  │     Intended project name does not qualify as a valid identifier.            │
-  │                                                                              │
+  │ Intended project name does not qualify as a valid identifier:                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   '''
@@ -21,9 +19,8 @@
 # name: test_init_no_template_failure[name_with_invalid_id-init_args7]
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │                                                                              │
-  │     Intended project name does not qualify as a valid identifier.            │
-  │                                                                              │
+  │ Intended project name does not qualify as a valid identifier:                │
+  │ "demo"na_project                                                             │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   '''
@@ -31,9 +28,8 @@
 # name: test_init_no_template_failure[name_with_trailing_double_quote-init_args6]
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │                                                                              │
-  │     Intended project name does not qualify as a valid identifier.            │
-  │                                                                              │
+  │ Intended project name does not qualify as a valid identifier:                │
+  │ demo_na_project"                                                             │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   '''
@@ -41,9 +37,8 @@
 # name: test_init_no_template_failure[name_with_unquoted_inner_quote-init_args8]
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │                                                                              │
-  │     Intended project name does not qualify as a valid identifier.            │
-  │                                                                              │
+  │ Intended project name does not qualify as a valid identifier:                │
+  │ "demo"na_project"                                                            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   '''
@@ -51,9 +46,8 @@
 # name: test_init_no_template_failure[name_with_unterminated_id-init_args5]
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │                                                                              │
-  │     Intended project name does not qualify as a valid identifier.            │
-  │                                                                              │
+  │ Intended project name does not qualify as a valid identifier:                │
+  │ "demo_na_project                                                             │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   '''
@@ -61,9 +55,8 @@
 # name: test_init_no_template_failure[with_invalid_id-init_args2]
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │                                                                              │
-  │     Intended project name does not qualify as a valid identifier.            │
-  │                                                                              │
+  │ Intended project name does not qualify as a valid identifier:                │
+  │ "demo"na_project                                                             │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   '''
@@ -71,9 +64,8 @@
 # name: test_init_no_template_failure[with_trailing_double_quote-init_args1]
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │                                                                              │
-  │     Intended project name does not qualify as a valid identifier.            │
-  │                                                                              │
+  │ Intended project name does not qualify as a valid identifier:                │
+  │ demo_na_project"                                                             │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   '''
@@ -81,9 +73,8 @@
 # name: test_init_no_template_failure[with_unquoted_inner_quote-init_args3]
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │                                                                              │
-  │     Intended project name does not qualify as a valid identifier.            │
-  │                                                                              │
+  │ Intended project name does not qualify as a valid identifier:                │
+  │ "demo"na_project"                                                            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   '''
@@ -91,9 +82,8 @@
 # name: test_init_no_template_failure[with_unterminated_id-init_args0]
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │                                                                              │
-  │     Intended project name does not qualify as a valid identifier.            │
-  │                                                                              │
+  │ Intended project name does not qualify as a valid identifier:                │
+  │ "demo_na_project                                                             │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   '''

@@ -43,12 +43,12 @@ def app_init(
     ),
     name: str = typer.Option(
         None,
-        help=f"""The name of the native application. This defaults to the name of the directory when it is not specified
-        explicitly. When defaulting the application name, any group of of '.', '-' or ' ' will be replaced with '_'. The
-        name will be treated as a regular unquoted identifier if allowed by Snowflake's identifier syntax, and as a
-        quoted identifier otherwise. The name can be explicitly quoted by including the surrounding double quotes in
-        the name. See https://docs.snowflake.com/en/sql-reference/identifiers-syntax for more details on identifiers.
-        The name of the application can also be changed in the generated snowflake.yml if desired.
+        help=f"""The name of the native application project. This defaults to the name of the directory when it is not
+        specified explicitly. When defaulting the application name, any group of of '.', '-' or ' ' will be replaced
+        with '_'. The name will be treated as a regular unquoted identifier if allowed by Snowflake's identifier
+        syntax, and as a quoted identifier otherwise. The name can be explicitly quoted by including the surrounding
+        double quotes in the name. See https://docs.snowflake.com/en/sql-reference/identifiers-syntax for more details
+        on identifiers. The name of the application can also be changed in the generated snowflake.yml if desired.
         """,
     ),
     template_repo: str = typer.Option(
@@ -71,9 +71,8 @@ def app_init(
     project = nativeapp_init(
         path=path, name=name, git_url=template_repo, template=template
     )
-    project_name = project["name"]
     return MessageResult(
-        f"Native Apps project {project_name} has been created at: {path}"
+        f"Native Apps project {project.name} has been created at: {path}"
     )
 
 

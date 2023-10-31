@@ -40,8 +40,10 @@ class ProjectNameInvalidError(ClickException):
     Intended project name does not qualify as a valid identifier.
     """
 
-    def __init__(self):
-        super().__init__(self.__doc__)
+    def __init__(self, project_name: str):
+        super().__init__(
+            f"Intended project name does not qualify as a valid identifier: {project_name}"
+        )
 
 
 class RenderingFromJinjaError(ClickException):
@@ -83,8 +85,18 @@ class TemplateNotFoundError(ClickException):
     Specified template was not found.
     """
 
-    def __init__(self):
-        super().__init__(self.__doc__)
+    def __init__(self, template_name):
+        super().__init__(f"Specified template was not found: {template_name}")
+
+
+class ProjectDescriptor:
+    """
+    Encapsulates static properties of a Native Application project.
+    """
+
+    def __init__(self, *, name, path):
+        self.name = name
+        self.path = path
 
 
 def _to_yaml_string(identifier: str):
@@ -227,7 +239,7 @@ def _init_from_template(
                 temp_path if use_whole_repo_as_template else temp_path / template_name
             )
             if not template_root.is_dir():
-                raise TemplateNotFoundError()
+                raise TemplateNotFoundError(template_name=template_name)
 
             if use_whole_repo_as_template:
                 # Remove all git history before we move the repo
@@ -286,7 +298,7 @@ def nativeapp_init(
     name: Optional[str] = None,
     git_url: Optional[str] = None,
     template: Optional[str] = None,
-):
+) -> ProjectDescriptor:
     """
     Initialize a Native Apps project in the user's current working directory, with or without the use of a template.
 
@@ -297,7 +309,7 @@ def nativeapp_init(
         template (str): A template within the git URL to use, all other directories and files outside the template will be discarded.
 
     Returns:
-        None
+        A project descriptor for the newly initialized project.
     """
     try:
         project_path = Path(path).expanduser().resolve()
@@ -317,14 +329,14 @@ def nativeapp_init(
     )
     if not project_name:
         # empty name
-        raise ProjectNameInvalidError()
+        raise ProjectNameInvalidError(project_name=project_name)
 
     if not is_valid_identifier(project_name) and (
         project_name.startswith('"') or project_name.endswith('"')
     ):
-        # the project name looks like it was partially double quoted. This is likely a mistake, reject it rather than
+        # the project name looks like it was partially quoted. This is likely a mistake, reject it rather than
         # silently escaping it.
-        raise ProjectNameInvalidError()
+        raise ProjectNameInvalidError(project_name=project_name)
 
     project_identifier = to_identifier(project_name)
     _init_from_template(
@@ -334,4 +346,4 @@ def nativeapp_init(
         template=template,
     )
 
-    return {"name": project_name, "path": project_path}
+    return ProjectDescriptor(name=project_name, path=project_path)
