@@ -18,7 +18,7 @@ def test_multi_queries_from_file(runner, snowflake_session, test_root_path):
         [
             "sql",
             "-f",
-            f"{test_root_path}/test_files/sql_multi_queries.sql",
+            f"{test_root_path}/test_data/sql_multi_queries.sql",
         ]
     )
 

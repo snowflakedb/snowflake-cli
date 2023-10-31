@@ -2,16 +2,31 @@ from __future__ import annotations
 
 import functools
 import json
+from contextlib import contextmanager
+
+import pytest
 import tempfile
 import shutil
 
-import pytest
 from dataclasses import dataclass
+from json import JSONDecodeError
 from pathlib import Path
+
+import strictyaml
+from strictyaml import as_document
+
 from snowcli.app.cli_app import app
 from typer import Typer
 from typer.testing import CliRunner
 from typing import List, Dict, Any, Optional
+
+from snowcli.cli.common import snow_cli_global_context
+from snowcli.cli.project.definition import merge_left
+
+pytest_plugins = [
+    "tests_integration.testing_utils",
+    "tests_integration.snowflake_connector",
+]
 
 TEST_DIR = Path(__file__).parent
 DEFAULT_TEST_CONFIG = "connection_configs.toml"
@@ -86,7 +101,10 @@ class SnowCLIRunner(CliRunner):
         )
         if result.output == "" or result.output.strip() == "Done":
             return CommandResult(result.exit_code, json=[])
-        return CommandResult(result.exit_code, json.loads(result.output))
+        try:
+            return CommandResult(result.exit_code, json.loads(result.output))
+        except JSONDecodeError:
+            raise QueryResultJsonEncoderError(result.output)
 
     def invoke_integration_without_format(self, *args, **kwargs) -> CommandResult:
         result = self._invoke(
@@ -130,3 +148,33 @@ def alter_snowflake_yml():
             yaml.safe_dump(yml, fh)
 
     return _update
+
+
+class QueryResultJsonEncoderError(RuntimeError):
+    def __init__(self, output: str):
+        super().__init__(f"Can not parse query result:\n{output}")
+
+
+@pytest.fixture
+def project_directory(temporary_working_directory, test_root_path):
+    @contextmanager
+    def _temporary_project_directory(
+        project_name, merge_project_definition: Optional[dict] = None
+    ):
+        test_data_file = test_root_path / "test_data" / "projects" / project_name
+        shutil.copytree(test_data_file, temporary_working_directory, dirs_exist_ok=True)
+        if merge_project_definition:
+            project_definition = strictyaml.load(Path("snowflake.yml").read_text()).data
+            merge_left(project_definition, merge_project_definition)
+            with open(Path(temporary_working_directory) / "snowflake.yml", "w") as file:
+                file.write(as_document(project_definition).as_yaml())
+
+        yield temporary_working_directory
+
+    return _temporary_project_directory
+
+
+@pytest.fixture(autouse=True)
+def reset_global_context_after_each_test(request):
+    snow_cli_global_context.reset_global_context()
+    yield

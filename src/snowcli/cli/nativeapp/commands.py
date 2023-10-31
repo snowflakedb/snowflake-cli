@@ -17,7 +17,6 @@ from snowcli.output.types import CommandResult, MessageResult
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    hidden=True,
     name="app",
     help="Manage Native Apps in Snowflake",
 )
@@ -87,9 +86,9 @@ def app_run(
 ) -> CommandResult:
     """
     Creates an application package in your Snowflake account, uploads code files to its stage,
-    then creates a development-mode instance of that application. As a note, this command does not
-    accept role or warehouse overrides to your config.toml file, because your native app definition
-    in snowflake.yml/snowflake.local.yml is used for any overrides.
+    then creates (or upgrades) a development-mode instance of that application. As a note, this
+    command does not accept role or warehouse overrides to your config.toml file, because your
+    native app definition in snowflake.yml/snowflake.local.yml is used for any overrides.
     """
     manager = NativeAppManager(project_path)
     manager.build_bundle()

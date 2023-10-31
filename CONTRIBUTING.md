@@ -20,6 +20,11 @@ Once you created a dedicated virtual environment you can install SnowCLI in edit
 pip install -e ".[dev]"
 ```
 
+## Unit tests
+
+Unit tests are executed in random order. If tests fail after your change, you can re-execute them in the same order using `pytest --randomly-seed=<number>`, where number is a seed printed at the beginning of the test execution output.
+Random order of test execution is provided by pytest-randomly, so more details are available in [pytest-randomly docs](https://pypi.org/project/pytest-randomly/).
+
 ## Integration tests
 
 Every integration test should have `integration` mark. By default, integration tests are not execute when running `pytest`.

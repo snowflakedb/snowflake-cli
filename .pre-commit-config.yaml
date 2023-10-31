@@ -3,7 +3,7 @@ repos:
     rev: v4.1.0
     hooks:
       - id: trailing-whitespace
-        exclude: '(^tests/|^tests_integration/)'
+        exclude: '(^tests/|^tests_integration/|^tests_e2e)'
       - id: end-of-file-fixer
         exclude: license_header.txt
       - id: check-yaml

@@ -4,17 +4,17 @@ import logging
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from snowflake.connector.cursor import SnowflakeCursor
-
+from snowcli.cli.common.experimental_behaviour import experimental_behaviour_enabled
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.cli.connection.util import MissingConnectionHostError, make_snowsight_url
+from snowcli.cli.project.util import unquote_identifier
 from snowcli.cli.snowpark_shared import snowpark_package
 from snowcli.cli.object.stage.manager import StageManager
 from snowcli.utils import (
     generate_streamlit_environment_file,
     generate_streamlit_package_wrapper,
 )
-from snowcli.cli.connection.util import make_snowsight_url, MissingConnectionHostError
-from snowcli.cli.project.util import unquote_identifier
+from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
@@ -38,26 +38,14 @@ class StreamlitManager(SqlExecutionMixin):
     def drop(self, streamlit_name: str) -> SnowflakeCursor:
         return self._execute_query(f"drop streamlit {streamlit_name}")
 
-    def deploy(
+    def _put_streamlit_files(
         self,
-        streamlit_name: str,
+        root_location: str,
         main_file: Path,
-        environment_file: Optional[Path] = None,
-        pages_dir: Optional[Path] = None,
-        stage_name: Optional[str] = None,
-        warehouse: Optional[str] = None,
-        replace: Optional[bool] = False,
+        environment_file: Optional[Path],
+        pages_dir: Optional[Path],
     ):
         stage_manager = StageManager()
-
-        stage_name = stage_name or "streamlit"
-        stage_name = stage_manager.to_fully_qualified_name(stage_name)
-
-        stage_manager.create(stage_name=stage_name)
-
-        root_location = stage_manager.get_standard_stage_name(
-            f"{stage_name}/{streamlit_name}"
-        )
 
         stage_manager.put(main_file, root_location, 4, True)
 
@@ -67,16 +55,86 @@ class StreamlitManager(SqlExecutionMixin):
         if pages_dir and pages_dir.exists():
             stage_manager.put(pages_dir / "*.py", f"{root_location}/pages", 4, True)
 
+    def _create_streamlit(
+        self,
+        streamlit_name: str,
+        main_file: Path,
+        replace: bool | None = None,
+        query_warehouse: str | None = None,
+        from_stage_name: str | None = None,
+    ):
         replace_stmt = "OR REPLACE" if replace else ""
-        use_warehouse_stmt = f"QUERY_WAREHOUSE = {warehouse}" if warehouse else ""
+        use_warehouse_stmt = (
+            f"QUERY_WAREHOUSE = {query_warehouse}" if query_warehouse else ""
+        )
+        from_stage_stmt = (
+            f"ROOT_LOCATION = '{from_stage_name}'" if from_stage_name else ""
+        )
         self._execute_query(
             f"""
             CREATE {replace_stmt} STREAMLIT {streamlit_name}
-            ROOT_LOCATION = '{root_location}'
+            {from_stage_stmt}
             MAIN_FILE = '{main_file.name}'
             {use_warehouse_stmt}
         """
         )
+
+    def deploy(
+        self,
+        streamlit_name: str,
+        main_file: Path,
+        environment_file: Optional[Path] = None,
+        pages_dir: Optional[Path] = None,
+        stage_name: Optional[str] = None,
+        query_warehouse: Optional[str] = None,
+        replace: Optional[bool] = False,
+        **options,
+    ):
+        stage_manager = StageManager()
+        if experimental_behaviour_enabled():
+            """
+            1. Create streamlit object
+            2. Upload files to embedded stage
+            """
+            # TODO: Support from_stage
+            # from_stage_stmt = f"FROM_STAGE = '{stage_name}'" if stage_name else ""
+            self._create_streamlit(streamlit_name, main_file, replace, query_warehouse)
+            self._execute_query(f"ALTER streamlit {streamlit_name} CHECKOUT")
+            stage_path = stage_manager.to_fully_qualified_name(streamlit_name)
+            embedded_stage_name = f"snow://streamlit/{stage_path}"
+            root_location = f"{embedded_stage_name}/default_checkout"
+
+            self._put_streamlit_files(
+                root_location, main_file, environment_file, pages_dir
+            )
+        else:
+            """
+            1. Create stage
+            2. Upload files to created stage
+            3. Create streamlit from stage
+            """
+            stage_manager = StageManager()
+
+            stage_name = stage_name or "streamlit"
+            stage_name = stage_manager.to_fully_qualified_name(stage_name)
+
+            stage_manager.create(stage_name=stage_name)
+
+            root_location = stage_manager.get_standard_stage_name(
+                f"{stage_name}/{streamlit_name}"
+            )
+
+            self._put_streamlit_files(
+                root_location, main_file, environment_file, pages_dir
+            )
+
+            self._create_streamlit(
+                streamlit_name,
+                main_file,
+                replace,
+                query_warehouse,
+                from_stage_name=root_location,
+            )
 
         return self.get_url(streamlit_name)
 
