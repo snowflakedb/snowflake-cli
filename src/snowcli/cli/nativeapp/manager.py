@@ -34,6 +34,7 @@ from snowcli.cli.nativeapp.artifacts import (
     ArtifactMapping,
 )
 from snowcli.cli.connection.util import make_snowsight_url
+from snowcli.cli.stage.manager import StageManager
 
 from snowflake.connector.cursor import DictCursor
 
@@ -319,11 +320,21 @@ class NativeAppManager(SqlExecutionMixin):
 
             # Create an app using "loose files" / stage dev mode.
             log.info(f"Creating new application {self.app_name} in account.")
+
+            if self.app_role != self.package_role:
+                with self.use_role(new_role=self.package_role):
+                    self._execute_query(
+                        f"""
+                        grant install, develop on application package {self.package_name} to role {self.app_role};
+                        """
+                    )
+
+            stage_name = StageManager.quote_stage_name(self.stage_fqn)
             self._execute_query(
                 f"""
                 create application {self.app_name}
                     from application package {self.package_name}
-                    using @{self.stage_fqn}
+                    using {stage_name}
                     debug_mode = {self.debug_mode}
                     comment = {SPECIAL_COMMENT}
                 """,

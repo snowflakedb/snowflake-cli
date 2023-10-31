@@ -1,3 +1,4 @@
+import functools
 import os
 import shutil
 from contextlib import contextmanager
@@ -14,16 +15,31 @@ from typing import Union
 import strictyaml
 from snowflake.connector.cursor import SnowflakeCursor
 from strictyaml import as_document
+from typer import Typer
+from typer.testing import CliRunner
 
 from snowcli.cli.project.definition import merge_left
-from tests.conftest import SnowCLIRunner
 from tests.test_data import test_data
 from tests.testing_utils.files_and_dirs import create_named_file, create_temp_file
-
 
 REQUIREMENTS_SNOWFLAKE = "requirements.snowflake.txt"
 REQUIREMENTS_TXT = "requirements.txt"
 TEST_DIR = Path(__file__).parent.parent
+
+
+class SnowCLIRunner(CliRunner):
+    def __init__(self, app: Typer, test_snowcli_config: str):
+        super().__init__()
+        self.app = app
+        self.test_snowcli_config = test_snowcli_config
+
+    @functools.wraps(CliRunner.invoke)
+    def invoke(self, *a, **kw):
+        return self.invoke_with_config_file(self.test_snowcli_config, *a, **kw)
+
+    def invoke_with_config_file(self, config_file: str, *a, **kw):
+        kw.update(catch_exceptions=False)
+        return super().invoke(self.app, ["--config-file", config_file, *a[0]], **kw)
 
 
 @pytest.fixture

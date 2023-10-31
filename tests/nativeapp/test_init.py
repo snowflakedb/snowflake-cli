@@ -208,7 +208,7 @@ def test_init_with_url_and_no_template_w_native_app_url(mock_clone_from, temp_di
         _init_with_url_and_no_template(
             current_working_directory=Path.cwd(),
             project_name=fake_repo,
-            git_url="https://github.com/Snowflake-Labs/native-apps-templates",
+            git_url="https://github.com/snowflakedb/native-apps-templates",
         )
 
         dest = Path.cwd() / fake_repo
@@ -218,7 +218,6 @@ def test_init_with_url_and_no_template_w_native_app_url(mock_clone_from, temp_di
 
 @mock.patch("git.Repo.clone_from", side_effect=None)
 def test_init_with_url_and_no_template_w_random_url(mock_clone_from, temp_dir):
-
     # Prepare fake repository
     fake_repo = "fake_repo"
     current_working_directory = Path.cwd()
@@ -322,7 +321,7 @@ def test_init_with_url_and_template_w_native_app_url_and_template(
     _init_with_url_and_template(
         current_working_directory=Path.cwd(),
         project_name=fake_repo,
-        git_url="https://github.com/Snowflake-Labs/native-apps-templates",
+        git_url="https://github.com/snowflakedb/native-apps-templates",
         template="native-apps-basic",
     )
 

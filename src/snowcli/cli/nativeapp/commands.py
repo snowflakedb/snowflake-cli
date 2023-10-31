@@ -49,7 +49,7 @@ def app_init(
     ),
     template: str = typer.Option(
         None,
-        help="A specific template name within the template repo to use as template for the Native Apps project. Example: Default is basic if --template-repo is https://github.com/Snowflake-Labs/native-apps-templates.git, and None if any other --template-repo is specified.",
+        help="A specific template name within the template repo to use as template for the Native Apps project. Example: Default is basic if --template-repo is https://github.com/snowflakedb/native-apps-templates.git, and None if any other --template-repo is specified.",
     ),
     **options,
 ) -> CommandResult:
