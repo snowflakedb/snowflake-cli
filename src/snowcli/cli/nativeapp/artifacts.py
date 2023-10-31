@@ -6,6 +6,15 @@ from typing import List, Union
 from dataclasses import dataclass
 
 
+class DeployRootError(ClickException):
+    """
+    The deploy root was incorrectly specified.
+    """
+
+    def __init__(self, msg: str):
+        super().__init__(msg)
+
+
 class ArtifactError(ClickException):
     """
     Could not parse source or destination artifact.
@@ -187,7 +196,19 @@ def build_bundle(
     """
     resolved_root = deploy_root.resolve()
     if resolved_root.exists() and not resolved_root.is_dir():
-        raise ValueError(f"Deploy root {resolved_root} exists, but is not a directory!")
+        raise DeployRootError(
+            f"Deploy root {resolved_root} exists, but is not a directory!"
+        )
+
+    if project_root.resolve() not in resolved_root.parents:
+        raise DeployRootError(
+            f"Deploy root {resolved_root} is not a descendent of the project directory!"
+        )
+
+    # users may have removed files or entire artifact mappings from their project
+    # definition since the last time we bundled; we need to clear the deploy root first
+    if resolved_root.exists():
+        delete(resolved_root)
 
     for artifact in artifacts:
         dest_path = resolve_without_follow(Path(resolved_root, artifact.dest))
