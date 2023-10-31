@@ -64,7 +64,7 @@ def test_deploy_only_streamlit_file(
     with project_directory("example_streamlit") as pdir:
         (pdir / "environment.yml").unlink()
         shutil.rmtree(pdir / "pages")
-        result = runner.invoke_with_config(["streamlit", "deploy"])
+        result = runner.invoke(["streamlit", "deploy"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
@@ -97,7 +97,7 @@ def test_deploy_launch_browser(
     mock_connector.return_value = ctx
 
     with project_directory("example_streamlit"):
-        result = runner.invoke_with_config(["streamlit", "deploy", "--open"])
+        result = runner.invoke(["streamlit", "deploy", "--open"])
 
     assert result.exit_code == 0, result.output
 

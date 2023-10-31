@@ -31,8 +31,9 @@ def test_custom_config_path(mock_conn, runner, mock_cursor):
         None,
         mock_cursor(["row"], []),
     ]
-    result = runner.invoke(
-        ["--config-file", str(config_file), "warehouse", "status"],
+    result = runner.invoke_with_config_file(
+        config_file,
+        ["warehouse", "status"],
         catch_exceptions=False,
     )
     assert result.exit_code == 0, result.output
