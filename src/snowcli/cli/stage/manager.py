@@ -85,8 +85,8 @@ class StageManager(SqlExecutionMixin):
     def remove(self, stage_name: str, path: str) -> SnowflakeCursor:
         stage_name = self.get_standard_stage_name(stage_name)
         path = path if path.startswith("/") else "/" + path
-        to_remove = self.quote_stage_name(f"{stage_name}{path}")
-        return self._execute_query(f"remove {to_remove}")
+        quoted_stage_name = self.quote_stage_name(f"{stage_name}{path}")
+        return self._execute_query(f"remove {quoted_stage_name}")
 
     def _remove(
         self, stage_name: str, path: str, role: Optional[str] = None
