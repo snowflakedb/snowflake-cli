@@ -319,6 +319,15 @@ class NativeAppManager(SqlExecutionMixin):
 
             # Create an app using "loose files" / stage dev mode.
             log.info(f"Creating new application {self.app_name} in account.")
+
+            if self.app_role != self.package_role:
+                with self.use_role(new_role=self.package_role):
+                    self._execute_query(
+                        f"""
+                        grant install, develop on application package {self.package_name} to role {self.app_role};
+                        """
+                    )
+
             self._execute_query(
                 f"""
                 create application {self.app_name}
