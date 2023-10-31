@@ -4,7 +4,7 @@ from snowcli.api.plugin.command import (
     SNOWCLI_ROOT_COMMAND_PATH,
     CommandType,
 )
-from snowcli.cli.object import app as object_app
+from snowcli.cli.object.commands import app as object_app
 
 
 @plugin_hook_impl

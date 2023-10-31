@@ -7,7 +7,7 @@ from snowcli.cli.object.show.commands import app as show_app
 app = typer.Typer(
     name="object",
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    help="Manages Snowflake objects, like warehouses and stages",
+    help="Manages Snowflake objects like warehouses and stages",
 )
 
 app.add_typer(stage_app)  # type: ignore
