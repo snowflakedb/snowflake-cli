@@ -14,7 +14,7 @@ def test_global(runner):
 @pytest.mark.parametrize(
     "namespace, expected",
     [
-        ("object", "Manages Snowflake objects,"),
+        ("object", "Manages Snowflake objects"),
         ("snowpark", "Manages functions, procedures, and Snowpark objects."),
         ("streamlit", " Manages Streamlit in Snowflake."),
     ],

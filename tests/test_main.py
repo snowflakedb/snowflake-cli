@@ -32,12 +32,12 @@ def test_custom_config_path(mock_conn, runner, mock_cursor):
         mock_cursor(["row"], []),
     ]
     result = runner.invoke(
-        ["--config-file", str(config_file), "object", "show", "warehouses"],
+        ["--config-file", str(config_file), "object", "show", "warehouse"],
         catch_exceptions=False,
     )
     assert result.exit_code == 0, result.output
     mock_conn.assert_called_once_with(
-        application="SNOWCLI.OBJECT.SHOW.WAREHOUSES",
+        application="SNOWCLI.OBJECT.SHOW",
         database="db_for_test",
         schema="test_public",
         role="test_role",
@@ -56,7 +56,7 @@ def test_info_callback(runner):
     ]
 
 
-def test_all_commands_has_proper_documentation(runner):
+def test_all_commands_have_proper_documentation(runner):
     # invoke any command to populate app context (plugins registration)
     runner.invoke("--help")
 

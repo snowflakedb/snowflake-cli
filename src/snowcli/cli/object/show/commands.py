@@ -23,8 +23,6 @@ LikeOption = typer.Option(
 )
 
 
-
-
 @app.command("warehouses")
 @with_output
 @global_options_with_connection

@@ -1,4 +1,40 @@
 # serializer version: 1
+# name: test_show_warehouse[compute pool]
+  '''
+  SELECT A MOCK QUERY
+  +------------------+
+  | name | state     |
+  |------+-----------|
+  | foo  | suspended |
+  | bar  | running   |
+  +------------------+
+  
+  '''
+# ---
+# name: test_show_warehouse[database]
+  '''
+  SELECT A MOCK QUERY
+  +------------------+
+  | name | state     |
+  |------+-----------|
+  | foo  | suspended |
+  | bar  | running   |
+  +------------------+
+  
+  '''
+# ---
+# name: test_show_warehouse[streamlit]
+  '''
+  SELECT A MOCK QUERY
+  +------------------+
+  | name | state     |
+  |------+-----------|
+  | foo  | suspended |
+  | bar  | running   |
+  +------------------+
+  
+  '''
+# ---
 # name: test_show_warehouses
   '''
   SELECT A MOCK QUERY

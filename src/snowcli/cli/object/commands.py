@@ -18,6 +18,7 @@ app = typer.Typer(
 )
 app.add_typer(stage_app)  # type: ignore
 
+ObjectArgument = typer.Argument(None, help="Type of object")
 LikeOption = typer.Option(
     "%%",
     "--like",
@@ -25,23 +26,21 @@ LikeOption = typer.Option(
     help='Regular expression for filtering the functions by name. For example, `list --like "my%"` lists all functions in the **dev** (default) environment that begin with “my”.',
 )
 
+
 @app.command()
 @with_output
 @global_options_with_connection
 def show(
-        object_type: ObjectType = typer.Argument(None, help="Type of object"),
-        like: str = LikeOption,
-        **options
-         ):
-    return QueryResult(ObjectManager.show(object_type,like))
+    object_type: ObjectType = ObjectArgument,
+    like: str = LikeOption,
+    **options,
+):
+    "Lists all avaiable Snowflake objects of given type"
+    return QueryResult(ObjectManager().show(object_type, like))
 
-
-@app.command("warehouses")
+@app.command()
 @with_output
 @global_options_with_connection
-def warehouse_status(like: str, **options):
-    """
-    Shows existing warehouses
-    """
-    cursor = ObjectManager().show(ObjectType.WAREHOUSE, like)
-    return QueryResult(cursor)
+def drop(object_type: ObjectType = ObjectArgument, object_name: str = ""):
+    "Drops Snowflake object of given name and type"
+    return QueryResult(ObjectManager().drop(object_type,object_name))
