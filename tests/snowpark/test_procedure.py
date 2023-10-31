@@ -30,7 +30,7 @@ def test_deploy_procedure(
     app = local_dir / "app.py"
     app.touch()
 
-    result = runner.invoke_with_config(
+    result = runner.invoke(
         [
             "snowpark",
             "procedure",
@@ -94,7 +94,7 @@ def test_deploy_procedure_with_coverage(
     app = local_dir / "app.py"
     app.touch()
 
-    result = runner.invoke_with_config(
+    result = runner.invoke(
         [
             "snowpark",
             "procedure",
@@ -276,7 +276,7 @@ def test_deploy_procedure_update_because_handler_changed(
 def test_execute_procedure(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    result = runner.invoke_with_config(
+    result = runner.invoke(
         [
             "snowpark",
             "procedure",
@@ -293,7 +293,7 @@ def test_execute_procedure(mock_connector, runner, mock_ctx):
 def test_describe_procedure_from_signature(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    result = runner.invoke_with_config(
+    result = runner.invoke(
         [
             "snowpark",
             "procedure",
@@ -310,7 +310,7 @@ def test_describe_procedure_from_signature(mock_connector, runner, mock_ctx):
 def test_describe_procedure_from_name(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    result = runner.invoke_with_config(
+    result = runner.invoke(
         [
             "snowpark",
             "procedure",
@@ -327,7 +327,7 @@ def test_describe_procedure_from_name(mock_connector, runner, mock_ctx):
 def test_list_procedure(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    result = runner.invoke_with_config(
+    result = runner.invoke(
         [
             "snowpark",
             "procedure",
@@ -345,7 +345,7 @@ def test_list_procedure(mock_connector, runner, mock_ctx):
 def test_drop_procedure_from_signature(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    result = runner.invoke_with_config(
+    result = runner.invoke(
         [
             "snowpark",
             "procedure",
@@ -362,7 +362,7 @@ def test_drop_procedure_from_signature(mock_connector, runner, mock_ctx):
 def test_drop_procedure_from_name(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    result = runner.invoke_with_config(
+    result = runner.invoke(
         [
             "snowpark",
             "procedure",
@@ -395,7 +395,7 @@ def _deploy_procedure(
     app.touch()
     artifact_path = f"{tmp_dir.name}/{app.name}"
 
-    result = runner.invoke_with_config(
+    result = runner.invoke(
         [
             "snowpark",
             "procedure",

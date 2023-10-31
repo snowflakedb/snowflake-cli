@@ -411,7 +411,7 @@ def _deploy_function(
     app = Path(execute_in_tmp_dir) / "app.zip"
     app.touch()
     with project_directory("snowpark_functions"):
-        result = runner.invoke_with_config(
+        result = runner.invoke(
             [
                 "snowpark",
                 "function",

@@ -19,13 +19,14 @@ from snowcli.app.cli_app import app
 from typer import Typer
 from typer.testing import CliRunner
 from typing import List, Dict, Any, Optional
+
+from snowcli.cli.common import snow_cli_global_context
 from snowcli.cli.project.definition import merge_left
 
 pytest_plugins = [
     "tests_integration.testing_utils",
     "tests_integration.snowflake_connector",
 ]
-
 
 TEST_DIR = Path(__file__).parent
 DEFAULT_TEST_CONFIG = "connection_configs.toml"
@@ -171,3 +172,9 @@ def project_directory(temporary_working_directory, test_root_path):
         yield temporary_working_directory
 
     return _temporary_project_directory
+
+
+@pytest.fixture(autouse=True)
+def reset_global_context_after_each_test(request):
+    snow_cli_global_context.reset_global_context()
+    yield
