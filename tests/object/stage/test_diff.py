@@ -1,5 +1,5 @@
 import hashlib
-from typing import Tuple
+from typing import Tuple, Dict
 
 from snowcli.exception import SnowflakeSQLExecutionError
 from snowcli.cli.object.stage.manager import StageManager
