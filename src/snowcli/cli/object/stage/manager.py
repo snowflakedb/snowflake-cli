@@ -2,6 +2,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 
 from pathlib import Path
+import re
 from typing import Optional, Union
 
 from snowflake.connector.cursor import SnowflakeCursor
@@ -19,13 +20,29 @@ class StageManager(SqlExecutionMixin):
 
         return f"@{name}"
 
+    @staticmethod
+    def quote_stage_name(name: str) -> str:
+        if name.startswith("'") and name.endswith("'"):
+            return name  # already quoted
+
+        standard_name = StageManager.get_standard_stage_name(name)
+        if standard_name.startswith("@") and not re.fullmatch(
+            r"@([\w./$])+", standard_name
+        ):
+            escaped = standard_name.replace("'", "''")
+            return f"'{escaped}'"
+
+        return standard_name
+
     def list(self, stage_name: str) -> SnowflakeCursor:
         stage_name = self.get_standard_stage_name(stage_name)
-        return self._execute_query(f"ls {stage_name}")
+        return self._execute_query(f"ls {self.quote_stage_name(stage_name)}")
 
     def get(self, stage_name: str, dest_path: Path) -> SnowflakeCursor:
         stage_name = self.get_standard_stage_name(stage_name)
-        return self._execute_query(f"get {stage_name} file://{dest_path}/")
+        return self._execute_query(
+            f"get {self.quote_stage_name(stage_name)} file://{dest_path}/"
+        )
 
     def put(
         self,
@@ -37,7 +54,7 @@ class StageManager(SqlExecutionMixin):
         stage_path = self.get_standard_stage_name(stage_path)
         local_resolved_path = path_resolver(str(local_path))
         return self._execute_query(
-            f"put file://{local_resolved_path} {stage_path} "
+            f"put file://{local_resolved_path} {self.quote_stage_name(stage_path)} "
             f"auto_compress=false parallel={parallel} overwrite={overwrite}"
         )
 
@@ -60,7 +77,7 @@ class StageManager(SqlExecutionMixin):
             stage_path = self.get_standard_stage_name(stage_path)
             local_resolved_path = path_resolver(str(local_path))
             cursor = self._execute_query(
-                f"put file://{local_resolved_path} {stage_path} "
+                f"put file://{local_resolved_path} {self.quote_stage_name(stage_path)} "
                 f"auto_compress=false parallel={parallel} overwrite={overwrite}"
             )
         return cursor
@@ -68,7 +85,8 @@ class StageManager(SqlExecutionMixin):
     def remove(self, stage_name: str, path: str) -> SnowflakeCursor:
         stage_name = self.get_standard_stage_name(stage_name)
         path = path if path.startswith("/") else "/" + path
-        return self._execute_query(f"remove {stage_name}{path}")
+        quoted_stage_name = self.quote_stage_name(f"{stage_name}{path}")
+        return self._execute_query(f"remove {quoted_stage_name}")
 
     def _remove(
         self, stage_name: str, path: str, role: Optional[str] = None
@@ -81,9 +99,7 @@ class StageManager(SqlExecutionMixin):
         and switch back to the original role for the next commands to run.
         """
         with self.use_role(role) if role else nullcontext():
-            stage_name = self.get_standard_stage_name(stage_name)
-            path = path if path.startswith("/") else "/" + path
-            cursor = self._execute_query(f"remove {stage_name}{path}")
+            cursor = self.remove(stage_name=stage_name, path=path)
         return cursor
 
     def show(self) -> SnowflakeCursor:
