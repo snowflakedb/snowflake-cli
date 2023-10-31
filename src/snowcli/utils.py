@@ -622,6 +622,6 @@ class ThreadsafeCounter(ThreadsafeValue[int]):
 
 
 def get_plural_name(object_type: ObjectType):
-    exceptions = {}
+    exceptions: Dict[str, str] = {}
 
     return exceptions.get(object_type.value, f"{object_type.value}s")

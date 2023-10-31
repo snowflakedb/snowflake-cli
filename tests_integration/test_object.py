@@ -4,7 +4,7 @@ from tests_integration.test_utils import row_from_cursor
 from tests_integration.snowflake_connector import snowflake_session
 
 
-#@pytest.mark.integration
+@pytest.mark.integration
 def test_warehouse_status_query(runner, snowflake_session):
     result = runner.invoke_integration(
         ["object", "show", "warehouse", "--format", "json"]
@@ -17,4 +17,3 @@ def test_warehouse_status_query(runner, snowflake_session):
     assert len(actual) == len(expected)
     assert actual[0].keys() == expected[0].keys()
     assert actual[0]["name"] == expected[0]["name"]
-

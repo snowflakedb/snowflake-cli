@@ -18,6 +18,7 @@ app = typer.Typer(
 )
 app.add_typer(stage_app)  # type: ignore
 
+NameArgument = typer.Argument(None, help="Name of the object")
 ObjectArgument = typer.Argument(None, help="Type of object")
 LikeOption = typer.Option(
     "%%",
@@ -38,9 +39,10 @@ def show(
     "Lists all avaiable Snowflake objects of given type"
     return QueryResult(ObjectManager().show(object_type, like))
 
+
 @app.command()
 @with_output
 @global_options_with_connection
-def drop(object_type: ObjectType = ObjectArgument, object_name: str = ""):
+def drop(object_type: ObjectType = ObjectArgument, object_name: str = NameArgument):
     "Drops Snowflake object of given name and type"
-    return QueryResult(ObjectManager().drop(object_type,object_name))
+    return QueryResult(ObjectManager().drop(object_type, object_name))

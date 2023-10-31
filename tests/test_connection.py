@@ -362,16 +362,16 @@ def test_key_pair_authentication_from_config(mock_load, mock_conn, temp_dir, run
 
         result = runner.invoke_with_config_file(
             tmp_file.name,
-            [
-                "warehouse",
-                "status",
+            [   "object",
+                "show",
+                "warehouse"
             ],
         )
 
     assert result.exit_code == 1, result.output
     mock_load.assert_called_once_with("~/sf_private_key.p8")
     mock_conn.assert_called_once_with(
-        application="SNOWCLI.WAREHOUSE.STATUS",
+        application="SNOWCLI.OBJECT.SHOW",
         account="my_account",
         user="jdoe",
         authenticator="SNOWFLAKE_JWT",
