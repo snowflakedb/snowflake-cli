@@ -42,14 +42,14 @@ def app_init(
     template_repo: str = typer.Option(
         None,
         help=f"""A git URL to a template repository, which can be a template itself or contain many templates inside it.
-        Example: https://github.com/Snowflake-Labs/native-apps-templates.git for all official Snowflake templates.
+        Example: https://github.com/snowflakedb/native-apps-templates.git for all official Snowflake templates.
         If using a private Github repo, you may be prompted to enter your Github username and password.
         Please use your personal access token in the password prompt, and refer to
         https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls for information on currently recommended modes of authentication.""",
     ),
     template: str = typer.Option(
         None,
-        help="A specific template name within the template repo to use as template for the Native Apps project. Example: Default is basic if --template-repo is https://github.com/Snowflake-Labs/native-apps-templates.git, and None if any other --template-repo is specified.",
+        help="A specific template name within the template repo to use as template for the Native Apps project. Example: Default is basic if --template-repo is https://github.com/snowflakedb/native-apps-templates.git, and None if any other --template-repo is specified.",
     ),
     **options,
 ) -> CommandResult:
