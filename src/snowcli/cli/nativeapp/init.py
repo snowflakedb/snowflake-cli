@@ -17,7 +17,7 @@ from snowcli.cli.project.definition_manager import DefinitionManager
 
 log = logging.getLogger(__name__)
 
-SNOWFLAKELABS_GITHUB_URL = "https://github.com/snowflakedb/native-apps-templates"
+OFFICIAL_TEMPLATES_GITHUB_URL = "https://github.com/snowflakedb/native-apps-templates"
 BASIC_TEMPLATE = "basic"
 
 # Based on first two rules for unquoted object identifier: https://docs.snowflake.com/en/sql-reference/identifiers-syntax
@@ -197,7 +197,7 @@ def _init_with_url_and_no_template(
             render_snowflake_yml(parent_to_snowflake_yml=target_directory)
 
         # If not an official Snowflake Native App template
-        if git_url != SNOWFLAKELABS_GITHUB_URL:
+        if git_url != OFFICIAL_TEMPLATES_GITHUB_URL:
             validate_and_update_snowflake_yml(target_directory=target_directory)
 
     except Exception as err:
@@ -251,7 +251,7 @@ def _init_with_url_and_template(
             render_snowflake_yml(parent_to_snowflake_yml=path_to_project)
 
         # If not an official Snowflake Native App template
-        if git_url != SNOWFLAKELABS_GITHUB_URL:
+        if git_url != OFFICIAL_TEMPLATES_GITHUB_URL:
             validate_and_update_snowflake_yml(target_directory=path_to_project)
 
     except Exception as err:
@@ -308,6 +308,6 @@ def nativeapp_init(
         _init_with_url_and_template(
             current_working_directory=current_working_directory,
             project_name=name,
-            git_url=git_url if git_url else SNOWFLAKELABS_GITHUB_URL,
+            git_url=git_url if git_url else OFFICIAL_TEMPLATES_GITHUB_URL,
             template=template if template else BASIC_TEMPLATE,
         )
