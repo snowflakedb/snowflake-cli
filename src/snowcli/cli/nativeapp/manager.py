@@ -32,7 +32,7 @@ from snowcli.cli.nativeapp.artifacts import (
     ArtifactMapping,
 )
 from snowcli.cli.connection.util import make_snowsight_url
-from snowcli.cli.stage.manager import StageManager
+from snowcli.cli.object.stage.manager import StageManager
 
 from snowflake.connector.cursor import DictCursor
 
