@@ -72,8 +72,8 @@ class DefinitionManagerTest(TestCase):
             assert str(exception.value) == self.exception_message
 
     @mock.patch("os.path.abspath", return_value="/usr/user1/project")
-    @mock.patch("pathlib.Path.home", return_value="/usr/user1")
-    def test_find_definition_files_reached_home(self, path_home, mock_abs):
+    @mock.patch("pathlib.Path.home", return_value=Path("/usr/user1"))
+    def test_find_definition_files_reached_home(self, mock_abs, path_home):
         with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
             with pytest.raises(Exception) as exception:
                 definition_manager = DefinitionManager("/usr/user1/project")
@@ -88,3 +88,23 @@ class DefinitionManagerTest(TestCase):
                 definition_manager = DefinitionManager()
                 assert definition_manager.project_root is None
             assert str(exception.value) == self.exception_message
+
+    def test_find_project_root(self):
+        with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
+            project_root = DefinitionManager.find_project_root(
+                Path("/hello/world/relative/search/dir")
+            )
+            assert project_root == Path("/hello/world")
+
+    @mock.patch("os.path.abspath", return_value="/usr/user1/project")
+    @mock.patch("pathlib.Path.home", return_value=Path("/usr/user1"))
+    def test_find_project_root_stops_at_home(self, mock_abs, path_home):
+        with mock_is_file_for("/usr/snowflake.yml") as mock_is_file:
+            assert (
+                DefinitionManager.find_project_root(Path("/usr/user1/project")) is None
+            )
+
+    @mock.patch("os.path.abspath", return_value="/tmp")
+    def test_find_project_root_stops_at_fs_root(self, mock_abs):
+        with mock_is_file_for("/hello/work/snowflake.yml") as mock_is_file:
+            assert DefinitionManager.find_project_root(Path("/tmp")) is None
