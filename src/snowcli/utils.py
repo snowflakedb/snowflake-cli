@@ -26,7 +26,7 @@ import typer
 from jinja2 import Environment, FileSystemLoader
 from snowflake.connector.cursor import SnowflakeCursor
 
-from snowcli.cli.object.utils import ObjectType
+
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -621,7 +621,3 @@ class ThreadsafeCounter(ThreadsafeValue[int]):
         return self.increment(-d)
 
 
-def get_plural_name(object_type: ObjectType):
-    exceptions: Dict[str, str] = {}
-
-    return exceptions.get(object_type.value, f"{object_type.value}s")

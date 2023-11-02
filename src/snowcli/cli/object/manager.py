@@ -4,7 +4,7 @@ from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.object.utils import ObjectType
-from snowcli.utils import get_plural_name
+from snowcli.cli.object.utils import get_plural_name
 
 
 class ObjectManager(SqlExecutionMixin):
