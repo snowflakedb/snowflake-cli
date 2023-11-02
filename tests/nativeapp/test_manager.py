@@ -49,6 +49,19 @@ mock_snowflake_yml_file = dedent(
     """
 )
 
+mock_project_definition_override = {
+    "native_app": {
+        "application": {
+            "name": "sample_application_name",
+            "role": "sample_application_role",
+        },
+        "package": {
+            "name": "sample_package_name",
+            "role": "sample_package_role",
+        },
+    }
+}
+
 quoted_override_yml_file = dedent(
     """\
         native_app:
@@ -69,7 +82,7 @@ def test_sync_deploy_root_with_stage(
     mock_local_diff_with_stage, mock_stage_diff, mock_execute, temp_dir, mock_cursor
 ):
     mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
-    mock_diff_result = DiffResult(different="setup.sql")
+    mock_diff_result = DiffResult(different=["setup.sql"])
     mock_stage_diff.return_value = mock_diff_result
     mock_local_diff_with_stage.return_value = None
     current_working_directory = os.getcwd()
@@ -146,11 +159,14 @@ def test_drop_object(mock_execute, temp_dir, mock_cursor):
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role sample_package_role"),
-        mock.call("show application packages like 'sample_package_name'"),
+        mock.call(
+            "show application packages like 'SAMPLE_PACKAGE_NAME'",
+            cursor_class=DictCursor,
+        ),
         mock.call("drop application package sample_package_name"),
         mock.call("use role old_role"),
     ]
-    mock_execute.mock_calls == expected
+    assert mock_execute.mock_calls == expected
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
@@ -181,10 +197,10 @@ def test_drop_object_no_show_object(mock_execute, temp_dir, mock_cursor):
         expected = [
             mock.call("select current_role()", cursor_class=DictCursor),
             mock.call("use role sample_package_role"),
-            mock.call("show application packages like 'sample_package_name'"),
+            mock.call("show application packages like 'SAMPLE_PACKAGE_NAME'"),
             mock.call("use role old_role"),
         ]
-        mock_execute.mock_calls == expected
+        assert mock_execute.mock_calls == expected
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
@@ -231,7 +247,7 @@ def test_drop_object_no_special_comment(mock_execute, temp_dir, mock_cursor):
             mock.call("show application packages like 'sample_package_name'"),
             mock.call("use role old_role"),
         ]
-        mock_execute.mock_calls == expected
+        assert mock_execute.mock_calls == expected
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
@@ -310,7 +326,7 @@ def test_create_dev_app_recreate(mock_execute, temp_dir, mock_cursor):
         None,
     ]
 
-    mock_diff_result = DiffResult(different="setup.sql")
+    mock_diff_result = DiffResult(different=["setup.sql"])
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -387,6 +403,155 @@ def test_create_dev_app_create_new(mock_execute, temp_dir, mock_cursor):
         """
             )
         ],
+    )
+
+    native_app_manager = NativeAppManager()
+    assert not mock_diff_result.has_changes()
+    native_app_manager._create_dev_app(mock_diff_result)
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_create_dev_app_create_new_quoted(mock_execute, temp_dir, mock_cursor):
+    expected = [
+        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("use role app_role"),
+        mock.call("use warehouse app_warehouse"),
+        mock.call("show applications like 'My Application'", cursor_class=DictCursor),
+        mock.call(
+            f"""
+                create application "My Application"
+                    from application package "My Package"
+                    using '@"My Package".app_src.stage'
+                    debug_mode = True
+                    comment = {SPECIAL_COMMENT}
+                """
+        ),
+        mock.call("use role old_role"),
+    ]
+    # 1:1 with expected calls; these are return values
+    mock_execute.side_effect = [
+        mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+        None,
+        None,
+        mock_cursor([], []),
+        None,
+        None,
+    ]
+
+    mock_diff_result = DiffResult()
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[
+            dedent(
+                """\
+            definition_version: 1
+            native_app:
+                name: '"My Native Application"'
+
+                source_stage:
+                    app_src.stage
+
+                artifacts:
+                - setup.sql
+                - app/README.md
+                - src: app/streamlit/*.py
+                dest: ui/
+
+                application:
+                    name: >-
+                        "My Application"
+                    role: app_role
+                    warehouse: app_warehouse
+                    debug: true
+
+                package:
+                    name: >-
+                        "My Package"
+                    role: app_role
+                    scripts:
+                    - shared_content.sql
+        """
+            )
+        ],
+    )
+
+    native_app_manager = NativeAppManager()
+    assert not mock_diff_result.has_changes()
+    native_app_manager._create_dev_app(mock_diff_result)
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_create_dev_app_create_new_quoted_override(mock_execute, temp_dir, mock_cursor):
+    expected = [
+        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("use role app_role"),
+        mock.call("use warehouse app_warehouse"),
+        mock.call("show applications like 'My Application'", cursor_class=DictCursor),
+        mock.call(
+            f"""
+                create application "My Application"
+                    from application package "My Package"
+                    using '@"My Package".app_src.stage'
+                    debug_mode = True
+                    comment = {SPECIAL_COMMENT}
+                """
+        ),
+        mock.call("use role old_role"),
+    ]
+    # 1:1 with expected calls; these are return values
+    mock_execute.side_effect = [
+        mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+        None,
+        None,
+        mock_cursor([], []),
+        None,
+        None,
+    ]
+
+    mock_diff_result = DiffResult()
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[
+            dedent(
+                """\
+            definition_version: 1
+            native_app:
+                name: myapp
+
+                source_stage:
+                    app_src.stage
+
+                artifacts:
+                - setup.sql
+                - app/README.md
+                - src: app/streamlit/*.py
+                dest: ui/
+
+                application:
+                    name: myapp
+                    role: app_role
+                    warehouse: app_warehouse
+                    debug: true
+
+                package:
+                    name: app_pkg
+                    role: app_role
+                    scripts:
+                    - shared_content.sql
+        """
+            )
+        ],
+    )
+    create_named_file(
+        file_name="snowflake.local.yml",
+        dir=current_working_directory,
+        contents=[quoted_override_yml_file],
     )
 
     native_app_manager = NativeAppManager()
