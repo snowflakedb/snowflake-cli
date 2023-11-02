@@ -5,7 +5,8 @@ from tests_integration.snowflake_connector import snowflake_session
 
 
 @pytest.mark.integration
-def test_warehouse_status_query(runner, snowflake_session):
+@pytest.mark.parametrize
+def test_show(runner, snowflake_session):
     result = runner.invoke_integration(
         ["object", "show", "warehouse", "--format", "json"]
     )

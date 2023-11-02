@@ -362,10 +362,7 @@ def test_key_pair_authentication_from_config(mock_load, mock_conn, temp_dir, run
 
         result = runner.invoke_with_config_file(
             tmp_file.name,
-            [   "object",
-                "show",
-                "warehouse"
-            ],
+            ["object", "show", "warehouse"],
         )
 
     assert result.exit_code == 1, result.output
