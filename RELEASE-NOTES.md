@@ -26,7 +26,9 @@
     * `--pages-dir`
 * `init` commands for functions and procedures create new project in new directory instead of using current working directory.
 * Moved `snow stage` from top-level to `snow object` subgroup
-* `snow warehouse status` is now `snow object show warehouses`
+* 
+* `snow warehouse status` is now `snow object show warehouse`
+
 
 ## New additions
 * `--temporary-connection` flag, that allows you to connect, without anything declared in config file
