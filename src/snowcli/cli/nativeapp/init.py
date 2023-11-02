@@ -280,20 +280,6 @@ def _init_from_template(
         raise InitError()
 
 
-def _is_part_of_existing_project(path: Path):
-    project_file = path / "snowflake.yml"
-    if project_file.is_file():
-        # Found a snowflake.yml in an ancestor directory, this path is part of an existing project
-        return True
-
-    parent = path.parent
-    if parent == path:
-        # reached the root without encountering an existing project
-        return False
-
-    return _is_part_of_existing_project(parent)
-
-
 def nativeapp_init(
     path: str,
     name: Optional[str] = None,
@@ -322,7 +308,7 @@ def nativeapp_init(
         raise DirectoryAlreadyExistsError(path)
 
     # Check if the specified path already exists in a native apps project. Nesting projects is not allowed.
-    if _is_part_of_existing_project(project_path.parent):
+    if DefinitionManager.find_project_root(search_path=project_path.parent) is not None:
         raise CannotInitializeAnExistingProjectError()
 
     project_name = (
