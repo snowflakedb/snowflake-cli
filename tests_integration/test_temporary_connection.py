@@ -7,7 +7,7 @@ def test_temporary_connection(runner):
         [
             "object",
             "show",
-            "warehouses",
+            "warehouse",
             "--temporary-connection",
             "--account",
             "test_acoount",
