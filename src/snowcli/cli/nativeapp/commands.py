@@ -42,7 +42,7 @@ def app_init(
     template_repo: str = typer.Option(
         None,
         help=f"""Specifies the git URL to a template repository, which can be a template itself or contain many templates inside it,
-        such as https://github.com/Snowflake-Labs/native-apps-templates.git for all official Snowflake templates.
+        such as https://github.com/snowflakedb/native-apps-templates.git for all official Snowflake templates.
         If using a private Github repo, you might be prompted to enter your Github username and password.
         Please use your personal access token in the password prompt, and refer to
         https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls for information on currently recommended modes of authentication.""",
