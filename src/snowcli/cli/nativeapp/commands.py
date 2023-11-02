@@ -36,29 +36,39 @@ ProjectArgument = typer.Option(
 @with_output
 @global_options
 def app_init(
-    name: str = typer.Argument(
-        ..., help="Name of the Native Apps project to be initiated."
+    path: str = typer.Argument(
+        ...,
+        help=f"""Directory to be initialized with the Native Application project. This directory must not already
+        exist.""",
+    ),
+    name: str = typer.Option(
+        None,
+        help=f"""The name of the native application project to include in snowflake.yml. When not specified, it is
+        generated from the name of the directory. Names are assumed to be unquoted identifiers whenever possible, but
+        can be forced to be quoted by including the surrounding quote characters in the provided value.""",
     ),
     template_repo: str = typer.Option(
         None,
         help=f"""A git URL to a template repository, which can be a template itself or contain many templates inside it.
-        Example: https://github.com/Snowflake-Labs/native-apps-templates.git for all official Snowflake templates.
+        Example: https://github.com/snowflakedb/native-apps-templates.git for all official Snowflake templates.
         If using a private Github repo, you may be prompted to enter your Github username and password.
         Please use your personal access token in the password prompt, and refer to
         https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls for information on currently recommended modes of authentication.""",
     ),
     template: str = typer.Option(
         None,
-        help="A specific template name within the template repo to use as template for the Native Apps project. Example: Default is basic if --template-repo is https://github.com/Snowflake-Labs/native-apps-templates.git, and None if any other --template-repo is specified.",
+        help="A specific template name within the template repo to use as template for the Native Apps project. Example: Default is basic if --template-repo is https://github.com/snowflakedb/native-apps-templates.git, and None if any other --template-repo is specified.",
     ),
     **options,
 ) -> CommandResult:
     """
     Initialize a Native Apps project, optionally with a --template-repo and a --template.
     """
-    nativeapp_init(name, template_repo, template)
+    project = nativeapp_init(
+        path=path, name=name, git_url=template_repo, template=template
+    )
     return MessageResult(
-        f"Native Apps project {name} has been created in your local directory."
+        f"Native Apps project {project.name} has been created at: {path}"
     )
 
 
@@ -94,7 +104,7 @@ def app_run(
     manager.build_bundle()
     manager.app_run()
     return MessageResult(
-        f'Your application ("{manager.app_name}") is now live:\n'
+        f"Your application ({manager.app_name}) is now live:\n"
         + manager.get_snowsight_url()
     )
 

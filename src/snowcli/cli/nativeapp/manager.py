@@ -10,9 +10,9 @@ from snowcli.exception import SnowflakeSQLExecutionError
 import jinja2
 
 from snowcli.cli.project.util import (
-    clean_identifier,
-    unquote_identifier,
     extract_schema,
+    to_identifier,
+    unquote_identifier,
 )
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.project.definition import (
@@ -157,12 +157,16 @@ class NativeAppManager(SqlExecutionMixin):
 
     @cached_property
     def project_identifier(self) -> str:
-        return clean_identifier(self.definition["name"])
+        # name is expected to be a valid Snowflake identifier, but PyYAML
+        # will sometimes strip out double quotes so we try to get them back here.
+        return to_identifier(self.definition["name"])
 
     @cached_property
     def package_name(self) -> str:
-        return self.definition.get("package", {}).get(
-            "name", default_app_package(self.project_identifier)
+        return to_identifier(
+            self.definition.get("package", {}).get(
+                "name", default_app_package(self.project_identifier)
+            )
         )
 
     @cached_property
@@ -171,8 +175,10 @@ class NativeAppManager(SqlExecutionMixin):
 
     @cached_property
     def app_name(self) -> str:
-        return self.definition.get("application", {}).get(
-            "name", default_application(self.project_identifier)
+        return to_identifier(
+            self.definition.get("application", {}).get(
+                "name", default_application(self.project_identifier)
+            )
         )
 
     @cached_property
