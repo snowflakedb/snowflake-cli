@@ -43,13 +43,9 @@ def app_init(
     ),
     name: str = typer.Option(
         None,
-        help=f"""The name of the native application project. This defaults to the name of the directory when it is not
-        specified explicitly. When defaulting the application name, any group of of '.', '-' or ' ' will be replaced
-        with '_'. The name will be treated as a regular unquoted identifier if allowed by Snowflake's identifier
-        syntax, and as a quoted identifier otherwise. The name can be explicitly quoted by including the surrounding
-        double quotes in the name. See https://docs.snowflake.com/en/sql-reference/identifiers-syntax for more details
-        on identifiers. The name of the application can also be changed in the generated snowflake.yml if desired.
-        """,
+        help=f"""The name of the native application project to include in snowflake.yml. When not specified, it is
+        generated from the name of the directory. Names are assumed to be unquoted identifiers whenever possible, but
+        can be forced to be quoted by including the surrounding quote characters in the provided value.""",
     ),
     template_repo: str = typer.Option(
         None,
