@@ -36,8 +36,16 @@ ProjectArgument = typer.Option(
 @with_output
 @global_options
 def app_init(
-    name: str = typer.Argument(
-        ..., help="Name of the Native Apps project to be initiated."
+    path: str = typer.Argument(
+        ...,
+        help=f"""Directory to be initialized with the Native Application project. This directory must not already
+        exist.""",
+    ),
+    name: str = typer.Option(
+        None,
+        help=f"""The name of the native application project to include in snowflake.yml. When not specified, it is
+        generated from the name of the directory. Names are assumed to be unquoted identifiers whenever possible, but
+        can be forced to be quoted by including the surrounding quote characters in the provided value.""",
     ),
     template_repo: str = typer.Option(
         None,
@@ -56,9 +64,11 @@ def app_init(
     """
     Initialize a Native Apps project, optionally with a --template-repo and a --template.
     """
-    nativeapp_init(name, template_repo, template)
+    project = nativeapp_init(
+        path=path, name=name, git_url=template_repo, template=template
+    )
     return MessageResult(
-        f"Native Apps project {name} has been created in your local directory."
+        f"Native Apps project {project.name} has been created at: {path}"
     )
 
 
@@ -94,7 +104,7 @@ def app_run(
     manager.build_bundle()
     manager.app_run()
     return MessageResult(
-        f'Your application ("{manager.app_name}") is now live:\n'
+        f"Your application ({manager.app_name}) is now live:\n"
         + manager.get_snowsight_url()
     )
 

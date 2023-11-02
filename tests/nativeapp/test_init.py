@@ -1,25 +1,115 @@
 from snowcli.cli.nativeapp.init import (
-    is_valid_project_name,
-    render_snowflake_yml,
+    _render_snowflake_yml,
+    _replace_snowflake_yml_name_with_project,
+    _to_yaml_string,
+    _validate_and_update_snowflake_yml,
     nativeapp_init,
-    replace_snowflake_yml_name_with_project,
-    validate_and_update_snowflake_yml,
-    _init_with_url_and_no_template,
-    _init_with_url_and_template,
     CannotInitializeAnExistingProjectError,
     DirectoryAlreadyExistsError,
     InitError,
     ProjectNameInvalidError,
     RenderingFromJinjaError,
+    TemplateNotFoundError,
 )
+
+from pathlib import Path
+import pytest
 from snowcli.exception import MissingConfiguration
 from tests.testing_utils.fixtures import *
 from textwrap import dedent
-from secrets import choice
-from string import ascii_letters
+from unittest import mock
 
+PROJECT_PATH = "demo-na-project"
 PROJECT_NAME = "demo_na_project"
-MAX_ALLOWED_NUM_CHARACTERS = 255
+CUSTOM_GIT_REPO_URL = "https://testing.com/my-native-app-template"
+
+
+SNOWFLAKE_YML = dedent(
+    """\
+    definition_version: 1
+    native_app:
+        name: demo_fixed_na_project
+        artifacts:
+            - app/setup_script.sql
+"""
+)
+
+TEMPLATED_SNOWFLAKE_YML = dedent(
+    """\
+    definition_version: 1
+    native_app:
+        name: {{project_name}}
+        artifacts:
+            - app/setup_script.sql
+"""
+)
+
+# --------------------------------------
+# ----- Test Harness Helpers -------
+# --------------------------------------
+
+
+def fake_clone_template_with_files(files: dict):
+    def fake_clone_mock(url: str, to_path: str, filter: list, depth: int):
+        repo_path = Path(to_path)
+        repo_path.mkdir(parents=True, exist_ok=True)
+
+        # create a fake .git directory
+        git_dir_path = repo_path / ".git"
+        git_dir_path.mkdir()
+
+        for file_name in files:
+            file_contents = files[file_name]
+            create_named_file(
+                file_name=file_name,
+                dir=str(repo_path),
+                contents=[file_contents],
+            )
+
+    return fake_clone_mock
+
+
+def fake_clone_template_with_file(file_name: str, file_contents: str):
+    return fake_clone_template_with_files({file_name: file_contents})
+
+
+def fake_clone_default_repo(url: str, to_path: str, filter: list, depth: int):
+    assert url == "https://github.com/snowflakedb/native-apps-templates"
+    repo_path = Path(to_path)
+    repo_path.mkdir(parents=True, exist_ok=True)
+
+    # create a fake .git directory
+    git_dir_path = repo_path / ".git"
+    git_dir_path.mkdir()
+
+    # create a fake basic template
+    basic_template_dir = repo_path / "basic"
+    basic_template_dir.mkdir()
+    create_named_file(
+        file_name="snowflake.yml.jinja",
+        dir=str(basic_template_dir),
+        contents=[TEMPLATED_SNOWFLAKE_YML],
+    )
+
+    # create a fake python-streamlit template
+    py_template_dir = repo_path / "python-streamlit"
+    py_template_dir.mkdir()
+    create_named_file(
+        file_name="snowflake.yml.jinja",
+        dir=str(py_template_dir),
+        contents=[TEMPLATED_SNOWFLAKE_YML],
+    )
+
+
+def fake_clone_jinja_template_repo(url: str, to_path: str, filter: list, depth: int):
+    fn = fake_clone_template_with_file("snowflake.yml.jinja", TEMPLATED_SNOWFLAKE_YML)
+    return fn(url=url, to_path=to_path, filter=filter, depth=depth)
+
+
+def fake_clone_template_repo(url: str, to_path: str, filter: list, depth: int):
+    fn = fake_clone_template_with_file("snowflake.yml", SNOWFLAKE_YML)
+    return fn(url=url, to_path=to_path, filter=filter, depth=depth)
+
 
 # --------------------------------------
 # ----- Tests for Helper Methods -------
@@ -27,34 +117,23 @@ MAX_ALLOWED_NUM_CHARACTERS = 255
 
 
 @pytest.mark.parametrize(
-    "project_name, expected",
+    "python_string,yaml_string",
     [
-        ("_", True),  # Edge Case: Only One Character from the Allowed List
-        ("A", True),  # Edge Case: Only One Character from the Allowed List
-        ("9", False),  # Edge Case: Only One Character not from the Allowed List
-        ("_aB3_$", True),  # Test all allowed character types
-        ("__", True),  # Test all allowed character types
-        (
-            "".join(choice(ascii_letters) for i in range(MAX_ALLOWED_NUM_CHARACTERS)),
-            True,
-        ),
-        (
-            "".join(
-                choice(ascii_letters) for i in range(MAX_ALLOWED_NUM_CHARACTERS - 2)
-            ).join("*%"),
-            False,
-        ),
+        ("abc", "abc"),
+        ("_aBc_$", "_aBc_$"),
+        ('"abc"', "'\"abc\"'"),
+        ('"abc""def"', '\'"abc""def"\''),
     ],
 )
-def test_is_valid_project_name(project_name, expected):
-    assert is_valid_project_name(project_name) == expected
+def test_to_yaml_string(python_string, yaml_string):
+    assert _to_yaml_string(python_string) == yaml_string
 
 
 def test_render_snowflake_yml(other_directory):
     temp_dir = Path(other_directory)
     create_named_file(
         file_name="snowflake.yml.jinja",
-        dir=temp_dir,
+        dir=str(temp_dir),
         contents=[
             dedent(
                 """\
@@ -69,13 +148,15 @@ def test_render_snowflake_yml(other_directory):
     expected = dedent(
         f"""\
         native_app:
-            name: {temp_dir.name}
+            name: {PROJECT_NAME}
             artifacts:
                 - app/setup_script.sql
 
         """
     )
-    render_snowflake_yml(temp_dir)
+    _render_snowflake_yml(
+        parent_to_snowflake_yml=temp_dir, project_identifier=PROJECT_NAME
+    )
     assert Path.exists(temp_dir / "snowflake.yml")
     assert not Path.exists(temp_dir / "snowflake.yml.jinja")
     assert temp_dir.joinpath("snowflake.yml").read_text() == expected
@@ -85,7 +166,7 @@ def test_render_snowflake_yml_raises_exception(other_directory):
     temp_dir = Path(other_directory)
     create_named_file(
         file_name="snowflake.yml.jinja",
-        dir=temp_dir,
+        dir=str(temp_dir),
         contents=[
             dedent(
                 """\
@@ -98,14 +179,16 @@ def test_render_snowflake_yml_raises_exception(other_directory):
         ],
     )
     with pytest.raises(RenderingFromJinjaError):
-        render_snowflake_yml(temp_dir)
+        _render_snowflake_yml(
+            parent_to_snowflake_yml=temp_dir, project_identifier=PROJECT_NAME
+        )
 
 
 def test_replace_snowflake_yml_name_with_project_populated_file(other_directory):
     temp_dir = Path(other_directory)
     create_named_file(
         file_name="snowflake.yml",
-        dir=temp_dir,
+        dir=str(temp_dir),
         contents=[
             dedent(
                 """\
@@ -120,13 +203,15 @@ def test_replace_snowflake_yml_name_with_project_populated_file(other_directory)
     expected = dedent(
         f"""\
         native_app:
-          name: {temp_dir.name}
+          name: {PROJECT_NAME}
           artifacts:
           - app/setup_script.sql
         """
     )
     path_to_snowflake_yml = temp_dir / "snowflake.yml"
-    replace_snowflake_yml_name_with_project(temp_dir)
+    _replace_snowflake_yml_name_with_project(
+        target_directory=temp_dir, project_identifier=PROJECT_NAME
+    )
     assert Path.exists(path_to_snowflake_yml)
     assert path_to_snowflake_yml.read_text() == expected
 
@@ -135,18 +220,20 @@ def test_replace_snowflake_yml_name_with_project_empty_file(other_directory):
     temp_dir = Path(other_directory)
     create_named_file(
         file_name="snowflake.yml",
-        dir=temp_dir,
+        dir=str(temp_dir),
         contents=[""],
     )
     expected = dedent(
         f"""\
         native_app:
-          name: {temp_dir.name}
+          name: {PROJECT_NAME}
 
         """
     )
     path_to_snowflake_yml = temp_dir / "snowflake.yml"
-    replace_snowflake_yml_name_with_project(temp_dir)
+    _replace_snowflake_yml_name_with_project(
+        target_directory=temp_dir, project_identifier=PROJECT_NAME
+    )
     assert Path.exists(path_to_snowflake_yml)
     assert not path_to_snowflake_yml.read_text().strip()
 
@@ -155,223 +242,194 @@ def test_validate_and_update_snowflake_yml_w_missing_yml(other_directory):
     temp_dir = Path(other_directory)
 
     with pytest.raises(MissingConfiguration):
-        validate_and_update_snowflake_yml(target_directory=temp_dir)
+        _validate_and_update_snowflake_yml(
+            target_directory=temp_dir, project_identifier=PROJECT_NAME
+        )
 
 
-# ------------------------------------------------------
-# ----- Tests for _init_with_url_and_no_template -------
-# ------------------------------------------------------
+# --------------------------------------
+# ----- Tests for nativeapp_init -------
+# --------------------------------------
 
 
-def test_init_with_url_and_no_template_fail_on_validation(temp_dir):
-    # Should fail as git URL provided has no snowflake.yml file to validate
+@mock.patch("git.Repo.clone_from", side_effect=fake_clone_default_repo)
+def test_nativeapp_init_with_default_template_and_repo(
+    mock_clone_from, temp_dir, snapshot
+):
+    project = nativeapp_init(path=PROJECT_PATH, name=PROJECT_NAME)
+
+    project_path = Path(PROJECT_PATH)
+    assert project_path.resolve() == project.path.resolve()
+    assert project_path.exists()
+    assert not Path.exists(project_path / ".git")
+    assert not project_path.joinpath("snowflake.yml.jinja").exists()
+    assert project_path.joinpath("snowflake.yml").read_text() == snapshot
+
+
+@mock.patch("git.Repo.clone_from", side_effect=fake_clone_default_repo)
+def test_nativeapp_init_with_template_name_and_default_repo(
+    mock_clone_from, temp_dir, snapshot
+):
+    project = nativeapp_init(
+        path=PROJECT_PATH, name=PROJECT_NAME, template="python-streamlit"
+    )
+
+    project_path = Path(PROJECT_PATH)
+    assert project_path.resolve() == project.path.resolve()
+    assert project_path.exists()
+    assert not Path.exists(project_path / ".git")
+    assert not project_path.joinpath("snowflake.yml.jinja").exists()
+    assert project_path.joinpath("snowflake.yml").read_text() == snapshot
+
+
+@mock.patch("git.Repo.clone_from", side_effect=fake_clone_template_repo)
+def test_nativeapp_init_with_custom_repo(mock_clone_from, temp_dir, snapshot):
+    project = nativeapp_init(
+        path=PROJECT_PATH, name=PROJECT_NAME, git_url=CUSTOM_GIT_REPO_URL
+    )
+
+    project_path = Path(PROJECT_PATH)
+    assert project_path.resolve() == project.path.resolve()
+    assert project_path.exists()
+    assert not Path.exists(project_path / ".git")
+    assert project_path.joinpath("snowflake.yml").read_text() == snapshot
+
+
+@mock.patch("git.Repo.clone_from", side_effect=fake_clone_jinja_template_repo)
+def test_nativeapp_init_with_custom_repo_expands_jinja_snowflake_yml(
+    mock_clone_from, temp_dir, snapshot
+):
+    project = nativeapp_init(
+        path=PROJECT_PATH, name=PROJECT_NAME, git_url=CUSTOM_GIT_REPO_URL
+    )
+
+    project_path = Path(PROJECT_PATH)
+    assert project_path.resolve() == project.path.resolve()
+    assert project_path.exists()
+    assert not Path.exists(project_path / ".git")
+    assert not project_path.joinpath("snowflake.yml.jinja").exists()
+    assert project_path.joinpath("snowflake.yml").read_text() == snapshot
+
+
+@mock.patch("git.Repo.clone_from", side_effect=fake_clone_template_with_files({}))
+def test_nativeapp_init_with_custom_repo_missing_snowflake_yml(
+    mock_clone_from, temp_dir
+):
     with pytest.raises(InitError):
-        _init_with_url_and_no_template(
-            current_working_directory=Path.cwd(),
-            project_name="new_project",
-            git_url="https://github.com/Snowflake-Labs/sf-samples",
-        )
-    assert not Path.exists(Path.cwd() / "new_project")
-
-
-@mock.patch("git.Repo.clone_from", side_effect=None)
-def test_init_with_url_and_no_template_w_native_app_url(mock_clone_from, temp_dir):
-    # Prepare fake repository
-    fake_repo = "fake_repo"
-    current_working_directory = Path.cwd()
-    current_working_directory.joinpath(fake_repo, ".git").mkdir(
-        parents=True, exist_ok=False
-    )
-    create_named_file(
-        file_name="snowflake.yml",
-        dir=current_working_directory / fake_repo,
-        contents=[
-            dedent(
-                """\
-            definition_version: 1
-            native_app:
-                name: minimal
-
-                artifacts:
-                    - setup.sql
-                    - README.md
-            """
-            )
-        ],
-    )
-
-    # Now mock the mkdir call so that a new project is not created, and the fake repo above is used instead
-    with mock.patch("pathlib.Path.mkdir") as mock_mkdir:
-        mock_mkdir.return_value = None
-        mock_mkdir.side_effect = None
-
-        _init_with_url_and_no_template(
-            current_working_directory=Path.cwd(),
-            project_name=fake_repo,
-            git_url="https://github.com/snowflakedb/native-apps-templates",
+        nativeapp_init(
+            path=PROJECT_PATH, name=PROJECT_NAME, git_url=CUSTOM_GIT_REPO_URL
         )
 
-        dest = Path.cwd() / fake_repo
-        assert dest.exists()
-        assert not Path.exists(dest / ".git")
 
-
-@mock.patch("git.Repo.clone_from", side_effect=None)
-def test_init_with_url_and_no_template_w_random_url(mock_clone_from, temp_dir):
-    # Prepare fake repository
-    fake_repo = "fake_repo"
-    current_working_directory = Path.cwd()
-    current_working_directory.joinpath(fake_repo, ".git").mkdir(
-        parents=True, exist_ok=False
-    )
-    create_named_file(
-        file_name="snowflake.yml",
-        dir=current_working_directory / fake_repo,
-        contents=[
-            dedent(
-                """\
-            definition_version: 1
-            native_app:
-                name: minimal
-
-                artifacts:
-                    - setup.sql
-                    - README.md
-            """
-            )
-        ],
-    )
-
-    expected = dedent(
-        f"""\
-        definition_version: 1
-        native_app:
-          name: fake_repo
-          artifacts:
-          - setup.sql
-          - README.md
-        """
-    )
-
-    # Now mock the mkdir call so that a new project is not created, and the fake repo above is used instead
-    with mock.patch("pathlib.Path.mkdir") as mock_mkdir:
-        mock_mkdir.return_value = None
-        mock_mkdir.side_effect = None
-
-        _init_with_url_and_no_template(
-            current_working_directory=Path.cwd(),
-            project_name=fake_repo,
-            git_url="https://github.com/Snowflake-Labs/sf-samples",
-        )
-
-        dest = Path.cwd() / fake_repo
-        assert dest.exists()
-        assert not Path.exists(dest / ".git")
-        assert dest.joinpath("snowflake.yml").read_text() == expected
-
-
-# ---------------------------------------------------
-# ----- Tests for _init_with_url_and_template -------
-# ---------------------------------------------------
-
-
-@mock.patch("git.Repo.clone_from", side_effect=None)
-@mock.patch("snowcli.cli.nativeapp.init.move", side_effect=None)
-@mock.patch("os.getenv", return_value="pytest_user")
-def test_init_with_url_and_template_w_native_app_url_and_template(
-    mock_clone_from, mock_move, mock_getenv, temp_dir
+@mock.patch(
+    "git.Repo.clone_from",
+    side_effect=fake_clone_template_with_file("snowflake.yml.jinja", "{{invalid}}"),
+)
+def test_nativeapp_init_with_custom_repo_invalid_snowflake_yml(
+    mock_clone_from, temp_dir
 ):
-    # Prepare fake repository
-    fake_repo = "fake_repo"
-    current_working_directory = Path.cwd()
-    current_working_directory.joinpath(fake_repo, "app").mkdir(
-        parents=True, exist_ok=False
-    )
-    create_named_file(
-        file_name="snowflake.yml.jinja",
-        dir=current_working_directory / fake_repo,
-        contents=[
-            dedent(
-                """\
-            definition_version: 1
-            native_app:
-                name: {{project_name}}
-
-                artifacts:
-                    - setup.sql
-                    - README.md
-            """
-            )
-        ],
-    )
-
-    expected_snowflake_yml = dedent(
-        """\
-            definition_version: 1
-            native_app:
-                name: fake_repo
-            
-                artifacts:
-                    - setup.sql
-                    - README.md
-            
-            """
-    )
-
-    _init_with_url_and_template(
-        current_working_directory=Path.cwd(),
-        project_name=fake_repo,
-        git_url="https://github.com/snowflakedb/native-apps-templates",
-        template="native-apps-basic",
-    )
-
-    fake_repo_path = current_working_directory / fake_repo
-    assert fake_repo_path.exists()
-    assert not Path.exists(fake_repo_path / ".git")
-    assert (
-        fake_repo_path.joinpath("snowflake.yml").read_text() == expected_snowflake_yml
-    )
+    with pytest.raises(InitError):
+        nativeapp_init(
+            path=PROJECT_PATH, name=PROJECT_NAME, git_url=CUSTOM_GIT_REPO_URL
+        )
 
 
-@mock.patch("git.Repo.clone_from", side_effect=None)
-@mock.patch("snowcli.cli.nativeapp.init.move", side_effect=None)
-@mock.patch("os.getenv", return_value="pytest_user")
-def test_init_with_url_and_template_w_random_url_and_template(
-    mock_clone_from, mock_move, mock_getenv, temp_dir, snapshot
+@mock.patch("git.Repo.clone_from", side_effect=fake_clone_default_repo)
+def test_nativeapp_init_with_unknown_template_name(mock_clone_from, temp_dir):
+    with pytest.raises(TemplateNotFoundError):
+        nativeapp_init(path=PROJECT_PATH, name=PROJECT_NAME, template="does-not-exist")
+
+
+@mock.patch("snowcli.cli.nativeapp.init._init_from_template", return_value=None)
+def test_init_expands_user(mock_init_from_template):
+    expanded_project_path = Path("/home/testuser/my_app")
+    with mock.patch("pathlib.Path.expanduser", return_value=expanded_project_path) as m:
+        project = nativeapp_init(path="~testuser/my_app")
+    assert project.name == "my_app"
+    assert project.path == expanded_project_path.resolve()
+
+
+@mock.patch("snowcli.cli.nativeapp.init._init_from_template", return_value=None)
+def test_init_fails_on_invalid_path(mock_init_from_template):
+    with pytest.raises(InitError):
+        with mock.patch("pathlib.Path.expanduser", side_effect=RuntimeError()) as m:
+            project = nativeapp_init(path="~testuser/my_app")
+
+
+@mock.patch("git.Repo.clone_from", side_effect=fake_clone_default_repo)
+def test_nativeapp_init_with_explicit_quoted_name(mock_clone_from, temp_dir, snapshot):
+    project = nativeapp_init(path=PROJECT_PATH, name='"double quoted"')
+
+    project_path = Path(PROJECT_PATH)
+    assert project_path.resolve() == project.path.resolve()
+    assert project_path.exists()
+    assert not Path.exists(project_path / ".git")
+    assert not project_path.joinpath("snowflake.yml.jinja").exists()
+    assert project_path.joinpath("snowflake.yml").read_text() == snapshot
+
+
+@mock.patch("git.Repo.clone_from", side_effect=fake_clone_default_repo)
+def test_nativeapp_init_with_explicit_case_sensitive_name(
+    mock_clone_from, temp_dir, snapshot
 ):
-    # Prepare fake repository
-    fake_repo = "fake_repo"
-    current_working_directory = Path.cwd()
-    current_working_directory.joinpath(fake_repo).mkdir(parents=True, exist_ok=False)
-    create_named_file(
-        file_name="snowflake.yml",
-        dir=current_working_directory / fake_repo,
-        contents=[
-            dedent(
-                """\
-            definition_version: 1
-            native_app:
-                name: <old_name>
+    project = nativeapp_init(path=PROJECT_PATH, name='"DemoNAProject"')
 
-                artifacts:
-                    - setup.sql
-                    - README.md
-            """
-            )
-        ],
+    project_path = Path(PROJECT_PATH)
+    assert project_path.resolve() == project.path.resolve()
+    assert project_path.exists()
+    assert not Path.exists(project_path / ".git")
+    assert not project_path.joinpath("snowflake.yml.jinja").exists()
+    assert project_path.joinpath("snowflake.yml").read_text() == snapshot
+
+
+@mock.patch("git.Repo.clone_from", side_effect=fake_clone_template_repo)
+def test_nativeapp_init_with_explicit_case_sensitive_name_whole_repo(
+    mock_clone_from, temp_dir, snapshot
+):
+    project = nativeapp_init(
+        path=PROJECT_PATH, name='"DemoNAProject"', git_url=CUSTOM_GIT_REPO_URL
     )
 
-    _init_with_url_and_template(
-        current_working_directory=Path.cwd(),
-        project_name=fake_repo,
-        git_url="https://github.com/Snowflake-Labs/sf-samples",
-        template="samples",
+    project_path = Path(PROJECT_PATH)
+    assert project_path.resolve() == project.path.resolve()
+    assert project_path.exists()
+    assert not Path.exists(project_path / ".git")
+    assert project_path.joinpath("snowflake.yml").read_text() == snapshot
+
+
+@mock.patch("git.Repo.clone_from", side_effect=fake_clone_template_repo)
+def test_nativeapp_init_with_implicit_double_quoted_name(
+    mock_clone_from, temp_dir, snapshot
+):
+    project = nativeapp_init(
+        path=PROJECT_PATH, name="demo na app", git_url=CUSTOM_GIT_REPO_URL
     )
 
-    fake_repo_path = current_working_directory / fake_repo
-    assert fake_repo_path.exists()
-    assert not Path.exists(fake_repo_path / ".git")
-    assert fake_repo_path.joinpath("snowflake.yml").read_text() == snapshot
+    project_path = Path(PROJECT_PATH)
+    assert project_path.resolve() == project.path.resolve()
+    assert project_path.exists()
+    assert not Path.exists(project_path / ".git")
+    assert project_path.joinpath("snowflake.yml").read_text() == snapshot
+
+
+@mock.patch("git.Repo.clone_from", side_effect=fake_clone_template_repo)
+def test_nativeapp_init_with_explicit_unterminated_name(
+    mock_clone_from, temp_dir, snapshot
+):
+    with pytest.raises(ProjectNameInvalidError):
+        nativeapp_init(
+            path=PROJECT_PATH, name='"demo na app', git_url=CUSTOM_GIT_REPO_URL
+        )
+
+
+@mock.patch("git.Repo.clone_from", side_effect=fake_clone_template_repo)
+def test_nativeapp_init_with_explicit_trailing_quote_in_name(
+    mock_clone_from, temp_dir, snapshot
+):
+    with pytest.raises(ProjectNameInvalidError):
+        nativeapp_init(
+            path=PROJECT_PATH, name='demo na app"', git_url=CUSTOM_GIT_REPO_URL
+        )
 
 
 # --------------------------------------
@@ -380,18 +438,19 @@ def test_init_with_url_and_template_w_random_url_and_template(
 
 
 @mock.patch("pathlib.Path.is_file", return_value=True)
-def test_init_w_existing_yml(mock_path_is_file):
+@mock.patch("pathlib.Path.exists", return_value=False)
+def test_init_w_existing_yml(mock_path_is_file, mock_path_exists):
     with pytest.raises(CannotInitializeAnExistingProjectError):
-        nativeapp_init(name=PROJECT_NAME)
+        nativeapp_init(path=PROJECT_PATH)
 
 
 @mock.patch("pathlib.Path.exists", return_value=True)
 def test_init_w_existing_directory(mock_path_exists):
     with pytest.raises(DirectoryAlreadyExistsError):
-        nativeapp_init(name=PROJECT_NAME)
+        nativeapp_init(path=PROJECT_PATH)
 
 
-@mock.patch("snowcli.cli.nativeapp.init.fullmatch", return_value=None)
-def test_init_w_invalid_project_name(mock_fullmatch):
+@mock.patch("pathlib.Path.exists", return_value=False)
+def test_init_w_invalid_project_name(mock_path_exists):
     with pytest.raises(ProjectNameInvalidError):
-        nativeapp_init(PROJECT_NAME)
+        nativeapp_init(path=PROJECT_PATH, name="")  # empty name is rejected
