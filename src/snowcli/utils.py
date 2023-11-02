@@ -27,7 +27,6 @@ from jinja2 import Environment, FileSystemLoader
 from snowflake.connector.cursor import SnowflakeCursor
 
 
-
 warnings.filterwarnings("ignore", category=UserWarning)
 
 YesNoAskOptions = ["yes", "no", "ask"]
@@ -619,5 +618,3 @@ class ThreadsafeCounter(ThreadsafeValue[int]):
 
     def decrement(self, d=1) -> int:
         return self.increment(-d)
-
-
