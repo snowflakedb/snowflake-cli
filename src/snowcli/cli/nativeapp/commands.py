@@ -57,7 +57,7 @@ def app_init(
     ),
     template: str = typer.Option(
         None,
-        help="A specific template name within the template repo to use as template for the Native Apps project. Example: Default is basic if --template-repo is https://github.com/snowflakedb/native-apps-templates.git, and None if any other --template-repo is specified.",
+        help="A specific template name within the template repo to use as template for the Native Apps project. Example: Default is basic if `--template-repo` is https://github.com/snowflakedb/native-apps-templates.git, and None if any other --template-repo is specified.",
     ),
     **options,
 ) -> CommandResult:
@@ -98,7 +98,7 @@ def app_run(
     Creates an application package in your Snowflake account, uploads code files to its stage,
     then creates (or upgrades) a development-mode instance of that application. As a note, this
     command does not accept role or warehouse overrides to your `config.toml` file, because your
-    native app definition in `snowflake.yml/snowflake.local.yml` is used for any overrides.
+    native app definition in `snowflake.yml` or `snowflake.local.yml` is used for any overrides.
     """
     manager = NativeAppManager(project_path)
     manager.build_bundle()
