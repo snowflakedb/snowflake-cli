@@ -63,7 +63,7 @@ def append_to_identifier(identifier: str, suffix: str) -> str:
     if is_valid_unquoted_identifier(identifier):
         return to_identifier(f"{identifier}{suffix}")
     else:
-        # the identifier is quotes, so insert the suffix within the quotes
+        # the identifier is quoted, so insert the suffix within the quotes
         unquoted = identifier[1:-1]
         return f'"{unquoted}{suffix}"'
 

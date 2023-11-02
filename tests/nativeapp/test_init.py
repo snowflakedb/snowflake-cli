@@ -117,7 +117,7 @@ def fake_clone_template_repo(url: str, to_path: str, filter: list, depth: int):
 
 
 @pytest.mark.parametrize(
-    "s,expected",
+    "python_string,yaml_string",
     [
         ("abc", "abc"),
         ("_aBc_$", "_aBc_$"),
@@ -125,8 +125,8 @@ def fake_clone_template_repo(url: str, to_path: str, filter: list, depth: int):
         ('"abc""def"', '\'"abc""def"\''),
     ],
 )
-def test_to_yaml_string(s, expected):
-    assert _to_yaml_string(s) == expected
+def test_to_yaml_string(python_string, yaml_string):
+    assert _to_yaml_string(python_string) == yaml_string
 
 
 def test_render_snowflake_yml(other_directory):
