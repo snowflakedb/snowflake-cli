@@ -1,7 +1,4 @@
-import os
-import pytest
 from textwrap import dedent
-from unittest import mock
 
 from snowcli.cli.nativeapp.manager import (
     CouldNotDropObjectError,
@@ -11,7 +8,7 @@ from snowcli.cli.nativeapp.manager import (
     SPECIAL_COMMENT,
     LOOSE_FILES_MAGIC_VERSION,
 )
-from snowcli.cli.stage.diff import DiffResult
+from snowcli.cli.object.stage.diff import DiffResult
 from snowflake.connector.cursor import DictCursor
 
 

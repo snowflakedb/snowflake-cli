@@ -2,18 +2,18 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from snowcli.cli.stage.manager import StageManager
+from snowcli.cli.object.stage.manager import StageManager
 from snowflake.connector.cursor import DictCursor
 
 from tests.testing_utils.fixtures import *
 
-STAGE_MANAGER = "snowcli.cli.stage.manager.StageManager"
+STAGE_MANAGER = "snowcli.cli.object.stage.manager.StageManager"
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_list(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke(["stage", "list", "-c", "empty", "stageName"])
+    result = runner.invoke(["object", "stage", "list", "-c", "empty", "stageName"])
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with("ls @stageName")
 
@@ -21,7 +21,7 @@ def test_stage_list(mock_execute, runner, mock_cursor):
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_list_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke(["stage", "list", "-c", "empty", '"stage name"'])
+    result = runner.invoke(["object", "stage", "list", "-c", "empty", '"stage name"'])
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with("ls '@\"stage name\"'")
 
@@ -31,7 +31,7 @@ def test_stage_get(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
-            ["stage", "get", "-c", "empty", "stageName", str(tmp_dir)]
+            ["object", "stage", "get", "-c", "empty", "stageName", str(tmp_dir)]
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
@@ -44,7 +44,7 @@ def test_stage_get_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
-            ["stage", "get", "-c", "empty", '"stage name"', str(tmp_dir)]
+            ["object", "stage", "get", "-c", "empty", '"stage name"', str(tmp_dir)]
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
@@ -55,7 +55,7 @@ def test_stage_get_quoted(mock_execute, runner, mock_cursor):
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_get_default_path(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke(["stage", "get", "-c", "empty", "stageName"])
+    result = runner.invoke(["object", "stage", "get", "-c", "empty", "stageName"])
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
         f'get @stageName file://{Path(".").resolve()}/'
@@ -68,6 +68,7 @@ def test_stage_put(mock_execute, runner, mock_cursor):
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
             [
+                "object",
                 "stage",
                 "put",
                 "-c",
@@ -91,6 +92,7 @@ def test_stage_put_quoted(mock_execute, runner, mock_cursor):
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
             [
+                "object",
                 "stage",
                 "put",
                 "-c",
@@ -114,6 +116,7 @@ def test_stage_put_star(mock_execute, runner, mock_cursor):
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
             [
+                "object",
                 "stage",
                 "put",
                 "-c",
@@ -134,7 +137,7 @@ def test_stage_put_star(mock_execute, runner, mock_cursor):
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_create(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke(["stage", "create", "-c", "empty", "stageName"])
+    result = runner.invoke(["object", "stage", "create", "-c", "empty", "stageName"])
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with("create stage if not exists stageName")
 
@@ -142,7 +145,7 @@ def test_stage_create(mock_execute, runner, mock_cursor):
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_create_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke(["stage", "create", "-c", "empty", '"stage name"'])
+    result = runner.invoke(["object", "stage", "create", "-c", "empty", '"stage name"'])
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with('create stage if not exists "stage name"')
 
@@ -150,7 +153,7 @@ def test_stage_create_quoted(mock_execute, runner, mock_cursor):
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_drop(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke(["stage", "drop", "-c", "empty", "stageName"])
+    result = runner.invoke(["object", "stage", "drop", "-c", "empty", "stageName"])
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with("drop stage stageName")
 
@@ -158,7 +161,7 @@ def test_stage_drop(mock_execute, runner, mock_cursor):
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_drop_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke(["stage", "drop", "-c", "empty", '"stage name"'])
+    result = runner.invoke(["object", "stage", "drop", "-c", "empty", '"stage name"'])
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with('drop stage "stage name"')
 
@@ -167,7 +170,7 @@ def test_stage_drop_quoted(mock_execute, runner, mock_cursor):
 def test_stage_remove(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(
-        ["stage", "remove", "-c", "empty", "stageName", "my/file/foo.csv"]
+        ["object", "stage", "remove", "-c", "empty", "stageName", "my/file/foo.csv"]
     )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with("remove @stageName/my/file/foo.csv")
@@ -177,7 +180,7 @@ def test_stage_remove(mock_execute, runner, mock_cursor):
 def test_stage_remove_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(
-        ["stage", "remove", "-c", "empty", '"stage name"', "my/file/foo.csv"]
+        ["object", "stage", "remove", "-c", "empty", '"stage name"', "my/file/foo.csv"]
     )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with("remove '@\"stage name\"/my/file/foo.csv'")

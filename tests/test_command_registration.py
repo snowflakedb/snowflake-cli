@@ -24,7 +24,7 @@ def test_multiple_use_of_test_runner(runner):
         assert result.exit_code == 0
         assert result.output.count("Manages connections to Snowflake") == 1
         assert result.output.count("Manages Streamlit in Snowflake") == 1
-        assert result.output.count("Manages warehouses") == 1
+        assert result.output.count("Manages Snowflake objects") == 1
         assert result.output.count("Executes Snowflake query") == 1
 
     assert_result_is_correct(runner.invoke(["-h"]))

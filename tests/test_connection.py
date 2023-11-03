@@ -224,8 +224,9 @@ def test_temporary_connection(mock_conn, option, runner):
     mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
     result = runner.invoke(
         [
+            "object",
+            "show",
             "warehouse",
-            "status",
             option,
             "--account",
             "test_account",
@@ -244,7 +245,7 @@ def test_temporary_connection(mock_conn, option, runner):
 
     assert result.exit_code == 1
     mock_conn.assert_called_once_with(
-        application="SNOWCLI.WAREHOUSE.STATUS",
+        application="SNOWCLI.OBJECT.SHOW",
         account="test_account",
         user="snowcli_test",
         password="top_secret",
@@ -298,8 +299,9 @@ def test_key_pair_authentication(mock_conn, runner):
         mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
         result = runner.invoke(
             [
+                "object",
+                "show",
                 "warehouse",
-                "status",
                 "--temporary-connection",
                 "--account",
                 "test_account",
@@ -320,7 +322,7 @@ def test_key_pair_authentication(mock_conn, runner):
 
     assert result.exit_code == 1
     mock_conn.assert_called_once_with(
-        application="SNOWCLI.WAREHOUSE.STATUS",
+        application="SNOWCLI.OBJECT.SHOW",
         private_key=private_key,
         account="test_account",
         user="snowcli_test",
@@ -360,16 +362,13 @@ def test_key_pair_authentication_from_config(mock_load, mock_conn, temp_dir, run
 
         result = runner.invoke_with_config_file(
             tmp_file.name,
-            [
-                "warehouse",
-                "status",
-            ],
+            ["object", "show", "warehouse"],
         )
 
     assert result.exit_code == 1, result.output
     mock_load.assert_called_once_with("~/sf_private_key.p8")
     mock_conn.assert_called_once_with(
-        application="SNOWCLI.WAREHOUSE.STATUS",
+        application="SNOWCLI.OBJECT.SHOW",
         account="my_account",
         user="jdoe",
         authenticator="SNOWFLAKE_JWT",

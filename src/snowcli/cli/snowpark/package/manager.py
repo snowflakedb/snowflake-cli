@@ -18,7 +18,7 @@ from snowcli.cli.snowpark.package.utils import (
     CreatedSuccessfully,
     CreationError,
 )
-from snowcli.cli.stage.manager import StageManager
+from snowcli.cli.object.stage.manager import StageManager
 from snowcli.utils import SplitRequirements
 
 log = logging.getLogger(__name__)
