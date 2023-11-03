@@ -33,7 +33,7 @@ databases, tables, warehouses, functions, procedures, roles, schemas, services, 
 
 ## New additions
 * `--temporary-connection` flag, that allows you to connect, without anything declared in config file
-* Added project definition for Streamlitpytest
+* Added project definition for Streamlit
 
 ## Fixes and improvements
 * Resolved `-a` option conflict in `snow snowpark procedure update` command by removing short version of `--replace-always` option (it was conflicting with short version of `--check-anaconda-for-pypi-deps`).
