@@ -26,8 +26,9 @@
     * `--pages-dir`
 * `init` commands for functions and procedures create new project in new directory instead of using current working directory.
 * Moved `snow stage` from top-level to `snow object` subgroup
-* 
 * `snow warehouse status` is now `snow object show warehouse`
+* Introduced `snow object` group with `show`, `describe` and `drop` commands for: compute pools,
+databases, tables, warehouses, functions, procedures, roles, schemas, services, jobs and streamlits
 
 
 ## New additions
