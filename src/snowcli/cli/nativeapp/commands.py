@@ -49,20 +49,20 @@ def app_init(
     ),
     template_repo: str = typer.Option(
         None,
-        help=f"""A git URL to a template repository, which can be a template itself or contain many templates inside it.
-        Example: https://github.com/snowflakedb/native-apps-templates.git for all official Snowflake templates.
-        If using a private Github repo, you may be prompted to enter your Github username and password.
+        help=f"""Specifies the git URL to a template repository, which can be a template itself or contain many templates inside it,
+        such as https://github.com/snowflakedb/native-apps-templates.git for all official Snowflake templates.
+        If using a private Github repo, you might be prompted to enter your Github username and password.
         Please use your personal access token in the password prompt, and refer to
         https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls for information on currently recommended modes of authentication.""",
     ),
     template: str = typer.Option(
         None,
-        help="A specific template name within the template repo to use as template for the Native Apps project. Example: Default is basic if --template-repo is https://github.com/snowflakedb/native-apps-templates.git, and None if any other --template-repo is specified.",
+        help="A specific template name within the template repo to use as template for the Native Apps project. Example: Default is basic if `--template-repo` is https://github.com/snowflakedb/native-apps-templates.git, and None if any other --template-repo is specified.",
     ),
     **options,
 ) -> CommandResult:
     """
-    Initialize a Native Apps project, optionally with a --template-repo and a --template.
+    Initializes a Native Apps project.
     """
     project = nativeapp_init(
         path=path, name=name, git_url=template_repo, template=template
@@ -97,8 +97,8 @@ def app_run(
     """
     Creates an application package in your Snowflake account, uploads code files to its stage,
     then creates (or upgrades) a development-mode instance of that application. As a note, this
-    command does not accept role or warehouse overrides to your config.toml file, because your
-    native app definition in snowflake.yml/snowflake.local.yml is used for any overrides.
+    command does not accept role or warehouse overrides to your `config.toml` file, because your
+    native app definition in `snowflake.yml` or `snowflake.local.yml` is used for any overrides.
     """
     manager = NativeAppManager(project_path)
     manager.build_bundle()
@@ -139,8 +139,8 @@ def app_teardown(
 ) -> CommandResult:
     """
     Drops an application and an application package as defined in the project definition file.
-    As a note, this command does not accept role or warehouse overrides to your config.toml file,
-    because your native app definition in snowflake.yml/snowflake.local.yml is used for any overrides.
+    As a note, this command does not accept role or warehouse overrides to your `config.toml` file,
+    because your native app definition in `snowflake.yml/snowflake.local.yml` is used for any overrides.
     """
     manager = NativeAppManager(project_path)
     manager.teardown()
