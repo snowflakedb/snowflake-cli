@@ -33,7 +33,7 @@ from snowcli.cli.snowpark_shared import (
     snowpark_package,
     ReturnsOption,
 )
-from snowcli.cli.stage.manager import StageManager
+from snowcli.cli.object.stage.manager import StageManager
 from snowcli.exception import ObjectAlreadyExistsError
 from snowcli.output.decorators import with_output
 from snowcli.output.types import (

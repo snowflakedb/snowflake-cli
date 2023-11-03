@@ -1,0 +1,106 @@
+# serializer version: 1
+# name: test_describe[table-example]
+  '''
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
+  
+  '''
+# ---
+# name: test_describe[warehouse-xsmall]
+  '''
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
+  
+  '''
+# ---
+# name: test_drop[database-important_prod_db]
+  '''
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | i      |
+  +--------+
+  
+  '''
+# ---
+# name: test_drop[table-example]
+  '''
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | e      |
+  +--------+
+  
+  '''
+# ---
+# name: test_drop[warehouse-xsmall]
+  '''
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | x      |
+  +--------+
+  
+  '''
+# ---
+# name: test_show[compute pool]
+  '''
+  SELECT A MOCK QUERY
+  +------------------+
+  | name | state     |
+  |------+-----------|
+  | foo  | suspended |
+  | bar  | running   |
+  +------------------+
+  
+  '''
+# ---
+# name: test_show[database]
+  '''
+  SELECT A MOCK QUERY
+  +------------------+
+  | name | state     |
+  |------+-----------|
+  | foo  | suspended |
+  | bar  | running   |
+  +------------------+
+  
+  '''
+# ---
+# name: test_show[streamlit]
+  '''
+  SELECT A MOCK QUERY
+  +------------------+
+  | name | state     |
+  |------+-----------|
+  | foo  | suspended |
+  | bar  | running   |
+  +------------------+
+  
+  '''
+# ---
+# name: test_show[warehouse]
+  '''
+  SELECT A MOCK QUERY
+  +------------------+
+  | name | state     |
+  |------+-----------|
+  | foo  | suspended |
+  | bar  | running   |
+  +------------------+
+  
+  '''
+# ---

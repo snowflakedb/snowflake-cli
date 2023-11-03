@@ -5,8 +5,9 @@ import pytest
 def test_temporary_connection(runner):
     result = runner._invoke(
         [
+            "object",
+            "show",
             "warehouse",
-            "status",
             "--temporary-connection",
             "--account",
             "test_acoount",

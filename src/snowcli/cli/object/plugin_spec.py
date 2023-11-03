@@ -4,7 +4,7 @@ from snowcli.api.plugin.command import (
     SNOWCLI_ROOT_COMMAND_PATH,
     CommandType,
 )
-from snowcli.cli.stage import commands
+from snowcli.cli.object.commands import app as object_app
 
 
 @plugin_hook_impl
@@ -12,5 +12,5 @@ def command_spec():
     return CommandSpec(
         parent_command_path=SNOWCLI_ROOT_COMMAND_PATH,
         command_type=CommandType.COMMAND_GROUP,
-        typer_instance=commands.app,
+        typer_instance=object_app,
     )

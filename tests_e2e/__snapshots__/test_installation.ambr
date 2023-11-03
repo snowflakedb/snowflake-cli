@@ -43,12 +43,11 @@
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
   │ app            Manage Native Apps in Snowflake                               │
   │ connection     Manages connections to Snowflake.                             │
+  │ object         Manages Snowflake objects like warehouses and stages          │
   │ registry       Manages Snowpark registries.                                  │
   │ snowpark       Manages functions, procedures, and Snowpark objects.          │
   │ sql            Executes Snowflake query.                                     │
-  │ stage          Manages stages.                                               │
   │ streamlit      Manages Streamlit in Snowflake.                               │
-  │ warehouse      Manages warehouses.                                           │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   

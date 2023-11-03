@@ -15,7 +15,7 @@ MOCK_CONNECTION = {
     "database": "databaseValue",
     "schema": "schemaValue",
     "role": "roleValue",
-    "warehouse": "warehouseValue",
+    "show": "warehouseValue",
 }
 
 
@@ -23,7 +23,7 @@ MOCK_CONNECTION = {
     "cmd,expected",
     [
         ("snow sql", "SNOWCLI.SQL"),
-        ("snow warehouse status", "SNOWCLI.WAREHOUSE.STATUS"),
+        ("snow show warehouses", "SNOWCLI.SHOW.WAREHOUSES"),
     ],
 )
 @mock.patch("snowcli.snow_connector.cli_config")
