@@ -5,7 +5,7 @@ import typer
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.object.manager import ObjectManager
-from snowcli.cli.object.utils import ObjectType
+from snowcli.cli.constants import ObjectType
 from snowcli.output.decorators import with_output
 from snowcli.output.types import QueryResult
 
@@ -36,7 +36,7 @@ def show(
     like: str = LikeOption,
     **options,
 ):
-    "Lists all avaiable Snowflake objects of given type"
+    "Lists all available Snowflake objects of given type"
     return QueryResult(ObjectManager().show(object_type, like))
 
 

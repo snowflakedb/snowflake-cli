@@ -3,7 +3,7 @@ from __future__ import annotations
 from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
-from snowcli.cli.object.utils import ObjectType
+from snowcli.cli.constants import ObjectType
 from snowcli.cli.object.utils import get_plural_name
 
 
