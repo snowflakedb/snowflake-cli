@@ -9,13 +9,18 @@ from snowcli.cli.nativeapp.manager import (
     LOOSE_FILES_MAGIC_VERSION,
 )
 from snowcli.cli.object.stage.diff import DiffResult
+from snowcli.exception import MissingWarehouseError
 from snowflake.connector.cursor import DictCursor
+from snowflake.connector import ProgrammingError
 
 
 from tests.testing_utils.fixtures import *
 
 NATIVEAPP_MODULE = "snowcli.cli.nativeapp.manager"
 NATIVEAPP_MANAGER_EXECUTE = f"{NATIVEAPP_MODULE}.NativeAppManager._execute_query"
+CLI_GET_CONNECTION = (
+    "snowcli.cli.common.sql_execution.snow_cli_global_context_manager.get_connection"
+)
 
 mock_snowflake_yml_file = dedent(
     """\
@@ -248,7 +253,9 @@ def test_drop_object_no_special_comment(mock_execute, temp_dir, mock_cursor):
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-def test_create_dev_app_noop(mock_execute, temp_dir, mock_cursor):
+@mock.patch(CLI_GET_CONNECTION)
+def test_create_dev_app_noop(mock_conn, mock_execute, temp_dir, mock_cursor):
+    mock_conn.return_value = MockConnectionCtx()
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
@@ -292,7 +299,9 @@ def test_create_dev_app_noop(mock_execute, temp_dir, mock_cursor):
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-def test_create_dev_app_recreate(mock_execute, temp_dir, mock_cursor):
+@mock.patch(CLI_GET_CONNECTION)
+def test_create_dev_app_recreate(mock_conn, mock_execute, temp_dir, mock_cursor):
+    mock_conn.return_value = MockConnectionCtx()
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
@@ -338,7 +347,70 @@ def test_create_dev_app_recreate(mock_execute, temp_dir, mock_cursor):
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-def test_create_dev_app_create_new(mock_execute, temp_dir, mock_cursor):
+@mock.patch(CLI_GET_CONNECTION)
+def test_create_dev_app_recreate_w_exception(
+    mock_conn, mock_execute, temp_dir, mock_cursor
+):
+    mock_conn.return_value = MockConnectionCtx()
+    expected = [
+        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("use role app_role"),
+        mock.call("use warehouse app_warehouse"),
+        mock.call("show applications like 'MYAPP'", cursor_class=DictCursor),
+        mock.call("alter application myapp upgrade using @app_pkg.app_src.stage"),
+        mock.call("use role old_role"),
+    ]
+    # 1:1 with expected calls; these are return values
+    mock_execute.side_effect = [
+        mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+        None,
+        None,
+        mock_cursor(
+            [
+                {
+                    "name": "MYAPP",
+                    "comment": SPECIAL_COMMENT,
+                    "version": LOOSE_FILES_MAGIC_VERSION,
+                    "owner": "APP_ROLE",
+                }
+            ],
+            [],
+        ),
+        ProgrammingError(
+            msg="No active warehouse selected in the current session", errno=606
+        ),
+        None,
+    ]
+
+    mock_diff_result = DiffResult(different=["setup.sql"])
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    native_app_manager = NativeAppManager()
+    assert mock_diff_result.has_changes()
+
+    with pytest.raises(MissingWarehouseError) as err:
+        native_app_manager._create_dev_app(mock_diff_result)
+
+    assert mock_execute.mock_calls == expected
+    print(err.value.message)
+    assert err.value.message == dedent(
+        f"""\
+        Could not execute SQL statement due to error: '000606: No active warehouse selected in the current session' with error code 000606.
+        Please add a warehouse for the active session role in your project definition file,
+        config.toml file, or via command line.
+        """
+    )
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(CLI_GET_CONNECTION)
+def test_create_dev_app_create_new(mock_conn, mock_execute, temp_dir, mock_cursor):
+    mock_conn.return_value = MockConnectionCtx()
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
@@ -346,12 +418,12 @@ def test_create_dev_app_create_new(mock_execute, temp_dir, mock_cursor):
         mock.call("show applications like 'MYAPP'", cursor_class=DictCursor),
         mock.call(
             f"""
-                create application myapp
-                    from application package app_pkg
-                    using @app_pkg.app_src.stage
-                    debug_mode = True
-                    comment = {SPECIAL_COMMENT}
-                """
+                    create application myapp
+                        from application package app_pkg
+                        using @app_pkg.app_src.stage
+                        debug_mode = True
+                        comment = {SPECIAL_COMMENT}
+                    """
         ),
         mock.call("use role old_role"),
     ]
@@ -409,7 +481,98 @@ def test_create_dev_app_create_new(mock_execute, temp_dir, mock_cursor):
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-def test_create_dev_app_create_new_quoted(mock_execute, temp_dir, mock_cursor):
+@mock.patch(CLI_GET_CONNECTION)
+def test_create_dev_app_create_new_w_exception(
+    mock_conn, mock_execute, temp_dir, mock_cursor
+):
+    mock_conn.return_value = MockConnectionCtx()
+    expected = [
+        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("use role app_role"),
+        mock.call("use warehouse app_warehouse"),
+        mock.call("show applications like 'MYAPP'", cursor_class=DictCursor),
+        mock.call(
+            f"""
+                    create application myapp
+                        from application package app_pkg
+                        using @app_pkg.app_src.stage
+                        debug_mode = True
+                        comment = {SPECIAL_COMMENT}
+                    """
+        ),
+        mock.call("use role old_role"),
+    ]
+    # 1:1 with expected calls; these are return values
+    mock_execute.side_effect = [
+        mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+        None,
+        None,
+        mock_cursor([], []),
+        ProgrammingError(
+            msg="No active warehouse selected in the current session", errno=606
+        ),
+        None,
+    ]
+
+    mock_diff_result = DiffResult()
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[
+            dedent(
+                """\
+            definition_version: 1
+            native_app:
+                name: myapp
+
+                source_stage:
+                    app_src.stage
+
+                artifacts:
+                - setup.sql
+                - app/README.md
+                - src: app/streamlit/*.py
+                dest: ui/
+
+                application:
+                    name: myapp
+                    role: app_role
+                    warehouse: app_warehouse
+                    debug: true
+
+                package:
+                    name: app_pkg
+                    role: app_role
+                    scripts:
+                    - shared_content.sql
+        """
+            )
+        ],
+    )
+
+    native_app_manager = NativeAppManager()
+    assert not mock_diff_result.has_changes()
+
+    with pytest.raises(MissingWarehouseError) as err:
+        native_app_manager._create_dev_app(mock_diff_result)
+
+    assert err.value.message == dedent(
+        f"""\
+        Could not execute SQL statement due to error: '000606: No active warehouse selected in the current session' with error code 000606.
+        Please add a warehouse for the active session role in your project definition file,
+        config.toml file, or via command line.
+        """
+    )
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(CLI_GET_CONNECTION)
+def test_create_dev_app_create_new_quoted(
+    mock_conn, mock_execute, temp_dir, mock_cursor
+):
+    mock_conn.return_value = MockConnectionCtx()
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
@@ -417,12 +580,12 @@ def test_create_dev_app_create_new_quoted(mock_execute, temp_dir, mock_cursor):
         mock.call("show applications like 'My Application'", cursor_class=DictCursor),
         mock.call(
             f"""
-                create application "My Application"
-                    from application package "My Package"
-                    using '@"My Package".app_src.stage'
-                    debug_mode = True
-                    comment = {SPECIAL_COMMENT}
-                """
+                    create application "My Application"
+                        from application package "My Package"
+                        using '@"My Package".app_src.stage'
+                        debug_mode = True
+                        comment = {SPECIAL_COMMENT}
+                    """
         ),
         mock.call("use role old_role"),
     ]
@@ -482,7 +645,11 @@ def test_create_dev_app_create_new_quoted(mock_execute, temp_dir, mock_cursor):
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-def test_create_dev_app_create_new_quoted_override(mock_execute, temp_dir, mock_cursor):
+@mock.patch(CLI_GET_CONNECTION)
+def test_create_dev_app_create_new_quoted_override(
+    mock_conn, mock_execute, temp_dir, mock_cursor
+):
+    mock_conn.return_value = MockConnectionCtx()
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
@@ -490,12 +657,12 @@ def test_create_dev_app_create_new_quoted_override(mock_execute, temp_dir, mock_
         mock.call("show applications like 'My Application'", cursor_class=DictCursor),
         mock.call(
             f"""
-                create application "My Application"
-                    from application package "My Package"
-                    using '@"My Package".app_src.stage'
-                    debug_mode = True
-                    comment = {SPECIAL_COMMENT}
-                """
+                    create application "My Application"
+                        from application package "My Package"
+                        using '@"My Package".app_src.stage'
+                        debug_mode = True
+                        comment = {SPECIAL_COMMENT}
+                    """
         ),
         mock.call("use role old_role"),
     ]
@@ -558,9 +725,11 @@ def test_create_dev_app_create_new_quoted_override(mock_execute, temp_dir, mock_
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(CLI_GET_CONNECTION)
 def test_create_dev_app_create_new_with_additional_privileges(
-    mock_execute, temp_dir, mock_cursor
+    mock_conn, mock_execute, temp_dir, mock_cursor
 ):
+    mock_conn.return_value = MockConnectionCtx()
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
@@ -576,12 +745,12 @@ def test_create_dev_app_create_new_with_additional_privileges(
         mock.call("use role app_role"),
         mock.call(
             f"""
-                create application myapp
-                    from application package app_pkg
-                    using @app_pkg.app_src.stage
-                    debug_mode = True
-                    comment = {SPECIAL_COMMENT}
-                """
+                    create application myapp
+                        from application package app_pkg
+                        using @app_pkg.app_src.stage
+                        debug_mode = True
+                        comment = {SPECIAL_COMMENT}
+                    """
         ),
         mock.call("use role old_role"),
     ]
@@ -614,7 +783,9 @@ def test_create_dev_app_create_new_with_additional_privileges(
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-def test_create_dev_app_bad_comment(mock_execute, temp_dir, mock_cursor):
+@mock.patch(CLI_GET_CONNECTION)
+def test_create_dev_app_bad_comment(mock_conn, mock_execute, temp_dir, mock_cursor):
+    mock_conn.return_value = MockConnectionCtx()
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
@@ -658,7 +829,9 @@ def test_create_dev_app_bad_comment(mock_execute, temp_dir, mock_cursor):
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-def test_create_dev_app_bad_version(mock_execute, temp_dir, mock_cursor):
+@mock.patch(CLI_GET_CONNECTION)
+def test_create_dev_app_bad_version(mock_conn, mock_execute, temp_dir, mock_cursor):
+    mock_conn.return_value = MockConnectionCtx()
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
@@ -702,7 +875,9 @@ def test_create_dev_app_bad_version(mock_execute, temp_dir, mock_cursor):
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-def test_create_dev_app_bad_owner(mock_execute, temp_dir, mock_cursor):
+@mock.patch(CLI_GET_CONNECTION)
+def test_create_dev_app_bad_owner(mock_conn, mock_execute, temp_dir, mock_cursor):
+    mock_conn.return_value = MockConnectionCtx()
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
