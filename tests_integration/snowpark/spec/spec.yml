@@ -1,0 +1,4 @@
+spec:
+  containers:
+    - name: hello-world
+      image: /snowcli_db/public/snowcli_repository/snowpark_test:1

@@ -86,7 +86,9 @@ class SnowCLIRunner(CliRunner):
         )
         return CommandResult(result.exit_code, output=result.output)
 
-    def invoke_integration(self, *args, **kwargs) -> CommandResult:
+    def invoke_integration(
+        self, *args, connection: str = "integration", **kwargs
+    ) -> CommandResult:
         result = self._invoke(
             [
                 "--config-file",
@@ -95,7 +97,7 @@ class SnowCLIRunner(CliRunner):
                 "--format",
                 "JSON",
                 "-c",
-                "integration",
+                connection,
             ],
             **kwargs,
         )
@@ -106,14 +108,16 @@ class SnowCLIRunner(CliRunner):
         except JSONDecodeError:
             raise QueryResultJsonEncoderError(result.output)
 
-    def invoke_integration_without_format(self, *args, **kwargs) -> CommandResult:
+    def invoke_integration_without_format(
+        self, *args, connection: str = "integration", **kwargs
+    ) -> CommandResult:
         result = self._invoke(
             [
                 "--config-file",
                 self._test_config_path,
                 *args[0],
                 "-c",
-                "integration",
+                connection,
             ],
             **kwargs,
         )
