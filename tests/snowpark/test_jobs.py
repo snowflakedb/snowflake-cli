@@ -36,9 +36,9 @@ spec:
         "USE MockDatabase.MockSchema\n"
         "EXECUTE SERVICE\n"
         "IN COMPUTE POOL testPool\n"
-        "FROM SPECIFICATION '\n"
+        "FROM SPECIFICATION $$\n"
         '{"spec": {"containers": [{"name": "main", "image": "public.ecr.aws/myrepo:latest"}]}}\n'
-        "'\n"
+        "$$\n"
     )
 
 

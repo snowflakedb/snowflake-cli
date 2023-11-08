@@ -17,9 +17,9 @@ class ServiceManager(SqlExecutionMixin):
             f"""\
             CREATE SERVICE IF NOT EXISTS {service_name}
             IN COMPUTE POOL {compute_pool}
-            FROM SPECIFICATION '
+            FROM SPECIFICATION $$
             {spec}
-            '
+            $$
             WITH
             MIN_INSTANCES = {num_instances}
             MAX_INSTANCES = {num_instances}
