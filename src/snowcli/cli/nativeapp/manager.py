@@ -3,9 +3,11 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from functools import cached_property
+from textwrap import dedent
 from typing import List, Optional, Literal, Callable
 from click.exceptions import ClickException
-from snowcli.exception import SnowflakeSQLExecutionError
+from snowcli.exception import SnowflakeSQLExecutionError, MissingWarehouseError
+from snowflake.connector import ProgrammingError
 
 import jinja2
 
@@ -152,8 +154,14 @@ class NativeAppManager(SqlExecutionMixin):
         return extract_schema(self.stage_fqn)
 
     @cached_property
-    def warehouse(self) -> Optional[str]:
-        return self.definition.get("application", {}).get("warehouse", None)
+    def package_warehouse(self) -> Optional[str]:
+        return self.definition.get("package", {}).get("warehouse", self._conn.warehouse)
+
+    @cached_property
+    def application_warehouse(self) -> Optional[str]:
+        return self.definition.get("application", {}).get(
+            "warehouse", self._conn.warehouse
+        )
 
     @cached_property
     def project_identifier(self) -> str:
@@ -242,6 +250,13 @@ class NativeAppManager(SqlExecutionMixin):
             )
         return diff
 
+    def _raise_err(self, err: ProgrammingError) -> None:
+        if err.errno == 606 or err.msg.__contains__(
+            "No active warehouse selected in the current session"
+        ):
+            raise MissingWarehouseError(str(err.errno).zfill(6), err.msg)
+        raise err
+
     def _apply_package_scripts(self) -> None:
         """
         Assuming the application package exists and we are using the correct role,
@@ -270,20 +285,23 @@ class NativeAppManager(SqlExecutionMixin):
                 raise InvalidPackageScriptError(relpath, e)
 
         # once we're sure all the templates expanded correctly, execute all of them
-        if self.warehouse:
-            self._execute_query(f"use warehouse {self.warehouse}")
+        if self.package_warehouse:
+            self._execute_query(f"use warehouse {self.package_warehouse}")
 
-        for i, queries in enumerate(queued_queries):
-            log.info(f"Applying package script: {self.package_scripts[i]}")
-            self._execute_queries(queries)
+        try:
+            for i, queries in enumerate(queued_queries):
+                log.info(f"Applying package script: {self.package_scripts[i]}")
+                self._execute_queries(queries)
+        except ProgrammingError as err:
+            self._raise_err(err)
 
     def _create_dev_app(self, diff: DiffResult) -> None:
         """
         (Re-)creates the application with our up-to-date stage.
         """
         with self.use_role(self.app_role):
-            if self.warehouse:
-                self._execute_query(f"use warehouse {self.warehouse}")
+            if self.application_warehouse:
+                self._execute_query(f"use warehouse {self.application_warehouse}")
 
             show_app_cursor = self._execute_query(
                 f"show applications like '{unquote_identifier(self.app_name)}'",
@@ -309,40 +327,51 @@ class NativeAppManager(SqlExecutionMixin):
                         self.app_name, self.app_role, actual_owner
                     )
 
-                if diff.has_changes():
-                    # the app needs to be upgraded
-                    log.info(f"Upgrading existing application {self.app_name}.")
-                    self._execute_query(
-                        f"alter application {self.app_name} upgrade using @{self.stage_fqn}"
-                    )
+                try:
+                    if diff.has_changes():
+                        # the app needs to be upgraded
+                        log.info(f"Upgrading existing application {self.app_name}.")
+                        self._execute_query(
+                            f"alter application {self.app_name} upgrade using @{self.stage_fqn}"
+                        )
 
-                # ensure debug_mode is up-to-date
-                self._execute_query(
-                    f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
-                )
-                return
+                    # ensure debug_mode is up-to-date
+                    self._execute_query(
+                        f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
+                    )
+                    return
+                except ProgrammingError as err:
+                    self._raise_err(err)
 
             # Create an app using "loose files" / stage dev mode.
             log.info(f"Creating new application {self.app_name} in account.")
 
             if self.app_role != self.package_role:
                 with self.use_role(new_role=self.package_role):
-                    self._execute_query(
-                        f"""
+                    self._execute_queries(
+                        dedent(
+                            f"""\
                         grant install, develop on application package {self.package_name} to role {self.app_role};
+                        grant usage on schema {self.package_name}.{self.stage_schema} to role {self.app_role};
+                        grant read on stage {self.stage_fqn} to role {self.app_role};
                         """
+                        )
                     )
 
             stage_name = StageManager.quote_stage_name(self.stage_fqn)
-            self._execute_query(
-                f"""
-                create application {self.app_name}
-                    from application package {self.package_name}
-                    using {stage_name}
-                    debug_mode = {self.debug_mode}
-                    comment = {SPECIAL_COMMENT}
-                """,
-            )
+
+            try:
+                self._execute_query(
+                    f"""
+                    create application {self.app_name}
+                        from application package {self.package_name}
+                        using {stage_name}
+                        debug_mode = {self.debug_mode}
+                        comment = {SPECIAL_COMMENT}
+                    """,
+                )
+            except ProgrammingError as err:
+                self._raise_err(err)
 
     def app_exists(self) -> bool:
         """Returns True iff the application exists on Snowflake."""

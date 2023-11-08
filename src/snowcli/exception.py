@@ -1,3 +1,4 @@
+from textwrap import dedent
 from click.exceptions import ClickException
 from typing import Optional
 
@@ -55,3 +56,16 @@ class SnowflakeSQLExecutionError(ClickException):
 class ObjectAlreadyExistsError(ClickException):
     def __init__(self, object_type: ObjectType, name: str):
         super().__init__(f"{object_type.value.capitalize()} {name} already exists.")
+
+
+class MissingWarehouseError(ClickException):
+    def __init__(self, errno: str, err_message: str):
+        super().__init__(
+            dedent(
+                f"""\
+            Could not execute SQL statement due to error: '{err_message}' with error code {errno}.
+            Please add a warehouse for the active session role in your project definition file,
+            config.toml file, or via command line.
+            """
+            )
+        )

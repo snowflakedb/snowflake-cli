@@ -67,6 +67,7 @@ native_app_schema = RelaxedMap(
                 Optional("scripts", default=None): UniqueSeq(FilePath()),
                 Optional("role"): Regex(IDENTIFIER),
                 Optional("name"): Regex(IDENTIFIER),
+                Optional("warehouse"): Regex(IDENTIFIER),
             }
         ),
         Optional("application"): RelaxedMap(
