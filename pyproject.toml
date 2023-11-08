@@ -75,7 +75,7 @@ select = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-m 'not integration and not performance'"
+addopts = "-m 'not integration and not performance and not e2e'"
 markers = [
   "integration: mark test as integration test",
   "performance: mark test as performance test",
