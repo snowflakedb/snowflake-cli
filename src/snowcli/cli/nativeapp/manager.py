@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from functools import cached_property
+from textwrap import dedent
 from typing import List, Optional, Literal, Callable
 from click.exceptions import ClickException
 from snowcli.exception import SnowflakeSQLExecutionError, MissingWarehouseError
@@ -249,7 +250,7 @@ class NativeAppManager(SqlExecutionMixin):
             )
         return diff
 
-    def _raise_missing_warehouse_err(self, err: ProgrammingError) -> None:
+    def _raise_err(self, err: ProgrammingError) -> None:
         if err.errno == 606 or err.msg.__contains__(
             "No active warehouse selected in the current session"
         ):
@@ -292,7 +293,7 @@ class NativeAppManager(SqlExecutionMixin):
                 log.info(f"Applying package script: {self.package_scripts[i]}")
                 self._execute_queries(queries)
         except ProgrammingError as err:
-            self._raise_missing_warehouse_err(err)
+            self._raise_err(err)
 
     def _create_dev_app(self, diff: DiffResult) -> None:
         """
@@ -340,17 +341,21 @@ class NativeAppManager(SqlExecutionMixin):
                     )
                     return
                 except ProgrammingError as err:
-                    self._raise_missing_warehouse_err(err)
+                    self._raise_err(err)
 
             # Create an app using "loose files" / stage dev mode.
             log.info(f"Creating new application {self.app_name} in account.")
 
             if self.app_role != self.package_role:
                 with self.use_role(new_role=self.package_role):
-                    self._execute_query(
-                        f"""
+                    self._execute_queries(
+                        dedent(
+                            f"""\
                         grant install, develop on application package {self.package_name} to role {self.app_role};
+                        grant usage on schema {self.package_name}.{self.stage_schema} to role {self.app_role};
+                        grant read on stage {self.stage_fqn} to role {self.app_role};
                         """
+                        )
                     )
 
             stage_name = StageManager.quote_stage_name(self.stage_fqn)
@@ -366,7 +371,7 @@ class NativeAppManager(SqlExecutionMixin):
                     """,
                 )
             except ProgrammingError as err:
-                self._raise_missing_warehouse_err(err)
+                self._raise_err(err)
 
     def app_exists(self) -> bool:
         """Returns True iff the application exists on Snowflake."""

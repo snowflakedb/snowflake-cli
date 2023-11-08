@@ -18,6 +18,9 @@ from tests.testing_utils.fixtures import *
 
 NATIVEAPP_MODULE = "snowcli.cli.nativeapp.manager"
 NATIVEAPP_MANAGER_EXECUTE = f"{NATIVEAPP_MODULE}.NativeAppManager._execute_query"
+NATIVEAPP_MANAGER_EXECUTE_QUERIES = (
+    f"{NATIVEAPP_MODULE}.NativeAppManager._execute_queries"
+)
 CLI_GET_CONNECTION = (
     "snowcli.cli.common.sql_execution.snow_cli_global_context_manager.get_connection"
 )
@@ -725,23 +728,19 @@ def test_create_dev_app_create_new_quoted_override(
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
 @mock.patch(CLI_GET_CONNECTION)
 def test_create_dev_app_create_new_with_additional_privileges(
-    mock_conn, mock_execute, temp_dir, mock_cursor
+    mock_conn, mock_execute_queries, mock_execute_query, temp_dir, mock_cursor
 ):
     mock_conn.return_value = MockConnectionCtx()
-    expected = [
+    mock_execute_query_expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role app_role"),
         mock.call("use warehouse app_warehouse"),
         mock.call("show applications like 'MYAPP'", cursor_class=DictCursor),
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role package_role"),
-        mock.call(
-            f"""
-                        grant install, develop on application package app_pkg to role app_role;
-                        """
-        ),
         mock.call("use role app_role"),
         mock.call(
             f"""
@@ -755,7 +754,7 @@ def test_create_dev_app_create_new_with_additional_privileges(
         mock.call("use role old_role"),
     ]
     # 1:1 with expected calls; these are return values
-    mock_execute.side_effect = [
+    mock_execute_query.side_effect = [
         mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
         None,
         None,
@@ -765,8 +764,20 @@ def test_create_dev_app_create_new_with_additional_privileges(
         None,
         None,
         None,
-        None,
     ]
+
+    mock_execute_queries_expected = [
+        mock.call(
+            dedent(
+                f"""\
+            grant install, develop on application package app_pkg to role app_role;
+            grant usage on schema app_pkg.app_src to role app_role;
+            grant read on stage app_pkg.app_src.stage to role app_role;
+            """
+            )
+        )
+    ]
+    mock_execute_queries.side_effect = [None, None, None]
 
     mock_diff_result = DiffResult()
     current_working_directory = os.getcwd()
@@ -779,7 +790,8 @@ def test_create_dev_app_create_new_with_additional_privileges(
     native_app_manager = NativeAppManager()
     assert not mock_diff_result.has_changes()
     native_app_manager._create_dev_app(mock_diff_result)
-    assert mock_execute.mock_calls == expected
+    assert mock_execute_query.mock_calls == mock_execute_query_expected
+    assert mock_execute_queries.mock_calls == mock_execute_queries_expected
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
