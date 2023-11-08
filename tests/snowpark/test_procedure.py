@@ -137,7 +137,7 @@ def test_coverage_wrapper_does_not_work_for_multiple_procedures(
     project_directory, runner
 ):
     with project_directory("snowpark_procedures"):
-        result = runner.invoke_with_config(
+        result = runner.invoke(
             ["snowpark", "procedure", "deploy", "--install-coverage-wrapper"]
         )
     assert result.exit_code == 1
@@ -168,7 +168,7 @@ def test_deploy_procedure_fails_if_object_exists_and_no_replace(
     mock_conn.return_value = ctx
 
     with project_directory("snowpark_procedures"):
-        result = runner.invoke_with_config(
+        result = runner.invoke(
             [
                 "snowpark",
                 "procedure",
@@ -212,7 +212,7 @@ def test_deploy_procedure_replace_nothing_to_update(
     mock_conn.return_value = ctx
 
     with project_directory("snowpark_procedures"):
-        result = runner.invoke_with_config(
+        result = runner.invoke(
             ["snowpark", "procedure", "deploy", "--replace", "--format", "json"]
         )
 
@@ -259,7 +259,7 @@ def test_deploy_procedure_replace_updates_single_object(
     mock_conn.return_value = ctx
 
     with project_directory("snowpark_procedures"):
-        result = runner.invoke_with_config(
+        result = runner.invoke(
             ["snowpark", "procedure", "deploy", "--replace", "--format", "json"]
         )
 
@@ -299,7 +299,7 @@ def test_deploy_procedure_replace_creates_missing_object(
     mock_conn.return_value = ctx
 
     with project_directory("snowpark_procedures"):
-        result = runner.invoke_with_config(
+        result = runner.invoke(
             ["snowpark", "procedure", "deploy", "--replace", "--format", "json"]
         )
 
