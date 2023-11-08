@@ -60,36 +60,36 @@ def test_procedure_coverage_flow(
             }
         ]
 
-    identifier = procedure_name + parameters
-    stage_name = f"{procedure_name}_name_int_b_string"
+        identifier = procedure_name + parameters
+        stage_name = f"{procedure_name}_name_int_b_string"
 
-    _test_steps.assert_that_only_these_entities_are_in_snowflake(
-        f"{procedure_name}(NUMBER, VARCHAR) RETURN VARCHAR"
-    )
+        _test_steps.assert_that_only_these_entities_are_in_snowflake(
+            f"{procedure_name}(NUMBER, VARCHAR) RETURN VARCHAR"
+        )
 
-    _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-        f"deployments/{stage_name}/app.zip"
-    )
+        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+            f"deployments/{stage_name}/app.zip"
+        )
 
-    _test_steps.snowpark_execute_should_return_expected_value(
-        entity_name=procedure_name,
-        arguments="(0, 'test')",
-        expected_value="Hello 0",
-    )
+        _test_steps.snowpark_execute_should_return_expected_value(
+            entity_name=procedure_name,
+            arguments="(0, 'test')",
+            expected_value="Hello 0",
+        )
 
-    _test_steps.assert_that_only_app_and_coverage_file_are_staged_in_test_db(
-        f"deployments/{stage_name}"
-    )
+        _test_steps.assert_that_only_app_and_coverage_file_are_staged_in_test_db(
+            f"deployments/{stage_name}"
+        )
 
-    _test_steps.procedure_coverage_should_return_report_when_files_are_present_on_stage(
-        identifier=identifier
-    )
+        _test_steps.procedure_coverage_should_return_report_when_files_are_present_on_stage(
+            identifier=identifier
+        )
 
-    _test_steps.coverage_clear_should_execute_successfully(identifier=identifier)
+        _test_steps.coverage_clear_should_execute_successfully(identifier=identifier)
 
-    _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-        f"deployments/{stage_name}/app.zip"
-    )
+        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+            f"deployments/{stage_name}/app.zip"
+        )
 
 
 @pytest.fixture
