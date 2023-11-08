@@ -38,6 +38,7 @@ databases, tables, warehouses, functions, procedures, roles, schemas, services, 
 ## Fixes and improvements
 * Resolved `-a` option conflict in `snow snowpark procedure update` command by removing short version of `--replace-always` option (it was conflicting with short version of `--check-anaconda-for-pypi-deps`).
 * Allow the use of quoted identifiers in stages
+* Fixed parsing of commands and arguments lists in specifications of snowpark services and jobs
 
 
 # v1.2.1

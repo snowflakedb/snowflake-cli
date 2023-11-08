@@ -14,9 +14,9 @@ class JobManager(SqlExecutionMixin):
             f"""\
             EXECUTE SERVICE
             IN COMPUTE POOL {compute_pool}
-            FROM SPECIFICATION '
+            FROM SPECIFICATION $$
             {spec}
-            '
+            $$
             """
         )
 

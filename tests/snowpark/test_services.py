@@ -40,9 +40,9 @@ def test_create_service(mock_execute_schema_query, other_directory):
     expected_query = (
         "CREATE SERVICE IF NOT EXISTS test_service "
         "IN COMPUTE POOL test_pool "
-        'FROM SPECIFICATION \' {"spec": {"containers": [{"name": "cloudbeaver", "image": '
+        'FROM SPECIFICATION $$ {"spec": {"containers": [{"name": "cloudbeaver", "image": '
         '"/spcs_demos_db/cloudbeaver:23.2.1"}], "endpoints": [{"name": "cloudbeaver", '
-        '"port": 80, "public": true}]}} \' '
+        '"port": 80, "public": true}]}} $$ '
         "WITH MIN_INSTANCES = 42 MAX_INSTANCES = 42"
     )
     actual_query = " ".join(
