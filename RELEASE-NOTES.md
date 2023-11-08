@@ -1,3 +1,8 @@
+# v1.2.2
+## Fixes and improvements
+* Fixed parsing of commands and arguments lists in specifications of snowpark services and jobs
+
+
 # v1.2.1
 ## Fixes and improvements
 * Fix homebrew installation
