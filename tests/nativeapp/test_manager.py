@@ -9,7 +9,6 @@ from snowcli.cli.nativeapp.manager import (
     LOOSE_FILES_MAGIC_VERSION,
 )
 from snowcli.cli.object.stage.diff import DiffResult
-from snowcli.exception import MissingWarehouseError
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector import ProgrammingError
 
@@ -257,6 +256,46 @@ def test_drop_object_no_special_comment(mock_execute, temp_dir, mock_cursor):
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(CLI_GET_CONNECTION)
+def test_create_dev_app_w_warehouse_access_exception(
+    mock_conn, mock_execute, temp_dir, mock_cursor
+):
+    mock_conn.return_value = MockConnectionCtx()
+    expected = [
+        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("use role app_role"),
+        mock.call("use warehouse app_warehouse"),
+        mock.call("use role old_role"),
+    ]
+    # 1:1 with expected calls; these are return values
+    mock_execute.side_effect = [
+        mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+        None,
+        ProgrammingError(
+            msg="Object does not exist, or operation cannot be performed.", errno=2043
+        ),
+        None,
+    ]
+
+    mock_diff_result = DiffResult()
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    native_app_manager = NativeAppManager()
+    assert not mock_diff_result.has_changes()
+
+    with pytest.raises(ProgrammingError) as err:
+        native_app_manager._create_dev_app(mock_diff_result)
+
+    assert mock_execute.mock_calls == expected
+    assert "Please grant usage privilege on warehouse to this role." in err.value.msg
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(CLI_GET_CONNECTION)
 def test_create_dev_app_noop(mock_conn, mock_execute, temp_dir, mock_cursor):
     mock_conn.return_value = MockConnectionCtx()
     expected = [
@@ -351,7 +390,7 @@ def test_create_dev_app_recreate(mock_conn, mock_execute, temp_dir, mock_cursor)
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(CLI_GET_CONNECTION)
-def test_create_dev_app_recreate_w_exception(
+def test_create_dev_app_recreate_w_missing_warehouse_exception(
     mock_conn, mock_execute, temp_dir, mock_cursor
 ):
     mock_conn.return_value = MockConnectionCtx()
@@ -396,18 +435,11 @@ def test_create_dev_app_recreate_w_exception(
     native_app_manager = NativeAppManager()
     assert mock_diff_result.has_changes()
 
-    with pytest.raises(MissingWarehouseError) as err:
+    with pytest.raises(ProgrammingError) as err:
         native_app_manager._create_dev_app(mock_diff_result)
 
     assert mock_execute.mock_calls == expected
-    print(err.value.message)
-    assert err.value.message == dedent(
-        f"""\
-        Could not execute SQL statement due to error: '000606: No active warehouse selected in the current session' with error code 000606.
-        Please add a warehouse for the active session role in your project definition file,
-        config.toml file, or via command line.
-        """
-    )
+    assert "Please provide a warehouse for the active session role" in err.value.msg
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
@@ -485,7 +517,7 @@ def test_create_dev_app_create_new(mock_conn, mock_execute, temp_dir, mock_curso
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(CLI_GET_CONNECTION)
-def test_create_dev_app_create_new_w_exception(
+def test_create_dev_app_create_new_w_missing_warehouse_exception(
     mock_conn, mock_execute, temp_dir, mock_cursor
 ):
     mock_conn.return_value = MockConnectionCtx()
@@ -557,16 +589,10 @@ def test_create_dev_app_create_new_w_exception(
     native_app_manager = NativeAppManager()
     assert not mock_diff_result.has_changes()
 
-    with pytest.raises(MissingWarehouseError) as err:
+    with pytest.raises(ProgrammingError) as err:
         native_app_manager._create_dev_app(mock_diff_result)
 
-    assert err.value.message == dedent(
-        f"""\
-        Could not execute SQL statement due to error: '000606: No active warehouse selected in the current session' with error code 000606.
-        Please add a warehouse for the active session role in your project definition file,
-        config.toml file, or via command line.
-        """
-    )
+    assert "Please provide a warehouse for the active session role" in err.value.msg
     assert mock_execute.mock_calls == expected
 
 
