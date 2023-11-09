@@ -118,7 +118,10 @@ def find_row(cursor: DictCursor, predicate: Callable[[dict], bool]) -> Optional[
     )
 
 
-def _use_warehouse_error_handler(err: ProgrammingError, role, warehouse):
+def _generic_sql_error_handler(
+    err: ProgrammingError, role: Optional[str] = None, warehouse: Optional[str] = None
+):
+    # Potential refactor: If moving away from python 3.8 and 3.9 to >= 3.10, use match ... case
     if err.errno == 2043 or err.msg.__contains__(ERROR_MESSAGE_2043):
         raise ProgrammingError(
             msg=dedent(
@@ -130,11 +133,7 @@ def _use_warehouse_error_handler(err: ProgrammingError, role, warehouse):
             ),
             errno=err.errno,
         )
-    raise err
-
-
-def _generic_sql_error_handler(err: ProgrammingError):
-    if err.errno == 606 or err.msg.__contains__(ERROR_MESSAGE_606):
+    elif err.errno == 606 or err.msg.__contains__(ERROR_MESSAGE_606):
         raise ProgrammingError(
             msg=dedent(
                 f"""\
@@ -313,17 +312,14 @@ class NativeAppManager(SqlExecutionMixin):
         try:
             if self.package_warehouse:
                 self._execute_query(f"use warehouse {self.package_warehouse}")
-        except ProgrammingError as err:
-            _use_warehouse_error_handler(
-                err=err, role=self.package_role, warehouse=self.package_warehouse
-            )
 
-        try:
             for i, queries in enumerate(queued_queries):
                 log.info(f"Applying package script: {self.package_scripts[i]}")
                 self._execute_queries(queries)
         except ProgrammingError as err:
-            _generic_sql_error_handler(err)
+            _generic_sql_error_handler(
+                err, role=self.package_role, warehouse=self.package_warehouse
+            )
 
     def _create_dev_app(self, diff: DiffResult) -> None:
         """
@@ -334,7 +330,7 @@ class NativeAppManager(SqlExecutionMixin):
                 if self.application_warehouse:
                     self._execute_query(f"use warehouse {self.application_warehouse}")
             except ProgrammingError as err:
-                _use_warehouse_error_handler(
+                _generic_sql_error_handler(
                     err=err, role=self.app_role, warehouse=self.application_warehouse
                 )
 
