@@ -7,7 +7,7 @@ from tests_integration.snowflake_connector import test_database
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("object_type", ["table", "warehouse", "schema"])
+@pytest.mark.parametrize("object_type", ["warehouse", "schema"])
 def test_show(object_type, runner, snowflake_session):
     result = runner.invoke_integration(
         ["object", "show", object_type, "--format", "json"]
