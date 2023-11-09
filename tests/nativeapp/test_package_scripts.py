@@ -8,7 +8,6 @@ from snowcli.cli.nativeapp.manager import (
     MissingPackageScriptError,
     InvalidPackageScriptError,
 )
-from snowcli.exception import MissingWarehouseError
 
 from tests.project.fixtures import *
 from tests.testing_utils.fixtures import *
@@ -124,7 +123,7 @@ def test_undefined_var_package_script(mock_execute, project_definition_files):
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERY)
 @mock.patch(CLI_GET_CONNECTION)
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
-def test_package_scripts_w_exception(
+def test_package_scripts_w_missing_warehouse_exception(
     mock_conn,
     mock_execute_query,
     mock_execute_queries,
@@ -132,21 +131,37 @@ def test_package_scripts_w_exception(
     mock_cursor,
 ):
     mock_conn.return_value = MockConnectionCtx()
-    mock_execute_query.return_value == mock_cursor(["row"], [])
+    mock_execute_query.return_value = mock_cursor(["row"], [])
     mock_execute_queries.side_effect = ProgrammingError(
-        msg="No active warehouse selected in the current session", errno=606
+        msg="No active warehouse selected in the current session.", errno=606
     )
 
     working_dir: Path = project_definition_files[0].parent
     native_app_manager = NativeAppManager(str(working_dir))
 
-    with pytest.raises(MissingWarehouseError) as err:
+    with pytest.raises(ProgrammingError) as err:
         native_app_manager._apply_package_scripts()
 
-    assert err.value.message == dedent(
-        f"""\
-            Could not execute SQL statement due to error: '000606: No active warehouse selected in the current session' with error code 000606.
-            Please add a warehouse for the active session role in your project definition file,
-            config.toml file, or via command line.
-            """
+    assert "Please provide a warehouse for the active session role" in err.value.msg
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERY)
+@mock.patch(CLI_GET_CONNECTION)
+@pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
+def test_package_scripts_w_warehouse_access_exception(
+    mock_conn,
+    mock_execute_query,
+    project_definition_files,
+):
+    mock_conn.return_value = MockConnectionCtx()
+    mock_execute_query.side_effect = ProgrammingError(
+        msg="Object does not exist, or operation cannot be performed.", errno=2043
     )
+
+    working_dir: Path = project_definition_files[0].parent
+    native_app_manager = NativeAppManager(str(working_dir))
+
+    with pytest.raises(ProgrammingError) as err:
+        native_app_manager._apply_package_scripts()
+
+    assert "Please grant usage privilege on warehouse to this role." in err.value.msg

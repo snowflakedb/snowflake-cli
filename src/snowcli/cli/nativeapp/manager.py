@@ -6,7 +6,7 @@ from functools import cached_property
 from textwrap import dedent
 from typing import List, Optional, Literal, Callable
 from click.exceptions import ClickException
-from snowcli.exception import SnowflakeSQLExecutionError, MissingWarehouseError
+from snowcli.exception import SnowflakeSQLExecutionError
 from snowflake.connector import ProgrammingError
 
 import jinja2
@@ -45,6 +45,9 @@ NAME_COL = "name"
 COMMENT_COL = "comment"
 OWNER_COL = "owner"
 VERSION_COL = "version"
+
+ERROR_MESSAGE_2043 = "Object does not exist, or operation cannot be performed."
+ERROR_MESSAGE_606 = "No active warehouse selected in the current session."
 
 log = logging.getLogger(__name__)
 
@@ -113,6 +116,34 @@ def find_row(cursor: DictCursor, predicate: Callable[[dict], bool]) -> Optional[
         (row for row in cursor.fetchall() if predicate(row)),
         None,
     )
+
+
+def _generic_sql_error_handler(
+    err: ProgrammingError, role: Optional[str] = None, warehouse: Optional[str] = None
+):
+    # Potential refactor: If moving away from python 3.8 and 3.9 to >= 3.10, use match ... case
+    if err.errno == 2043 or err.msg.__contains__(ERROR_MESSAGE_2043):
+        raise ProgrammingError(
+            msg=dedent(
+                f"""\
+                Received error message '{err.msg}' while executing SQL statement.
+                '{role}' may not have access to warehouse '{warehouse}'.
+                Please grant usage privilege on warehouse to this role.
+                """
+            ),
+            errno=err.errno,
+        )
+    elif err.errno == 606 or err.msg.__contains__(ERROR_MESSAGE_606):
+        raise ProgrammingError(
+            msg=dedent(
+                f"""\
+                Received error message '{err.msg}' while executing SQL statement.
+                Please provide a warehouse for the active session role in your project definition file, config.toml file, or via command line.
+                """
+            ),
+            errno=err.errno,
+        )
+    raise err
 
 
 class NativeAppManager(SqlExecutionMixin):
@@ -250,13 +281,6 @@ class NativeAppManager(SqlExecutionMixin):
             )
         return diff
 
-    def _raise_err(self, err: ProgrammingError) -> None:
-        if err.errno == 606 or err.msg.__contains__(
-            "No active warehouse selected in the current session"
-        ):
-            raise MissingWarehouseError(str(err.errno).zfill(6), err.msg)
-        raise err
-
     def _apply_package_scripts(self) -> None:
         """
         Assuming the application package exists and we are using the correct role,
@@ -285,23 +309,30 @@ class NativeAppManager(SqlExecutionMixin):
                 raise InvalidPackageScriptError(relpath, e)
 
         # once we're sure all the templates expanded correctly, execute all of them
-        if self.package_warehouse:
-            self._execute_query(f"use warehouse {self.package_warehouse}")
-
         try:
+            if self.package_warehouse:
+                self._execute_query(f"use warehouse {self.package_warehouse}")
+
             for i, queries in enumerate(queued_queries):
                 log.info(f"Applying package script: {self.package_scripts[i]}")
                 self._execute_queries(queries)
         except ProgrammingError as err:
-            self._raise_err(err)
+            _generic_sql_error_handler(
+                err, role=self.package_role, warehouse=self.package_warehouse
+            )
 
     def _create_dev_app(self, diff: DiffResult) -> None:
         """
         (Re-)creates the application with our up-to-date stage.
         """
         with self.use_role(self.app_role):
-            if self.application_warehouse:
-                self._execute_query(f"use warehouse {self.application_warehouse}")
+            try:
+                if self.application_warehouse:
+                    self._execute_query(f"use warehouse {self.application_warehouse}")
+            except ProgrammingError as err:
+                _generic_sql_error_handler(
+                    err=err, role=self.app_role, warehouse=self.application_warehouse
+                )
 
             show_app_cursor = self._execute_query(
                 f"show applications like '{unquote_identifier(self.app_name)}'",
@@ -341,7 +372,7 @@ class NativeAppManager(SqlExecutionMixin):
                     )
                     return
                 except ProgrammingError as err:
-                    self._raise_err(err)
+                    _generic_sql_error_handler(err)
 
             # Create an app using "loose files" / stage dev mode.
             log.info(f"Creating new application {self.app_name} in account.")
@@ -371,7 +402,7 @@ class NativeAppManager(SqlExecutionMixin):
                     """,
                 )
             except ProgrammingError as err:
-                self._raise_err(err)
+                _generic_sql_error_handler(err)
 
     def app_exists(self) -> bool:
         """Returns True iff the application exists on Snowflake."""
