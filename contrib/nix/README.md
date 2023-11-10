@@ -9,7 +9,36 @@ nix run github:Snowflake-Labs/snowcli?dir=contrib/nix -- <PARAMS_FOR_SNOWCLI>
 ```
 
 # Setup
+## Home manager
 
+Flake provides a home manager module that can be used to manage the snowcli settings.
+
+To use it, import in the home manager user configuration:
+```nix
+{
+    inputs.snowcli.url = "github:Snowflake-Labs/snowcli?dir=contrib/nix";
+    # <...>
+    outputs = { ... }@inputs: {
+        # Where the home-manager configuration of a user is:
+        home-manager.users.username = {
+          imports = [
+            inputs.snowcli.homeManagerModules.default
+            {
+              programs.snowcli.enable = true;
+              programs.snowcli.settings.connections.dev = {
+                account = "account_identifier";
+                # <the rest of the settings>
+              };
+            }
+          ];
+        };
+        # <the rest of the config>
+    };
+}
+
+```
+
+## Standalone
 If not using a system-wide connection file:
 
 1. Create a connection file: `touch connections.toml`
