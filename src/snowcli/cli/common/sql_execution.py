@@ -1,5 +1,8 @@
 from __future__ import annotations
+
+import logging
 from contextlib import contextmanager
+from functools import cached_property
 
 from textwrap import dedent
 
@@ -17,11 +20,16 @@ class SqlExecutionMixin:
     def _conn(self):
         return snow_cli_global_context_manager.get_connection()
 
+    @cached_property
+    def _log(self):
+        return logging.getLogger(__name__)
+
     def _execute_query(self, query: str, **kwargs):
-        *_, last_result = self._conn.execute_string(dedent(query), **kwargs)
+        *_, last_result = self._execute_queries(query, **kwargs)
         return last_result
 
     def _execute_queries(self, queries: str, **kwargs):
+        self._log.debug("Executing %s", queries)
         return self._conn.execute_string(dedent(queries), **kwargs)
 
     @contextmanager
@@ -36,6 +44,7 @@ class SqlExecutionMixin:
         prev_role = role_result["CURRENT_ROLE()"]
         is_different_role = new_role.lower() != prev_role.lower()
         if is_different_role:
+            self._log.debug("Assuming different role: %s", new_role)
             self._execute_query(f"use role {new_role}")
         try:
             yield

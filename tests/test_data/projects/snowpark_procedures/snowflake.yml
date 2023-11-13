@@ -1,0 +1,12 @@
+definition_version: 1
+procedures:
+  - name: procedureName
+    handler: "app.hello"
+    signature:
+      - name: "name"
+        type: "string"
+    returns: string
+  - name: test
+    handler: "app.test"
+    signature: ""
+    returns: string

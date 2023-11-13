@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import logging
 from contextlib import nullcontext
 
 from pathlib import Path
@@ -9,6 +11,9 @@ from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.utils import path_resolver
+
+
+log = logging.getLogger(__file__)
 
 
 class StageManager(SqlExecutionMixin):
@@ -51,6 +56,7 @@ class StageManager(SqlExecutionMixin):
         parallel: int = 4,
         overwrite: bool = False,
     ) -> SnowflakeCursor:
+
         stage_path = self.get_standard_stage_name(stage_path)
         local_resolved_path = path_resolver(str(local_path))
         return self._execute_query(
@@ -76,6 +82,7 @@ class StageManager(SqlExecutionMixin):
         with self.use_role(role) if role else nullcontext():
             stage_path = self.get_standard_stage_name(stage_path)
             local_resolved_path = path_resolver(str(local_path))
+            log.info(f"Uploading {local_resolved_path} to @{stage_path}")
             cursor = self._execute_query(
                 f"put file://{local_resolved_path} {self.quote_stage_name(stage_path)} "
                 f"auto_compress=false parallel={parallel} overwrite={overwrite}"

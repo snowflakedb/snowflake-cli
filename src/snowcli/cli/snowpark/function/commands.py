@@ -21,6 +21,7 @@ from snowcli.cli.constants import DEPLOYMENT_STAGE, ObjectType
 from snowcli.cli.snowpark.common import (
     remove_parameter_names,
     check_if_replace_is_required,
+    build_udf_sproc_identifier,
 )
 from snowcli.cli.project.definition_manager import DefinitionManager
 from snowcli.cli.snowpark.function.manager import FunctionManager
@@ -127,10 +128,7 @@ def function_deploy(
     sm.create(stage_name=DEPLOYMENT_STAGE, comment="deployments managed by snowcli")
 
     for function in functions:
-        arguments = ", ".join(
-            (f"{arg['name']} {arg['type']}" for arg in function["signature"])
-        )
-        identifier = f"{function['name']}({arguments})"
+        identifier = build_udf_sproc_identifier(function)
 
         try:
             current_state = fm.describe(remove_parameter_names(identifier))
@@ -147,7 +145,6 @@ def function_deploy(
             replace_function = check_if_replace_is_required(
                 ObjectType.FUNCTION,
                 current_state,
-                None,
                 function["handler"],
                 function["returns"],
             )

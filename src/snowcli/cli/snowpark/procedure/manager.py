@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
 from typing import List
 
 from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.snowpark.common import SnowparkObjectManager
+
+
+log = logging.getLogger(__file__)
 
 
 class ProcedureManager(SnowparkObjectManager):
@@ -25,6 +29,8 @@ class ProcedureManager(SnowparkObjectManager):
         packages: List[str],
         execute_as_caller: bool,
     ) -> SnowflakeCursor:
+        log.debug(f"Creating procedure {identifier} using @{artifact_file}")
+
         packages_list = ",".join(f"'{p}'" for p in packages)
         query = f"""\
             create or replace procedure {identifier}

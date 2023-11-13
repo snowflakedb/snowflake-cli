@@ -93,7 +93,10 @@ _callable_mapping = {
 function_schema = RelaxedMap(_callable_mapping)
 
 procedure_schema = RelaxedMap(
-    {**_callable_mapping, Optional("execute_as_owner"): Bool()}
+    {
+        **_callable_mapping,
+        Optional("execute_as_caller"): Bool(),
+    }
 )
 
 streamlit_schema = RelaxedMap(
