@@ -186,5 +186,4 @@ def build_udf_sproc_identifier(udf_sproc_dict):
     arguments = ", ".join(
         (f"{arg['name']} {arg['type']}" for arg in udf_sproc_dict["signature"])
     )
-    identifier = f"{udf_sproc_dict['name']}({arguments})"
-    return identifier
+    return f"{udf_sproc_dict['name']}({arguments})"

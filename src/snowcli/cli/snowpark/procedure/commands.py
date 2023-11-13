@@ -207,7 +207,7 @@ def procedure_deploy(
 
         if procedure_exists:
             replace_procedure = check_if_replace_is_required(
-                ObjectType.FUNCTION,
+                ObjectType.PROCEDURE,
                 current_state,
                 handler,
                 returns,
