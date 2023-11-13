@@ -109,7 +109,7 @@ def test_deploy_procedure_with_coverage(
             ]
         },
     ):
-        result = runner.invoke_with_config(
+        result = runner.invoke(
             ["snowpark", "procedure", "deploy", "--install-coverage-wrapper"]
         )
 
