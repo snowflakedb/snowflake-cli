@@ -39,7 +39,7 @@ from snowcli.cli.object.stage.manager import StageManager
 from snowflake.connector.cursor import DictCursor
 
 SPECIAL_COMMENT = "GENERATED_BY_SNOWCLI"
-LOOSE_FILES_MAGIC_VERSION = "dev_stage"
+LOOSE_FILES_MAGIC_VERSIONS = ["dev_stage", "UNVERSIONED"]
 
 NAME_COL = "name"
 COMMENT_COL = "comment"
@@ -346,9 +346,8 @@ class NativeAppManager(SqlExecutionMixin):
             )
 
             if show_app_row is not None:
-                if (
-                    show_app_row[COMMENT_COL] != SPECIAL_COMMENT
-                    or show_app_row[VERSION_COL] != LOOSE_FILES_MAGIC_VERSION
+                if show_app_row[COMMENT_COL] != SPECIAL_COMMENT or (
+                    show_app_row[VERSION_COL] not in LOOSE_FILES_MAGIC_VERSIONS
                 ):
                     raise ApplicationAlreadyExistsError(self.app_name)
 
