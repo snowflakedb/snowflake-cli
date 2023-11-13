@@ -4,9 +4,11 @@ import logging
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import List
 
 
 import typer
+from click import ClickException
 from snowflake.connector import ProgrammingError
 
 from snowcli import utils
@@ -18,9 +20,11 @@ from snowcli.cli.common.flags import (
 )
 from snowcli.cli.common.project_initialisation import add_init_command
 from snowcli.cli.constants import DEPLOYMENT_STAGE, ObjectType
+from snowcli.cli.project.definition_manager import DefinitionManager
 from snowcli.cli.snowpark.common import (
     remove_parameter_names,
     check_if_replace_is_required,
+    build_udf_sproc_identifier,
 )
 from snowcli.cli.snowpark.procedure.manager import ProcedureManager
 from snowcli.cli.snowpark.procedure_coverage.commands import (
@@ -41,6 +45,9 @@ from snowcli.output.types import (
     CommandResult,
     SingleQueryResult,
     QueryResult,
+    MultipleResults,
+    ObjectResult,
+    CollectionResult,
 )
 from snowcli.utils import (
     prepare_app_zip,
@@ -101,115 +108,143 @@ InstallCoverageWrapper = typer.Option(
 add_init_command(app, project_type="procedures", template="default_procedure")
 
 
-def _upload_procedure_artifact(
-    procedure_manager,
-    file,
-    handler,
-    install_coverage_wrapper,
-    identifier,
+def _alter_procedure_artifact(
+    artifact_stage_path: str,
+    artifact_path: Path,
+    handler: str,
+    identifier: str,
 ):
-    stage_manager = StageManager()
-    stage_manager.create(
-        stage_name=DEPLOYMENT_STAGE, comment="deployments managed by snowcli"
+    signature_start_index = identifier.index("(")
+    name = identifier[0:signature_start_index]
+    signature = identifier[signature_start_index:]
+    handler = _replace_handler_in_zip(
+        proc_name=name,
+        proc_signature=signature,
+        handler=handler,
+        coverage_reports_stage=DEPLOYMENT_STAGE,
+        coverage_reports_stage_path=f"/{artifact_stage_path}/coverage",
+        zip_file_path=str(artifact_path),
     )
-    artifact_stage_path = procedure_manager.artifact_stage_path(identifier)
-    artifact_location = f"{DEPLOYMENT_STAGE}/{artifact_stage_path}"
-    artifact_file = f"{artifact_location}/app.zip"
-    with TemporaryDirectory() as temp_dir:
-        temp_app_zip_path = prepare_app_zip(file, temp_dir)
-        if install_coverage_wrapper:
-            signature_start_index = identifier.index("(")
-            name = identifier[0:signature_start_index]
-            signature = identifier[signature_start_index:]
-            handler = _replace_handler_in_zip(
-                proc_name=name,
-                proc_signature=signature,
-                handler=handler,
-                coverage_reports_stage=DEPLOYMENT_STAGE,
-                coverage_reports_stage_path=f"/{artifact_stage_path}/coverage",
-                temp_dir=temp_dir,
-                zip_file_path=temp_app_zip_path,
-            )
-        stage_manager.put(
-            local_path=temp_app_zip_path,
-            stage_path=str(artifact_location),
-            overwrite=True,
-        )
-    return artifact_file, handler
+
+    return handler
 
 
 @app.command("deploy")
 @with_output
 @global_options_with_connection
 def procedure_deploy(
-    pypi_download: str = PyPiDownloadOption,
-    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
-    package_native_libraries: str = PackageNativeLibrariesOption,
-    identifier: str = identifier_argument(
-        "procedure", "hello(number int, name string)"
-    ),
-    file: Path = FileOption,
-    handler: str = HandlerOption,
-    return_type: str = ReturnsOption,
-    replace: bool = ReplaceOption,
-    execute_as_caller: bool = ExecuteAsCaller,
     install_coverage_wrapper: bool = InstallCoverageWrapper,
+    replace: bool = ReplaceOption,
     **options,
 ) -> CommandResult:
-    """Deploy a procedure in a specified environment."""
-    snowpark_package(
-        pypi_download,  # type: ignore[arg-type]
-        check_anaconda_for_pypi_deps,
-        package_native_libraries,  # type: ignore[arg-type]
-    )
+    """Deploy procedures in a specified environment."""
+    dm = DefinitionManager()
+    procedures = dm.project_definition.get("procedures")
+    if not procedures:
+        raise ClickException("No procedures were specified in project definition.")
+
+    if len(procedures) > 1 and install_coverage_wrapper:
+        raise ClickException(
+            "Using coverage wrapper is currently limited to project with single procedure"
+        )
+
+    build_artifact_path = Path("app.zip")
+    # TODO: this should be configurable
+    if not build_artifact_path.exists():
+        raise ClickException(
+            "Artifact required for deploying procedures does not exist in this directory. "
+            "Please use build command to create it."
+        )
 
     pm = ProcedureManager()
-    procedure_exists = True
-    replace_procedure = False
-    try:
-        current_state = pm.describe(remove_parameter_names(identifier))
-    except ProgrammingError as ex:
-        if ex.msg.__contains__("does not exist or not authorized"):
-            procedure_exists = False
-        else:
-            raise ex
 
-    if procedure_exists and not replace:
-        raise ObjectAlreadyExistsError(ObjectType.PROCEDURE, identifier)
-
-    if procedure_exists:
-        replace_procedure = check_if_replace_is_required(
-            ObjectType.FUNCTION,
-            current_state,
-            install_coverage_wrapper,
-            handler,
-            return_type,
-        )
-
-    artifact_file, new_handler = _upload_procedure_artifact(
-        procedure_manager=pm,
-        file=file,
-        handler=handler,
-        install_coverage_wrapper=install_coverage_wrapper,
-        identifier=identifier,
+    stage_manager = StageManager()
+    stage_manager.create(
+        stage_name=DEPLOYMENT_STAGE, comment="deployments managed by snowcli"
     )
 
-    if not procedure_exists or replace_procedure:
-        packages = get_snowflake_packages()
-        cursor = pm.create_or_replace(
-            identifier=identifier,
-            handler=new_handler,
-            return_type=return_type,
-            artifact_file=str(artifact_file),
-            packages=packages,
-            execute_as_caller=execute_as_caller,
+    packages = get_snowflake_packages()
+
+    operation_status = []
+    for procedure in procedures:
+        identifier = build_udf_sproc_identifier(procedure)
+        log.info(f"Deploying procedure: {identifier}")
+
+        handler = procedure["handler"]
+        returns = procedure["returns"]
+
+        procedure_exists = True
+        replace_procedure = False
+        current_state = None
+
+        artifact_stage_path = pm.artifact_stage_path(identifier)
+        artifact_stage_target = f"{DEPLOYMENT_STAGE}/{artifact_stage_path}"
+        artifact_path_on_stage = f"{artifact_stage_target}/{build_artifact_path.name}"
+
+        try:
+            current_state = pm.describe(remove_parameter_names(identifier))
+        except ProgrammingError as ex:
+            if ex.msg.__contains__("does not exist or not authorized"):
+                procedure_exists = False
+                log.debug("Procedure does not exists.")
+            else:
+                raise ex
+
+        if procedure_exists and not replace:
+            raise ObjectAlreadyExistsError(
+                ObjectType.PROCEDURE, identifier, replace_available=True
+            )
+
+        if install_coverage_wrapper:
+            # This changes existing artifact
+            handler = _alter_procedure_artifact(
+                artifact_path=build_artifact_path,
+                handler=handler,
+                identifier=identifier,
+                artifact_stage_path=artifact_stage_path,
+            )
+            packages.append("coverage")
+
+        if procedure_exists:
+            replace_procedure = check_if_replace_is_required(
+                ObjectType.PROCEDURE,
+                current_state,
+                handler,
+                returns,
+            )
+
+        stage_manager.put(
+            local_path=build_artifact_path,
+            stage_path=artifact_stage_target,
+            overwrite=True,
         )
-        return SingleQueryResult(cursor)
 
-    return MessageResult("No packages to update. Deployment complete!")
+        if not procedure_exists or replace_procedure:
+            pm.create_or_replace(
+                identifier=identifier,
+                handler=handler,
+                return_type=returns,
+                artifact_file=artifact_path_on_stage,
+                packages=packages,
+                execute_as_caller=procedure.get("execute_as_caller"),
+            )
+            status = "created" if not procedure_exists else "definition updated"
+            operation_status.append(
+                {"object": identifier, "type": "procedure", "status": status}
+            )
+
+        else:
+            operation_status.append(
+                {
+                    "object": identifier,
+                    "type": "procedure",
+                    "status": "packages updated",
+                }
+            )
+    return CollectionResult(operation_status)
 
 
-@app.command("package")
+@app.command("build")
 @global_options
 @with_output
 def procedure_package(
@@ -281,7 +316,6 @@ def _replace_handler_in_zip(
     proc_name: str,
     proc_signature: str,
     handler: str,
-    temp_dir: str,
     zip_file_path: str,
     coverage_reports_stage: str,
     coverage_reports_stage_path: str,
@@ -296,15 +330,16 @@ def _replace_handler_in_zip(
             "To install a code coverage wrapper, your handler must be in the format <module>.<function>"
         )
         raise typer.Abort()
-    wrapper_file = os.path.join(temp_dir, "snowpark_coverage.py")
-    utils.generate_snowpark_coverage_wrapper(
-        target_file=wrapper_file,
-        proc_name=proc_name,
-        proc_signature=proc_signature,
-        coverage_reports_stage=coverage_reports_stage,
-        coverage_reports_stage_path=coverage_reports_stage_path,
-        handler_module=handler_parts[0],
-        handler_function=handler_parts[1],
-    )
-    utils.add_file_to_existing_zip(zip_file=zip_file_path, other_file=wrapper_file)
+    with TemporaryDirectory() as temp_dir:
+        wrapper_file = os.path.join(temp_dir, "snowpark_coverage.py")
+        utils.generate_snowpark_coverage_wrapper(
+            target_file=wrapper_file,
+            proc_name=proc_name,
+            proc_signature=proc_signature,
+            coverage_reports_stage=coverage_reports_stage,
+            coverage_reports_stage_path=coverage_reports_stage_path,
+            handler_module=handler_parts[0],
+            handler_function=handler_parts[1],
+        )
+        utils.add_file_to_existing_zip(zip_file=zip_file_path, other_file=wrapper_file)
     return "snowpark_coverage.measure_coverage"

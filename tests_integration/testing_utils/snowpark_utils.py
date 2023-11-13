@@ -450,20 +450,10 @@ class SnowparkTestSteps:
 
 # Temporary copy for procedures until will be switched to project definition
 class SnowparkProcedureTestSteps:
-    dir_contents = {
-        "function": [".gitignore", "app.py", "snowflake.yml", "requirements.txt"],
-        "procedure": [
-            "requirements.txt",
-            "local_connection.py",
-            ".gitignore",
-            "app.py",
-            "config.toml",
-        ],
-    }
-
     def __init__(self, setup: SnowparkTestSetup, test_type: TestType):
         self._setup = setup
         self.test_type = test_type
+        self.file_list = [".gitignore", "app.py", "snowflake.yml", "requirements.txt"]
 
     def snowpark_list_should_return_no_data(self) -> None:
         result = self._setup.runner.invoke_integration(
@@ -556,16 +546,17 @@ class SnowparkProcedureTestSteps:
         result = self._setup.runner.invoke_with_config(
             ["snowpark", self.test_type.value, "init", ".", "--format", "JSON"]
         )
-        file_list = self.dir_contents[self.test_type.value]
         assert_that_result_is_successful(result)
         assert result.output is not None
         assert json.loads(result.output) == {
             "message": "Initialized the new project in ./"
         }
 
-        assert_that_current_working_directory_contains_only_following_files(*file_list)
+        assert_that_current_working_directory_contains_only_following_files(
+            *self.file_list
+        )
 
-        for file in file_list:
+        for file in self.file_list:
             assert_that_file_content_is_equal_to_snapshot(
                 actual_file_path=file, snapshot=self._setup.snapshot(name=file)
             )
@@ -573,7 +564,7 @@ class SnowparkProcedureTestSteps:
     def add_parameters_to_procedure(self, parameters: str):
         replace_text_in_file(
             file_path="app.py",
-            to_replace="def hello(session: Session) -> str:",
+            to_replace="def hello(session: Session, name: str) -> str:",
             replacement=f"def hello(session: Session, {parameters}) -> str:",
         )
 
@@ -586,12 +577,11 @@ class SnowparkProcedureTestSteps:
             assert "coverage\n" in file_contents
 
     def snowpark_package_should_zip_files(self) -> None:
-        value_to_cmd = {"function": "build", "procedure": "package"}
         result = self._setup.runner.invoke_with_config(
             [
                 "snowpark",
                 self.test_type.value,
-                value_to_cmd[self.test_type.value],
+                "build",
                 "--pypi-download",
                 "yes",
                 "--format",
@@ -600,18 +590,28 @@ class SnowparkProcedureTestSteps:
         )
         assert_that_result_is_successful_and_done_is_on_output(result)
         assert_that_current_working_directory_contains_only_following_files(
-            *self.dir_contents[self.test_type.value],
+            *self.file_list,
             "app.zip",
             "requirements.snowflake.txt",
         )
 
-    def snowpark_create_should_finish_successfully(self, parameters: str = "()") -> str:
-        return self.run_deploy(parameters)
-
     def snowpark_deploy_with_coverage_wrapper_should_finish_successfully(
-        self, parameters: str = "()"
-    ) -> str:
-        return self.run_deploy(parameters, "--install-coverage-wrapper")
+        self,
+    ):
+        return self.run_deploy("--install-coverage-wrapper")
+
+    def run_deploy_2(self, additional_arguments: str = ""):
+        arguments = [
+            "snowpark",
+            self.test_type.value,
+            "deploy",
+        ]
+
+        if additional_arguments:
+            arguments.append(additional_arguments)
+
+        result = self._setup.runner.invoke_integration(arguments)
+        return result
 
     def run_deploy(self, parameters: str = "()", additional_arguments: str = ""):
         entity_name = (
@@ -633,9 +633,7 @@ class SnowparkProcedureTestSteps:
             arguments.append(additional_arguments)
 
         result = self._setup.runner.invoke_integration(arguments)
-
-        assert_that_result_is_successful(result)
-        return entity_name
+        return result
 
     def snowpark_deploy_should_not_replace_if_the_signature_does_not_change(
         self, entity_name: str
@@ -651,12 +649,6 @@ class SnowparkProcedureTestSteps:
                 "snowpark",
                 self.test_type.value,
                 "deploy",
-                entity_name + "()",
-                "--handler",
-                "app.hello",
-                "--returns",
-                "string",
-                "--replace",
             ]
         )
 

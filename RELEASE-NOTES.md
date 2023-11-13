@@ -1,16 +1,10 @@
 # v2.0.0
 
 ## Backward incompatibility
-* In `snowpark function` command:
-  * Combined options `--function` and `--input-parameters` to `identifier` argument.
-  * Changed name of option from `--return-type` to `returns`.
-* In `snowpark procedure` command:
-  * Combined options `--procedure` and `--input-parameters` to `identifier` argument.
-  * Changed name of option from `--return-type` to `--returns`.
-* In `snowpark procedure coverage` command:
-  * Combined options `--name` and `--input-parameters` to `identifier` argument.
+* Removed `create` and `update` commands for snowpark functions and procedures. Please use `deploy` command.
 * Changed path to coverage reports on stage, previously created procedures with coverage will not work, have to be recreated.
 * Update function or procedure will upload function/procedure code to new path on stage. Previous code will remain under old path on stage.
+* Functions and procedures use single zip artifact for all functions and procedures.
 * Snowpark command `compute-pool` and its alias `cp` were replaced by `pool` command.
 * `snow snowpark registry` was replaced with `snow registry` command.
 * `snow connection test` now outputs all connection details (except for the password), along with connection status
@@ -34,6 +28,9 @@ databases, tables, warehouses, functions, procedures, roles, schemas, services, 
 ## New additions
 * `--temporary-connection` flag, that allows you to connect, without anything declared in config file
 * Added project definition for Streamlit
+* Added project definition for Snowpark procedures and functions.
+  * The `snowflake.yml` file is required to deploy functions/procedures.
+  * Introduced new `deploy` command for procedures and functions.
 
 ## Fixes and improvements
 * Resolved `-a` option conflict in `snow snowpark procedure update` command by removing short version of `--replace-always` option (it was conflicting with short version of `--check-anaconda-for-pypi-deps`).

@@ -106,7 +106,7 @@ class SnowCLIRunner(CliRunner):
         try:
             return CommandResult(result.exit_code, json.loads(result.output))
         except JSONDecodeError:
-            raise QueryResultJsonEncoderError(result.output)
+            return CommandResult(result.exit_code, output=result.output)
 
     def invoke_integration_without_format(
         self, *args, connection: str = "integration", **kwargs

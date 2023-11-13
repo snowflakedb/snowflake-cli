@@ -17,8 +17,12 @@
   from snowflake.snowpark import Session
   
   
-  def hello(session: Session) -> str:
-      return "Hello World!"
+  def hello(session: Session, name: str) -> str:
+      return f"Hello {name}"
+  
+  
+  def test(session: Session) -> str:
+      return "Test procedure"
   
   
   # For local debugging. Be aware you may need to type-convert arguments if
@@ -35,56 +39,27 @@
   
   '''
 # ---
-# name: test_snowpark_procedure_flow[config.toml]
-  '''
-  # Can create multiple --environments (default 'dev')
-  
-  [connections]
-  [connections.dev]
-  account = "<ACCOUNT_NAME>"
-  database = "<DATABASE_NAME>"
-  schema = "<SCHEMA_NAME>"
-  warehouse = "<WAREHOUSE_NAME>"
-  role = "<ROLE_NAME>"
-  
-  '''
-# ---
-# name: test_snowpark_procedure_flow[local_connection.py]
-  '''
-  from __future__ import annotations
-  
-  import configparser
-  from pathlib import Path
-  
-  import toml
-  
-  
-  def get_dev_config(
-      environment: str = "dev",
-      app_config_path: Path = Path.cwd().joinpath("app.toml"),
-  ) -> dict:
-      try:
-          app_config = toml.load(app_config_path)
-          config = configparser.ConfigParser(inline_comment_prefixes="#")
-          config.read(app_config["snowsql_config_path"])
-          session_config = config["connections." + app_config["snowsql_connection_name"]]
-          session_config_dict = {
-              k.replace("name", ""): v.strip('"') for k, v in session_config.items()
-          }
-          session_config_dict.update(app_config.get(environment))  # type: ignore
-          return session_config_dict
-      except Exception:
-          raise Exception(
-              "Error creating snowpark_containers_cmds session - be sure you've logged into "
-              "the SnowCLI and have a valid app.toml file",
-          )
-  
-  '''
-# ---
 # name: test_snowpark_procedure_flow[requirements.txt]
   '''
   snowflake-snowpark-python
   #snowcli  # for local development
+  
+  '''
+# ---
+# name: test_snowpark_procedure_flow[snowflake.yml]
+  '''
+  definition_version: 1
+  procedures:
+    - name: hello
+      handler: "app.hello"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+    - name: test
+      handler: "app.test"
+      signature: ""
+      returns: string
   
   '''
 # ---
