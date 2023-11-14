@@ -23,7 +23,7 @@ from snowcli.cli.common.flags import (
     TemporaryConnectionOption,
     experimental_option,
 )
-from snowcli.cli.common.snow_cli_global_context import global_context
+from snowcli.cli.common.cli_global_context import global_context
 from snowcli.output.formats import OutputFormat
 
 

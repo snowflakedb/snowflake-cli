@@ -1,7 +1,7 @@
 from unittest import mock
 from unittest.mock import call
 
-from snowcli.cli.common.snow_cli_global_context import (
+from snowcli.cli.common.cli_global_context import (
     ConnectionDetails,
     update_global_connection_detail_callback,
     global_context,
@@ -34,7 +34,7 @@ def test_connection_details_callback():
     )
 
 
-@mock.patch("snowcli.cli.common.snow_cli_global_context.connect_to_snowflake")
+@mock.patch("snowcli.cli.common.cli_global_context.connect_to_snowflake")
 def test_connection_caching(mock_connect):
     update_global_connection_detail_callback("role")("newValue")
     update_global_connection_detail_callback("warehouse")("newValue2")

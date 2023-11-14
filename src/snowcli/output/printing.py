@@ -10,7 +10,7 @@ from rich.table import Table
 from typing import Union
 import json
 
-from snowcli.cli.common.snow_cli_global_context import global_context
+from snowcli.cli.common.cli_global_context import global_context
 from snowcli.output.formats import OutputFormat
 from snowcli.output.types import (
     MessageResult,

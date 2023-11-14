@@ -1,7 +1,7 @@
 from logging import Logger
 from typing import Callable
 
-from snowcli.cli.common.snow_cli_global_context import global_context
+from snowcli.cli.common.cli_global_context import global_context
 
 
 def exception_logging(logger: Logger) -> Callable[[str, Exception], None]:

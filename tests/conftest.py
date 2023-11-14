@@ -5,7 +5,7 @@ import logging
 import pytest
 
 from snowcli.cli import loggers
-from snowcli.cli.common.snow_cli_global_context import global_context_manager
+from snowcli.cli.common.cli_global_context import global_context_manager
 from snowcli.config import config_init
 from tests.testing_utils.fixtures import test_snowcli_config
 

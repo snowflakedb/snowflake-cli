@@ -23,7 +23,7 @@ NATIVEAPP_MANAGER_EXECUTE_QUERY = f"{NATIVEAPP_MODULE}.NativeAppManager._execute
 
 
 mock_cacheable_connection = mock.patch(
-    "snowcli.cli.common.snow_cli_global_context._GlobalContextAccess.cacheable_connection",
+    "snowcli.cli.common.cli_global_context._GlobalContextAccess.cacheable_connection",
     new_callable=PropertyMock,
 )
 

@@ -5,7 +5,7 @@ from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import mock
 
-from snowcli.cli.common.snow_cli_global_context import ConnectionDetails
+from snowcli.cli.common.cli_global_context import ConnectionDetails
 from snowcli.exception import SnowflakeConnectionError
 from tests.testing_utils.fixtures import *
 

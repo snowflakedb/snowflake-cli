@@ -20,7 +20,7 @@ from typer import Typer
 from typer.testing import CliRunner
 from typing import List, Dict, Any, Optional
 
-from snowcli.cli.common.snow_cli_global_context import global_context_manager
+from snowcli.cli.common.cli_global_context import global_context_manager
 from snowcli.cli.project.definition import merge_left
 
 pytest_plugins = [

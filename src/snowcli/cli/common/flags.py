@@ -4,7 +4,7 @@ from typing import Optional
 
 import typer
 
-from snowcli.cli.common.snow_cli_global_context import (
+from snowcli.cli.common.cli_global_context import (
     update_global_connection_detail_callback,
     update_global_option_callback,
 )

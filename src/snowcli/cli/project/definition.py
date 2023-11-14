@@ -17,7 +17,7 @@ from snowcli.cli.project.schema import (
     project_override_schema,
 )
 
-from snowcli.cli.common.snow_cli_global_context import global_context
+from snowcli.cli.common.cli_global_context import global_context
 
 DEFAULT_USERNAME = "unknown_user"
 

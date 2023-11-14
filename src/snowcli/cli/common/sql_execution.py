@@ -8,7 +8,7 @@ from textwrap import dedent
 
 from click import ClickException
 from snowflake.connector.errors import ProgrammingError
-from snowcli.cli.common.snow_cli_global_context import global_context
+from snowcli.cli.common.cli_global_context import global_context
 from snowflake.connector.cursor import DictCursor
 
 
