@@ -5,7 +5,11 @@
 * Changed path to coverage reports on stage, previously created procedures with coverage will not work, have to be recreated.
 * Update function or procedure will upload function/procedure code to new path on stage. Previous code will remain under old path on stage.
 * Functions and procedures use single zip artifact for all functions and procedures.
-* Snowpark command `compute-pool` and its alias `cp` were replaced by `pool` command.
+* Snowpark Containers services commands
+  * `compute-pool` commands and its alias `cp` were renamed to `pool` commands.
+  * `jobs` commands were renamed to `job`.
+  * `services` commands were renamed to `service`
+  * `pool`, `job` and `service` commands were moved from `snowpark` group to a new `containers` group.
 * `snow snowpark registry` was replaced with `snow registry` command.
 * `snow connection test` now outputs all connection details (except for the password), along with connection status
 * Removed `snow snowpark function create` and `snow snowpark function update`. Procedures can be deployed using `snow snowpark function deploy`.
