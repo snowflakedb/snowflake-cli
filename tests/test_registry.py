@@ -1,8 +1,6 @@
 import json
 from unittest import mock
 from tests.testing_utils.fixtures import *
-from snowcli.cli.registry.manager import RegistryManager
-from snowcli.cli.registry.commands import list_images, list_tags
 
 
 @mock.patch("snowcli.cli.registry.manager.RegistryManager._conn")
@@ -33,7 +31,6 @@ def test_list_images(
     mock_get_images,
     runner,
     mock_cursor,
-    capsys,
 ):
     mock_conn.database = "DB"
     mock_conn.schema = "SCHEMA"
@@ -65,13 +62,15 @@ def test_list_images(
     )
     mock_login.return_value = "TOKEN"
 
-    mock_response = mock.MagicMock()
     mock_get_images.return_value.status_code = 200
     mock_get_images.return_value.text = '{"repositories":["baserepo/super-cool-repo"]}'
 
-    list_images(repo_name="IMAGES")
-    captured = capsys.readouterr()
-    assert "DB/SCHEMA/IMAGES/super-cool-repo" in captured.out
+    result = runner.invoke(
+        ["registry", "list-images", "-r", "IMAGES", "--format", "JSON"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == [{"image": "DB/SCHEMA/IMAGES/super-cool-repo"}]
 
 
 @mock.patch("snowcli.cli.registry.commands.requests.get")
@@ -85,7 +84,6 @@ def test_list_tags(
     mock_get_tags,
     runner,
     mock_cursor,
-    capsys,
 ):
     mock_conn.database = "DB"
     mock_conn.schema = "SCHEMA"
@@ -117,12 +115,25 @@ def test_list_tags(
     )
     mock_login.return_value = "TOKEN"
 
-    mock_response = mock.MagicMock()
     mock_get_tags.return_value.status_code = 200
     mock_get_tags.return_value.text = (
         '{"name":"baserepo/super-cool-repo","tags":["1.2.0"]}'
     )
 
-    list_tags(repo_name="IMAGES", image_name="DB/SCHEMA/IMAGES/super-cool-repo")
-    captured = capsys.readouterr()
-    assert "DB/SCHEMA/IMAGES/super-cool-repo" in captured.out
+    result = runner.invoke(
+        [
+            "registry",
+            "list-tags",
+            "--repository_name",
+            "IMAGES",
+            "--image_name",
+            "DB/SCHEMA/IMAGES/super-cool-repo",
+            "--format",
+            "JSON",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == [
+        {"tag": "DB/SCHEMA/IMAGES/super-cool-repo:1.2.0"}
+    ]
