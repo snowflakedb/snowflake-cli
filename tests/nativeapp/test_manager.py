@@ -1,4 +1,5 @@
 from textwrap import dedent
+from unittest.mock import PropertyMock
 
 from snowcli.cli.nativeapp.manager import (
     CouldNotDropObjectError,
@@ -12,7 +13,6 @@ from snowcli.cli.object.stage.diff import DiffResult
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector import ProgrammingError
 
-
 from tests.testing_utils.fixtures import *
 
 NATIVEAPP_MODULE = "snowcli.cli.nativeapp.manager"
@@ -20,9 +20,13 @@ NATIVEAPP_MANAGER_EXECUTE = f"{NATIVEAPP_MODULE}.NativeAppManager._execute_query
 NATIVEAPP_MANAGER_EXECUTE_QUERIES = (
     f"{NATIVEAPP_MODULE}.NativeAppManager._execute_queries"
 )
-CLI_GET_CONNECTION = (
-    "snowcli.cli.common.sql_execution.snow_cli_global_context_manager.get_connection"
+
+
+mock_cacheable_connection = mock.patch(
+    "snowcli.cli.common.snow_cli_global_context._GlobalContextAccess.cacheable_connection",
+    new_callable=PropertyMock,
 )
+
 
 mock_snowflake_yml_file = dedent(
     """\
@@ -255,7 +259,7 @@ def test_drop_object_no_special_comment(mock_execute, temp_dir, mock_cursor):
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(CLI_GET_CONNECTION)
+@mock_cacheable_connection
 def test_create_dev_app_w_warehouse_access_exception(
     mock_conn, mock_execute, temp_dir, mock_cursor
 ):
@@ -295,7 +299,7 @@ def test_create_dev_app_w_warehouse_access_exception(
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(CLI_GET_CONNECTION)
+@mock_cacheable_connection
 def test_create_dev_app_noop(mock_conn, mock_execute, temp_dir, mock_cursor):
     mock_conn.return_value = MockConnectionCtx()
     expected = [
@@ -341,7 +345,7 @@ def test_create_dev_app_noop(mock_conn, mock_execute, temp_dir, mock_cursor):
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(CLI_GET_CONNECTION)
+@mock_cacheable_connection
 def test_create_dev_app_recreate(mock_conn, mock_execute, temp_dir, mock_cursor):
     mock_conn.return_value = MockConnectionCtx()
     expected = [
@@ -389,7 +393,7 @@ def test_create_dev_app_recreate(mock_conn, mock_execute, temp_dir, mock_cursor)
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(CLI_GET_CONNECTION)
+@mock_cacheable_connection
 def test_create_dev_app_recreate_w_missing_warehouse_exception(
     mock_conn, mock_execute, temp_dir, mock_cursor
 ):
@@ -443,7 +447,7 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(CLI_GET_CONNECTION)
+@mock_cacheable_connection
 def test_create_dev_app_create_new(mock_conn, mock_execute, temp_dir, mock_cursor):
     mock_conn.return_value = MockConnectionCtx()
     expected = [
@@ -516,7 +520,7 @@ def test_create_dev_app_create_new(mock_conn, mock_execute, temp_dir, mock_curso
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(CLI_GET_CONNECTION)
+@mock_cacheable_connection
 def test_create_dev_app_create_new_w_missing_warehouse_exception(
     mock_conn, mock_execute, temp_dir, mock_cursor
 ):
@@ -597,7 +601,7 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(CLI_GET_CONNECTION)
+@mock_cacheable_connection
 def test_create_dev_app_create_new_quoted(
     mock_conn, mock_execute, temp_dir, mock_cursor
 ):
@@ -674,7 +678,7 @@ def test_create_dev_app_create_new_quoted(
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(CLI_GET_CONNECTION)
+@mock_cacheable_connection
 def test_create_dev_app_create_new_quoted_override(
     mock_conn, mock_execute, temp_dir, mock_cursor
 ):
@@ -755,7 +759,7 @@ def test_create_dev_app_create_new_quoted_override(
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
-@mock.patch(CLI_GET_CONNECTION)
+@mock_cacheable_connection
 def test_create_dev_app_create_new_with_additional_privileges(
     mock_conn, mock_execute_queries, mock_execute_query, temp_dir, mock_cursor
 ):
@@ -821,7 +825,7 @@ def test_create_dev_app_create_new_with_additional_privileges(
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(CLI_GET_CONNECTION)
+@mock_cacheable_connection
 @pytest.mark.parametrize("loose_files_magic_version", LOOSE_FILES_MAGIC_VERSIONS)
 def test_create_dev_app_bad_comment(
     mock_conn, mock_execute, loose_files_magic_version, temp_dir, mock_cursor
@@ -870,7 +874,7 @@ def test_create_dev_app_bad_comment(
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(CLI_GET_CONNECTION)
+@mock_cacheable_connection
 def test_create_dev_app_bad_version(mock_conn, mock_execute, temp_dir, mock_cursor):
     mock_conn.return_value = MockConnectionCtx()
     expected = [
@@ -916,7 +920,7 @@ def test_create_dev_app_bad_version(mock_conn, mock_execute, temp_dir, mock_curs
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(CLI_GET_CONNECTION)
+@mock_cacheable_connection
 def test_create_dev_app_bad_owner(mock_conn, mock_execute, temp_dir, mock_cursor):
     mock_conn.return_value = MockConnectionCtx()
     expected = [
@@ -1030,9 +1034,7 @@ def test_app_does_not_exist(mock_execute, temp_dir, mock_cursor):
 @mock.patch("snowcli.cli.connection.util.get_deployment")
 @mock.patch("snowcli.cli.connection.util.get_account")
 @mock.patch("snowcli.cli.connection.util.get_snowsight_host")
-@mock.patch(
-    "snowcli.cli.common.sql_execution.snow_cli_global_context_manager.get_connection"
-)
+@mock_cacheable_connection
 def test_get_snowsight_url(
     mock_conn, mock_snowsight_host, mock_account, mock_deployment, temp_dir
 ):

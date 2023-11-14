@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Optional, Dict
 
 import snowflake.connector
-import snowcli.cli.common.snow_cli_global_context
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.errors import ForbiddenError, DatabaseError
 

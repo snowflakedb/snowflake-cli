@@ -1,5 +1,5 @@
-from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
+from snowcli.cli.common.snow_cli_global_context import global_context
 
 
 def experimental_behaviour_enabled() -> bool:
-    return snow_cli_global_context_manager.get_global_context_copy().experimental
+    return global_context.experimental

@@ -1,6 +1,5 @@
-from copy import deepcopy
 from dataclasses import dataclass
-from typing import Callable, Optional, Union
+from typing import Optional, Union, Callable, Any
 
 from snowflake.connector import SnowflakeConnection
 
@@ -42,123 +41,106 @@ class ConnectionDetails:
             **self._resolve_connection_params()
         )
 
-    @staticmethod
-    def _connection_update(param_name: str, value: str):
-        def modifications(context: SnowCliGlobalContext) -> SnowCliGlobalContext:
-            setattr(context.connection, param_name, value)
-            return context
 
-        snow_cli_global_context_manager.update_global_context(modifications)
+DEFAULT_ENABLE_TRACEBACKS = True
+DEFAULT_OUTPUT_FORMAT = OutputFormat.TABLE
+DEFAULT_VERBOSE = False
+DEFAULT_EXPERIMENTAL = False
+
+
+class _GlobalContextManager:
+    _connection_details = ConnectionDetails()
+    _cached_connection: Optional[SnowflakeConnection] = None
+
+    enable_tracebacks = DEFAULT_ENABLE_TRACEBACKS
+    output_format = DEFAULT_OUTPUT_FORMAT
+    verbose = DEFAULT_VERBOSE
+    experimental = DEFAULT_EXPERIMENTAL
+
+    def set_default_values(self):
+        self.connection_details = ConnectionDetails()
+        self.enable_tracebacks = DEFAULT_ENABLE_TRACEBACKS
+        self.output_format = DEFAULT_OUTPUT_FORMAT
+        self.verbose = DEFAULT_VERBOSE
+        self.experimental = DEFAULT_EXPERIMENTAL
+
+    @property
+    def connection_details(self) -> ConnectionDetails:
+        return self._connection_details
+
+    @connection_details.setter
+    def connection_details(self, connection_details: ConnectionDetails):
+        self._connection_details = connection_details
+        self._cached_connection = None
+
+    @property
+    def cacheable_connection(self) -> SnowflakeConnection:
+        if not self._cached_connection:
+            self._cached_connection = self.connection_details.build_connection()
+        return self._cached_connection
+
+    def update_global_context_option(self, param_name: str, value: Union[bool, str]):
+        setattr(self, param_name, value)
+
+    def update_global_connection_detail(self, param_name: str, value: str):
+        setattr(self._connection_details, param_name, value)
+        self._cached_connection = None
+
+
+class _GlobalContextAccess:
+    def __init__(self, manager: _GlobalContextManager):
+        self._manager = manager
+
+    @property
+    def connection_details(self) -> ConnectionDetails:
+        return self._manager.connection_details
+
+    @property
+    def cacheable_connection(self) -> SnowflakeConnection:
+        return self._manager.cacheable_connection
+
+    @property
+    def enable_tracebacks(self) -> bool:
+        return self._manager.enable_tracebacks
+
+    @property
+    def output_format(self) -> OutputFormat:
+        return self._manager.output_format
+
+    @property
+    def verbose(self) -> bool:
+        return self._manager.verbose
+
+    @property
+    def experimental(self) -> bool:
+        return self._manager.experimental
+
+
+global_context_manager: _GlobalContextManager = _GlobalContextManager()
+global_context: _GlobalContextAccess = _GlobalContextAccess(global_context_manager)
+
+
+def _update_callback(update: Callable[[Any], Any]):
+    def callback(value):
+        update(value)
         return value
 
-    @staticmethod
-    def update_callback(param_name: str):
-        return lambda value: ConnectionDetails._connection_update(
-            param_name=param_name, value=value
-        )
+    return callback
 
 
-@dataclass
-class SnowCliGlobalContext:
-    """
-    Global state accessible in whole CLI code.
-    """
-
-    enable_tracebacks: bool
-    connection: ConnectionDetails
-    output_format: OutputFormat
-    verbose: bool
-    experimental: bool
-
-
-class SnowCliGlobalContextManager:
-    """
-    A manager responsible for retrieving and updating global state.
-    """
-
-    _cached_connector: Optional[SnowflakeConnection]
-
-    def __init__(self, global_context_with_default_values: SnowCliGlobalContext):
-        self._global_context = deepcopy(global_context_with_default_values)
-        self._cached_connector = None
-
-    def get_global_context_copy(self) -> SnowCliGlobalContext:
-        """
-        Returns deep copy of global state.
-        """
-        return deepcopy(self._global_context)
-
-    def update_global_context(
-        self, update: Callable[[SnowCliGlobalContext], SnowCliGlobalContext]
-    ) -> None:
-        """
-        Updates global state using provided function.
-        The resulting object will be deep copied before storing in the manager.
-        """
-        self._global_context = deepcopy(update(self.get_global_context_copy()))
-        self._cached_connector = None
-
-    def get_connection(self, force_rebuild=False) -> SnowflakeConnection:
-        """
-        Returns a SnowflakeConnection, representing an open connection to Snowflake
-        given the context in this manager. This connection is shared with subsequent
-        calls to this method until updates are made or force_rebuild is True, in which
-        case a new connector will be returned.
-        """
-        if force_rebuild or not self._cached_connector:
-            self._cached_connector = (
-                self.get_global_context_copy().connection.build_connection()
+def update_global_option_callback(param_name: str):
+    return _update_callback(
+        lambda value: (
+            global_context_manager.update_global_context_option(
+                param_name=param_name, value=value
             )
-        return self._cached_connector
-
-
-def _create_global_context_with_default_values() -> SnowCliGlobalContext:
-    return SnowCliGlobalContext(
-        enable_tracebacks=True,
-        connection=ConnectionDetails(),
-        output_format=OutputFormat.TABLE,
-        verbose=False,
-        experimental=False,
+        )
     )
 
 
-def _create_snow_cli_global_context_manager_with_default_values() -> (
-    SnowCliGlobalContextManager
-):
-    """
-    Creates a manager with global state filled with default values.
-    """
-    return SnowCliGlobalContextManager(_create_global_context_with_default_values())
-
-
-def setup_global_context(param_name: str, value: Union[bool, str]):
-    """
-    Setup global state (accessible in whole CLI code) using options passed in SNOW CLI invocation.
-    """
-
-    def modifications(context: SnowCliGlobalContext) -> SnowCliGlobalContext:
-        setattr(context, param_name, value)
-        return context
-
-    snow_cli_global_context_manager.update_global_context(modifications)
-
-
-def reset_global_context():
-    """
-    Global context reset is required to make tests working properly.
-    Without it, context state from previous tests is visible in following tests.
-    """
-
-    def modifications(context: SnowCliGlobalContext) -> SnowCliGlobalContext:
-        return _create_global_context_with_default_values()
-
-    snow_cli_global_context_manager.update_global_context(modifications)
-
-
-def update_callback(param_name: str):
-    return lambda value: setup_global_context(param_name=param_name, value=value)
-
-
-snow_cli_global_context_manager = (
-    _create_snow_cli_global_context_manager_with_default_values()
-)
+def update_global_connection_detail_callback(param_name: str):
+    return _update_callback(
+        lambda value: global_context_manager.update_global_connection_detail(
+            param_name=param_name, value=value
+        )
+    )

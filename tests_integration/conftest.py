@@ -20,7 +20,7 @@ from typer import Typer
 from typer.testing import CliRunner
 from typing import List, Dict, Any, Optional
 
-from snowcli.cli.common import snow_cli_global_context
+from snowcli.cli.common.snow_cli_global_context import global_context_manager
 from snowcli.cli.project.definition import merge_left
 
 pytest_plugins = [
@@ -180,5 +180,5 @@ def project_directory(temporary_working_directory, test_root_path):
 
 @pytest.fixture(autouse=True)
 def reset_global_context_after_each_test(request):
-    snow_cli_global_context.reset_global_context()
+    global_context_manager.set_default_values()
     yield

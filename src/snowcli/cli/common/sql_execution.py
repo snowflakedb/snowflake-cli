@@ -8,7 +8,7 @@ from textwrap import dedent
 
 from click import ClickException
 from snowflake.connector.errors import ProgrammingError
-from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
+from snowcli.cli.common.snow_cli_global_context import global_context
 from snowflake.connector.cursor import DictCursor
 
 
@@ -18,7 +18,7 @@ class SqlExecutionMixin:
 
     @property
     def _conn(self):
-        return snow_cli_global_context_manager.get_connection()
+        return global_context.cacheable_connection
 
     @cached_property
     def _log(self):

@@ -5,7 +5,7 @@ import logging
 import pytest
 
 from snowcli.cli import loggers
-from snowcli.cli.common import snow_cli_global_context
+from snowcli.cli.common.snow_cli_global_context import global_context_manager
 from snowcli.config import config_init
 from tests.testing_utils.fixtures import test_snowcli_config
 
@@ -14,9 +14,9 @@ from tests.testing_utils.fixtures import test_snowcli_config
 # Global context and logging levels reset is required.
 # Without it, state from previous tests is visible in following tests.
 def reset_global_context_and_logging_levels_after_each_test(request):
-    snow_cli_global_context.reset_global_context()
-    snow_cli_global_context.setup_global_context("verbose", False)
-    snow_cli_global_context.setup_global_context("enable_tracebacks", False)
+    global_context_manager.set_default_values()
+    global_context_manager.verbose = False
+    global_context_manager.enable_tracebacks = False
     loggers.create_loggers(verbose=False, debug=False)
     yield
 
