@@ -29,15 +29,15 @@ class SnowparkServicesTestSteps:
     def create_service(self, service_name: str) -> None:
         result = self._setup.runner.invoke_integration(
             [
-                "snowpark",
-                "services",
+                "containers",
+                "service",
                 "create",
                 "--name",
                 service_name,
                 "--compute-pool",
                 self.compute_pool,
                 "--spec-path",
-                f"{self._setup.test_root_path}/snowpark/spec/spec.yml",
+                f"{self._setup.test_root_path}/containers/spec/spec.yml",
                 "--database",
                 self.database,
                 "--schema",
@@ -59,8 +59,8 @@ class SnowparkServicesTestSteps:
     def logs_should_return_service_logs(self, service_name: str) -> None:
         result = self._setup.runner.invoke_integration_without_format(
             [
-                "snowpark",
-                "services",
+                "containers",
+                "service",
                 "logs",
                 service_name,
                 "--container-name",
@@ -88,8 +88,8 @@ class SnowparkServicesTestSteps:
     def describe_should_return_service(self, service_name: str) -> None:
         result = self._setup.runner.invoke_integration(
             [
-                "snowpark",
-                "services",
+                "containers",
+                "service",
                 "desc",
                 service_name,
                 "--database",
@@ -105,8 +105,8 @@ class SnowparkServicesTestSteps:
     def drop_service(self, service_name: str) -> None:
         result = self._setup.runner.invoke_integration(
             [
-                "snowpark",
-                "services",
+                "containers",
+                "service",
                 "drop",
                 service_name,
                 "--database",
@@ -141,8 +141,8 @@ class SnowparkServicesTestSteps:
     def _execute_status(self, service_name: str):
         return self._setup.runner.invoke_integration(
             [
-                "snowpark",
-                "services",
+                "containers",
+                "service",
                 "status",
                 service_name,
                 "--database",
@@ -156,8 +156,8 @@ class SnowparkServicesTestSteps:
     def _execute_list(self):
         return self._setup.runner.invoke_integration(
             [
-                "snowpark",
-                "services",
+                "containers",
+                "service",
                 "list",
                 "--database",
                 self.database,

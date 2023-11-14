@@ -5,10 +5,10 @@ import pytest
 import strictyaml
 from pathlib import Path
 from unittest.mock import Mock, patch
-from snowcli.cli.snowpark.services.manager import ServiceManager
+from snowcli.cli.containers.services.manager import ServiceManager
 
 
-@patch("snowcli.cli.snowpark.services.manager.ServiceManager._execute_schema_query")
+@patch("snowcli.cli.containers.services.manager.ServiceManager._execute_schema_query")
 def test_create_service(mock_execute_schema_query, other_directory):
     service_name = "test_service"
     compute_pool = "test_pool"
@@ -52,7 +52,7 @@ def test_create_service(mock_execute_schema_query, other_directory):
     assert result == cursor
 
 
-@patch("snowcli.cli.snowpark.services.manager.ServiceManager._read_yaml")
+@patch("snowcli.cli.containers.services.manager.ServiceManager._read_yaml")
 def test_create_service_with_invalid_spec(mock_read_yaml):
     service_name = "test_service"
     compute_pool = "test_pool"
@@ -65,7 +65,7 @@ def test_create_service_with_invalid_spec(mock_read_yaml):
         )
 
 
-@patch("snowcli.cli.snowpark.services.manager.ServiceManager._execute_schema_query")
+@patch("snowcli.cli.containers.services.manager.ServiceManager._execute_schema_query")
 def test_desc(mock_execute_schema_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -76,7 +76,7 @@ def test_desc(mock_execute_schema_query):
     assert result == cursor
 
 
-@patch("snowcli.cli.snowpark.services.manager.ServiceManager._execute_schema_query")
+@patch("snowcli.cli.containers.services.manager.ServiceManager._execute_schema_query")
 def test_show(mock_execute_schema_query):
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_schema_query.return_value = cursor
@@ -86,7 +86,7 @@ def test_show(mock_execute_schema_query):
     assert result == cursor
 
 
-@patch("snowcli.cli.snowpark.services.manager.ServiceManager._execute_schema_query")
+@patch("snowcli.cli.containers.services.manager.ServiceManager._execute_schema_query")
 def test_status(mock_execute_schema_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -97,7 +97,7 @@ def test_status(mock_execute_schema_query):
     assert result == cursor
 
 
-@patch("snowcli.cli.snowpark.services.manager.ServiceManager._execute_schema_query")
+@patch("snowcli.cli.containers.services.manager.ServiceManager._execute_schema_query")
 def test_drop(mock_execute_schema_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -108,7 +108,7 @@ def test_drop(mock_execute_schema_query):
     assert result == cursor
 
 
-@patch("snowcli.cli.snowpark.services.manager.ServiceManager._execute_schema_query")
+@patch("snowcli.cli.containers.services.manager.ServiceManager._execute_schema_query")
 def test_logs(mock_execute_schema_query):
     service_name = "test_service"
     container_name = "test_container"
