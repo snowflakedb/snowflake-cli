@@ -43,6 +43,7 @@
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
   │ app            Manage Native Apps in Snowflake                               │
   │ connection     Manages connections to Snowflake.                             │
+  │ containers     Manages Snowpark services, pools and jobs.                    │
   │ object         Manages Snowflake objects like warehouses and stages          │
   │ registry       Manages Snowpark registries.                                  │
   │ snowpark       Manages functions, procedures, and Snowpark objects.          │

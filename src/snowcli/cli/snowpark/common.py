@@ -1,47 +1,13 @@
 from __future__ import annotations
 
-import sys
 import os
-from typing import TextIO, Optional, List
+from typing import Optional, List
 
 from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.constants import ObjectType
 from snowcli.utils import generate_deploy_stage_name
-
-if not sys.stdout.closed and sys.stdout.isatty():
-    GREEN = "\033[32m"
-    BLUE = "\033[34m"
-    ORANGE = "\033[38:2:238:76:44m"
-    GRAY = "\033[2m"
-    ENDC = "\033[0m"
-else:
-    GREEN = ""
-    ORANGE = ""
-    BLUE = ""
-    GRAY = ""
-    ENDC = ""
-
-
-def _prefix_line(prefix: str, line: str) -> str:
-    """
-    _prefix_line ensure the prefix is still present even when dealing with return characters
-    """
-    if "\r" in line:
-        line = line.replace("\r", f"\r{prefix}")
-    if "\n" in line[:-1]:
-        line = line[:-1].replace("\n", f"\n{prefix}") + line[-1:]
-    if not line.startswith("\r"):
-        line = f"{prefix}{line}"
-    return line
-
-
-def print_log_lines(file: TextIO, name, id, logs):
-    prefix = f"{GREEN}{name}/{id}{ENDC} "
-    logs = logs[0:-1]
-    for log in logs:
-        print(_prefix_line(prefix, log + "\n"), file=file, end="", flush=True)
 
 
 def remove_parameter_names(identifier: str):
