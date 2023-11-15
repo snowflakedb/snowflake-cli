@@ -1,0 +1,11 @@
+definition_version: 1
+procedures:
+  - name: hello
+    file: app.py
+    handler: "app.hello"
+    signature:
+      - name: "name"
+        type: "int"
+      - name: "b"
+        type: "string"
+    returns: string
