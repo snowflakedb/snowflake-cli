@@ -180,5 +180,5 @@ def project_directory(temporary_working_directory, test_root_path):
 
 @pytest.fixture(autouse=True)
 def reset_global_context_after_each_test(request):
-    global_context_manager.set_default_values()
+    global_context_manager.reset_context()
     yield

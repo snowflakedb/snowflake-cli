@@ -57,7 +57,7 @@ class _GlobalContextManager:
     verbose = DEFAULT_VERBOSE
     experimental = DEFAULT_EXPERIMENTAL
 
-    def set_default_values(self):
+    def reset_context(self):
         self.connection_details = ConnectionDetails()
         self.enable_tracebacks = DEFAULT_ENABLE_TRACEBACKS
         self.output_format = DEFAULT_OUTPUT_FORMAT
@@ -74,7 +74,7 @@ class _GlobalContextManager:
         self._cached_connection = None
 
     @property
-    def cacheable_connection(self) -> SnowflakeConnection:
+    def connection(self) -> SnowflakeConnection:
         if not self._cached_connection:
             self._cached_connection = self.connection_details.build_connection()
         return self._cached_connection
@@ -96,8 +96,8 @@ class _GlobalContextAccess:
         return self._manager.connection_details
 
     @property
-    def cacheable_connection(self) -> SnowflakeConnection:
-        return self._manager.cacheable_connection
+    def connection(self) -> SnowflakeConnection:
+        return self._manager.connection
 
     @property
     def enable_tracebacks(self) -> bool:

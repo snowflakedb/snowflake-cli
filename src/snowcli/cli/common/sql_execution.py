@@ -18,7 +18,7 @@ class SqlExecutionMixin:
 
     @property
     def _conn(self):
-        return global_context.cacheable_connection
+        return global_context.connection
 
     @cached_property
     def _log(self):

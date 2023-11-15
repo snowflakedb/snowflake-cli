@@ -38,16 +38,16 @@ def test_connection_details_callback():
 def test_connection_caching(mock_connect):
     update_global_connection_detail_callback("role")("newValue")
     update_global_connection_detail_callback("warehouse")("newValue2")
-    _ = global_context.cacheable_connection
+    _ = global_context.connection
     assert mock_connect.call_count == 1
 
     update_global_connection_detail_callback("user")("newValue3")
     assert mock_connect.call_count == 1
 
-    _ = global_context.cacheable_connection
+    _ = global_context.connection
     assert mock_connect.call_count == 2
 
-    _ = global_context.cacheable_connection
+    _ = global_context.connection
     assert mock_connect.call_count == 2
 
     mock_connect.assert_has_calls(
