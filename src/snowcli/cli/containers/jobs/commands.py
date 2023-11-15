@@ -40,7 +40,7 @@ def create(
     return SingleQueryResult(cursor)
 
 
-@app.command()
+@app.command(hidden=True)
 @with_output
 @global_options_with_connection
 def desc(id: str = typer.Argument(..., help="Job id"), **options) -> CommandResult:
