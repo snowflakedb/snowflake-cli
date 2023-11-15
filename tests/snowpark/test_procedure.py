@@ -13,16 +13,15 @@ def test_deploy_function_no_procedure(runner, project_directory):
         result = runner.invoke(
             [
                 "snowpark",
-                "procedure",
                 "deploy",
             ],
         )
     assert result.exit_code == 1
-    assert "No procedures were specified in project" in result.output
+    assert "No procedures or functions were specified in project" in result.output
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.procedure.commands.ProcedureManager.describe")
+@mock.patch("snowcli.cli.snowpark.commands.ProcedureManager.describe")
 def test_deploy_procedure(
     mock_describe,
     mock_conn,
@@ -39,7 +38,6 @@ def test_deploy_procedure(
         result = runner.invoke(
             [
                 "snowpark",
-                "procedure",
                 "deploy",
             ]
         )
@@ -78,8 +76,8 @@ def test_deploy_procedure(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.procedure.commands._alter_procedure_artifact")
-@mock.patch("snowcli.cli.snowpark.procedure.commands.ProcedureManager.describe")
+@mock.patch("snowcli.cli.snowpark.commands._alter_procedure_artifact")
+@mock.patch("snowcli.cli.snowpark.commands.ProcedureManager.describe")
 def test_deploy_procedure_with_coverage(
     mock_describe,
     mock_alter_procedure_artifact,
@@ -109,9 +107,7 @@ def test_deploy_procedure_with_coverage(
             ]
         },
     ):
-        result = runner.invoke(
-            ["snowpark", "procedure", "deploy", "--install-coverage-wrapper"]
-        )
+        result = runner.invoke(["snowpark", "deploy", "--install-coverage-wrapper"])
 
     assert result.exit_code == 0, result.output
     mock_describe.assert_has_calls([call("foo(string)")])
@@ -137,15 +133,13 @@ def test_coverage_wrapper_does_not_work_for_multiple_procedures(
     project_directory, runner
 ):
     with project_directory("snowpark_procedures"):
-        result = runner.invoke(
-            ["snowpark", "procedure", "deploy", "--install-coverage-wrapper"]
-        )
+        result = runner.invoke(["snowpark", "deploy", "--install-coverage-wrapper"])
     assert result.exit_code == 1
     assert "Using coverage wrapper is currently limited" in result.output
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.procedure.commands.ProcedureManager.describe")
+@mock.patch("snowcli.cli.snowpark.commands.ProcedureManager.describe")
 def test_deploy_procedure_fails_if_object_exists_and_no_replace(
     mock_describe,
     mock_conn,
@@ -171,7 +165,6 @@ def test_deploy_procedure_fails_if_object_exists_and_no_replace(
         result = runner.invoke(
             [
                 "snowpark",
-                "procedure",
                 "deploy",
             ]
         )
@@ -181,7 +174,7 @@ def test_deploy_procedure_fails_if_object_exists_and_no_replace(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.procedure.commands.ProcedureManager.describe")
+@mock.patch("snowcli.cli.snowpark.commands.ProcedureManager.describe")
 def test_deploy_procedure_replace_nothing_to_update(
     mock_describe,
     mock_conn,
@@ -212,9 +205,7 @@ def test_deploy_procedure_replace_nothing_to_update(
     mock_conn.return_value = ctx
 
     with project_directory("snowpark_procedures"):
-        result = runner.invoke(
-            ["snowpark", "procedure", "deploy", "--replace", "--format", "json"]
-        )
+        result = runner.invoke(["snowpark", "deploy", "--replace", "--format", "json"])
 
     assert result.exit_code == 0
     assert json.loads(result.output) == [
@@ -228,7 +219,7 @@ def test_deploy_procedure_replace_nothing_to_update(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.procedure.commands.ProcedureManager.describe")
+@mock.patch("snowcli.cli.snowpark.commands.ProcedureManager.describe")
 def test_deploy_procedure_replace_updates_single_object(
     mock_describe,
     mock_conn,
@@ -259,9 +250,7 @@ def test_deploy_procedure_replace_updates_single_object(
     mock_conn.return_value = ctx
 
     with project_directory("snowpark_procedures"):
-        result = runner.invoke(
-            ["snowpark", "procedure", "deploy", "--replace", "--format", "json"]
-        )
+        result = runner.invoke(["snowpark", "deploy", "--replace", "--format", "json"])
 
     assert result.exit_code == 0
     assert json.loads(result.output) == [
@@ -275,7 +264,7 @@ def test_deploy_procedure_replace_updates_single_object(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.procedure.commands.ProcedureManager.describe")
+@mock.patch("snowcli.cli.snowpark.commands.ProcedureManager.describe")
 def test_deploy_procedure_replace_creates_missing_object(
     mock_describe,
     mock_conn,
@@ -299,9 +288,7 @@ def test_deploy_procedure_replace_creates_missing_object(
     mock_conn.return_value = ctx
 
     with project_directory("snowpark_procedures"):
-        result = runner.invoke(
-            ["snowpark", "procedure", "deploy", "--replace", "--format", "json"]
-        )
+        result = runner.invoke(["snowpark", "deploy", "--replace", "--format", "json"])
 
     assert result.exit_code == 0
     assert json.loads(result.output) == [
@@ -321,8 +308,8 @@ def test_execute_procedure(mock_connector, runner, mock_ctx):
     result = runner.invoke(
         [
             "snowpark",
-            "procedure",
             "execute",
+            "procedure",
             "procedureName(42, 'string')",
         ]
     )
@@ -338,8 +325,8 @@ def test_describe_procedure_from_signature(mock_connector, runner, mock_ctx):
     result = runner.invoke(
         [
             "snowpark",
-            "procedure",
             "describe",
+            "procedure",
             "procedureName(int, string, variant)",
         ]
     )
@@ -355,8 +342,8 @@ def test_describe_procedure_from_name(mock_connector, runner, mock_ctx):
     result = runner.invoke(
         [
             "snowpark",
-            "procedure",
             "describe",
+            "procedure",
             "procedureName(int, string, variant)",
         ]
     )
@@ -372,8 +359,8 @@ def test_list_procedure(mock_connector, runner, mock_ctx):
     result = runner.invoke(
         [
             "snowpark",
-            "procedure",
             "list",
+            "procedure",
             "--like",
             "foo_bar%",
         ]
@@ -390,8 +377,8 @@ def test_drop_procedure_from_signature(mock_connector, runner, mock_ctx):
     result = runner.invoke(
         [
             "snowpark",
-            "procedure",
             "drop",
+            "procedure",
             "procedureName(int, string, variant)",
         ]
     )
@@ -407,8 +394,8 @@ def test_drop_procedure_from_name(mock_connector, runner, mock_ctx):
     result = runner.invoke(
         [
             "snowpark",
-            "procedure",
             "drop",
+            "procedure",
             "procedureName(int, string, variant)",
         ]
     )
@@ -419,7 +406,7 @@ def test_drop_procedure_from_name(mock_connector, runner, mock_ctx):
 
 @mock.patch("snowcli.cli.common.project_initialisation._create_project_template")
 def test_init_procedure(mock_create_project_template, runner, temp_dir):
-    runner.invoke(["snowpark", "procedure", "init", "my_project2"])
+    runner.invoke(["snowpark", "init", "my_project2"])
     mock_create_project_template.assert_called_once_with(
-        "default_procedure", project_directory="my_project2"
+        "default_snowpark", project_directory="my_project2"
     )

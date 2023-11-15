@@ -17,12 +17,15 @@
   from snowflake.snowpark import Session
   
   
-  def hello(session: Session, name: str) -> str:
+  def hello_procedure(session: Session, name: str) -> str:
       return f"Hello {name}"
   
   
-  def test(session: Session) -> str:
+  def test_procedure(session: Session) -> str:
       return "Test procedure"
+  
+  def hello_function(name: str) -> str:
+      return f"Hello {name}!"
   
   
   # For local debugging. Be aware you may need to type-convert arguments if
@@ -32,9 +35,9 @@
   
       session = Session.builder.configs(cli_config.get_connection("dev")).create()
       if len(sys.argv) > 1:
-          print(hello(session, *sys.argv[1:]))  # type: ignore
+          print(hello_procedure(session, *sys.argv[1:]))  # type: ignore
       else:
-          print(hello(session))  # type: ignore
+          print(hello_procedure(session))  # type: ignore
       session.close()
   
   '''
@@ -49,15 +52,22 @@
 # name: test_snowpark_procedure_flow[snowflake.yml]
   '''
   definition_version: 1
+  functions:
+    - name: hello
+      handler: "app.hello_function"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
   procedures:
     - name: hello
-      handler: "app.hello"
+      handler: "app.hello_procedure"
       signature:
         - name: "name"
           type: "string"
       returns: string
     - name: test
-      handler: "app.test"
+      handler: "app.test_procedure"
       signature: ""
       returns: string
   
