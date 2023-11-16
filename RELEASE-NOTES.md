@@ -2,12 +2,12 @@
 
 ## Backward incompatibility
 * Snowpark changes
-  * Removed `procedure` and `function` sub-groups.
+  * Removed `procedure` and `function` subgroups.
   * Removed `snow snowpark function create` and `snow snowpark function update`. Procedures can be deployed using `snow snowpark deploy`.
   * Removed `snow snowpark procedure create` and `snow snowpark procedure update`. Procedures can be deployed using `snow snowpark deploy`.
-  * Functions and procedures use single zip artifact for all functions and procedures.
+  * Procedures and functions use single zip artifact for all functions and procedures.
   * Changed path to coverage reports on stage, previously created procedures with coverage will not work, have to be recreated.
-  * Update function or procedure will upload function/procedure code to new path on stage. Previous code will remain under old path on stage.
+  * Update of procedure of functions will upload procedure/function code to new path on stage. Previous code will remain under old path on stage.
 * Snowpark Containers services commands
   * `compute-pool` commands and its alias `cp` were renamed to `pool` commands.
   * `jobs` commands were renamed to `job`.
@@ -39,7 +39,6 @@ databases, tables, warehouses, functions, procedures, roles, schemas, services, 
   * Introduced new `build` command for project with procedure and functions
 
 ## Fixes and improvements
-* Resolved `-a` option conflict in `snow snowpark procedure update` command by removing short version of `--replace-always` option (it was conflicting with short version of `--check-anaconda-for-pypi-deps`).
 * Allow the use of quoted identifiers in stages
 * Fixed parsing of commands and arguments lists in specifications of snowpark services and jobs
 

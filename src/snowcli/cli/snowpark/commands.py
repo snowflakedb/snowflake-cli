@@ -16,9 +16,10 @@ from snowcli.cli.common.flags import (
     DEFAULT_CONTEXT_SETTINGS,
     identifier_argument,
     execution_identifier_argument,
+    LikeOption,
 )
 from snowcli.cli.common.project_initialisation import add_init_command
-from snowcli.cli.constants import DEPLOYMENT_STAGE, ObjectType, SnowparkObjectType
+from snowcli.cli.constants import DEPLOYMENT_STAGE, SnowparkObjectType
 from snowcli.cli.project.definition_manager import DefinitionManager
 from snowcli.cli.snowpark.common import (
     remove_parameter_names,
@@ -53,27 +54,20 @@ log = logging.getLogger(__name__)
 app = typer.Typer(
     name="snowpark",
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    help="Manage functions and procedures.",
-)
-
-
-LikeOption = typer.Option(
-    "%%",
-    "--like",
-    "-l",
-    help='Regular expression for filtering the procedure by name. For example, `list --like "my%"` lists all procedures in the **dev** (default) environment that begin with “my”.',
+    help="Manage procedures and functions.",
 )
 
 ReplaceOption = typer.Option(
     False,
     "--replace",
-    help="Replace procedure, even if no detected changes to metadata",
+    help="Replace procedure or function, even if no detected changes to metadata",
 )
 
 InstallCoverageWrapper = typer.Option(
     False,
     "--install-coverage-wrapper",
-    help="Whether to wrap the procedure with a code coverage measurement tool, so a coverage report can be later retrieved.",
+    help="Whether to wrap the procedure with a code coverage measurement tool, "
+    "so a coverage report can be later retrieved.",
 )
 
 ObjectTypeArgument = typer.Argument(
@@ -220,7 +214,7 @@ def _deploy_single_object(
         packages.append("coverage")
     if object_exists:
         replace_object = check_if_replace_is_required(
-            ObjectType.PROCEDURE,
+            SnowparkObjectType.PROCEDURE,
             current_state,
             handler,
             returns,
@@ -238,7 +232,7 @@ def _deploy_single_object(
             "artifact_file": artifact_path_on_stage,
             "packages": packages,
         }
-        if object_type == ObjectType.PROCEDURE:
+        if object_type == SnowparkObjectType.PROCEDURE:
             create_or_replace_kwargs["execute_as_caller"] = object_definition.get(
                 "execute_as_caller"
             )
@@ -258,13 +252,13 @@ def _deploy_single_object(
 @app.command("build")
 @global_options
 @with_output
-def procedure_package(
+def build(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
     package_native_libraries: str = PackageNativeLibrariesOption,
     **options,
 ) -> CommandResult:
-    """Packages procedure code into a `.zip` file."""
+    """Build the current project as a `.zip` file."""
     snowpark_package(
         pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps,
@@ -315,7 +309,10 @@ def describe(
     ),
     **options,
 ) -> CommandResult:
-    """Describes the specified object, including the stored procedure signature (i.e. arguments), return value, language, and body (i.e. definition)."""
+    """
+    Describes the specified object, including the signature (i.e. arguments),
+    return value, language, and body (i.e. definition).
+    """
     cursor = _execute_object_method(
         "describe", object_type=object_type, identifier=identifier
     )
@@ -330,7 +327,7 @@ def list(
     like: str = LikeOption,
     **options,
 ) -> CommandResult:
-    """Lists available procedures or functions."""
+    """Lists all available procedures or functions."""
     cursor = _execute_object_method("show", object_type=object_type, like=like)
     return QueryResult(cursor)
 
