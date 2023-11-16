@@ -46,7 +46,7 @@
   │ containers     Manages Snowpark services, pools and jobs.                    │
   │ object         Manages Snowflake objects like warehouses and stages          │
   │ registry       Manages Snowpark registries.                                  │
-  │ snowpark       Manage functions and procedures.                              │
+  │ snowpark       Manage procedures and functions.                              │
   │ sql            Executes Snowflake query.                                     │
   │ streamlit      Manages Streamlit in Snowflake.                               │
   ╰──────────────────────────────────────────────────────────────────────────────╯

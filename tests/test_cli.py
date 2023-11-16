@@ -13,7 +13,7 @@ def test_global(runner):
     "namespace, expected",
     [
         ("object", "Manages Snowflake objects"),
-        ("snowpark", "Manage functions and procedures."),
+        ("snowpark", "Manage procedures and functions."),
         ("streamlit", " Manages Streamlit in Snowflake."),
     ],
 )
