@@ -60,10 +60,16 @@ class StreamlitManager(SqlExecutionMixin):
         streamlit_name: str,
         main_file: Path,
         replace: bool | None = None,
+        create_if_not_exists: bool | None = None,
         query_warehouse: str | None = None,
         from_stage_name: str | None = None,
     ):
-        replace_stmt = "OR REPLACE" if replace else ""
+        if not replace and not create_if_not_exists:
+            create_stmt = "CREATE STREAMLIT"
+        elif replace:
+            create_stmt = "CREATE OR REPLACE STREAMLIT"
+        elif create_if_not_exists:
+            create_stmt = "CREATE STREAMLIT IF NOT EXISTS"
         use_warehouse_stmt = (
             f"QUERY_WAREHOUSE = {query_warehouse}" if query_warehouse else ""
         )
@@ -72,7 +78,7 @@ class StreamlitManager(SqlExecutionMixin):
         )
         self._execute_query(
             f"""
-            CREATE {replace_stmt} STREAMLIT {streamlit_name}
+            {create_stmt} {streamlit_name}
             {from_stage_stmt}
             MAIN_FILE = '{main_file.name}'
             {use_warehouse_stmt}
@@ -88,6 +94,7 @@ class StreamlitManager(SqlExecutionMixin):
         stage_name: Optional[str] = None,
         query_warehouse: Optional[str] = None,
         replace: Optional[bool] = False,
+        create_if_not_exists: Optional[bool] = False,
         **options,
     ):
         stage_manager = StageManager()
@@ -98,7 +105,13 @@ class StreamlitManager(SqlExecutionMixin):
             """
             # TODO: Support from_stage
             # from_stage_stmt = f"FROM_STAGE = '{stage_name}'" if stage_name else ""
-            self._create_streamlit(streamlit_name, main_file, replace, query_warehouse)
+            self._create_streamlit(
+                streamlit_name,
+                main_file,
+                replace=replace,
+                create_if_not_exists=create_if_not_exists,
+                query_warehouse=query_warehouse,
+            )
             self._execute_query(f"ALTER streamlit {streamlit_name} CHECKOUT")
             stage_path = stage_manager.to_fully_qualified_name(streamlit_name)
             embedded_stage_name = f"snow://streamlit/{stage_path}"
@@ -131,8 +144,9 @@ class StreamlitManager(SqlExecutionMixin):
             self._create_streamlit(
                 streamlit_name,
                 main_file,
-                replace,
-                query_warehouse,
+                replace=replace,
+                create_if_not_exists=create_if_not_exists,
+                query_warehouse=query_warehouse,
                 from_stage_name=root_location,
             )
 

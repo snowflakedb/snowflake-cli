@@ -141,6 +141,12 @@ def streamlit_deploy(
         help="Replace the Streamlit if it already exists.",
         is_flag=True,
     ),
+    create_if_not_exists: Optional[bool] = typer.Option(
+        False,
+        "--create-if-not-exists",
+        help="Create the Streamlit if it does not exist.",
+        is_flag=True,
+    ),
     open_: bool = typer.Option(
         False, "--open", help="Whether to open Streamlit in a browser.", is_flag=True
     ),
@@ -177,6 +183,7 @@ def streamlit_deploy(
         stage_name=streamlit["stage"],
         main_file=Path(streamlit["file"]),
         replace=replace,
+        create_if_not_exists=create_if_not_exists,
         query_warehouse=streamlit["query_warehouse"],
         **options,
     )
