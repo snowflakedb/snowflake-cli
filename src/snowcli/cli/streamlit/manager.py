@@ -67,6 +67,10 @@ class StreamlitManager(SqlExecutionMixin):
         if replace:
             create_stmt = "CREATE OR REPLACE STREAMLIT"
         elif experimental:
+            # For experimental behaviour, we need to use CREATE STREAMLIT IF NOT EXISTS
+            # for a streamlit app with an embedded stage
+            # because this is analogous to the behavior for non-experimental
+            # deploy which does CREATE STAGE IF NOT EXISTS
             create_stmt = "CREATE STREAMLIT IF NOT EXISTS"
         else:
             create_stmt = "CREATE STREAMLIT"
