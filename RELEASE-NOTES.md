@@ -7,7 +7,7 @@
   * Removed `snow snowpark procedure create` and `snow snowpark procedure update`. Procedures can be deployed using `snow snowpark deploy`.
   * Procedures and functions use single zip artifact for all functions and procedures.
   * Changed path to coverage reports on stage, previously created procedures with coverage will not work, have to be recreated.
-  * Update of procedure of functions will upload procedure/function code to new path on stage. Previous code will remain under old path on stage.
+  * Previously created procedures or functions won't work with `deploy` command due to change in stage path of artefact. Previous code will remain under old path on stage.
 * Snowpark Containers services commands
   * `compute-pool` commands and its alias `cp` were renamed to `pool` commands.
   * `jobs` commands were renamed to `job`.
