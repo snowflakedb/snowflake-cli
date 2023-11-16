@@ -5,7 +5,7 @@ import sys
 from snowflake.snowpark import Session
 
 
-def hello(session: Session, name: str) -> str:
+def hello(session: Session, name: int, b: str) -> str:
     return f"Hello {name}"
 
 

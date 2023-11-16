@@ -4,7 +4,7 @@ from zipfile import ZipFile
 import typer
 
 import snowcli.cli.snowpark_shared as shared
-from snowcli.cli.snowpark.procedure.commands import _replace_handler_in_zip
+from snowcli.cli.snowpark.commands import _replace_handler_in_zip
 from snowcli.utils import SplitRequirements
 from tests.testing_utils.fixtures import *
 
