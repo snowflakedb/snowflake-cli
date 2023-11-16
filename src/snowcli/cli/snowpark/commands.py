@@ -126,7 +126,7 @@ def deploy(
     # TODO: this should be configurable
     if not build_artifact_path.exists():
         raise ClickException(
-            "Artifact required for deploying procedures does not exist in this directory. "
+            "Artifact required for deploying the project does not exist in this directory. "
             "Please use build command to create it."
         )
 
@@ -184,7 +184,7 @@ def _deploy_single_object(
     install_coverage_wrapper: bool = False,
 ):
     identifier = build_udf_sproc_identifier(object_definition)
-    log.info(f"Deploying procedure: {identifier}")
+    log.info(f"Deploying {object_type.value}: {identifier}")
     handler = object_definition["handler"]
     returns = object_definition["returns"]
     object_exists = True
@@ -288,7 +288,7 @@ def _execute_object_method(
 def execute(
     object_type: SnowparkObjectType = ObjectTypeArgument,
     execution_identifier: str = execution_identifier_argument(
-        "procedure", "hello(1, 'world')"
+        "procedure/function", "hello(1, 'world')"
     ),
     **options,
 ) -> CommandResult:
