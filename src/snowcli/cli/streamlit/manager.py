@@ -60,16 +60,17 @@ class StreamlitManager(SqlExecutionMixin):
         streamlit_name: str,
         main_file: Path,
         replace: bool | None = None,
-        create_if_not_exists: bool | None = None,
+        experimental: bool | None = None,
         query_warehouse: str | None = None,
         from_stage_name: str | None = None,
     ):
-        if not replace and not create_if_not_exists:
-            create_stmt = "CREATE STREAMLIT"
-        elif replace:
+        if replace:
             create_stmt = "CREATE OR REPLACE STREAMLIT"
-        elif create_if_not_exists:
+        elif experimental:
             create_stmt = "CREATE STREAMLIT IF NOT EXISTS"
+        else:
+            create_stmt = "CREATE STREAMLIT"
+
         use_warehouse_stmt = (
             f"QUERY_WAREHOUSE = {query_warehouse}" if query_warehouse else ""
         )
@@ -94,7 +95,6 @@ class StreamlitManager(SqlExecutionMixin):
         stage_name: Optional[str] = None,
         query_warehouse: Optional[str] = None,
         replace: Optional[bool] = False,
-        create_if_not_exists: Optional[bool] = False,
         **options,
     ):
         stage_manager = StageManager()
@@ -109,8 +109,8 @@ class StreamlitManager(SqlExecutionMixin):
                 streamlit_name,
                 main_file,
                 replace=replace,
-                create_if_not_exists=create_if_not_exists,
                 query_warehouse=query_warehouse,
+                experimental=True,
             )
             self._execute_query(f"ALTER streamlit {streamlit_name} CHECKOUT")
             stage_path = stage_manager.to_fully_qualified_name(streamlit_name)
@@ -145,9 +145,9 @@ class StreamlitManager(SqlExecutionMixin):
                 streamlit_name,
                 main_file,
                 replace=replace,
-                create_if_not_exists=create_if_not_exists,
                 query_warehouse=query_warehouse,
                 from_stage_name=root_location,
+                experimental=False,
             )
 
         return self.get_url(streamlit_name)
