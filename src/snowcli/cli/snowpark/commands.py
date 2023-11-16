@@ -214,7 +214,7 @@ def _deploy_single_object(
         packages.append("coverage")
     if object_exists:
         replace_object = check_if_replace_is_required(
-            SnowparkObjectType.PROCEDURE,
+            object_type,
             current_state,
             handler,
             returns,
