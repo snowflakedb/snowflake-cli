@@ -34,7 +34,7 @@ def show(
     like: str = LikeOption,
     **options,
 ):
-    "Lists all available Snowflake objects of given type"
+    """Lists all available Snowflake objects of given type."""
     return QueryResult(ObjectManager().show(object_type, like))
 
 
@@ -44,7 +44,7 @@ def show(
 def drop(
     object_type: ObjectType = ObjectArgument, object_name: str = NameArgument, **options
 ):
-    "Drops Snowflake object of given name and type"
+    """Drops Snowflake object of given name and type."""
     return QueryResult(ObjectManager().drop(object_type, object_name))
 
 
@@ -54,5 +54,5 @@ def drop(
 def describe(
     object_type: ObjectType = ObjectArgument, object_name: str = NameArgument, **options
 ):
-    "Provides description of an object of given type"
+    """Provides description of an object of given type."""
     return QueryResult(ObjectManager().describe(object_type, object_name))

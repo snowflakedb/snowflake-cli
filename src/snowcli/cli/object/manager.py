@@ -8,7 +8,10 @@ from snowflake.connector.cursor import SnowflakeCursor
 
 class ObjectManager(SqlExecutionMixin):
     def show(self, object_type: ObjectType, like: str) -> SnowflakeCursor:
-        return self._execute_query(f"show {get_plural_name(object_type)} like '{like}'")
+        valid_sf_name = object_type.value.replace("-", " ")
+        return self._execute_query(
+            f"show {get_plural_name(valid_sf_name)} like '{like}'"
+        )
 
     def drop(self, object_type: ObjectType, name: str) -> SnowflakeCursor:
         return self._execute_query(f"drop {object_type.value} {name}")

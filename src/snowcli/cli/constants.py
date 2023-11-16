@@ -6,7 +6,7 @@ DEPLOYMENT_STAGE = "deployments"
 
 
 class ObjectType(Enum):
-    COMPUTE_POOL = "compute pool"
+    COMPUTE_POOL = "compute-pool"
     DATABASE = "database"
     FUNCTION = "function"
     JOB = "job"

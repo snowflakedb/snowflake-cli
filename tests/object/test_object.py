@@ -1,27 +1,17 @@
 from tests.testing_utils.fixtures import *
 
 
-@mock.patch("snowflake.connector")
+@mock.patch("snowflake.connector.connect")
 @pytest.mark.parametrize(
-    "object_type", ["warehouse", "compute pool", "database", "streamlit"]
+    "object_type", ["warehouse", "compute-pool", "database", "streamlit"]
 )
-def test_show(mock_connector, object_type, mock_cursor, runner, snapshot):
-    mock_connector.connect.return_value.execute_string.return_value = (
-        None,
-        mock_cursor(
-            rows=[
-                (
-                    "foo",
-                    "suspended",
-                ),
-                ("bar", "running"),
-            ],
-            columns=["name", "state"],
-        ),
-    )
+def test_show(mock_connector, object_type, mock_cursor, runner, snapshot, mock_ctx):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
     result = runner.invoke(["object", "show", object_type], catch_exceptions=False)
     assert result.exit_code == 0, result.output
-    assert result.output == snapshot
+    assert ctx.get_queries() == [f"show {object_type.replace('-', ' ')}s like '%%'"]
 
 
 @mock.patch("snowflake.connector")
