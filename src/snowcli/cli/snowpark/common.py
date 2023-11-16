@@ -6,7 +6,7 @@ from typing import Optional, List
 from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
-from snowcli.cli.constants import ObjectType
+from snowcli.cli.constants import SnowparkObjectType
 from snowcli.utils import generate_deploy_stage_name
 
 
@@ -28,7 +28,7 @@ def remove_parameter_names(identifier: str):
 
 
 def check_if_replace_is_required(
-    object_type: ObjectType,
+    object_type: SnowparkObjectType,
     current_state,
     handler: str,
     return_type: str,

@@ -1,5 +1,3 @@
-import pytest
-
 from tests.testing_utils.fixtures import *
 
 
@@ -15,7 +13,7 @@ def test_global(runner):
     "namespace, expected",
     [
         ("object", "Manages Snowflake objects"),
-        ("snowpark", "Manages functions, procedures, and Snowpark objects."),
+        ("snowpark", "Manage procedures and functions."),
         ("streamlit", " Manages Streamlit in Snowflake."),
     ],
 )

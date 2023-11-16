@@ -1,10 +1,13 @@
 # v2.0.0
 
 ## Backward incompatibility
-* Removed `create` and `update` commands for snowpark functions and procedures. Please use `deploy` command.
-* Changed path to coverage reports on stage, previously created procedures with coverage will not work, have to be recreated.
-* Update function or procedure will upload function/procedure code to new path on stage. Previous code will remain under old path on stage.
-* Functions and procedures use single zip artifact for all functions and procedures.
+* Snowpark changes
+  * Removed `procedure` and `function` subgroups.
+  * Removed `snow snowpark function create` and `snow snowpark function update`. Procedures can be deployed using `snow snowpark deploy`.
+  * Removed `snow snowpark procedure create` and `snow snowpark procedure update`. Procedures can be deployed using `snow snowpark deploy`.
+  * Procedures and functions use single zip artifact for all functions and procedures.
+  * Changed path to coverage reports on stage, previously created procedures with coverage will not work, have to be recreated.
+  * Previously created procedures or functions won't work with `deploy` command due to change in stage path of artefact. Previous code will remain under old path on stage.
 * Snowpark Containers services commands
   * `compute-pool` commands and its alias `cp` were renamed to `pool` commands.
   * `jobs` commands were renamed to `job`.
@@ -12,8 +15,6 @@
   * `pool`, `job` and `service` commands were moved from `snowpark` group to a new `containers` group.
 * `snow snowpark registry` was replaced with `snow registry` command.
 * `snow connection test` now outputs all connection details (except for the password), along with connection status
-* Removed `snow snowpark function create` and `snow snowpark function update`. Procedures can be deployed using `snow snowpark function deploy`.
-* Removed `snow snowpark procedure create` and `snow snowpark procedure update`. Procedures can be deployed using `snow snowpark procedure deploy`.
 * From `snow streamlit deploy` moved following parameters to `snowflake.yml`:
   * Argument:
     * `streamlit-name`
@@ -33,11 +34,11 @@ databases, tables, warehouses, functions, procedures, roles, schemas, services, 
 * `--temporary-connection` flag, that allows you to connect, without anything declared in config file
 * Added project definition for Streamlit
 * Added project definition for Snowpark procedures and functions.
-  * The `snowflake.yml` file is required to deploy functions/procedures.
-  * Introduced new `deploy` command for procedures and functions.
+  * The `snowflake.yml` file is required to deploy functions or procedures.
+  * Introduced new `deploy` command for project with procedures and functions.
+  * Introduced new `build` command for project with procedure and functions
 
 ## Fixes and improvements
-* Resolved `-a` option conflict in `snow snowpark procedure update` command by removing short version of `--replace-always` option (it was conflicting with short version of `--check-anaconda-for-pypi-deps`).
 * Allow the use of quoted identifiers in stages
 * Fixed parsing of commands and arguments lists in specifications of snowpark services and jobs
 

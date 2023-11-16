@@ -188,3 +188,11 @@ def execution_identifier_argument(object: str, example: str) -> typer.Argument:
     return typer.Argument(
         ..., help=f"Execution identifier of the {object}. For example: {example}"
     )
+
+
+LikeOption = typer.Option(
+    "%%",
+    "--like",
+    "-l",
+    help='Regular expression for filtering objects by name. For example, `list --like "my%"` lists all objects that begin with “my”.',
+)
