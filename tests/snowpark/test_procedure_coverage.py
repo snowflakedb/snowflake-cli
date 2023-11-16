@@ -22,7 +22,6 @@ def test_procedure_coverage_report_error_when_no_report_on_stage(
     result = runner.invoke(
         [
             "snowpark",
-            "procedure",
             "coverage",
             "report",
             IDENTIFIER,
@@ -51,7 +50,6 @@ def test_procedure_coverage_report_create_default_report(
     result = runner.invoke(
         [
             "snowpark",
-            "procedure",
             "coverage",
             "report",
             IDENTIFIER,
@@ -90,7 +88,6 @@ def test_procedure_coverage_report_create_html_report(
     result = runner.invoke(
         [
             "snowpark",
-            "procedure",
             "coverage",
             "report",
             IDENTIFIER,
@@ -132,7 +129,6 @@ def test_procedure_coverage_report_create_json_report(
     result = runner.invoke(
         [
             "snowpark",
-            "procedure",
             "coverage",
             "report",
             IDENTIFIER,
@@ -174,7 +170,6 @@ def test_procedure_coverage_report_create_lcov_report(
     result = runner.invoke(
         [
             "snowpark",
-            "procedure",
             "coverage",
             "report",
             IDENTIFIER,
@@ -212,7 +207,6 @@ def test_procedure_coverage_report_store_as_comment(
     result = runner.invoke(
         [
             "snowpark",
-            "procedure",
             "coverage",
             "report",
             IDENTIFIER,
@@ -244,7 +238,6 @@ def test_procedure_coverage_clear(
     result = runner.invoke(
         [
             "snowpark",
-            "procedure",
             "coverage",
             "clear",
             IDENTIFIER,

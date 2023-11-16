@@ -8,7 +8,3 @@ functions:
       - name: "b"
         type: "variant"
     returns: string
-  - name: func2
-    handler: "app.func2_handler"
-    signature: ""
-    returns: variant

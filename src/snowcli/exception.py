@@ -1,8 +1,9 @@
-from textwrap import dedent
+from __future__ import annotations
+
 from click.exceptions import ClickException
 from typing import Optional
 
-from snowcli.cli.constants import ObjectType
+from snowcli.cli.constants import ObjectType, SnowparkObjectType
 
 
 class EnvironmentVariableNotFoundError(ClickException):
@@ -55,7 +56,10 @@ class SnowflakeSQLExecutionError(ClickException):
 
 class ObjectAlreadyExistsError(ClickException):
     def __init__(
-        self, object_type: ObjectType, name: str, replace_available: bool = False
+        self,
+        object_type: SnowparkObjectType | ObjectType,
+        name: str,
+        replace_available: bool = False,
     ):
         msg = f"{object_type.value.capitalize()} {name} already exists."
         if replace_available:

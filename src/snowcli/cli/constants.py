@@ -17,3 +17,8 @@ class ObjectType(Enum):
     STREAMLIT = "streamlit"
     TABLE = "table"
     WAREHOUSE = "warehouse"
+
+
+class SnowparkObjectType(Enum):
+    PROCEDURE = ObjectType.PROCEDURE.value
+    FUNCTION = ObjectType.FUNCTION.value
