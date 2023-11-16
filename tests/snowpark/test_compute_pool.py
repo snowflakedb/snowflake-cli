@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock, patch
 from snowflake.connector.cursor import SnowflakeCursor
-from snowcli.cli.snowpark.compute_pool.manager import ComputePoolManager
+from snowcli.cli.containers.compute_pool.manager import ComputePoolManager
 
 
 class TestComputePoolManager(unittest.TestCase):
@@ -9,7 +9,7 @@ class TestComputePoolManager(unittest.TestCase):
         self.compute_pool_manager = ComputePoolManager()
 
     @patch(
-        "snowcli.cli.snowpark.compute_pool.manager.ComputePoolManager._execute_query"
+        "snowcli.cli.containers.compute_pool.manager.ComputePoolManager._execute_query"
     )
     def test_create(self, mock_execute_query):
         pool_name = "test_pool"
@@ -33,7 +33,7 @@ class TestComputePoolManager(unittest.TestCase):
         self.assertEqual(result, cursor)
 
     @patch(
-        "snowcli.cli.snowpark.compute_pool.manager.ComputePoolManager._execute_query"
+        "snowcli.cli.containers.compute_pool.manager.ComputePoolManager._execute_query"
     )
     def test_show(self, mock_execute_query):
         cursor = Mock(spec=SnowflakeCursor)
@@ -44,7 +44,7 @@ class TestComputePoolManager(unittest.TestCase):
         self.assertEqual(result, cursor)
 
     @patch(
-        "snowcli.cli.snowpark.compute_pool.manager.ComputePoolManager._execute_query"
+        "snowcli.cli.containers.compute_pool.manager.ComputePoolManager._execute_query"
     )
     def test_drop(self, mock_execute_query):
         pool_name = "test_pool"
@@ -56,7 +56,7 @@ class TestComputePoolManager(unittest.TestCase):
         self.assertEqual(result, cursor)
 
     @patch(
-        "snowcli.cli.snowpark.compute_pool.manager.ComputePoolManager._execute_query"
+        "snowcli.cli.containers.compute_pool.manager.ComputePoolManager._execute_query"
     )
     def test_stop(self, mock_execute_query):
         pool_name = "test_pool"

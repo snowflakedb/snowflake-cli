@@ -17,6 +17,8 @@ class ConnectionDetails:
     schema: Optional[str] = None
     user: Optional[str] = None
     password: Optional[str] = None
+    authenticator: Optional[str] = None
+    private_key_path: Optional[str] = None
     warehouse: Optional[str] = None
     temporary_connection: bool = False
 
@@ -110,21 +112,23 @@ class SnowCliGlobalContextManager:
         return self._cached_connector
 
 
+def _create_global_context_with_default_values() -> SnowCliGlobalContext:
+    return SnowCliGlobalContext(
+        enable_tracebacks=True,
+        connection=ConnectionDetails(),
+        output_format=OutputFormat.TABLE,
+        verbose=False,
+        experimental=False,
+    )
+
+
 def _create_snow_cli_global_context_manager_with_default_values() -> (
     SnowCliGlobalContextManager
 ):
     """
     Creates a manager with global state filled with default values.
     """
-    return SnowCliGlobalContextManager(
-        SnowCliGlobalContext(
-            enable_tracebacks=True,
-            connection=ConnectionDetails(),
-            output_format=OutputFormat.TABLE,
-            verbose=False,
-            experimental=False,
-        )
-    )
+    return SnowCliGlobalContextManager(_create_global_context_with_default_values())
 
 
 def setup_global_context(param_name: str, value: Union[bool, str]):
@@ -135,6 +139,18 @@ def setup_global_context(param_name: str, value: Union[bool, str]):
     def modifications(context: SnowCliGlobalContext) -> SnowCliGlobalContext:
         setattr(context, param_name, value)
         return context
+
+    snow_cli_global_context_manager.update_global_context(modifications)
+
+
+def reset_global_context():
+    """
+    Global context reset is required to make tests working properly.
+    Without it, context state from previous tests is visible in following tests.
+    """
+
+    def modifications(context: SnowCliGlobalContext) -> SnowCliGlobalContext:
+        return _create_global_context_with_default_values()
 
     snow_cli_global_context_manager.update_global_context(modifications)
 

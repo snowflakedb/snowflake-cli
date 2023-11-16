@@ -12,6 +12,7 @@ from snowcli.cli.nativeapp.artifacts import (
     SourceNotFoundError,
     TooManyFilesError,
     NotInDeployRootError,
+    DeployRootError,
 )
 from snowcli.cli.project.definition import load_project_definition
 
@@ -63,6 +64,27 @@ def test_napp_project_1_artifacts(project_definition_files):
     # we should be able to re-bundle without any errors happening
     build_bundle(project_root, deploy_root, artifacts)
 
+    # any additional files created in the deploy root will be obliterated by re-bundle
+    with open(deploy_root / "unknown_file.txt", "w") as handle:
+        handle.write("I am an unknown file!")
+
+    assert dir_structure(deploy_root) == [
+        "app/README.md",
+        "setup.sql",
+        "ui/config.py",
+        "ui/main.py",
+        "unknown_file.txt",
+    ]
+
+    build_bundle(project_root, deploy_root, artifacts)
+
+    assert dir_structure(deploy_root) == [
+        "app/README.md",
+        "setup.sql",
+        "ui/config.py",
+        "ui/main.py",
+    ]
+
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_source_not_found(project_definition_files):
@@ -108,6 +130,27 @@ def test_outside_deploy_root_three_ways(project_definition_files):
             project_root,
             deploy_root=Path(project_root, "deploy"),
             artifacts=[ArtifactMapping("app", ".")],
+        )
+
+
+@pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
+def test_bad_deploy_root(project_definition_files):
+    project_root = project_definition_files[0].parent
+    with pytest.raises(DeployRootError):
+        build_bundle(
+            project_root,
+            deploy_root=Path(project_root, "..", "deploy"),
+            artifacts=[],
+        )
+
+    with pytest.raises(DeployRootError):
+        with open(project_root / "deploy", "w") as handle:
+            handle.write("Deploy root should not be a file...")
+
+        build_bundle(
+            project_root,
+            deploy_root=Path(project_root, "deploy"),
+            artifacts=[],
         )
 
 

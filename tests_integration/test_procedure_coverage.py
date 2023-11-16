@@ -19,54 +19,77 @@ from tests_integration.testing_utils.working_directory_utils import (
     reason="Skip for windows, missing generated coverage files on stage",
 )
 @pytest.mark.integration
-def test_procedure_coverage_flow(_test_steps):
+def test_procedure_coverage_flow(
+    _test_steps, alter_snowflake_yml, temporary_working_directory_ctx
+):
     _test_steps.assert_that_no_entities_are_in_snowflake()
     _test_steps.assert_that_no_files_are_staged_in_test_db()
 
     _test_steps.snowpark_list_should_return_no_data()
 
-    _test_steps.snowpark_init_should_initialize_files_with_default_content()
-    _test_steps.add_parameters_to_procedure("a: int, b: str")
-    _test_steps.add_requirements_to_requirements_txt(["coverage"])
-    _test_steps.requirements_file_should_contain_coverage()
-    _test_steps.snowpark_package_should_zip_files()
-
-    parameters = "(a int, b string)"
-    procedure_name = (
-        _test_steps.snowpark_deploy_with_coverage_wrapper_should_finish_successfully(
-            parameters
+    with temporary_working_directory_ctx() as tmp_dir:
+        _test_steps.snowpark_init_should_initialize_files_with_default_content()
+        _test_steps.add_parameters_to_procedure("name: int, b: str")
+        _test_steps.add_requirements_to_requirements_txt(["coverage"])
+        _test_steps.requirements_file_should_contain_coverage()
+        _test_steps.snowpark_package_should_zip_files()
+        procedure_name = _test_steps.get_entity_name()
+        parameters = "(name int, b string)"
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="procedures",
+            value=[
+                {
+                    "name": procedure_name,
+                    "signature": [
+                        {"name": "name", "type": "int"},
+                        {"name": "b", "type": "string"},
+                    ],
+                    "returns": "string",
+                    "handler": "app.hello",
+                }
+            ],
         )
-    )
-    identifier = procedure_name + parameters
-    stage_name = f"{procedure_name}_a_int_b_string"
+        result = _test_steps.run_deploy_2("--install-coverage-wrapper")
+        assert result.exit_code == 0
+        assert result.json == [
+            {
+                "object": f"{procedure_name}(name int, b string)",
+                "type": "procedure",
+                "status": "created",
+            }
+        ]
 
-    _test_steps.assert_that_only_these_entities_are_in_snowflake(
-        f"{procedure_name}(NUMBER, VARCHAR) RETURN VARCHAR"
-    )
+        identifier = procedure_name + parameters
+        stage_name = f"{procedure_name}_name_int_b_string"
 
-    _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-        f"deployments/{stage_name}/app.zip"
-    )
+        _test_steps.assert_that_only_these_entities_are_in_snowflake(
+            f"{procedure_name}(NUMBER, VARCHAR) RETURN VARCHAR"
+        )
 
-    _test_steps.snowpark_execute_should_return_expected_value(
-        entity_name=procedure_name,
-        arguments="(0, 'test')",
-        expected_value="Hello World!",
-    )
+        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+            f"deployments/{stage_name}/app.zip"
+        )
 
-    _test_steps.assert_that_only_app_and_coverage_file_are_staged_in_test_db(
-        f"deployments/{stage_name}"
-    )
+        _test_steps.snowpark_execute_should_return_expected_value(
+            entity_name=procedure_name,
+            arguments="(0, 'test')",
+            expected_value="Hello 0",
+        )
 
-    _test_steps.procedure_coverage_should_return_report_when_files_are_present_on_stage(
-        identifier=identifier
-    )
+        _test_steps.assert_that_only_app_and_coverage_file_are_staged_in_test_db(
+            f"deployments/{stage_name}"
+        )
 
-    _test_steps.coverage_clear_should_execute_successfully(identifier=identifier)
+        _test_steps.procedure_coverage_should_return_report_when_files_are_present_on_stage(
+            identifier=identifier
+        )
 
-    _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-        f"deployments/{stage_name}/app.zip"
-    )
+        _test_steps.coverage_clear_should_execute_successfully(identifier=identifier)
+
+        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+            f"deployments/{stage_name}/app.zip"
+        )
 
 
 @pytest.fixture

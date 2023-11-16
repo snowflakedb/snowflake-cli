@@ -19,11 +19,11 @@ dependencies = [
   "rich==13.6.0",
   "requests==2.31.0",
   "requirements-parser==0.5.0",
-  "snowflake-connector-python[secure-local-storage]==3.3.1",
+  "snowflake-connector-python[secure-local-storage]==3.4.1",
   "strictyaml==1.7.3",
-  "tomlkit==0.12.1",
+  "tomlkit==0.12.2",
   "typer==0.9.0",
-  "urllib3<1.27,>=1.21.1",
+  "urllib3>=1.21.1,<2.2",
   "GitPython==3.1.40",
 
 ]
@@ -43,8 +43,9 @@ classifiers = [
 dev = [
   "coverage==7.3.2",
   "pre-commit==3.5.0",
-  "pytest==7.4.2",
-  "syrupy==4.5.0",
+  "pytest==7.4.3",
+  "pytest-randomly==3.15.0",
+  "syrupy==4.6.0",
   "tox==4.6.4",
 ]
 
@@ -74,8 +75,9 @@ select = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-m 'not integration and not performance'"
+addopts = "-m 'not integration and not performance and not e2e and not spcs'"
 markers = [
   "integration: mark test as integration test",
-  "performance: mark test as performance test"
+  "performance: mark test as performance test",
+  "e2e: mark test to execute on SnowCLI installed in fresh virtual environment",
 ]

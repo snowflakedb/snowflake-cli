@@ -16,10 +16,12 @@ from snowcli.cli.common.flags import (
     identifier_argument,
     execution_identifier_argument,
 )
+from snowcli.cli.common.project_initialisation import add_init_command
 from snowcli.cli.constants import DEPLOYMENT_STAGE, ObjectType
 from snowcli.cli.snowpark.common import (
     remove_parameter_names,
     check_if_replace_is_required,
+    build_udf_sproc_identifier,
 )
 from snowcli.cli.project.definition_manager import DefinitionManager
 from snowcli.cli.snowpark.function.manager import FunctionManager
@@ -28,9 +30,8 @@ from snowcli.cli.snowpark_shared import (
     PackageNativeLibrariesOption,
     PyPiDownloadOption,
     snowpark_package,
-    ReturnsOption,
 )
-from snowcli.cli.stage.manager import StageManager
+from snowcli.cli.object.stage.manager import StageManager
 from snowcli.exception import ObjectAlreadyExistsError
 from snowcli.output.decorators import with_output
 from snowcli.output.types import (
@@ -43,7 +44,6 @@ from snowcli.output.types import (
 from snowcli.utils import (
     prepare_app_zip,
     get_snowflake_packages,
-    create_project_template,
 )
 
 log = logging.getLogger(__name__)
@@ -83,15 +83,7 @@ ReplaceOption = typer.Option(
 )
 
 
-@app.command("init")
-@global_options
-@with_output
-def function_init(**options):
-    """
-    Initializes this directory with a sample set of files for creating a function.
-    """
-    create_project_template("default_function")
-    return MessageResult("Done")
+add_init_command(app, project_type="functions", template="default_function")
 
 
 @app.command("deploy")
@@ -136,10 +128,7 @@ def function_deploy(
     sm.create(stage_name=DEPLOYMENT_STAGE, comment="deployments managed by snowcli")
 
     for function in functions:
-        arguments = ", ".join(
-            (f"{arg['name']} {arg['type']}" for arg in function["signature"])
-        )
-        identifier = f"{function['name']}({arguments})"
+        identifier = build_udf_sproc_identifier(function)
 
         try:
             current_state = fm.describe(remove_parameter_names(identifier))
@@ -156,7 +145,6 @@ def function_deploy(
             replace_function = check_if_replace_is_required(
                 ObjectType.FUNCTION,
                 current_state,
-                None,
                 function["handler"],
                 function["returns"],
             )

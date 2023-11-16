@@ -12,10 +12,9 @@ from tests.testing_utils.fixtures import *
 
 def test_new_connection_can_be_added(runner, snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
-        result = runner.invoke(
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
             [
-                "--config-file",
-                tmp_file.name,
                 "connection",
                 "add",
                 "--connection-name",
@@ -28,7 +27,7 @@ def test_new_connection_can_be_added(runner, snapshot):
                 "account1",
                 "--port",
                 "8080",
-            ]
+            ],
         )
         content = tmp_file.read()
     assert result.exit_code == 0, result.output
@@ -37,10 +36,9 @@ def test_new_connection_can_be_added(runner, snapshot):
 
 def test_port_has_cannot_be_string(runner):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
-        result = runner.invoke(
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
             [
-                "--config-file",
-                tmp_file.name,
                 "connection",
                 "add",
                 "--connection-name",
@@ -51,7 +49,7 @@ def test_port_has_cannot_be_string(runner):
                 "account1",
                 "--port",
                 "portValue",
-            ]
+            ],
         )
     assert result.exit_code == 1, result.output
     assert "Value of port must be integer" in result.output
@@ -59,10 +57,9 @@ def test_port_has_cannot_be_string(runner):
 
 def test_port_has_cannot_be_float(runner):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
-        result = runner.invoke(
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
             [
-                "--config-file",
-                tmp_file.name,
                 "connection",
                 "add",
                 "--connection-name",
@@ -73,7 +70,7 @@ def test_port_has_cannot_be_float(runner):
                 "account1",
                 "--port",
                 "123.45",
-            ]
+            ],
         )
     assert result.exit_code == 1, result.output
     assert "Value of port must be integer" in result.output
@@ -81,10 +78,9 @@ def test_port_has_cannot_be_float(runner):
 
 def test_new_connection_add_prompt_handles_default_values(runner, snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
-        result = runner.invoke(
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
             [
-                "--config-file",
-                tmp_file.name,
                 "connection",
                 "add",
             ],
@@ -97,10 +93,9 @@ def test_new_connection_add_prompt_handles_default_values(runner, snapshot):
 
 def test_new_connection_add_prompt_handles_prompt_override(runner, snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
-        result = runner.invoke(
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
             [
-                "--config-file",
-                tmp_file.name,
                 "connection",
                 "add",
             ],
@@ -123,10 +118,9 @@ def test_fails_if_existing_connection(runner):
             )
         )
         tmp_file.flush()
-        result = runner.invoke(
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
             [
-                "--config-file",
-                tmp_file.name,
                 "connection",
                 "add",
                 "--connection-name",
@@ -137,14 +131,14 @@ def test_fails_if_existing_connection(runner):
                 "password1",
                 "--account",
                 "account1",
-            ]
+            ],
         )
     assert result.exit_code == 1, result.output
     assert "Connection conn2 already exists  " in result.output
 
 
 def test_lists_connection_information(runner):
-    result = runner.invoke_with_config(["connection", "list", "--format", "json"])
+    result = runner.invoke(["connection", "list", "--format", "json"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload == [
@@ -191,10 +185,9 @@ def test_second_connection_not_update_default_connection(runner, snapshot):
             )
         )
         tmp_file.flush()
-        result = runner.invoke(
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
             [
-                "--config-file",
-                tmp_file.name,
                 "connection",
                 "add",
                 "--connection-name",
@@ -205,7 +198,7 @@ def test_second_connection_not_update_default_connection(runner, snapshot):
                 "password1",
                 "--account",
                 "account1",
-            ]
+            ],
         )
         tmp_file.seek(0)
         content = tmp_file.read()
@@ -216,7 +209,7 @@ def test_second_connection_not_update_default_connection(runner, snapshot):
 
 @mock.patch("snowcli.cli.connection.commands.connect_to_snowflake")
 def test_connection_test(mock_connect, runner):
-    result = runner.invoke_with_config(["connection", "test", "-c", "full"])
+    result = runner.invoke(["connection", "test", "-c", "full"])
     assert result.exit_code == 0, result.output
     assert "Host" in result.output
     assert "Password" not in result.output
@@ -231,8 +224,9 @@ def test_temporary_connection(mock_conn, option, runner):
     mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
     result = runner.invoke(
         [
+            "object",
+            "show",
             "warehouse",
-            "status",
             option,
             "--account",
             "test_account",
@@ -251,7 +245,7 @@ def test_temporary_connection(mock_conn, option, runner):
 
     assert result.exit_code == 1
     mock_conn.assert_called_once_with(
-        application="SNOWCLI.WAREHOUSE.STATUS",
+        application="SNOWCLI.OBJECT.SHOW",
         account="test_account",
         user="snowcli_test",
         password="top_secret",
@@ -305,8 +299,9 @@ def test_key_pair_authentication(mock_conn, runner):
         mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
         result = runner.invoke(
             [
+                "object",
+                "show",
                 "warehouse",
-                "status",
                 "--temporary-connection",
                 "--account",
                 "test_account",
@@ -327,7 +322,7 @@ def test_key_pair_authentication(mock_conn, runner):
 
     assert result.exit_code == 1
     mock_conn.assert_called_once_with(
-        application="SNOWCLI.WAREHOUSE.STATUS",
+        application="SNOWCLI.OBJECT.SHOW",
         private_key=private_key,
         account="test_account",
         user="snowcli_test",
@@ -365,19 +360,15 @@ def test_key_pair_authentication_from_config(mock_load, mock_conn, temp_dir, run
         )
         tmp_file.flush()
 
-        result = runner.invoke(
-            [
-                "--config-file",
-                tmp_file.name,
-                "warehouse",
-                "status",
-            ]
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            ["object", "show", "warehouse"],
         )
 
     assert result.exit_code == 1, result.output
     mock_load.assert_called_once_with("~/sf_private_key.p8")
     mock_conn.assert_called_once_with(
-        application="SNOWCLI.WAREHOUSE.STATUS",
+        application="SNOWCLI.OBJECT.SHOW",
         account="my_account",
         user="jdoe",
         authenticator="SNOWFLAKE_JWT",

@@ -411,7 +411,7 @@ def _deploy_function(
     app = Path(execute_in_tmp_dir) / "app.zip"
     app.touch()
     with project_directory("snowpark_functions"):
-        result = runner.invoke_with_config(
+        result = runner.invoke(
             [
                 "snowpark",
                 "function",
@@ -440,3 +440,11 @@ def mock_ctx_function_not_exist(mock_cursor):
             return (self.cs,)
 
     return lambda cursor=mock_cursor(["row"], []): _MockConnectionCtx(cursor)
+
+
+@mock.patch("snowcli.cli.common.project_initialisation._create_project_template")
+def test_init_function(mock_create_project_template, runner, temp_dir):
+    runner.invoke(["snowpark", "function", "init", "my_project"])
+    mock_create_project_template.assert_called_once_with(
+        "default_function", project_directory="my_project"
+    )

@@ -64,7 +64,7 @@ def test_deploy_only_streamlit_file(
     with project_directory("example_streamlit") as pdir:
         (pdir / "environment.yml").unlink()
         shutil.rmtree(pdir / "pages")
-        result = runner.invoke_with_config(["streamlit", "deploy"])
+        result = runner.invoke(["streamlit", "deploy"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
@@ -191,7 +191,7 @@ def test_deploy_launch_browser(
     mock_connector.return_value = ctx
 
     with project_directory("example_streamlit"):
-        result = runner.invoke_with_config(["streamlit", "deploy", "--open"])
+        result = runner.invoke(["streamlit", "deploy", "--open"])
 
     assert result.exit_code == 0, result.output
 
@@ -554,3 +554,11 @@ def test_drop_streamlit(mock_connector, runner, mock_ctx):
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == f"drop streamlit {STREAMLIT_NAME}"
+
+
+@mock.patch("snowcli.cli.common.project_initialisation._create_project_template")
+def test_init_streamlit(mock_create_project_template, runner, temp_dir):
+    runner.invoke(["streamlit", "init", "my_project3"])
+    mock_create_project_template.assert_called_once_with(
+        "default_streamlit", project_directory="my_project3"
+    )

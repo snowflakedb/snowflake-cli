@@ -15,7 +15,7 @@ MOCK_CONNECTION = {
     "database": "databaseValue",
     "schema": "schemaValue",
     "role": "roleValue",
-    "warehouse": "warehouseValue",
+    "show": "warehouseValue",
 }
 
 
@@ -23,7 +23,7 @@ MOCK_CONNECTION = {
     "cmd,expected",
     [
         ("snow sql", "SNOWCLI.SQL"),
-        ("snow warehouse status", "SNOWCLI.WAREHOUSE.STATUS"),
+        ("snow show warehouses", "SNOWCLI.SHOW.WAREHOUSES"),
     ],
 )
 @mock.patch("snowcli.snow_connector.cli_config")
@@ -46,7 +46,7 @@ def test_command_context_is_passed_to_snowflake_connection(
 
 @mock.patch.dict(os.environ, {}, clear=True)
 def test_returns_nice_error_in_case_of_connectivity_error(runner):
-    result = runner.invoke_with_config(["sql", "-q", "select 1"])
+    result = runner.invoke(["sql", "-q", "select 1"])
     assert result.exit_code == 1
     assert "Invalid connection configuration" in result.output
     assert "User is empty" in result.output

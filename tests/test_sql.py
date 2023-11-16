@@ -71,7 +71,7 @@ def test_sql_fails_for_both_query_and_file(runner):
 def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
     mock_conn.return_value.execute_string.return_value = [mock_cursor(["row"], [])]
 
-    result = runner.invoke_with_config(
+    result = runner.invoke(
         [
             "sql",
             "-q",

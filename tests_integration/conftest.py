@@ -7,7 +7,6 @@ from contextlib import contextmanager
 import pytest
 import tempfile
 import shutil
-from json import JSONDecodeError
 
 from dataclasses import dataclass
 from json import JSONDecodeError
@@ -21,7 +20,13 @@ from typer import Typer
 from typer.testing import CliRunner
 from typing import List, Dict, Any, Optional
 
+from snowcli.cli.common import snow_cli_global_context
 from snowcli.cli.project.definition import merge_left
+
+pytest_plugins = [
+    "tests_integration.testing_utils",
+    "tests_integration.snowflake_connector",
+]
 
 TEST_DIR = Path(__file__).parent
 DEFAULT_TEST_CONFIG = "connection_configs.toml"
@@ -81,7 +86,9 @@ class SnowCLIRunner(CliRunner):
         )
         return CommandResult(result.exit_code, output=result.output)
 
-    def invoke_integration(self, *args, **kwargs) -> CommandResult:
+    def invoke_integration(
+        self, *args, connection: str = "integration", **kwargs
+    ) -> CommandResult:
         result = self._invoke(
             [
                 "--config-file",
@@ -90,7 +97,7 @@ class SnowCLIRunner(CliRunner):
                 "--format",
                 "JSON",
                 "-c",
-                "integration",
+                connection,
             ],
             **kwargs,
         )
@@ -99,16 +106,18 @@ class SnowCLIRunner(CliRunner):
         try:
             return CommandResult(result.exit_code, json.loads(result.output))
         except JSONDecodeError:
-            raise QueryResultJsonEncoderError(result.output)
+            return CommandResult(result.exit_code, output=result.output)
 
-    def invoke_integration_without_format(self, *args, **kwargs) -> CommandResult:
+    def invoke_integration_without_format(
+        self, *args, connection: str = "integration", **kwargs
+    ) -> CommandResult:
         result = self._invoke(
             [
                 "--config-file",
                 self._test_config_path,
                 *args[0],
                 "-c",
-                "integration",
+                connection,
             ],
             **kwargs,
         )
@@ -167,3 +176,9 @@ def project_directory(temporary_working_directory, test_root_path):
         yield temporary_working_directory
 
     return _temporary_project_directory
+
+
+@pytest.fixture(autouse=True)
+def reset_global_context_after_each_test(request):
+    snow_cli_global_context.reset_global_context()
+    yield

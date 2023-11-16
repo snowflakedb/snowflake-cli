@@ -1,6 +1,4 @@
-from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest import mock
 
 from tests.testing_utils.fixtures import *
 
@@ -22,8 +20,8 @@ spec:
             fh.write(test_spec)
         runner.invoke(
             [
-                "snowpark",
-                "jobs",
+                "containers",
+                "job",
                 "create",
                 "--compute-pool",
                 "testPool",
@@ -36,9 +34,9 @@ spec:
         "USE MockDatabase.MockSchema\n"
         "EXECUTE SERVICE\n"
         "IN COMPUTE POOL testPool\n"
-        "FROM SPECIFICATION '\n"
+        "FROM SPECIFICATION $$\n"
         '{"spec": {"containers": [{"name": "main", "image": "public.ecr.aws/myrepo:latest"}]}}\n'
-        "'\n"
+        "$$\n"
     )
 
 
@@ -47,7 +45,7 @@ def test_desc_job(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["snowpark", "jobs", "desc", "jobName"])
+    result = runner.invoke(["containers", "job", "desc", "jobName"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "desc service jobName"
@@ -58,7 +56,7 @@ def test_job_status(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["snowpark", "jobs", "status", "jobName"])
+    result = runner.invoke(["containers", "job", "status", "jobName"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "CALL SYSTEM$GET_JOB_STATUS('jobName')"
@@ -70,7 +68,7 @@ def test_job_logs(mock_connector, runner, mock_ctx):
     mock_connector.return_value = ctx
 
     result = runner.invoke(
-        ["snowpark", "jobs", "logs", "--container-name", "containerName", "jobName"]
+        ["containers", "job", "logs", "--container-name", "containerName", "jobName"]
     )
 
     assert result.exit_code == 0, result.output
@@ -82,7 +80,7 @@ def test_drop_job(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["snowpark", "jobs", "drop", "cpNameToDrop"])
+    result = runner.invoke(["containers", "job", "drop", "cpNameToDrop"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "CALL SYSTEM$CANCEL_JOB('cpNameToDrop')"

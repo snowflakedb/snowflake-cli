@@ -11,7 +11,7 @@ from click import ClickException
 from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
-from snowcli.cli.stage.manager import StageManager
+from snowcli.cli.object.stage.manager import StageManager
 from snowcli.utils import generate_deploy_stage_name
 
 log = logging.getLogger(__name__)

@@ -3,18 +3,18 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from functools import cached_property
+from textwrap import dedent
 from typing import List, Optional, Literal, Callable
 from click.exceptions import ClickException
 from snowcli.exception import SnowflakeSQLExecutionError
-
-from snowflake.connector.cursor import DictCursor
+from snowflake.connector import ProgrammingError
 
 import jinja2
 
 from snowcli.cli.project.util import (
-    clean_identifier,
-    unquote_identifier,
     extract_schema,
+    to_identifier,
+    unquote_identifier,
 )
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.project.definition import (
@@ -22,7 +22,7 @@ from snowcli.cli.project.definition import (
     default_application,
     default_role,
 )
-from snowcli.cli.stage.diff import (
+from snowcli.cli.object.stage.diff import (
     DiffResult,
     stage_diff,
     sync_local_diff_with_stage,
@@ -34,16 +34,20 @@ from snowcli.cli.nativeapp.artifacts import (
     ArtifactMapping,
 )
 from snowcli.cli.connection.util import make_snowsight_url
+from snowcli.cli.object.stage.manager import StageManager
 
 from snowflake.connector.cursor import DictCursor
 
 SPECIAL_COMMENT = "GENERATED_BY_SNOWCLI"
-LOOSE_FILES_MAGIC_VERSION = "dev_stage"
+LOOSE_FILES_MAGIC_VERSIONS = ["dev_stage", "UNVERSIONED"]
 
 NAME_COL = "name"
 COMMENT_COL = "comment"
 OWNER_COL = "owner"
 VERSION_COL = "version"
+
+ERROR_MESSAGE_2043 = "Object does not exist, or operation cannot be performed."
+ERROR_MESSAGE_606 = "No active warehouse selected in the current session."
 
 log = logging.getLogger(__name__)
 
@@ -114,6 +118,34 @@ def find_row(cursor: DictCursor, predicate: Callable[[dict], bool]) -> Optional[
     )
 
 
+def _generic_sql_error_handler(
+    err: ProgrammingError, role: Optional[str] = None, warehouse: Optional[str] = None
+):
+    # Potential refactor: If moving away from python 3.8 and 3.9 to >= 3.10, use match ... case
+    if err.errno == 2043 or err.msg.__contains__(ERROR_MESSAGE_2043):
+        raise ProgrammingError(
+            msg=dedent(
+                f"""\
+                Received error message '{err.msg}' while executing SQL statement.
+                '{role}' may not have access to warehouse '{warehouse}'.
+                Please grant usage privilege on warehouse to this role.
+                """
+            ),
+            errno=err.errno,
+        )
+    elif err.errno == 606 or err.msg.__contains__(ERROR_MESSAGE_606):
+        raise ProgrammingError(
+            msg=dedent(
+                f"""\
+                Received error message '{err.msg}' while executing SQL statement.
+                Please provide a warehouse for the active session role in your project definition file, config.toml file, or via command line.
+                """
+            ),
+            errno=err.errno,
+        )
+    raise err
+
+
 class NativeAppManager(SqlExecutionMixin):
     definition_manager: DefinitionManager
 
@@ -153,17 +185,27 @@ class NativeAppManager(SqlExecutionMixin):
         return extract_schema(self.stage_fqn)
 
     @cached_property
-    def warehouse(self) -> Optional[str]:
-        return self.definition.get("application", {}).get("warehouse", None)
+    def package_warehouse(self) -> Optional[str]:
+        return self.definition.get("package", {}).get("warehouse", self._conn.warehouse)
+
+    @cached_property
+    def application_warehouse(self) -> Optional[str]:
+        return self.definition.get("application", {}).get(
+            "warehouse", self._conn.warehouse
+        )
 
     @cached_property
     def project_identifier(self) -> str:
-        return clean_identifier(self.definition["name"])
+        # name is expected to be a valid Snowflake identifier, but PyYAML
+        # will sometimes strip out double quotes so we try to get them back here.
+        return to_identifier(self.definition["name"])
 
     @cached_property
     def package_name(self) -> str:
-        return self.definition.get("package", {}).get(
-            "name", default_app_package(self.project_identifier)
+        return to_identifier(
+            self.definition.get("package", {}).get(
+                "name", default_app_package(self.project_identifier)
+            )
         )
 
     @cached_property
@@ -172,8 +214,10 @@ class NativeAppManager(SqlExecutionMixin):
 
     @cached_property
     def app_name(self) -> str:
-        return self.definition.get("application", {}).get(
-            "name", default_application(self.project_identifier)
+        return to_identifier(
+            self.definition.get("application", {}).get(
+                "name", default_application(self.project_identifier)
+            )
         )
 
     @cached_property
@@ -265,20 +309,30 @@ class NativeAppManager(SqlExecutionMixin):
                 raise InvalidPackageScriptError(relpath, e)
 
         # once we're sure all the templates expanded correctly, execute all of them
-        if self.warehouse:
-            self._execute_query(f"use warehouse {self.warehouse}")
+        try:
+            if self.package_warehouse:
+                self._execute_query(f"use warehouse {self.package_warehouse}")
 
-        for i, queries in enumerate(queued_queries):
-            log.info(f"Applying package script: {self.package_scripts[i]}")
-            self._execute_queries(queries)
+            for i, queries in enumerate(queued_queries):
+                log.info(f"Applying package script: {self.package_scripts[i]}")
+                self._execute_queries(queries)
+        except ProgrammingError as err:
+            _generic_sql_error_handler(
+                err, role=self.package_role, warehouse=self.package_warehouse
+            )
 
     def _create_dev_app(self, diff: DiffResult) -> None:
         """
         (Re-)creates the application with our up-to-date stage.
         """
         with self.use_role(self.app_role):
-            if self.warehouse:
-                self._execute_query(f"use warehouse {self.warehouse}")
+            try:
+                if self.application_warehouse:
+                    self._execute_query(f"use warehouse {self.application_warehouse}")
+            except ProgrammingError as err:
+                _generic_sql_error_handler(
+                    err=err, role=self.app_role, warehouse=self.application_warehouse
+                )
 
             show_app_cursor = self._execute_query(
                 f"show applications like '{unquote_identifier(self.app_name)}'",
@@ -292,9 +346,8 @@ class NativeAppManager(SqlExecutionMixin):
             )
 
             if show_app_row is not None:
-                if (
-                    show_app_row[COMMENT_COL] != SPECIAL_COMMENT
-                    or show_app_row[VERSION_COL] != LOOSE_FILES_MAGIC_VERSION
+                if show_app_row[COMMENT_COL] != SPECIAL_COMMENT or (
+                    show_app_row[VERSION_COL] not in LOOSE_FILES_MAGIC_VERSIONS
                 ):
                     raise ApplicationAlreadyExistsError(self.app_name)
 
@@ -304,28 +357,51 @@ class NativeAppManager(SqlExecutionMixin):
                         self.app_name, self.app_role, actual_owner
                     )
 
-                if not diff.has_changes():
-                    # the app already exists and is up-to-date
+                try:
+                    if diff.has_changes():
+                        # the app needs to be upgraded
+                        log.info(f"Upgrading existing application {self.app_name}.")
+                        self._execute_query(
+                            f"alter application {self.app_name} upgrade using @{self.stage_fqn}"
+                        )
+
                     # ensure debug_mode is up-to-date
                     self._execute_query(
                         f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
                     )
                     return
-                else:
-                    # the app needs to be re-created; drop it
-                    self._execute_query(f"drop application {self.app_name}")
+                except ProgrammingError as err:
+                    _generic_sql_error_handler(err)
 
             # Create an app using "loose files" / stage dev mode.
             log.info(f"Creating new application {self.app_name} in account.")
-            self._execute_query(
-                f"""
-                create application {self.app_name}
-                    from application package {self.package_name}
-                    using @{self.stage_fqn}
-                    debug_mode = {self.debug_mode}
-                    comment = {SPECIAL_COMMENT}
-                """,
-            )
+
+            if self.app_role != self.package_role:
+                with self.use_role(new_role=self.package_role):
+                    self._execute_queries(
+                        dedent(
+                            f"""\
+                        grant install, develop on application package {self.package_name} to role {self.app_role};
+                        grant usage on schema {self.package_name}.{self.stage_schema} to role {self.app_role};
+                        grant read on stage {self.stage_fqn} to role {self.app_role};
+                        """
+                        )
+                    )
+
+            stage_name = StageManager.quote_stage_name(self.stage_fqn)
+
+            try:
+                self._execute_query(
+                    f"""
+                    create application {self.app_name}
+                        from application package {self.package_name}
+                        using {stage_name}
+                        debug_mode = {self.debug_mode}
+                        comment = {SPECIAL_COMMENT}
+                    """,
+                )
+            except ProgrammingError as err:
+                _generic_sql_error_handler(err)
 
     def app_exists(self) -> bool:
         """Returns True iff the application exists on Snowflake."""

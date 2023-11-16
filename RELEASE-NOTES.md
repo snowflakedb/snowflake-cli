@@ -2,19 +2,16 @@
 
 ## Backward incompatibility
 
-- In `snowpark function` command:
-  - Combined options `--function` and `--input-parameters` to `identifier` argument.
-  - Changed name of option from `--return-type` to `returns`.
-- In `snowpark procedure` command:
-  - Combined options `--procedure` and `--input-parameters` to `identifier` argument.
-  - Changed name of option from `--return-type` to `--returns`.
-- In `snowpark procedure coverage` command:
-  - Combined options `--name` and `--input-parameters` to `identifier` argument.
+- Removed `create` and `update` commands for snowpark functions and procedures. Please use `deploy` command.
 - Changed path to coverage reports on stage, previously created procedures with coverage will not work, have to be recreated.
 - Update function or procedure will upload function/procedure code to new path on stage. Previous code will remain under old path on stage.
-- Snowpark command `compute-pool` and its alias `cp` were replaced by `pool` command.
+- Functions and procedures use single zip artifact for all functions and procedures.
+- Snowpark Containers services commands
+  - `compute-pool` commands and its alias `cp` were renamed to `pool` commands.
+  - `jobs` commands were renamed to `job`.
+  - `services` commands were renamed to `service`
+  - `pool`, `job` and `service` commands were moved from `snowpark` group to a new `containers` group.
 - `snow snowpark registry` was replaced with `snow registry` command.
-- Removed `snow streamlit create` command. Streamlit can be deployd using `snow streamlit deploy`
 - `snow connection test` now outputs all connection details (except for the password), along with connection status
 - Removed `snow snowpark function create` and `snow snowpark function update`. Procedures can be deployed using `snow snowpark function deploy`.
 - Removed `snow snowpark procedure create` and `snow snowpark procedure update`. Procedures can be deployed using `snow snowpark procedure deploy`.
@@ -26,19 +23,57 @@
     - `--stage`
     - `--env-file`
     - `--pages-dir`
+- `init` commands for functions and procedures create new project in new directory instead of using current working directory.
+- Moved `snow stage` from top-level to `snow object` subgroup
+- `snow warehouse status` is now `snow object show warehouse`
+- Introduced `snow object` group with `show`, `describe` and `drop` commands for: compute pools,
+  databases, tables, warehouses, functions, procedures, roles, schemas, services, jobs and streamlits
 
 ## New additions
 
 - `--temporary-connection` flag, that allows you to connect, without anything declared in config file
+- Added project definition for Streamlit
+- Added project definition for Snowpark procedures and functions.
+  - The `snowflake.yml` file is required to deploy functions/procedures.
+  - Introduced new `deploy` command for procedures and functions.
+- `snow streamlit deploy` supports --create-if-not-exists flag
+
+## Fixes and improvements
+
+- Resolved `-a` option conflict in `snow snowpark procedure update` command by removing short version of `--replace-always` option (it was conflicting with short version of `--check-anaconda-for-pypi-deps`).
+- Allow the use of quoted identifiers in stages
+- Fixed parsing of commands and arguments lists in specifications of snowpark services and jobs
+
+# v1.2.1
+
+## Fixes and improvements
+
+- Fix homebrew installation
+
+# v1.2.0
+
+## Backward incompatibility
+
+- Removed `snow streamlit create` command. Streamlit can be deployd using `snow streamlit deploy`
+- Removed short option names in compute pool commands:
+  - `-n` for `--name`, name of compute pool
+  - `-d` for `--num`, number of pool's instances
+  - `-f` for `--family`, instance family
+- Renamed long options in Snowpark services commands:
+  - `--compute_pool` is now `--compute-pool`
+  - `--num_instances` is now `--num-instances`
+  - `--container_name` is now `--container-name`
+
+## New additions
+
 - `snow streamlit init` command that creates a new streamlit project.
 - `snow streamlit deploy` support pages and environment.yml files.
-- `snow streamlit deploy` supports --create-if-not-exists flag
-- Added project definition for Streamlit
+- Support for private key authentication
 
 ## Fixes and improvements
 
 - Adjust streamlit commands to PuPr syntax
-- Resolved `-a` option conflict in `snow snowpark procedure update` command by removing short version of `--replace-always` option (it was conflicting with short version of `--check-anaconda-for-pypi-deps`).
+- Fix URL to streamlit dashboards
 
 # v1.1.1
 
