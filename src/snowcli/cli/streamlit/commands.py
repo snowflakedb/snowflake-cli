@@ -169,6 +169,7 @@ def streamlit_deploy(
         stage_name=streamlit["stage"],
         main_file=Path(streamlit["file"]),
         replace=replace,
+        create_if_not_exists=create_if_not_exists,
         query_warehouse=streamlit["query_warehouse"],
         **options,
     )
