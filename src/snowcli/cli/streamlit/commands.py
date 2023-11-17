@@ -133,9 +133,7 @@ def streamlit_deploy(
 @with_output
 @global_options_with_connection
 def get_url(
-    name: str = typer.Argument(
-        ..., help="Name of the Streamlit app whose description you want to display."
-    ),
+    name: str = typer.Argument(..., help="Name of the Streamlit app."),
     open_: bool = typer.Option(
         False, "--open", help="Whether to open Streamlit in a browser.", is_flag=True
     ),

@@ -6,7 +6,7 @@ def test_temporary_connection(runner):
     result = runner._invoke(
         [
             "object",
-            "show",
+            "list",
             "warehouse",
             "--temporary-connection",
             "--account",

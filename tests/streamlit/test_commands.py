@@ -11,7 +11,7 @@ def test_list_streamlit(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["object", "show", "streamlit"])
+    result = runner.invoke(["object", "list", "streamlit"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "show streamlits like '%%'"

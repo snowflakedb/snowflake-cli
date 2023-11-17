@@ -25,7 +25,7 @@ def test_streamlit_deploy(
         result = runner.invoke_integration(["streamlit", "deploy"])
         assert result.exit_code == 0
 
-        result = runner.invoke_integration(["object", "show", "streamlit"])
+        result = runner.invoke_integration(["object", "list", "streamlit"])
         assert_that_result_is_successful(result)
 
         expect = snowflake_session.execute_string(

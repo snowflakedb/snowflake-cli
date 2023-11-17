@@ -193,7 +193,7 @@ def _deploy_single_object(
     artifact_path_on_stage = f"{artifact_stage_target}/{build_artifact_path.name}"
     try:
         current_state = ObjectManager().describe(
-            object_type, remove_parameter_names(identifier)
+            object_type.value, remove_parameter_names(identifier)
         )
     except ProgrammingError as ex:
         if ex.msg.__contains__("does not exist or not authorized"):

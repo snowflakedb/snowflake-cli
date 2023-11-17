@@ -459,7 +459,7 @@ class SnowparkProcedureTestSteps:
         result = self._setup.runner.invoke_integration(
             [
                 "object",
-                "show",
+                "list",
                 object_type,
                 "--like",
                 f"{self._setup.object_name_prefix}%",
@@ -475,7 +475,7 @@ class SnowparkProcedureTestSteps:
         result = self._setup.runner.invoke_integration(
             [
                 "object",
-                "show",
+                "list",
                 object_type,
                 "--like",
                 f"{self._setup.object_name_prefix}%",

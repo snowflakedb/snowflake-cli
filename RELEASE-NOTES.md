@@ -1,10 +1,15 @@
 # v2.0.0
 
 ## Backward incompatibility
-* Introduced `snow object` group with `show`, `describe` and `drop` commands which replaces corresponding
-  functionalities of procedure/function/streamlit specific commands.
-* `snow stage` is now `snow object stage`
+* Introduced `snow object` group with `list`, `describe` and `drop` commands which replaces corresponding
+  functionalities of procedure/function/streamlit/stage specific commands.
 * `snow warehouse status` is now `snow object show warehouse`
+
+* Stage changes
+  * `snow stage` is now `snow object stage`.
+  * `snow stage list` lists only stage content, to list stages use `snow object list stage`.
+  * `snow stage describe` is now `snow object describe stage`.
+  * `snow stage drop` is now `snow object drop stage`.
 
 * Snowpark changes
   * Removed `procedure` and `function` subgroups.
@@ -28,7 +33,7 @@
 * Streamlit changes
   * `snow streamlit deploy` is requiring `snowflake.yml` project file with a Streamlit definition.
   * `snow streamlit describe` is now `snow object describe streamlit`
-  * `snow streamlit list` is now `snow object show streamlit`
+  * `snow streamlit list` is now `snow object list streamlit`
   * `snow streamlit drop` is now `snow object drop streamlit`
 
 

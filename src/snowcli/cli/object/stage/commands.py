@@ -27,18 +27,11 @@ StageNameOption = typer.Argument(..., help="Name of the stage.")
 @app.command("list")
 @with_output
 @global_options_with_connection
-def stage_list(
-    stage_name: str = typer.Argument(None, help="Name of the stage."), **options
-) -> CommandResult:
+def stage_list(stage_name: str = StageNameOption, **options) -> CommandResult:
     """
-    Lists the stage contents or shows available stages if the stage name is omitted.
+    Lists the stage contents.
     """
-    manager = StageManager()
-
-    if stage_name:
-        cursor = manager.list(stage_name=stage_name)
-    else:
-        cursor = manager.show()
+    cursor = StageManager().list(stage_name=stage_name)
     return QueryResult(cursor)
 
 
@@ -112,17 +105,6 @@ def stage_create(stage_name: str = StageNameOption, **options) -> CommandResult:
     Creates a named stage if it does not already exist.
     """
     cursor = StageManager().create(stage_name=stage_name)
-    return SingleQueryResult(cursor)
-
-
-@app.command("drop")
-@with_output
-@global_options_with_connection
-def stage_drop(stage_name: str = StageNameOption, **options) -> CommandResult:
-    """
-    Drops a stage.
-    """
-    cursor = StageManager().drop(stage_name=stage_name)
     return SingleQueryResult(cursor)
 
 
