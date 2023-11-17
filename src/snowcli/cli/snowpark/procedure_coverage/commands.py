@@ -1,5 +1,4 @@
 import typer
-
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, identifier_argument
 from snowcli.cli.snowpark.procedure_coverage.manager import (
@@ -7,7 +6,7 @@ from snowcli.cli.snowpark.procedure_coverage.manager import (
     ReportOutputOptions,
 )
 from snowcli.output.decorators import with_output
-from snowcli.output.types import MessageResult, SingleQueryResult, CommandResult
+from snowcli.output.types import CommandResult, MessageResult, SingleQueryResult
 
 app: typer.Typer = typer.Typer(
     name="coverage",

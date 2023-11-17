@@ -3,7 +3,6 @@ from __future__ import annotations
 import sys
 from typing import TextIO
 
-
 if not sys.stdout.closed and sys.stdout.isatty():
     GREEN = "\033[32m"
     BLUE = "\033[34m"

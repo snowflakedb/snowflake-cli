@@ -1,8 +1,7 @@
 import typer
-
 from snowcli.cli.common.decorators import (
-    global_options_with_connection,
     global_options,
+    global_options_with_connection,
     with_experimental_behaviour,
 )
 

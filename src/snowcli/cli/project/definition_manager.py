@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import functools
 import os
 from pathlib import Path
-from typing import List
-import functools
-from typing import Optional
-from snowcli.exception import MissingConfiguration
+from typing import List, Optional
+
 from snowcli.cli.project.definition import load_project_definition
+from snowcli.exception import MissingConfiguration
 
 
 def _compat_is_mount(path: Path):

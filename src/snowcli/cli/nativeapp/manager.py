@@ -1,41 +1,39 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from functools import cached_property
+from pathlib import Path
 from textwrap import dedent
-from typing import List, Optional, Literal, Callable
-from click.exceptions import ClickException
-from snowcli.exception import SnowflakeSQLExecutionError
-from snowflake.connector import ProgrammingError
+from typing import Callable, List, Literal, Optional
 
 import jinja2
-
-from snowcli.cli.project.util import (
-    extract_schema,
-    to_identifier,
-    unquote_identifier,
-)
+from click.exceptions import ClickException
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
-from snowcli.cli.project.definition import (
-    default_app_package,
-    default_application,
-    default_role,
+from snowcli.cli.connection.util import make_snowsight_url
+from snowcli.cli.nativeapp.artifacts import (
+    ArtifactMapping,
+    build_bundle,
+    translate_artifact,
 )
 from snowcli.cli.object.stage.diff import (
     DiffResult,
     stage_diff,
     sync_local_diff_with_stage,
 )
-from snowcli.cli.project.definition_manager import DefinitionManager
-from snowcli.cli.nativeapp.artifacts import (
-    build_bundle,
-    translate_artifact,
-    ArtifactMapping,
-)
-from snowcli.cli.connection.util import make_snowsight_url
 from snowcli.cli.object.stage.manager import StageManager
-
+from snowcli.cli.project.definition import (
+    default_app_package,
+    default_application,
+    default_role,
+)
+from snowcli.cli.project.definition_manager import DefinitionManager
+from snowcli.cli.project.util import (
+    extract_schema,
+    to_identifier,
+    unquote_identifier,
+)
+from snowcli.exception import SnowflakeSQLExecutionError
+from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
 SPECIAL_COMMENT = "GENERATED_BY_SNOWCLI"

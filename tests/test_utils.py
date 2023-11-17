@@ -1,13 +1,13 @@
 import json
-
 from distutils.dir_util import copy_tree
 from pathlib import PosixPath
-from requirements.requirement import Requirement
-import typer
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, mock_open, patch
 from zipfile import ZipFile
 
+import typer
+from requirements.requirement import Requirement
 from snowcli import utils
+
 from tests.testing_utils.fixtures import *
 
 SUBDIR = "subdir"

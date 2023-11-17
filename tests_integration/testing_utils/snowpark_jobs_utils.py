@@ -1,6 +1,7 @@
 import json
 
 from snowflake.connector import SnowflakeConnection
+
 from tests_integration.conftest import SnowCLIRunner
 from tests_integration.test_utils import contains_row_with
 

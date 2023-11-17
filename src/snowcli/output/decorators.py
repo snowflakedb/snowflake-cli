@@ -4,8 +4,8 @@ from functools import wraps
 
 from snowcli.exception import CommandReturnTypeError
 from snowcli.output.printing import print_result
-from snowflake.connector.cursor import SnowflakeCursor
 from snowcli.output.types import CommandResult
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 def with_output(func):

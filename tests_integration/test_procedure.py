@@ -1,25 +1,18 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 
-from tests_integration.snowflake_connector import snowflake_session, test_database
 from tests_integration.testing_utils import assert_that_result_is_successful
-from tests_integration.testing_utils.naming_utils import object_name_provider
 from tests_integration.testing_utils.snowpark_utils import (
     SnowparkProcedureTestSteps,
     SnowparkTestSetup,
     TestType,
 )
-from tests_integration.testing_utils.sql_utils import sql_test_helper
-from tests_integration.testing_utils.working_directory_utils import (
-    temporary_working_directory,
-)
 
 
-# @pytest.mark.integration
+@pytest.mark.integration
 def test_snowpark_procedure_flow(
     _test_steps, temporary_working_directory_ctx, alter_snowflake_yml
 ):

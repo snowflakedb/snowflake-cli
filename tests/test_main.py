@@ -5,11 +5,11 @@ import json
 import typing as t
 
 from click import Command
-from typer.core import TyperArgument, TyperOption
-
 from snowcli.__about__ import VERSION
 from snowcli.app.cli_app import app_context_holder
 from snowcli.config import cli_config
+from typer.core import TyperArgument, TyperOption
+
 from tests.testing_utils.fixtures import *
 
 

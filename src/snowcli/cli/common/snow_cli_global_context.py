@@ -2,10 +2,9 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable, Optional, Union
 
-from snowflake.connector import SnowflakeConnection
-
 from snowcli.output.formats import OutputFormat
 from snowcli.snow_connector import connect_to_snowflake
+from snowflake.connector import SnowflakeConnection
 
 
 @dataclass

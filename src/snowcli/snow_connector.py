@@ -1,22 +1,19 @@
 from __future__ import annotations
 
 import contextlib
-
-import click
-from click.exceptions import ClickException
 import logging
 import os
-
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Dict, Optional
 
-import snowflake.connector
+import click
 import snowcli.cli.common.snow_cli_global_context
-from snowflake.connector import SnowflakeConnection
-from snowflake.connector.errors import ForbiddenError, DatabaseError
-
+import snowflake.connector
+from click.exceptions import ClickException
 from snowcli.config import cli_config, get_default_connection
-from snowcli.exception import SnowflakeConnectionError, InvalidConnectionConfiguration
+from snowcli.exception import InvalidConnectionConfiguration, SnowflakeConnectionError
+from snowflake.connector import SnowflakeConnection
+from snowflake.connector.errors import DatabaseError, ForbiddenError
 
 log = logging.getLogger(__name__)
 TEMPLATES_PATH = Path(__file__).parent / "sql"
@@ -85,10 +82,12 @@ def _load_pem_to_der(private_key_path: str) -> bytes:
     format
     """
     from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives.serialization import Encoding
-    from cryptography.hazmat.primitives.serialization import NoEncryption
-    from cryptography.hazmat.primitives.serialization import PrivateFormat
-    from cryptography.hazmat.primitives.serialization import load_pem_private_key
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding,
+        NoEncryption,
+        PrivateFormat,
+        load_pem_private_key,
+    )
 
     with open(private_key_path, "rb") as f:
         private_key_pem = f.read()

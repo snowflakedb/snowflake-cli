@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 from pathlib import Path
-from snowcli.cli.object.stage.diff import DiffResult
 
 import typer
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.object.stage.diff import DiffResult
 from snowcli.cli.object.stage.manager import StageManager
 from snowcli.output.decorators import with_output
 from snowcli.output.types import (
+    CommandResult,
     ObjectResult,
     QueryResult,
     SingleQueryResult,
-    CommandResult,
 )
 
 app = typer.Typer(

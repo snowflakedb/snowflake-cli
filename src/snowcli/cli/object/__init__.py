@@ -1,8 +1,7 @@
 import typer
-
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
-from snowcli.cli.object.stage.commands import app as stage_app
 from snowcli.cli.object.commands import app as show_app
+from snowcli.cli.object.stage.commands import app as stage_app
 
 app = typer.Typer(
     name="object",

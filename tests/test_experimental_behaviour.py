@@ -1,18 +1,18 @@
 import json
-from tests.testing_utils.fixtures import *
 
 import typer
-
 from snowcli.api.plugin.command import (
-    CommandSpec,
     SNOWCLI_ROOT_COMMAND_PATH,
+    CommandSpec,
     CommandType,
     plugin_hook_impl,
 )
-from snowcli.cli.common.decorators import with_experimental_behaviour, global_options
+from snowcli.cli.common.decorators import global_options, with_experimental_behaviour
 from snowcli.cli.common.experimental_behaviour import experimental_behaviour_enabled
 from snowcli.output.decorators import with_output
 from snowcli.output.types import MessageResult
+
+from tests.testing_utils.fixtures import *
 
 _test_experimental_typer = typer.Typer(name="test")
 

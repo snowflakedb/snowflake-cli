@@ -1,9 +1,10 @@
-import pytest
-import tempfile
-import subprocess
 import os
+import subprocess
+import tempfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import pytest
 from snowcli import __about__
 
 TEST_DIR = Path(__file__).parent
