@@ -28,6 +28,7 @@
 * `snow warehouse status` is now `snow object show warehouse`
 * Introduced `snow object` group with `show`, `describe` and `drop` commands for: compute pools,
 databases, tables, warehouses, functions, procedures, roles, schemas, services, jobs and streamlits
+* Removed describe, list/show and drop commands from `snow snowpark` and `snow containers` subgroups
 
 
 ## New additions

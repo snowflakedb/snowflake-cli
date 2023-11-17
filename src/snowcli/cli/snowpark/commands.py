@@ -19,7 +19,8 @@ from snowcli.cli.common.flags import (
     LikeOption,
 )
 from snowcli.cli.common.project_initialisation import add_init_command
-from snowcli.cli.constants import DEPLOYMENT_STAGE, SnowparkObjectType
+from snowcli.cli.constants import DEPLOYMENT_STAGE, SnowparkObjectType, ObjectType
+from snowcli.cli.object.manager import ObjectManager
 from snowcli.cli.project.definition_manager import DefinitionManager
 from snowcli.cli.snowpark.common import (
     remove_parameter_names,
@@ -194,7 +195,9 @@ def _deploy_single_object(
     artifact_stage_target = f"{DEPLOYMENT_STAGE}/{artifact_stage_path}"
     artifact_path_on_stage = f"{artifact_stage_target}/{build_artifact_path.name}"
     try:
-        current_state = manager.describe(remove_parameter_names(identifier))
+        current_state = ObjectManager().describe(
+            object_type, remove_parameter_names(identifier)
+        )
     except ProgrammingError as ex:
         if ex.msg.__contains__("does not exist or not authorized"):
             object_exists = False
@@ -295,56 +298,6 @@ def execute(
     """Executes a procedure or function in a specified environment."""
     cursor = _execute_object_method(
         "execute", object_type=object_type, execution_identifier=execution_identifier
-    )
-    return SingleQueryResult(cursor)
-
-
-@app.command("describe")
-@with_output
-@global_options_with_connection
-def describe(
-    object_type: SnowparkObjectType = ObjectTypeArgument,
-    identifier: str = identifier_argument(
-        "procedure or function", "hello(int, string)"
-    ),
-    **options,
-) -> CommandResult:
-    """
-    Describes the specified object, including the signature (i.e. arguments),
-    return value, language, and body (i.e. definition).
-    """
-    cursor = _execute_object_method(
-        "describe", object_type=object_type, identifier=identifier
-    )
-    return QueryResult(cursor)
-
-
-@app.command("list")
-@with_output
-@global_options_with_connection
-def list(
-    object_type: SnowparkObjectType = ObjectTypeArgument,
-    like: str = LikeOption,
-    **options,
-) -> CommandResult:
-    """Lists all available procedures or functions."""
-    cursor = _execute_object_method("show", object_type=object_type, like=like)
-    return QueryResult(cursor)
-
-
-@app.command("drop")
-@with_output
-@global_options_with_connection
-def drop(
-    object_type: SnowparkObjectType = ObjectTypeArgument,
-    identifier: str = identifier_argument(
-        "procedure or function", "hello(int, string)"
-    ),
-    **options,
-) -> CommandResult:
-    """Drops a Snowflake procedure or function."""
-    cursor = _execute_object_method(
-        "drop", object_type=object_type, identifier=identifier
     )
     return SingleQueryResult(cursor)
 

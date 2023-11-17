@@ -40,17 +40,6 @@ def create(
     return SingleQueryResult(cursor)
 
 
-@app.command(hidden=True)
-@with_output
-@global_options_with_connection
-def desc(id: str = typer.Argument(..., help="Job id"), **options) -> CommandResult:
-    """
-    Gets the description of a job.
-    """
-    cursor = JobManager().desc(job_name=id)
-    return SingleQueryResult(cursor)
-
-
 @app.command()
 @global_options_with_connection
 def logs(
@@ -79,17 +68,4 @@ def status(
     Returns the status of a named Snowpark Container Services job.
     """
     cursor = JobManager().status(job_name=id)
-    return SingleQueryResult(cursor)
-
-
-@app.command()
-@with_output
-@global_options_with_connection
-def drop(
-    id: str = typer.Argument(..., help="ID of the job."), **options
-) -> CommandResult:
-    """
-    Deletes a job from all compute pools in a warehouse.
-    """
-    cursor = JobManager().drop(job_name=id)
     return SingleQueryResult(cursor)

@@ -131,18 +131,6 @@ class SnowparkObjectManager(SqlExecutionMixin):
     def execute(self, execution_identifier: str) -> SnowflakeCursor:
         return self._execute_query(f"{self._object_execute} {execution_identifier}")
 
-    def drop(self, identifier: str) -> SnowflakeCursor:
-        return self._execute_query(f"drop {self._object_type} {identifier}")
-
-    def show(self, like: Optional[str] = None) -> SnowflakeCursor:
-        query = f"show user {self._object_type}s"
-        if like:
-            query += f" like '{like}'"
-        return self._execute_query(query)
-
-    def describe(self, identifier: str) -> SnowflakeCursor:
-        return self._execute_query(f"describe {self._object_type} {identifier}")
-
     @staticmethod
     def artifact_stage_path(identifier: str):
         return generate_deploy_stage_name(identifier).lower()

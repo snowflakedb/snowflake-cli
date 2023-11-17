@@ -16,14 +16,5 @@ class ComputePoolManager(SqlExecutionMixin):
         """
         )
 
-    def show(self) -> SnowflakeCursor:
-        return self._execute_query("show compute pools;")
-
-    def drop(
-        self,
-        pool_name: str,
-    ) -> SnowflakeCursor:
-        return self._execute_query(f"drop compute pool {pool_name};")
-
     def stop(self, pool_name: str) -> SnowflakeCursor:
         return self._execute_query(f"alter compute pool {pool_name} stop all;")

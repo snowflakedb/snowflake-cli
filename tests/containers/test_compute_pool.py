@@ -35,29 +35,6 @@ class TestComputePoolManager(unittest.TestCase):
     @patch(
         "snowcli.cli.containers.compute_pool.manager.ComputePoolManager._execute_query"
     )
-    def test_show(self, mock_execute_query):
-        cursor = Mock(spec=SnowflakeCursor)
-        mock_execute_query.return_value = cursor
-        result = self.compute_pool_manager.show()
-        expected_query = "show compute pools;"
-        mock_execute_query.assert_called_once_with(expected_query)
-        self.assertEqual(result, cursor)
-
-    @patch(
-        "snowcli.cli.containers.compute_pool.manager.ComputePoolManager._execute_query"
-    )
-    def test_drop(self, mock_execute_query):
-        pool_name = "test_pool"
-        cursor = Mock(spec=SnowflakeCursor)
-        mock_execute_query.return_value = cursor
-        result = self.compute_pool_manager.drop(pool_name)
-        expected_query = "drop compute pool test_pool;"
-        mock_execute_query.assert_called_once_with(expected_query)
-        self.assertEqual(result, cursor)
-
-    @patch(
-        "snowcli.cli.containers.compute_pool.manager.ComputePoolManager._execute_query"
-    )
     def test_stop(self, mock_execute_query):
         pool_name = "test_pool"
         cursor = Mock(spec=SnowflakeCursor)

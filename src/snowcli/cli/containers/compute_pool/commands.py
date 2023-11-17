@@ -54,30 +54,6 @@ def create(
 @app.command()
 @with_output
 @global_options_with_connection
-def list(**options) -> CommandResult:
-    """
-    Lists all compute pools running in an environment for which you have access privileges.
-    """
-    cursor = ComputePoolManager().show()
-    return QueryResult(cursor)
-
-
-@app.command()
-@with_output
-@global_options_with_connection
-def drop(
-    name: str = typer.Argument(..., help="Name of the compute pool."), **options
-) -> CommandResult:
-    """
-    Removes the specified pool from the account.
-    """
-    cursor = ComputePoolManager().drop(pool_name=name)
-    return SingleQueryResult(cursor)
-
-
-@app.command()
-@with_output
-@global_options_with_connection
 def stop(
     name: str = typer.Argument(..., help="Name of the compute pool."), **options
 ) -> CommandResult:
