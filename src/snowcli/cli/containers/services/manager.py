@@ -35,19 +35,10 @@ class ServiceManager(SqlExecutionMixin):
             data = yaml.safe_load(fh)
         return json.dumps(data)
 
-    def desc(self, service_name: str) -> SnowflakeCursor:
-        return self._execute_schema_query(f"desc service {service_name}")
-
-    def show(self) -> SnowflakeCursor:
-        return self._execute_schema_query("show services")
-
     def status(self, service_name: str) -> SnowflakeCursor:
         return self._execute_schema_query(
             f"CALL SYSTEM$GET_SERVICE_STATUS('{service_name}')"
         )
-
-    def drop(self, service_name: str) -> SnowflakeCursor:
-        return self._execute_schema_query(f"drop service {service_name}")
 
     def logs(
         self, service_name: str, instance_id: str, container_name: str, num_lines: int

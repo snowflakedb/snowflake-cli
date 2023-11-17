@@ -3,7 +3,7 @@ from __future__ import annotations
 from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
-from snowcli.cli.constants import ObjectType
+from snowcli.cli.constants import ObjectType, SnowparkObjectType
 from snowcli.cli.object.utils import get_plural_name
 
 
@@ -14,5 +14,5 @@ class ObjectManager(SqlExecutionMixin):
     def drop(self, object_type: ObjectType, name: str) -> SnowflakeCursor:
         return self._execute_query(f"drop {object_type.value} {name}")
 
-    def describe(self, object_type: ObjectType, name: str):
+    def describe(self, object_type: ObjectType | SnowparkObjectType, name: str):
         return self._execute_query(f"describe {object_type.value} {name}")
