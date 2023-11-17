@@ -54,19 +54,6 @@ def create(
 @app.command()
 @with_output
 @global_options_with_connection
-def desc(
-    name: str = typer.Argument(..., help="Service Name"), **options
-) -> CommandResult:
-    """
-    Describes the properties of a Snowpark Container Services service.
-    """
-    cursor = ServiceManager().desc(service_name=name)
-    return SingleQueryResult(cursor)
-
-
-@app.command()
-@with_output
-@global_options_with_connection
 def status(
     name: str = typer.Argument(..., help="Name of the service."), **options
 ) -> CommandResult:
@@ -75,30 +62,6 @@ def status(
     """
     cursor = ServiceManager().status(service_name=name)
     return QueryJsonValueResult(cursor)
-
-
-@app.command()
-@with_output
-@global_options_with_connection
-def list(**options) -> CommandResult:
-    """
-    Lists the services for which you have access privileges.
-    """
-    cursor = ServiceManager().show()
-    return QueryResult(cursor)
-
-
-@app.command()
-@with_output
-@global_options_with_connection
-def drop(
-    name: str = typer.Argument(..., help="Name of the service to remove."), **options
-) -> CommandResult:
-    """
-    Removes the specified service from the current or specified schema.
-    """
-    cursor = ServiceManager().drop(service_name=name)
-    return SingleQueryResult(cursor)
 
 
 @app.command()

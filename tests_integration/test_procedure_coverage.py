@@ -27,7 +27,7 @@ def test_procedure_coverage_flow(
 
     _test_steps.assert_that_no_files_are_staged_in_test_db()
 
-    _test_steps.snowpark_list_should_return_no_data(object_type="procedure")
+    _test_steps.object_show_should_return_no_data(object_type="procedure")
 
     with project_directory("snowpark_coverage") as tmp_dir:
         _test_steps.snowpark_package_should_zip_files()

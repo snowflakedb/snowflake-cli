@@ -455,11 +455,11 @@ class SnowparkProcedureTestSteps:
         self.test_type = test_type
         self.file_list = [".gitignore", "app.py", "snowflake.yml", "requirements.txt"]
 
-    def snowpark_list_should_return_no_data(self, object_type: str) -> None:
+    def object_show_should_return_no_data(self, object_type: str) -> None:
         result = self._setup.runner.invoke_integration(
             [
-                "snowpark",
-                "list",
+                "object",
+                "show",
                 object_type,
                 "--like",
                 f"{self._setup.object_name_prefix}%",
@@ -467,15 +467,15 @@ class SnowparkProcedureTestSteps:
         )
         assert_that_result_is_successful_and_output_json_equals(result, [])
 
-    def snowpark_list_includes_given_identifiers(
+    def object_show_includes_given_identifiers(
         self,
         object_type: str,
         identifier: Tuple[str, str],
     ) -> None:
         result = self._setup.runner.invoke_integration(
             [
-                "snowpark",
-                "list",
+                "object",
+                "show",
                 object_type,
                 "--like",
                 f"{self._setup.object_name_prefix}%",
@@ -519,7 +519,7 @@ class SnowparkProcedureTestSteps:
             },
         )
 
-    def snowpark_describe_should_return_entity_description(
+    def object_describe_should_return_entity_description(
         self,
         object_type: str,
         identifier: str,
@@ -528,7 +528,7 @@ class SnowparkProcedureTestSteps:
     ) -> None:
         result = self._setup.runner.invoke_integration(
             [
-                "snowpark",
+                "object",
                 "describe",
                 object_type,
                 identifier,
@@ -667,12 +667,12 @@ class SnowparkProcedureTestSteps:
             {"status": f"Function {entity_name.upper()} successfully created."},
         )
 
-    def snowpark_drop_should_finish_successfully(
+    def object_drop_should_finish_successfully(
         self, object_type: str, identifier: str
     ) -> None:
         result = self._setup.runner.invoke_integration(
             [
-                "snowpark",
+                "object",
                 "drop",
                 object_type,
                 identifier,
