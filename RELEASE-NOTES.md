@@ -1,46 +1,37 @@
 # v2.0.0
 
 ## Backward incompatibility
-* Introduced `snow object` group with `list`, `describe` and `drop` commands which replaces corresponding
-  functionalities of procedure/function/streamlit/stage specific commands.
-* `snow warehouse status` is now `snow object show warehouse`
-
-* Stage changes
-  * `snow stage` is now `snow object stage`.
-  * `snow stage list` lists only stage content, to list stages use `snow object list stage`.
-  * `snow stage describe` is now `snow object describe stage`.
-  * `snow stage drop` is now `snow object drop stage`.
-
 * Snowpark changes
   * Removed `procedure` and `function` subgroups.
-  * Removed `snow snowpark function create` and `snow snowpark function update`. Functions can be deployed using `snow snowpark deploy`.
+  * Removed `snow snowpark function create` and `snow snowpark function update`. Procedures can be deployed using `snow snowpark deploy`.
   * Removed `snow snowpark procedure create` and `snow snowpark procedure update`. Procedures can be deployed using `snow snowpark deploy`.
-  * Procedures and functions use single zip artifact for all functions and procedures in project.
+  * Procedures and functions use single zip artifact for all functions and procedures.
   * Changed path to coverage reports on stage, previously created procedures with coverage will not work, have to be recreated.
   * Previously created procedures or functions won't work with `deploy` command due to change in stage path of artefact. Previous code will remain under old path on stage.
-  * Coverage commands are now under `snow snowpark coverage`.
-  * Package commands are now under `snow snowpark package`.
-
 * Snowpark Containers services commands
   * `compute-pool` commands and its alias `cp` were renamed to `pool` commands.
   * `jobs` commands were renamed to `job`.
   * `services` commands were renamed to `service`
   * `pool`, `job` and `service` commands were moved from `snowpark` group to a new `containers` group.
-  * Removed describe, list/show and drop commands from `snow snowpark` and `snow containers` subgroups
-  * `snow snowpark registry` was replaced with `snow registry` command.
-  * `snow connection test` now outputs all connection details (except for the password), along with connection status
-
+* `snow snowpark registry` was replaced with `snow registry` command.
+* `snow connection test` now outputs all connection details (except for the password), along with connection status
 * Streamlit changes
   * `snow streamlit deploy` is requiring `snowflake.yml` project file with a Streamlit definition.
   * `snow streamlit describe` is now `snow object describe streamlit`
-  * `snow streamlit list` is now `snow object list streamlit`
+  * `snow streamlit list` is now `snow object show streamlit`
   * `snow streamlit drop` is now `snow object drop streamlit`
+* `init` commands for functions and procedures create new project in new directory instead of using current working directory.
+* Moved `snow stage` from top-level to `snow object` subgroup
+* `snow warehouse status` is now `snow object show warehouse`
+* Introduced `snow object` group with `show`, `describe` and `drop` commands for: compute pools,
+databases, tables, warehouses, functions, procedures, roles, schemas, services, jobs and streamlits
+* Removed describe, list/show and drop commands from `snow snowpark` and `snow containers` subgroups
 
 
 ## New additions
+* Added `snow streamlit get-url [NAME]` command that returns url to a Streamlit app.
 * `--temporary-connection` flag, that allows you to connect, without anything declared in config file
 * Added project definition for Streamlit
-* Added `snow streamlit get-url [NAME]` command that returns url to a Streamlit app.
 * Added project definition for Snowpark procedures and functions.
   * The `snowflake.yml` file is required to deploy functions or procedures.
   * Introduced new `deploy` command for project with procedures and functions.
