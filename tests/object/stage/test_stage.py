@@ -150,7 +150,7 @@ def test_stage_create_quoted(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with('create stage if not exists "stage name"')
 
 
-@mock.patch(f"snowcli.cli.object.commands.ObjectManager._execute_query")
+@mock.patch("snowcli.cli.object.commands.ObjectManager._execute_query")
 def test_stage_drop(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "drop", "stage", "stageName", "-c", "empty"])
@@ -158,7 +158,7 @@ def test_stage_drop(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with("drop stage stageName")
 
 
-@mock.patch(f"snowcli.cli.object.commands.ObjectManager._execute_query")
+@mock.patch("snowcli.cli.object.commands.ObjectManager._execute_query")
 def test_stage_drop_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "drop", "stage", '"stage name"', "-c", "empty"])
