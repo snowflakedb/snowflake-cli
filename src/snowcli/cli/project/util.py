@@ -1,5 +1,5 @@
-import re
 import os
+import re
 from typing import Optional
 
 IDENTIFIER = r'((?:"[^"]*(?:""[^"]*)*")|(?:[A-Za-z_][\w$]{0,254}))'

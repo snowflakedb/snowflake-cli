@@ -1,24 +1,21 @@
 import functools
 import os
 import shutil
-from contextlib import contextmanager
-
-import pytest
 import tempfile
-
+from contextlib import contextmanager
 from io import StringIO
 from pathlib import Path
-from typing import Generator, List, NamedTuple, Optional
+from typing import Generator, List, NamedTuple, Optional, Union
 from unittest import mock
-from typing import Union
 
+import pytest
 import strictyaml
+from snowcli.cli.project.definition import merge_left
 from snowflake.connector.cursor import SnowflakeCursor
 from strictyaml import as_document
 from typer import Typer
 from typer.testing import CliRunner
 
-from snowcli.cli.project.definition import merge_left
 from tests.test_data import test_data
 from tests.testing_utils.files_and_dirs import create_named_file, create_temp_file
 

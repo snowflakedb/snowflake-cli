@@ -1,7 +1,8 @@
 import unittest
 from unittest.mock import Mock, patch
-from snowflake.connector.cursor import SnowflakeCursor
+
 from snowcli.cli.containers.compute_pool.manager import ComputePoolManager
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 class TestComputePoolManager(unittest.TestCase):

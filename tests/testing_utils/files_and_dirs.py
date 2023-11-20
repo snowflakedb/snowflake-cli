@@ -2,7 +2,7 @@ import os
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import List, Dict, Union, Generator
+from typing import Dict, Generator, List, Union
 
 
 def create_temp_file(suffix: str, dir: str, contents: List[str]) -> str:

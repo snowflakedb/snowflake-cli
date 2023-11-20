@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+import importlib
 import os
 import shutil
-
-from typer import Typer, Argument
 from pathlib import Path
 
-from snowcli.output.types import MessageResult, CommandResult
-import importlib
+from snowcli.output.types import CommandResult, MessageResult
+from typer import Argument, Typer
 
 
 def _create_project_template(template_name: str, project_directory: str):
@@ -19,8 +18,8 @@ def _create_project_template(template_name: str, project_directory: str):
 
 
 def add_init_command(app: Typer, project_type: str, template: str):
-    from snowcli.output.decorators import with_output
     from snowcli.cli.common.decorators import global_options
+    from snowcli.output.decorators import with_output
 
     @app.command()
     @with_output

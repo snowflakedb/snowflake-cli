@@ -1,5 +1,6 @@
-import pytest
 import subprocess
+
+import pytest
 
 
 @pytest.mark.e2e

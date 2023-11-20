@@ -3,9 +3,9 @@ from tempfile import TemporaryDirectory
 from textwrap import dedent
 from unittest.mock import call
 
+from snowcli.cli.constants import SnowparkObjectType
 from snowflake.connector import ProgrammingError
 
-from snowcli.cli.constants import SnowparkObjectType
 from tests.testing_utils.fixtures import *
 
 

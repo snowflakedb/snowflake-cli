@@ -2,10 +2,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
+from snowcli.cli.common.project_initialisation import add_init_command
 from typer import Typer
 from typer.testing import CliRunner
-
-from snowcli.cli.common.project_initialisation import add_init_command
 
 
 @mock.patch("shutil.copytree")

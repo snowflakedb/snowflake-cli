@@ -1,8 +1,8 @@
 from unittest import mock
 
 from snowcli.cli.snowpark.procedure_coverage.manager import get_deploy_names
-from tests.testing_utils.fixtures import *
 
+from tests.testing_utils.fixtures import *
 
 IDENTIFIER = "test_procedure(a int, b string)"
 

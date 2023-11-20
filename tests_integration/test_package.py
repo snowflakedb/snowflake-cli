@@ -1,16 +1,13 @@
 import os
 import tempfile
+from pathlib import Path
 from typing import List
 from zipfile import ZipFile
 
 import pytest
-from pathlib import Path
-from tempfile import NamedTemporaryFile
 
-from tests_integration.snowflake_connector import test_database, snowflake_session
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
 from tests_integration.testing_utils.assertions.test_result_assertions import (
-    assert_that_result_is_successful_and_output_json_contains,
     assert_that_result_is_successful,
 )
 

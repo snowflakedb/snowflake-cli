@@ -4,51 +4,48 @@ import logging
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import List, Dict
+from typing import Dict, List
 
 import typer
 from click import ClickException
-from snowflake.connector import ProgrammingError
-
 from snowcli import utils
-from snowcli.cli.common.decorators import global_options_with_connection, global_options
+from snowcli.cli.common.decorators import global_options, global_options_with_connection
 from snowcli.cli.common.flags import (
     DEFAULT_CONTEXT_SETTINGS,
-    identifier_argument,
-    execution_identifier_argument,
     LikeOption,
+    execution_identifier_argument,
+    identifier_argument,
 )
 from snowcli.cli.common.project_initialisation import add_init_command
-from snowcli.cli.constants import DEPLOYMENT_STAGE, SnowparkObjectType, ObjectType
+from snowcli.cli.constants import DEPLOYMENT_STAGE, ObjectType, SnowparkObjectType
 from snowcli.cli.object.manager import ObjectManager
+from snowcli.cli.object.stage.manager import StageManager
 from snowcli.cli.project.definition_manager import DefinitionManager
 from snowcli.cli.snowpark.common import (
-    remove_parameter_names,
-    check_if_replace_is_required,
     build_udf_sproc_identifier,
+    check_if_replace_is_required,
+    remove_parameter_names,
 )
-from snowcli.cli.snowpark.manager import ProcedureManager, FunctionManager
-
+from snowcli.cli.snowpark.manager import FunctionManager, ProcedureManager
 from snowcli.cli.snowpark_shared import (
     CheckAnacondaForPyPiDependencies,
     PackageNativeLibrariesOption,
     PyPiDownloadOption,
     snowpark_package,
 )
-from snowcli.cli.object.stage.manager import StageManager
 from snowcli.exception import ObjectAlreadyExistsError
 from snowcli.output.decorators import with_output
 from snowcli.output.types import (
-    MessageResult,
-    CommandResult,
-    SingleQueryResult,
-    QueryResult,
     CollectionResult,
+    CommandResult,
+    MessageResult,
+    QueryResult,
+    SingleQueryResult,
 )
 from snowcli.utils import (
     get_snowflake_packages,
 )
-
+from snowflake.connector import ProgrammingError
 
 log = logging.getLogger(__name__)
 

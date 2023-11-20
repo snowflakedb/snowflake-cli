@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from click.exceptions import ClickException
 from typing import Optional
 
+from click.exceptions import ClickException
 from snowcli.cli.constants import ObjectType, SnowparkObjectType
 
 

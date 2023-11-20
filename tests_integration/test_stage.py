@@ -1,16 +1,13 @@
+import os
 import tempfile
 from pathlib import Path
 
 import pytest
-import os
 
-from unittest import mock
-from tempfile import NamedTemporaryFile
-from tests_integration.snowflake_connector import test_database, snowflake_session
 from tests_integration.test_utils import (
-    row_from_snowflake_session,
     contains_row_with,
     not_contains_row_with,
+    row_from_snowflake_session,
 )
 
 

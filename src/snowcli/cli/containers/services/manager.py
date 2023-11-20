@@ -28,8 +28,9 @@ class ServiceManager(SqlExecutionMixin):
 
     def _read_yaml(self, path: Path) -> str:
         # TODO(aivanou): Add validation towards schema
-        import yaml
         import json
+
+        import yaml
 
         with open(path) as fh:
             data = yaml.safe_load(fh)

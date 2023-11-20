@@ -1,15 +1,15 @@
-import pytest
-from typing import Optional, List
+from typing import List, Optional
 from unittest import mock
-from tests.project.fixtures import *
-from tests.testing_utils.fixtures import *
 
+import pytest
+from snowcli.cli.project.definition import (
+    generate_local_override_yml,
+    load_project_definition,
+)
 from strictyaml import YAMLValidationError
 
-from snowcli.cli.project.definition import (
-    load_project_definition,
-    generate_local_override_yml,
-)
+from tests.project.fixtures import *
+from tests.testing_utils.fixtures import *
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)

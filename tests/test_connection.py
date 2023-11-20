@@ -1,12 +1,12 @@
 import json
-import pytest
-
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import mock
 
+import pytest
 from snowcli.cli.common.snow_cli_global_context import ConnectionDetails
 from snowcli.exception import SnowflakeConnectionError
+
 from tests.testing_utils.fixtures import *
 
 
@@ -264,9 +264,9 @@ def test_temporary_connection(mock_conn, option, runner):
 )
 @mock.patch("snowflake.connector.connect")
 def test_key_pair_authentication(mock_conn, runner):
-    from cryptography.hazmat.primitives.asymmetric import rsa
-    from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
 
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 

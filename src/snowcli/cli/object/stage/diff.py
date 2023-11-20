@@ -1,12 +1,13 @@
+import hashlib
 import logging
 import re
-import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Dict, Optional
-from snowcli.exception import SnowflakeSQLExecutionError
+from typing import Dict, List, Optional
 
+from snowcli.exception import SnowflakeSQLExecutionError
 from snowflake.connector.cursor import SnowflakeCursor
+
 from .manager import StageManager
 
 MD5SUM_REGEX = r"^[A-Fa-f0-9]{32}$"

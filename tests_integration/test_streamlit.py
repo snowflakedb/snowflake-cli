@@ -1,19 +1,14 @@
+import os
 import uuid
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
-import os
 
-from tests_integration.conftest import project_directory
-from tests_integration.testing_utils.working_directory_utils import (
-    temporary_working_directory,
-)
-from tests_integration.snowflake_connector import test_database, snowflake_session
 from tests_integration.test_utils import (
+    contains_row_with,
     row_from_snowflake_session,
     rows_from_snowflake_session,
-    contains_row_with,
 )
 
 

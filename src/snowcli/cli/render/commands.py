@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
-
 from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.common.utils import generic_render_template

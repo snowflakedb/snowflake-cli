@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import os
-from typing import Optional, List
-
-from snowflake.connector.cursor import SnowflakeCursor
+from typing import List, Optional
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.constants import SnowparkObjectType
 from snowcli.utils import generate_deploy_stage_name
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 def remove_parameter_names(identifier: str):
