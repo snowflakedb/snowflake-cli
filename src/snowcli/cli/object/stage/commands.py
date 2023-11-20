@@ -21,13 +21,13 @@ app = typer.Typer(
     help="Manages stages.",
 )
 
-StageNameOption = typer.Argument(..., help="Name of the stage.")
+StageNameArgument = typer.Argument(..., help="Name of the stage.")
 
 
 @app.command("list")
 @with_output
 @global_options_with_connection
-def stage_list(stage_name: str = StageNameOption, **options) -> CommandResult:
+def stage_list(stage_name: str = StageNameArgument, **options) -> CommandResult:
     """
     Lists the stage contents.
     """
@@ -39,7 +39,7 @@ def stage_list(stage_name: str = StageNameOption, **options) -> CommandResult:
 @with_output
 @global_options_with_connection
 def stage_get(
-    stage_name: str = StageNameOption,
+    stage_name: str = StageNameArgument,
     path: Path = typer.Argument(
         Path.cwd(),
         exists=False,
@@ -71,7 +71,7 @@ def stage_put(
         resolve_path=True,
         help="File or directory to upload to stage. You can use the `*` wildcard in the path, like `folder/*.csv`. If a path contains `*.`, you must enclose the path in quotes.",
     ),
-    stage_name: str = StageNameOption,
+    stage_name: str = StageNameArgument,
     overwrite: bool = typer.Option(
         False,
         help="Overwrites existing files in the stage.",
@@ -100,7 +100,7 @@ def stage_put(
 @app.command("create")
 @with_output
 @global_options_with_connection
-def stage_create(stage_name: str = StageNameOption, **options) -> CommandResult:
+def stage_create(stage_name: str = StageNameArgument, **options) -> CommandResult:
     """
     Creates a named stage if it does not already exist.
     """
@@ -112,7 +112,7 @@ def stage_create(stage_name: str = StageNameOption, **options) -> CommandResult:
 @with_output
 @global_options_with_connection
 def stage_remove(
-    stage_name: str = StageNameOption,
+    stage_name: str = StageNameArgument,
     file_name: str = typer.Argument(..., help="Name of the file to remove."),
     **options,
 ) -> CommandResult:

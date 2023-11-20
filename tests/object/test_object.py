@@ -3,15 +3,23 @@ from tests.testing_utils.fixtures import *
 
 @mock.patch("snowflake.connector.connect")
 @pytest.mark.parametrize(
-    "object_type", ["warehouse", "compute-pool", "database", "streamlit"]
+    "object_type, expected",
+    [
+        ("warehouse", "warehouses"),
+        ("compute-pool", "compute pools"),
+        ("database", "databases"),
+        ("streamlit", "streamlits"),
+    ],
 )
-def test_show(mock_connector, object_type, mock_cursor, runner, snapshot, mock_ctx):
+def test_show(
+    mock_connector, object_type, expected, mock_cursor, runner, snapshot, mock_ctx
+):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
     result = runner.invoke(["object", "list", object_type], catch_exceptions=False)
     assert result.exit_code == 0, result.output
-    assert ctx.get_queries() == [f"show {object_type.replace('-', ' ')}s like '%%'"]
+    assert ctx.get_queries() == [f"show {expected} like '%%'"]
 
 
 @mock.patch("snowflake.connector")

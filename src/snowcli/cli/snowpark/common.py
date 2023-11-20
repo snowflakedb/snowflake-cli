@@ -4,7 +4,7 @@ import os
 from typing import List, Optional
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
-from snowcli.cli.constants import SnowparkObjectType
+from snowcli.cli.constants import ObjectType
 from snowcli.utils import generate_deploy_stage_name
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -27,7 +27,7 @@ def remove_parameter_names(identifier: str):
 
 
 def check_if_replace_is_required(
-    object_type: SnowparkObjectType,
+    object_type: ObjectType,
     current_state,
     handler: str,
     return_type: str,
@@ -39,7 +39,7 @@ def check_if_replace_is_required(
     anaconda_packages = resource_json["packages"]
     log.info(
         f"Found {len(anaconda_packages)} defined Anaconda "
-        f"packages in deployed {object_type.value}..."
+        f"packages in deployed {object_type}..."
     )
     log.info("Checking if app configuration has changed...")
     updated_package_list = _get_snowflake_packages_delta(
@@ -48,9 +48,7 @@ def check_if_replace_is_required(
 
     if updated_package_list:
         diff = len(updated_package_list) - len(anaconda_packages)
-        log.info(
-            f"Found difference of {diff} packages. Replacing the {object_type.value}."
-        )
+        log.info(f"Found difference of {diff} packages. Replacing the {object_type}.")
         return True
 
     if (
@@ -59,7 +57,7 @@ def check_if_replace_is_required(
         != return_type.lower()
     ):
         log.info(
-            f"Return type or handler types do not match. Replacing the {object_type.value}."
+            f"Return type or handler types do not match. Replacing the {object_type}."
         )
         return True
 

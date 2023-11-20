@@ -20,23 +20,10 @@ log = logging.getLogger(__name__)
 
 
 class StreamlitManager(SqlExecutionMixin):
-    def list(self) -> SnowflakeCursor:
-        return self._execute_query("show streamlits")
-
-    def describe(self, streamlit_name: str) -> Tuple[SnowflakeCursor, SnowflakeCursor]:
-        description = self._execute_query(f"describe streamlit {streamlit_name}")
-        url = self._execute_query(
-            f"call SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('{streamlit_name}')"
-        )
-        return description, url
-
     def share(self, streamlit_name: str, to_role: str) -> SnowflakeCursor:
         return self._execute_query(
             f"grant usage on streamlit {streamlit_name} to role {to_role}"
         )
-
-    def drop(self, streamlit_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"drop streamlit {streamlit_name}")
 
     def _put_streamlit_files(
         self,

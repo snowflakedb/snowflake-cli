@@ -12,6 +12,9 @@ class ObjectNames:
     sf_name: str
     sf_plural_name: str
 
+    def __str__(self):
+        return self.sf_name
+
 
 class ObjectType(Enum):
     COMPUTE_POOL = ObjectNames("compute-pool", "compute pool", "compute pools")
@@ -27,10 +30,9 @@ class ObjectType(Enum):
     TABLE = ObjectNames("table", "table", "tables")
     WAREHOUSE = ObjectNames("warehouse", "warehouse", "warehouses")
 
+    def __str__(self):
+        """This makes using this Enum easier in formatted string"""
+        return self.value.cli_name
+
 
 OBJECT_TO_NAMES = {o.value.cli_name: o.value for o in ObjectType}
-
-
-class SnowparkObjectType(Enum):
-    PROCEDURE = ObjectType.PROCEDURE.value.sf_name
-    FUNCTION = ObjectType.FUNCTION.value.sf_name
