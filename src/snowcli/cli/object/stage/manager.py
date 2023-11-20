@@ -106,14 +106,8 @@ class StageManager(SqlExecutionMixin):
             cursor = self.remove(stage_name=stage_name, path=path)
         return cursor
 
-    def show(self) -> SnowflakeCursor:
-        return self._execute_query("show stages")
-
     def create(self, stage_name: str, comment: Optional[str] = None) -> SnowflakeCursor:
         query = f"create stage if not exists {stage_name}"
         if comment:
             query += f" comment='{comment}'"
         return self._execute_query(query)
-
-    def drop(self, stage_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"drop stage {stage_name}")

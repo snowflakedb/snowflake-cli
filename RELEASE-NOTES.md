@@ -15,14 +15,11 @@
   * `pool`, `job` and `service` commands were moved from `snowpark` group to a new `containers` group.
 * `snow snowpark registry` was replaced with `snow registry` command.
 * `snow connection test` now outputs all connection details (except for the password), along with connection status
-* From `snow streamlit deploy` moved following parameters to `snowflake.yml`:
-  * Argument:
-    * `streamlit-name`
-  * Flags:
-    * `--file`
-    * `--stage`
-    * `--env-file`
-    * `--pages-dir`
+* Streamlit changes
+  * `snow streamlit deploy` is requiring `snowflake.yml` project file with a Streamlit definition.
+  * `snow streamlit describe` is now `snow object describe streamlit`
+  * `snow streamlit list` is now `snow object show streamlit`
+  * `snow streamlit drop` is now `snow object drop streamlit`
 * `init` commands for functions and procedures create new project in new directory instead of using current working directory.
 * Moved `snow stage` from top-level to `snow object` subgroup
 * `snow warehouse status` is now `snow object show warehouse`
@@ -32,6 +29,7 @@ databases, tables, warehouses, functions, procedures, roles, schemas, services, 
 
 
 ## New additions
+* Added `snow streamlit get-url [NAME]` command that returns url to a Streamlit app.
 * `--temporary-connection` flag, that allows you to connect, without anything declared in config file
 * Added project definition for Streamlit
 * Added project definition for Snowpark procedures and functions.

@@ -40,36 +40,6 @@ StageNameOption: str = typer.Option(
 add_init_command(app, project_type="Streamlit", template="default_streamlit")
 
 
-@app.command("list")
-@with_output
-@global_options_with_connection
-def streamlit_list(**options) -> CommandResult:
-    """
-    Lists available Streamlit apps.
-    """
-    cursor = StreamlitManager().list()
-    return QueryResult(cursor)
-
-
-@app.command("describe")
-@with_output
-@global_options_with_connection
-def streamlit_describe(
-    name: str = typer.Argument(
-        ..., help="Name of the Streamlit app whose description you want to display."
-    ),
-    **options,
-) -> CommandResult:
-    """
-    Describes the columns in a Streamlit object.
-    """
-    description, url = StreamlitManager().describe(streamlit_name=name)
-    result = MultipleResults()
-    result.add(QueryResult(description))
-    result.add(SingleQueryResult(url))
-    return result
-
-
 @app.command("share")
 @with_output
 @global_options_with_connection
@@ -84,20 +54,6 @@ def streamlit_share(
     Shares a Streamlit app with another role.
     """
     cursor = StreamlitManager().share(streamlit_name=name, to_role=to_role)
-    return SingleQueryResult(cursor)
-
-
-@app.command("drop")
-@with_output
-@global_options_with_connection
-def streamlit_drop(
-    name: str = typer.Argument(..., help="Name of streamlit to delete."),
-    **options,
-) -> CommandResult:
-    """
-    Removes the specified Streamlit object from the current, or specified, schema.
-    """
-    cursor = StreamlitManager().drop(streamlit_name=name)
     return SingleQueryResult(cursor)
 
 
@@ -171,3 +127,20 @@ def streamlit_deploy(
         typer.launch(url)
 
     return MessageResult(f"Streamlit successfully deployed and available under {url}")
+
+
+@app.command("get-url")
+@with_output
+@global_options_with_connection
+def get_url(
+    name: str = typer.Argument(..., help="Name of the Streamlit app."),
+    open_: bool = typer.Option(
+        False, "--open", help="Whether to open Streamlit in a browser.", is_flag=True
+    ),
+    **options,
+):
+    """Returns url to provided streamlit app"""
+    url = StreamlitManager().get_url(streamlit_name=name)
+    if open_:
+        typer.launch(url)
+    return MessageResult(url)

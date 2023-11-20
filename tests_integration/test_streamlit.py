@@ -1,7 +1,5 @@
 import os
 import uuid
-from pathlib import Path
-from textwrap import dedent
 
 import pytest
 
@@ -10,6 +8,7 @@ from tests_integration.test_utils import (
     row_from_snowflake_session,
     rows_from_snowflake_session,
 )
+from tests_integration.testing_utils import assert_that_result_is_successful
 
 
 @pytest.mark.integration
@@ -26,21 +25,27 @@ def test_streamlit_deploy(
         result = runner.invoke_integration(["streamlit", "deploy"])
         assert result.exit_code == 0
 
-        result = runner.invoke_integration(["streamlit", "list"])
+        result = runner.invoke_integration(["object", "list", "streamlit"])
+        assert_that_result_is_successful(result)
+
         expect = snowflake_session.execute_string(
             f"show streamlits like '{streamlit_name}'"
         )
         assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
 
-        result = runner.invoke_integration(["streamlit", "describe", streamlit_name])
+        result = runner.invoke_integration(
+            ["object", "describe", "streamlit", streamlit_name]
+        )
         expect = snowflake_session.execute_string(
             f"describe streamlit {streamlit_name}"
         )
         assert contains_row_with(result.json[0], row_from_snowflake_session(expect)[0])
-        expect = snowflake_session.execute_string(
-            f"call system$generate_streamlit_url_from_name('{streamlit_name}')"
+
+        result = runner.invoke_integration(["streamlit", "get-url", streamlit_name])
+
+        assert result.json["message"].endswith(
+            f"/#/streamlit-apps/{test_database.upper()}.PUBLIC.{streamlit_name.upper()}"
         )
-        assert contains_row_with(result.json[1], row_from_snowflake_session(expect)[0])
 
         result = runner.invoke_integration(
             ["streamlit", "share", streamlit_name, _new_streamlit_role]
@@ -56,7 +61,7 @@ def test_streamlit_deploy(
             rows_from_snowflake_session(expect)[1], {"name": streamlit_name.upper()}
         )
 
-    result = runner.invoke_integration(["streamlit", "drop", streamlit_name])
+    result = runner.invoke_integration(["object", "drop", "streamlit", streamlit_name])
     assert contains_row_with(
         result.json,
         {"status": f"{streamlit_name.upper()} successfully dropped."},
@@ -87,20 +92,3 @@ def _new_streamlit_role(snowflake_session, test_database):
         row_from_snowflake_session(result),
         {"status": f"{role_name.upper()} successfully dropped."},
     )
-
-
-def _create_project_definition(
-    temporary_working_directory: Path, streamlit_name: str, streamlit_app_path: str
-) -> None:
-    file_path = os.path.join(temporary_working_directory, "snowflake.yml")
-    with open(file_path, "w") as new_file:
-        new_file.write(
-            dedent(
-                f"""
-        definition_version: 1
-        streamlits:
-          - name: {streamlit_name}
-            file: {streamlit_app_path}
-        """
-            )
-        )
