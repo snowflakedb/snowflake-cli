@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import cast
-
 import typer
 from click import ClickException
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.constants import OBJECT_TO_NAMES, ObjectNames
 from snowcli.cli.object.manager import ObjectManager
+from snowcli.cli.object.stage.commands import app as stage_app
 from snowcli.output.decorators import with_output
 from snowcli.output.types import QueryResult
 
@@ -16,7 +15,7 @@ app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manages Snowflake objects like warehouses and stages",
 )
-app.add_typer(stage_app)  # type: ignore
+app.add_typer(stage_app)
 
 
 def _check_if_supported_object(value: str) -> ObjectNames:
