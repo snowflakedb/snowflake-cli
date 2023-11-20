@@ -1,8 +1,7 @@
 import subprocess
 from decimal import Decimal
 from timeit import default_timer as timer
-from typing import Optional, List, Tuple
-
+from typing import List, Optional, Tuple
 
 import typer
 from git import Commit, Repo

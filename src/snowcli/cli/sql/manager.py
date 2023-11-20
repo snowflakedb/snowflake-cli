@@ -1,11 +1,10 @@
 import sys
 from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 from click import UsageError
-from snowflake.connector.cursor import SnowflakeCursor
-
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 class SqlManager(SqlExecutionMixin):

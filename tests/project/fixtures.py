@@ -1,9 +1,10 @@
-import pytest
-import tempfile
 import shutil
-from typing import Generator, List
-from pathlib import Path
+import tempfile
 from contextlib import contextmanager
+from pathlib import Path
+from typing import Generator, List
+
+import pytest
 
 PROJECT_DIR = Path(__file__).parent.parent / "test_data" / "projects"
 

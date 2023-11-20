@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 from click import Command
-from jinja2 import FileSystemLoader, Environment
+from jinja2 import Environment, FileSystemLoader
 from typer.core import TyperArgument
 
 log = logging.getLogger(__name__)

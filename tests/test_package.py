@@ -1,14 +1,14 @@
 import logging
-import pytest
-
 from pathlib import Path
-from requirements.requirement import Requirement
 from unittest.mock import ANY, MagicMock, patch
 from zipfile import ZipFile
 
+import pytest
+from requirements.requirement import Requirement
 from snowcli.cli.snowpark import package
 from snowcli.cli.snowpark.package.utils import NotInAnaconda
 from snowcli.utils import SplitRequirements
+
 from tests.testing_utils.fixtures import *
 
 

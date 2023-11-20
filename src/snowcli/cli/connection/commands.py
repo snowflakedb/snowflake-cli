@@ -5,8 +5,6 @@ import logging
 import typer
 from click import ClickException
 from click.types import StringParamType
-from tomlkit.exceptions import KeyAlreadyPresent
-
 from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.config import cli_config
@@ -18,6 +16,7 @@ from snowcli.output.types import (
     ObjectResult,
 )
 from snowcli.snow_connector import connect_to_snowflake
+from tomlkit.exceptions import KeyAlreadyPresent
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,

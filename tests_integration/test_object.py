@@ -1,9 +1,7 @@
 import pytest
 
 from tests_integration.test_utils import row_from_cursor
-from tests_integration.snowflake_connector import snowflake_session
 from tests_integration.testing_utils.naming_utils import ObjectNameProvider
-from tests_integration.snowflake_connector import test_database
 
 
 @pytest.mark.integration

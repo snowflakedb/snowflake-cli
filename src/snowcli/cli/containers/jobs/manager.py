@@ -2,9 +2,8 @@ import hashlib
 import os
 from pathlib import Path
 
-from snowflake.connector.cursor import SnowflakeCursor
-
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 class JobManager(SqlExecutionMixin):
@@ -23,8 +22,9 @@ class JobManager(SqlExecutionMixin):
     def _read_yaml(self, path: Path) -> str:
         # TODO(aivanou): Add validation towards schema
         # TODO(aivanou): Combine this with service manager
-        import yaml
         import json
+
+        import yaml
 
         with open(path) as fh:
             data = yaml.safe_load(fh)

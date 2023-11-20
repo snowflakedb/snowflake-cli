@@ -1,11 +1,12 @@
+from pathlib import Path
 from textwrap import dedent
-from tests.testing_utils.fixtures import *
+from unittest.mock import Mock, patch
 
 import pytest
 import strictyaml
-from pathlib import Path
-from unittest.mock import Mock, patch
 from snowcli.cli.containers.services.manager import ServiceManager
+
+from tests.testing_utils.fixtures import *
 
 
 @patch("snowcli.cli.containers.services.manager.ServiceManager._execute_schema_query")

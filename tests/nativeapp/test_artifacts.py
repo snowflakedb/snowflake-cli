@@ -1,20 +1,21 @@
-import pytest
 from typing import Optional
 from unittest import mock
-from tests.project.fixtures import *
-from tests.testing_utils.fixtures import *
 
+import pytest
 from snowcli.cli.nativeapp.artifacts import (
-    build_bundle,
-    translate_artifact,
     ArtifactMapping,
+    DeployRootError,
     GlobMatchedNothingError,
+    NotInDeployRootError,
     SourceNotFoundError,
     TooManyFilesError,
-    NotInDeployRootError,
-    DeployRootError,
+    build_bundle,
+    translate_artifact,
 )
 from snowcli.cli.project.definition import load_project_definition
+
+from tests.project.fixtures import *
+from tests.testing_utils.fixtures import *
 
 
 def trimmed_contents(path: Path) -> Optional[str]:

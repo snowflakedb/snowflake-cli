@@ -1,23 +1,23 @@
+from pathlib import Path
+from typing import Dict, List, Union
+
+from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
+from snowcli.cli.project.schema import (
+    project_override_schema,
+    project_schema,
+)
+from strictyaml import (
+    YAML,
+    as_document,
+    load,
+)
+
 from .util import (
     append_to_identifier,
     clean_identifier,
     get_env_username,
     to_identifier,
 )
-from pathlib import Path
-from typing import List, Union, Dict
-from strictyaml import (
-    YAML,
-    load,
-    as_document,
-)
-
-from snowcli.cli.project.schema import (
-    project_schema,
-    project_override_schema,
-)
-
-from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 
 DEFAULT_USERNAME = "unknown_user"
 

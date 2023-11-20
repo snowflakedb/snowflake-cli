@@ -1,11 +1,8 @@
 import typer
-
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
-from snowcli.cli.containers.compute_pool.commands import (
-    app as compute_pools_app,
-)
-from snowcli.cli.containers.services.commands import app as services_app
+from snowcli.cli.containers.compute_pool.commands import app as compute_pools_app
 from snowcli.cli.containers.jobs.commands import app as jobs_app
+from snowcli.cli.containers.services.commands import app as services_app
 
 app = typer.Typer(
     name="containers",

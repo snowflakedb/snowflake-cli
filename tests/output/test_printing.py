@@ -2,17 +2,16 @@ import json
 from datetime import datetime
 from textwrap import dedent
 
-from click import Context, Command
-
+from click import Command, Context
 from snowcli.output.formats import OutputFormat
 from snowcli.output.printing import print_result
 from snowcli.output.types import (
-    MultipleResults,
-    QueryResult,
-    MessageResult,
     CollectionResult,
-    SingleQueryResult,
+    MessageResult,
+    MultipleResults,
     ObjectResult,
+    QueryResult,
+    SingleQueryResult,
 )
 
 from tests.testing_utils.fixtures import *

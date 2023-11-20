@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Optional
 
 import typer
-
 from snowcli.cli.common.snow_cli_global_context import (
     ConnectionDetails,
     update_callback,

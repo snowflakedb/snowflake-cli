@@ -1,17 +1,16 @@
 from textwrap import dedent
 
 from snowcli.cli.nativeapp.manager import (
+    LOOSE_FILES_MAGIC_VERSIONS,
+    SPECIAL_COMMENT,
+    ApplicationAlreadyExistsError,
     CouldNotDropObjectError,
     NativeAppManager,
-    ApplicationAlreadyExistsError,
     UnexpectedOwnerError,
-    SPECIAL_COMMENT,
-    LOOSE_FILES_MAGIC_VERSIONS,
 )
 from snowcli.cli.object.stage.diff import DiffResult
-from snowflake.connector.cursor import DictCursor
 from snowflake.connector import ProgrammingError
-
+from snowflake.connector.cursor import DictCursor
 
 from tests.testing_utils.fixtures import *
 

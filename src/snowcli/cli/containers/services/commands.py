@@ -8,10 +8,10 @@ from snowcli.cli.containers.common import print_log_lines
 from snowcli.cli.containers.services.manager import ServiceManager
 from snowcli.output.decorators import with_output
 from snowcli.output.types import (
+    CommandResult,
+    QueryJsonValueResult,
     QueryResult,
     SingleQueryResult,
-    QueryJsonValueResult,
-    CommandResult,
 )
 
 app = typer.Typer(

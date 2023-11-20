@@ -1,13 +1,13 @@
-from typer import Typer
-
 from snowcli.api.plugin.command import (
-    CommandSpec,
-    CommandPath,
-    CommandType,
     SNOWCLI_ROOT_COMMAND_PATH,
+    CommandPath,
+    CommandSpec,
+    CommandType,
 )
 from snowcli.cli.connection import plugin_spec as connection_plugin_spec
 from snowcli.cli.streamlit import plugin_spec as streamlit_plugin_spec
+from typer import Typer
+
 from tests.testing_utils.fixtures import *
 
 

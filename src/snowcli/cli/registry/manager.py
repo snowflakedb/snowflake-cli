@@ -1,10 +1,10 @@
-import json
-import requests
-import sys
 import base64
+import json
+import sys
 from urllib.parse import urlparse
-from click import ClickException
 
+import requests
+from click import ClickException
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
