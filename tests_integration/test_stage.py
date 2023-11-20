@@ -21,7 +21,7 @@ def test_stage(runner, snowflake_session, test_database, tmp_path):
         {"status": f"Stage area {stage_name.upper()} successfully created."},
     )
 
-    result = runner.invoke_integration(["object", "stage", "list"])
+    result = runner.invoke_integration(["object", "list", "stage"])
     expect = snowflake_session.execute_string(f"show stages like '{stage_name}'")
     assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
 
@@ -60,7 +60,7 @@ def test_stage(runner, snowflake_session, test_database, tmp_path):
         row_from_snowflake_session(expect), {"name": f"{stage_name}/{filename}"}
     )
 
-    result = runner.invoke_integration(["object", "stage", "drop", stage_name])
+    result = runner.invoke_integration(["object", "drop", "stage", stage_name])
     assert contains_row_with(
         result.json,
         {"status": f"{stage_name.upper()} successfully dropped."},
