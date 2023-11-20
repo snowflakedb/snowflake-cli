@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from enum import Enum
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, List
@@ -17,7 +18,7 @@ from snowcli.cli.common.flags import (
     identifier_argument,
 )
 from snowcli.cli.common.project_initialisation import add_init_command
-from snowcli.cli.constants import DEPLOYMENT_STAGE, ObjectType, SnowparkObjectType
+from snowcli.cli.constants import DEPLOYMENT_STAGE, ObjectType
 from snowcli.cli.object.manager import ObjectManager
 from snowcli.cli.object.stage.manager import StageManager
 from snowcli.cli.project.definition_manager import DefinitionManager
@@ -144,7 +145,7 @@ def deploy(
     for procedure in procedures:
         operation_result = _deploy_single_object(
             manager=pm,
-            object_type=SnowparkObjectType.PROCEDURE,
+            object_type=ObjectType.PROCEDURE,
             object_definition=procedure,
             replace=replace,
             packages=packages,
@@ -159,7 +160,7 @@ def deploy(
     for function in functions:
         operation_result = _deploy_single_object(
             manager=fm,
-            object_type=SnowparkObjectType.FUNCTION,
+            object_type=ObjectType.FUNCTION,
             object_definition=function,
             replace=replace,
             packages=packages,
@@ -173,7 +174,7 @@ def deploy(
 
 def _deploy_single_object(
     manager: FunctionManager | ProcedureManager,
-    object_type: SnowparkObjectType,
+    object_type: ObjectType,
     object_definition: Dict,
     replace: bool,
     packages: List[str],
@@ -182,7 +183,7 @@ def _deploy_single_object(
     install_coverage_wrapper: bool = False,
 ):
     identifier = build_udf_sproc_identifier(object_definition)
-    log.info(f"Deploying {object_type.value}: {identifier}")
+    log.info(f"Deploying {object_type}: {identifier}")
     handler = object_definition["handler"]
     returns = object_definition["returns"]
     object_exists = True
@@ -193,17 +194,17 @@ def _deploy_single_object(
     artifact_path_on_stage = f"{artifact_stage_target}/{build_artifact_path.name}"
     try:
         current_state = ObjectManager().describe(
-            object_type, remove_parameter_names(identifier)
+            object_type=str(object_type), name=remove_parameter_names(identifier)
         )
     except ProgrammingError as ex:
         if ex.msg.__contains__("does not exist or not authorized"):
             object_exists = False
-            log.debug(f"{object_type.value.capitalize()} does not exists.")
+            log.debug(f"{str(object_type).capitalize()} does not exists.")
         else:
             raise ex
     if object_exists and not replace:
         raise ObjectAlreadyExistsError(object_type, identifier, replace_available=True)
-    if object_type == SnowparkObjectType.PROCEDURE and install_coverage_wrapper:
+    if object_type == ObjectType.PROCEDURE and install_coverage_wrapper:
         # This changes existing artifact
         handler = _alter_procedure_artifact(
             artifact_path=build_artifact_path,
@@ -232,7 +233,7 @@ def _deploy_single_object(
             "artifact_file": artifact_path_on_stage,
             "packages": packages,
         }
-        if object_type == SnowparkObjectType.PROCEDURE:
+        if object_type == ObjectType.PROCEDURE:
             create_or_replace_kwargs["execute_as_caller"] = object_definition.get(
                 "execute_as_caller"
             )
@@ -240,11 +241,11 @@ def _deploy_single_object(
         manager.create_or_replace(**create_or_replace_kwargs)
 
         status = "created" if not object_exists else "definition updated"
-        return {"object": identifier, "type": object_type.value, "status": status}
+        return {"object": identifier, "type": str(object_type), "status": status}
     else:
         return {
             "object": identifier,
-            "type": object_type.value,
+            "type": str(object_type),
             "status": "packages updated",
         }
 
@@ -267,14 +268,21 @@ def build(
     return MessageResult("Done")
 
 
+class _SnowparkObject(Enum):
+    """This clas is used only for snowpark execute where choice is limited."""
+
+    PROCEDURE = str(ObjectType.PROCEDURE)
+    FUNCTION = str(ObjectType.FUNCTION)
+
+
 def _execute_object_method(
     method_name: str,
-    object_type: SnowparkObjectType,
+    object_type: _SnowparkObject,
     **kwargs,
 ):
-    if object_type == SnowparkObjectType.PROCEDURE:
+    if object_type == _SnowparkObject.PROCEDURE:
         manager = ProcedureManager()
-    elif object_type == SnowparkObjectType.FUNCTION:
+    elif object_type == _SnowparkObject.FUNCTION:
         manager = FunctionManager()
     else:
         raise ClickException(f"Unknown object type: {object_type}")
@@ -286,7 +294,7 @@ def _execute_object_method(
 @with_output
 @global_options_with_connection
 def execute(
-    object_type: SnowparkObjectType = ObjectTypeArgument,
+    object_type: _SnowparkObject = ObjectTypeArgument,
     execution_identifier: str = execution_identifier_argument(
         "procedure/function", "hello(1, 'world')"
     ),

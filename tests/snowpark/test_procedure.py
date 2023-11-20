@@ -1,9 +1,8 @@
 import json
-from tempfile import TemporaryDirectory
 from textwrap import dedent
 from unittest.mock import call
 
-from snowcli.cli.constants import SnowparkObjectType
+from snowcli.cli.constants import ObjectType
 from snowflake.connector import ProgrammingError
 
 from tests.testing_utils.fixtures import *
@@ -46,8 +45,8 @@ def test_deploy_procedure(
     assert result.exit_code == 0, result.output
     mock_describe.assert_has_calls(
         [
-            call(SnowparkObjectType.PROCEDURE, "procedureName(string)"),
-            call(SnowparkObjectType.PROCEDURE, "test()"),
+            call(object_type=str(ObjectType.PROCEDURE), name="procedureName(string)"),
+            call(object_type=str(ObjectType.PROCEDURE), name="test()"),
         ]
     )
     assert ctx.get_queries() == [
@@ -116,7 +115,9 @@ def test_deploy_procedure_with_coverage(
         result = runner.invoke(["snowpark", "deploy", "--install-coverage-wrapper"])
 
     assert result.exit_code == 0, result.output
-    mock_describe.assert_has_calls([call(SnowparkObjectType.PROCEDURE, "foo(string)")])
+    mock_describe.assert_has_calls(
+        [call(object_type=str(ObjectType.PROCEDURE), name="foo(string)")]
+    )
     assert ctx.get_queries() == [
         "create stage if not exists deployments comment='deployments managed by snowcli'",
         f"put file://app.zip @deployments/foo_name_string"
