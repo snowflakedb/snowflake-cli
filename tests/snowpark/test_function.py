@@ -8,7 +8,7 @@ from tests.testing_utils.fixtures import *
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.commands.FunctionManager.describe")
+@mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
 def test_deploy_function(
     mock_describe,
     mock_connector,
@@ -201,92 +201,6 @@ def test_execute_function(mock_connector, runner, mock_ctx):
 
     assert result.exit_code == 0, result._output
     assert ctx.get_query() == "select functionName(42, 'string')"
-
-
-@mock.patch("snowflake.connector.connect")
-def test_describe_function_from_signature(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-    result = runner.invoke(
-        [
-            "snowpark",
-            "describe",
-            "function",
-            "functionName(int, string, variant)",
-        ]
-    )
-
-    assert result.exit_code == 0, result._output
-    assert ctx.get_query() == "describe function functionName(int, string, variant)"
-
-
-@mock.patch("snowflake.connector.connect")
-def test_describe_function_from_name(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-    result = runner.invoke(
-        [
-            "snowpark",
-            "describe",
-            "function",
-            "functionName(int, string, variant)",
-        ]
-    )
-
-    assert result.exit_code == 0, result._output
-    assert ctx.get_query() == "describe function functionName(int, string, variant)"
-
-
-@mock.patch("snowflake.connector.connect")
-def test_list_function(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-    result = runner.invoke(
-        [
-            "snowpark",
-            "list",
-            "function",
-            "--like",
-            "foo_bar%",
-        ]
-    )
-
-    assert result.exit_code == 0, result._output
-    assert ctx.get_query() == "show user functions like 'foo_bar%'"
-
-
-@mock.patch("snowflake.connector.connect")
-def test_drop_function_from_signature(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-    result = runner.invoke(
-        [
-            "snowpark",
-            "drop",
-            "function",
-            "functionName(int, string, variant)",
-        ]
-    )
-    print(result.output)
-    assert result.exit_code == 0, result._output
-    assert ctx.get_query() == "drop function functionName(int, string, variant)"
-
-
-@mock.patch("snowflake.connector.connect")
-def test_drop_function_from_name(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-    result = runner.invoke(
-        [
-            "snowpark",
-            "drop",
-            "function",
-            "functionName(int, string, variant)",
-        ]
-    )
-
-    assert result.exit_code == 0, result._output
-    assert ctx.get_query() == "drop function functionName(int, string, variant)"
 
 
 def _deploy_function(

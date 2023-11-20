@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import os
-from typing import Optional, List
-
-from snowflake.connector.cursor import SnowflakeCursor
+from typing import List, Optional
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.constants import SnowparkObjectType
 from snowcli.utils import generate_deploy_stage_name
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 def remove_parameter_names(identifier: str):
@@ -130,18 +129,6 @@ class SnowparkObjectManager(SqlExecutionMixin):
 
     def execute(self, execution_identifier: str) -> SnowflakeCursor:
         return self._execute_query(f"{self._object_execute} {execution_identifier}")
-
-    def drop(self, identifier: str) -> SnowflakeCursor:
-        return self._execute_query(f"drop {self._object_type} {identifier}")
-
-    def show(self, like: Optional[str] = None) -> SnowflakeCursor:
-        query = f"show user {self._object_type}s"
-        if like:
-            query += f" like '{like}'"
-        return self._execute_query(query)
-
-    def describe(self, identifier: str) -> SnowflakeCursor:
-        return self._execute_query(f"describe {self._object_type} {identifier}")
 
     @staticmethod
     def artifact_stage_path(identifier: str):

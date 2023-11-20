@@ -4,22 +4,22 @@ import json
 import os
 import re
 from enum import Enum
-from syrupy import SnapshotAssertion
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from snowflake.connector import SnowflakeConnection
+from syrupy import SnapshotAssertion
 
-from tests_integration.test_utils import contains_row_with
 from tests_integration.conftest import SnowCLIRunner
+from tests_integration.test_utils import contains_row_with
 from tests_integration.testing_utils.assertions.test_file_assertions import (
-    assert_that_file_content_is_equal_to_snapshot,
     assert_that_current_working_directory_contains_only_following_files,
+    assert_that_file_content_is_equal_to_snapshot,
 )
 from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_contains_row_with,
+    assert_that_result_is_successful,
     assert_that_result_is_successful_and_done_is_on_output,
     assert_that_result_is_successful_and_output_json_equals,
-    assert_that_result_is_successful,
 )
 from tests_integration.testing_utils.file_utils import replace_text_in_file
 from tests_integration.testing_utils.naming_utils import ObjectNameProvider
@@ -455,11 +455,11 @@ class SnowparkProcedureTestSteps:
         self.test_type = test_type
         self.file_list = [".gitignore", "app.py", "snowflake.yml", "requirements.txt"]
 
-    def snowpark_list_should_return_no_data(self, object_type: str) -> None:
+    def object_show_should_return_no_data(self, object_type: str) -> None:
         result = self._setup.runner.invoke_integration(
             [
-                "snowpark",
-                "list",
+                "object",
+                "show",
                 object_type,
                 "--like",
                 f"{self._setup.object_name_prefix}%",
@@ -467,15 +467,15 @@ class SnowparkProcedureTestSteps:
         )
         assert_that_result_is_successful_and_output_json_equals(result, [])
 
-    def snowpark_list_includes_given_identifiers(
+    def object_show_includes_given_identifiers(
         self,
         object_type: str,
         identifier: Tuple[str, str],
     ) -> None:
         result = self._setup.runner.invoke_integration(
             [
-                "snowpark",
-                "list",
+                "object",
+                "show",
                 object_type,
                 "--like",
                 f"{self._setup.object_name_prefix}%",
@@ -519,7 +519,7 @@ class SnowparkProcedureTestSteps:
             },
         )
 
-    def snowpark_describe_should_return_entity_description(
+    def object_describe_should_return_entity_description(
         self,
         object_type: str,
         identifier: str,
@@ -528,7 +528,7 @@ class SnowparkProcedureTestSteps:
     ) -> None:
         result = self._setup.runner.invoke_integration(
             [
-                "snowpark",
+                "object",
                 "describe",
                 object_type,
                 identifier,
@@ -667,12 +667,12 @@ class SnowparkProcedureTestSteps:
             {"status": f"Function {entity_name.upper()} successfully created."},
         )
 
-    def snowpark_drop_should_finish_successfully(
+    def object_drop_should_finish_successfully(
         self, object_type: str, identifier: str
     ) -> None:
         result = self._setup.runner.invoke_integration(
             [
-                "snowpark",
+                "object",
                 "drop",
                 object_type,
                 identifier,

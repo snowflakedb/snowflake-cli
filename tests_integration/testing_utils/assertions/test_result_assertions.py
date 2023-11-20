@@ -1,8 +1,8 @@
 import json
 from typing import Dict, List, Union
 
-from tests_integration.test_utils import contains_row_with
 from tests_integration.conftest import CommandResult
+from tests_integration.test_utils import contains_row_with
 
 
 def assert_that_result_is_successful(result: CommandResult) -> None:

@@ -1,8 +1,8 @@
 from snowcli.api.plugin.command import (
-    plugin_hook_impl,
+    CommandPath,
     CommandSpec,
     CommandType,
-    CommandPath,
+    plugin_hook_impl,
 )
 from snowflakecli.test_plugins.snowpark_hello import commands
 

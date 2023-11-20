@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import threading
-from dataclasses import dataclass
-
 import glob
 import json
 import logging
@@ -11,21 +8,20 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import warnings
-
-
-from typing import Dict, List, Literal, Optional, Generic, TypeVar, Callable
+from dataclasses import dataclass
 from pathlib import Path
-from zipfile import ZipFile, ZIP_DEFLATED
+from typing import Callable, Dict, Generic, List, Literal, Optional, TypeVar
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import click
 import requests
 import requirements
-from requirements.requirement import Requirement
 import typer
 from jinja2 import Environment, FileSystemLoader
+from requirements.requirement import Requirement
 from snowflake.connector.cursor import SnowflakeCursor
-
 
 warnings.filterwarnings("ignore", category=UserWarning)
 

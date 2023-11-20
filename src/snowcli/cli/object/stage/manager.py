@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 import logging
-from contextlib import nullcontext
-
-from pathlib import Path
 import re
+from contextlib import nullcontext
+from pathlib import Path
 from typing import Optional, Union
-
-from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.utils import path_resolver
-
+from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__file__)
 

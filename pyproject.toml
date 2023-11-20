@@ -70,8 +70,8 @@ packages = ["src/snowcli", "src/templates"]
 [tool.ruff]
 line-length = 88
 select = [
-    # isort
-    "I001"
+    "N",
+    "I"  # isort
 ]
 
 [tool.pytest.ini_options]

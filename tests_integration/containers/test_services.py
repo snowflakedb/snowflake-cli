@@ -1,11 +1,12 @@
-import pytest
 import uuid
 
+import pytest
+
+from tests_integration.snowflake_connector import snowflake_session
 from tests_integration.testing_utils.snowpark_services_utils import (
     SnowparkServicesTestSetup,
     SnowparkServicesTestSteps,
 )
-from tests_integration.snowflake_connector import snowflake_session
 
 
 @pytest.mark.spcs

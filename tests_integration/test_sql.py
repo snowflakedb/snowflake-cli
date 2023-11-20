@@ -1,7 +1,4 @@
-import json
 import pytest
-
-from tests_integration.snowflake_connector import snowflake_session
 
 
 @pytest.mark.integration

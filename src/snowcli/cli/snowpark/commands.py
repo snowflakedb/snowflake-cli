@@ -4,50 +4,48 @@ import logging
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import List, Dict
+from typing import Dict, List
 
 import typer
 from click import ClickException
-from snowflake.connector import ProgrammingError
-
 from snowcli import utils
-from snowcli.cli.common.decorators import global_options_with_connection, global_options
+from snowcli.cli.common.decorators import global_options, global_options_with_connection
 from snowcli.cli.common.flags import (
     DEFAULT_CONTEXT_SETTINGS,
-    identifier_argument,
-    execution_identifier_argument,
     LikeOption,
+    execution_identifier_argument,
+    identifier_argument,
 )
 from snowcli.cli.common.project_initialisation import add_init_command
-from snowcli.cli.constants import DEPLOYMENT_STAGE, SnowparkObjectType
+from snowcli.cli.constants import DEPLOYMENT_STAGE, ObjectType, SnowparkObjectType
+from snowcli.cli.object.manager import ObjectManager
+from snowcli.cli.object.stage.manager import StageManager
 from snowcli.cli.project.definition_manager import DefinitionManager
 from snowcli.cli.snowpark.common import (
-    remove_parameter_names,
-    check_if_replace_is_required,
     build_udf_sproc_identifier,
+    check_if_replace_is_required,
+    remove_parameter_names,
 )
-from snowcli.cli.snowpark.manager import ProcedureManager, FunctionManager
-
+from snowcli.cli.snowpark.manager import FunctionManager, ProcedureManager
 from snowcli.cli.snowpark_shared import (
     CheckAnacondaForPyPiDependencies,
     PackageNativeLibrariesOption,
     PyPiDownloadOption,
     snowpark_package,
 )
-from snowcli.cli.object.stage.manager import StageManager
 from snowcli.exception import ObjectAlreadyExistsError
 from snowcli.output.decorators import with_output
 from snowcli.output.types import (
-    MessageResult,
-    CommandResult,
-    SingleQueryResult,
-    QueryResult,
     CollectionResult,
+    CommandResult,
+    MessageResult,
+    QueryResult,
+    SingleQueryResult,
 )
 from snowcli.utils import (
     get_snowflake_packages,
 )
-
+from snowflake.connector import ProgrammingError
 
 log = logging.getLogger(__name__)
 
@@ -194,7 +192,9 @@ def _deploy_single_object(
     artifact_stage_target = f"{DEPLOYMENT_STAGE}/{artifact_stage_path}"
     artifact_path_on_stage = f"{artifact_stage_target}/{build_artifact_path.name}"
     try:
-        current_state = manager.describe(remove_parameter_names(identifier))
+        current_state = ObjectManager().describe(
+            object_type, remove_parameter_names(identifier)
+        )
     except ProgrammingError as ex:
         if ex.msg.__contains__("does not exist or not authorized"):
             object_exists = False
@@ -295,56 +295,6 @@ def execute(
     """Executes a procedure or function in a specified environment."""
     cursor = _execute_object_method(
         "execute", object_type=object_type, execution_identifier=execution_identifier
-    )
-    return SingleQueryResult(cursor)
-
-
-@app.command("describe")
-@with_output
-@global_options_with_connection
-def describe(
-    object_type: SnowparkObjectType = ObjectTypeArgument,
-    identifier: str = identifier_argument(
-        "procedure or function", "hello(int, string)"
-    ),
-    **options,
-) -> CommandResult:
-    """
-    Describes the specified object, including the signature (i.e. arguments),
-    return value, language, and body (i.e. definition).
-    """
-    cursor = _execute_object_method(
-        "describe", object_type=object_type, identifier=identifier
-    )
-    return QueryResult(cursor)
-
-
-@app.command("list")
-@with_output
-@global_options_with_connection
-def list(
-    object_type: SnowparkObjectType = ObjectTypeArgument,
-    like: str = LikeOption,
-    **options,
-) -> CommandResult:
-    """Lists all available procedures or functions."""
-    cursor = _execute_object_method("show", object_type=object_type, like=like)
-    return QueryResult(cursor)
-
-
-@app.command("drop")
-@with_output
-@global_options_with_connection
-def drop(
-    object_type: SnowparkObjectType = ObjectTypeArgument,
-    identifier: str = identifier_argument(
-        "procedure or function", "hello(int, string)"
-    ),
-    **options,
-) -> CommandResult:
-    """Drops a Snowflake procedure or function."""
-    cursor = _execute_object_method(
-        "drop", object_type=object_type, identifier=identifier
     )
     return SingleQueryResult(cursor)
 

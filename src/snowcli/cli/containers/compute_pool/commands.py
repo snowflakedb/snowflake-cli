@@ -5,7 +5,7 @@ from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.containers.compute_pool.manager import ComputePoolManager
 from snowcli.output.decorators import with_output
-from snowcli.output.types import SingleQueryResult, QueryResult, CommandResult
+from snowcli.output.types import CommandResult, QueryResult, SingleQueryResult
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -48,30 +48,6 @@ def create(
     cursor = ComputePoolManager().create(
         pool_name=name, num_instances=num_instances, instance_family=instance_family
     )
-    return SingleQueryResult(cursor)
-
-
-@app.command()
-@with_output
-@global_options_with_connection
-def list(**options) -> CommandResult:
-    """
-    Lists all compute pools running in an environment for which you have access privileges.
-    """
-    cursor = ComputePoolManager().show()
-    return QueryResult(cursor)
-
-
-@app.command()
-@with_output
-@global_options_with_connection
-def drop(
-    name: str = typer.Argument(..., help="Name of the compute pool."), **options
-) -> CommandResult:
-    """
-    Removes the specified pool from the account.
-    """
-    cursor = ComputePoolManager().drop(pool_name=name)
     return SingleQueryResult(cursor)
 
 

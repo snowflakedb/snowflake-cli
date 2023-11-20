@@ -2,14 +2,12 @@ import sys
 from pathlib import Path
 
 import typer
-
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.containers.common import print_log_lines
 from snowcli.cli.containers.jobs.manager import JobManager
 from snowcli.output.decorators import with_output
-
-from snowcli.output.types import SingleQueryResult, CommandResult
+from snowcli.output.types import CommandResult, SingleQueryResult
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS, name="job", help="Manage Snowpark jobs."
@@ -37,17 +35,6 @@ def create(
     Creates a job to run in a compute pool.
     """
     cursor = JobManager().create(compute_pool=compute_pool, spec_path=spec_path)
-    return SingleQueryResult(cursor)
-
-
-@app.command(hidden=True)
-@with_output
-@global_options_with_connection
-def desc(id: str = typer.Argument(..., help="Job id"), **options) -> CommandResult:
-    """
-    Gets the description of a job.
-    """
-    cursor = JobManager().desc(job_name=id)
     return SingleQueryResult(cursor)
 
 
@@ -79,17 +66,4 @@ def status(
     Returns the status of a named Snowpark Container Services job.
     """
     cursor = JobManager().status(job_name=id)
-    return SingleQueryResult(cursor)
-
-
-@app.command()
-@with_output
-@global_options_with_connection
-def drop(
-    id: str = typer.Argument(..., help="ID of the job."), **options
-) -> CommandResult:
-    """
-    Deletes a job from all compute pools in a warehouse.
-    """
-    cursor = JobManager().drop(job_name=id)
     return SingleQueryResult(cursor)

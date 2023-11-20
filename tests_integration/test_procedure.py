@@ -1,21 +1,14 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 
-from tests_integration.snowflake_connector import snowflake_session, test_database
 from tests_integration.testing_utils import assert_that_result_is_successful
-from tests_integration.testing_utils.naming_utils import object_name_provider
 from tests_integration.testing_utils.snowpark_utils import (
     SnowparkProcedureTestSteps,
     SnowparkTestSetup,
     TestType,
-)
-from tests_integration.testing_utils.sql_utils import sql_test_helper
-from tests_integration.testing_utils.working_directory_utils import (
-    temporary_working_directory,
 )
 
 
@@ -28,8 +21,8 @@ def test_snowpark_procedure_flow(
 
     _test_steps.assert_that_no_files_are_staged_in_test_db()
 
-    _test_steps.snowpark_list_should_return_no_data(object_type="function")
-    _test_steps.snowpark_list_should_return_no_data(object_type="procedure")
+    _test_steps.object_show_should_return_no_data(object_type="function")
+    _test_steps.object_show_should_return_no_data(object_type="procedure")
 
     procedure_name = _test_steps.get_entity_name()
     function_name = _test_steps.get_entity_name()
@@ -80,24 +73,24 @@ def test_snowpark_procedure_flow(
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(*expected_files)
 
         # Listing procedures or functions shows created objects
-        _test_steps.snowpark_list_includes_given_identifiers(
+        _test_steps.object_show_includes_given_identifiers(
             object_type="procedure",
             identifier=(procedure_name, "(VARCHAR) RETURN VARCHAR"),
         )
-        _test_steps.snowpark_list_includes_given_identifiers(
+        _test_steps.object_show_includes_given_identifiers(
             object_type="function",
             identifier=(function_name, "(VARCHAR) RETURN VARCHAR"),
         )
 
         # Created objects can be described
-        _test_steps.snowpark_describe_should_return_entity_description(
+        _test_steps.object_describe_should_return_entity_description(
             object_type="procedure",
             identifier=f"{procedure_name}(VARCHAR)",
             signature="(NAME VARCHAR)",
             returns="VARCHAR(16777216)",
         )
 
-        _test_steps.snowpark_describe_should_return_entity_description(
+        _test_steps.object_describe_should_return_entity_description(
             object_type="function",
             identifier=f"{function_name}(VARCHAR)",
             signature="(NAME VARCHAR)",
@@ -163,11 +156,11 @@ def test_snowpark_procedure_flow(
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(*expected_files)
 
         # Listing procedures or functions shows updated objects
-        _test_steps.snowpark_list_includes_given_identifiers(
+        _test_steps.object_show_includes_given_identifiers(
             object_type="procedure",
             identifier=(procedure_name, "(VARCHAR) RETURN VARIANT"),
         )
-        _test_steps.snowpark_list_includes_given_identifiers(
+        _test_steps.object_show_includes_given_identifiers(
             object_type="function",
             identifier=(function_name, "(VARCHAR) RETURN VARIANT"),
         )
@@ -186,15 +179,15 @@ def test_snowpark_procedure_flow(
         )
 
         # Check if objects can be dropped
-        _test_steps.snowpark_drop_should_finish_successfully(
+        _test_steps.object_drop_should_finish_successfully(
             object_type="procedure", identifier=f"{procedure_name}(varchar)"
         )
-        _test_steps.snowpark_drop_should_finish_successfully(
+        _test_steps.object_drop_should_finish_successfully(
             object_type="function", identifier=f"{function_name}(varchar)"
         )
 
-        _test_steps.snowpark_list_should_return_no_data(object_type="function")
-        _test_steps.snowpark_list_should_return_no_data(object_type="procedure")
+        _test_steps.object_show_should_return_no_data(object_type="function")
+        _test_steps.object_show_should_return_no_data(object_type="procedure")
 
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(*expected_files)
 

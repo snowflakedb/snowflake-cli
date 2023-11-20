@@ -1,24 +1,23 @@
 from __future__ import annotations
+
 import logging
 import os.path
 import tempfile
 from pathlib import Path
-
-
-from requirements.requirement import Requirement
 from shutil import rmtree
 
+from requirements.requirement import Requirement
 from snowcli import utils
+from snowcli.cli.object.stage.manager import StageManager
 from snowcli.cli.snowpark.package.utils import (
-    LookupResult,
-    InAnaconda,
-    RequiresPackages,
-    NotInAnaconda,
-    NothingFound,
     CreatedSuccessfully,
     CreationError,
+    InAnaconda,
+    LookupResult,
+    NothingFound,
+    NotInAnaconda,
+    RequiresPackages,
 )
-from snowcli.cli.object.stage.manager import StageManager
 from snowcli.utils import SplitRequirements
 
 log = logging.getLogger(__name__)

@@ -3,9 +3,8 @@ from __future__ import annotations
 import logging
 from typing import List
 
-from snowflake.connector.cursor import SnowflakeCursor
-
 from snowcli.cli.snowpark.common import SnowparkObjectManager
+from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__file__)
 

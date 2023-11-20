@@ -1,16 +1,11 @@
-import pytest
 import sys
 
-from tests_integration.snowflake_connector import snowflake_session, test_database
-from tests_integration.testing_utils.naming_utils import object_name_provider
+import pytest
+
 from tests_integration.testing_utils.snowpark_utils import (
+    SnowparkProcedureTestSteps,
     SnowparkTestSetup,
     TestType,
-    SnowparkProcedureTestSteps,
-)
-from tests_integration.testing_utils.sql_utils import sql_test_helper
-from tests_integration.testing_utils.working_directory_utils import (
-    temporary_working_directory,
 )
 
 
@@ -27,7 +22,7 @@ def test_procedure_coverage_flow(
 
     _test_steps.assert_that_no_files_are_staged_in_test_db()
 
-    _test_steps.snowpark_list_should_return_no_data(object_type="procedure")
+    _test_steps.object_show_should_return_no_data(object_type="procedure")
 
     with project_directory("snowpark_coverage") as tmp_dir:
         _test_steps.snowpark_package_should_zip_files()

@@ -3,10 +3,10 @@ from __future__ import annotations
 import logging
 
 import pytest
-
 from snowcli.cli import loggers
 from snowcli.cli.common import snow_cli_global_context
 from snowcli.config import config_init
+
 from tests.testing_utils.fixtures import test_snowcli_config
 
 

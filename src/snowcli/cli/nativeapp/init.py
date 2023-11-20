@@ -4,14 +4,11 @@ import logging
 import os
 import re
 from pathlib import Path
-from tempfile import TemporaryDirectory
-from click.exceptions import ClickException
 from shutil import move, rmtree
-from strictyaml import load, as_document
-from yaml import dump
-
-
+from tempfile import TemporaryDirectory
 from typing import Optional
+
+from click.exceptions import ClickException
 from snowcli.cli.common.utils import generic_render_template
 from snowcli.cli.project.definition_manager import DefinitionManager
 from snowcli.cli.project.util import (
@@ -19,6 +16,8 @@ from snowcli.cli.project.util import (
     is_valid_unquoted_identifier,
     to_identifier,
 )
+from strictyaml import as_document, load
+from yaml import dump
 
 log = logging.getLogger(__name__)
 
@@ -264,7 +263,7 @@ def _init_from_template(
 
             # Move the template to the specified path
             move(
-                src=template_root,
+                src=template_root,  # type: ignore
                 dst=project_path,
             )
 

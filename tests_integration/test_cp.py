@@ -1,10 +1,9 @@
 import pytest
 
-from tests_integration.snowflake_connector import snowflake_session
 from tests_integration.test_utils import (
-    row_from_snowflake_session,
     contains_row_with,
     not_contains_row_with,
+    row_from_snowflake_session,
 )
 
 

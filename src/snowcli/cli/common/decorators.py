@@ -3,24 +3,24 @@ from __future__ import annotations
 import inspect
 from functools import wraps
 from inspect import Signature
-from typing import Callable, Optional, get_type_hints, List, Dict
+from typing import Callable, Dict, List, Optional, get_type_hints
 
 from snowcli.cli import loggers
 from snowcli.cli.common.flags import (
-    ConnectionOption,
     AccountOption,
-    UserOption,
-    DatabaseOption,
-    SchemaOption,
-    RoleOption,
-    WarehouseOption,
-    PasswordOption,
     AuthenticatorOption,
-    PrivateKeyPathOption,
-    OutputFormatOption,
-    VerboseOption,
+    ConnectionOption,
+    DatabaseOption,
     DebugOption,
+    OutputFormatOption,
+    PasswordOption,
+    PrivateKeyPathOption,
+    RoleOption,
+    SchemaOption,
     TemporaryConnectionOption,
+    UserOption,
+    VerboseOption,
+    WarehouseOption,
     experimental_option,
 )
 from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager

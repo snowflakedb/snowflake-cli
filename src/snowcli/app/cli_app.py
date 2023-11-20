@@ -8,9 +8,8 @@ from typing import Optional
 import click
 import typer
 from click import Context
-
 from snowcli import __about__
-from snowcli.api import api_provider, Api
+from snowcli.api import Api, api_provider
 from snowcli.app.api_impl.plugin.plugin_config_provider_impl import (
     PluginConfigProviderImpl,
 )
@@ -23,7 +22,7 @@ from snowcli.app.dev.pycharm_remote_debug import (
     setup_pycharm_remote_debugger_if_provided,
 )
 from snowcli.app.main_typer import SnowCliMainTyper
-from snowcli.config import config_init, cli_config
+from snowcli.config import cli_config, config_init
 from snowcli.output.formats import OutputFormat
 from snowcli.output.printing import print_result
 from snowcli.output.types import CollectionResult

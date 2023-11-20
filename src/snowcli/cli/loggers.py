@@ -1,6 +1,6 @@
 import logging
-import typer
 
+import typer
 
 DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s %(message)s"
 DEBUG_LOG_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"

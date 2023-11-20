@@ -1,8 +1,9 @@
 import json
+from unittest import mock
+
 import pytest
 
 from tests.testing_utils.fixtures import *
-from unittest import mock
 
 
 # Used as a solution to syrupy having some problems with comparing multilines string

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import os
-import pytest
 import uuid
 
-from snowflake import connector
+import pytest
 from snowcli.exception import EnvironmentVariableNotFoundError
+from snowflake import connector
 
 _ENV_PARAMETER_PREFIX = "SNOWFLAKE_CONNECTIONS_INTEGRATION"
 

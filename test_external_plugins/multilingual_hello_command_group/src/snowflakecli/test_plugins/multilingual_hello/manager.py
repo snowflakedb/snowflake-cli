@@ -1,6 +1,5 @@
-from snowflake.connector.cursor import SnowflakeCursor
-
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowflake.connector.cursor import SnowflakeCursor
 from snowflakecli.test_plugins.multilingual_hello.hello_language import HelloLanguage
 
 

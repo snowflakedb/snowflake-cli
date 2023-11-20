@@ -1,20 +1,19 @@
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
-from typing import Optional, Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 import tomlkit
+from snowcli.exception import MissingConfiguration, UnsupportedConfigSectionTypeError
+from snowflake.connector.config_manager import ConfigManager
+from snowflake.connector.constants import CONFIG_FILE
 from snowflake.connector.errors import MissingConfigOptionError
-from tomlkit import dump, table, TOMLDocument
+from tomlkit import TOMLDocument, dump, table
+from tomlkit.container import Container
 from tomlkit.exceptions import NonExistentKey
 from tomlkit.items import Table
-from tomlkit.container import Container
-import logging
-
-from snowcli.exception import MissingConfiguration, UnsupportedConfigSectionTypeError
-from snowflake.connector.constants import CONFIG_FILE
-from snowflake.connector.config_manager import ConfigManager
 
 log = logging.getLogger(__name__)
 _DEFAULT_CONNECTION_KEY = "default_connection"
