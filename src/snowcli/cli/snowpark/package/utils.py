@@ -52,7 +52,3 @@ class CreatedSuccessfully(CreateResult):
     @property
     def message(self):
         return f"Package {self.package_name}.zip created. You can now upload it to a stage (`snow snowpark package upload -f {self.package_name}.zip -s packages`) and reference it in your procedure or function."
-
-
-class CreationError(CreateResult):
-    pass
