@@ -5,11 +5,11 @@ import json
 import typing as t
 
 from click import Command
-from typer.core import TyperArgument, TyperOption
-
 from snowcli.__about__ import VERSION
 from snowcli.app.cli_app import app_context_holder
 from snowcli.config import cli_config
+from typer.core import TyperArgument, TyperOption
+
 from tests.testing_utils.fixtures import *
 
 
@@ -33,12 +33,12 @@ def test_custom_config_path(mock_conn, runner, mock_cursor):
     ]
     result = runner.invoke_with_config_file(
         config_file,
-        ["object", "show", "warehouse"],
+        ["object", "list", "warehouse"],
         catch_exceptions=False,
     )
     assert result.exit_code == 0, result.output
     mock_conn.assert_called_once_with(
-        application="SNOWCLI.OBJECT.SHOW",
+        application="SNOWCLI.OBJECT.LIST",
         database="db_for_test",
         schema="test_public",
         role="test_role",

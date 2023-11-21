@@ -1,17 +1,16 @@
 import logging
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
 import pluggy
-
 from snowcli.api.plugin.command import (
     SNOWCLI_COMMAND_PLUGIN_NAMESPACE,
-    plugin_hook_specs,
-    CommandSpec,
     CommandPath,
+    CommandSpec,
+    plugin_hook_specs,
 )
 from snowcli.app.commands_registration import (
-    LoadedCommandPlugin,
     LoadedBuiltInCommandPlugin,
+    LoadedCommandPlugin,
     LoadedExternalCommandPlugin,
 )
 from snowcli.app.commands_registration.builtin_plugins import (

@@ -3,7 +3,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from snowcli.config import CliConfigManager, get_default_connection, config_init
+from snowcli.config import CliConfigManager, config_init, get_default_connection
+
 from tests.testing_utils.fixtures import *
 
 

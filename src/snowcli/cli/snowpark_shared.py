@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+import logging
 import os
 from typing import List
 
 import click
-import logging
 import typer
-
 from snowcli import utils
 from snowcli.utils import (
     YesNoAskOptionsType,

@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 from pathlib import Path
-from snowcli.cli.object.stage.diff import DiffResult
 
 import typer
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.object.stage.diff import DiffResult
 from snowcli.cli.object.stage.manager import StageManager
 from snowcli.output.decorators import with_output
 from snowcli.output.types import (
+    CommandResult,
     ObjectResult,
     QueryResult,
     SingleQueryResult,
-    CommandResult,
 )
 
 app = typer.Typer(
@@ -21,24 +21,17 @@ app = typer.Typer(
     help="Manages stages.",
 )
 
-StageNameOption = typer.Argument(..., help="Name of the stage.")
+StageNameArgument = typer.Argument(..., help="Name of the stage.")
 
 
 @app.command("list")
 @with_output
 @global_options_with_connection
-def stage_list(
-    stage_name: str = typer.Argument(None, help="Name of the stage."), **options
-) -> CommandResult:
+def stage_list(stage_name: str = StageNameArgument, **options) -> CommandResult:
     """
-    Lists the stage contents or shows available stages if the stage name is omitted.
+    Lists the stage contents.
     """
-    manager = StageManager()
-
-    if stage_name:
-        cursor = manager.list(stage_name=stage_name)
-    else:
-        cursor = manager.show()
+    cursor = StageManager().list(stage_name=stage_name)
     return QueryResult(cursor)
 
 
@@ -46,7 +39,7 @@ def stage_list(
 @with_output
 @global_options_with_connection
 def stage_get(
-    stage_name: str = StageNameOption,
+    stage_name: str = StageNameArgument,
     path: Path = typer.Argument(
         Path.cwd(),
         exists=False,
@@ -78,7 +71,7 @@ def stage_put(
         resolve_path=True,
         help="File or directory to upload to stage. You can use the `*` wildcard in the path, like `folder/*.csv`. If a path contains `*.`, you must enclose the path in quotes.",
     ),
-    stage_name: str = StageNameOption,
+    stage_name: str = StageNameArgument,
     overwrite: bool = typer.Option(
         False,
         help="Overwrites existing files in the stage.",
@@ -107,7 +100,7 @@ def stage_put(
 @app.command("create")
 @with_output
 @global_options_with_connection
-def stage_create(stage_name: str = StageNameOption, **options) -> CommandResult:
+def stage_create(stage_name: str = StageNameArgument, **options) -> CommandResult:
     """
     Creates a named stage if it does not already exist.
     """
@@ -115,22 +108,11 @@ def stage_create(stage_name: str = StageNameOption, **options) -> CommandResult:
     return SingleQueryResult(cursor)
 
 
-@app.command("drop")
-@with_output
-@global_options_with_connection
-def stage_drop(stage_name: str = StageNameOption, **options) -> CommandResult:
-    """
-    Drops a stage.
-    """
-    cursor = StageManager().drop(stage_name=stage_name)
-    return SingleQueryResult(cursor)
-
-
 @app.command("remove")
 @with_output
 @global_options_with_connection
 def stage_remove(
-    stage_name: str = StageNameOption,
+    stage_name: str = StageNameArgument,
     file_name: str = typer.Argument(..., help="Name of the file to remove."),
     **options,
 ) -> CommandResult:

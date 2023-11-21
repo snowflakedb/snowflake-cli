@@ -1,16 +1,14 @@
 import pytest
 
 from tests_integration.test_utils import row_from_cursor
-from tests_integration.snowflake_connector import snowflake_session
 from tests_integration.testing_utils.naming_utils import ObjectNameProvider
-from tests_integration.snowflake_connector import test_database
 
 
 @pytest.mark.integration
 @pytest.mark.parametrize("object_type", ["warehouse", "schema"])
 def test_show(object_type, runner, test_database, snowflake_session):
     result = runner.invoke_integration(
-        ["object", "show", object_type, "--format", "json"]
+        ["object", "list", object_type, "--format", "json"]
     )
 
     curr = snowflake_session.execute_string(f"show {object_type}s")
@@ -29,7 +27,7 @@ def test_object_table(runner, test_database, snowflake_session):
     ).create_and_get_next_object_name()
     snowflake_session.execute_string(f"create table {object_name} (some_number NUMBER)")
 
-    result_show = runner.invoke_integration(["object", "show", "table"])
+    result_show = runner.invoke_integration(["object", "list", "table"])
     assert result_show.exit_code == 0
 
     actual_tables = row_from_cursor(

@@ -1,16 +1,11 @@
-import pytest
 import sys
 
-from tests_integration.snowflake_connector import snowflake_session, test_database
-from tests_integration.testing_utils.naming_utils import object_name_provider
+import pytest
+
 from tests_integration.testing_utils.snowpark_utils import (
+    SnowparkProcedureTestSteps,
     SnowparkTestSetup,
     TestType,
-    SnowparkProcedureTestSteps,
-)
-from tests_integration.testing_utils.sql_utils import sql_test_helper
-from tests_integration.testing_utils.working_directory_utils import (
-    temporary_working_directory,
 )
 
 
@@ -20,37 +15,27 @@ from tests_integration.testing_utils.working_directory_utils import (
 )
 @pytest.mark.integration
 def test_procedure_coverage_flow(
-    _test_steps, alter_snowflake_yml, temporary_working_directory_ctx
+    project_directory, _test_steps, alter_snowflake_yml, temporary_working_directory_ctx
 ):
-    _test_steps.assert_that_no_entities_are_in_snowflake()
+    _test_steps.assert_no_procedures_in_snowflake()
+    _test_steps.assert_no_functions_in_snowflake()
+
     _test_steps.assert_that_no_files_are_staged_in_test_db()
 
-    _test_steps.snowpark_list_should_return_no_data()
+    _test_steps.object_show_should_return_no_data(object_type="procedure")
 
-    with temporary_working_directory_ctx() as tmp_dir:
-        _test_steps.snowpark_init_should_initialize_files_with_default_content()
-        _test_steps.add_parameters_to_procedure("name: int, b: str")
-        _test_steps.add_requirements_to_requirements_txt(["coverage"])
-        _test_steps.requirements_file_should_contain_coverage()
+    with project_directory("snowpark_coverage") as tmp_dir:
         _test_steps.snowpark_package_should_zip_files()
+
         procedure_name = _test_steps.get_entity_name()
         parameters = "(name int, b string)"
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
-            parameter_path="procedures",
-            value=[
-                {
-                    "name": procedure_name,
-                    "signature": [
-                        {"name": "name", "type": "int"},
-                        {"name": "b", "type": "string"},
-                    ],
-                    "returns": "string",
-                    "handler": "app.hello",
-                }
-            ],
+            parameter_path="procedures.0.name",
+            value=procedure_name,
         )
-        result = _test_steps.run_deploy_2("--install-coverage-wrapper")
+
+        result = _test_steps.run_deploy("--install-coverage-wrapper")
         assert result.exit_code == 0
         assert result.json == [
             {
@@ -63,7 +48,7 @@ def test_procedure_coverage_flow(
         identifier = procedure_name + parameters
         stage_name = f"{procedure_name}_name_int_b_string"
 
-        _test_steps.assert_that_only_these_entities_are_in_snowflake(
+        _test_steps.assert_those_procedures_are_in_snowflake(
             f"{procedure_name}(NUMBER, VARCHAR) RETURN VARCHAR"
         )
 
@@ -72,8 +57,8 @@ def test_procedure_coverage_flow(
         )
 
         _test_steps.snowpark_execute_should_return_expected_value(
-            entity_name=procedure_name,
-            arguments="(0, 'test')",
+            object_type="procedure",
+            identifier=f"{procedure_name}(0, 'test')",
             expected_value="Hello 0",
         )
 

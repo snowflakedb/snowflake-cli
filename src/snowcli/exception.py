@@ -1,7 +1,8 @@
-from textwrap import dedent
-from click.exceptions import ClickException
+from __future__ import annotations
+
 from typing import Optional
 
+from click.exceptions import ClickException
 from snowcli.cli.constants import ObjectType
 
 
@@ -55,9 +56,12 @@ class SnowflakeSQLExecutionError(ClickException):
 
 class ObjectAlreadyExistsError(ClickException):
     def __init__(
-        self, object_type: ObjectType, name: str, replace_available: bool = False
+        self,
+        object_type: ObjectType,
+        name: str,
+        replace_available: bool = False,
     ):
-        msg = f"{object_type.value.capitalize()} {name} already exists."
+        msg = f"{str(object_type).capitalize()} {name} already exists."
         if replace_available:
             msg += " Use --replace flag to update objects."
         super().__init__(msg)

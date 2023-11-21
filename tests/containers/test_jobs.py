@@ -41,17 +41,6 @@ spec:
 
 
 @mock.patch("snowflake.connector.connect")
-def test_desc_job(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-
-    result = runner.invoke(["containers", "job", "desc", "jobName"])
-
-    assert result.exit_code == 0, result.output
-    assert ctx.get_query() == "desc service jobName"
-
-
-@mock.patch("snowflake.connector.connect")
 def test_job_status(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -73,14 +62,3 @@ def test_job_logs(mock_connector, runner, mock_ctx):
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "call SYSTEM$GET_JOB_LOGS('jobName', 'containerName')"
-
-
-@mock.patch("snowflake.connector.connect")
-def test_drop_job(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-
-    result = runner.invoke(["containers", "job", "drop", "cpNameToDrop"])
-
-    assert result.exit_code == 0, result.output
-    assert ctx.get_query() == "CALL SYSTEM$CANCEL_JOB('cpNameToDrop')"

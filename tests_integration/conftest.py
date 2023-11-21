@@ -2,26 +2,22 @@ from __future__ import annotations
 
 import functools
 import json
-from contextlib import contextmanager
-
-import pytest
-import tempfile
 import shutil
-
+import tempfile
+from contextlib import contextmanager
 from dataclasses import dataclass
 from json import JSONDecodeError
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
+import pytest
 import strictyaml
-from strictyaml import as_document
-
 from snowcli.app.cli_app import app
-from typer import Typer
-from typer.testing import CliRunner
-from typing import List, Dict, Any, Optional
-
 from snowcli.cli.common.cli_global_context import cli_context_manager
 from snowcli.cli.project.definition import merge_left
+from strictyaml import as_document
+from typer import Typer
+from typer.testing import CliRunner
 
 pytest_plugins = [
     "tests_integration.testing_utils",

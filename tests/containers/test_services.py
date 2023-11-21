@@ -1,11 +1,12 @@
+from pathlib import Path
 from textwrap import dedent
-from tests.testing_utils.fixtures import *
+from unittest.mock import Mock, patch
 
 import pytest
 import strictyaml
-from pathlib import Path
-from unittest.mock import Mock, patch
 from snowcli.cli.containers.services.manager import ServiceManager
+
+from tests.testing_utils.fixtures import *
 
 
 @patch("snowcli.cli.containers.services.manager.ServiceManager._execute_schema_query")
@@ -66,44 +67,12 @@ def test_create_service_with_invalid_spec(mock_read_yaml):
 
 
 @patch("snowcli.cli.containers.services.manager.ServiceManager._execute_schema_query")
-def test_desc(mock_execute_schema_query):
-    service_name = "test_service"
-    cursor = Mock(spec=SnowflakeCursor)
-    mock_execute_schema_query.return_value = cursor
-    result = ServiceManager().desc(service_name)
-    expected_query = "desc service test_service"
-    mock_execute_schema_query.assert_called_once_with(expected_query)
-    assert result == cursor
-
-
-@patch("snowcli.cli.containers.services.manager.ServiceManager._execute_schema_query")
-def test_show(mock_execute_schema_query):
-    cursor = Mock(spec=SnowflakeCursor)
-    mock_execute_schema_query.return_value = cursor
-    result = ServiceManager().show()
-    expected_query = "show services"
-    mock_execute_schema_query.assert_called_once_with(expected_query)
-    assert result == cursor
-
-
-@patch("snowcli.cli.containers.services.manager.ServiceManager._execute_schema_query")
 def test_status(mock_execute_schema_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_schema_query.return_value = cursor
     result = ServiceManager().status(service_name)
     expected_query = "CALL SYSTEM$GET_SERVICE_STATUS('test_service')"
-    mock_execute_schema_query.assert_called_once_with(expected_query)
-    assert result == cursor
-
-
-@patch("snowcli.cli.containers.services.manager.ServiceManager._execute_schema_query")
-def test_drop(mock_execute_schema_query):
-    service_name = "test_service"
-    cursor = Mock(spec=SnowflakeCursor)
-    mock_execute_schema_query.return_value = cursor
-    result = ServiceManager().drop(service_name)
-    expected_query = "drop service test_service"
     mock_execute_schema_query.assert_called_once_with(expected_query)
     assert result == cursor
 

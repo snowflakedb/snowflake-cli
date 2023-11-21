@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 import logging
-from contextlib import nullcontext
-
-from pathlib import Path
 import re
+from contextlib import nullcontext
+from pathlib import Path
 from typing import Optional, Union
-
-from snowflake.connector.cursor import SnowflakeCursor
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.utils import path_resolver
-
+from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__file__)
 
@@ -109,14 +106,8 @@ class StageManager(SqlExecutionMixin):
             cursor = self.remove(stage_name=stage_name, path=path)
         return cursor
 
-    def show(self) -> SnowflakeCursor:
-        return self._execute_query("show stages")
-
     def create(self, stage_name: str, comment: Optional[str] = None) -> SnowflakeCursor:
         query = f"create stage if not exists {stage_name}"
         if comment:
             query += f" comment='{comment}'"
         return self._execute_query(query)
-
-    def drop(self, stage_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"drop stage {stage_name}")

@@ -7,9 +7,9 @@ from typing import List, Optional, Tuple
 from snowcli.cli.common.experimental_behaviour import experimental_behaviour_enabled
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.connection.util import MissingConnectionHostError, make_snowsight_url
+from snowcli.cli.object.stage.manager import StageManager
 from snowcli.cli.project.util import unquote_identifier
 from snowcli.cli.snowpark_shared import snowpark_package
-from snowcli.cli.object.stage.manager import StageManager
 from snowcli.utils import (
     generate_streamlit_environment_file,
     generate_streamlit_package_wrapper,
@@ -20,23 +20,10 @@ log = logging.getLogger(__name__)
 
 
 class StreamlitManager(SqlExecutionMixin):
-    def list(self) -> SnowflakeCursor:
-        return self._execute_query("show streamlits")
-
-    def describe(self, streamlit_name: str) -> Tuple[SnowflakeCursor, SnowflakeCursor]:
-        description = self._execute_query(f"describe streamlit {streamlit_name}")
-        url = self._execute_query(
-            f"call SYSTEM$GENERATE_STREAMLIT_URL_FROM_NAME('{streamlit_name}')"
-        )
-        return description, url
-
     def share(self, streamlit_name: str, to_role: str) -> SnowflakeCursor:
         return self._execute_query(
             f"grant usage on streamlit {streamlit_name} to role {to_role}"
         )
-
-    def drop(self, streamlit_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"drop streamlit {streamlit_name}")
 
     def _put_streamlit_files(
         self,
@@ -60,10 +47,21 @@ class StreamlitManager(SqlExecutionMixin):
         streamlit_name: str,
         main_file: Path,
         replace: bool | None = None,
+        experimental: bool | None = None,
         query_warehouse: str | None = None,
         from_stage_name: str | None = None,
     ):
-        replace_stmt = "OR REPLACE" if replace else ""
+        if replace:
+            create_stmt = "CREATE OR REPLACE STREAMLIT"
+        elif experimental:
+            # For experimental behaviour, we need to use CREATE STREAMLIT IF NOT EXISTS
+            # for a streamlit app with an embedded stage
+            # because this is analogous to the behavior for non-experimental
+            # deploy which does CREATE STAGE IF NOT EXISTS
+            create_stmt = "CREATE STREAMLIT IF NOT EXISTS"
+        else:
+            create_stmt = "CREATE STREAMLIT"
+
         use_warehouse_stmt = (
             f"QUERY_WAREHOUSE = {query_warehouse}" if query_warehouse else ""
         )
@@ -72,7 +70,7 @@ class StreamlitManager(SqlExecutionMixin):
         )
         self._execute_query(
             f"""
-            CREATE {replace_stmt} STREAMLIT {streamlit_name}
+            {create_stmt} {streamlit_name}
             {from_stage_stmt}
             MAIN_FILE = '{main_file.name}'
             {use_warehouse_stmt}
@@ -98,7 +96,13 @@ class StreamlitManager(SqlExecutionMixin):
             """
             # TODO: Support from_stage
             # from_stage_stmt = f"FROM_STAGE = '{stage_name}'" if stage_name else ""
-            self._create_streamlit(streamlit_name, main_file, replace, query_warehouse)
+            self._create_streamlit(
+                streamlit_name,
+                main_file,
+                replace=replace,
+                query_warehouse=query_warehouse,
+                experimental=True,
+            )
             self._execute_query(f"ALTER streamlit {streamlit_name} CHECKOUT")
             stage_path = stage_manager.to_fully_qualified_name(streamlit_name)
             embedded_stage_name = f"snow://streamlit/{stage_path}"
@@ -131,9 +135,10 @@ class StreamlitManager(SqlExecutionMixin):
             self._create_streamlit(
                 streamlit_name,
                 main_file,
-                replace,
-                query_warehouse,
+                replace=replace,
+                query_warehouse=query_warehouse,
                 from_stage_name=root_location,
+                experimental=False,
             )
 
         return self.get_url(streamlit_name)

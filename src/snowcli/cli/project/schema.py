@@ -1,19 +1,20 @@
 from __future__ import annotations
+
 from strictyaml import (
-    MapCombined,
-    Seq,
-    Int,
-    Optional,
-    UniqueSeq,
-    Bool,
-    Str,
     Any,
+    Bool,
     Decimal,
-    Regex,
     EmptyList,
+    Int,
+    MapCombined,
+    Optional,
+    Regex,
+    Seq,
+    Str,
+    UniqueSeq,
 )
 
-from .util import SCHEMA_AND_NAME, IDENTIFIER
+from .util import IDENTIFIER, SCHEMA_AND_NAME
 
 # TODO: use the util regexes to validate paths + globs
 FilePath = Str

@@ -4,22 +4,22 @@ import json
 import os
 import re
 from enum import Enum
-from syrupy import SnapshotAssertion
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from snowflake.connector import SnowflakeConnection
+from syrupy import SnapshotAssertion
 
-from tests_integration.test_utils import contains_row_with
 from tests_integration.conftest import SnowCLIRunner
+from tests_integration.test_utils import contains_row_with
 from tests_integration.testing_utils.assertions.test_file_assertions import (
-    assert_that_file_content_is_equal_to_snapshot,
     assert_that_current_working_directory_contains_only_following_files,
+    assert_that_file_content_is_equal_to_snapshot,
 )
 from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_contains_row_with,
+    assert_that_result_is_successful,
     assert_that_result_is_successful_and_done_is_on_output,
     assert_that_result_is_successful_and_output_json_equals,
-    assert_that_result_is_successful,
 )
 from tests_integration.testing_utils.file_utils import replace_text_in_file
 from tests_integration.testing_utils.naming_utils import ObjectNameProvider
@@ -455,36 +455,40 @@ class SnowparkProcedureTestSteps:
         self.test_type = test_type
         self.file_list = [".gitignore", "app.py", "snowflake.yml", "requirements.txt"]
 
-    def snowpark_list_should_return_no_data(self) -> None:
+    def object_show_should_return_no_data(self, object_type: str) -> None:
         result = self._setup.runner.invoke_integration(
             [
-                "snowpark",
-                self.test_type.value,
+                "object",
                 "list",
+                object_type,
                 "--like",
                 f"{self._setup.object_name_prefix}%",
             ]
         )
         assert_that_result_is_successful_and_output_json_equals(result, [])
 
-    def snowpark_list_should_return_entity_at_first_place(
-        self, entity_name: str, arguments: str, result_type: str
+    def object_show_includes_given_identifiers(
+        self,
+        object_type: str,
+        identifier: Tuple[str, str],
     ) -> None:
         result = self._setup.runner.invoke_integration(
             [
-                "snowpark",
-                self.test_type.value,
+                "object",
                 "list",
+                object_type,
                 "--like",
                 f"{self._setup.object_name_prefix}%",
             ]
         )
         assert_that_result_is_successful(result)
+
+        entity_name, signature = identifier
         assert_that_result_contains_row_with(
             result,
             {
                 "name": entity_name.upper(),
-                "arguments": f"{entity_name}{arguments} RETURN {result_type}".upper(),
+                "arguments": f"{entity_name}{signature}".upper(),
             },
         )
 
@@ -492,41 +496,42 @@ class SnowparkProcedureTestSteps:
             assert_that_result_contains_row_with(result, {"language": "PYTHON"})
 
     def snowpark_execute_should_return_expected_value(
-        self, entity_name: str, arguments: str, expected_value: Any
+        self, object_type: str, identifier: str, expected_value: Any
     ) -> None:
-        identifier = entity_name + arguments
         result = self._setup.runner.invoke_integration(
             [
                 "snowpark",
-                self.test_type.value,
                 "execute",
+                object_type,
                 identifier,
             ]
         )
+
+        entity_name = identifier.rsplit("(")[0]
 
         assert_that_result_is_successful(result)
         assert_that_result_contains_row_with(
             result,
             {
                 identifier.upper()
-                if self.test_type == TestType.FUNCTION
+                if object_type == TestType.FUNCTION.value
                 else entity_name.upper(): expected_value
             },
         )
 
-    def snowpark_describe_should_return_entity_description(
+    def object_describe_should_return_entity_description(
         self,
-        entity_name: str,
-        arguments: str,
-        signature: Optional[str] = None,
-        returns: Optional[str] = None,
+        object_type: str,
+        identifier: str,
+        signature: str,
+        returns: str,
     ) -> None:
         result = self._setup.runner.invoke_integration(
             [
-                "snowpark",
-                self.test_type.value,
+                "object",
                 "describe",
-                entity_name + arguments,
+                object_type,
+                identifier,
             ]
         )
         assert_that_result_is_successful(result)
@@ -536,7 +541,7 @@ class SnowparkProcedureTestSteps:
                 result, {"property": "returns", "value": returns}
             )
         assert_that_result_contains_row_with(
-            result, {"property": "signature", "value": signature or arguments}
+            result, {"property": "signature", "value": signature}
         )
         assert result.json is not None
 
@@ -544,7 +549,7 @@ class SnowparkProcedureTestSteps:
         self,
     ) -> None:
         result = self._setup.runner.invoke_with_config(
-            ["snowpark", self.test_type.value, "init", ".", "--format", "JSON"]
+            ["snowpark", "init", ".", "--format", "JSON"]
         )
         assert_that_result_is_successful(result)
         assert result.output is not None
@@ -580,7 +585,6 @@ class SnowparkProcedureTestSteps:
         result = self._setup.runner.invoke_with_config(
             [
                 "snowpark",
-                self.test_type.value,
                 "build",
                 "--pypi-download",
                 "yes",
@@ -600,33 +604,10 @@ class SnowparkProcedureTestSteps:
     ):
         return self.run_deploy("--install-coverage-wrapper")
 
-    def run_deploy_2(self, additional_arguments: str = ""):
+    def run_deploy(self, additional_arguments: str = ""):
         arguments = [
             "snowpark",
-            self.test_type.value,
             "deploy",
-        ]
-
-        if additional_arguments:
-            arguments.append(additional_arguments)
-
-        result = self._setup.runner.invoke_integration(arguments)
-        return result
-
-    def run_deploy(self, parameters: str = "()", additional_arguments: str = ""):
-        entity_name = (
-            self._setup.test_object_name_provider.create_and_get_next_object_name()
-        )
-
-        arguments = [
-            "snowpark",
-            self.test_type.value,
-            "deploy",
-            entity_name + parameters,
-            "--handler",
-            "app.hello",
-            "--returns",
-            "string",
         ]
 
         if additional_arguments:
@@ -647,7 +628,6 @@ class SnowparkProcedureTestSteps:
         result = self._setup.runner.invoke_integration(
             [
                 "snowpark",
-                self.test_type.value,
                 "deploy",
             ]
         )
@@ -673,7 +653,6 @@ class SnowparkProcedureTestSteps:
         result = self._setup.runner.invoke_integration(
             [
                 "snowpark",
-                self.test_type.value,
                 "deploy",
                 entity_name + "()",
                 "--handler",
@@ -688,17 +667,15 @@ class SnowparkProcedureTestSteps:
             {"status": f"Function {entity_name.upper()} successfully created."},
         )
 
-    def snowpark_drop_should_finish_successfully(
-        self,
-        entity_name: str,
-        arguments: str,
+    def object_drop_should_finish_successfully(
+        self, object_type: str, identifier: str
     ) -> None:
         result = self._setup.runner.invoke_integration(
             [
-                "snowpark",
-                self.test_type.value,
+                "object",
                 "drop",
-                entity_name + arguments,
+                object_type,
+                identifier,
             ]
         )
         assert_that_result_is_successful(result)
@@ -709,7 +686,6 @@ class SnowparkProcedureTestSteps:
         result = self._setup.runner.invoke_integration(
             [
                 "snowpark",
-                "procedure",
                 "coverage",
                 "report",
                 identifier,
@@ -731,7 +707,6 @@ class SnowparkProcedureTestSteps:
         result = self._setup.runner.invoke_integration(
             [
                 "snowpark",
-                "procedure",
                 "coverage",
                 "clear",
                 identifier,
@@ -741,16 +716,38 @@ class SnowparkProcedureTestSteps:
         assert result.exit_code == 0
         assert result.json["result"] == "removed"  # type: ignore
 
-    def assert_that_no_entities_are_in_snowflake(self) -> None:
-        self.assert_that_only_these_entities_are_in_snowflake()
+    def assert_those_procedures_are_in_snowflake(
+        self, *expected_full_entity_signatures: str
+    ):
+        query_string = (
+            f"SHOW PROCEDURES LIKE '{self._setup.object_name_prefix.upper()}%'"
+        )
+        result = self._setup.sql_test_helper.execute_single_sql(query_string)
+        self.assert_that_only_these_entities_are_in_snowflake(
+            result, *expected_full_entity_signatures
+        )
+
+    def assert_those_functions_are_in_snowflake(
+        self, *expected_full_entity_signatures: str
+    ):
+        query_string = (
+            f"SHOW USER FUNCTIONS LIKE '{self._setup.object_name_prefix.upper()}%'"
+        )
+        result = self._setup.sql_test_helper.execute_single_sql(query_string)
+        self.assert_that_only_these_entities_are_in_snowflake(
+            result, *expected_full_entity_signatures
+        )
+
+    def assert_no_procedures_in_snowflake(self):
+        self.assert_those_procedures_are_in_snowflake()
+
+    def assert_no_functions_in_snowflake(self):
+        self.assert_those_functions_are_in_snowflake()
 
     def assert_that_only_these_entities_are_in_snowflake(
-        self, *expected_full_entity_signatures: str
+        self, query_result, *expected_full_entity_signatures: str
     ) -> None:
-        actual_entity_signatures = [
-            entity["arguments"]
-            for entity in self._setup.query_entities_created_in_this_test_case()
-        ]
+        actual_entity_signatures = [entity["arguments"] for entity in query_result]
         adjusted_expected_full_function_signatures = [
             entity.upper() for entity in expected_full_entity_signatures
         ]

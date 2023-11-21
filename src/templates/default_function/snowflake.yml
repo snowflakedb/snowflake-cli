@@ -1,8 +1,0 @@
-definition_version: 1
-functions:
-  - name: hello
-    handler: "app.hello"
-    signature:
-      - name: "name"
-        type: "string"
-    returns: string

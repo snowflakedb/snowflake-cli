@@ -1,23 +1,24 @@
+from pathlib import Path
+from textwrap import dedent
+from unittest import mock
+
+import pytest
 from snowcli.cli.nativeapp.init import (
-    _render_snowflake_yml,
-    _replace_snowflake_yml_name_with_project,
-    _to_yaml_string,
-    _validate_and_update_snowflake_yml,
-    nativeapp_init,
     CannotInitializeAnExistingProjectError,
     DirectoryAlreadyExistsError,
     InitError,
     ProjectNameInvalidError,
     RenderingFromJinjaError,
     TemplateNotFoundError,
+    _render_snowflake_yml,
+    _replace_snowflake_yml_name_with_project,
+    _to_yaml_string,
+    _validate_and_update_snowflake_yml,
+    nativeapp_init,
 )
-
-from pathlib import Path
-import pytest
 from snowcli.exception import MissingConfiguration
+
 from tests.testing_utils.fixtures import *
-from textwrap import dedent
-from unittest import mock
 
 PROJECT_PATH = "demo-na-project"
 PROJECT_NAME = "demo_na_project"

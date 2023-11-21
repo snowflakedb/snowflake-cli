@@ -1,11 +1,5 @@
 import hashlib
-from typing import Tuple, Dict
-
-from snowcli.exception import SnowflakeSQLExecutionError
-from snowcli.cli.object.stage.manager import StageManager
-
-from tests.testing_utils.fixtures import *
-from tests.testing_utils.files_and_dirs import temp_local_dir
+from typing import Dict, Tuple
 
 from snowcli.cli.object.stage.diff import (
     DiffResult,
@@ -16,6 +10,11 @@ from snowcli.cli.object.stage.diff import (
     stage_diff,
     sync_local_diff_with_stage,
 )
+from snowcli.cli.object.stage.manager import StageManager
+from snowcli.exception import SnowflakeSQLExecutionError
+
+from tests.testing_utils.files_and_dirs import temp_local_dir
+from tests.testing_utils.fixtures import *
 
 STAGE_MANAGER = "snowcli.cli.object.stage.manager.StageManager"
 

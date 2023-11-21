@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import Optional, Callable, Any
+from typing import Any, Callable, Optional
 
 import typer
-
 from snowcli.cli.common.cli_global_context import cli_context_manager
 from snowcli.output.formats import OutputFormat
 
@@ -204,3 +203,11 @@ def execution_identifier_argument(object: str, example: str) -> typer.Argument:
     return typer.Argument(
         ..., help=f"Execution identifier of the {object}. For example: {example}"
     )
+
+
+LikeOption = typer.Option(
+    "%%",
+    "--like",
+    "-l",
+    help='Regular expression for filtering objects by name. For example, `list --like "my%"` lists all objects that begin with “my”.',
+)

@@ -1,8 +1,8 @@
 from snowcli.api.plugin.command import (
-    plugin_hook_impl,
-    CommandSpec,
     SNOWCLI_ROOT_COMMAND_PATH,
+    CommandSpec,
     CommandType,
+    plugin_hook_impl,
 )
 from snowcli.cli.containers import app
 

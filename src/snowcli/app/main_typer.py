@@ -1,8 +1,7 @@
 import click
-from typer import Typer
-
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.common.cli_global_context import cli_context
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from typer import Typer
 
 
 def _handle_exception(exception: Exception):

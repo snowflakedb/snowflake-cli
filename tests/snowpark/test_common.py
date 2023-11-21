@@ -1,16 +1,16 @@
-import pytest
-
 from typing import Tuple
 
-from tests.testing_utils.fixtures import (
-    test_data,
-    temp_dir,
-    correct_requirements_snowflake_txt,
-)
+import pytest
 from snowcli.cli.snowpark.common import (
-    _sql_to_python_return_type_mapper,
     _convert_resource_details_to_dict,
     _get_snowflake_packages_delta,
+    _sql_to_python_return_type_mapper,
+)
+
+from tests.testing_utils.fixtures import (
+    correct_requirements_snowflake_txt,
+    temp_dir,
+    test_data,
 )
 
 

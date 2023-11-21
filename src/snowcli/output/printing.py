@@ -1,23 +1,23 @@
 from __future__ import annotations
 
+import json
 import sys
 from datetime import datetime
 from json import JSONEncoder
 from pathlib import Path
+from typing import Union
+
 from rich import box, print
 from rich.live import Live
 from rich.table import Table
-from typing import Union
-import json
-
 from snowcli.cli.common.cli_global_context import cli_context
 from snowcli.output.formats import OutputFormat
 from snowcli.output.types import (
-    MessageResult,
-    ObjectResult,
     CollectionResult,
     CommandResult,
+    MessageResult,
     MultipleResults,
+    ObjectResult,
     QueryResult,
 )
 

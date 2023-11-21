@@ -8,10 +8,10 @@ from snowcli.cli.containers.common import print_log_lines
 from snowcli.cli.containers.services.manager import ServiceManager
 from snowcli.output.decorators import with_output
 from snowcli.output.types import (
+    CommandResult,
+    QueryJsonValueResult,
     QueryResult,
     SingleQueryResult,
-    QueryJsonValueResult,
-    CommandResult,
 )
 
 app = typer.Typer(
@@ -54,19 +54,6 @@ def create(
 @app.command()
 @with_output
 @global_options_with_connection
-def desc(
-    name: str = typer.Argument(..., help="Service Name"), **options
-) -> CommandResult:
-    """
-    Describes the properties of a Snowpark Container Services service.
-    """
-    cursor = ServiceManager().desc(service_name=name)
-    return SingleQueryResult(cursor)
-
-
-@app.command()
-@with_output
-@global_options_with_connection
 def status(
     name: str = typer.Argument(..., help="Name of the service."), **options
 ) -> CommandResult:
@@ -75,30 +62,6 @@ def status(
     """
     cursor = ServiceManager().status(service_name=name)
     return QueryJsonValueResult(cursor)
-
-
-@app.command()
-@with_output
-@global_options_with_connection
-def list(**options) -> CommandResult:
-    """
-    Lists the services for which you have access privileges.
-    """
-    cursor = ServiceManager().show()
-    return QueryResult(cursor)
-
-
-@app.command()
-@with_output
-@global_options_with_connection
-def drop(
-    name: str = typer.Argument(..., help="Name of the service to remove."), **options
-) -> CommandResult:
-    """
-    Removes the specified service from the current or specified schema.
-    """
-    cursor = ServiceManager().drop(service_name=name)
-    return SingleQueryResult(cursor)
 
 
 @app.command()

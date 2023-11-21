@@ -2,9 +2,8 @@ import hashlib
 import os
 from pathlib import Path
 
-from snowflake.connector.cursor import SnowflakeCursor
-
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 class JobManager(SqlExecutionMixin):
@@ -23,21 +22,16 @@ class JobManager(SqlExecutionMixin):
     def _read_yaml(self, path: Path) -> str:
         # TODO(aivanou): Add validation towards schema
         # TODO(aivanou): Combine this with service manager
-        import yaml
         import json
+
+        import yaml
 
         with open(path) as fh:
             data = yaml.safe_load(fh)
         return json.dumps(data)
 
-    def desc(self, job_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"desc service {job_name}")
-
     def status(self, job_name: str) -> SnowflakeCursor:
         return self._execute_query(f"CALL SYSTEM$GET_JOB_STATUS('{job_name}')")
-
-    def drop(self, job_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"CALL SYSTEM$CANCEL_JOB('{job_name}')")
 
     def logs(self, job_name: str, container_name: str):
         return self._execute_query(

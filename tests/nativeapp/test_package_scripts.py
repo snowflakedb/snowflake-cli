@@ -1,19 +1,18 @@
 from pathlib import Path
+from textwrap import dedent
+from unittest import mock
 from unittest.mock import PropertyMock
 
 import pytest
-from unittest import mock
-from textwrap import dedent
-
 from snowcli.cli.nativeapp.manager import (
-    NativeAppManager,
-    MissingPackageScriptError,
     InvalidPackageScriptError,
+    MissingPackageScriptError,
+    NativeAppManager,
 )
+from snowflake.connector import ProgrammingError
 
 from tests.project.fixtures import *
 from tests.testing_utils.fixtures import *
-from snowflake.connector import ProgrammingError
 
 NATIVEAPP_MODULE = "snowcli.cli.nativeapp.manager"
 NATIVEAPP_MANAGER_EXECUTE_QUERIES = (

@@ -1,5 +1,6 @@
-import pytest
 from unittest import mock
+
+import pytest
 
 from tests.testing_utils.fixtures import *
 

@@ -3,13 +3,12 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from functools import cached_property
-
 from textwrap import dedent
 
 from click import ClickException
-from snowflake.connector.errors import ProgrammingError
 from snowcli.cli.common.cli_global_context import cli_context
 from snowflake.connector.cursor import DictCursor
+from snowflake.connector.errors import ProgrammingError
 
 
 class SqlExecutionMixin:

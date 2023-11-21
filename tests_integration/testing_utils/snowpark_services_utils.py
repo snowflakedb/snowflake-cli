@@ -1,5 +1,6 @@
-import pytest
 import time
+
+import pytest
 from snowflake.connector import SnowflakeConnection
 
 from tests_integration.conftest import SnowCLIRunner

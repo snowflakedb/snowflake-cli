@@ -1,18 +1,13 @@
-import pytest
 import os
 import uuid
-from pathlib import Path
-from contextlib import contextmanager
 
 from snowcli.cli.project.util import generate_user_env
-from tests.project.fixtures import *
-from tests.testing_utils.fixtures import temp_dir
-from tests_integration.snowflake_connector import test_database, snowflake_session
-from tests_integration.test_utils import (
-    row_from_snowflake_session,
-    contains_row_with,
-)
 
+from tests.project.fixtures import *
+from tests_integration.test_utils import (
+    contains_row_with,
+    row_from_snowflake_session,
+)
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
 TEST_ENV = generate_user_env(USER_NAME)
@@ -32,7 +27,7 @@ def pushd(dir: Path):
 def test_nativeapp_init_run_without_modifications(
     runner,
     snowflake_session,
-    temp_dir,
+    temporary_working_directory,
 ):
     project_name = "myapp"
     result = runner.invoke_with_config(
