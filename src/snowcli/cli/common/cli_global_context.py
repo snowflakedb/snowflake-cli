@@ -39,24 +39,28 @@ class ConnectionContext:
             self._cached_connection = self._build_connection()
         return self._cached_connection
 
-    def _resolve_connection_params(self):
-        from snowcli.cli.common.decorators import GLOBAL_CONNECTION_OPTIONS
-
-        params = {}
-        for option in GLOBAL_CONNECTION_OPTIONS:
-            override = option.name
-            if override == "connection" or override == "temporary_connection":
-                continue
-            override_value = getattr(self, override)
-            if override_value is not None:
-                params[override] = override_value
-        return params
+    def _collect_not_empty_connection_attributes(self):
+        all_attributes = {
+            "account": self.account,
+            "user": self.user,
+            "password": self.password,
+            "authenticator": self.authenticator,
+            "private_key_path": self.private_key_path,
+            "database": self.database,
+            "schema": self.schema,
+            "role": self.role,
+            "warehouse": self.warehouse,
+        }
+        not_empty_attributes = {
+            k: v for (k, v) in all_attributes.items() if v is not None
+        }
+        return not_empty_attributes
 
     def _build_connection(self):
         return connect_to_snowflake(
             temporary_connection=self.temporary_connection,
             connection_name=self.connection_name,
-            **self._resolve_connection_params()
+            **self._collect_not_empty_connection_attributes()
         )
 
 
