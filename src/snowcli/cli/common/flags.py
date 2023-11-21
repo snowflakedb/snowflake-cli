@@ -1,20 +1,36 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Callable, Any
 
 import typer
 
-from snowcli.cli.common.cli_global_context import (
-    update_global_connection_detail_callback,
-    update_global_option_callback,
-)
+from snowcli.cli.common.cli_global_context import global_context_manager
 from snowcli.output.formats import OutputFormat
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
-
 _CONNECTION_SECTION = "Connection configuration"
 _CLI_BEHAVIOUR = "Global configuration"
+
+
+def _set_value_callback(update: Callable[[Any], Any]):
+    def callback(value):
+        update(value)
+        return value
+
+    return callback
+
+
+def _update_global_context_callback(attr: str):
+    return _set_value_callback(
+        lambda value: global_context_manager.__setattr__(attr, value)
+    )
+
+
+def _update_global_connection_context_callback(attr: str):
+    return _set_value_callback(
+        lambda value: global_context_manager.connection_context.__setattr__(attr, value)
+    )
 
 
 ConnectionOption = typer.Option(
@@ -23,7 +39,7 @@ ConnectionOption = typer.Option(
     "-c",
     "--environment",
     help=f"Name of the connection, as defined in your `config.toml`. Default: `dev`.",
-    callback=update_global_connection_detail_callback("connection_name"),
+    callback=_update_global_connection_context_callback("connection_name"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -33,7 +49,7 @@ TemporaryConnectionOption = typer.Option(
     "--temporary-connection",
     "-x",
     help="Uses connection defined with command line parameters, instead of one defined in config",
-    callback=update_global_connection_detail_callback("temporary_connection"),
+    callback=_update_global_connection_context_callback("temporary_connection"),
     is_flag=True,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -43,7 +59,7 @@ AccountOption = typer.Option(
     "--account",
     "--accountname",
     help="Name assigned to your Snowflake account. Overrides the value specified for the connection.",
-    callback=update_global_connection_detail_callback("account"),
+    callback=_update_global_connection_context_callback("account"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -53,7 +69,7 @@ UserOption = typer.Option(
     "--user",
     "--username",
     help="Username to connect to Snowflake. Overrides the value specified for the connection.",
-    callback=update_global_connection_detail_callback("user"),
+    callback=_update_global_connection_context_callback("user"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -63,7 +79,7 @@ PasswordOption = typer.Option(
     "--password",
     help="Snowflake password. Overrides the value specified for the connection.",
     hide_input=True,
-    callback=update_global_connection_detail_callback("password"),
+    callback=_update_global_connection_context_callback("password"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -73,7 +89,7 @@ AuthenticatorOption = typer.Option(
     "--authenticator",
     help="Snowflake authenticator. Overrides the value specified for the connection.",
     hide_input=True,
-    callback=update_global_connection_detail_callback("authenticator"),
+    callback=_update_global_connection_context_callback("authenticator"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -83,7 +99,7 @@ PrivateKeyPathOption = typer.Option(
     "--private-key-path",
     help="Snowflake private key path. Overrides the value specified for the connection.",
     hide_input=True,
-    callback=update_global_connection_detail_callback("private_key_path"),
+    callback=_update_global_connection_context_callback("private_key_path"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
     exists=True,
@@ -96,7 +112,7 @@ DatabaseOption = typer.Option(
     "--database",
     "--dbname",
     help="Database to use. Overrides the value specified for the connection.",
-    callback=update_global_connection_detail_callback("database"),
+    callback=_update_global_connection_context_callback("database"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -106,7 +122,7 @@ SchemaOption = typer.Option(
     "--schema",
     "--schemaname",
     help="Database schema to use. Overrides the value specified for the connection.",
-    callback=update_global_connection_detail_callback("schema"),
+    callback=_update_global_connection_context_callback("schema"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -116,7 +132,7 @@ RoleOption = typer.Option(
     "--role",
     "--rolename",
     help="Role to use. Overrides the value specified for the connection.",
-    callback=update_global_connection_detail_callback("role"),
+    callback=_update_global_connection_context_callback("role"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -125,7 +141,7 @@ WarehouseOption = typer.Option(
     None,
     "--warehouse",
     help="Warehouse to use. Overrides the value specified for the connection.",
-    callback=update_global_connection_detail_callback("warehouse"),
+    callback=_update_global_connection_context_callback("warehouse"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -135,7 +151,7 @@ OutputFormatOption = typer.Option(
     "--format",
     help="Specifies the output format.",
     case_sensitive=False,
-    callback=update_global_option_callback("output_format"),
+    callback=_update_global_context_callback("output_format"),
     rich_help_panel=_CLI_BEHAVIOUR,
 )
 
@@ -144,7 +160,7 @@ VerboseOption = typer.Option(
     "--verbose",
     "-v",
     help="Displays log entries for log levels `info` and higher.",
-    callback=update_global_option_callback("verbose"),
+    callback=_update_global_context_callback("verbose"),
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
 )
@@ -153,7 +169,7 @@ DebugOption = typer.Option(
     None,
     "--debug",
     help="Displays log entries for log levels `debug` and higher; debug logs contains additional information.",
-    callback=update_global_option_callback("enable_tracebacks"),
+    callback=_update_global_context_callback("enable_tracebacks"),
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
 )
@@ -172,7 +188,7 @@ def experimental_option(
         "--experimental",
         help=help_text,
         hidden=True,
-        callback=update_global_option_callback("experimental"),
+        callback=_update_global_context_callback("experimental"),
         is_flag=True,
         rich_help_panel=_CLI_BEHAVIOUR,
     )
