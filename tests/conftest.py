@@ -14,9 +14,9 @@ from tests.testing_utils.fixtures import test_snowcli_config
 # Global context and logging levels reset is required.
 # Without it, state from previous tests is visible in following tests.
 def reset_global_context_and_logging_levels_after_each_test(request):
-    cli_context_manager.reset_context()
-    cli_context_manager.verbose = False
-    cli_context_manager.enable_tracebacks = False
+    cli_context_manager.reset()
+    cli_context_manager.set_verbose(False)
+    cli_context_manager.set_enable_tracebacks(False)
     loggers.create_loggers(verbose=False, debug=False)
     yield
 

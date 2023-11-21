@@ -1,37 +1,107 @@
-from dataclasses import dataclass
 from typing import Optional
-
-from snowflake.connector import SnowflakeConnection
 
 from snowcli.output.formats import OutputFormat
 from snowcli.snow_connector import connect_to_snowflake
-
-DEFAULT_ENABLE_TRACEBACKS = True
-DEFAULT_OUTPUT_FORMAT = OutputFormat.TABLE
-DEFAULT_VERBOSE = False
-DEFAULT_EXPERIMENTAL = False
+from snowflake.connector import SnowflakeConnection
 
 
-@dataclass
 class _ConnectionContext:
-    _cached_connection: Optional[SnowflakeConnection] = None
+    def __init__(self):
+        self._cached_connection: Optional[SnowflakeConnection] = None
 
-    connection_name: Optional[str] = None
-    account: Optional[str] = None
-    database: Optional[str] = None
-    role: Optional[str] = None
-    schema: Optional[str] = None
-    user: Optional[str] = None
-    password: Optional[str] = None
-    authenticator: Optional[str] = None
-    private_key_path: Optional[str] = None
-    warehouse: Optional[str] = None
-    temporary_connection: bool = False
+        self._connection_name: Optional[str] = None
+        self._account: Optional[str] = None
+        self._database: Optional[str] = None
+        self._role: Optional[str] = None
+        self._schema: Optional[str] = None
+        self._user: Optional[str] = None
+        self._password: Optional[str] = None
+        self._authenticator: Optional[str] = None
+        self._private_key_path: Optional[str] = None
+        self._warehouse: Optional[str] = None
+        self._temporary_connection: bool = False
 
     def __setattr__(self, key, value):
         super.__setattr__(self, key, value)
         if key is not "_cached_connection":
             self._cached_connection = None
+
+    @property
+    def connection_name(self) -> Optional[str]:
+        return self._connection_name
+
+    def set_connection_name(self, value: Optional[str]):
+        self._connection_name = value
+
+    @property
+    def account(self) -> Optional[str]:
+        return self._account
+
+    def set_account(self, value: Optional[str]):
+        self._account = value
+
+    @property
+    def database(self) -> Optional[str]:
+        return self._database
+
+    def set_database(self, value: Optional[str]):
+        self._database = value
+
+    @property
+    def role(self) -> Optional[str]:
+        return self._role
+
+    def set_role(self, value: Optional[str]):
+        self._role = value
+
+    @property
+    def schema(self) -> Optional[str]:
+        return self._schema
+
+    def set_schema(self, value: Optional[str]):
+        self._schema = value
+
+    @property
+    def user(self) -> Optional[str]:
+        return self._user
+
+    def set_user(self, value: Optional[str]):
+        self._user = value
+
+    @property
+    def password(self) -> Optional[str]:
+        return self._password
+
+    def set_password(self, value: Optional[str]):
+        self._password = value
+
+    @property
+    def authenticator(self) -> Optional[str]:
+        return self._authenticator
+
+    def set_authenticator(self, value: Optional[str]):
+        self._authenticator = value
+
+    @property
+    def private_key_path(self) -> Optional[str]:
+        return self._private_key_path
+
+    def set_private_key_path(self, value: Optional[str]):
+        self._private_key_path = value
+
+    @property
+    def warehouse(self) -> Optional[str]:
+        return self._warehouse
+
+    def set_warehouse(self, value: Optional[str]):
+        self._warehouse = value
+
+    @property
+    def temporary_connection(self) -> bool:
+        return self._temporary_connection
+
+    def set_temporary_connection(self, value: bool):
+        self._temporary_connection = value
 
     @property
     def connection(self) -> SnowflakeConnection:
@@ -65,19 +135,43 @@ class _ConnectionContext:
 
 
 class _CliGlobalContextManager:
-    _connection_context = _ConnectionContext()
-
-    enable_tracebacks = DEFAULT_ENABLE_TRACEBACKS
-    output_format = DEFAULT_OUTPUT_FORMAT
-    verbose = DEFAULT_VERBOSE
-    experimental = DEFAULT_EXPERIMENTAL
-
-    def reset_context(self):
+    def __init__(self):
         self._connection_context = _ConnectionContext()
-        self.enable_tracebacks = DEFAULT_ENABLE_TRACEBACKS
-        self.output_format = DEFAULT_OUTPUT_FORMAT
-        self.verbose = DEFAULT_VERBOSE
-        self.experimental = DEFAULT_EXPERIMENTAL
+        self._enable_tracebacks = True
+        self._output_format = OutputFormat.TABLE
+        self._verbose = False
+        self._experimental = False
+
+    def reset(self):
+        self.__init__()
+
+    @property
+    def enable_tracebacks(self) -> bool:
+        return self._enable_tracebacks
+
+    def set_enable_tracebacks(self, value: bool):
+        self._enable_tracebacks = value
+
+    @property
+    def output_format(self) -> OutputFormat:
+        return self._output_format
+
+    def set_output_format(self, value: OutputFormat):
+        self._output_format = value
+
+    @property
+    def verbose(self) -> bool:
+        return self._verbose
+
+    def set_verbose(self, value: bool):
+        self._verbose = value
+
+    @property
+    def experimental(self) -> bool:
+        return self._experimental
+
+    def set_experimental(self, value: bool):
+        self._experimental = value
 
     @property
     def connection_context(self) -> _ConnectionContext:
