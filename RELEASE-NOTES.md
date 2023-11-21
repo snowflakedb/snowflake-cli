@@ -6,7 +6,7 @@
 * `snow stage` is now `snow object stage`
 * `snow warehouse status` is now `snow object show warehouse`
 * `snow connection test` now outputs all connection details (except for the password), along with connection status
- 
+
 * Snowpark changes
   * Removed `procedure` and `function` subgroups.
   * Removed `snow snowpark function create` and `snow snowpark function update`. Functions can be deployed using `snow snowpark deploy`.
