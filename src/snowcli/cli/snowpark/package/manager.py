@@ -19,6 +19,7 @@ from snowcli.cli.snowpark.package.utils import (
     RequiresPackages,
 )
 from snowcli.utils import SplitRequirements
+from snowcli.zipper import zip_current_dir
 
 log = logging.getLogger(__name__)
 
@@ -59,15 +60,14 @@ def upload(file: Path, stage: str, overwrite: bool):
     return message
 
 
-def create(name: str):
-    file_name = name + ".zip"
-    if os.path.exists(".packages"):
-        utils.recursive_zip_packages_dir(pack_dir=".packages", dest_zip=file_name)
+def create(zip_name: str):
+    file_name = zip_name + ".zip"
+    zip_current_dir(file_name)
 
     if os.path.exists(file_name):
-        return CreatedSuccessfully(name, Path(file_name))
+        return CreatedSuccessfully(zip_name, Path(file_name))
     else:
-        return CreationError(name)
+        return CreationError(zip_name)
 
 
 def cleanup_after_install():

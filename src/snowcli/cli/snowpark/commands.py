@@ -46,6 +46,7 @@ from snowcli.output.types import (
 from snowcli.utils import (
     get_snowflake_packages,
 )
+from snowcli.zipper import add_file_to_existing_zip
 from snowflake.connector import ProgrammingError
 
 log = logging.getLogger(__name__)
@@ -336,5 +337,5 @@ def _replace_handler_in_zip(
             handler_module=handler_parts[0],
             handler_function=handler_parts[1],
         )
-        utils.add_file_to_existing_zip(zip_file=zip_file_path, other_file=wrapper_file)
+        add_file_to_existing_zip(zip_file=zip_file_path, file=wrapper_file)
     return "snowpark_coverage.measure_coverage"
