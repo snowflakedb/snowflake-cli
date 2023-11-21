@@ -23,7 +23,7 @@ from snowcli.cli.common.flags import (
     TemporaryConnectionOption,
     experimental_option,
 )
-from snowcli.cli.common.cli_global_context import global_context
+from snowcli.cli.common.cli_global_context import cli_context
 from snowcli.output.formats import OutputFormat
 
 
@@ -77,7 +77,7 @@ def with_experimental_behaviour(
 
 
 def _execute_before_command_using_global_options():
-    loggers.create_loggers(global_context.verbose, global_context.enable_tracebacks)
+    loggers.create_loggers(cli_context.verbose, cli_context.enable_tracebacks)
 
 
 def _global_options_decorator_factory(

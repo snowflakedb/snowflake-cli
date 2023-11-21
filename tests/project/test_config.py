@@ -39,7 +39,7 @@ def test_na_minimal_project(project_definition_files: List[Path]):
         return original_getenv(key, default)
 
     with mock.patch(
-        "snowcli.cli.common.cli_global_context._GlobalContextAccess.connection",
+        "snowcli.cli.common.cli_global_context._CliGlobalContextAccess.connection",
         new_callable=PropertyMock,
     ) as connection:
         connection.return_value.role = "resolved_role"

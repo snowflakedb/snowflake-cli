@@ -10,7 +10,7 @@ from rich.table import Table
 from typing import Union
 import json
 
-from snowcli.cli.common.cli_global_context import global_context
+from snowcli.cli.common.cli_global_context import cli_context
 from snowcli.output.formats import OutputFormat
 from snowcli.output.types import (
     MessageResult,
@@ -40,7 +40,7 @@ class CustomJSONEncoder(JSONEncoder):
 
 
 def _get_format_type() -> OutputFormat:
-    output_format = global_context.output_format
+    output_format = cli_context.output_format
     if output_format:
         return output_format
     return OutputFormat.TABLE

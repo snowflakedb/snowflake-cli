@@ -13,7 +13,7 @@ DEFAULT_EXPERIMENTAL = False
 
 
 @dataclass
-class ConnectionContext:
+class _ConnectionContext:
     _cached_connection: Optional[SnowflakeConnection] = None
 
     connection_name: Optional[str] = None
@@ -64,8 +64,8 @@ class ConnectionContext:
         )
 
 
-class _GlobalContextManager:
-    _connection_context = ConnectionContext()
+class _CliGlobalContextManager:
+    _connection_context = _ConnectionContext()
 
     enable_tracebacks = DEFAULT_ENABLE_TRACEBACKS
     output_format = DEFAULT_OUTPUT_FORMAT
@@ -73,14 +73,14 @@ class _GlobalContextManager:
     experimental = DEFAULT_EXPERIMENTAL
 
     def reset_context(self):
-        self._connection_context = ConnectionContext()
+        self._connection_context = _ConnectionContext()
         self.enable_tracebacks = DEFAULT_ENABLE_TRACEBACKS
         self.output_format = DEFAULT_OUTPUT_FORMAT
         self.verbose = DEFAULT_VERBOSE
         self.experimental = DEFAULT_EXPERIMENTAL
 
     @property
-    def connection_context(self) -> ConnectionContext:
+    def connection_context(self) -> _ConnectionContext:
         return self._connection_context
 
     @property
@@ -88,8 +88,8 @@ class _GlobalContextManager:
         return self.connection_context.connection
 
 
-class _GlobalContextAccess:
-    def __init__(self, manager: _GlobalContextManager):
+class _CliGlobalContextAccess:
+    def __init__(self, manager: _CliGlobalContextManager):
         self._manager = manager
 
     @property
@@ -113,5 +113,5 @@ class _GlobalContextAccess:
         return self._manager.experimental
 
 
-global_context_manager: _GlobalContextManager = _GlobalContextManager()
-global_context: _GlobalContextAccess = _GlobalContextAccess(global_context_manager)
+cli_context_manager: _CliGlobalContextManager = _CliGlobalContextManager()
+cli_context: _CliGlobalContextAccess = _CliGlobalContextAccess(cli_context_manager)
