@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 import pytest
 import strictyaml
 from snowcli.app.cli_app import app
-from snowcli.cli.common import snow_cli_global_context
+from snowcli.cli.common.cli_global_context import cli_context_manager
 from snowcli.cli.project.definition import merge_left
 from strictyaml import as_document
 from typer import Typer
@@ -176,5 +176,5 @@ def project_directory(temporary_working_directory, test_root_path):
 
 @pytest.fixture(autouse=True)
 def reset_global_context_after_each_test(request):
-    snow_cli_global_context.reset_global_context()
+    cli_context_manager.reset()
     yield

@@ -67,7 +67,7 @@ def test_sql_fails_for_both_query_and_file(runner):
     assert_that_result_is_usage_error(result, "Both query and file provided")
 
 
-@mock.patch("snowcli.cli.common.snow_cli_global_context.connect_to_snowflake")
+@mock.patch("snowcli.cli.common.cli_global_context.connect_to_snowflake")
 def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
     mock_conn.return_value.execute_string.return_value = [mock_cursor(["row"], [])]
 

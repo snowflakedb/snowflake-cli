@@ -10,7 +10,7 @@ from typing import Union
 from rich import box, print
 from rich.live import Live
 from rich.table import Table
-from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
+from snowcli.cli.common.cli_global_context import cli_context
 from snowcli.output.formats import OutputFormat
 from snowcli.output.types import (
     CollectionResult,
@@ -40,9 +40,7 @@ class CustomJSONEncoder(JSONEncoder):
 
 
 def _get_format_type() -> OutputFormat:
-    output_format = (
-        snow_cli_global_context_manager.get_global_context_copy().output_format
-    )
+    output_format = cli_context.output_format
     if output_format:
         return output_format
     return OutputFormat.TABLE

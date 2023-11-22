@@ -1,6 +1,7 @@
 from pathlib import Path
 from textwrap import dedent
 from unittest import mock
+from unittest.mock import PropertyMock
 
 import pytest
 from snowcli.cli.nativeapp.manager import (
@@ -18,14 +19,17 @@ NATIVEAPP_MANAGER_EXECUTE_QUERIES = (
     f"{NATIVEAPP_MODULE}.NativeAppManager._execute_queries"
 )
 NATIVEAPP_MANAGER_EXECUTE_QUERY = f"{NATIVEAPP_MODULE}.NativeAppManager._execute_query"
-CLI_GET_CONNECTION = (
-    "snowcli.cli.common.sql_execution.snow_cli_global_context_manager.get_connection"
+
+
+mock_connection = mock.patch(
+    "snowcli.cli.common.cli_global_context._CliGlobalContextAccess.connection",
+    new_callable=PropertyMock,
 )
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERY)
-@mock.patch(CLI_GET_CONNECTION)
+@mock_connection
 @pytest.mark.parametrize(
     "project_definition_files,expected_call",
     [
@@ -121,7 +125,7 @@ def test_undefined_var_package_script(mock_execute, project_definition_files):
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERY)
-@mock.patch(CLI_GET_CONNECTION)
+@mock_connection
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_package_scripts_w_missing_warehouse_exception(
     mock_conn,
@@ -146,7 +150,7 @@ def test_package_scripts_w_missing_warehouse_exception(
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERY)
-@mock.patch(CLI_GET_CONNECTION)
+@mock_connection
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_package_scripts_w_warehouse_access_exception(
     mock_conn,
