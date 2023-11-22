@@ -72,13 +72,6 @@ def dot_packages_directory(temp_dir):
     create_named_file("totally-awesome-module.py", dir_path, [])
 
 
-@pytest.fixture
-def include_paths_env_variable(other_directory: str) -> Generator:
-    os.environ["SNOWCLI_INCLUDE_PATHS"] = other_directory
-    yield os.environ["SNOWCLI_INCLUDE_PATHS"]
-    os.environ.pop("SNOWCLI_INCLUDE_PATHS")
-
-
 @pytest.fixture()
 def mock_ctx(mock_cursor):
     return lambda cursor=mock_cursor(["row"], []): MockConnectionCtx(cursor)
@@ -197,11 +190,6 @@ def temp_dir():
 def temp_directory_for_app_zip(temp_dir) -> Generator:
     temp_dir = tempfile.TemporaryDirectory(dir=temp_dir)
     yield temp_dir.name
-
-
-@pytest.fixture
-def temp_file_in_other_directory(other_directory: str) -> Generator:
-    yield create_temp_file(".txt", other_directory, [])
 
 
 @pytest.fixture(scope="session")
