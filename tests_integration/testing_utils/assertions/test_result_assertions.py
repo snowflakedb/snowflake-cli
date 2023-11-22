@@ -6,7 +6,7 @@ from tests_integration.test_utils import contains_row_with
 
 
 def assert_that_result_is_successful(result: CommandResult) -> None:
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
 
 
 def assert_that_result_is_successful_and_output_json_contains(

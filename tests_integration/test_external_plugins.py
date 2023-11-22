@@ -23,48 +23,46 @@ def test_loading_of_installed_plugins_if_all_plugins_enabled(
 ):
     runner.use_config("config_with_enabled_all_external_plugins.toml")
 
-    result_of_top_level_help = runner.invoke_with_config(["--help"])
+    result_of_top_level_help = runner.invoke(["--help"])
     assert_that_result_is_successful(result_of_top_level_help)
     assert "multilingual-hello" in result_of_top_level_help.output
 
-    result_of_multilingual_hello_help = runner.invoke_with_config(
-        ["multilingual-hello", "--help"]
-    )
+    result_of_multilingual_hello_help = runner.invoke(["multilingual-hello", "--help"])
     assert_that_result_is_successful(result_of_multilingual_hello_help)
     assert "hello-en" in result_of_multilingual_hello_help.output
     assert "hello-fr" in result_of_multilingual_hello_help.output
 
-    result_of_multilingual_hello_fr_help = runner.invoke_with_config(
+    result_of_multilingual_hello_fr_help = runner.invoke(
         ["multilingual-hello", "hello-fr", "--help"]
     )
     assert_that_result_is_successful(result_of_multilingual_hello_fr_help)
     assert "Says hello in French" in result_of_multilingual_hello_fr_help.output
     assert "Your name" in result_of_multilingual_hello_fr_help.output
 
-    result_of_snowpark_help = runner.invoke_with_config(["snowpark", "--help"])
+    result_of_snowpark_help = runner.invoke(["snowpark", "--help"])
     assert_that_result_is_successful(result_of_snowpark_help)
     assert "hello" in result_of_snowpark_help.output
     assert "Says hello" in result_of_snowpark_help.output
 
-    result_of_snowpark_hello_help = runner.invoke_with_config(
-        ["snowpark", "hello", "--help"]
-    )
+    result_of_snowpark_hello_help = runner.invoke(["snowpark", "hello", "--help"])
     assert_that_result_is_successful(result_of_snowpark_hello_help)
     assert "Your name" in result_of_snowpark_hello_help.output
 
-    result_of_snowpark_hello = runner.invoke_integration(["snowpark", "hello", "John"])
+    result_of_snowpark_hello = runner.invoke_with_connection_json(
+        ["snowpark", "hello", "John"]
+    )
     assert_that_result_is_successful_and_output_json_contains(
         result_of_snowpark_hello, {"GREETING": "Hello John! You are in Snowpark!"}
     )
 
-    result_of_multilingual_hello_en = runner.invoke_integration(
+    result_of_multilingual_hello_en = runner.invoke_with_connection_json(
         ["multilingual-hello", "hello-en", "John"]
     )
     assert_that_result_is_successful_and_output_json_contains(
         result_of_multilingual_hello_en, {"GREETING": "Hello John!"}
     )
 
-    result_of_multilingual_hello_fr = runner.invoke_integration(
+    result_of_multilingual_hello_fr = runner.invoke_with_connection_json(
         ["multilingual-hello", "hello-fr", "John"]
     )
     assert_that_result_is_successful_and_output_json_contains(
@@ -78,11 +76,13 @@ def test_loading_of_installed_plugins_if_only_one_plugin_is_enabled(
 ):
     runner.use_config("config_with_enabled_only_one_external_plugin.toml")
 
-    result_of_top_level_help = runner.invoke_with_config(["--help"])
+    result_of_top_level_help = runner.invoke(["--help"])
     assert_that_result_is_successful(result_of_top_level_help)
     assert "multilingual-hello" not in result_of_top_level_help.output
 
-    result_of_snowpark_hello = runner.invoke_integration(["snowpark", "hello", "John"])
+    result_of_snowpark_hello = runner.invoke_with_connection_json(
+        ["snowpark", "hello", "John"]
+    )
     assert_that_result_is_successful_and_output_json_contains(
         result_of_snowpark_hello, {"GREETING": "Hello John! You are in Snowpark!"}
     )

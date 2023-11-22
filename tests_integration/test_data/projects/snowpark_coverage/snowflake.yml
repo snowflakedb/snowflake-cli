@@ -1,11 +1,14 @@
 definition_version: 1
-procedures:
-  - name: hello
-    file: app.py
-    handler: "app.hello"
-    signature:
-      - name: "name"
-        type: "int"
-      - name: "b"
-        type: "string"
-    returns: string
+snowpark:
+  project_name: "my_snowpark_project"
+  stage_name: "dev_deployment"
+  src: "app/"
+  procedures:
+    - name: hello
+      handler: "module.procedures.hello"
+      signature:
+        - name: "name"
+          type: "int"
+        - name: "b"
+          type: "string"
+      returns: string

@@ -34,7 +34,7 @@ from snowcli.cli.snowpark_shared import (
     PyPiDownloadOption,
     snowpark_package,
 )
-from snowcli.exception import ObjectAlreadyExistsError
+from snowcli.exception import NoProjectDefinitionError, ObjectAlreadyExistsError
 from snowcli.output.decorators import with_output
 from snowcli.output.types import (
     CollectionResult,
@@ -78,21 +78,23 @@ ObjectTypeArgument = typer.Argument(
 add_init_command(app, project_type="snowpark", template="default_snowpark")
 
 
-def _alter_procedure_artifact(
+def _alter_procedure_artifact_with_coverage_wrapper(
     artifact_stage_path: str,
     artifact_path: Path,
     handler: str,
     identifier: str,
+    stage_name: str,
 ):
     signature_start_index = identifier.index("(")
     name = identifier[0:signature_start_index]
     signature = identifier[signature_start_index:]
+    stage_directory = artifact_stage_path.rpartition("/")[0]
     handler = _replace_handler_in_zip(
         proc_name=name,
         proc_signature=signature,
         handler=handler,
-        coverage_reports_stage=DEPLOYMENT_STAGE,
-        coverage_reports_stage_path=f"/{artifact_stage_path}/coverage",
+        coverage_reports_stage=stage_name,
+        coverage_reports_stage_path=f"{stage_directory}/coverage",
         zip_file_path=str(artifact_path),
     )
 
@@ -108,9 +110,10 @@ def deploy(
     **options,
 ) -> CommandResult:
     """Deploy procedures and functions defined in project."""
-    dm = DefinitionManager()
-    procedures = dm.project_definition.get("procedures", [])
-    functions = dm.project_definition.get("functions", [])
+    snowpark = get_snowpark_project_definition()
+
+    procedures = snowpark.get("procedures", [])
+    functions = snowpark.get("functions", [])
 
     if not procedures and not functions:
         raise ClickException(
@@ -122,7 +125,9 @@ def deploy(
             "Using coverage wrapper is currently limited to project with single procedure."
         )
 
-    build_artifact_path = Path("app.zip")
+    build_artifact_path = _get_snowpark_artefact_path(snowpark)
+    zip_package = build_artifact_path.stem
+
     # TODO: this should be configurable
     if not build_artifact_path.exists():
         raise ClickException(
@@ -130,19 +135,58 @@ def deploy(
             "Please use build command to create it."
         )
 
+    stage_name = snowpark.get("stage_name", DEPLOYMENT_STAGE)
     stage_manager = StageManager()
     stage_manager.create(
-        stage_name=DEPLOYMENT_STAGE, comment="deployments managed by snowcli"
+        stage_name=stage_name, comment="deployments managed by snowcli"
     )
 
     packages = get_snowflake_packages()
-    deploy_status = []
+
+    artifact_stage_directory = get_app_stage_path(snowpark)
+    artifact_stage_target = f"{artifact_stage_directory}/{build_artifact_path.name}"
+
+    pm = ProcedureManager()
+
+    # Coverage case
+    if install_coverage_wrapper:
+        procedure = procedures[0]
+        # This changes existing artifact so we need to generate wrapper and only then deploy
+        handler = _alter_procedure_artifact_with_coverage_wrapper(
+            artifact_path=build_artifact_path,
+            handler=procedure["handler"],
+            identifier=build_udf_sproc_identifier(procedure),
+            artifact_stage_path=artifact_stage_target,
+            stage_name=stage_name,
+        )
+        stage_manager.put(
+            local_path=build_artifact_path,
+            stage_path=artifact_stage_directory,
+            overwrite=True,
+        )
+
+        procedure["handler"] = handler
+        packages.append("coverage")
+
+        operation_result = _deploy_single_object(
+            manager=pm,
+            object_type=ObjectType.PROCEDURE,
+            object_definition=procedure,
+            replace=replace,
+            packages=packages,
+            stage_artifact_path=artifact_stage_target,
+        )
+        return CollectionResult([operation_result])
 
     # TODO: Check if any object already exists before we start updates
-    # TODO: Deploy the artifact only once
+    stage_manager.put(
+        local_path=build_artifact_path,
+        stage_path=artifact_stage_directory,
+        overwrite=True,
+    )
 
+    deploy_status = []
     # Procedures
-    pm = ProcedureManager()
     for procedure in procedures:
         operation_result = _deploy_single_object(
             manager=pm,
@@ -150,9 +194,7 @@ def deploy(
             object_definition=procedure,
             replace=replace,
             packages=packages,
-            install_coverage_wrapper=install_coverage_wrapper,
-            stage_manager=stage_manager,
-            build_artifact_path=build_artifact_path,
+            stage_artifact_path=artifact_stage_target,
         )
         deploy_status.append(operation_result)
 
@@ -165,12 +207,26 @@ def deploy(
             object_definition=function,
             replace=replace,
             packages=packages,
-            stage_manager=stage_manager,
-            build_artifact_path=build_artifact_path,
+            stage_artifact_path=artifact_stage_target,
         )
         deploy_status.append(operation_result)
 
     return CollectionResult(deploy_status)
+
+
+def get_snowpark_project_definition():
+    dm = DefinitionManager()
+    snowpark = dm.project_definition.get("snowpark")
+    if not snowpark:
+        raise NoProjectDefinitionError(dm.BASE_DEFINITION_FILENAME)
+    return snowpark
+
+
+def get_app_stage_path(snowpark):
+    artifact_stage_directory = (
+        f"@{snowpark.get('stage_name', DEPLOYMENT_STAGE)}/{snowpark['project_name']}"
+    )
+    return artifact_stage_directory
 
 
 def _deploy_single_object(
@@ -179,9 +235,7 @@ def _deploy_single_object(
     object_definition: Dict,
     replace: bool,
     packages: List[str],
-    stage_manager: StageManager,
-    build_artifact_path: Path,
-    install_coverage_wrapper: bool = False,
+    stage_artifact_path: str,
 ):
     identifier = build_udf_sproc_identifier(object_definition)
     log.info(f"Deploying {object_type}: {identifier}")
@@ -190,9 +244,6 @@ def _deploy_single_object(
     object_exists = True
     replace_object = False
     current_state = None
-    artifact_stage_path = manager.artifact_stage_path(identifier)
-    artifact_stage_target = f"{DEPLOYMENT_STAGE}/{artifact_stage_path}"
-    artifact_path_on_stage = f"{artifact_stage_target}/{build_artifact_path.name}"
     try:
         current_state = ObjectManager().describe(
             object_type=str(object_type), name=remove_parameter_names(identifier)
@@ -205,15 +256,7 @@ def _deploy_single_object(
             raise ex
     if object_exists and not replace:
         raise ObjectAlreadyExistsError(object_type, identifier, replace_available=True)
-    if object_type == ObjectType.PROCEDURE and install_coverage_wrapper:
-        # This changes existing artifact
-        handler = _alter_procedure_artifact(
-            artifact_path=build_artifact_path,
-            handler=handler,
-            identifier=identifier,
-            artifact_stage_path=artifact_stage_path,
-        )
-        packages.append("coverage")
+
     if object_exists:
         replace_object = check_if_replace_is_required(
             object_type,
@@ -221,34 +264,36 @@ def _deploy_single_object(
             handler,
             returns,
         )
-    stage_manager.put(
-        local_path=build_artifact_path,
-        stage_path=artifact_stage_target,
-        overwrite=True,
-    )
-    if not object_exists or replace_object:
-        create_or_replace_kwargs = {
-            "identifier": identifier,
-            "handler": handler,
-            "return_type": returns,
-            "artifact_file": artifact_path_on_stage,
-            "packages": packages,
-        }
-        if object_type == ObjectType.PROCEDURE:
-            create_or_replace_kwargs["execute_as_caller"] = object_definition.get(
-                "execute_as_caller"
-            )
 
-        manager.create_or_replace(**create_or_replace_kwargs)
-
-        status = "created" if not object_exists else "definition updated"
-        return {"object": identifier, "type": str(object_type), "status": status}
-    else:
+    if object_exists and not replace_object:
         return {
             "object": identifier,
             "type": str(object_type),
             "status": "packages updated",
         }
+
+    create_or_replace_kwargs = {
+        "identifier": identifier,
+        "handler": handler,
+        "return_type": returns,
+        "artifact_file": stage_artifact_path,
+        "packages": packages,
+    }
+    if object_type == ObjectType.PROCEDURE:
+        create_or_replace_kwargs["execute_as_caller"] = object_definition.get(
+            "execute_as_caller"
+        )
+
+    manager.create_or_replace(**create_or_replace_kwargs)
+
+    status = "created" if not object_exists else "definition updated"
+    return {"object": identifier, "type": str(object_type), "status": status}
+
+
+def _get_snowpark_artefact_path(snowpark_definition: Dict):
+    source = Path(snowpark_definition["src"])
+    artefact_file = Path.cwd() / (source.name + ".zip")
+    return artefact_file
 
 
 @app.command("build")
@@ -261,12 +306,19 @@ def build(
     **options,
 ) -> CommandResult:
     """Build the current project as a `.zip` file."""
+    snowpark = get_snowpark_project_definition()
+    source = Path(snowpark.get("src"))
+    artefact_file = _get_snowpark_artefact_path(snowpark)
+    log.info("Building package using sources from: %s", source.resolve())
+
     snowpark_package(
-        pypi_download,  # type: ignore[arg-type]
-        check_anaconda_for_pypi_deps,
-        package_native_libraries,  # type: ignore[arg-type]
+        source=source,
+        artefact_file=artefact_file,
+        pypi_download=pypi_download,  # type: ignore[arg-type]
+        check_anaconda_for_pypi_deps=check_anaconda_for_pypi_deps,
+        package_native_libraries=package_native_libraries,  # type: ignore[arg-type]
     )
-    return MessageResult("Done")
+    return MessageResult(f"Build done. Artefact path: {artefact_file}")
 
 
 class _SnowparkObject(Enum):
@@ -320,22 +372,16 @@ def _replace_handler_in_zip(
     Given an existing zipped stored proc artifact, this function inserts a file containing a code coverage
     wrapper, then returns the name of the new handler that the proc should use
     """
-    handler_parts = handler.split(".")
-    if len(handler_parts) != 2:
-        log.error(
-            "To install a code coverage wrapper, your handler must be in the format <module>.<function>"
-        )
-        raise typer.Abort()
+    handler_module, _, handler_function = handler.rpartition(".")
     with TemporaryDirectory() as temp_dir:
         wrapper_file = os.path.join(temp_dir, "snowpark_coverage.py")
         utils.generate_snowpark_coverage_wrapper(
             target_file=wrapper_file,
             proc_name=proc_name,
             proc_signature=proc_signature,
-            coverage_reports_stage=coverage_reports_stage,
             coverage_reports_stage_path=coverage_reports_stage_path,
-            handler_module=handler_parts[0],
-            handler_function=handler_parts[1],
+            handler_module=handler_module,
+            handler_function=handler_function,
         )
         add_file_to_existing_zip(zip_file=zip_file_path, file=wrapper_file)
     return "snowpark_coverage.measure_coverage"

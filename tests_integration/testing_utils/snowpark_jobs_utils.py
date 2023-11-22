@@ -27,7 +27,7 @@ class SnowparkJobsTestSteps:
         self._setup = setup
 
     def create_job(self) -> str:
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "containers",
                 "job",
@@ -51,7 +51,7 @@ class SnowparkJobsTestSteps:
         )
 
     def status_should_return_job(self, job_id: str) -> None:
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             ["containers", "job", "status", job_id], connection="spcs"
         )
         assert isinstance(result.json, dict)
@@ -67,7 +67,7 @@ class SnowparkJobsTestSteps:
         )
 
     def logs_should_return_job_logs(self, job_id: str) -> None:
-        result = self._setup.runner.invoke_integration_without_format(
+        result = self._setup.runner.invoke_with_connection(
             ["containers", "job", "logs", job_id, "--container-name", "hello-world"],
             connection="spcs",
         )
@@ -75,7 +75,7 @@ class SnowparkJobsTestSteps:
         assert result.output.strip() == f"{job_id}/0 Hello World!"
 
     def drop_job(self, job_id: str) -> None:
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             ["containers", "job", "drop", job_id], connection="spcs"
         )
         assert result.json == {

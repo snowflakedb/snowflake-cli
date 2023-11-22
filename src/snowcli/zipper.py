@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import fnmatch
+import logging
 import os
 from pathlib import Path
-from typing import List
+from typing import Generator, Iterator, List
 from zipfile import ZIP_DEFLATED, ZipFile
+
+log = logging.getLogger(__name__)
 
 IGNORED_FILES = [
     "**/.DS_Store",
@@ -34,34 +39,24 @@ def add_file_to_existing_zip(zip_file: str, file: str):
         myzip.write(file, os.path.basename(file))
 
 
-def zip_current_dir(dest_zip: str) -> None:
-    files_to_pack = _get_list_of_files_to_pack()
-    files_to_pack = _filter_files(files_to_pack)
-    _add_files_to_zip(dest_zip, files_to_pack)
+def zip_dir(source: Path, dest_zip: Path) -> None:
+    files_to_pack: Iterator[Path] = filter(
+        _to_be_zipped, map(lambda f: f.absolute(), source.glob("**/*"))
+    )
 
-
-def _get_list_of_files_to_pack() -> List[Path]:
-    return [filepath.absolute() for filepath in Path(".").glob("**/*")]
-
-
-def _filter_files(files: List[Path]) -> List[Path]:
-    files_to_zip = []
-    for file in files:
-        file_name = file.__str__()
-
-        if file.is_dir():
-            continue
-
-        for pattern in IGNORED_FILES:
-            if file == pattern or fnmatch.fnmatch(file_name, pattern):
-                break
-        else:
-            files_to_zip.append(file)
-
-    return files_to_zip
-
-
-def _add_files_to_zip(dest_zip: str, files_to_pack: List[Path]) -> None:
     with ZipFile(dest_zip, "w", ZIP_DEFLATED, allowZip64=True) as package_zip:
         for file in files_to_pack:
-            package_zip.write(file, arcname=os.path.relpath(file, None))
+            log.debug("Adding %s to %s", file, dest_zip)
+            package_zip.write(file, arcname=file.relative_to(source.absolute()))
+
+
+def _to_be_zipped(file: Path) -> bool:
+    if file.is_dir():
+        return False
+
+    for pattern in IGNORED_FILES:
+        # This has to be a string because of fnmatch
+        if file == pattern or fnmatch.fnmatch(str(file), pattern):
+            return False
+
+    return True

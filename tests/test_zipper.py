@@ -1,13 +1,13 @@
 from zipfile import ZipFile
 
 from snowcli.cli.snowpark.commands import _replace_handler_in_zip
-from snowcli.zipper import add_file_to_existing_zip, zip_current_dir
+from snowcli.zipper import add_file_to_existing_zip, zip_dir
 
 from tests.testing_utils.fixtures import *
 
 
 def test_zip_current_dir(temp_dir):
-    zip_name = "zip_name.zip"
+    zip_name = Path("zip_name.zip")
     files = [
         Path(".DS_Store"),
         Path(".git/config"),
@@ -43,7 +43,7 @@ def test_zip_current_dir(temp_dir):
     for file in files:
         file.touch()
 
-    zip_current_dir(zip_name)
+    zip_dir(source=Path(temp_dir), dest_zip=zip_name)
 
     zip_file = ZipFile(zip_name)
     assert set(zip_file.namelist()) == {
@@ -61,14 +61,14 @@ def test_replace_handler_in_zip(temp_dir, app_zip):
         proc_name="hello",
         proc_signature="()",
         handler="app.hello",
-        zip_file_path=app_zip,
+        zip_file_path=str(app_zip),
         coverage_reports_stage="@example",
         coverage_reports_stage_path="test_db.public.example",
     )
     assert os.path.isfile(app_zip)
     assert result == "snowpark_coverage.measure_coverage"
 
-    with ZipFile(app_zip, "r") as zip:
+    with ZipFile(str(app_zip), "r") as zip:
         assert "snowpark_coverage.py" in zip.namelist()
         with zip.open("snowpark_coverage.py") as coverage:
             coverage_file = coverage.readlines()

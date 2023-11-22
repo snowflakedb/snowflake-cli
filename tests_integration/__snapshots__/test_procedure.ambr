@@ -8,69 +8,76 @@
   
   '''
 # ---
-# name: test_snowpark_procedure_flow[app.py]
+# name: test_snowpark_procedure_flow[__init__.py]
+  ''
+# ---
+# name: test_snowpark_procedure_flow[common.py]
+  '''
+  def print_hello(name: str):
+      return f"Hello {name}!"
+  
+  '''
+# ---
+# name: test_snowpark_procedure_flow[functions.py]
   '''
   from __future__ import annotations
   
-  import sys
+  from common import print_hello
   
+  
+  def hello_function(name: str) -> str:
+      return print_hello(name)
+  
+  '''
+# ---
+# name: test_snowpark_procedure_flow[procedures.py]
+  '''
+  from __future__ import annotations
+  
+  from common import print_hello
   from snowflake.snowpark import Session
   
   
   def hello_procedure(session: Session, name: str) -> str:
-      return f"Hello {name}"
+      return print_hello(name)
   
   
   def test_procedure(session: Session) -> str:
       return "Test procedure"
-  
-  
-  def hello_function(name: str) -> str:
-      return f"Hello {name}!"
-  
-  
-  # For local debugging. Be aware you may need to type-convert arguments if
-  # you add input parameters
-  if __name__ == "__main__":
-      from snowcli.config import cli_config
-  
-      session = Session.builder.configs(cli_config.get_connection("dev")).create()
-      if len(sys.argv) > 1:
-          print(hello_procedure(session, *sys.argv[1:]))  # type: ignore
-      else:
-          print(hello_procedure(session))  # type: ignore
-      session.close()
   
   '''
 # ---
 # name: test_snowpark_procedure_flow[requirements.txt]
   '''
   snowflake-snowpark-python
-  #snowcli  # for local development
   
   '''
 # ---
 # name: test_snowpark_procedure_flow[snowflake.yml]
   '''
   definition_version: 1
-  functions:
-    - name: hello
-      handler: "app.hello_function"
-      signature:
-        - name: "name"
-          type: "string"
-      returns: string
-  procedures:
-    - name: hello
-      handler: "app.hello_procedure"
-      signature:
-        - name: "name"
-          type: "string"
-      returns: string
-    - name: test
-      handler: "app.test_procedure"
-      signature: ""
-      returns: string
+  snowpark:
+    project_name: "my_snowpark_project"
+    stage_name: "dev_deployment"
+    src: "app/"
+    functions:
+      - name: hello_function
+        handler: "functions.hello_function"
+        signature:
+          - name: "name"
+            type: "string"
+        returns: string
+    procedures:
+      - name: hello_procedure
+        handler: "procedures.hello_procedure"
+        signature:
+          - name: "name"
+            type: "string"
+        returns: string
+      - name: test_procedure
+        handler: "procedures.test_procedure"
+        signature: ""
+        returns: string
   
   '''
 # ---

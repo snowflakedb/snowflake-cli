@@ -1,6 +1,10 @@
 import typer
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, identifier_argument
+from snowcli.cli.snowpark.commands import (
+    get_app_stage_path,
+    get_snowpark_project_definition,
+)
 from snowcli.cli.snowpark.procedure_coverage.manager import (
     ProcedureCoverageManager,
     ReportOutputOptions,
@@ -42,10 +46,13 @@ def procedure_coverage_report(
     store_as_comment: bool = StoreAsCommandOption,
     **options,
 ):
+    snowpark = get_snowpark_project_definition()
     message = ProcedureCoverageManager().report(
         identifier=identifier,
         output_format=output_format,
         store_as_comment=store_as_comment,
+        app_stage_path=get_app_stage_path(snowpark),
+        artefact_name="app.zip",
     )
 
     return MessageResult(message)
@@ -58,10 +65,8 @@ def procedure_coverage_report(
 @with_output
 @global_options_with_connection
 def procedure_coverage_clear(
-    identifier: str = identifier_argument(
-        "procedure", "hello(number int, name string)"
-    ),
     **options,
 ) -> CommandResult:
-    cursor = ProcedureCoverageManager().clear(identifier=identifier)
+    snowpark = get_snowpark_project_definition()
+    cursor = ProcedureCoverageManager().clear(get_app_stage_path(snowpark))
     return SingleQueryResult(cursor)

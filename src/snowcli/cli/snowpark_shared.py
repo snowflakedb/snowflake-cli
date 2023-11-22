@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 from typing import List
 
 import click
@@ -11,7 +12,7 @@ from snowcli.utils import (
     YesNoAskOptionsType,
     yes_no_ask_callback,
 )
-from snowcli.zipper import zip_current_dir
+from snowcli.zipper import zip_dir
 
 PyPiDownloadOption = typer.Option(
     "ask",
@@ -50,6 +51,8 @@ log = logging.getLogger(__name__)
 
 
 def snowpark_package(
+    source: Path,
+    artefact_file: Path,
     pypi_download: YesNoAskOptionsType,
     check_anaconda_for_pypi_deps: bool,
     package_native_libraries: YesNoAskOptionsType,
@@ -104,5 +107,5 @@ def snowpark_package(
                 ):
                     f.write(package.line + "\n")
 
-    zip_current_dir(dest_zip="app.zip")
+    zip_dir(source=source, dest_zip=artefact_file)
     log.info("Deployment package now ready: app.zip")
