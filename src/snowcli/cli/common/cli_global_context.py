@@ -22,6 +22,9 @@ class _ConnectionContext:
         self._temporary_connection: bool = False
 
     def __setattr__(self, key, value):
+        """
+        We invalidate connection cache every time connection attributes change.
+        """
         super.__setattr__(self, key, value)
         if key is not "_cached_connection":
             self._cached_connection = None
