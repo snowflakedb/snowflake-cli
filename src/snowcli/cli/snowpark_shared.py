@@ -11,6 +11,7 @@ from snowcli.utils import (
     YesNoAskOptionsType,
     yes_no_ask_callback,
 )
+from snowcli.zipper import zip_current_dir
 
 PyPiDownloadOption = typer.Option(
     "ask",
@@ -55,7 +56,6 @@ def snowpark_package(
 ):
     log.info("Resolving any requirements from requirements.txt...")
     requirements = utils.parse_requirements()
-    pack_dir: str = None  # type: ignore
     if requirements:
         log.info("Comparing provided packages from Snowflake Anaconda...")
         split_requirements = utils.parse_anaconda_packages(requirements)
@@ -84,8 +84,7 @@ def snowpark_package(
                     package_native_libraries,
                 )
                 if should_pack:
-                    pack_dir = ".packages"
-                    # add the Anaconda packages discovered as dependancies
+                    # add the Anaconda packages discovered as dependencies
                     if second_chance_results is not None:
                         split_requirements.snowflake = (
                             split_requirements.snowflake
@@ -104,10 +103,6 @@ def snowpark_package(
                     split_requirements.snowflake
                 ):
                     f.write(package.line + "\n")
-        if pack_dir:
-            utils.recursive_zip_packages_dir(pack_dir, "app.zip")
-        else:
-            utils.standard_zip_dir("app.zip")
-    else:
-        utils.standard_zip_dir("app.zip")
+
+    zip_current_dir(dest_zip="app.zip")
     log.info("Deployment package now ready: app.zip")
