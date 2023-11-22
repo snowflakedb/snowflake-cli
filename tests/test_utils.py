@@ -10,8 +10,6 @@ from snowcli import utils
 
 from tests.testing_utils.fixtures import *
 
-SUBDIR = "subdir"
-
 
 @pytest.mark.parametrize("argument", utils.YesNoAskOptions)
 def test_yes_no_ask_callback_with_correct_argument(argument: str):
@@ -185,81 +183,6 @@ def test_generate_snowpark_coverage_wrapper(temp_dir):
             "return awesomeModule.even_better_function(*args,**kwargs)"
             in coverage_file.read()
         )
-
-
-def test_add_file_to_existing_zip(
-    app_zip: str, correct_requirements_snowflake_txt: str
-):
-    utils.add_file_to_existing_zip(app_zip, correct_requirements_snowflake_txt)
-    zip_file = ZipFile(app_zip)
-
-    assert os.path.basename(correct_requirements_snowflake_txt) in zip_file.namelist()
-
-
-def test_recursive_zip_packages(
-    temp_dir,
-    txt_file_in_a_subdir: str,
-    temp_file_in_other_directory: str,
-):
-    zip_file_path = os.path.join(temp_dir, "packed.zip")
-
-    utils.recursive_zip_packages_dir(temp_dir, zip_file_path)
-
-    zip_file = ZipFile(zip_file_path)
-
-    assert os.path.isfile(zip_file_path)
-    assert os.getenv("SNOWCLI_INCLUDE_PATHS") is None
-    assert str(Path(txt_file_in_a_subdir).relative_to(temp_dir)) in zip_file.namelist()
-    assert Path(temp_file_in_other_directory).name not in zip_file.namelist()
-    assert zip_file_path not in zip_file.namelist()
-
-
-def test_recursive_zip_packages_with_env_variable(
-    temp_dir,
-    txt_file_in_a_subdir: str,
-    other_directory: str,
-    temp_file_in_other_directory: str,
-    include_paths_env_variable: str,
-):
-    zip_file_path = os.path.join(temp_dir, "packed.zip")
-
-    utils.recursive_zip_packages_dir(temp_dir, zip_file_path)
-    zip_file = ZipFile(zip_file_path)
-
-    assert os.path.isfile(zip_file_path)
-    assert str(Path(txt_file_in_a_subdir).relative_to(temp_dir)) in zip_file.namelist()
-    assert str(Path(temp_file_in_other_directory).name) in zip_file.namelist()
-
-
-def test_standard_zip_dir(temp_dir, txt_file_in_a_subdir: str):
-    zip_file_path = os.path.join(temp_dir, "packed.zip")
-    utils.standard_zip_dir(zip_file_path)
-    zip_file = ZipFile(zip_file_path)
-
-    assert os.path.isfile(zip_file_path)
-    assert (
-        os.path.join(SUBDIR, os.path.basename(txt_file_in_a_subdir))
-        not in zip_file.namelist()
-    )
-
-
-def test_standard_zip_dir_with_env_variable(
-    temp_dir,
-    txt_file_in_a_subdir: str,
-    include_paths_env_variable,
-    other_directory: str,
-    temp_file_in_other_directory: str,
-):
-    zip_file_path = os.path.join(temp_dir, "packed.zip")
-    utils.standard_zip_dir(zip_file_path)
-    zip_file = ZipFile(zip_file_path)
-
-    assert os.path.isfile(zip_file_path)
-    assert (
-        os.path.join("subdir", os.path.basename(txt_file_in_a_subdir))
-        not in zip_file.namelist()
-    )
-    assert Path(temp_file_in_other_directory).name in zip_file.namelist()
 
 
 @pytest.mark.parametrize(

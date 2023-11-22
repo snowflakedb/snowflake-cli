@@ -1,14 +1,11 @@
 import click
+from snowcli.cli.common.cli_global_context import cli_context
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
-from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 from typer import Typer
 
 
 def _handle_exception(exception: Exception):
-    enable_tracebacks = (
-        snow_cli_global_context_manager.get_global_context_copy().enable_tracebacks
-    )
-    if enable_tracebacks:
+    if cli_context.enable_tracebacks:
         raise exception
     else:
         click.echo(
