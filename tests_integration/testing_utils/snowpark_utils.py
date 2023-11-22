@@ -445,9 +445,8 @@ class SnowparkTestSteps:
 
 # Temporary copy for procedures until will be switched to project definition
 class SnowparkProcedureTestSteps:
-    def __init__(self, setup: SnowparkTestSetup, test_type: TestType):
+    def __init__(self, setup: SnowparkTestSetup):
         self._setup = setup
-        self.test_type = test_type
         self.file_dir_list = {
             Path("app"),
             Path("requirements.txt"),
@@ -496,7 +495,7 @@ class SnowparkProcedureTestSteps:
             },
         )
 
-        if self.test_type == TestType.FUNCTION:
+        if object_type == TestType.FUNCTION:
             assert_that_result_contains_row_with(result, {"language": "PYTHON"})
 
     def snowpark_execute_should_return_expected_value(

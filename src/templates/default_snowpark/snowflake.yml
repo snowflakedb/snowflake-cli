@@ -10,6 +10,10 @@ snowpark:
         - name: "name"
           type: "string"
       returns: string
+      external_access_integration:
+        - my_external_access
+      secrets:
+        cred: my_cred_name
   procedures:
     - name: hello_procedure
       handler: "procedures.hello_procedure"
@@ -21,3 +25,7 @@ snowpark:
       handler: "procedures.test_procedure"
       signature: ""
       returns: string
+      external_access_integration:
+        - my_external_access
+      secrets:
+        cred: my_cred_name

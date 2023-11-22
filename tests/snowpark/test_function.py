@@ -42,7 +42,50 @@ def test_deploy_function(
             handler='app.func1_handler'
             packages=()
             """
-        ),
+        ).strip(),
+    ]
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
+def test_deploy_function_with_external_access(
+    mock_describe,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+):
+    mock_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    with project_directory("snowpark_function_external_access"):
+        result = runner.invoke(
+            [
+                "snowpark",
+                "deploy",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == [
+        "create stage if not exists deployments comment='deployments managed by snowcli'",
+        f"put file://app.zip @deployments/func1_a_string_b_variant"
+        f" auto_compress=false parallel=4 overwrite=True",
+        dedent(
+            """\
+            create or replace function func1(a string, b variant)
+            returns string
+            language python
+            runtime_version=3.8
+            imports=('@deployments/func1_a_string_b_variant/app.zip')
+            handler='app.func1_handler'
+            packages=()
+            external_access_integrations=(external_1,external_2)
+            secrets=('cred'=cred_name,'other'=other_name)
+            """
+        ).strip(),
     ]
 
 
@@ -131,7 +174,7 @@ def test_deploy_function_needs_update_because_packages_changes(
             handler='app.func1_handler'
             packages=('foo=1.2.3','bar>=3.0.0')
             """
-        ),
+        ).strip(),
     ]
 
 
@@ -182,7 +225,7 @@ def test_deploy_function_needs_update_because_handler_changes(
             handler='app.func1_handler'
             packages=('foo=1.2.3','bar>=3.0.0')
             """
-        ),
+        ).strip(),
     ]
 
 

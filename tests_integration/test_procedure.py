@@ -229,4 +229,4 @@ def _test_setup(
 
 @pytest.fixture
 def _test_steps(_test_setup):
-    yield SnowparkProcedureTestSteps(_test_setup, TestType.PROCEDURE)
+    yield SnowparkProcedureTestSteps(_test_setup)

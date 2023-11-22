@@ -298,6 +298,10 @@ def _deploy_single_object(
         "return_type": returns,
         "artifact_file": stage_artifact_path,
         "packages": packages,
+        "external_access_integrations": object_definition.get(
+            "external_access_integrations"
+        ),
+        "secrets": object_definition.get("secrets"),
     }
     if object_type == ObjectType.PROCEDURE:
         create_or_replace_kwargs["execute_as_caller"] = object_definition.get(
