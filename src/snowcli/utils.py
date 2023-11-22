@@ -13,7 +13,6 @@ import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, Generic, List, Literal, Optional, TypeVar
-from zipfile import ZIP_DEFLATED, ZipFile
 
 import click
 import requests
@@ -329,17 +328,6 @@ def generate_snowpark_coverage_wrapper(
         output_file.write(content)
 
 
-def add_file_to_existing_zip(zip_file: str, other_file: str):
-    """Adds another file to an existing zip file
-
-    Args:
-        zip_file (str): The existing zip file
-        other_file (str): The new file to add
-    """
-    with ZipFile(zip_file, mode="a") as myzip:
-        myzip.write(other_file, os.path.basename(other_file))
-
-
 def install_packages(
     file_name: str | None,
     perform_anaconda_check: bool = True,
@@ -467,66 +455,6 @@ def install_packages(
         return True, second_chance_results
 
 
-def recursive_zip_packages_dir(pack_dir: str, dest_zip: str) -> bool:
-    files_to_pack = get_list_of_files_to_pack(pack_dir, True)
-    add_files_to_zip(dest_zip, files_to_pack)
-    return True
-
-
-def standard_zip_dir(dest_zip: str) -> bool:
-    files_to_pack = get_list_of_files_to_pack(None, False)
-    add_files_to_zip(dest_zip, files_to_pack)
-    return True
-
-
-def add_files_to_zip(dest_zip: str, files_to_pack: List[File]) -> None:
-    with ZipFile(dest_zip, "w", ZIP_DEFLATED, allowZip64=True) as package_zip:
-        for file in files_to_pack:
-            package_zip.write(
-                file.name, arcname=os.path.relpath(file.name, file.relpath)
-            )
-
-
-def get_list_of_files_to_pack(
-    pack_dir: Optional[str], is_recursive: bool
-) -> List[File]:
-
-    files: List[File] = []
-
-    def filenames_filter(filepath: Path) -> bool:
-
-        return (
-            not filepath.name.startswith(".")
-            and not filepath.match("*.pyc")
-            and not filepath.match("*__pycache__*")
-            and filepath not in [file.name for file in files]
-        )
-
-    files += [
-        File(filepath.absolute(), None)
-        if filenames_filter(filepath)
-        else File(Path(), None)
-        for filepath in Path(".").glob("**/*")
-    ]
-    for include_dir in os.getenv("SNOWCLI_INCLUDE_PATHS", "").split(":"):
-        files += [
-            File(filepath.absolute(), include_dir)
-            if (os.path.isdir(include_dir) and filenames_filter(filepath))
-            else File(Path(), None)
-            for filepath in Path(include_dir).glob("**/*")
-        ]
-
-    if is_recursive:
-        files += [
-            File(filepath.absolute(), pack_dir)
-            if filenames_filter(filepath)
-            else File(Path(), None)
-            for filepath in Path(str(pack_dir)).glob("**/*")
-        ]
-
-    return list(filter(lambda x: os.path.isfile(x.name), files))
-
-
 def get_snowflake_packages() -> List[str]:
     if os.path.exists("requirements.snowflake.txt"):
         with open("requirements.snowflake.txt", encoding="utf-8") as f:
@@ -555,12 +483,6 @@ def generate_deploy_stage_name(identifier: str) -> str:
             "",
         )
     )
-
-
-@dataclass()
-class File:
-    name: Path
-    relpath: Optional[str] = None
 
 
 def create_project_template(template_name: str, project_directory: str | None = None):
