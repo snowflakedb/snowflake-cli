@@ -6,6 +6,7 @@ from inspect import Signature
 from typing import Callable, Dict, List, Optional, get_type_hints
 
 from snowcli.cli import loggers
+from snowcli.cli.common.cli_global_context import cli_context
 from snowcli.cli.common.flags import (
     AccountOption,
     AuthenticatorOption,
@@ -23,7 +24,6 @@ from snowcli.cli.common.flags import (
     WarehouseOption,
     experimental_option,
 )
-from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
 from snowcli.output.formats import OutputFormat
 
 
@@ -77,8 +77,7 @@ def with_experimental_behaviour(
 
 
 def _execute_before_command_using_global_options():
-    global_context = snow_cli_global_context_manager.get_global_context_copy()
-    loggers.create_loggers(global_context.verbose, global_context.enable_tracebacks)
+    loggers.create_loggers(cli_context.verbose, cli_context.enable_tracebacks)
 
 
 def _global_options_decorator_factory(

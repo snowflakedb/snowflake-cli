@@ -4,7 +4,6 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from snowcli.cli.common.snow_cli_global_context import ConnectionDetails
 from snowcli.exception import SnowflakeConnectionError
 
 from tests.testing_utils.fixtures import *

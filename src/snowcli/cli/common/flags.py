@@ -1,19 +1,24 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Callable, Optional
 
 import typer
-from snowcli.cli.common.snow_cli_global_context import (
-    ConnectionDetails,
-    update_callback,
-)
+from snowcli.cli.common.cli_global_context import cli_context_manager
 from snowcli.output.formats import OutputFormat
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
-
 _CONNECTION_SECTION = "Connection configuration"
 _CLI_BEHAVIOUR = "Global configuration"
+
+
+def _callback(provide_setter: Callable[[], Callable[[Any], Any]]):
+    def callback(value):
+        set_value = provide_setter()
+        set_value(value)
+        return value
+
+    return callback
 
 
 ConnectionOption = typer.Option(
@@ -22,7 +27,9 @@ ConnectionOption = typer.Option(
     "-c",
     "--environment",
     help=f"Name of the connection, as defined in your `config.toml`. Default: `dev`.",
-    callback=ConnectionDetails.update_callback("connection_name"),
+    callback=_callback(
+        lambda: cli_context_manager.connection_context.set_connection_name
+    ),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -32,7 +39,9 @@ TemporaryConnectionOption = typer.Option(
     "--temporary-connection",
     "-x",
     help="Uses connection defined with command line parameters, instead of one defined in config",
-    callback=ConnectionDetails.update_callback("temporary_connection"),
+    callback=_callback(
+        lambda: cli_context_manager.connection_context.set_temporary_connection
+    ),
     is_flag=True,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -42,7 +51,7 @@ AccountOption = typer.Option(
     "--account",
     "--accountname",
     help="Name assigned to your Snowflake account. Overrides the value specified for the connection.",
-    callback=ConnectionDetails.update_callback("account"),
+    callback=_callback(lambda: cli_context_manager.connection_context.set_account),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -52,7 +61,7 @@ UserOption = typer.Option(
     "--user",
     "--username",
     help="Username to connect to Snowflake. Overrides the value specified for the connection.",
-    callback=ConnectionDetails.update_callback("user"),
+    callback=_callback(lambda: cli_context_manager.connection_context.set_user),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -62,7 +71,7 @@ PasswordOption = typer.Option(
     "--password",
     help="Snowflake password. Overrides the value specified for the connection.",
     hide_input=True,
-    callback=ConnectionDetails.update_callback("password"),
+    callback=_callback(lambda: cli_context_manager.connection_context.set_password),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -72,7 +81,9 @@ AuthenticatorOption = typer.Option(
     "--authenticator",
     help="Snowflake authenticator. Overrides the value specified for the connection.",
     hide_input=True,
-    callback=ConnectionDetails.update_callback("authenticator"),
+    callback=_callback(
+        lambda: cli_context_manager.connection_context.set_authenticator
+    ),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -82,7 +93,9 @@ PrivateKeyPathOption = typer.Option(
     "--private-key-path",
     help="Snowflake private key path. Overrides the value specified for the connection.",
     hide_input=True,
-    callback=ConnectionDetails.update_callback("private_key_path"),
+    callback=_callback(
+        lambda: cli_context_manager.connection_context.set_private_key_path
+    ),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
     exists=True,
@@ -95,7 +108,7 @@ DatabaseOption = typer.Option(
     "--database",
     "--dbname",
     help="Database to use. Overrides the value specified for the connection.",
-    callback=ConnectionDetails.update_callback("database"),
+    callback=_callback(lambda: cli_context_manager.connection_context.set_database),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -105,7 +118,7 @@ SchemaOption = typer.Option(
     "--schema",
     "--schemaname",
     help="Database schema to use. Overrides the value specified for the connection.",
-    callback=ConnectionDetails.update_callback("schema"),
+    callback=_callback(lambda: cli_context_manager.connection_context.set_schema),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -115,7 +128,7 @@ RoleOption = typer.Option(
     "--role",
     "--rolename",
     help="Role to use. Overrides the value specified for the connection.",
-    callback=ConnectionDetails.update_callback("role"),
+    callback=_callback(lambda: cli_context_manager.connection_context.set_role),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -124,7 +137,7 @@ WarehouseOption = typer.Option(
     None,
     "--warehouse",
     help="Warehouse to use. Overrides the value specified for the connection.",
-    callback=ConnectionDetails.update_callback("warehouse"),
+    callback=_callback(lambda: cli_context_manager.connection_context.set_warehouse),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -134,25 +147,25 @@ OutputFormatOption = typer.Option(
     "--format",
     help="Specifies the output format.",
     case_sensitive=False,
-    callback=update_callback("output_format"),
+    callback=_callback(lambda: cli_context_manager.set_output_format),
     rich_help_panel=_CLI_BEHAVIOUR,
 )
 
 VerboseOption = typer.Option(
-    None,
+    False,
     "--verbose",
     "-v",
     help="Displays log entries for log levels `info` and higher.",
-    callback=update_callback("verbose"),
+    callback=_callback(lambda: cli_context_manager.set_verbose),
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
 )
 
 DebugOption = typer.Option(
-    None,
+    False,
     "--debug",
     help="Displays log entries for log levels `debug` and higher; debug logs contains additional information.",
-    callback=update_callback("enable_tracebacks"),
+    callback=_callback(lambda: cli_context_manager.set_enable_tracebacks),
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
 )
@@ -167,11 +180,11 @@ def experimental_option(
         else "Turns on experimental behaviour of the command."
     )
     return typer.Option(
-        None,
+        False,
         "--experimental",
         help=help_text,
         hidden=True,
-        callback=update_callback("experimental"),
+        callback=_callback(lambda: cli_context_manager.set_experimental),
         is_flag=True,
         rich_help_panel=_CLI_BEHAVIOUR,
     )

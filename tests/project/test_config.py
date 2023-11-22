@@ -1,5 +1,6 @@
 from typing import List, Optional
 from unittest import mock
+from unittest.mock import PropertyMock
 
 import pytest
 from snowcli.cli.project.definition import (
@@ -37,10 +38,11 @@ def test_na_minimal_project(project_definition_files: List[Path]):
         return original_getenv(key, default)
 
     with mock.patch(
-        "snowcli.cli.common.snow_cli_global_context.SnowCliGlobalContextManager.get_connection",
-    ) as get_connection:
-        get_connection.return_value.role = "resolved_role"
-        get_connection.return_value.warehouse = "resolved_warehouse"
+        "snowcli.cli.common.cli_global_context._CliGlobalContextAccess.connection",
+        new_callable=PropertyMock,
+    ) as connection:
+        connection.return_value.role = "resolved_role"
+        connection.return_value.warehouse = "resolved_warehouse"
         with mock.patch("os.getenv", side_effect=mock_getenv):
             # TODO: probably a better way of going about this is to not generate
             # a definition structure for these values but directly return defaults

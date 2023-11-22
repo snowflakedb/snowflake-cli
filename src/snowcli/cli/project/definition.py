@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Dict, List, Union
 
-from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
+from snowcli.cli.common.cli_global_context import cli_context
 from snowcli.cli.project.schema import (
     project_override_schema,
     project_schema,
@@ -66,7 +66,7 @@ def generate_local_override_yml(project: Union[Dict, YAML]) -> YAML:
     schema. The returned YAML object can be saved directly to a file, if desired.
     A connection is made using global context to resolve current role and warehouse.
     """
-    conn = snow_cli_global_context_manager.get_connection()
+    conn = cli_context.connection
     user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
     role = conn.role
     warehouse = conn.warehouse
@@ -96,7 +96,7 @@ def default_app_package(project_name: str):
 
 
 def default_role():
-    conn = snow_cli_global_context_manager.get_connection()
+    conn = cli_context.connection
     return conn.role
 
 
