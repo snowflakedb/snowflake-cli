@@ -22,6 +22,8 @@ class FunctionManager(SnowparkObjectManager):
         handler: str,
         artifact_file: str,
         packages: List[str],
+        external_access_integrations: str,
+        secrets: str,
         overwrite: bool,
     ) -> SnowflakeCursor:
         create_stmt = "create or replace" if overwrite else "create"
@@ -35,5 +37,7 @@ class FunctionManager(SnowparkObjectManager):
             imports=('@{artifact_file}')
             handler='{handler}'
             packages=({packages_list})
+            external_access_integrations=({external_access_integrations})
+            secrets=({secrets})
         """
         )

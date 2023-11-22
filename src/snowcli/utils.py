@@ -557,7 +557,7 @@ def get_snowflake_packages_delta(anaconda_packages) -> List[str]:
 
 def convert_resource_details_to_dict(function_details: SnowflakeCursor) -> dict:
     function_dict = {}
-    json_properties = ["packages", "installed_packages"]
+    json_properties = ["packages", "installed_packages", "external_access_integrations", "secrets"]
     for function in function_details:
         if function[0] in json_properties:
             function_dict[function[0]] = json.loads(

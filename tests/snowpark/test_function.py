@@ -58,6 +58,8 @@ def test_create_function(
             imports=('@deployments/functionnamea_string_b_number/app.zip')
             handler='main.py:app'
             packages=()
+            external_access_integrations=()
+            secrets=()
             """
         ),
     ]
@@ -186,6 +188,8 @@ def test_update_function_needs_update_because_packages_changes(
             imports=('@deployments/functionnamea_string_b_number/app.zip')
             handler='main.py:app'
             packages=('foo=1.2.3','bar>=3.0.0')
+            external_access_integrations=()
+            secrets=()
             """
         ),
     ]
@@ -235,6 +239,8 @@ def test_update_function_needs_update_because_handler_changes(
             imports=('@deployments/functionnamea_string_b_number/app.zip')
             handler='main.py:app'
             packages=('foo=1.2.3','bar>=3.0.0')
+            external_access_integrations=()
+            secrets=()
             """
         ),
     ]

@@ -69,6 +69,19 @@ ReturnTypeOption = typer.Option(
     help="Data type for the function to return.",
 )
 
+ExternalAccessIntegrationsOption = typer.Option(
+    "",
+    "--external-access-integrations",
+    "-e",
+    help="External access integrations for this function as a comma-separated string, such as (integration_1, integration_2)",
+)
+
+SecretsOption = typer.Option(
+    "",
+    "--secrets",
+    "-s",
+    help="Secrets for this function as a comma-separated list of assignment expressions, such as (secret_variable_name=secret_name)",
+)
 
 @app.command("init")
 @global_options
@@ -104,6 +117,8 @@ def function_create(
     handler: str = HandlerOption,
     input_parameters: str = InputParametersOption,
     return_type: str = ReturnTypeOption,
+    external_access_integrations: str = ExternalAccessIntegrationsOption,
+    secrets: str = SecretsOption,
     overwrite: bool = typer.Option(
         False,
         "--overwrite",
@@ -138,6 +153,8 @@ def function_create(
         return_type=return_type,
         artifact_file=str(artifact_file),
         packages=packages,
+        external_access_integrations=external_access_integrations,
+        secrets=secrets,
         overwrite=overwrite,
     )
     return SingleQueryResult(cursor)
@@ -180,6 +197,8 @@ def function_update(
     handler: str = HandlerOption,
     input_parameters: str = InputParametersOption,
     return_type: str = ReturnTypeOption,
+    external_access_integrations: str = ExternalAccessIntegrationsOption,
+    secrets: str = SecretsOption,
     replace: bool = typer.Option(
         False,
         "--replace-always",
@@ -227,6 +246,18 @@ def function_update(
                 "Return type or handler types do not match. Replacing the function."
             )
             replace = True
+        elif ("secrets" in resource_json or secrets):
+            # TODO compare secrets
+            log.info(
+                "Secrets do not match. Replacing the function."
+            )
+            replace = True
+        elif ("external_access_integrations" in resource_json or external_access_integrations):
+            # TODO compare external_access_integrations
+            log.info(
+                "External access integrations do not match. Replacing the function."
+            )
+            replace = True
 
     artifact_file = upload_snowpark_artifact(
         function_manager=fm,
@@ -244,6 +275,8 @@ def function_update(
             return_type=return_type,
             artifact_file=str(artifact_file),
             packages=packages,
+            external_access_integrations=external_access_integrations,
+            secrets=secrets,
             overwrite=True,
         )
         return SingleQueryResult(cursor)
