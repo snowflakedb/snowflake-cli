@@ -260,7 +260,9 @@ def test_get_downloaded_packages(test_root_path, temp_dir):
         temp_dir,
     )
     requirements_with_files = utils.get_downloaded_packages()
-    assert len(requirements_with_files) == 2
+
+    assert len(requirements_with_files) == 4
+
     assert "httplib2" in requirements_with_files
     httplib_req = requirements_with_files["httplib2"]
     assert httplib_req.requirement.name == "httplib2"
@@ -269,12 +271,30 @@ def test_get_downloaded_packages(test_root_path, temp_dir):
     # there are 19 files listed in the RECORD file, but we only get the
     # first part of the path. All 19 files fall under these two directories
     assert sorted(httplib_req.files) == ["httplib2", "httplib2-0.22.0.dist-info"]
+
     assert "Zendesk" in requirements_with_files
     zendesk_req = requirements_with_files["Zendesk"]
     assert zendesk_req.requirement.name == "Zendesk"
     assert zendesk_req.requirement.specifier is True
     assert zendesk_req.requirement.specs == [("==", "1.1.1")]
     assert sorted(zendesk_req.files) == ["Zendesk-1.1.1.dist-info", "zendesk"]
+
+    assert "azure-core" in requirements_with_files
+    azcore_req = requirements_with_files["azure-core"]
+    assert azcore_req.requirement.name == "azure-core"
+    assert azcore_req.requirement.specifier is True
+    assert azcore_req.requirement.specs == [("==", "1.29.5")]
+    assert sorted(azcore_req.files) == ["azure/core", "azure_core-1.29.5.dist-info"]
+
+    assert "azure-eventhub" in requirements_with_files
+    azehub_req = requirements_with_files["azure-eventhub"]
+    assert azehub_req.requirement.name == "azure-eventhub"
+    assert azehub_req.requirement.specifier is True
+    assert azehub_req.requirement.specs == [("==", "5.11.5")]
+    assert sorted(azehub_req.files) == [
+        "azure/eventhub",
+        "azure_eventhub-5.11.5.dist-info",
+    ]
 
 
 def test_deduplicate_and_sort_reqs():
