@@ -19,15 +19,35 @@ class MissingConnectionHostError(ClickException):
         )
 
 
-def get_deployment(conn: SnowflakeConnection) -> str:
+def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
     """
-    Determines the deployment this connection refers to; useful
-    to generate URLs that point to Snowsight. If there is not enough
-    information to determine the deployment, we return the organization
-    name instead, as this can be used in production Snowsight.
+    Determines if the deployment this connection refers to uses
+    regionless URLs in Snowsight (/orgname/account) or regional URLs
+    (/region/account).
     """
-    if not conn.host:
-        raise MissingConnectionHostError(conn)
+    *_, cursor = conn.execute_string(
+        """
+        select value['value'] as REGIONLESS from table(flatten(
+            input => parse_json(SYSTEM$BOOTSTRAP_DATA_REQUEST()),
+            path => 'clientParamsInfo'
+        )) where value['name'] = 'UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT';                                 
+    """,
+        cursor_class=DictCursor,
+    )
+    return cursor.fetchone()["REGIONLESS"].lower() == "true"
+
+
+def get_context(conn: SnowflakeConnection) -> str:
+    """
+    Determines the first part of the path in a Snowsight URL.
+    This could be a region or it could be an organization, depending
+    on whether or not the underlying deployment uses regionless URLs.
+    """
+    if is_regionless_redirect(conn):
+        *_, cursor = conn.execute_string(
+            f"select system$return_current_org_name()", cursor_class=DictCursor
+        )
+        return cursor.fetchone()["SYSTEM$RETURN_CURRENT_ORG_NAME()"]
 
     host_parts = conn.host.split(".")
     if host_parts[-1] == "local":
@@ -36,13 +56,7 @@ def get_deployment(conn: SnowflakeConnection) -> str:
     if len(host_parts) == 6:
         return ".".join(host_parts[1:4])
 
-    try:
-        *_, cursor = conn.execute_string(
-            f"select system$return_current_org_name()", cursor_class=DictCursor
-        )
-        return cursor.fetchone()["SYSTEM$RETURN_CURRENT_ORG_NAME()"]
-    except Exception as e:
-        raise MissingConnectionHostError(conn)
+    raise MissingConnectionHostError(conn)
 
 
 def get_account(conn: SnowflakeConnection) -> str:
@@ -80,7 +94,7 @@ def get_snowsight_host(conn: SnowflakeConnection) -> str:
 def make_snowsight_url(conn: SnowflakeConnection, path: str) -> str:
     """Returns a URL on the correct Snowsight instance for the connected account."""
     snowsight_host = get_snowsight_host(conn)
-    deployment = get_deployment(conn)
+    deployment = get_context(conn)
     account = get_account(conn)
     path_with_slash = path if path.startswith("/") else f"/{path}"
     return f"{snowsight_host}/{deployment}/{account}{path_with_slash}"
