@@ -598,7 +598,7 @@ class SnowparkProcedureTestSteps:
         assert result.exit_code == 0, result.output
         assert result.json, result.output
         assert "message" in result.json
-        assert "Build done. Artifact path:" in result.json["message"]  # type: ignore
+        assert "Build done. Artefact path:" in result.json["message"]  # type: ignore
 
         assert_that_current_working_directory_contains_only_following_files(
             *current_files,
