@@ -9,6 +9,13 @@ LOCAL_DEPLOYMENT: str = "us-west-2"
 
 log = logging.getLogger(__name__)
 
+REGIONLESS_QUERY = """
+    select value['value'] as REGIONLESS from table(flatten(
+        input => parse_json(SYSTEM$BOOTSTRAP_DATA_REQUEST()),
+        path => 'clientParamsInfo'
+    )) where value['name'] = 'UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT';
+"""
+
 
 class MissingConnectionHostError(ClickException):
     def __init__(self, conn: SnowflakeConnection):
@@ -26,15 +33,7 @@ def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
     (/region/account). If we cannot determine the correct value
     """
     try:
-        *_, cursor = conn.execute_string(
-            """
-            select value['value'] as REGIONLESS from table(flatten(
-                input => parse_json(SYSTEM$BOOTSTRAP_DATA_REQUEST()),
-                path => 'clientParamsInfo'
-            )) where value['name'] = 'UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT';                                 
-        """,
-            cursor_class=DictCursor,
-        )
+        *_, cursor = conn.execute_string(REGIONLESS_QUERY, cursor_class=DictCursor)
         return cursor.fetchone()["REGIONLESS"].lower() == "true"
     except:
         # by default, assume that
