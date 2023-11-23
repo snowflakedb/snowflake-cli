@@ -31,6 +31,7 @@ class StreamlitManager(SqlExecutionMixin):
         main_file: Path,
         environment_file: Optional[Path],
         pages_dir: Optional[Path],
+        additional_source_files: Optional[List[str]],
     ):
         stage_manager = StageManager()
 
@@ -42,40 +43,42 @@ class StreamlitManager(SqlExecutionMixin):
         if pages_dir and pages_dir.exists():
             stage_manager.put(pages_dir / "*.py", f"{root_location}/pages", 4, True)
 
+        if additional_source_files:
+            for file in additional_source_files:
+                stage_manager.put(
+                    file, f"{root_location}/{str(Path(file).parent)}", 4, True
+                )
+
     def _create_streamlit(
         self,
         streamlit_name: str,
         main_file: Path,
-        replace: bool | None = None,
-        experimental: bool | None = None,
-        query_warehouse: str | None = None,
-        from_stage_name: str | None = None,
+        replace: Optional[bool] = None,
+        experimental: Optional[bool] = None,
+        query_warehouse: Optional[str] = None,
+        from_stage_name: Optional[str] = None,
     ):
+        query = []
         if replace:
-            create_stmt = "CREATE OR REPLACE STREAMLIT"
+            query.append(f"CREATE OR REPLACE STREAMLIT {streamlit_name}")
         elif experimental:
             # For experimental behaviour, we need to use CREATE STREAMLIT IF NOT EXISTS
             # for a streamlit app with an embedded stage
             # because this is analogous to the behavior for non-experimental
             # deploy which does CREATE STAGE IF NOT EXISTS
-            create_stmt = "CREATE STREAMLIT IF NOT EXISTS"
+            query.append(f"CREATE STREAMLIT IF NOT EXISTS {streamlit_name}")
         else:
-            create_stmt = "CREATE STREAMLIT"
+            query.append(f"CREATE STREAMLIT {streamlit_name}")
 
-        use_warehouse_stmt = (
-            f"QUERY_WAREHOUSE = {query_warehouse}" if query_warehouse else ""
-        )
-        from_stage_stmt = (
-            f"ROOT_LOCATION = '{from_stage_name}'" if from_stage_name else ""
-        )
-        self._execute_query(
-            f"""
-            {create_stmt} {streamlit_name}
-            {from_stage_stmt}
-            MAIN_FILE = '{main_file.name}'
-            {use_warehouse_stmt}
-        """
-        )
+        if from_stage_name:
+            query.append(f"ROOT_LOCATION = '{from_stage_name}'")
+
+        query.append(f"MAIN_FILE = '{main_file.name}'")
+
+        if query_warehouse:
+            query.append(f"QUERY_WAREHOUSE = {query_warehouse}")
+
+        self._execute_query("\n".join(query))
 
     def deploy(
         self,
@@ -86,6 +89,7 @@ class StreamlitManager(SqlExecutionMixin):
         stage_name: Optional[str] = None,
         query_warehouse: Optional[str] = None,
         replace: Optional[bool] = False,
+        additional_source_files: Optional[List[str]] = None,
         **options,
     ):
         stage_manager = StageManager()
@@ -109,7 +113,11 @@ class StreamlitManager(SqlExecutionMixin):
             root_location = f"{embedded_stage_name}/default_checkout"
 
             self._put_streamlit_files(
-                root_location, main_file, environment_file, pages_dir
+                root_location,
+                main_file,
+                environment_file,
+                pages_dir,
+                additional_source_files,
             )
         else:
             """
@@ -129,7 +137,11 @@ class StreamlitManager(SqlExecutionMixin):
             )
 
             self._put_streamlit_files(
-                root_location, main_file, environment_file, pages_dir
+                root_location,
+                main_file,
+                environment_file,
+                pages_dir,
+                additional_source_files,
             )
 
             self._create_streamlit(
