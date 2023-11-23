@@ -15,6 +15,7 @@ from snowcli.cli.nativeapp.artifacts import (
     build_bundle,
     translate_artifact,
 )
+from snowcli.cli.nativeapp.introspection import find_setup_scripts
 from snowcli.cli.object.stage.diff import (
     DiffResult,
     stage_diff,
@@ -228,6 +229,19 @@ class NativeAppManager(SqlExecutionMixin):
     def debug_mode(self) -> bool:
         return self.definition.get("application", {}).get("debug", True)
 
+    def needs_upgrade(self, diff: DiffResult):
+        """
+        Given the diff result, do we need to issue an UPGRADE command to our
+        stage dev mode application in order for changes to be reflected?
+        """
+        if not diff.has_changes():
+            return False
+
+        setup_scripts = [str(x) for x in find_setup_scripts(self.deploy_root)]
+        requires_upgrade = [*setup_scripts, "manifest.yml"]
+        locally_changed = [*diff.different, *diff.only_local]
+        return any([f in locally_changed for f in requires_upgrade])
+
     def build_bundle(self) -> None:
         """
         Populates the local deploy root from artifact sources.
@@ -356,11 +370,14 @@ class NativeAppManager(SqlExecutionMixin):
                     )
 
                 try:
-                    if diff.has_changes():
-                        # the app needs to be upgraded
+                    if self.needs_upgrade(diff):
                         log.info(f"Upgrading existing application {self.app_name}.")
                         self._execute_query(
                             f"alter application {self.app_name} upgrade using @{self.stage_fqn}"
+                        )
+                    else:
+                        log.info(
+                            f"Existing application {self.app_name} does not need to be upgraded."
                         )
 
                     # ensure debug_mode is up-to-date
