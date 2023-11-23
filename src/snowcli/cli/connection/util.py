@@ -30,7 +30,8 @@ def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
     """
     Determines if the deployment this connection refers to uses
     regionless URLs in Snowsight (/orgname/account) or regional URLs
-    (/region/account). If we cannot determine the correct value
+    (/region/account). If we cannot determine the correct value we
+    assume it's regionless, as this is true for most production deployments.
     """
     try:
         *_, cursor = conn.execute_string(REGIONLESS_QUERY, cursor_class=DictCursor)
