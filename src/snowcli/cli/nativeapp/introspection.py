@@ -1,10 +1,10 @@
 import re
-from strictyaml import load, YAML
-from typing import List
 from pathlib import Path
-from click import ClickException
+from typing import List, Union
 
+from click import ClickException
 from snowcli.cli.nativeapp.artifacts import resolve_without_follow
+from strictyaml import YAML, load
 
 EXECUTE_IMMEDIATE_FROM_REGEX = re.compile(
     r"execute\s+immediate\s+from\s+'([^']+?)'", re.IGNORECASE
@@ -25,7 +25,7 @@ class SetupScriptNotFoundError(ClickException):
     A setup script was referenced but found to be missing in the deploy root.
     """
 
-    def __init__(self, file: Path | str):
+    def __init__(self, file: Union[Path, str]):
         super().__init__(f"{self.__doc__.strip()}\nExpected path: {file}")
 
 
@@ -33,7 +33,11 @@ def load_manifest(deploy_root: Path) -> dict:
     """
     Parses the manifest as found in the deploy root.
     """
-    with open(deploy_root / "manifest.yml", "r") as f:
+    manifest_path = deploy_root / "manifest.yml"
+    if not manifest_path.is_file():
+        raise ManifestNotFoundError()
+
+    with open(manifest_path, "r") as f:
         return load(f.read()).data
 
 
