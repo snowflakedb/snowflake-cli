@@ -248,7 +248,7 @@ def get_downloaded_packages() -> Dict[str, RequirementWithFiles]:
                     # so we trim that off too
                     record_entries = list(
                         {
-                            line.split("/")[0].split(",")[0]
+                            line.split(",")[0].rsplit("/", 1)[0]
                             for line in record_file.readlines()
                         },
                     )
