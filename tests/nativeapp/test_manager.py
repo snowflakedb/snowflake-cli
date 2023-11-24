@@ -1001,16 +1001,16 @@ def test_app_does_not_exist(mock_execute, temp_dir, mock_cursor):
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch("snowcli.cli.connection.util.get_deployment")
+@mock.patch("snowcli.cli.connection.util.get_context")
 @mock.patch("snowcli.cli.connection.util.get_account")
 @mock.patch("snowcli.cli.connection.util.get_snowsight_host")
 @mock_connection
 def test_get_snowsight_url(
-    mock_conn, mock_snowsight_host, mock_account, mock_deployment, temp_dir
+    mock_conn, mock_snowsight_host, mock_account, mock_context, temp_dir
 ):
     mock_conn.return_value = None
     mock_snowsight_host.return_value = "https://host"
-    mock_deployment.return_value = "deployment"
+    mock_context.return_value = "organization"
     mock_account.return_value = "account"
 
     current_working_directory = os.getcwd()
@@ -1023,7 +1023,7 @@ def test_get_snowsight_url(
     native_app_manager = NativeAppManager()
     assert (
         native_app_manager.get_snowsight_url()
-        == "https://host/deployment/account/#/apps/application/MYAPP"
+        == "https://host/organization/account/#/apps/application/MYAPP"
     )
 
 
