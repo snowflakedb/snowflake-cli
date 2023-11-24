@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Union
 
 from click import ClickException
-from snowcli.cli.nativeapp.artifacts import resolve_without_follow, NotInDeployRootError
+from snowcli.cli.nativeapp.artifacts import NotInDeployRootError, resolve_without_follow
 from strictyaml import YAML, load
 
 EXECUTE_IMMEDIATE_FROM_REGEX = re.compile(
