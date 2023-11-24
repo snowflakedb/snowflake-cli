@@ -1,5 +1,7 @@
 from textwrap import dedent
 
+from snowcli.cli.connection.util import REGIONLESS_QUERY
+
 from tests.testing_utils.fixtures import *
 
 STREAMLIT_NAME = "test_streamlit"
@@ -52,6 +54,7 @@ def test_deploy_only_streamlit_file(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "my_account"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -78,6 +81,7 @@ def test_deploy_only_streamlit_file(
             """
         ),
         "select system$get_snowsight_host()",
+        REGIONLESS_QUERY,
     ]
     mock_typer.launch.assert_not_called()
 
@@ -98,6 +102,7 @@ def test_deploy_only_streamlit_file_replace(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "my_account"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -124,6 +129,7 @@ def test_deploy_only_streamlit_file_replace(
             """
         ),
         "select system$get_snowsight_host()",
+        REGIONLESS_QUERY,
     ]
     mock_typer.launch.assert_not_called()
 
@@ -135,7 +141,10 @@ def test_deploy_launch_browser(
 ):
     ctx = mock_ctx(
         mock_cursor(
-            rows=[{"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"}],
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"REGIONLESS": "false"},
+            ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
         )
     )
@@ -159,6 +168,7 @@ def test_deploy_streamlit_and_environment_files(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -186,6 +196,7 @@ def test_deploy_streamlit_and_environment_files(
             """
         ),
         f"select system$get_snowsight_host()",
+        REGIONLESS_QUERY,
         f"select current_account_name()",
     ]
 
@@ -198,6 +209,7 @@ def test_deploy_streamlit_and_pages_files(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -224,6 +236,7 @@ def test_deploy_streamlit_and_pages_files(
             """
         ),
         f"select system$get_snowsight_host()",
+        REGIONLESS_QUERY,
         f"select current_account_name()",
     ]
 
@@ -236,6 +249,7 @@ def test_deploy_all_streamlit_files(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -262,13 +276,25 @@ def test_deploy_all_streamlit_files(
             """
         ),
         f"select system$get_snowsight_host()",
+        REGIONLESS_QUERY,
         "select current_account_name()",
     ]
 
 
 @mock.patch("snowflake.connector.connect")
-def test_deploy_put_files_on_stage(mock_connector, runner, mock_ctx, project_directory):
-    ctx = mock_ctx()
+def test_deploy_put_files_on_stage(
+    mock_connector, mock_cursor, runner, mock_ctx, project_directory
+):
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"REGIONLESS": "false"},
+                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
     mock_connector.return_value = ctx
 
     with project_directory(
@@ -293,6 +319,7 @@ def test_deploy_put_files_on_stage(mock_connector, runner, mock_ctx, project_dir
             """
         ),
         f"select system$get_snowsight_host()",
+        REGIONLESS_QUERY,
         f"select current_account_name()",
     ]
 
@@ -305,6 +332,7 @@ def test_deploy_all_streamlit_files_not_defaults(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -331,6 +359,7 @@ def test_deploy_all_streamlit_files_not_defaults(
             """
         ),
         f"select system$get_snowsight_host()",
+        REGIONLESS_QUERY,
         f"select current_account_name()",
     ]
 
@@ -343,6 +372,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -372,6 +402,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*.py", f"{root_path}/pages"),
         f"select system$get_snowsight_host()",
+        REGIONLESS_QUERY,
         f"select current_account_name()",
     ]
 
@@ -384,6 +415,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -413,6 +445,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*.py", f"{root_path}/pages"),
         f"select system$get_snowsight_host()",
+        REGIONLESS_QUERY,
         f"select current_account_name()",
     ]
 
@@ -473,14 +506,24 @@ def test_init_streamlit(mock_create_project_template, runner, temp_dir):
 
 
 @mock.patch("snowflake.connector.connect")
-def test_get_streamlit_url(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
+def test_get_streamlit_url(mock_connector, mock_cursor, runner, mock_ctx):
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"REGIONLESS": "false"},
+                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
     mock_connector.return_value = ctx
 
     result = runner.invoke(["streamlit", "get-url", STREAMLIT_NAME])
 
     assert result.exit_code == 0, result.output
-    assert (
-        ctx.get_query()
-        == f"select system$get_snowsight_host()\nselect current_account_name()"
-    )
+    assert ctx.get_queries() == [
+        "select system$get_snowsight_host()",
+        REGIONLESS_QUERY,
+        "select current_account_name()",
+    ]
