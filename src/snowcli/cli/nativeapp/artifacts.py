@@ -2,7 +2,7 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Optional
 
 from click.exceptions import ClickException
 
@@ -67,11 +67,11 @@ class NotInDeployRootError(ClickException):
     (use "./" instead to copy into the deploy root).
     """
 
-    artifact_src: str
+    artifact_src: Optional[str]
     dest_path: Path
     deploy_root: Path
 
-    def __init__(self, artifact_src: str, dest_path: Path, deploy_root: Path):
+    def __init__(self, artifact_src: Optional[str], dest_path: Path, deploy_root: Path):
         super().__init__(
             f"""
             {self.__doc__}

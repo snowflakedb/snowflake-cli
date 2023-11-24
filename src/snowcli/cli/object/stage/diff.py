@@ -42,6 +42,17 @@ class DiffResult:
             or len(self.only_on_stage) > 0
         )
 
+    def any_changed(self, relpaths: List[str]) -> bool:
+        """
+        Returns True iff any of the given paths (relative to the deploy root) had
+        changes detected in this diff.
+        """
+        if not self.has_changes():
+            return False
+
+        changes = [*self.different, *self.only_local, *self.only_on_stage]
+        return any([f in changes for f in relpaths])
+
 
 def is_valid_md5sum(checksum: str) -> bool:
     """

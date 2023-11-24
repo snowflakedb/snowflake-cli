@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Union
 
 from click import ClickException
-from snowcli.cli.nativeapp.artifacts import resolve_without_follow
+from snowcli.cli.nativeapp.artifacts import resolve_without_follow, NotInDeployRootError
 from strictyaml import YAML, load
 
 EXECUTE_IMMEDIATE_FROM_REGEX = re.compile(
@@ -63,6 +63,9 @@ def find_setup_scripts(deploy_root: Path) -> List[Path]:
             script_content = f.read()
             for relpath in EXECUTE_IMMEDIATE_FROM_REGEX.findall(script_content):
                 referenced_script = resolve_without_follow(script.parent / relpath)
+
+                if deploy_root.resolve() not in referenced_script.parents:
+                    raise NotInDeployRootError(None, referenced_script, deploy_root)
 
                 if not referenced_script.is_file():
                     raise SetupScriptNotFoundError(referenced_script)

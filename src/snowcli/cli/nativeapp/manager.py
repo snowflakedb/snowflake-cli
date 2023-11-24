@@ -229,18 +229,14 @@ class NativeAppManager(SqlExecutionMixin):
     def debug_mode(self) -> bool:
         return self.definition.get("application", {}).get("debug", True)
 
-    def needs_upgrade(self, diff: DiffResult):
+    @cached_property
+    def artifacts_that_require_upgrade(self) -> List[str]:
         """
-        Given the diff result, do we need to issue an UPGRADE command to our
-        stage dev mode application in order for changes to be reflected?
+        A list of relative artifact paths (from the deploy root) that, when changed,
+        require us to issue an ALTER APPLICATION ... UPGRADE USING @stage for a dev app.
         """
-        if not diff.has_changes():
-            return False
-
         setup_scripts = [str(x) for x in find_setup_scripts(self.deploy_root)]
-        requires_upgrade = [*setup_scripts, "manifest.yml"]
-        locally_changed = [*diff.different, *diff.only_local]
-        return any([f in locally_changed for f in requires_upgrade])
+        return [*setup_scripts, "manifest.yml"]
 
     def build_bundle(self) -> None:
         """
@@ -370,7 +366,8 @@ class NativeAppManager(SqlExecutionMixin):
                     )
 
                 try:
-                    if self.needs_upgrade(diff):
+                    # some artifacts will hot-reload in stage dev mode; others require UPGRADE
+                    if diff.any_changed(self.artifacts_that_require_upgrade):
                         log.info(f"Upgrading existing application {self.app_name}.")
                         self._execute_query(
                             f"alter application {self.app_name} upgrade using @{self.stage_fqn}"
