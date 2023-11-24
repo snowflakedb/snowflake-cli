@@ -18,7 +18,7 @@ def test_deploy_function(
     mock_describe.side_effect = ProgrammingError("does not exist or not authorized")
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    with project_directory("snowpark_functions") as tmp:
+    with project_directory("snowpark_functions") as project_dir:
         result = runner.invoke(
             [
                 "snowpark",
@@ -30,7 +30,7 @@ def test_deploy_function(
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
-        f"put file://{Path(tmp).resolve()}/app.zip @dev_deployment/my_snowpark_project"
+        f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
@@ -60,7 +60,7 @@ def test_deploy_function_no_changes(
         ("returns", "string"),
     ]
 
-    queries, result, tmp = _deploy_function(
+    queries, result, project_dir = _deploy_function(
         rows,
         mock_connector,
         runner,
@@ -80,7 +80,7 @@ def test_deploy_function_no_changes(
     ]
     assert queries == [
         "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
-        f"put file://{Path(tmp).resolve()}/app.zip @dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
+        f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
         "describe function func1(string, variant)",
     ]
 
@@ -99,7 +99,7 @@ def test_deploy_function_needs_update_because_packages_changes(
         ("returns", "table(variant)"),
     ]
 
-    queries, result, tmp = _deploy_function(
+    queries, result, project_dir = _deploy_function(
         rows,
         mock_connector,
         runner,
@@ -119,7 +119,7 @@ def test_deploy_function_needs_update_because_packages_changes(
     ]
     assert queries == [
         "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
-        f"put file://{Path(tmp).resolve()}/app.zip @dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
+        f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
         "describe function func1(string, variant)",
         dedent(
             """\
@@ -149,7 +149,7 @@ def test_deploy_function_needs_update_because_handler_changes(
         ("returns", "table(variant)"),
     ]
 
-    queries, result, tmp = _deploy_function(
+    queries, result, project_dir = _deploy_function(
         rows,
         mock_connector,
         runner,
@@ -169,7 +169,7 @@ def test_deploy_function_needs_update_because_handler_changes(
     ]
     assert queries == [
         "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
-        f"put file://{Path(tmp).resolve()}/app.zip @dev_deployment/my_snowpark_project"
+        f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project"
         f" auto_compress=false parallel=4 overwrite=True",
         "describe function func1(string, variant)",
         dedent(

@@ -56,7 +56,8 @@ def _to_be_zipped(file: Path) -> bool:
 
     for pattern in IGNORED_FILES:
         # This has to be a string because of fnmatch
-        if file == pattern or fnmatch.fnmatch(str(file), pattern):
+        file_as_str = str(file)
+        if file_as_str == pattern or fnmatch.fnmatch(file_as_str, pattern):
             return False
 
     return True

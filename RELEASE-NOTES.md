@@ -9,6 +9,7 @@
 
 * Snowpark changes
   * Removed `procedure` and `function` subgroups.
+  * Removed `snow snowpark function package` and `snow snowpark procedure package` in favour of `snow snowpark build`.
   * Removed `snow snowpark function create` and `snow snowpark function update`. Functions can be deployed using `snow snowpark deploy`.
   * Removed `snow snowpark procedure create` and `snow snowpark procedure update`. Procedures can be deployed using `snow snowpark deploy`.
   * Procedures and functions use single zip artifact for all functions and procedures in project.

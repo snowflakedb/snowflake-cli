@@ -13,9 +13,7 @@ from snowcli import utils
 from snowcli.cli.common.decorators import global_options, global_options_with_connection
 from snowcli.cli.common.flags import (
     DEFAULT_CONTEXT_SETTINGS,
-    LikeOption,
     execution_identifier_argument,
-    identifier_argument,
 )
 from snowcli.cli.common.project_initialisation import add_init_command
 from snowcli.cli.constants import DEPLOYMENT_STAGE, ObjectType
@@ -40,7 +38,6 @@ from snowcli.output.types import (
     CollectionResult,
     CommandResult,
     MessageResult,
-    QueryResult,
     SingleQueryResult,
 )
 from snowcli.utils import (
@@ -109,7 +106,11 @@ def deploy(
     replace: bool = ReplaceOption,
     **options,
 ) -> CommandResult:
-    """Deploy procedures and functions defined in project."""
+    """
+    Deploys procedures and functions defined in project. Deploying the project alters all object defined in it.
+    By default, if any of the objects exist already the commands will fail unless `--replace` flag is provided.
+    All deployed object use the same artefact which is deployed only once.
+    """
     snowpark = get_snowpark_project_definition()
 
     procedures = snowpark.get("procedures", [])
@@ -150,33 +151,17 @@ def deploy(
 
     # Coverage case
     if install_coverage_wrapper:
-        procedure = procedures[0]
-        # This changes existing artifact so we need to generate wrapper and only then deploy
-        handler = _alter_procedure_artifact_with_coverage_wrapper(
-            artifact_path=build_artifact_path,
-            handler=procedure["handler"],
-            identifier=build_udf_sproc_identifier(procedure),
-            artifact_stage_path=artifact_stage_target,
+        return _deploy_procedure_with_coverage(
+            artifact_stage_directory=artifact_stage_directory,
+            artifact_stage_target=artifact_stage_target,
+            build_artifact_path=build_artifact_path,
+            packages=packages,
+            pm=pm,
+            procedure=procedures[0],
+            replace=replace,
+            stage_manager=stage_manager,
             stage_name=stage_name,
         )
-        stage_manager.put(
-            local_path=build_artifact_path,
-            stage_path=artifact_stage_directory,
-            overwrite=True,
-        )
-
-        procedure["handler"] = handler
-        packages.append("coverage")
-
-        operation_result = _deploy_single_object(
-            manager=pm,
-            object_type=ObjectType.PROCEDURE,
-            object_definition=procedure,
-            replace=replace,
-            packages=packages,
-            stage_artifact_path=artifact_stage_target,
-        )
-        return CollectionResult([operation_result])
 
     # TODO: Check if any object already exists before we start updates
     stage_manager.put(
@@ -212,6 +197,43 @@ def deploy(
         deploy_status.append(operation_result)
 
     return CollectionResult(deploy_status)
+
+
+def _deploy_procedure_with_coverage(
+    artifact_stage_directory: str,
+    artifact_stage_target: str,
+    build_artifact_path: Path,
+    packages: List,
+    pm: ProcedureManager,
+    procedure: Dict,
+    replace: bool,
+    stage_manager: StageManager,
+    stage_name: str,
+):
+    # This changes existing artifact so we need to generate wrapper and only then deploy
+    handler = _alter_procedure_artifact_with_coverage_wrapper(
+        artifact_path=build_artifact_path,
+        handler=procedure["handler"],
+        identifier=build_udf_sproc_identifier(procedure),
+        artifact_stage_path=artifact_stage_target,
+        stage_name=stage_name,
+    )
+    stage_manager.put(
+        local_path=build_artifact_path,
+        stage_path=artifact_stage_directory,
+        overwrite=True,
+    )
+    procedure["handler"] = handler
+    packages.append("coverage")
+    operation_result = _deploy_single_object(
+        manager=pm,
+        object_type=ObjectType.PROCEDURE,
+        object_definition=procedure,
+        replace=replace,
+        packages=packages,
+        stage_artifact_path=artifact_stage_target,
+    )
+    return CollectionResult([operation_result])
 
 
 def get_snowpark_project_definition():
@@ -305,7 +327,10 @@ def build(
     package_native_libraries: str = PackageNativeLibrariesOption,
     **options,
 ) -> CommandResult:
-    """Build the current project as a `.zip` file."""
+    """
+    Builds the Snowpark project as a `.zip` archive that can be used by `deploy` command.
+    The archive is built using only `src` directory specified in project file.
+    """
     snowpark = get_snowpark_project_definition()
     source = Path(snowpark.get("src"))
     artefact_file = _get_snowpark_artefact_path(snowpark)
