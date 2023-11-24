@@ -20,6 +20,7 @@ NATIVEAPP_MANAGER_EXECUTE = f"{NATIVEAPP_MODULE}.NativeAppManager._execute_query
 NATIVEAPP_MANAGER_EXECUTE_QUERIES = (
     f"{NATIVEAPP_MODULE}.NativeAppManager._execute_queries"
 )
+NATIVEAPP_FIND_SETUP_SCRIPTS = f"{NATIVEAPP_MODULE}.find_setup_scripts"
 
 
 mock_connection = mock.patch(
@@ -319,8 +320,11 @@ def test_create_dev_app_w_warehouse_access_exception(
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(NATIVEAPP_FIND_SETUP_SCRIPTS)
 @mock_connection
-def test_create_dev_app_noop(mock_conn, mock_execute, temp_dir, mock_cursor):
+def test_create_dev_app_noop(
+    mock_conn, mock_find_setup_scripts, mock_execute, temp_dir, mock_cursor
+):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -349,6 +353,7 @@ def test_create_dev_app_noop(mock_conn, mock_execute, temp_dir, mock_cursor):
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
+    mock_find_setup_scripts.return_value = []
 
     mock_diff_result = DiffResult()
     current_working_directory = os.getcwd()
@@ -365,8 +370,11 @@ def test_create_dev_app_noop(mock_conn, mock_execute, temp_dir, mock_cursor):
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(NATIVEAPP_FIND_SETUP_SCRIPTS)
 @mock_connection
-def test_create_dev_app_recreate(mock_conn, mock_execute, temp_dir, mock_cursor):
+def test_create_dev_app_recreate(
+    mock_conn, mock_find_setup_scripts, mock_execute, temp_dir, mock_cursor
+):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -402,6 +410,7 @@ def test_create_dev_app_recreate(mock_conn, mock_execute, temp_dir, mock_cursor)
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
 
+    mock_find_setup_scripts.return_value = ["setup.sql"]
     mock_diff_result = DiffResult(different=["setup.sql"])
     current_working_directory = os.getcwd()
     create_named_file(
@@ -417,9 +426,10 @@ def test_create_dev_app_recreate(mock_conn, mock_execute, temp_dir, mock_cursor)
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(NATIVEAPP_FIND_SETUP_SCRIPTS)
 @mock_connection
 def test_create_dev_app_recreate_w_missing_warehouse_exception(
-    mock_conn, mock_execute, temp_dir, mock_cursor
+    mock_conn, mock_find_setup_scripts, mock_execute, temp_dir, mock_cursor
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -457,6 +467,7 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
 
+    mock_find_setup_scripts.return_value = ["setup.sql"]
     mock_diff_result = DiffResult(different=["setup.sql"])
     current_working_directory = os.getcwd()
     create_named_file(

@@ -17,7 +17,7 @@ class ManifestNotFoundError(ClickException):
     """
 
     def __init__(self):
-        super().__init__(self.__doc__.strip())
+        super().__init__(self.__doc__)
 
 
 class SetupScriptNotFoundError(ClickException):
@@ -26,7 +26,7 @@ class SetupScriptNotFoundError(ClickException):
     """
 
     def __init__(self, file: Union[Path, str]):
-        super().__init__(f"{self.__doc__.strip()}\nExpected path: {file}")
+        super().__init__(f"{self.__doc__}\nExpected path: {file}")
 
 
 def load_manifest(deploy_root: Path) -> dict:
