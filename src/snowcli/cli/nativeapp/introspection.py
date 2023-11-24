@@ -1,3 +1,4 @@
+import io
 import re
 import codecs
 
@@ -5,6 +6,7 @@ from pathlib import Path
 from typing import List, Union
 
 from click import ClickException
+from snowflake.connector.util_text import split_statements
 from snowcli.cli.nativeapp.artifacts import NotInDeployRootError, resolve_without_follow
 from strictyaml import YAML, load
 
@@ -58,9 +60,11 @@ def apply_single_quote_escapes(literal: str) -> str:
 
 
 def extract_execute_immediate_relpaths(sqltext: str) -> List[str]:
+    raw_statements = split_statements(io.StringIO(sqltext), remove_comments=True)
+    statements = "\n".join([stmt for (stmt, _is_put_or_get) in raw_statements])
     return [
         apply_single_quote_escapes(relpath)
-        for relpath in EXECUTE_IMMEDIATE_FROM_REGEX.findall(sqltext)
+        for relpath in EXECUTE_IMMEDIATE_FROM_REGEX.findall(statements)
     ]
 
 
