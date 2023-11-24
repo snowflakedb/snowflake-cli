@@ -1,4 +1,6 @@
 import re
+import codecs
+
 from pathlib import Path
 from typing import List, Union
 
@@ -6,8 +8,22 @@ from click import ClickException
 from snowcli.cli.nativeapp.artifacts import NotInDeployRootError, resolve_without_follow
 from strictyaml import YAML, load
 
+SINGLE_QUOTED_STRING_REGEX = r"'((?:\\.|[^'\n])+?)'"
+
 EXECUTE_IMMEDIATE_FROM_REGEX = re.compile(
-    r"execute\s+immediate\s+from\s+'([^']+?)'", re.IGNORECASE
+    rf"execute\s+immediate\s+from\s+{SINGLE_QUOTED_STRING_REGEX}", re.IGNORECASE
+)
+
+# See https://docs.snowflake.com/en/sql-reference/data-types-text#escape-sequences-in-single-quoted-string-constants
+# and https://stackoverflow.com/a/24519338 (based on; modified)
+SINGLE_QUOTE_ESCAPE_SEQUENCES_RE = re.compile(
+    r"""
+    ( \\u....          # 4-digit hex escapes
+    | \\x..            # 2-digit hex escapes
+    | \\[0-7]{1,3}     # Octal escapes
+    | \\[\\'"abfnrtv]  # Single-character escapes
+    )""",
+    re.UNICODE | re.VERBOSE,
 )
 
 
@@ -27,6 +43,25 @@ class SetupScriptNotFoundError(ClickException):
 
     def __init__(self, file: Union[Path, str]):
         super().__init__(f"{self.__doc__}\nExpected path: {file}")
+
+
+def apply_single_quote_escapes(literal: str) -> str:
+    """
+    Applies the Snowflake single-quoting escape sequences in a given
+    "raw" string, returning the resulting (processed) string.
+    """
+
+    def decode_match(match):
+        return codecs.decode(match.group(0), "unicode-escape")
+
+    return SINGLE_QUOTE_ESCAPE_SEQUENCES_RE.sub(decode_match, literal)
+
+
+def extract_execute_immediate_relpaths(sqltext: str) -> List[str]:
+    return [
+        apply_single_quote_escapes(relpath)
+        for relpath in EXECUTE_IMMEDIATE_FROM_REGEX.findall(sqltext)
+    ]
 
 
 def load_manifest(deploy_root: Path) -> dict:
@@ -61,7 +96,7 @@ def find_setup_scripts(deploy_root: Path) -> List[Path]:
         script = queued_scripts.pop()
         with open(script, "r") as f:
             script_content = f.read()
-            for relpath in EXECUTE_IMMEDIATE_FROM_REGEX.findall(script_content):
+            for relpath in extract_execute_immediate_relpaths(script_content):
                 referenced_script = resolve_without_follow(script.parent / relpath)
 
                 if deploy_root.resolve() not in referenced_script.parents:
