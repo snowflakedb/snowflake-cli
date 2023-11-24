@@ -44,8 +44,8 @@ class DiffResult:
 
     def any_changed(self, relpaths: List[str]) -> bool:
         """
-        Returns True iff any of the given paths (relative to the deploy root) had
-        changes detected in this diff.
+        Returns True iff any of the given paths (relative to the local directory root)
+        had changes detected in this diff.
         """
         if not self.has_changes():
             return False
