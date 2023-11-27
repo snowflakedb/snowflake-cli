@@ -73,7 +73,8 @@ class SnowCLIRunner(CliRunner):
 
     @functools.wraps(CliRunner.invoke)
     def _invoke(self, *a, **kw):
-        kw.update(catch_exceptions=False)
+        if "catch_exceptions" not in kw:
+            kw.update(catch_exceptions=False)
         return super().invoke(self.app, *a, **kw)
 
     def invoke(self, args, **kwargs) -> CommandResult:
@@ -102,9 +103,9 @@ class SnowCLIRunner(CliRunner):
         return self.invoke_json([*args, "-c", connection], **kwargs)
 
     def invoke_with_connection(
-        self, *args, connection: str = "integration", **kwargs
+        self, args, connection: str = "integration", **kwargs
     ) -> CommandResult:
-        return self.invoke([*args, "-c", connection])
+        return self.invoke([*args, "-c", connection], **kwargs)
 
 
 @pytest.fixture

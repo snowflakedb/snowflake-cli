@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import Iterable, Optional
 
 from click import UsageError
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
@@ -10,7 +10,7 @@ from snowflake.connector.cursor import SnowflakeCursor
 class SqlManager(SqlExecutionMixin):
     def execute(
         self, query: Optional[str], file: Optional[Path], std_in: bool
-    ) -> List[SnowflakeCursor]:
+    ) -> Iterable[SnowflakeCursor]:
         inputs = [query, file, std_in]
         if not any(inputs):
             raise UsageError("Use either query, filename or input option.")
@@ -26,4 +26,4 @@ class SqlManager(SqlExecutionMixin):
         elif file:
             query = file.read_text()
 
-        return self._execute_queries(query)
+        return self.execute_string(query)

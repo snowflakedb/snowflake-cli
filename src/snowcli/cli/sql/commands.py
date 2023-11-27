@@ -1,9 +1,7 @@
-import sys
 from pathlib import Path
 from typing import Optional
 
 import typer
-from click import UsageError
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.sql.manager import SqlManager
 from snowcli.output.decorators import with_output
@@ -48,10 +46,4 @@ def execute_sql(
     or via stdin by piping output from other command. For example `cat my.sql | snow sql -i`.
     """
     cursors = SqlManager().execute(query, file, std_in)
-    if len(cursors) > 1:
-        result = MultipleResults()
-        for curr in cursors:
-            result.add(QueryResult(curr))
-    else:
-        result = QueryResult(cursors[0])
-    return result
+    return MultipleResults((QueryResult(c) for c in cursors))

@@ -1,6 +1,4 @@
-from pathlib import Path
 from tempfile import NamedTemporaryFile
-from unittest import mock
 
 import pytest
 
