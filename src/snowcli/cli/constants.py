@@ -22,7 +22,7 @@ class ObjectType(Enum):
     DATABASE = ObjectNames("database", "database", "databases")
     FUNCTION = ObjectNames("function", "function", "functions")
     INTEGRATION = ObjectNames("integration", "integration", "integrations")
-    JOB = ObjectNames("job", "job", "jobs")
+    # JOB = ObjectNames("job", "job", "jobs")
     NETWORK_RULE = ObjectNames("network-rule", "network rule", "network rules")
     PROCEDURE = ObjectNames("procedure", "procedure", "procedures")
     ROLE = ObjectNames("role", "role", "roles")
