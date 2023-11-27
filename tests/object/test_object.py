@@ -1,14 +1,31 @@
-from tests.testing_utils.fixtures import *
+from unittest import mock
+
+import pytest
+from snowcli.cli.constants import SUPPORTED_OBJECTS
 
 
 @mock.patch("snowflake.connector.connect")
 @pytest.mark.parametrize(
     "object_type, expected",
     [
-        ("warehouse", "warehouses"),
         ("compute-pool", "compute pools"),
+        ("network-rule", "network rules"),
         ("database", "databases"),
+        ("function", "functions"),
+        ("job", "jobs"),
+        ("procedure", "procedures"),
+        ("role", "roles"),
+        ("schema", "schemas"),
+        ("service", "services"),
+        ("secret", "secrets"),
+        ("stage", "stages"),
+        ("stream", "streams"),
         ("streamlit", "streamlits"),
+        ("table", "tables"),
+        ("task", "tasks"),
+        ("user", "users"),
+        ("warehouse", "warehouses"),
+        ("view", "views"),
     ],
 )
 def test_show(
@@ -22,10 +39,30 @@ def test_show(
     assert ctx.get_queries() == [f"show {expected} like '%%'"]
 
 
+TEST_OBJECTS = [
+    ("compute-pool", "compute-pool-example"),
+    ("network-rule", "network-rule-example"),
+    ("database", "database-example"),
+    ("function", "function-example"),
+    ("job", "job-example"),
+    ("procedure", "procedure-example"),
+    ("role", "role-example"),
+    ("schema", "schema-example"),
+    ("service", "service-example"),
+    ("secret", "secret-example"),
+    ("stage", "stage-example"),
+    ("stream", "stream-example"),
+    ("streamlit", "streamlit-example"),
+    ("table", "table-example"),
+    ("task", "task-example"),
+    ("user", "user-example"),
+    ("warehouse", "warehouse-example"),
+    ("view", "view-example"),
+]
+
+
 @mock.patch("snowflake.connector")
-@pytest.mark.parametrize(
-    "object_type, object_name ", [("warehouse", "xsmall"), ("table", "example")]
-)
+@pytest.mark.parametrize("object_type, object_name", TEST_OBJECTS)
 def test_describe(
     mock_connector, object_type, object_name, mock_cursor, runner, snapshot
 ):
@@ -44,7 +81,7 @@ def test_describe(
 @mock.patch("snowflake.connector")
 @pytest.mark.parametrize(
     "object_type, object_name",
-    [("table", "example"), ("database", "important_prod_db"), ("warehouse", "xsmall")],
+    TEST_OBJECTS,
 )
 def test_drop(mock_connector, object_type, object_name, mock_cursor, runner, snapshot):
     mock_connector.connect.return_value.execute_string.return_value = (
@@ -55,3 +92,10 @@ def test_drop(mock_connector, object_type, object_name, mock_cursor, runner, sna
     result = runner.invoke(["object", "drop", object_type, object_name])
     assert result.exit_code == 0, result.output
     assert result.output == snapshot
+
+
+@pytest.mark.parametrize("command", ["list", "drop", "describe"])
+def test_that_objects_list_is_in_help(command, runner):
+    result = runner.invoke(["object", command, "--help"])
+    for obj in SUPPORTED_OBJECTS:
+        assert obj in result.output, f"{obj} in help message"
