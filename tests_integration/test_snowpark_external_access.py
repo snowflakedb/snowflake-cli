@@ -7,6 +7,8 @@ from tests_integration.testing_utils import (
     assert_that_result_is_successful,
 )
 
+STAGE_NAME = "dev_deployment"
+
 
 @pytest.mark.integration
 def test_snowpark_external_access(project_directory, _test_steps):
@@ -59,7 +61,7 @@ def _test_setup(
         test_type=None,  # not needed
     )
     yield snowpark_test_setup
-    snowpark_test_setup.clean_after_test_case()
+    snowpark_test_setup.clean_after_test_case(stage_name=STAGE_NAME)
 
 
 @pytest.fixture

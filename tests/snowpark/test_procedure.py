@@ -89,7 +89,7 @@ def test_deploy_procedure_with_external_access(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory("snowpark_procedure_external_access"):
+    with project_directory("snowpark_procedure_external_access") as project_dir:
         result = runner.invoke(
             [
                 "snowpark",
@@ -104,8 +104,8 @@ def test_deploy_procedure_with_external_access(
         ]
     )
     assert ctx.get_queries() == [
-        "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://app.zip @deployments/procedurename_name_string"
+        "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
+        f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
@@ -113,7 +113,7 @@ def test_deploy_procedure_with_external_access(
             returns string
             language python
             runtime_version=3.8
-            imports=('@deployments/procedurename_name_string/app.zip')
+            imports=('@dev_deployment/my_snowpark_project/app.zip')
             handler='app.hello'
             packages=()
             external_access_integrations=(external_1,external_2)

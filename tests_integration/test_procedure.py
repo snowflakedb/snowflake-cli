@@ -16,9 +16,7 @@ STAGE_NAME = "dev_deployment"
 
 
 @pytest.mark.integration
-def test_snowpark_procedure_flow(
-    _test_steps, temporary_working_directory_ctx, alter_snowflake_yml
-):
+def test_snowpark_procedure_flow(_test_steps, project_directory, alter_snowflake_yml):
     _test_steps.assert_no_procedures_in_snowflake()
     _test_steps.assert_no_functions_in_snowflake()
 
@@ -30,9 +28,8 @@ def test_snowpark_procedure_flow(
     procedure_name = _test_steps.get_entity_name()
     function_name = _test_steps.get_entity_name()
 
-    with temporary_working_directory_ctx() as tmp_dir:
+    with project_directory("snowpark") as tmp_dir:
         project_file: Path = tmp_dir / "snowflake.yml"
-        _test_steps.snowpark_init_should_initialize_files_with_default_content()
         _test_steps.snowpark_package_should_zip_files()
 
         alter_snowflake_yml(
@@ -54,7 +51,7 @@ def test_snowpark_procedure_flow(
                 "status": "created",
                 "type": "procedure",
             },
-            {"object": "test_procedure()", "status": "created", "type": "procedure"},
+            {"object": "test()", "status": "created", "type": "procedure"},
             {
                 "object": f"{function_name}(name string)",
                 "status": "created",
@@ -105,7 +102,7 @@ def test_snowpark_procedure_flow(
         _test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier=f"{procedure_name}('foo')",
-            expected_value="Hello foo!",
+            expected_value="Hello foo",
         )
 
         _test_steps.snowpark_execute_should_return_expected_value(
@@ -141,7 +138,7 @@ def test_snowpark_procedure_flow(
                 "type": "procedure",
             },
             {
-                "object": "test_procedure()",
+                "object": "test()",
                 "status": "packages updated",
                 "type": "procedure",
             },
@@ -179,7 +176,7 @@ def test_snowpark_procedure_flow(
         _test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier=f"{procedure_name}('foo')",
-            expected_value='"Hello foo!"',
+            expected_value='"Hello foo"',
         )
 
         _test_steps.snowpark_execute_should_return_expected_value(

@@ -4,24 +4,20 @@ snowpark:
   stage_name: "dev_deployment"
   src: "app/"
   functions:
-    - name: hello_function
-      handler: "functions.hello_function"
+    - name: hello
+      handler: "app.hello_function"
       signature:
         - name: "name"
           type: "string"
       returns: string
   procedures:
-    - name: hello_procedure
-      handler: "procedures.hello_procedure"
+    - name: hello
+      handler: "app.hello_procedure"
       signature:
         - name: "name"
           type: "string"
       returns: string
-    - name: test_procedure
-      handler: "procedures.test_procedure"
+    - name: test
+      handler: "app.test_procedure"
       signature: ""
       returns: string
-      external_access_integration:
-        - my_external_access
-      secrets:
-        cred: my_cred_name
