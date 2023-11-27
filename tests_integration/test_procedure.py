@@ -69,7 +69,6 @@ def test_snowpark_procedure_flow(
             f"{function_name}(VARCHAR) RETURN VARCHAR"
         )
 
-        # TODO: this should be unique to avoid side effects between parallel runs
         expected_files = [
             f"{STAGE_NAME}/my_snowpark_project/app.zip",
         ]

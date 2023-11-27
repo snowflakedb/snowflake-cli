@@ -37,17 +37,13 @@ class ProcedureCoverageManager(SqlExecutionMixin):
         app_stage_path: str,
     ) -> str:
         coverage_file = ".coverage"
-        # the coverage databases will include paths like "/home/udf/132735964617982/app.zip/app.py", where they ran on Snowflake
-        # we need to strip out the prefix up to and including "app.zip/" so that it reads them from the local folder
-        # tried to do this by modifying the report data, but couldn't seem to figure it out
-        # instead we'll monkey-patch the source code reader and strip it out
         orig_get_python_source = coverage.python.get_python_source
 
         def new_get_python_source(filename: str):
             file_path = Path(filename)
             parts = file_path.parts
             new_path = Path(artefact_name) / "/".join(
-                parts[parts.index("app.zip") + 1 :]
+                parts[parts.index(artefact_name) + 1 :]
             )
             return orig_get_python_source(str(new_path))
 

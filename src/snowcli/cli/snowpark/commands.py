@@ -127,9 +127,7 @@ def deploy(
         )
 
     build_artifact_path = _get_snowpark_artefact_path(snowpark)
-    zip_package = build_artifact_path.stem
 
-    # TODO: this should be configurable
     if not build_artifact_path.exists():
         raise ClickException(
             "Artifact required for deploying the project does not exist in this directory. "

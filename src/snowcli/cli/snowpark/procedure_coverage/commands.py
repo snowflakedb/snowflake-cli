@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import typer
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, identifier_argument
@@ -47,12 +49,13 @@ def procedure_coverage_report(
     **options,
 ):
     snowpark = get_snowpark_project_definition()
+    artefact_name = Path(snowpark["src"]).name + ".zip"
     message = ProcedureCoverageManager().report(
         identifier=identifier,
         output_format=output_format,
         store_as_comment=store_as_comment,
         app_stage_path=get_app_stage_path(snowpark),
-        artefact_name="app.zip",
+        artefact_name=artefact_name,
     )
 
     return MessageResult(message)
