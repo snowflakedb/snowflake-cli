@@ -6,7 +6,7 @@ from functools import cached_property
 from textwrap import dedent
 
 from click import ClickException
-from snowcli.cli.common.snow_cli_global_context import snow_cli_global_context_manager
+from snowcli.cli.common.cli_global_context import cli_context
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -17,7 +17,7 @@ class SqlExecutionMixin:
 
     @property
     def _conn(self):
-        return snow_cli_global_context_manager.get_connection()
+        return cli_context.connection
 
     @cached_property
     def _log(self):

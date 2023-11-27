@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import click
-import snowcli.cli.common.snow_cli_global_context
 import snowflake.connector
 from click.exceptions import ClickException
 from snowcli.config import cli_config, get_default_connection
