@@ -1,5 +1,7 @@
+import re
 from typing import Optional
 
+from snowcli.exception import InvalidSchemaError
 from snowcli.output.formats import OutputFormat
 from snowcli.snow_connector import connect_to_snowflake
 from snowflake.connector import SnowflakeConnection
@@ -62,6 +64,14 @@ class _ConnectionContext:
         return self._schema
 
     def set_schema(self, value: Optional[str]):
+        if (
+            value
+            and not (value.startswith('"') and value.endswith('"'))
+            and re.compile(".+\..+").match(
+                value
+            )  # if schema is fully qualified name (db.schema)
+        ):
+            raise InvalidSchemaError(value)
         self._schema = value
 
     @property
