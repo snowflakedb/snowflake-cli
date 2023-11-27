@@ -71,15 +71,17 @@ def test_deploy_only_streamlit_file(
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
-        _put_query("app.py", "@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/test_streamlit"),
+        _put_query(
+            "streamlit_app.py", "@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/test_streamlit"
+        ),
         dedent(
             f"""
             CREATE STREAMLIT {STREAMLIT_NAME}
             ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
-            MAIN_FILE = 'app.py'
+            MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
-        ),
+        ).strip(),
         "select system$get_snowsight_host()",
         REGIONLESS_QUERY,
     ]
@@ -119,15 +121,17 @@ def test_deploy_only_streamlit_file_replace(
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
-        _put_query("app.py", "@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/test_streamlit"),
+        _put_query(
+            "streamlit_app.py", "@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/test_streamlit"
+        ),
         dedent(
             f"""
             CREATE OR REPLACE STREAMLIT {STREAMLIT_NAME}
             ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
-            MAIN_FILE = 'app.py'
+            MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
-        ),
+        ).strip(),
         "select system$get_snowsight_host()",
         REGIONLESS_QUERY,
     ]
@@ -185,16 +189,16 @@ def test_deploy_streamlit_and_environment_files(
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
-        _put_query("app.py", root_path),
+        _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", root_path),
         dedent(
             f"""
             CREATE STREAMLIT {STREAMLIT_NAME}
             ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
-            MAIN_FILE = 'app.py'
+            MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
-        ),
+        ).strip(),
         f"select system$get_snowsight_host()",
         REGIONLESS_QUERY,
         f"select current_account_name()",
@@ -225,16 +229,16 @@ def test_deploy_streamlit_and_pages_files(
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
-        _put_query("app.py", root_path),
+        _put_query("streamlit_app.py", root_path),
         _put_query("pages/*.py", f"{root_path}/pages"),
         dedent(
             f"""
             CREATE STREAMLIT {STREAMLIT_NAME}
             ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
-            MAIN_FILE = 'app.py'
+            MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
-        ),
+        ).strip(),
         f"select system$get_snowsight_host()",
         REGIONLESS_QUERY,
         f"select current_account_name()",
@@ -257,24 +261,25 @@ def test_deploy_all_streamlit_files(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("example_streamlit"):
+    with project_directory("streamlit_full_definition"):
         result = runner.invoke(["streamlit", "deploy"])
 
     root_path = f"@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
-        _put_query("app.py", root_path),
+        _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", root_path),
         _put_query("pages/*.py", f"{root_path}/pages"),
+        _put_query("utils/utils.py", f"{root_path}/utils"),
         dedent(
             f"""
             CREATE STREAMLIT {STREAMLIT_NAME}
             ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
-            MAIN_FILE = 'app.py'
+            MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
-        ),
+        ).strip(),
         f"select system$get_snowsight_host()",
         REGIONLESS_QUERY,
         "select current_account_name()",
@@ -307,17 +312,17 @@ def test_deploy_put_files_on_stage(
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT_STAGE",
-        _put_query("app.py", root_path),
+        _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", root_path),
         _put_query("pages/*.py", f"{root_path}/pages"),
         dedent(
             f"""
             CREATE STREAMLIT {STREAMLIT_NAME}
             ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT_STAGE/{STREAMLIT_NAME}'
-            MAIN_FILE = 'app.py'
+            MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
-        ),
+        ).strip(),
         f"select system$get_snowsight_host()",
         REGIONLESS_QUERY,
         f"select current_account_name()",
@@ -357,7 +362,7 @@ def test_deploy_all_streamlit_files_not_defaults(
             MAIN_FILE = 'main.py'
             QUERY_WAREHOUSE = streamlit_warehouse
             """
-        ),
+        ).strip(),
         f"select system$get_snowsight_host()",
         REGIONLESS_QUERY,
         f"select current_account_name()",
@@ -391,14 +396,13 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
     assert ctx.get_queries() == [
         dedent(
             f"""
-    CREATE STREAMLIT IF NOT EXISTS {STREAMLIT_NAME}
-
-    MAIN_FILE = 'app.py'
-    QUERY_WAREHOUSE = test_warehouse
-    """
-        ),
+            CREATE STREAMLIT IF NOT EXISTS {STREAMLIT_NAME}
+            MAIN_FILE = 'streamlit_app.py'
+            QUERY_WAREHOUSE = test_warehouse
+            """
+        ).strip(),
         "ALTER streamlit test_streamlit CHECKOUT",
-        _put_query("app.py", root_path),
+        _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*.py", f"{root_path}/pages"),
         f"select system$get_snowsight_host()",
@@ -434,14 +438,13 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
     assert ctx.get_queries() == [
         dedent(
             f"""
-    CREATE OR REPLACE STREAMLIT {STREAMLIT_NAME}
-
-    MAIN_FILE = 'app.py'
-    QUERY_WAREHOUSE = test_warehouse
-    """
-        ),
+            CREATE OR REPLACE STREAMLIT {STREAMLIT_NAME}
+            MAIN_FILE = 'streamlit_app.py'
+            QUERY_WAREHOUSE = test_warehouse
+            """
+        ).strip(),
         "ALTER streamlit test_streamlit CHECKOUT",
-        _put_query("app.py", root_path),
+        _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*.py", f"{root_path}/pages"),
         f"select system$get_snowsight_host()",
@@ -454,7 +457,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
     "opts",
     [
         ("pages_dir", "foo/bar"),
-        ("environment_file", "foo.yml"),
+        ("env_file", "foo.yml"),
     ],
 )
 @mock.patch("snowflake.connector.connect")

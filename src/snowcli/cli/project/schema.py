@@ -105,9 +105,10 @@ streamlit_schema = RelaxedMap(
         "name": Str(),
         "stage": Str(),
         "query_warehouse": Str(),
-        Optional("file", default="app.py"): FilePath(),
-        Optional("environment_file"): FilePath(),
+        Optional("main_file", default="streamlit_app.py"): FilePath(),
+        Optional("env_file"): FilePath(),
         Optional("pages_dir"): FilePath(),
+        Optional("additional_source_files"): Seq(FilePath()),
     }
 )
 

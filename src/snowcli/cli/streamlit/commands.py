@@ -5,6 +5,7 @@ from typing import Optional
 import click
 import typer
 from click import ClickException
+from snowcli.cli.common.cli_global_context import cli_context_manager
 from snowcli.cli.common.decorators import (
     global_options_with_connection,
     with_experimental_behaviour,
@@ -100,7 +101,7 @@ def streamlit_deploy(
     if not streamlit:
         return MessageResult("No streamlit were specified in project definition.")
 
-    environment_file = streamlit.get("environment_file", None)
+    environment_file = streamlit.get("env_file", None)
     if environment_file and not Path(environment_file).exists():
         raise ClickException(f"Provided file {environment_file} does not exist")
     elif environment_file is None:
@@ -117,9 +118,10 @@ def streamlit_deploy(
         environment_file=Path(environment_file),
         pages_dir=Path(pages_dir),
         stage_name=streamlit["stage"],
-        main_file=Path(streamlit["file"]),
+        main_file=Path(streamlit["main_file"]),
         replace=replace,
         query_warehouse=streamlit["query_warehouse"],
+        additional_source_files=streamlit.get("additional_source_files"),
         **options,
     )
 
