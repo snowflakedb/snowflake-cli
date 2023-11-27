@@ -9,7 +9,7 @@ def test_query_parameter(runner, snowflake_session):
     result = runner.invoke_with_connection_json(["sql", "-q", "select pi()"])
 
     assert result.exit_code == 0
-    assert _round_values(result.json[0]) == [{"PI()": 3.14}]
+    assert _round_values(result.json) == [{"PI()": 3.14}]
 
 
 @pytest.mark.integration
@@ -66,8 +66,9 @@ def _round_values_for_multi_queries(results):
     ],
 )
 def test_execute_adds_failing_query_to_output(input_, query, runner):
-
-    result = runner.invoke_with_connection(["sql", "-q", input_], catch_exceptions=True)
+    result = runner.invoke_with_connection_json(
+        ["sql", "-q", input_], catch_exceptions=True
+    )
     assert query in result.output
 
 
