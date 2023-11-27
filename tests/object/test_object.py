@@ -42,6 +42,9 @@ def test_show(
 TEST_OBJECTS = [
     ("compute-pool", "compute-pool-example"),
     ("network-rule", "network-rule-example"),
+    ("integration", "integration"),
+    ("job", "job"),
+    ("network-rule", "network rule"),
     ("database", "database-example"),
     ("function", "function-example"),
     ("job", "job-example"),

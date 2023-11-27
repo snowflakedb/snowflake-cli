@@ -35,7 +35,43 @@
   
   '''
 # ---
+# name: test_describe[integration-integration]
+  '''
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
+  
+  '''
+# ---
 # name: test_describe[job-job-example]
+  '''
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
+  
+  '''
+# ---
+# name: test_describe[job-job]
+  '''
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
+  
+  '''
+# ---
+# name: test_describe[network-rule-network rule]
   '''
   SELECT A MOCK QUERY
   +-----------------------------+
@@ -248,6 +284,17 @@
   
   '''
 # ---
+# name: test_drop[integration-integration]
+  '''
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | i      |
+  +--------+
+  
+  '''
+# ---
 # name: test_drop[job-job-example]
   '''
   SELECT A MOCK QUERY
@@ -255,6 +302,28 @@
   | status |
   |--------|
   | j      |
+  +--------+
+  
+  '''
+# ---
+# name: test_drop[job-job]
+  '''
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | j      |
+  +--------+
+  
+  '''
+# ---
+# name: test_drop[network-rule-network rule]
+  '''
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | n      |
   +--------+
   
   '''
