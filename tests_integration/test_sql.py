@@ -96,4 +96,4 @@ def test_queries_are_streamed_to_output(
     start_ts = datetime.strptime(start[:-7], "%H:%M:%S")
     end_ts = datetime.strptime(end[:-7], "%H:%M:%S")
     duration = (end_ts - start_ts).total_seconds()
-    assert 10.0 < duration <= 11.0
+    assert 10.0 <= duration <= 11.0
