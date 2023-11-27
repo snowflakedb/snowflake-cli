@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from time import sleep
 
 import pytest
 
@@ -11,6 +12,8 @@ from tests_integration.testing_utils.snowpark_utils import (
     TestType,
 )
 
+STAGE_NAME = "dev_deployment"
+
 
 @pytest.mark.integration
 def test_snowpark_procedure_flow(
@@ -19,7 +22,7 @@ def test_snowpark_procedure_flow(
     _test_steps.assert_no_procedures_in_snowflake()
     _test_steps.assert_no_functions_in_snowflake()
 
-    _test_steps.assert_that_no_files_are_staged_in_test_db()
+    _test_steps.assert_that_no_files_on_stage(stage_name=STAGE_NAME)
 
     _test_steps.object_show_should_return_no_data(object_type="function")
     _test_steps.object_show_should_return_no_data(object_type="procedure")
@@ -34,12 +37,12 @@ def test_snowpark_procedure_flow(
 
         alter_snowflake_yml(
             project_file,
-            parameter_path="procedures.0.name",
+            parameter_path="snowpark.procedures.0.name",
             value=procedure_name,
         )
         alter_snowflake_yml(
             project_file,
-            parameter_path="functions.0.name",
+            parameter_path="snowpark.functions.0.name",
             value=function_name,
         )
 
@@ -51,7 +54,7 @@ def test_snowpark_procedure_flow(
                 "status": "created",
                 "type": "procedure",
             },
-            {"object": "test()", "status": "created", "type": "procedure"},
+            {"object": "test_procedure()", "status": "created", "type": "procedure"},
             {
                 "object": f"{function_name}(name string)",
                 "status": "created",
@@ -67,10 +70,11 @@ def test_snowpark_procedure_flow(
         )
 
         expected_files = [
-            f"deployments/{procedure_name}_name_string/app.zip",
-            f"deployments/{function_name}_name_string/app.zip",
+            f"{STAGE_NAME}/my_snowpark_project/app.zip",
         ]
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(*expected_files)
+        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+            *expected_files, stage_name=STAGE_NAME
+        )
 
         # Listing procedures or functions shows created objects
         _test_steps.object_show_includes_given_identifiers(
@@ -101,7 +105,7 @@ def test_snowpark_procedure_flow(
         _test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier=f"{procedure_name}('foo')",
-            expected_value="Hello foo",
+            expected_value="Hello foo!",
         )
 
         _test_steps.snowpark_execute_should_return_expected_value(
@@ -118,12 +122,12 @@ def test_snowpark_procedure_flow(
         # Apply changes to project objects
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
-            parameter_path="procedures.0.returns",
+            parameter_path="snowpark.procedures.0.returns",
             value="variant",
         )
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
-            parameter_path="functions.0.returns",
+            parameter_path="snowpark.functions.0.returns",
             value="variant",
         )
 
@@ -136,7 +140,11 @@ def test_snowpark_procedure_flow(
                 "status": "definition updated",
                 "type": "procedure",
             },
-            {"object": "test()", "status": "packages updated", "type": "procedure"},
+            {
+                "object": "test_procedure()",
+                "status": "packages updated",
+                "type": "procedure",
+            },
             {
                 "object": f"{function_name}(name string)",
                 "status": "definition updated",
@@ -153,7 +161,9 @@ def test_snowpark_procedure_flow(
         )
 
         # Same file should be present
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(*expected_files)
+        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+            *expected_files, stage_name=STAGE_NAME
+        )
 
         # Listing procedures or functions shows updated objects
         _test_steps.object_show_includes_given_identifiers(
@@ -169,7 +179,7 @@ def test_snowpark_procedure_flow(
         _test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier=f"{procedure_name}('foo')",
-            expected_value='"Hello foo"',
+            expected_value='"Hello foo!"',
         )
 
         _test_steps.snowpark_execute_should_return_expected_value(
@@ -189,7 +199,9 @@ def test_snowpark_procedure_flow(
         _test_steps.object_show_should_return_no_data(object_type="function")
         _test_steps.object_show_should_return_no_data(object_type="procedure")
 
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(*expected_files)
+        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+            *expected_files, stage_name=STAGE_NAME
+        )
 
 
 @pytest.fixture
@@ -212,7 +224,7 @@ def _test_setup(
         test_type=TestType.PROCEDURE,
     )
     yield snowpark_procedure_test_setup
-    snowpark_procedure_test_setup.clean_after_test_case()
+    snowpark_procedure_test_setup.clean_after_test_case(stage_name=STAGE_NAME)
 
 
 @pytest.fixture

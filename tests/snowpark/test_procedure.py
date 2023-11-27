@@ -1,11 +1,11 @@
 import json
+from pathlib import Path
 from textwrap import dedent
+from unittest import mock
 from unittest.mock import call
 
 from snowcli.cli.constants import ObjectType
 from snowflake.connector import ProgrammingError
-
-from tests.testing_utils.fixtures import *
 
 
 def test_deploy_function_no_procedure(runner, project_directory):
@@ -17,7 +17,7 @@ def test_deploy_function_no_procedure(runner, project_directory):
             ],
         )
     assert result.exit_code == 1
-    assert "No procedures or functions were specified in project" in result.output
+    assert "No snowpark project definition found" in result.output
 
 
 @mock.patch("snowflake.connector.connect")
@@ -34,7 +34,7 @@ def test_deploy_procedure(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory("snowpark_procedures"):
+    with project_directory("snowpark_procedures") as tmp:
         result = runner.invoke(
             [
                 "snowpark",
@@ -50,30 +50,27 @@ def test_deploy_procedure(
         ]
     )
     assert ctx.get_queries() == [
-        "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://app.zip @deployments/procedurename_name_string"
-        f" auto_compress=false parallel=4 overwrite=True",
+        "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
+        f"put file://{Path(tmp).resolve()}/app.zip @dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
             create or replace procedure procedureName(name string)
             returns string
             language python
             runtime_version=3.8
-            imports=('@deployments/procedurename_name_string/app.zip')
-            handler='app.hello'
+            imports=('@dev_deployment/my_snowpark_project/app.zip')
+            handler='hello'
             packages=()
             """
         ),
-        f"put file://app.zip @deployments/test"
-        f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
             create or replace procedure test()
             returns string
             language python
             runtime_version=3.8
-            imports=('@deployments/test/app.zip')
-            handler='app.test'
+            imports=('@dev_deployment/my_snowpark_project/app.zip')
+            handler='test'
             packages=()
             """
         ),
@@ -81,7 +78,9 @@ def test_deploy_procedure(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.commands._alter_procedure_artifact")
+@mock.patch(
+    "snowcli.cli.snowpark.commands._alter_procedure_artifact_with_coverage_wrapper"
+)
 @mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
 def test_deploy_procedure_with_coverage(
     mock_describe,
@@ -99,19 +98,7 @@ def test_deploy_procedure_with_coverage(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory(
-        "snowpark_procedures",
-        {
-            "procedures": [
-                {
-                    "name": "foo",
-                    "signature": [{"name": "name", "type": "string"}],
-                    "handler": "foo.func",
-                    "returns": "variant",
-                }
-            ]
-        },
-    ):
+    with project_directory("snowpark_procedures_coverage") as tmp:
         result = runner.invoke(["snowpark", "deploy", "--install-coverage-wrapper"])
 
     assert result.exit_code == 0, result.output
@@ -119,16 +106,15 @@ def test_deploy_procedure_with_coverage(
         [call(object_type=str(ObjectType.PROCEDURE), name="foo(string)")]
     )
     assert ctx.get_queries() == [
-        "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://app.zip @deployments/foo_name_string"
-        f" auto_compress=false parallel=4 overwrite=True",
+        "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
+        f"put file://{Path(tmp).resolve()}/app.zip @dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
             create or replace procedure foo(name string)
             returns variant
             language python
             runtime_version=3.8
-            imports=('@deployments/foo_name_string/app.zip')
+            imports=('@dev_deployment/my_snowpark_project/app.zip')
             handler='snowpark_coverage.measure_coverage'
             packages=('coverage')
             """
@@ -194,7 +180,7 @@ def test_deploy_procedure_replace_nothing_to_update(
         mock_cursor(
             [
                 ("packages", "[]"),
-                ("handler", "app.hello"),
+                ("handler", "hello"),
                 ("returns", "string"),
             ],
             columns=["key", "value"],
@@ -202,7 +188,7 @@ def test_deploy_procedure_replace_nothing_to_update(
         mock_cursor(
             [
                 ("packages", "[]"),
-                ("handler", "app.test"),
+                ("handler", "test"),
                 ("returns", "string"),
             ],
             columns=["key", "value"],
@@ -239,7 +225,7 @@ def test_deploy_procedure_replace_updates_single_object(
         mock_cursor(
             [
                 ("packages", "[]"),
-                ("handler", "app.hello"),
+                ("handler", "hello"),
                 ("returns", "string"),
             ],
             columns=["key", "value"],
@@ -247,7 +233,7 @@ def test_deploy_procedure_replace_updates_single_object(
         mock_cursor(
             [
                 ("packages", "[]"),
-                ("handler", "app.foo"),
+                ("handler", "foo"),
                 ("returns", "string"),
             ],
             columns=["key", "value"],
@@ -284,7 +270,7 @@ def test_deploy_procedure_replace_creates_missing_object(
         mock_cursor(
             [
                 ("packages", "[]"),
-                ("handler", "app.hello"),
+                ("handler", "hello"),
                 ("returns", "string"),
             ],
             columns=["key", "value"],

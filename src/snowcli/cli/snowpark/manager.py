@@ -34,7 +34,7 @@ class FunctionManager(SnowparkObjectManager):
             returns {return_type}
             language python
             runtime_version=3.8
-            imports=('@{artifact_file}')
+            imports=('{artifact_file}')
             handler='{handler}'
             packages=({packages_list})
         """
@@ -66,7 +66,7 @@ class ProcedureManager(SnowparkObjectManager):
             returns {return_type}
             language python
             runtime_version=3.8
-            imports=('@{artifact_file}')
+            imports=('{artifact_file}')
             handler='{handler}'
             packages=({packages_list})
         """

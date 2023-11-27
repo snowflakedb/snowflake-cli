@@ -30,14 +30,14 @@ def test_nativeapp_init_run_without_modifications(
     temporary_working_directory,
 ):
     project_name = "myapp"
-    result = runner.invoke_with_config(
+    result = runner.invoke_json(
         ["app", "init", project_name],
         env=TEST_ENV,
     )
     assert result.exit_code == 0
 
     with pushd(Path(os.getcwd(), project_name)):
-        result = runner.invoke_integration(
+        result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=TEST_ENV,
         )
@@ -66,7 +66,7 @@ def test_nativeapp_init_run_without_modifications(
 
         finally:
             # make sure we always delete the app
-            result = runner.invoke_integration(
+            result = runner.invoke_with_connection_json(
                 ["app", "teardown"],
                 env=TEST_ENV,
             )
@@ -83,7 +83,7 @@ def test_nativeapp_run_existing(
     project_name = "integration"
     dir = project_definition_files[0].parent
     with pushd(dir):
-        result = runner.invoke_integration(
+        result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=TEST_ENV,
         )
@@ -130,7 +130,7 @@ def test_nativeapp_run_existing(
             )
         finally:
             # make sure we always delete the app
-            result = runner.invoke_integration(
+            result = runner.invoke_with_connection_json(
                 ["app", "teardown"],
                 env=TEST_ENV,
             )

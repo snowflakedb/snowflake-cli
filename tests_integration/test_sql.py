@@ -3,7 +3,7 @@ import pytest
 
 @pytest.mark.integration
 def test_query_parameter(runner, snowflake_session):
-    result = runner.invoke_integration(["sql", "-q", "select pi()"])
+    result = runner.invoke_with_connection_json(["sql", "-q", "select pi()"])
 
     assert result.exit_code == 0
     assert _round_values(result.json) == [{"PI()": 3.14}]
@@ -11,7 +11,7 @@ def test_query_parameter(runner, snowflake_session):
 
 @pytest.mark.integration
 def test_multi_queries_from_file(runner, snowflake_session, test_root_path):
-    result = runner.invoke_integration(
+    result = runner.invoke_with_connection_json(
         [
             "sql",
             "-f",

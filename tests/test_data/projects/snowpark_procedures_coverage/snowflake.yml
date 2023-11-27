@@ -4,13 +4,9 @@ snowpark:
   stage_name: "dev_deployment"
   src: "app/"
   procedures:
-    - name: procedureName
-      handler: "hello"
+    - name: foo
+      handler: "foo.func"
       signature:
         - name: "name"
           type: "string"
-      returns: string
-    - name: test
-      handler: "test"
-      signature: ""
-      returns: string
+      returns: variant

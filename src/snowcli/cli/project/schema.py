@@ -111,12 +111,21 @@ streamlit_schema = RelaxedMap(
     }
 )
 
+snowpark_schema = RelaxedMap(
+    {
+        "project_name": Str(),
+        "stage_name": Str(),
+        "src": Str(),
+        Optional("functions"): Seq(function_schema),
+        Optional("procedures"): Seq(procedure_schema),
+    }
+)
+
 project_schema = RelaxedMap(
     {
         "definition_version": Int(),
         Optional("native_app"): native_app_schema,
-        Optional("functions"): Seq(function_schema),
-        Optional("procedures"): Seq(procedure_schema),
+        Optional("snowpark"): snowpark_schema,
         Optional("streamlit"): streamlit_schema,
     }
 )

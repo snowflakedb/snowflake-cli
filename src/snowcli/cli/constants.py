@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 
 DEPLOYMENT_STAGE = "deployments"
 
@@ -36,3 +37,5 @@ class ObjectType(Enum):
 
 
 OBJECT_TO_NAMES = {o.value.cli_name: o.value for o in ObjectType}
+
+PACKAGES_DIR = Path(".packages")

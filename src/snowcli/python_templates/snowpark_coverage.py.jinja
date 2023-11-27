@@ -21,6 +21,6 @@ def measure_coverage(*args,**kwargs):
             cov.stop()
             cov.save()
             session = args[0]
-            session.file.put(coverage_file,f'@{{coverage_reports_stage}}/{{coverage_reports_stage_path}}',auto_compress=False)
+            session.file.put(coverage_file, '{{coverage_reports_stage_path}}',auto_compress=False)
         except Exception:
             pass

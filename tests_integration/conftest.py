@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import json
 import shutil
+import sys
 import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -75,28 +76,16 @@ class SnowCLIRunner(CliRunner):
         kw.update(catch_exceptions=False)
         return super().invoke(self.app, *a, **kw)
 
-    def invoke_with_config(self, *args, **kwargs) -> CommandResult:
-        result = self._invoke(
-            ["--config-file", self._test_config_path, *args[0]],
-            **kwargs,
-        )
-        return CommandResult(result.exit_code, output=result.output)
-
-    def invoke_integration(
-        self, *args, connection: str = "integration", **kwargs
-    ) -> CommandResult:
+    def invoke(self, args, **kwargs) -> CommandResult:
         result = self._invoke(
             [
                 "--config-file",
                 self._test_config_path,
-                *args[0],
-                "--format",
-                "JSON",
-                "-c",
-                connection,
+                *args,
             ],
             **kwargs,
         )
+
         if result.output == "" or result.output.strip() == "Done":
             return CommandResult(result.exit_code, json=[])
         try:
@@ -104,20 +93,18 @@ class SnowCLIRunner(CliRunner):
         except JSONDecodeError:
             return CommandResult(result.exit_code, output=result.output)
 
-    def invoke_integration_without_format(
+    def invoke_json(self, args, **kwargs) -> CommandResult:
+        return self.invoke([*args, "--format", "JSON"], **kwargs)
+
+    def invoke_with_connection_json(
+        self, args, connection: str = "integration", **kwargs
+    ) -> CommandResult:
+        return self.invoke_json([*args, "-c", connection], **kwargs)
+
+    def invoke_with_connection(
         self, *args, connection: str = "integration", **kwargs
     ) -> CommandResult:
-        result = self._invoke(
-            [
-                "--config-file",
-                self._test_config_path,
-                *args[0],
-                "-c",
-                connection,
-            ],
-            **kwargs,
-        )
-        return CommandResult(result.exit_code, output=result.output)
+        return self.invoke([*args, "-c", connection])
 
 
 @pytest.fixture

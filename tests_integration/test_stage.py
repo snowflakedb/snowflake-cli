@@ -15,13 +15,15 @@ from tests_integration.test_utils import (
 def test_stage(runner, snowflake_session, test_database, tmp_path):
     stage_name = "test_stage"
 
-    result = runner.invoke_integration(["object", "stage", "create", stage_name])
+    result = runner.invoke_with_connection_json(
+        ["object", "stage", "create", stage_name]
+    )
     assert contains_row_with(
         result.json,
         {"status": f"Stage area {stage_name.upper()} successfully created."},
     )
 
-    result = runner.invoke_integration(["object", "list", "stage"])
+    result = runner.invoke_with_connection_json(["object", "list", "stage"])
     expect = snowflake_session.execute_string(f"show stages like '{stage_name}'")
     assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
 
@@ -30,7 +32,7 @@ def test_stage(runner, snowflake_session, test_database, tmp_path):
         file_path = os.path.join(td, filename)
         Path(file_path).touch()
 
-        result = runner.invoke_integration(
+        result = runner.invoke_with_connection_json(
             ["object", "stage", "put", file_path, stage_name]
         )
         assert contains_row_with(
@@ -38,17 +40,17 @@ def test_stage(runner, snowflake_session, test_database, tmp_path):
             {"source": filename, "target": filename, "status": "UPLOADED"},
         )
 
-    result = runner.invoke_integration(["object", "stage", "list", stage_name])
+    result = runner.invoke_with_connection_json(["object", "stage", "list", stage_name])
     expect = snowflake_session.execute_string(f"list @{stage_name}")
     assert result.json == row_from_snowflake_session(expect)
 
-    result = runner.invoke_integration(
+    result = runner.invoke_with_connection_json(
         ["object", "stage", "get", stage_name, tmp_path.parent.__str__()]
     )
     assert contains_row_with(result.json, {"file": filename, "status": "DOWNLOADED"})
     assert os.path.isfile(tmp_path.parent / filename)
 
-    result = runner.invoke_integration(
+    result = runner.invoke_with_connection_json(
         ["object", "stage", "remove", stage_name, f"/{filename}"]
     )
     assert contains_row_with(
@@ -60,7 +62,7 @@ def test_stage(runner, snowflake_session, test_database, tmp_path):
         row_from_snowflake_session(expect), {"name": f"{stage_name}/{filename}"}
     )
 
-    result = runner.invoke_integration(["object", "drop", "stage", stage_name])
+    result = runner.invoke_with_connection_json(["object", "drop", "stage", stage_name])
     assert contains_row_with(
         result.json,
         {"status": f"{stage_name.upper()} successfully dropped."},
