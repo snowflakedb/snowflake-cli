@@ -295,7 +295,6 @@ def generate_snowpark_coverage_wrapper(
     proc_signature: str,
     handler_module: str,
     handler_function: str,
-    coverage_reports_stage: str,
     coverage_reports_stage_path: str,
 ):
     """Using a hardcoded template (python_templates/snowpark_coverage.py.jinja), substitutes variables
@@ -320,7 +319,6 @@ def generate_snowpark_coverage_wrapper(
             "proc_signature": proc_signature,
             "handler_module": handler_module,
             "handler_function": handler_function,
-            "coverage_reports_stage": coverage_reports_stage,
             "coverage_reports_stage_path": coverage_reports_stage_path,
         }
     )

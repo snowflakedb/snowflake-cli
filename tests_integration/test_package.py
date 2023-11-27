@@ -22,7 +22,7 @@ class TestPackage:
             file_path = os.path.join(tmp_dir, file_name)
             Path(file_path).touch()
 
-            result = runner.invoke_integration(
+            result = runner.invoke_with_connection_json(
                 [
                     "snowpark",
                     "package",
@@ -46,7 +46,7 @@ class TestPackage:
 
     @pytest.mark.integration
     def test_package_create_with_non_anaconda_package(self, directory_for_test, runner):
-        result = runner.invoke_integration(
+        result = runner.invoke_with_connection_json(
             ["snowpark", "package", "create", "PyRTF3", "-y"]
         )
 
@@ -58,7 +58,9 @@ class TestPackage:
     def test_package_create_with_non_anaconda_package_without_install(
         self, directory_for_test, runner
     ):
-        result = runner.invoke_integration(["snowpark", "package", "create", "PyRTF3"])
+        result = runner.invoke_with_connection_json(
+            ["snowpark", "package", "create", "PyRTF3"]
+        )
 
         assert_that_result_is_successful(result)
         assert result.json == {

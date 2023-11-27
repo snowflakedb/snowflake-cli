@@ -4,6 +4,7 @@ import json
 import os
 import re
 from enum import Enum
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from snowflake.connector import SnowflakeConnection
@@ -70,28 +71,20 @@ class SnowparkTestSetup:
             f"SHOW STAGES IN DATABASE {self.snowflake_session.database}"
         )
 
-    def query_files_uploaded_in_this_test_case(self) -> List[Dict[str, Any]]:
+    def query_files_uploaded_in_this_test_case(
+        self, stage_name: str
+    ) -> List[Dict[str, Any]]:
         stages_in_database = [
             stage["name"].lower() for stage in self.query_stages_in_database()
         ]
-        if "deployments" in stages_in_database:
-            all_staged_files = self.sql_test_helper.execute_single_sql(
-                f"LIST @deployments"
-            )
-            filed_uploaded_in_this_test_case = [
-                staged_file
-                for staged_file in all_staged_files
-                if staged_file["name"]
-                .lower()
-                .startswith(f"deployments/{self.object_name_prefix.lower()}")
-            ]
-            return filed_uploaded_in_this_test_case
+        if stage_name in stages_in_database:
+            return self.sql_test_helper.execute_single_sql(f"LIST @{stage_name}")
         else:
             return []
 
-    def clean_after_test_case(self) -> None:
+    def clean_after_test_case(self, stage_name: str) -> None:
         self.delete_entities_created_in_this_test_case()
-        self.delete_files_uploaded_in_this_test_case()
+        self.delete_files_uploaded_in_this_test_case(stage_name=stage_name)
 
     def delete_entities_created_in_this_test_case(self) -> None:
         entities_to_delete = self.query_entities_created_in_this_test_case()
@@ -101,8 +94,10 @@ class SnowparkTestSetup:
                 f"DROP {self.test_type.value.upper()} {name_with_args}"
             )
 
-    def delete_files_uploaded_in_this_test_case(self) -> None:
-        files_to_remove = self.query_files_uploaded_in_this_test_case()
+    def delete_files_uploaded_in_this_test_case(self, stage_name: str) -> None:
+        files_to_remove = self.query_files_uploaded_in_this_test_case(
+            stage_name=stage_name
+        )
         for file_to_remove in files_to_remove:
             file_path_at_stage = file_to_remove["name"]
             self.sql_test_helper.execute_single_sql(f"REMOVE @{file_path_at_stage}")
@@ -125,7 +120,7 @@ class SnowparkTestSteps:
         self.test_type = test_type
 
     def snowpark_list_should_return_no_data(self) -> None:
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "snowpark",
                 self.test_type.value,
@@ -139,7 +134,7 @@ class SnowparkTestSteps:
     def snowpark_list_should_return_entity_at_first_place(
         self, entity_name: str, arguments: str, result_type: str
     ) -> None:
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "snowpark",
                 self.test_type.value,
@@ -164,7 +159,7 @@ class SnowparkTestSteps:
         self, entity_name: str, arguments: str, expected_value: Any
     ) -> None:
         identifier = entity_name + arguments
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "snowpark",
                 self.test_type.value,
@@ -190,7 +185,7 @@ class SnowparkTestSteps:
         signature: Optional[str] = None,
         returns: Optional[str] = None,
     ) -> None:
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "snowpark",
                 self.test_type.value,
@@ -212,7 +207,7 @@ class SnowparkTestSteps:
     def snowpark_init_should_initialize_files_with_default_content(
         self,
     ) -> None:
-        result = self._setup.runner.invoke_with_config(
+        result = self._setup.runner.invoke_json(
             ["snowpark", self.test_type.value, "init", ".", "--format", "JSON"]
         )
         file_list = self.dir_contents[self.test_type.value]
@@ -245,7 +240,7 @@ class SnowparkTestSteps:
 
     def snowpark_package_should_zip_files(self) -> None:
         value_to_cmd = {"function": "build", "procedure": "package"}
-        result = self._setup.runner.invoke_with_config(
+        result = self._setup.runner.invoke_json(
             [
                 "snowpark",
                 self.test_type.value,
@@ -283,7 +278,7 @@ class SnowparkTestSteps:
         if additional_arguments:
             arguments.append(additional_arguments)
 
-        result = self._setup.runner.invoke_integration(arguments)
+        result = self._setup.runner.invoke_with_connection_json(arguments)
 
         assert_that_result_is_successful(result)
         return entity_name
@@ -297,7 +292,7 @@ class SnowparkTestSteps:
             replacement='return "Hello Snowflakes!"',
         )
 
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "snowpark",
                 self.test_type.value,
@@ -325,7 +320,7 @@ class SnowparkTestSteps:
             to_replace='return "Hello Snowflakes!"',
             replacement="return 1",
         )
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "snowpark",
                 self.test_type.value,
@@ -344,7 +339,7 @@ class SnowparkTestSteps:
         entity_name: str,
         arguments: str,
     ) -> None:
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "snowpark",
                 self.test_type.value,
@@ -357,7 +352,7 @@ class SnowparkTestSteps:
     def procedure_coverage_should_return_report_when_files_are_present_on_stage(
         self, identifier: str
     ):
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "snowpark",
                 "procedure",
@@ -379,7 +374,7 @@ class SnowparkTestSteps:
         assert "excluded_lines" in coverage["totals"].keys()
 
     def coverage_clear_should_execute_successfully(self, identifier: str):
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "snowpark",
                 "procedure",
@@ -453,10 +448,19 @@ class SnowparkProcedureTestSteps:
     def __init__(self, setup: SnowparkTestSetup, test_type: TestType):
         self._setup = setup
         self.test_type = test_type
-        self.file_list = [".gitignore", "app.py", "snowflake.yml", "requirements.txt"]
+        self.file_dir_list = {
+            Path("app"),
+            Path("requirements.txt"),
+            Path(".gitignore"),
+            Path("snowflake.yml"),
+            Path("app/functions.py"),
+            Path("app/__init__.py"),
+            Path("app/common.py"),
+            Path("app/procedures.py"),
+        }
 
     def object_show_should_return_no_data(self, object_type: str) -> None:
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "object",
                 "list",
@@ -472,7 +476,7 @@ class SnowparkProcedureTestSteps:
         object_type: str,
         identifier: Tuple[str, str],
     ) -> None:
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "object",
                 "list",
@@ -498,7 +502,7 @@ class SnowparkProcedureTestSteps:
     def snowpark_execute_should_return_expected_value(
         self, object_type: str, identifier: str, expected_value: Any
     ) -> None:
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "snowpark",
                 "execute",
@@ -526,7 +530,7 @@ class SnowparkProcedureTestSteps:
         signature: str,
         returns: str,
     ) -> None:
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "object",
                 "describe",
@@ -548,22 +552,20 @@ class SnowparkProcedureTestSteps:
     def snowpark_init_should_initialize_files_with_default_content(
         self,
     ) -> None:
-        result = self._setup.runner.invoke_with_config(
+        result = self._setup.runner.invoke_json(
             ["snowpark", "init", ".", "--format", "JSON"]
         )
         assert_that_result_is_successful(result)
-        assert result.output is not None
-        assert json.loads(result.output) == {
-            "message": "Initialized the new project in ./"
-        }
+        assert result.json == {"message": "Initialized the new project in ./"}
 
-        assert_that_current_working_directory_contains_only_following_files(
-            *self.file_list
-        )
+        current_files = set(Path(".").glob("**/*"))
+        assert current_files == self.file_dir_list
 
-        for file in self.file_list:
+        for file in current_files:
+            if not file.is_file():
+                continue
             assert_that_file_content_is_equal_to_snapshot(
-                actual_file_path=file, snapshot=self._setup.snapshot(name=file)
+                actual_file_path=file, snapshot=self._setup.snapshot(name=file.name)
             )
 
     def add_parameters_to_procedure(self, parameters: str):
@@ -582,7 +584,8 @@ class SnowparkProcedureTestSteps:
             assert "coverage\n" in file_contents
 
     def snowpark_package_should_zip_files(self) -> None:
-        result = self._setup.runner.invoke_with_config(
+        current_files = set(Path(".").glob("**/*"))
+        result = self._setup.runner.invoke_json(
             [
                 "snowpark",
                 "build",
@@ -592,11 +595,15 @@ class SnowparkProcedureTestSteps:
                 "JSON",
             ]
         )
-        assert_that_result_is_successful_and_done_is_on_output(result)
+        assert result.exit_code == 0, result.output
+        assert result.json, result.output
+        assert "message" in result.json
+        assert "Build done. Artefact path:" in result.json["message"]  # type: ignore
+
         assert_that_current_working_directory_contains_only_following_files(
-            *self.file_list,
-            "app.zip",
-            "requirements.snowflake.txt",
+            *current_files,
+            Path("app.zip"),
+            Path("requirements.snowflake.txt"),
         )
 
     def snowpark_deploy_with_coverage_wrapper_should_finish_successfully(
@@ -613,7 +620,7 @@ class SnowparkProcedureTestSteps:
         if additional_arguments:
             arguments.append(additional_arguments)
 
-        result = self._setup.runner.invoke_integration(arguments)
+        result = self._setup.runner.invoke_with_connection_json(arguments)
         return result
 
     def snowpark_deploy_should_not_replace_if_the_signature_does_not_change(
@@ -625,7 +632,7 @@ class SnowparkProcedureTestSteps:
             replacement='return "Hello Snowflakes!"',
         )
 
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "snowpark",
                 "deploy",
@@ -650,7 +657,7 @@ class SnowparkProcedureTestSteps:
             to_replace='return "Hello Snowflakes!"',
             replacement="return 1",
         )
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "snowpark",
                 "deploy",
@@ -670,7 +677,7 @@ class SnowparkProcedureTestSteps:
     def object_drop_should_finish_successfully(
         self, object_type: str, identifier: str
     ) -> None:
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "object",
                 "drop",
@@ -683,7 +690,7 @@ class SnowparkProcedureTestSteps:
     def procedure_coverage_should_return_report_when_files_are_present_on_stage(
         self, identifier: str
     ):
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "snowpark",
                 "coverage",
@@ -703,13 +710,12 @@ class SnowparkProcedureTestSteps:
         assert "percent_covered" in coverage["totals"].keys()
         assert "excluded_lines" in coverage["totals"].keys()
 
-    def coverage_clear_should_execute_successfully(self, identifier: str):
-        result = self._setup.runner.invoke_integration(
+    def coverage_clear_should_execute_successfully(self):
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "snowpark",
                 "coverage",
                 "clear",
-                identifier,
             ]
         )
 
@@ -755,30 +761,36 @@ class SnowparkProcedureTestSteps:
             adjusted_expected_full_function_signatures
         )
 
-    def assert_that_no_files_are_staged_in_test_db(self) -> None:
-        self.assert_that_only_these_files_are_staged_in_test_db()
+    def assert_that_no_files_on_stage(self, stage_name: str) -> None:
+        self.assert_that_only_these_files_are_staged_in_test_db(stage_name=stage_name)
 
     def assert_that_only_these_files_are_staged_in_test_db(
-        self, *expected_file_paths: str
+        self,
+        *expected_file_paths: str,
+        stage_name: str,
     ) -> None:
-        f = self.get_actual_files_staged_in_db()
-        assert set(self.get_actual_files_staged_in_db()) == set(expected_file_paths)
+        assert set(self.get_actual_files_staged_in_db(stage_name)) == set(
+            expected_file_paths
+        )
 
     def assert_that_only_app_and_coverage_file_are_staged_in_test_db(
-        self, path_beggining: str
+        self, stage_path: str, artifact_name: str, stage_name: str
     ):
-        coverage_regex = re.compile(
-            path_beggining + "/coverage/[0-9]{8}-[0-9]{6}.coverage"
-        )
-        app_name = path_beggining + "/app.zip"
+        coverage_regex = re.compile(stage_path + "/coverage/[0-9]{8}-[0-9]{6}.coverage")
 
-        assert app_name in (actual_file_paths := self.get_actual_files_staged_in_db())
+        assert f"{stage_path}/{artifact_name}" in (
+            actual_file_paths := self.get_actual_files_staged_in_db(
+                stage_name=stage_name
+            )
+        )
         assert any(coverage_regex.match(file) for file in actual_file_paths)
 
-    def get_actual_files_staged_in_db(self):
+    def get_actual_files_staged_in_db(self, stage_name: str):
         return [
             staged_file["name"]
-            for staged_file in self._setup.query_files_uploaded_in_this_test_case()
+            for staged_file in self._setup.query_files_uploaded_in_this_test_case(
+                stage_name=stage_name
+            )
         ]
 
     @staticmethod

@@ -1,10 +1,9 @@
 import json
-from tempfile import TemporaryDirectory
+from pathlib import Path
 from textwrap import dedent
+from unittest import mock
 
 from snowflake.connector import ProgrammingError
-
-from tests.testing_utils.fixtures import *
 
 
 @mock.patch("snowflake.connector.connect")
@@ -19,7 +18,7 @@ def test_deploy_function(
     mock_describe.side_effect = ProgrammingError("does not exist or not authorized")
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    with project_directory("snowpark_functions"):
+    with project_directory("snowpark_functions") as project_dir:
         result = runner.invoke(
             [
                 "snowpark",
@@ -30,8 +29,8 @@ def test_deploy_function(
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists deployments comment='deployments managed by snowcli'",
-        f"put file://app.zip @deployments/func1_a_string_b_variant"
+        "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
+        f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
@@ -39,7 +38,7 @@ def test_deploy_function(
             returns string
             language python
             runtime_version=3.8
-            imports=('@deployments/func1_a_string_b_variant/app.zip')
+            imports=('@dev_deployment/my_snowpark_project/app.zip')
             handler='app.func1_handler'
             packages=()
             """
@@ -61,7 +60,7 @@ def test_deploy_function_no_changes(
         ("returns", "string"),
     ]
 
-    queries, result = _deploy_function(
+    queries, result, project_dir = _deploy_function(
         rows,
         mock_connector,
         runner,
@@ -80,9 +79,9 @@ def test_deploy_function_no_changes(
         }
     ]
     assert queries == [
-        "create stage if not exists deployments comment='deployments managed by snowcli'",
+        "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
+        f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
         "describe function func1(string, variant)",
-        f"put file://app.zip @deployments/func1_a_string_b_variant auto_compress=false parallel=4 overwrite=True",
     ]
 
 
@@ -100,7 +99,7 @@ def test_deploy_function_needs_update_because_packages_changes(
         ("returns", "table(variant)"),
     ]
 
-    queries, result = _deploy_function(
+    queries, result, project_dir = _deploy_function(
         rows,
         mock_connector,
         runner,
@@ -119,16 +118,16 @@ def test_deploy_function_needs_update_because_packages_changes(
         }
     ]
     assert queries == [
-        "create stage if not exists deployments comment='deployments managed by snowcli'",
+        "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
+        f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
         "describe function func1(string, variant)",
-        f"put file://app.zip @deployments/func1_a_string_b_variant auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
             create or replace function func1(a string, b variant)
             returns string
             language python
             runtime_version=3.8
-            imports=('@deployments/func1_a_string_b_variant/app.zip')
+            imports=('@dev_deployment/my_snowpark_project/app.zip')
             handler='app.func1_handler'
             packages=('foo=1.2.3','bar>=3.0.0')
             """
@@ -150,7 +149,7 @@ def test_deploy_function_needs_update_because_handler_changes(
         ("returns", "table(variant)"),
     ]
 
-    queries, result = _deploy_function(
+    queries, result, project_dir = _deploy_function(
         rows,
         mock_connector,
         runner,
@@ -169,16 +168,17 @@ def test_deploy_function_needs_update_because_handler_changes(
         }
     ]
     assert queries == [
-        "create stage if not exists deployments comment='deployments managed by snowcli'",
+        "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
+        f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project"
+        f" auto_compress=false parallel=4 overwrite=True",
         "describe function func1(string, variant)",
-        f"put file://app.zip @deployments/func1_a_string_b_variant auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
             create or replace function func1(a string, b variant)
             returns string
             language python
             runtime_version=3.8
-            imports=('@deployments/func1_a_string_b_variant/app.zip')
+            imports=('@dev_deployment/my_snowpark_project/app.zip')
             handler='app.func1_handler'
             packages=('foo=1.2.3','bar>=3.0.0')
             """
@@ -228,4 +228,4 @@ def _deploy_function(
             ]
         )
     queries = ctx.get_queries()
-    return queries, result
+    return queries, result, temp_dir

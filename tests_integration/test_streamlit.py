@@ -22,10 +22,10 @@ def test_streamlit_deploy(
     streamlit_name = "test_streamlit_deploy_snowcli"
 
     with project_directory("streamlit"):
-        result = runner.invoke_integration(["streamlit", "deploy"])
+        result = runner.invoke_with_connection_json(["streamlit", "deploy"])
         assert result.exit_code == 0
 
-        result = runner.invoke_integration(["object", "list", "streamlit"])
+        result = runner.invoke_with_connection_json(["object", "list", "streamlit"])
         assert_that_result_is_successful(result)
 
         expect = snowflake_session.execute_string(
@@ -33,7 +33,7 @@ def test_streamlit_deploy(
         )
         assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
 
-        result = runner.invoke_integration(
+        result = runner.invoke_with_connection_json(
             ["object", "describe", "streamlit", streamlit_name]
         )
         expect = snowflake_session.execute_string(
@@ -41,13 +41,15 @@ def test_streamlit_deploy(
         )
         assert contains_row_with(result.json[0], row_from_snowflake_session(expect)[0])
 
-        result = runner.invoke_integration(["streamlit", "get-url", streamlit_name])
+        result = runner.invoke_with_connection_json(
+            ["streamlit", "get-url", streamlit_name]
+        )
 
         assert result.json["message"].endswith(
             f"/#/streamlit-apps/{test_database.upper()}.PUBLIC.{streamlit_name.upper()}"
         )
 
-        result = runner.invoke_integration(
+        result = runner.invoke_with_connection_json(
             ["streamlit", "share", streamlit_name, _new_streamlit_role]
         )
         assert contains_row_with(
@@ -61,7 +63,9 @@ def test_streamlit_deploy(
             rows_from_snowflake_session(expect)[1], {"name": streamlit_name.upper()}
         )
 
-    result = runner.invoke_integration(["object", "drop", "streamlit", streamlit_name])
+    result = runner.invoke_with_connection_json(
+        ["object", "drop", "streamlit", streamlit_name]
+    )
     assert contains_row_with(
         result.json,
         {"status": f"{streamlit_name.upper()} successfully dropped."},

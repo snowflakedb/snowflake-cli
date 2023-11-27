@@ -1,2 +1,1 @@
 snowflake-snowpark-python
-#snowcli  # for local development

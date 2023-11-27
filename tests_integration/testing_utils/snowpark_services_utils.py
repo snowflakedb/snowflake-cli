@@ -28,7 +28,7 @@ class SnowparkServicesTestSteps:
         self._setup = setup
 
     def create_service(self, service_name: str) -> None:
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "containers",
                 "service",
@@ -58,7 +58,7 @@ class SnowparkServicesTestSteps:
         )
 
     def logs_should_return_service_logs(self, service_name: str) -> None:
-        result = self._setup.runner.invoke_integration_without_format(
+        result = self._setup.runner.invoke_with_connection(
             [
                 "containers",
                 "service",
@@ -87,7 +87,7 @@ class SnowparkServicesTestSteps:
         assert not_contains_row_with(result.json, {"name": service_name.upper()})
 
     def describe_should_return_service(self, service_name: str) -> None:
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "containers",
                 "service",
@@ -104,7 +104,7 @@ class SnowparkServicesTestSteps:
         assert result.json["name"] == service_name.upper()
 
     def drop_service(self, service_name: str) -> None:
-        result = self._setup.runner.invoke_integration(
+        result = self._setup.runner.invoke_with_connection_json(
             [
                 "containers",
                 "service",
@@ -140,7 +140,7 @@ class SnowparkServicesTestSteps:
         pytest.fail(f"{service_name} service didn't finish in 15 minutes")
 
     def _execute_status(self, service_name: str):
-        return self._setup.runner.invoke_integration(
+        return self._setup.runner.invoke_with_connection_json(
             [
                 "containers",
                 "service",
@@ -155,7 +155,7 @@ class SnowparkServicesTestSteps:
         )
 
     def _execute_list(self):
-        return self._setup.runner.invoke_integration(
+        return self._setup.runner.invoke_with_connection_json(
             [
                 "containers",
                 "service",

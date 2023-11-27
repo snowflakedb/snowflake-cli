@@ -7,7 +7,7 @@ from tests_integration.testing_utils.naming_utils import ObjectNameProvider
 @pytest.mark.integration
 @pytest.mark.parametrize("object_type", ["warehouse", "schema"])
 def test_show(object_type, runner, test_database, snowflake_session):
-    result = runner.invoke_integration(
+    result = runner.invoke_with_connection_json(
         ["object", "list", object_type, "--format", "json"]
     )
 
@@ -27,7 +27,7 @@ def test_object_table(runner, test_database, snowflake_session):
     ).create_and_get_next_object_name()
     snowflake_session.execute_string(f"create table {object_name} (some_number NUMBER)")
 
-    result_show = runner.invoke_integration(["object", "list", "table"])
+    result_show = runner.invoke_with_connection_json(["object", "list", "table"])
     assert result_show.exit_code == 0
 
     actual_tables = row_from_cursor(
@@ -36,13 +36,15 @@ def test_object_table(runner, test_database, snowflake_session):
     assert result_show.json[0].keys() == actual_tables[0].keys()
     assert result_show.json[0]["name"].lower() == object_name.lower()
 
-    result_describe = runner.invoke_integration(
+    result_describe = runner.invoke_with_connection_json(
         ["object", "describe", "table", object_name]
     )
     assert result_describe.exit_code == 0
     assert result_describe.json[0]["name"] == "SOME_NUMBER"
 
-    result_drop = runner.invoke_integration(["object", "drop", "table", object_name])
+    result_drop = runner.invoke_with_connection_json(
+        ["object", "drop", "table", object_name]
+    )
     assert result_drop.exit_code == 0
     assert (
         result_drop.json[0]["status"].lower()

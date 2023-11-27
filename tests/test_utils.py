@@ -173,8 +173,7 @@ def test_generate_snowpark_coverage_wrapper(temp_dir):
         proc_signature="signature",
         handler_module="awesomeModule",
         handler_function="even_better_function",
-        coverage_reports_stage="example_stage",
-        coverage_reports_stage_path="nyan-cat.jpg",
+        coverage_reports_stage_path="@example_stage/nyan-cat.jpg",
     )
 
     assert os.path.isfile(path)

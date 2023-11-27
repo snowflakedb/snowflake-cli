@@ -1,4 +1,5 @@
 import sys
+from time import sleep
 
 import pytest
 
@@ -7,6 +8,8 @@ from tests_integration.testing_utils.snowpark_utils import (
     SnowparkTestSetup,
     TestType,
 )
+
+STAGE_NAME = "dev_deployment"
 
 
 @pytest.mark.skipif(
@@ -20,7 +23,7 @@ def test_procedure_coverage_flow(
     _test_steps.assert_no_procedures_in_snowflake()
     _test_steps.assert_no_functions_in_snowflake()
 
-    _test_steps.assert_that_no_files_are_staged_in_test_db()
+    _test_steps.assert_that_no_files_on_stage(stage_name=STAGE_NAME)
 
     _test_steps.object_show_should_return_no_data(object_type="procedure")
 
@@ -31,7 +34,7 @@ def test_procedure_coverage_flow(
         parameters = "(name int, b string)"
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
-            parameter_path="procedures.0.name",
+            parameter_path="snowpark.procedures.0.name",
             value=procedure_name,
         )
 
@@ -46,14 +49,13 @@ def test_procedure_coverage_flow(
         ]
 
         identifier = procedure_name + parameters
-        stage_name = f"{procedure_name}_name_int_b_string"
 
         _test_steps.assert_those_procedures_are_in_snowflake(
             f"{procedure_name}(NUMBER, VARCHAR) RETURN VARCHAR"
         )
 
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-            f"deployments/{stage_name}/app.zip"
+            f"{STAGE_NAME}/my_snowpark_project/app.zip", stage_name=STAGE_NAME
         )
 
         _test_steps.snowpark_execute_should_return_expected_value(
@@ -63,17 +65,19 @@ def test_procedure_coverage_flow(
         )
 
         _test_steps.assert_that_only_app_and_coverage_file_are_staged_in_test_db(
-            f"deployments/{stage_name}"
+            stage_path=f"{STAGE_NAME}/my_snowpark_project",
+            artifact_name="app.zip",
+            stage_name=STAGE_NAME,
         )
 
         _test_steps.procedure_coverage_should_return_report_when_files_are_present_on_stage(
             identifier=identifier
         )
 
-        _test_steps.coverage_clear_should_execute_successfully(identifier=identifier)
+        _test_steps.coverage_clear_should_execute_successfully()
 
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-            f"deployments/{stage_name}/app.zip"
+            f"{STAGE_NAME}/my_snowpark_project/app.zip", stage_name=STAGE_NAME
         )
 
 
@@ -98,7 +102,7 @@ def _test_setup(
     )
 
     yield procedure_coverage_test_setup
-    procedure_coverage_test_setup.clean_after_test_case()
+    procedure_coverage_test_setup.clean_after_test_case(stage_name=STAGE_NAME)
 
 
 @pytest.fixture

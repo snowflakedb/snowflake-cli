@@ -65,3 +65,8 @@ class ObjectAlreadyExistsError(ClickException):
         if replace_available:
             msg += " Use --replace flag to update objects."
         super().__init__(msg)
+
+
+class NoProjectDefinitionError(ClickException):
+    def __init__(self, project_file: str):
+        super().__init__(f"No snowpark project definition found in {project_file}")
