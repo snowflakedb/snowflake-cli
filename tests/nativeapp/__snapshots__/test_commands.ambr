@@ -246,8 +246,7 @@
 # ---
 # name: test_init_no_template_success[name_with_inner_quotes-init_args44]
   '''
-  Native Apps project "demo""na""_""""project" has been created at: 
-  demo_na_project
+  Native Apps project "demo""na""_""""project" has been created at: demo_na_project
   
   '''
 # ---
@@ -337,8 +336,7 @@
 # ---
 # name: test_init_no_template_success[with_inner_quotes-init_args23]
   '''
-  Native Apps project "demo""na""_""""project" has been created at: 
-  "demo""na""_""""project"
+  Native Apps project "demo""na""_""""project" has been created at: "demo""na""_""""project"
   
   '''
 # ---
