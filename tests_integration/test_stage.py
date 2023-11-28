@@ -33,8 +33,9 @@ def test_stage(runner, snowflake_session, test_database, tmp_path):
         Path(file_path).touch()
 
         result = runner.invoke_with_connection_json(
-            ["object", "stage", "put", file_path, stage_name]
+            ["object", "stage", "copy", file_path, f"@{stage_name}"]
         )
+        assert result.exit_code == 0, result.output
         assert contains_row_with(
             result.json,
             {"source": filename, "target": filename, "status": "UPLOADED"},
@@ -44,9 +45,11 @@ def test_stage(runner, snowflake_session, test_database, tmp_path):
     expect = snowflake_session.execute_string(f"list @{stage_name}")
     assert result.json == row_from_snowflake_session(expect)
 
+    # Operation fails because directory exists
     result = runner.invoke_with_connection_json(
-        ["object", "stage", "get", stage_name, tmp_path.parent.__str__()]
+        ["object", "stage", "copy", f"@{stage_name}", tmp_path.parent.__str__()]
     )
+    assert result.exit_code == 0, result.output
     assert contains_row_with(result.json, {"file": filename, "status": "DOWNLOADED"})
     assert os.path.isfile(tmp_path.parent / filename)
 

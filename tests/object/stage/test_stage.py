@@ -2,10 +2,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
+import pytest
 from snowcli.cli.object.stage.manager import StageManager
 from snowflake.connector.cursor import DictCursor
-
-from tests.testing_utils.fixtures import *
 
 STAGE_MANAGER = "snowcli.cli.object.stage.manager.StageManager"
 
@@ -27,57 +26,47 @@ def test_stage_list_quoted(mock_execute, runner, mock_cursor):
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_stage_get(mock_execute, runner, mock_cursor):
+def test_stage_copy_remote_to_local(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
-            ["object", "stage", "get", "-c", "empty", "stageName", str(tmp_dir)]
+            ["object", "stage", "copy", "-c", "empty", "@stageName", str(tmp_dir)]
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        f"get @stageName file://{Path(tmp_dir).resolve()}/"
+        f"get @stageName file://{Path(tmp_dir).resolve()}/ parallel=4"
     )
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_stage_get_quoted(mock_execute, runner, mock_cursor):
+def test_stage_copy_remote_to_local_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
-            ["object", "stage", "get", "-c", "empty", '"stage name"', str(tmp_dir)]
+            ["object", "stage", "copy", "-c", "empty", '@"stage name"', str(tmp_dir)]
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        f"get '@\"stage name\"' file://{Path(tmp_dir).resolve()}/"
+        f"get '@\"stage name\"' file://{Path(tmp_dir).resolve()}/ parallel=4"
     )
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_stage_get_default_path(mock_execute, runner, mock_cursor):
-    mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke(["object", "stage", "get", "-c", "empty", "stageName"])
-    assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with(
-        f'get @stageName file://{Path(".").resolve()}/'
-    )
-
-
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_stage_put(mock_execute, runner, mock_cursor):
+def test_stage_copy_local_to_remote(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
             [
                 "object",
                 "stage",
-                "put",
+                "copy",
                 "-c",
                 "empty",
                 "--overwrite",
                 "--parallel",
                 42,
                 str(tmp_dir),
-                "stageName",
+                "@stageName",
             ]
         )
     assert result.exit_code == 0, result.output
@@ -87,21 +76,21 @@ def test_stage_put(mock_execute, runner, mock_cursor):
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_stage_put_quoted(mock_execute, runner, mock_cursor):
+def test_stage_copy_local_to_remote_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
             [
                 "object",
                 "stage",
-                "put",
+                "copy",
                 "-c",
                 "empty",
                 "--overwrite",
                 "--parallel",
                 42,
                 str(tmp_dir),
-                '"stage name"',
+                '@"stage name"',
             ]
         )
     assert result.exit_code == 0, result.output
@@ -111,27 +100,41 @@ def test_stage_put_quoted(mock_execute, runner, mock_cursor):
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_stage_put_star(mock_execute, runner, mock_cursor):
+def test_stage_copy_local_to_remote_star(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
             [
                 "object",
                 "stage",
-                "put",
+                "copy",
                 "-c",
                 "empty",
                 "--overwrite",
                 "--parallel",
                 42,
                 str(tmp_dir) + "/*.py",
-                "stageName",
+                "@stageName",
             ]
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
         f"put file://{Path(tmp_dir).resolve()}/*.py @stageName auto_compress=false parallel=42 overwrite=True"
     )
+
+
+@pytest.mark.parametrize(
+    "source, dest",
+    [
+        ("@snow/stage", "@stage/snow"),
+        ("snow://stage", "snow://stage/snow"),
+        ("local/path", "other/local/path"),
+    ],
+)
+def test_copy_throws_error_for_same_platform_operation(runner, source, dest, snapshot):
+    result = runner.invoke(["object", "stage", "copy", source, dest])
+    assert result.exit_code == 1
+    assert result.output == snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")

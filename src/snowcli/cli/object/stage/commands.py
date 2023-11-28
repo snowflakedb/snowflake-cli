@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import click
 import typer
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
@@ -35,46 +36,23 @@ def stage_list(stage_name: str = StageNameArgument, **options) -> CommandResult:
     return QueryResult(cursor)
 
 
-@app.command("get")
-@with_output
-@global_options_with_connection
-def stage_get(
-    stage_name: str = StageNameArgument,
-    path: Path = typer.Argument(
-        Path.cwd(),
-        exists=False,
-        file_okay=True,
-        dir_okay=True,
-        writable=True,
-        resolve_path=True,
-        help="Directory location to store downloaded files. If omitted, the uploads files in the active directory.",
-    ),
-    **options,
-) -> CommandResult:
-    """
-    Downloads all files from a stage to a local directory.
-    """
-    cursor = StageManager().get(stage_name=stage_name, dest_path=path)
-    return SingleQueryResult(cursor)
+def _is_stage_path(path: str):
+    return path.startswith("@") or path.startswith("snow://")
 
 
-@app.command("put")
+@app.command("copy")
 @with_output
 @global_options_with_connection
-def stage_put(
-    path: Path = typer.Argument(
-        ...,
-        exists=False,
-        file_okay=True,
-        dir_okay=True,
-        writable=True,
-        resolve_path=True,
-        help="File or directory to upload to stage. You can use the `*` wildcard in the path, like `folder/*.csv`. If a path contains `*.`, you must enclose the path in quotes.",
+def copy(
+    source_path: str = typer.Argument(
+        help="Source path for copy operation. Can be either stage path or local."
     ),
-    stage_name: str = StageNameArgument,
+    destination_path: str = typer.Argument(
+        help="Target path for copy operation. Should be stage if source is local or local if source is stage.",
+    ),
     overwrite: bool = typer.Option(
         False,
-        help="Overwrites existing files in the stage.",
+        help="Overwrites existing files in the target path.",
     ),
     parallel: int = typer.Option(
         4,
@@ -83,17 +61,36 @@ def stage_put(
     **options,
 ) -> CommandResult:
     """
-    Uploads files to a stage from a local client.
+    Copies all files from target path to target directory. This works for both, uploading
+    to and downloading from stage.
     """
-    manager = StageManager()
-    local_path = str(path) + "/*" if path.is_dir() else str(path)
+    is_get = _is_stage_path(source_path)
+    is_put = _is_stage_path(destination_path)
 
-    cursor = manager.put(
-        local_path=local_path,
-        stage_path=stage_name,
-        overwrite=overwrite,
-        parallel=parallel,
-    )
+    if is_get and is_put:
+        raise click.ClickException(
+            "Both source and target path are remote. This operation is not supported."
+        )
+    if not is_get and not is_put:
+        raise click.ClickException(
+            "Both source and target path are local. This operation is not supported."
+        )
+
+    if is_get:
+        target = Path(destination_path).resolve()
+        cursor = StageManager().get(
+            stage_name=source_path, dest_path=target, parallel=parallel
+        )
+    else:
+        source = Path(source_path).resolve()
+        local_path = str(source) + "/*" if source.is_dir() else str(source)
+
+        cursor = StageManager().put(
+            local_path=local_path,
+            stage_path=destination_path,
+            overwrite=overwrite,
+            parallel=parallel,
+        )
     return SingleQueryResult(cursor)
 
 
