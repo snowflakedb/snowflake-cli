@@ -173,9 +173,6 @@ class _CliGlobalContextManager:
     def set_output_format(self, value: OutputFormat):
         self._output_format = value
 
-    def set_project_definition(self, value: Dict):
-        self._project_definition = value
-
     @property
     def verbose(self) -> bool:
         return self._verbose
@@ -191,16 +188,19 @@ class _CliGlobalContextManager:
         self._experimental = value
 
     @property
+    def project_definition(self) -> Optional[Dict]:
+        return self._project_definition
+
+    def set_project_definition(self, value: Dict):
+        self._project_definition = value
+
+    @property
     def connection_context(self) -> _ConnectionContext:
         return self._connection_context
 
     @property
     def connection(self) -> SnowflakeConnection:
         return self.connection_context.connection
-
-    @property
-    def project_definition(self):
-        return self._project_definition
 
 
 class _CliGlobalContextAccess:
