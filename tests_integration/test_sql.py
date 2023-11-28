@@ -82,7 +82,7 @@ def test_queries_are_streamed_to_output(
         [
             "sql",
             "-q",
-            "select CURRENT_TIME(1); select system$wait(10); select CURRENT_TIME(1);",
+            "select CURRENT_TIME(); select system$wait(10); select CURRENT_TIME();",
         ],
     )
 
@@ -90,10 +90,8 @@ def test_queries_are_streamed_to_output(
     results = [p.args[0] for p in add_row.mock_calls]
     assert len(results) == 3
     start, wait, end = results
-
     assert wait == "waited 10 seconds"
-
-    start_ts = datetime.strptime(start[:-7], "%H:%M:%S")
-    end_ts = datetime.strptime(end[:-7], "%H:%M:%S")
+    start_ts = datetime.strptime(start[:8], "%H:%M:%S")
+    end_ts = datetime.strptime(end[:8], "%H:%M:%S")
     duration = (end_ts - start_ts).total_seconds()
     assert 10.0 <= duration <= 11.0
