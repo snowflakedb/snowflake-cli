@@ -4,7 +4,9 @@ from textwrap import dedent
 from unittest import mock
 from unittest.mock import call
 
+import pytest
 from snowcli.cli.constants import ObjectType
+from snowcli.exception import SecretsWithoutExternalAccessIntegrationError
 from snowflake.connector import ProgrammingError
 
 
@@ -121,6 +123,34 @@ def test_deploy_procedure_with_external_access(
             """
         ).strip(),
     ]
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
+def test_deploy_procedure_secrets_without_external_access(
+    mock_describe,
+    mock_conn,
+    runner,
+    mock_ctx,
+    project_directory,
+):
+    mock_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    ctx = mock_ctx()
+    mock_conn.return_value = ctx
+
+    with project_directory("snowpark_procedure_secrets_without_external_access"):
+        result = runner.invoke(
+            [
+                "snowpark",
+                "deploy",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 1, result.output
+    assert result.output.__contains__(
+        "Can not provide secrets without external access integration"
+    )
 
 
 @mock.patch("snowflake.connector.connect")

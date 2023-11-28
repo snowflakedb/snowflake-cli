@@ -32,7 +32,11 @@ from snowcli.cli.snowpark_shared import (
     PyPiDownloadOption,
     snowpark_package,
 )
-from snowcli.exception import NoProjectDefinitionError, ObjectAlreadyExistsError
+from snowcli.exception import (
+    NoProjectDefinitionError,
+    ObjectAlreadyExistsError,
+    SecretsWithoutExternalAccessIntegrationError,
+)
 from snowcli.output.decorators import with_output
 from snowcli.output.types import (
     CollectionResult,
@@ -277,6 +281,11 @@ def _deploy_single_object(
     if object_exists and not replace:
         raise ObjectAlreadyExistsError(object_type, identifier, replace_available=True)
 
+    external_access_integrations = object_definition.get("external_access_integrations")
+    secrets = object_definition.get("secrets")
+    if not external_access_integrations and secrets:
+        raise SecretsWithoutExternalAccessIntegrationError()
+
     if object_exists:
         replace_object = check_if_replace_is_required(
             object_type,
@@ -298,10 +307,8 @@ def _deploy_single_object(
         "return_type": returns,
         "artifact_file": stage_artifact_path,
         "packages": packages,
-        "external_access_integrations": object_definition.get(
-            "external_access_integrations"
-        ),
-        "secrets": object_definition.get("secrets"),
+        "external_access_integrations": external_access_integrations,
+        "secrets": secrets,
     }
     if object_type == ObjectType.PROCEDURE:
         create_or_replace_kwargs["execute_as_caller"] = object_definition.get(

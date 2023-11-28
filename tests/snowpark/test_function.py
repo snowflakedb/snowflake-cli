@@ -90,6 +90,33 @@ def test_deploy_function_with_external_access(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
+def test_deploy_function_secrets_without_external_access(
+    mock_describe,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+):
+    mock_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    with project_directory("snowpark_function_secrets_without_external_access"):
+        result = runner.invoke(
+            [
+                "snowpark",
+                "deploy",
+            ],
+        )
+
+    assert result.exit_code == 1, result.output
+    assert result.output.__contains__(
+        "Can not provide secrets without external access integration"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
 def test_deploy_function_no_changes(
     mock_connector,
     runner,
