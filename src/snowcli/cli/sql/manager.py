@@ -30,4 +30,4 @@ class SqlManager(SqlExecutionMixin):
 
 
         single_statement = len(list(split_statements(StringIO(query)))) == 1
-        return single_statement, self.execute_string(query)
+        return single_statement, self._execute_string(query)

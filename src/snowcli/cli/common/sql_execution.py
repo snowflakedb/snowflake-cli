@@ -4,25 +4,13 @@ import logging
 from contextlib import contextmanager
 from functools import cached_property
 from io import StringIO
-from textwrap import dedent, indent
+from textwrap import dedent
 from typing import Iterable
 
 from click import ClickException
 from snowcli.cli.common.cli_global_context import cli_context
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
-
-
-class _SnowcliCursor(SnowflakeCursor):
-    def execute(self, *args, **kwargs):
-        """This allows us to show failing query to users."""
-        # TODO: Use exception annotation once we support Python 3.11
-        try:
-            super().execute(*args, **kwargs)
-        except Exception:
-            print("Query:")
-            print(indent(args[0], "    "))
-            raise
 
 
 class SqlExecutionMixin:
@@ -37,12 +25,12 @@ class SqlExecutionMixin:
     def _log(self):
         return logging.getLogger(__name__)
 
-    def execute_string(
+    def _execute_string(
         self,
         sql_text: str,
         remove_comments: bool = False,
         return_cursors: bool = True,
-        cursor_class: SnowflakeCursor = _SnowcliCursor,
+        cursor_class: SnowflakeCursor = SnowflakeCursor,
         **kwargs,
     ) -> Iterable[SnowflakeCursor]:
         """
@@ -50,6 +38,7 @@ class SqlExecutionMixin:
         instead of list. In case of executing multiple queries are executed one by one. This mean we can
         access result of previous queries while evaluating next one. For example, we can print the results.
         """
+        self._log.info("Executing %s", sql_text)
         stream = StringIO(sql_text)
         stream_generator = self._conn.execute_stream(
             stream, remove_comments=remove_comments, cursor_class=cursor_class, **kwargs
@@ -61,7 +50,7 @@ class SqlExecutionMixin:
         return last_result
 
     def _execute_queries(self, queries: str, **kwargs):
-        return list(self._conn.execute_string(dedent(queries), **kwargs))
+        return list(self._execute_string(dedent(queries), **kwargs))
 
     @contextmanager
     def use_role(self, new_role: str):

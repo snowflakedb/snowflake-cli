@@ -3,7 +3,7 @@ from __future__ import annotations
 import functools
 import json
 import shutil
-import sys
+
 import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass

@@ -58,21 +58,6 @@ def _round_values_for_multi_queries(results):
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "input_, query",
-    [
-        ("select foo;", "select foo;"),
-        ("select 1; select foo; select 2;", "select foo;"),
-    ],
-)
-def test_execute_adds_failing_query_to_output(input_, query, runner):
-    result = runner.invoke_with_connection_json(
-        ["sql", "-q", input_], catch_exceptions=True
-    )
-    assert query in result.output
-
-
-@pytest.mark.integration
 @mock.patch("snowcli.output.printing._get_table")
 @mock.patch("snowcli.output.printing.Live")
 def test_queries_are_streamed_to_output(
