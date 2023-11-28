@@ -1,8 +1,10 @@
 from unittest import mock
 from unittest.mock import call
 
+import pytest
 from snowcli.cli.common import flags
 from snowcli.cli.common.cli_global_context import cli_context, cli_context_manager
+from snowcli.exception import InvalidSchemaError
 
 
 def test_default_setup_of_global_connection():
@@ -69,3 +71,15 @@ def test_connection_caching(mock_connect):
             ),
         ]
     )
+
+
+@pytest.mark.parametrize("schema", ["my_schema", '".my_schema3"', '"my.schema"'])
+def test_schema_validation_ok(schema):
+    cli_context_manager.connection_context.set_schema(schema)
+
+
+@pytest.mark.parametrize("schema", ["db.schema"])
+def test_schema_validation_error(schema):
+    with pytest.raises(InvalidSchemaError) as e:
+        cli_context_manager.connection_context.set_schema(schema)
+        assert e.value.message == f"Invalid schema {schema}"
