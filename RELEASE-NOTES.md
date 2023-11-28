@@ -42,6 +42,7 @@
   * The `snowflake.yml` file is required to deploy functions or procedures.
   * Introduced new `deploy` command for project with procedures and functions.
   * Introduced new `build` command for project with procedure and functions
+* Added support for external access integration for functions and procedures
 
 ## Fixes and improvements
 * Allow the use of quoted identifiers in stages

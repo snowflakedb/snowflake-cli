@@ -7,6 +7,7 @@ from strictyaml import (
     EmptyList,
     Int,
     MapCombined,
+    MapPattern,
     Optional,
     Regex,
     Seq,
@@ -89,6 +90,8 @@ _callable_mapping = {
     "handler": Str(),
     "returns": Str(),
     "signature": Seq(Argument) | EmptyList(),
+    Optional("external_access_integration"): Seq(Str()),
+    Optional("secrets"): MapPattern(Str(), Str()),
 }
 
 function_schema = RelaxedMap(_callable_mapping)

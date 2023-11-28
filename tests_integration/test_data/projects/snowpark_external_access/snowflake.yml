@@ -1,0 +1,23 @@
+definition_version: 1
+snowpark:
+  project_name: "my_snowpark_project"
+  stage_name: "dev_deployment"
+  src: "app/"
+  functions:
+    - name: status_function
+      handler: app.check_secret_and_get_status_function
+      signature:
+      returns: string
+      external_access_integrations:
+        - snowflake_docs_access_integration
+      secrets:
+        generic_secret: external_access_db.public.test_secret
+  procedures:
+    - name: status_procedure
+      handler: app.check_secret_and_get_status_procedure
+      signature:
+      returns: string
+      external_access_integrations:
+        - snowflake_docs_access_integration
+      secrets:
+        generic_secret: external_access_db.public.test_secret

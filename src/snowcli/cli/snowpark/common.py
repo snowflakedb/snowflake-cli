@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.constants import ObjectType
@@ -131,6 +131,45 @@ class SnowparkObjectManager(SqlExecutionMixin):
     @staticmethod
     def artifact_stage_path(identifier: str):
         return generate_deploy_stage_name(identifier).lower()
+
+    def create_query(
+        self,
+        identifier: str,
+        return_type: str,
+        handler: str,
+        artifact_file: str,
+        packages: List[str],
+        external_access_integrations: Optional[List[str]] = None,
+        secrets: Optional[Dict[str, str]] = None,
+        execute_as_caller: bool = False,
+    ) -> str:
+        packages_list = ",".join(f"'{p}'" for p in packages)
+        query = [
+            f"create or replace {self._object_type} {identifier}",
+            f"returns {return_type}",
+            "language python",
+            "runtime_version=3.8",
+            f"imports=('{artifact_file}')",
+            f"handler='{handler}'",
+            f"packages=({packages_list})",
+        ]
+
+        if external_access_integrations:
+            external_access_integration_name = ",".join(
+                f"{e}" for e in external_access_integrations
+            )
+            query.append(
+                f"external_access_integrations=({external_access_integration_name})"
+            )
+
+        if secrets:
+            secret_name = ",".join(f"'{k}'={v}" for k, v in secrets.items())
+            query.append(f"secrets=({secret_name})")
+
+        if execute_as_caller:
+            query.append("execute as caller")
+
+        return "\n".join(query)
 
 
 def build_udf_sproc_identifier(udf_sproc_dict):
