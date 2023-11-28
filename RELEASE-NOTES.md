@@ -4,6 +4,7 @@
 * Introduced `snow object` group with `show`, `describe` and `drop` commands which replaces corresponding
   functionalities of procedure/function/streamlit specific commands.
 * `snow stage` is now `snow object stage`
+* `snow stage get` and `snow stage put` are replaced by `snow object stage copy [FROM] [TO]`
 * `snow warehouse status` is now `snow object show warehouse`
 * `snow connection test` now outputs all connection details (except for the password), along with connection status
 
