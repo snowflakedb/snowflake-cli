@@ -15,19 +15,19 @@
   '''
   def print_hello(name: str):
       return f"Hello {name}!"
-  
+
   '''
 # ---
 # name: test_snowpark_procedure_flow[functions.py]
   '''
   from __future__ import annotations
-  
+
   from common import print_hello
-  
-  
+
+
   def hello_function(name: str) -> str:
       return print_hello(name)
-  
+
   '''
 # ---
 # name: test_snowpark_procedure_flow[procedures.py]
@@ -39,12 +39,14 @@
   
   
   def hello_procedure(session: Session, name: str) -> str:
+      token = _snowflake.get_oauth_access_token("cred")
       return print_hello(name)
   
   
   def test_procedure(session: Session) -> str:
+      token = _snowflake.get_oauth_access_token("cred")
       return "Test procedure"
-  
+
   '''
 # ---
 # name: test_snowpark_procedure_flow[requirements.txt]
@@ -74,6 +76,10 @@
           - name: "name"
             type: "string"
         returns: string
+        external_access_integration:
+          - my_external_access
+        secrets:
+          cred: my_cred_name
       - name: test_procedure
         handler: "procedures.test_procedure"
         signature: ""

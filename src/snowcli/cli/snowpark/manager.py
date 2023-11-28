@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List
+from typing import Dict, List, Optional
 
 from snowcli.cli.snowpark.common import SnowparkObjectManager
 from snowflake.connector.cursor import SnowflakeCursor
@@ -25,20 +25,20 @@ class FunctionManager(SnowparkObjectManager):
         handler: str,
         artifact_file: str,
         packages: List[str],
+        external_access_integrations: Optional[List[str]] = None,
+        secrets: Optional[Dict[str, str]] = None,
     ) -> SnowflakeCursor:
         log.debug(f"Creating function {identifier} using @{artifact_file}")
-        packages_list = ",".join(f"'{p}'" for p in packages)
-        return self._execute_query(
-            f"""\
-            create or replace function {identifier}
-            returns {return_type}
-            language python
-            runtime_version=3.8
-            imports=('{artifact_file}')
-            handler='{handler}'
-            packages=({packages_list})
-        """
+        query = self.create_query(
+            identifier,
+            return_type,
+            handler,
+            artifact_file,
+            packages,
+            external_access_integrations,
+            secrets,
         )
+        return self._execute_query(query)
 
 
 class ProcedureManager(SnowparkObjectManager):
@@ -57,19 +57,19 @@ class ProcedureManager(SnowparkObjectManager):
         handler: str,
         artifact_file: str,
         packages: List[str],
+        external_access_integrations: Optional[List[str]] = None,
+        secrets: Optional[Dict[str, str]] = None,
         execute_as_caller: bool = False,
     ) -> SnowflakeCursor:
         log.debug(f"Creating procedure {identifier} using @{artifact_file}")
-        packages_list = ",".join(f"'{p}'" for p in packages)
-        query = f"""\
-            create or replace procedure {identifier}
-            returns {return_type}
-            language python
-            runtime_version=3.8
-            imports=('{artifact_file}')
-            handler='{handler}'
-            packages=({packages_list})
-        """
-        if execute_as_caller:
-            query += "\nexecute as caller"
+        query = self.create_query(
+            identifier,
+            return_type,
+            handler,
+            artifact_file,
+            packages,
+            external_access_integrations,
+            secrets,
+            execute_as_caller,
+        )
         return self._execute_query(query)

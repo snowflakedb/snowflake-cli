@@ -4,6 +4,7 @@
 * Introduced `snow object` group with `show`, `describe` and `drop` commands which replaces corresponding
   functionalities of procedure/function/streamlit specific commands.
 * `snow stage` is now `snow object stage`
+* `snow stage get` and `snow stage put` are replaced by `snow object stage copy [FROM] [TO]`
 * `snow warehouse status` is now `snow object show warehouse`
 * `snow connection test` now outputs all connection details (except for the password), along with connection status
 
@@ -41,6 +42,7 @@
   * The `snowflake.yml` file is required to deploy functions or procedures.
   * Introduced new `deploy` command for project with procedures and functions.
   * Introduced new `build` command for project with procedure and functions
+* Added support for external access integration for functions and procedures
 
 ## Fixes and improvements
 * Allow the use of quoted identifiers in stages

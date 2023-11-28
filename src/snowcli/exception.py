@@ -70,3 +70,13 @@ class ObjectAlreadyExistsError(ClickException):
 class NoProjectDefinitionError(ClickException):
     def __init__(self, project_file: str):
         super().__init__(f"No snowpark project definition found in {project_file}")
+
+
+class InvalidSchemaError(ClickException):
+    def __init__(self, schema: str):
+        super().__init__(f"Invalid schema {schema}")
+
+
+class SecretsWithoutExternalAccessIntegrationError(ClickException):
+    def __init__(self):
+        super().__init__("Can not provide secrets without external access integration")

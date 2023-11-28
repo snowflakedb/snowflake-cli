@@ -40,10 +40,12 @@ class StageManager(SqlExecutionMixin):
         stage_name = self.get_standard_stage_name(stage_name)
         return self._execute_query(f"ls {self.quote_stage_name(stage_name)}")
 
-    def get(self, stage_name: str, dest_path: Path) -> SnowflakeCursor:
+    def get(
+        self, stage_name: str, dest_path: Path, parallel: int = 4
+    ) -> SnowflakeCursor:
         stage_name = self.get_standard_stage_name(stage_name)
         return self._execute_query(
-            f"get {self.quote_stage_name(stage_name)} file://{dest_path}/"
+            f"get {self.quote_stage_name(stage_name)} file://{dest_path}/ parallel={parallel}"
         )
 
     def put(
