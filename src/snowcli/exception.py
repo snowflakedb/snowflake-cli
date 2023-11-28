@@ -75,3 +75,8 @@ class NoProjectDefinitionError(ClickException):
 class InvalidSchemaError(ClickException):
     def __init__(self, schema: str):
         super().__init__(f"Invalid schema {schema}")
+
+
+class SecretsWithoutExternalAccessIntegrationError(ClickException):
+    def __init__(self):
+        super().__init__("Can not provide secrets without external access integration")

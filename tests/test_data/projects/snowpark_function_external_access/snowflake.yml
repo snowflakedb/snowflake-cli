@@ -1,0 +1,20 @@
+definition_version: 1
+snowpark:
+  project_name: "my_snowpark_project"
+  stage_name: "dev_deployment"
+  src: "app/"
+  functions:
+    - name: func1
+      handler: "app.func1_handler"
+      signature:
+        - name: "a"
+          type: "string"
+        - name: "b"
+          type: "variant"
+      returns: string
+      external_access_integrations:
+        - "external_1"
+        - "external_2"
+      secrets:
+        cred: "cred_name"
+        other: "other_name"

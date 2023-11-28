@@ -4,7 +4,9 @@ from textwrap import dedent
 from unittest import mock
 from unittest.mock import call
 
+import pytest
 from snowcli.cli.constants import ObjectType
+from snowcli.exception import SecretsWithoutExternalAccessIntegrationError
 from snowflake.connector import ProgrammingError
 
 
@@ -26,7 +28,6 @@ def test_deploy_procedure(
     mock_describe,
     mock_conn,
     runner,
-    mock_cursor,
     mock_ctx,
     project_directory,
 ):
@@ -62,7 +63,7 @@ def test_deploy_procedure(
             handler='hello'
             packages=()
             """
-        ),
+        ).strip(),
         dedent(
             """\
             create or replace procedure test()
@@ -73,8 +74,83 @@ def test_deploy_procedure(
             handler='test'
             packages=()
             """
-        ),
+        ).strip(),
     ]
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
+def test_deploy_procedure_with_external_access(
+    mock_describe,
+    mock_conn,
+    runner,
+    mock_ctx,
+    project_directory,
+):
+    mock_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    ctx = mock_ctx()
+    mock_conn.return_value = ctx
+
+    with project_directory("snowpark_procedure_external_access") as project_dir:
+        result = runner.invoke(
+            [
+                "snowpark",
+                "deploy",
+            ]
+        )
+
+    assert result.exit_code == 0, result.output
+    mock_describe.assert_has_calls(
+        [
+            call(object_type=str(ObjectType.PROCEDURE), name="procedureName(string)"),
+        ]
+    )
+    assert ctx.get_queries() == [
+        "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
+        f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project"
+        f" auto_compress=false parallel=4 overwrite=True",
+        dedent(
+            """\
+            create or replace procedure procedureName(name string)
+            returns string
+            language python
+            runtime_version=3.8
+            imports=('@dev_deployment/my_snowpark_project/app.zip')
+            handler='app.hello'
+            packages=()
+            external_access_integrations=(external_1,external_2)
+            secrets=('cred'=cred_name,'other'=other_name)
+            """
+        ).strip(),
+    ]
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
+def test_deploy_procedure_secrets_without_external_access(
+    mock_describe,
+    mock_conn,
+    runner,
+    mock_ctx,
+    project_directory,
+):
+    mock_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    ctx = mock_ctx()
+    mock_conn.return_value = ctx
+
+    with project_directory("snowpark_procedure_secrets_without_external_access"):
+        result = runner.invoke(
+            [
+                "snowpark",
+                "deploy",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 1, result.output
+    assert result.output.__contains__(
+        "Can not provide secrets without external access integration"
+    )
 
 
 @mock.patch("snowflake.connector.connect")
@@ -88,7 +164,6 @@ def test_deploy_procedure_with_coverage(
     mock_conn,
     runner,
     mock_ctx,
-    snapshot,
     temp_dir,
     project_directory,
 ):
@@ -118,7 +193,7 @@ def test_deploy_procedure_with_coverage(
             handler='snowpark_coverage.measure_coverage'
             packages=('coverage')
             """
-        ),
+        ).strip(),
     ]
 
 
