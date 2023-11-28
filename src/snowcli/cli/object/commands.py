@@ -31,12 +31,12 @@ LikeOption = typer.Option(
     "all functions in the **dev** (default) environment that begin with “my”.",
 )
 
-SUPPORTED_TYPES_MSG = "Supported types:\n\n" + ", ".join(SUPPORTED_OBJECTS)
+SUPPORTED_TYPES_MSG = "\n\nSupported types: " + ", ".join(SUPPORTED_OBJECTS)
 
 
 @app.command(
     "list",
-    help=f"Lists all available Snowflake objects of given type. {SUPPORTED_TYPES_MSG}",
+    help=f"Lists all available Snowflake objects of given type.{SUPPORTED_TYPES_MSG}",
 )
 @with_output
 @global_options_with_connection
