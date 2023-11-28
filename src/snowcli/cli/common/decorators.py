@@ -24,6 +24,7 @@ from snowcli.cli.common.flags import (
     VerboseOption,
     WarehouseOption,
     experimental_option,
+    project_definition_option,
 )
 from snowcli.exception import NoProjectDefinitionError
 from snowcli.output.formats import OutputFormat
@@ -52,30 +53,6 @@ def global_options_with_connection(func: Callable):
 
 
 def with_project_definition(project_name: str):
-    from snowcli.cli.project.definition_manager import DefinitionManager
-
-    def _callback(project_path: str):
-        dm = DefinitionManager(project_path)
-        project_definition = dm.project_definition.get(project_name)
-
-        if not project_definition:
-            raise NoProjectDefinitionError(
-                project_type=project_name, project_file=project_path
-            )
-
-        cli_context_manager.set_project_definition(project_definition)
-        return project_definition
-
-    project_definition_option = typer.Option(
-        None,
-        "-p",
-        "--project",
-        help=f"Path where the {project_name.replace('_', ' ').capitalize()} project resides. "
-        f"Defaults to current working directory.",
-        callback=_callback,
-        show_default=False,
-    )
-
     def _decorator(func: Callable):
         return _options_decorator_factory(
             func,
@@ -84,7 +61,7 @@ def with_project_definition(project_name: str):
                     "project_definition",
                     inspect.Parameter.KEYWORD_ONLY,
                     annotation=Optional[str],
-                    default=project_definition_option,
+                    default=project_definition_option(project_name),
                 )
             ],
         )
