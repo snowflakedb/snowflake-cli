@@ -68,8 +68,10 @@ class ObjectAlreadyExistsError(ClickException):
 
 
 class NoProjectDefinitionError(ClickException):
-    def __init__(self, project_file: str):
-        super().__init__(f"No snowpark project definition found in {project_file}")
+    def __init__(self, project_type: str, project_file: str):
+        super().__init__(
+            f"No {project_type} project definition found in {project_file}"
+        )
 
 
 class InvalidSchemaError(ClickException):

@@ -5,21 +5,19 @@ from typing import Optional
 import click
 import typer
 from click import ClickException
-from snowcli.cli.common.cli_global_context import cli_context_manager
+from snowcli.cli.common.cli_global_context import cli_context
 from snowcli.cli.common.decorators import (
     global_options_with_connection,
     with_experimental_behaviour,
+    with_project_definition,
 )
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.common.project_initialisation import add_init_command
-from snowcli.cli.project.definition_manager import DefinitionManager
 from snowcli.cli.streamlit.manager import StreamlitManager
 from snowcli.output.decorators import with_output
 from snowcli.output.types import (
     CommandResult,
     MessageResult,
-    MultipleResults,
-    QueryResult,
     SingleQueryResult,
 )
 
@@ -75,6 +73,7 @@ def _default_file_callback(param_name: str):
 
 @app.command("deploy")
 @with_output
+@with_project_definition("streamlit")
 @with_experimental_behaviour()
 @global_options_with_connection
 def streamlit_deploy(
@@ -96,8 +95,7 @@ def streamlit_deploy(
     created if it does not exist.
     You can modify the behaviour using flags. For details check help information.
     """
-    dm = DefinitionManager()
-    streamlit = dm.project_definition.get("streamlit")
+    streamlit = cli_context.project_definition
     if not streamlit:
         return MessageResult("No streamlit were specified in project definition.")
 

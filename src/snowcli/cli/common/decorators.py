@@ -5,8 +5,9 @@ from functools import wraps
 from inspect import Signature
 from typing import Callable, Dict, List, Optional, get_type_hints
 
+import typer
 from snowcli.cli import loggers
-from snowcli.cli.common.cli_global_context import cli_context
+from snowcli.cli.common.cli_global_context import cli_context, cli_context_manager
 from snowcli.cli.common.flags import (
     AccountOption,
     AuthenticatorOption,
@@ -24,6 +25,7 @@ from snowcli.cli.common.flags import (
     WarehouseOption,
     experimental_option,
 )
+from snowcli.exception import NoProjectDefinitionError
 from snowcli.output.formats import OutputFormat
 
 
@@ -49,6 +51,47 @@ def global_options_with_connection(func: Callable):
     )
 
 
+def with_project_definition(project_name: str):
+    from snowcli.cli.project.definition_manager import DefinitionManager
+
+    def _callback(project_path: str):
+        dm = DefinitionManager(project_path)
+        project_definition = dm.project_definition.get(project_name)
+
+        if not project_definition:
+            raise NoProjectDefinitionError(
+                project_type=project_name, project_file=project_path
+            )
+
+        cli_context_manager.set_project_definition(project_definition)
+        return project_definition
+
+    project_definition_option = typer.Option(
+        None,
+        "-p",
+        "--project",
+        help=f"Path where the {project_name.replace('_', ' ').capitalize()} project resides. "
+        f"Defaults to current working directory.",
+        callback=_callback,
+        show_default=False,
+    )
+
+    def _decorator(func: Callable):
+        return _options_decorator_factory(
+            func,
+            additional_options=[
+                inspect.Parameter(
+                    "project_definition",
+                    inspect.Parameter.KEYWORD_ONLY,
+                    annotation=Optional[str],
+                    default=project_definition_option,
+                )
+            ],
+        )
+
+    return _decorator
+
+
 def with_experimental_behaviour(
     experimental_behaviour_description: Optional[str] = None,
 ):
@@ -70,7 +113,6 @@ def with_experimental_behaviour(
         return _options_decorator_factory(
             func=func,
             additional_options=additional_options,
-            execute_before_command_using_new_options=lambda: None,
         )
 
     return decorator
@@ -93,11 +135,12 @@ def _global_options_decorator_factory(
 def _options_decorator_factory(
     func: Callable,
     additional_options: List[inspect.Parameter],
-    execute_before_command_using_new_options: Callable,
+    execute_before_command_using_new_options: Optional[Callable] = None,
 ):
     @wraps(func)
     def wrapper(**options):
-        execute_before_command_using_new_options()
+        if execute_before_command_using_new_options:
+            execute_before_command_using_new_options()
         return func(**options)
 
     wrapper.__signature__ = _extend_signature_with_additional_options(func, additional_options)  # type: ignore
