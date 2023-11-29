@@ -1,11 +1,14 @@
 from pathlib import Path
 
 import typer
-from snowcli.cli.common.decorators import global_options_with_connection
+from snowcli.cli.common.cli_global_context import cli_context
+from snowcli.cli.common.decorators import (
+    global_options_with_connection,
+    with_project_definition,
+)
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, identifier_argument
 from snowcli.cli.snowpark.commands import (
     get_app_stage_path,
-    get_snowpark_project_definition,
 )
 from snowcli.cli.snowpark.procedure_coverage.manager import (
     ProcedureCoverageManager,
@@ -39,6 +42,7 @@ StoreAsCommandOption = typer.Option(
     help="Generate a code coverage report by downloading and combining reports from the stage",
 )
 @with_output
+@with_project_definition("snowpark")
 @global_options_with_connection
 def procedure_coverage_report(
     identifier: str = identifier_argument(
@@ -48,7 +52,7 @@ def procedure_coverage_report(
     store_as_comment: bool = StoreAsCommandOption,
     **options,
 ):
-    snowpark = get_snowpark_project_definition()
+    snowpark = cli_context.project_definition
     artefact_name = Path(snowpark["src"]).name + ".zip"
     message = ProcedureCoverageManager().report(
         identifier=identifier,
@@ -66,10 +70,11 @@ def procedure_coverage_report(
     help="Delete the code coverage reports from the stage, to start the measuring process over",
 )
 @with_output
+@with_project_definition("snowpark")
 @global_options_with_connection
 def procedure_coverage_clear(
     **options,
 ) -> CommandResult:
-    snowpark = get_snowpark_project_definition()
+    snowpark = cli_context.project_definition
     cursor = ProcedureCoverageManager().clear(get_app_stage_path(snowpark))
     return SingleQueryResult(cursor)
