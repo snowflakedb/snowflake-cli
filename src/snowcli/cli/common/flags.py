@@ -170,6 +170,13 @@ DebugOption = typer.Option(
     rich_help_panel=_CLI_BEHAVIOUR,
 )
 
+LikeOption = typer.Option(
+    "%%",
+    "--like",
+    "-l",
+    help='Regular expression for filtering objects by name. For example, `list --like "my%"` lists all objects that begin with “my”.',
+)
+
 
 def experimental_option(
     experimental_behaviour_description: Optional[str] = None,
@@ -202,9 +209,28 @@ def execution_identifier_argument(object: str, example: str) -> typer.Argument:
     )
 
 
-LikeOption = typer.Option(
-    "%%",
-    "--like",
-    "-l",
-    help='Regular expression for filtering objects by name. For example, `list --like "my%"` lists all objects that begin with “my”.',
-)
+def project_definition_option(project_name: str):
+    from snowcli.cli.project.definition_manager import DefinitionManager
+    from snowcli.exception import NoProjectDefinitionError
+
+    def _callback(project_path: Optional[str]):
+        dm = DefinitionManager(project_path)
+        project_definition = dm.project_definition.get(project_name)
+
+        if not project_definition:
+            raise NoProjectDefinitionError(
+                project_type=project_name, project_file=project_path
+            )
+
+        cli_context_manager.set_project_definition(project_definition)
+        return project_definition
+
+    return typer.Option(
+        None,
+        "-p",
+        "--project",
+        help=f"Path where the {project_name.replace('_', ' ').capitalize()} project resides. "
+        f"Defaults to current working directory.",
+        callback=_callback,
+        show_default=False,
+    )

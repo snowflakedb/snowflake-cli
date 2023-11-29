@@ -10,7 +10,12 @@ from typing import Dict, List
 import typer
 from click import ClickException
 from snowcli import utils
-from snowcli.cli.common.decorators import global_options, global_options_with_connection
+from snowcli.cli.common.cli_global_context import cli_context
+from snowcli.cli.common.decorators import (
+    global_options,
+    global_options_with_connection,
+    with_project_definition,
+)
 from snowcli.cli.common.flags import (
     DEFAULT_CONTEXT_SETTINGS,
     execution_identifier_argument,
@@ -19,7 +24,6 @@ from snowcli.cli.common.project_initialisation import add_init_command
 from snowcli.cli.constants import DEPLOYMENT_STAGE, ObjectType
 from snowcli.cli.object.manager import ObjectManager
 from snowcli.cli.object.stage.manager import StageManager
-from snowcli.cli.project.definition_manager import DefinitionManager
 from snowcli.cli.snowpark.common import (
     build_udf_sproc_identifier,
     check_if_replace_is_required,
@@ -104,6 +108,7 @@ def _alter_procedure_artifact_with_coverage_wrapper(
 
 @app.command("deploy")
 @with_output
+@with_project_definition("snowpark")
 @global_options_with_connection
 def deploy(
     install_coverage_wrapper: bool = InstallCoverageWrapper,
@@ -115,7 +120,7 @@ def deploy(
     By default, if any of the objects exist already the commands will fail unless `--replace` flag is provided.
     All deployed object use the same artefact which is deployed only once.
     """
-    snowpark = get_snowpark_project_definition()
+    snowpark = cli_context.project_definition
 
     procedures = snowpark.get("procedures", [])
     functions = snowpark.get("functions", [])
@@ -238,14 +243,6 @@ def _deploy_procedure_with_coverage(
     return CollectionResult([operation_result])
 
 
-def get_snowpark_project_definition():
-    dm = DefinitionManager()
-    snowpark = dm.project_definition.get("snowpark")
-    if not snowpark:
-        raise NoProjectDefinitionError(dm.BASE_DEFINITION_FILENAME)
-    return snowpark
-
-
 def get_app_stage_path(snowpark):
     artifact_stage_directory = (
         f"@{snowpark.get('stage_name', DEPLOYMENT_STAGE)}/{snowpark['project_name']}"
@@ -330,6 +327,7 @@ def _get_snowpark_artefact_path(snowpark_definition: Dict):
 @app.command("build")
 @global_options
 @with_output
+@with_project_definition("snowpark")
 def build(
     pypi_download: str = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
@@ -340,7 +338,7 @@ def build(
     Builds the Snowpark project as a `.zip` archive that can be used by `deploy` command.
     The archive is built using only `src` directory specified in project file.
     """
-    snowpark = get_snowpark_project_definition()
+    snowpark = cli_context.project_definition
     source = Path(snowpark.get("src"))
     artefact_file = _get_snowpark_artefact_path(snowpark)
     log.info("Building package using sources from: %s", source.resolve())

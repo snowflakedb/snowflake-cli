@@ -1,5 +1,5 @@
 import re
-from typing import Optional
+from typing import Dict, Optional
 
 from snowcli.exception import InvalidSchemaError
 from snowcli.output.formats import OutputFormat
@@ -154,6 +154,7 @@ class _CliGlobalContextManager:
         self._output_format = OutputFormat.TABLE
         self._verbose = False
         self._experimental = False
+        self._project_definition = None
 
     def reset(self):
         self.__init__()
@@ -187,6 +188,13 @@ class _CliGlobalContextManager:
         self._experimental = value
 
     @property
+    def project_definition(self) -> Optional[Dict]:
+        return self._project_definition
+
+    def set_project_definition(self, value: Dict):
+        self._project_definition = value
+
+    @property
     def connection_context(self) -> _ConnectionContext:
         return self._connection_context
 
@@ -218,6 +226,10 @@ class _CliGlobalContextAccess:
     @property
     def experimental(self) -> bool:
         return self._manager.experimental
+
+    @property
+    def project_definition(self):
+        return self._manager.project_definition
 
 
 cli_context_manager: _CliGlobalContextManager = _CliGlobalContextManager()
