@@ -4,14 +4,14 @@ snowpark:
   stage_name: "dev_deployment"
   src: "app/"
   functions:
-    - name: hello
+    - name: hello_function
       handler: "app.hello_function"
       signature:
         - name: "name"
           type: "string"
       returns: string
   procedures:
-    - name: hello
+    - name: hello_procedure
       handler: "app.hello_procedure"
       signature:
         - name: "name"
