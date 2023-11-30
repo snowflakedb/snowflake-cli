@@ -91,6 +91,56 @@ def test_deploy_only_streamlit_file(
 @mock.patch("snowcli.cli.connection.util.get_account")
 @mock.patch("snowcli.cli.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
+def test_deploy_only_streamlit_file_no_stage(
+    mock_connector,
+    mock_typer,
+    mock_get_account,
+    mock_cursor,
+    runner,
+    mock_ctx,
+    project_directory,
+):
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"REGIONLESS": "false"},
+                {"CURRENT_ACCOUNT_NAME()": "my_account"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
+    mock_connector.return_value = ctx
+    mock_get_account.return_value = "my_account"
+
+    with project_directory("example_streamlit_no_stage") as pdir:
+        (pdir / "environment.yml").unlink()
+        shutil.rmtree(pdir / "pages")
+        result = runner.invoke(["streamlit", "deploy"])
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == [
+        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
+        _put_query(
+            "streamlit_app.py", "@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/test_streamlit"
+        ),
+        dedent(
+            f"""
+            CREATE STREAMLIT {STREAMLIT_NAME}
+            ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
+            MAIN_FILE = 'streamlit_app.py'
+            QUERY_WAREHOUSE = test_warehouse
+            """
+        ).strip(),
+        "select system$get_snowsight_host()",
+        REGIONLESS_QUERY,
+    ]
+    mock_typer.launch.assert_not_called()
+
+
+@mock.patch("snowcli.cli.connection.util.get_account")
+@mock.patch("snowcli.cli.streamlit.commands.typer")
+@mock.patch("snowflake.connector.connect")
 def test_deploy_only_streamlit_file_replace(
     mock_connector,
     mock_typer,
