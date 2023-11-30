@@ -207,7 +207,7 @@ class SnowparkTestSteps:
                 "deploy",
             ]
         )
-        assert_that_result_is_error(result)
+        assert_that_result_is_error(result, 1)
         assert result.output and result.output.__contains__(message_contains)
 
     def object_drop_should_finish_successfully(

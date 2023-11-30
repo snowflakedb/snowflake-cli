@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Tuple
 
 import pytest
@@ -10,21 +9,9 @@ from snowcli.cli.snowpark.common import (
 
 from tests.testing_utils.fixtures import (
     correct_requirements_snowflake_txt,
-    runner,
     temp_dir,
     test_data,
 )
-
-INIT_DEFAULT_FILES = {
-    Path("example_snowpark/.gitignore"),
-    Path("example_snowpark/app"),
-    Path("example_snowpark/app/__init__.py"),
-    Path("example_snowpark/app/common.py"),
-    Path("example_snowpark/app/functions.py"),
-    Path("example_snowpark/app/procedures.py"),
-    Path("example_snowpark/requirements.txt"),
-    Path("example_snowpark/snowflake.yml"),
-}
 
 
 def test_get_snowflake_packages_delta(temp_dir, correct_requirements_snowflake_txt):
