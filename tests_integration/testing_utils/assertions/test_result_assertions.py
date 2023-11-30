@@ -9,6 +9,10 @@ def assert_that_result_is_successful(result: CommandResult) -> None:
     assert result.exit_code == 0, result.output
 
 
+def assert_that_result_is_error(result: CommandResult, expected_exit_code: int) -> None:
+    assert result.exit_code == expected_exit_code, result.output
+
+
 def assert_that_result_is_successful_and_output_json_contains(
     result: CommandResult,
     expected_output: Dict,
