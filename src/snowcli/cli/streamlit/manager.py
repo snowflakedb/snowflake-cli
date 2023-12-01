@@ -45,9 +45,14 @@ class StreamlitManager(SqlExecutionMixin):
 
         if additional_source_files:
             for file in additional_source_files:
-                stage_manager.put(
-                    file, f"{root_location}/{str(Path(file).parent)}", 4, True
+                # If the file is in a folder, PUT it to the same folder in the stage
+                # If not, just PUT it to the root of the stage
+                destination = (
+                    f"{root_location}/{str(Path(file).parent)}"
+                    if "/" in file
+                    else root_location
                 )
+                stage_manager.put(file, destination, 4, True)
 
     def _create_streamlit(
         self,
