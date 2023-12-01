@@ -8,3 +8,4 @@ streamlit:
   pages_dir: pages
   additional_source_files:
     - utils/utils.py
+    - extra_file.py
