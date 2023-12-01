@@ -101,3 +101,23 @@ def test_that_objects_list_is_in_help(command, runner):
     result = runner.invoke(["object", command, "--help"])
     for obj in SUPPORTED_OBJECTS:
         assert obj in result.output, f"{obj} in help message"
+
+
+@pytest.mark.parametrize(
+    "command,expect_argument_exception",
+    [
+        (["object", "drop"], "OBJECT_TYPE"),
+        (["object", "drop", "function"], "OBJECT_NAME"),
+        (["object", "list"], "OBJECT_TYPE"),
+        (["object", "describe"], "OBJECT_TYPE"),
+        (["object", "describe", "function"], "OBJECT_NAME"),
+    ],
+)
+def test_throw_exception_because_of_missing_arguments(
+    runner, command, expect_argument_exception
+):
+    result = runner.invoke(command)
+    assert result.exit_code == 2, result.output
+    assert result.output.__contains__(
+        f"Missing argument '{expect_argument_exception}'."
+    )
