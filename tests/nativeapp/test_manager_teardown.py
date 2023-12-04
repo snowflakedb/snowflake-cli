@@ -221,7 +221,7 @@ def test_teardown_without_app_instance(mock_execute, temp_dir, mock_cursor):
 def test_teardown_could_not_drop_app(mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
-            # teardown app: app does not exist + is skipped
+            # teardown app: app has wrong comment; drop throws an error
             (
                 mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
                 mock.call("select current_role()", cursor_class=DictCursor),
@@ -242,6 +242,7 @@ def test_teardown_could_not_drop_app(mock_execute, temp_dir, mock_cursor):
                 mock.call("show applications like 'MYAPP'", cursor_class=DictCursor),
             ),
             (None, mock.call("use role old_role")),
+            # teardown package: never happens
         ]
     )
     mock_execute.side_effect = side_effects
