@@ -3,6 +3,7 @@ from unittest.mock import PropertyMock
 
 from snowcli.cli.nativeapp.manager import (
     SPECIAL_COMMENT,
+    CouldNotDropObjectError,
     NativeAppManager,
 )
 from snowflake.connector.cursor import DictCursor
@@ -213,6 +214,49 @@ def test_teardown_without_app_instance(mock_execute, temp_dir, mock_cursor):
 
     native_app_manager = NativeAppManager()
     native_app_manager.teardown()
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_teardown_could_not_drop_app(mock_execute, temp_dir, mock_cursor):
+    side_effects, expected = mock_execute_helper(
+        [
+            # teardown app: app does not exist + is skipped
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role app_role")),
+            (
+                mock_cursor(
+                    [
+                        {
+                            "name": "MYAPP",
+                            "comment": "some other random comment",
+                            "version": "UNVERSIONED",
+                            "owner": "APP_ROLE",
+                        }
+                    ],
+                    [],
+                ),
+                mock.call("show applications like 'MYAPP'", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    native_app_manager = NativeAppManager()
+    with pytest.raises(CouldNotDropObjectError):
+        native_app_manager.teardown()
+
     assert mock_execute.mock_calls == expected
 
 

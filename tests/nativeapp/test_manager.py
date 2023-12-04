@@ -247,7 +247,10 @@ def test_drop_object_no_special_comment(mock_execute, temp_dir, mock_cursor):
                     ],
                     [],
                 ),
-                mock.call("show application packages like 'sample_package_name'"),
+                mock.call(
+                    "show application packages like 'SAMPLE_PACKAGE_NAME'",
+                    cursor_class=DictCursor,
+                ),
             ),
             (mock_cursor(["row"], []), mock.call("use role old_role")),
         ]
@@ -273,7 +276,8 @@ def test_drop_object_no_special_comment(mock_execute, temp_dir, mock_cursor):
                 "show": "show application packages like",
             },
         )
-        assert mock_execute.mock_calls == expected
+
+    assert mock_execute.mock_calls == expected
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
