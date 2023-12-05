@@ -107,7 +107,7 @@ class CliConfigManager(ConfigManager):
             env_variables = self._get_envs_for_path(*path)
             section_copy = section.copy()
             section_copy.update(env_variables)
-            return section_copy
+            return section_copy.unwrap()
         # It's a atomic value
         return section
 
