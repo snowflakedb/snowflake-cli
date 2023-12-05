@@ -13,7 +13,7 @@ class PluginConfigProviderImpl(PluginConfigProvider):
             for (plugin_name, plugin_config_section) in cli_config.get_section(
                 *config_path
             ).items():
-                if plugin_config_section.get("enabled", default=False):
+                if plugin_config_section.get("enabled", False):
                     enabled_plugins.append(plugin_name)
         return enabled_plugins
 
