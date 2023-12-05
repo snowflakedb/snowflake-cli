@@ -1,3 +1,4 @@
+import codecs
 import os
 import re
 from typing import Optional
@@ -7,6 +8,8 @@ DB_SCHEMA_AND_NAME = f"{IDENTIFIER}[.]{IDENTIFIER}[.]{IDENTIFIER}"
 SCHEMA_AND_NAME = f"{IDENTIFIER}[.]{IDENTIFIER}"
 GLOB_REGEX = r"^[a-zA-Z0-9_\-./*?**\p{L}\p{N}]+$"
 RELATIVE_PATH = r"^[^/][\p{L}\p{N}_\-.][^/]*$"
+
+SINGLE_QUOTED_STRING_LITERAL_REGEX = r"'((?:\\.|''|[^'\n])+?)'"
 
 # See https://docs.snowflake.com/en/sql-reference/identifiers-syntax for identifier syntax
 UNQUOTED_IDENTIFIER_REGEX = r"(^[a-zA-Z_])([a-zA-Z0-9_$]{0,254})"
@@ -78,6 +81,23 @@ def unquote_identifier(identifier: str) -> str:
         return match.group(1).replace('""', '"')
     # unquoted identifiers are internally represented as uppercase
     return identifier.upper()
+
+
+def to_string_literal(raw_value: str) -> str:
+    """
+    Converts the raw string value to a correctly escaped, single-quoted string literal.
+    """
+
+    if re.fullmatch(SINGLE_QUOTED_STRING_LITERAL_REGEX, raw_value):
+        return raw_value
+
+    # encode escape sequences
+    escaped = str(codecs.encode(raw_value, "unicode-escape"), "utf-8")
+
+    # escape single quotes
+    escaped = re.sub(r"^'|(?<!')'", r"\'", escaped)
+
+    return f"'{escaped}'"
 
 
 def extract_schema(qualified_name: str):
