@@ -5,7 +5,9 @@ from snowcli.cli.nativeapp.manager import (
     SPECIAL_COMMENT,
     CouldNotDropObjectError,
     NativeAppManager,
+    SnowflakeSQLExecutionError,
 )
+from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
 from tests.testing_utils.fixtures import *
@@ -218,7 +220,7 @@ def test_teardown_without_app_instance(mock_execute, temp_dir, mock_cursor):
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-def test_teardown_could_not_drop_app(mock_execute, temp_dir, mock_cursor):
+def test_teardown_app_has_wrong_comment(mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
             # teardown app: app has wrong comment; drop throws an error
@@ -256,6 +258,57 @@ def test_teardown_could_not_drop_app(mock_execute, temp_dir, mock_cursor):
 
     native_app_manager = NativeAppManager()
     with pytest.raises(CouldNotDropObjectError):
+        native_app_manager.teardown()
+
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_teardown_drop_app_fails(mock_execute, temp_dir, mock_cursor):
+    side_effects, expected = mock_execute_helper(
+        [
+            # teardown app: app has wrong comment; drop throws an error
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role app_role")),
+            (
+                mock_cursor(
+                    [
+                        {
+                            "name": "MYAPP",
+                            "comment": SPECIAL_COMMENT,
+                            "version": "UNVERSIONED",
+                            "owner": "APP_ROLE",
+                        }
+                    ],
+                    [],
+                ),
+                mock.call("show applications like 'MYAPP'", cursor_class=DictCursor),
+            ),
+            (
+                ProgrammingError(
+                    msg="Object does not exist, or operation cannot be performed.",
+                    errno=2043,
+                ),
+                mock.call("drop application myapp"),
+            ),
+            (None, mock.call("use role old_role")),
+            # teardown package: never happens
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    native_app_manager = NativeAppManager()
+    with pytest.raises(SnowflakeSQLExecutionError):
         native_app_manager.teardown()
 
     assert mock_execute.mock_calls == expected
