@@ -46,7 +46,7 @@ dev = [
   "pytest==7.4.3",
   "pytest-randomly==3.15.0",
   "syrupy==4.6.0",
-  "tox==4.6.4",
+  "tox==4.11.4",
 ]
 
 [project.urls]
