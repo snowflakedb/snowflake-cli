@@ -83,14 +83,17 @@ def unquote_identifier(identifier: str) -> str:
     return identifier.upper()
 
 
+def is_valid_string_literal(literal: str) -> bool:
+    """
+    Determines if a literal is a valid single quoted string literal
+    """
+    return re.fullmatch(SINGLE_QUOTED_STRING_LITERAL_REGEX, literal) is not None
+
+
 def to_string_literal(raw_value: str) -> str:
     """
     Converts the raw string value to a correctly escaped, single-quoted string literal.
     """
-
-    if re.fullmatch(SINGLE_QUOTED_STRING_LITERAL_REGEX, raw_value):
-        return raw_value
-
     # encode escape sequences
     escaped = str(codecs.encode(raw_value, "unicode-escape"), "utf-8")
 
