@@ -53,7 +53,7 @@ from snowcli.utils import (
     get_snowflake_packages,
 )
 from snowcli.zipper import add_file_to_existing_zip
-from snowflake.connector import ProgrammingError
+from snowflake.connector import DictCursor, ProgrammingError
 
 log = logging.getLogger(__name__)
 
@@ -148,6 +148,7 @@ def deploy(
     fm = FunctionManager()
 
     _check_if_any_object_exist_already(fm, functions, pm, procedures, replace)
+    _check_if_all_defined_integrations_exists(functions, procedures)
 
     # Create stage
     stage_name = snowpark.get("stage_name", DEPLOYMENT_STAGE)
@@ -204,6 +205,28 @@ def deploy(
         deploy_status.append(operation_result)
 
     return CollectionResult(deploy_status)
+
+
+def _check_if_all_defined_integrations_exists(functions, procedures):
+    om = ObjectManager()
+    existing_integrations = [
+        i["name"].lower()
+        for i in om.show(object_type="integration", cursor_class=DictCursor, like=None)
+        if i["type"] == "EXTERNAL_ACCESS"
+    ]
+    for object_definition in [*functions, *procedures]:
+        external_access_integrations = [
+            s.lower() for s in object_definition.get("external_access_integrations", [])
+        ]
+        secrets = [s.lower() for s in object_definition.get("secrets", [])]
+
+        if not external_access_integrations and secrets:
+            raise SecretsWithoutExternalAccessIntegrationError()
+
+        if any(i not in existing_integrations for i in external_access_integrations):
+            raise ClickException(
+                "One of defined external access integrations does not exist in Snowflake."
+            )
 
 
 def _check_if_any_object_exist_already(fm, functions, pm, procedures, replace):
@@ -278,11 +301,6 @@ def _deploy_single_object(
     identifier = build_udf_sproc_identifier(object_definition)
     log.info(f"Deploying {object_type}: {identifier}")
 
-    external_access_integrations = object_definition.get("external_access_integrations")
-    secrets = object_definition.get("secrets")
-    if not external_access_integrations and secrets:
-        raise SecretsWithoutExternalAccessIntegrationError()
-
     handler = object_definition["handler"]
     returns = object_definition["returns"]
     object_exists = True
@@ -316,8 +334,10 @@ def _deploy_single_object(
         "return_type": returns,
         "artifact_file": stage_artifact_path,
         "packages": packages,
-        "external_access_integrations": external_access_integrations,
-        "secrets": secrets,
+        "external_access_integrations": object_definition.get(
+            "external_access_integrations"
+        ),
+        "secrets": object_definition.get("secrets"),
     }
     if object_type == ObjectType.PROCEDURE:
         create_or_replace_kwargs["execute_as_caller"] = object_definition.get(
