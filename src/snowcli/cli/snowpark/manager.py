@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Optional
 
+from snowcli.cli.constants import ObjectNames, ObjectType
 from snowcli.cli.snowpark.common import SnowparkObjectManager
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -12,7 +13,7 @@ log = logging.getLogger(__file__)
 class FunctionManager(SnowparkObjectManager):
     @property
     def _object_type(self):
-        return "function"
+        return ObjectType.FUNCTION
 
     @property
     def _object_execute(self):
@@ -44,7 +45,7 @@ class FunctionManager(SnowparkObjectManager):
 class ProcedureManager(SnowparkObjectManager):
     @property
     def _object_type(self):
-        return "procedure"
+        return ObjectType.PROCEDURE
 
     @property
     def _object_execute(self):

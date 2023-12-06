@@ -24,13 +24,17 @@ def test_deploy_function_no_procedure(runner, project_directory):
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowcli.cli.snowpark.manager.SnowparkObjectManager.get_existing_objects")
 def test_deploy_procedure(
+    mock_get_existing_objects,
     mock_describe,
     mock_conn,
     runner,
     mock_ctx,
     project_directory,
 ):
+
+    mock_get_existing_objects.return_value = {}
     mock_describe.side_effect = ProgrammingError("does not exist or not authorized")
     ctx = mock_ctx()
     mock_conn.return_value = ctx
@@ -80,13 +84,16 @@ def test_deploy_procedure(
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowcli.cli.snowpark.manager.SnowparkObjectManager.get_existing_objects")
 def test_deploy_procedure_with_external_access(
+    mock_get_existing_objects,
     mock_describe,
     mock_conn,
     runner,
     mock_ctx,
     project_directory,
 ):
+    mock_get_existing_objects.return_value = {}
     mock_describe.side_effect = ProgrammingError("does not exist or not authorized")
     ctx = mock_ctx()
     mock_conn.return_value = ctx
@@ -126,15 +133,15 @@ def test_deploy_procedure_with_external_access(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowcli.cli.snowpark.manager.SnowparkObjectManager.get_existing_objects")
 def test_deploy_procedure_secrets_without_external_access(
-    mock_describe,
+    mock_get_existing_objects,
     mock_conn,
     runner,
     mock_ctx,
     project_directory,
 ):
-    mock_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    mock_get_existing_objects.return_value = {}
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
@@ -158,7 +165,9 @@ def test_deploy_procedure_secrets_without_external_access(
     "snowcli.cli.snowpark.commands._alter_procedure_artifact_with_coverage_wrapper"
 )
 @mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowcli.cli.snowpark.manager.SnowparkObjectManager.get_existing_objects")
 def test_deploy_procedure_with_coverage(
+    mock_get_existing_objects,
     mock_describe,
     mock_alter_procedure_artifact,
     mock_conn,
@@ -167,6 +176,7 @@ def test_deploy_procedure_with_coverage(
     temp_dir,
     project_directory,
 ):
+    mock_get_existing_objects.return_value = {}
     mock_alter_procedure_artifact.return_value = "snowpark_coverage.measure_coverage"
 
     mock_describe.side_effect = ProgrammingError("does not exist or not authorized")
@@ -206,28 +216,18 @@ def test_coverage_wrapper_does_not_work_for_multiple_procedures(
     assert "Using coverage wrapper is currently limited" in result.output
 
 
-@mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowcli.cli.snowpark.manager.SnowparkObjectManager.get_existing_objects")
 def test_deploy_procedure_fails_if_object_exists_and_no_replace(
-    mock_describe,
-    mock_conn,
+    mock_get_existing_objects,
     runner,
-    mock_cursor,
-    mock_ctx,
     project_directory,
+    snapshot,
 ):
-    mock_describe.side_effect = [
-        mock_cursor(
-            [
-                ("packages", '["foo=1.2.3", "bar>=3.0.0"]'),
-                ("handler", "main.py:app"),
-                ("returns", "table(variant)"),
-            ],
-            columns=["key", "value"],
-        ),
-    ]
-    ctx = mock_ctx()
-    mock_conn.return_value = ctx
+    mock_get_existing_objects.return_value = {
+        "PROCEDURENAME(VARCHAR) RETURN VARCHAR": {
+            "arguments": "PROCEDURENAME(VARCHAR) RETURNS VARCHAR"
+        }
+    }
 
     with project_directory("snowpark_procedures"):
         result = runner.invoke(
@@ -238,12 +238,14 @@ def test_deploy_procedure_fails_if_object_exists_and_no_replace(
         )
 
     assert result.exit_code == 1
-    assert "Procedure procedureName(name string) already exists." in result.output
+    assert result.output == snapshot
 
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowcli.cli.snowpark.manager.SnowparkObjectManager.get_existing_objects")
 def test_deploy_procedure_replace_nothing_to_update(
+    mock_get_existing_objects,
     mock_describe,
     mock_conn,
     runner,
@@ -251,6 +253,11 @@ def test_deploy_procedure_replace_nothing_to_update(
     mock_ctx,
     project_directory,
 ):
+    mock_get_existing_objects.return_value = {
+        "PROCEDURENAME(VARCHAR) RETURN VARCHAR": {
+            "arguments": "PROCEDURENAME(VARCHAR) RETURNS VARCHAR"
+        }
+    }
     mock_describe.side_effect = [
         mock_cursor(
             [
@@ -288,7 +295,9 @@ def test_deploy_procedure_replace_nothing_to_update(
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowcli.cli.snowpark.manager.SnowparkObjectManager.get_existing_objects")
 def test_deploy_procedure_replace_updates_single_object(
+    mock_get_existing_objects,
     mock_describe,
     mock_conn,
     runner,
@@ -296,6 +305,11 @@ def test_deploy_procedure_replace_updates_single_object(
     mock_ctx,
     project_directory,
 ):
+    mock_get_existing_objects.return_value = {
+        "PROCEDURENAME(VARCHAR) RETURN VARCHAR": {
+            "arguments": "PROCEDURENAME(VARCHAR) RETURNS VARCHAR"
+        }
+    }
     mock_describe.side_effect = [
         mock_cursor(
             [
@@ -333,7 +347,9 @@ def test_deploy_procedure_replace_updates_single_object(
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowcli.cli.snowpark.manager.SnowparkObjectManager.get_existing_objects")
 def test_deploy_procedure_replace_creates_missing_object(
+    mock_get_existing_objects,
     mock_describe,
     mock_conn,
     runner,
@@ -341,6 +357,11 @@ def test_deploy_procedure_replace_creates_missing_object(
     mock_ctx,
     project_directory,
 ):
+    mock_get_existing_objects.return_value = {
+        "PROCEDURENAME(VARCHAR) RETURN VARCHAR": {
+            "arguments": "PROCEDURENAME(VARCHAR) RETURNS VARCHAR"
+        }
+    }
     mock_describe.side_effect = [
         mock_cursor(
             [

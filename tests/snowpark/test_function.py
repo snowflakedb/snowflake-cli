@@ -8,13 +8,16 @@ from snowflake.connector import ProgrammingError
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowcli.cli.snowpark.manager.SnowparkObjectManager.get_existing_objects")
 def test_deploy_function(
+    mock_get_existing_objects,
     mock_describe,
     mock_connector,
     mock_ctx,
     runner,
     project_directory,
 ):
+    mock_get_existing_objects.return_value = {}
     mock_describe.side_effect = ProgrammingError("does not exist or not authorized")
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -48,13 +51,16 @@ def test_deploy_function(
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowcli.cli.snowpark.manager.SnowparkObjectManager.get_existing_objects")
 def test_deploy_function_with_external_access(
+    mock_get_existing_objects,
     mock_describe,
     mock_connector,
     mock_ctx,
     runner,
     project_directory,
 ):
+    mock_get_existing_objects.return_value = {}
     mock_describe.side_effect = ProgrammingError("does not exist or not authorized")
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -90,17 +96,17 @@ def test_deploy_function_with_external_access(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowcli.cli.snowpark.manager.SnowparkObjectManager.get_existing_objects")
 def test_deploy_function_secrets_without_external_access(
-    mock_describe,
-    mock_connector,
-    mock_ctx,
+    mock_get_existing_objects,
+    mock_conn,
     runner,
+    mock_ctx,
     project_directory,
 ):
-    mock_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    mock_get_existing_objects.return_value = {}
     ctx = mock_ctx()
-    mock_connector.return_value = ctx
+    mock_conn.return_value = ctx
 
     with project_directory("snowpark_function_secrets_without_external_access"):
         result = runner.invoke(
@@ -284,18 +290,22 @@ def _deploy_function(
 ):
     ctx = mock_ctx(mock_cursor(rows=rows, columns=[]))
     mock_connector.return_value = ctx
-    with project_directory("snowpark_functions") as temp_dir:
-        (Path(temp_dir) / "requirements.snowflake.txt").write_text(
-            "foo=1.2.3\nbar>=3.0.0"
-        )
-        result = runner.invoke(
-            [
-                "snowpark",
-                "deploy",
-                "--format",
-                "json",
-                *args,
-            ]
-        )
+    with mock.patch(
+        "snowcli.cli.snowpark.manager.SnowparkObjectManager.get_existing_objects"
+    ) as m:
+        m.return_value = {}
+        with project_directory("snowpark_functions") as temp_dir:
+            (Path(temp_dir) / "requirements.snowflake.txt").write_text(
+                "foo=1.2.3\nbar>=3.0.0"
+            )
+            result = runner.invoke(
+                [
+                    "snowpark",
+                    "deploy",
+                    "--format",
+                    "json",
+                    *args,
+                ]
+            )
     queries = ctx.get_queries()
     return queries, result, temp_dir

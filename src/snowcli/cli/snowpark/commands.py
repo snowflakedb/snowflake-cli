@@ -27,6 +27,7 @@ from snowcli.cli.object.stage.manager import StageManager
 from snowcli.cli.snowpark.common import (
     build_udf_sproc_identifier,
     check_if_replace_is_required,
+    object_to_signature,
     remove_parameter_names,
 )
 from snowcli.cli.snowpark.manager import FunctionManager, ProcedureManager
@@ -143,6 +144,12 @@ def deploy(
             "Please use build command to create it."
         )
 
+    pm = ProcedureManager()
+    fm = FunctionManager()
+
+    _check_if_any_object_exist_already(fm, functions, pm, procedures, replace)
+
+    # Create stage
     stage_name = snowpark.get("stage_name", DEPLOYMENT_STAGE)
     stage_manager = StageManager()
     stage_manager.create(
@@ -154,8 +161,6 @@ def deploy(
     artifact_stage_directory = get_app_stage_path(snowpark)
     artifact_stage_target = f"{artifact_stage_directory}/{build_artifact_path.name}"
 
-    pm = ProcedureManager()
-
     # Coverage case
     if install_coverage_wrapper:
         return _deploy_procedure_with_coverage(
@@ -165,12 +170,10 @@ def deploy(
             packages=packages,
             pm=pm,
             procedure=procedures[0],
-            replace=replace,
             stage_manager=stage_manager,
             stage_name=stage_name,
         )
 
-    # TODO: Check if any object already exists before we start updates
     stage_manager.put(
         local_path=build_artifact_path,
         stage_path=artifact_stage_directory,
@@ -184,26 +187,43 @@ def deploy(
             manager=pm,
             object_type=ObjectType.PROCEDURE,
             object_definition=procedure,
-            replace=replace,
             packages=packages,
             stage_artifact_path=artifact_stage_target,
         )
         deploy_status.append(operation_result)
 
     # Functions
-    fm = FunctionManager()
     for function in functions:
         operation_result = _deploy_single_object(
             manager=fm,
             object_type=ObjectType.FUNCTION,
             object_definition=function,
-            replace=replace,
             packages=packages,
             stage_artifact_path=artifact_stage_target,
         )
         deploy_status.append(operation_result)
 
     return CollectionResult(deploy_status)
+
+
+def _check_if_any_object_exist_already(fm, functions, pm, procedures, replace):
+    existing_functions = fm.get_existing_objects()
+    existing_procedures = pm.get_existing_objects()
+    existing_objects = []
+    object_state = {
+        "function": (functions, existing_functions),
+        "procedure": (procedures, existing_procedures),
+    }
+    for object_type, (objects, existing) in object_state.items():
+        for obj in objects:
+            full_object_identifier = object_to_signature(obj)
+            if full_object_identifier in existing:
+                existing_objects.append(f"{object_type}: {full_object_identifier}")
+    if any(existing_objects) and not replace:
+        existing = "\n".join(existing_objects)
+        raise ClickException(
+            f"Following object already exists. Consider using --replace.\n {existing}"
+        )
 
 
 def _deploy_procedure_with_coverage(
@@ -213,7 +233,6 @@ def _deploy_procedure_with_coverage(
     packages: List,
     pm: ProcedureManager,
     procedure: Dict,
-    replace: bool,
     stage_manager: StageManager,
     stage_name: str,
 ):
@@ -236,7 +255,6 @@ def _deploy_procedure_with_coverage(
         manager=pm,
         object_type=ObjectType.PROCEDURE,
         object_definition=procedure,
-        replace=replace,
         packages=packages,
         stage_artifact_path=artifact_stage_target,
     )
@@ -254,12 +272,17 @@ def _deploy_single_object(
     manager: FunctionManager | ProcedureManager,
     object_type: ObjectType,
     object_definition: Dict,
-    replace: bool,
     packages: List[str],
     stage_artifact_path: str,
 ):
     identifier = build_udf_sproc_identifier(object_definition)
     log.info(f"Deploying {object_type}: {identifier}")
+
+    external_access_integrations = object_definition.get("external_access_integrations")
+    secrets = object_definition.get("secrets")
+    if not external_access_integrations and secrets:
+        raise SecretsWithoutExternalAccessIntegrationError()
+
     handler = object_definition["handler"]
     returns = object_definition["returns"]
     object_exists = True
@@ -269,19 +292,8 @@ def _deploy_single_object(
         current_state = ObjectManager().describe(
             object_type=str(object_type), name=remove_parameter_names(identifier)
         )
-    except ProgrammingError as ex:
-        if ex.msg.__contains__("does not exist or not authorized"):
-            object_exists = False
-            log.debug(f"{str(object_type).capitalize()} does not exists.")
-        else:
-            raise ex
-    if object_exists and not replace:
-        raise ObjectAlreadyExistsError(object_type, identifier, replace_available=True)
-
-    external_access_integrations = object_definition.get("external_access_integrations")
-    secrets = object_definition.get("secrets")
-    if not external_access_integrations and secrets:
-        raise SecretsWithoutExternalAccessIntegrationError()
+    except ProgrammingError:
+        object_exists = False
 
     if object_exists:
         replace_object = check_if_replace_is_required(

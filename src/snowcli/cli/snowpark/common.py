@@ -4,9 +4,21 @@ import os
 from typing import Dict, List, Optional
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
-from snowcli.cli.constants import ObjectType
+from snowcli.cli.constants import ObjectNames, ObjectType
 from snowcli.utils import generate_deploy_stage_name
-from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor
+
+
+def _map_type(type_: str):
+    mapping = {"string": "varchar"}
+    return mapping.get(type_.lower(), type_)
+
+
+def object_to_signature(function_or_procedure: Dict):
+    signature = ", ".join(
+        _map_type(o["type"]) for o in function_or_procedure["signature"]
+    )
+    return f"{function_or_procedure['name']}({signature}) RETURN {_map_type(function_or_procedure['returns'])}".upper()
 
 
 def remove_parameter_names(identifier: str):
@@ -115,7 +127,7 @@ def _sql_to_python_return_type_mapper(resource_return_type: str) -> str:
 
 class SnowparkObjectManager(SqlExecutionMixin):
     @property
-    def _object_type(self):
+    def _object_type(self) -> ObjectType:
         raise NotImplementedError()
 
     @property
@@ -132,6 +144,16 @@ class SnowparkObjectManager(SqlExecutionMixin):
     def artifact_stage_path(identifier: str):
         return generate_deploy_stage_name(identifier).lower()
 
+    def get_existing_objects(self):
+        """
+        Returns list of existing objects identified by their signature, for example ['HELLO(VARCHAR) RETURN VARCHAR']
+        """
+        results = self._execute_query(
+            f"show user {self._object_type.value.sf_plural_name}",
+            cursor_class=DictCursor,
+        )
+        return {o["arguments"]: o for o in results}
+
     def create_query(
         self,
         identifier: str,
@@ -145,7 +167,7 @@ class SnowparkObjectManager(SqlExecutionMixin):
     ) -> str:
         packages_list = ",".join(f"'{p}'" for p in packages)
         query = [
-            f"create or replace {self._object_type} {identifier}",
+            f"create or replace {self._object_type.value.sf_name} {identifier}",
             f"returns {return_type}",
             "language python",
             "runtime_version=3.8",
