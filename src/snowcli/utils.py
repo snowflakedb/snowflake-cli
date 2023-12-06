@@ -4,6 +4,7 @@ import glob
 import json
 import logging
 import os
+import operator
 import re
 import shutil
 import subprocess
@@ -12,7 +13,7 @@ import threading
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Generic, List, Literal, Optional, TypeVar
+from typing import Callable, Dict, Generic, List, Literal, Optional, TypeVar, Tuple
 
 import click
 import requests
@@ -126,7 +127,7 @@ def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
         for package in packages:
             # pip package names are case insensitive,
             # Anaconda package names are lowercased
-            if package.name.lower() in channel_data["packages"]:
+            if check_if_package_is_avaiable_in_conda(package, channel_data):
                 snowflake_packages.append(package)
             else:
                 log.info(
@@ -504,6 +505,30 @@ def path_resolver(path_to_file: str):
             return buffer.value
     return path_to_file
 
+
+def check_if_package_is_avaiable_in_conda(
+    package: Requirement, channel_data: dict
+) -> bool:
+    if package.name.lower() not in channel_data["packages"]:
+        return False
+
+    if package.specs:
+        latest_ver = channel_data["packages"][package.name.lower()]["version"]
+        return compare_specs(package.specs, latest_ver)
+
+    return True
+
+
+def compare_specs(specs: List, latest: str):
+    operators = {"<": operator.lt,
+                 "<=": operator.le,
+                 "==": operator.ge,
+                 "!=": operator.ne,
+                 ">=": operator.ge,
+                 ">": operator.gt}
+    return all(
+        [operators[spec[0]](latest, spec[1]) for spec in specs]
+    )
 
 T = TypeVar("T")
 

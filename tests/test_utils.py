@@ -239,16 +239,20 @@ def test_parse_anaconda_packages(mock_get):
     packages = [
         Requirement.parse("pandas==1.0.0"),
         Requirement.parse("FuelSDK>=0.9.3"),
+        Requirement.parse("Pamela==1.0.1")
+
     ]
     split_requirements = utils.parse_anaconda_packages(packages=packages)
     assert len(split_requirements.snowflake) == 1
-    assert len(split_requirements.other) == 1
+    assert len(split_requirements.other) == 2
     assert split_requirements.snowflake[0].name == "pandas"
     assert split_requirements.snowflake[0].specifier is True
     assert split_requirements.snowflake[0].specs == [("==", "1.0.0")]
     assert split_requirements.other[0].name == "FuelSDK"
     assert split_requirements.other[0].specifier is True
     assert split_requirements.other[0].specs == [(">=", "0.9.3")]
+    assert split_requirements.other[1].name == "Pamela"
+    assert split_requirements.other[1].specs == [("==", "1.0.1")]
 
 
 def test_get_downloaded_packages(test_root_path, temp_dir):
@@ -326,3 +330,24 @@ def test_path_resolver(mock_system, argument, expected):
     mock_system.response_value = "Windows"
 
     assert utils.path_resolver(argument) == expected
+
+
+@pytest.mark.parametrize(
+    "argument, expected",
+    [
+        (Requirement.parse_line("anaconda-clean"), True),
+        (Requirement.parse_line("anaconda-clean==1.1.1"), True),
+        (Requirement.parse_line("anaconda-clean==1.1.0"), True),
+        (Requirement.parse_line("anaconda-clean==1.1.2"), False),
+        (Requirement.parse_line("anaconda-clean>=1.1.1"), True),
+        (Requirement.parse_line("anaconda-clean>1.1.1"), False),
+        (Requirement.parse_line("some-other-package"), False)
+    ],
+)
+def test_check_if_package_is_avaiable_in_conda(argument, expected):
+    assert (
+        utils.check_if_package_is_avaiable_in_conda(
+            argument, test_data.anaconda_response
+        )
+        == expected
+    )
