@@ -479,9 +479,10 @@ class NativeAppManager(SqlExecutionMixin):
         object_role: str,
         object_type: Literal["application", "package"],
         query_dict: dict,
-    ) -> None:
+    ) -> bool:
         """
         N.B. query_dict['show'] must be a like % clause
+        Returns True if the object was dropped, False if the object didn't exist.
         """
         log_object_type = (
             "Application Package" if object_type == "package" else object_type
@@ -501,9 +502,10 @@ class NativeAppManager(SqlExecutionMixin):
                 lambda row: row[NAME_COL] == unquote_identifier(object_name),
             )
             if show_obj_row is None:
-                raise CouldNotDropObjectError(
+                log.info(
                     f"Role {object_role} does not own any {log_object_type.lower()} with the name {object_name}!"
                 )
+                return False
 
             # There can only be one possible pre-existing object with the same name
             row_comment = show_obj_row[
@@ -522,7 +524,9 @@ class NativeAppManager(SqlExecutionMixin):
             except:
                 # Case if an object exists but owned by a different role.
                 raise SnowflakeSQLExecutionError(drop_query)
+
             log.info(f"Dropped {log_object_type.lower()} {object_name} successfully.")
+            return True
 
     def teardown(self) -> None:
         # Drop the application first

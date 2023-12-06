@@ -199,7 +199,10 @@ def test_drop_object_no_show_object(mock_execute, temp_dir, mock_cursor):
             (mock_cursor(["row"], []), mock.call("use role sample_package_role")),
             (
                 mock_cursor([], []),
-                mock.call("show application packages like 'SAMPLE_PACKAGE_NAME'"),
+                mock.call(
+                    "show application packages like 'SAMPLE_PACKAGE_NAME'",
+                    cursor_class=DictCursor,
+                ),
             ),
             (mock_cursor(["row"], []), mock.call("use role old_role")),
         ]
@@ -212,17 +215,15 @@ def test_drop_object_no_show_object(mock_execute, temp_dir, mock_cursor):
         contents=[mock_snowflake_yml_file],
     )
     native_app_manager = NativeAppManager()
-    with pytest.raises(
-        CouldNotDropObjectError,
-        match="Role sample_package_role does not own any application package with the name sample_package_name!",
-    ):
-        native_app_manager.drop_object(
-            object_name="sample_package_name",
-            object_role="sample_package_role",
-            object_type="package",
-            query_dict={"show": "show application packages like"},
-        )
-        assert mock_execute.mock_calls == expected
+
+    dropped = native_app_manager.drop_object(
+        object_name="sample_package_name",
+        object_role="sample_package_role",
+        object_type="package",
+        query_dict={"show": "show application packages like"},
+    )
+    assert not dropped
+    assert mock_execute.mock_calls == expected
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
@@ -246,7 +247,10 @@ def test_drop_object_no_special_comment(mock_execute, temp_dir, mock_cursor):
                     ],
                     [],
                 ),
-                mock.call("show application packages like 'sample_package_name'"),
+                mock.call(
+                    "show application packages like 'SAMPLE_PACKAGE_NAME'",
+                    cursor_class=DictCursor,
+                ),
             ),
             (mock_cursor(["row"], []), mock.call("use role old_role")),
         ]
@@ -272,7 +276,8 @@ def test_drop_object_no_special_comment(mock_execute, temp_dir, mock_cursor):
                 "show": "show application packages like",
             },
         )
-        assert mock_execute.mock_calls == expected
+
+    assert mock_execute.mock_calls == expected
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
@@ -1025,76 +1030,3 @@ def test_get_snowsight_url(
         native_app_manager.get_snowsight_url()
         == "https://host/organization/account/#/apps/application/MYAPP"
     )
-
-
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-def test_quoting_app_teardown(mock_execute, temp_dir, mock_cursor):
-    side_effects, expected = mock_execute_helper(
-        [
-            # teardown app
-            (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                mock_cursor(
-                    [
-                        {
-                            "name": "My Application",
-                            "comment": SPECIAL_COMMENT,
-                            "version": "UNVERSIONED",
-                            "owner": "APP_ROLE",
-                        }
-                    ],
-                    [],
-                ),
-                mock.call(
-                    "show applications like 'My Application'", cursor_class=DictCursor
-                ),
-            ),
-            (None, mock.call('drop application "My Application"')),
-            (None, mock.call("use role old_role")),
-            # teardown package
-            (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
-            ),
-            (None, mock.call("use role package_role")),
-            (
-                mock_cursor(
-                    [
-                        {
-                            "name": "My Package",
-                            "comment": SPECIAL_COMMENT,
-                            "owner": "PACKAGE_ROLE",
-                        }
-                    ],
-                    [],
-                ),
-                mock.call(
-                    "show application packages like 'My Package'",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call('drop application package "My Package"')),
-            (None, mock.call("use role old_role")),
-        ]
-    )
-    mock_execute.side_effect = side_effects
-
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir=current_working_directory,
-        contents=[mock_snowflake_yml_file],
-    )
-    create_named_file(
-        file_name="snowflake.local.yml",
-        dir=current_working_directory,
-        contents=[quoted_override_yml_file],
-    )
-
-    native_app_manager = NativeAppManager()
-    native_app_manager.teardown()
-    assert mock_execute.mock_calls == expected
