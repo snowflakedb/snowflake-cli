@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import glob
-import json
 import logging
 import operator
 import os
@@ -13,7 +12,7 @@ import threading
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Generic, List, Literal, Optional, Tuple, TypeVar
+from typing import Callable, Dict, Generic, List, Literal, Optional, TypeVar
 
 import click
 import requests
@@ -21,7 +20,6 @@ import requirements
 import typer
 from jinja2 import Environment, FileSystemLoader
 from requirements.requirement import Requirement
-from snowflake.connector.cursor import SnowflakeCursor
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
