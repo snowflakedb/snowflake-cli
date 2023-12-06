@@ -239,8 +239,7 @@ def test_parse_anaconda_packages(mock_get):
     packages = [
         Requirement.parse("pandas==1.0.0"),
         Requirement.parse("FuelSDK>=0.9.3"),
-        Requirement.parse("Pamela==1.0.1")
-
+        Requirement.parse("Pamela==1.0.1"),
     ]
     split_requirements = utils.parse_anaconda_packages(packages=packages)
     assert len(split_requirements.snowflake) == 1
@@ -341,7 +340,7 @@ def test_path_resolver(mock_system, argument, expected):
         (Requirement.parse_line("anaconda-clean==1.1.2"), False),
         (Requirement.parse_line("anaconda-clean>=1.1.1"), True),
         (Requirement.parse_line("anaconda-clean>1.1.1"), False),
-        (Requirement.parse_line("some-other-package"), False)
+        (Requirement.parse_line("some-other-package"), False),
     ],
 )
 def test_check_if_package_is_avaiable_in_conda(argument, expected):

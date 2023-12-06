@@ -3,8 +3,8 @@ from __future__ import annotations
 import glob
 import json
 import logging
-import os
 import operator
+import os
 import re
 import shutil
 import subprocess
@@ -13,7 +13,7 @@ import threading
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Generic, List, Literal, Optional, TypeVar, Tuple
+from typing import Callable, Dict, Generic, List, Literal, Optional, Tuple, TypeVar
 
 import click
 import requests
@@ -520,15 +520,16 @@ def check_if_package_is_avaiable_in_conda(
 
 
 def compare_specs(specs: List, latest: str):
-    operators = {"<": operator.lt,
-                 "<=": operator.le,
-                 "==": operator.ge,
-                 "!=": operator.ne,
-                 ">=": operator.ge,
-                 ">": operator.gt}
-    return all(
-        [operators[spec[0]](latest, spec[1]) for spec in specs]
-    )
+    operators = {
+        "<": operator.lt,
+        "<=": operator.le,
+        "==": operator.ge,
+        "!=": operator.ne,
+        ">=": operator.ge,
+        ">": operator.gt,
+    }
+    return all([operators[spec[0]](latest, spec[1]) for spec in specs])
+
 
 T = TypeVar("T")
 
