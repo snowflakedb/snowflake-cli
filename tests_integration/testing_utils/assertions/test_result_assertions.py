@@ -5,8 +5,10 @@ from tests_integration.conftest import CommandResult
 from tests_integration.test_utils import contains_row_with
 
 
-def assert_that_result_is_successful(result: CommandResult) -> None:
+def assert_that_result_is_successful(result: CommandResult, caplog=None) -> None:
     assert result.exit_code == 0, result.output
+    if caplog:
+        _assert_that_no_error_logs(caplog)
 
 
 def assert_that_result_is_error(result: CommandResult, expected_exit_code: int) -> None:
@@ -40,3 +42,11 @@ def assert_that_result_is_successful_and_done_is_on_output(
     assert_that_result_is_successful(result)
     assert result.output is not None
     assert json.loads(result.output) == {"message": "Done"}
+
+
+def _assert_that_no_error_logs(caplog):
+    error_logs = [
+        record.message for record in caplog.records if record.levelname == "ERROR"
+    ]
+    assert error_logs == []
+    caplog.clear()
