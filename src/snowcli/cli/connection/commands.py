@@ -167,7 +167,7 @@ def add(
     authenticator: str = typer.Option(
         EmptyInput(),
         "--authenticator",
-        "-a",
+        "-A",
         click_type=OptionalPrompt()
     ),
     private_key_path: str = typer.Option(
@@ -192,6 +192,8 @@ def add(
         "schema": schema,
         "warehouse": warehouse,
         "role": role,
+        "authenticator": authenticator,
+        "private_key_path": private_key_path
     }
     connection_entry = {k: v for k, v in connection_entry.items() if v is not None}
 
