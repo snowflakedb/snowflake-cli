@@ -1,4 +1,3 @@
-import json
 from unittest import mock
 
 import pytest
@@ -27,22 +26,27 @@ MOCK_CONNECTION = {
         ("snow show warehouses", "SNOWCLI.SHOW.WAREHOUSES"),
     ],
 )
-@mock.patch("snowcli.snow_connector.cli_config")
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.snow_connector.click")
 def test_command_context_is_passed_to_snowflake_connection(
-    mock_click, mock_connect, mock_cli_config, runner, cmd, expected, mock_cursor
+    mock_click, mock_connect, cmd, expected
 ):
     from snowcli.snow_connector import connect_to_snowflake
 
     mock_ctx = mock.Mock()
     mock_ctx.command_path = cmd
     mock_click.get_current_context.return_value = mock_ctx
-    mock_cli_config.get_connection.return_value = {}
 
     connect_to_snowflake()
 
-    mock_connect.assert_called_once_with(application=expected)
+    mock_connect.assert_called_once_with(
+        application=expected,
+        database="db_for_test",
+        schema="test_public",
+        role="test_role",
+        warehouse="xs",
+        password="dummy_password",
+    )
 
 
 @mock.patch.dict(os.environ, {}, clear=True)

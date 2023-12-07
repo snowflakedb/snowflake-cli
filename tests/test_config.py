@@ -1,9 +1,6 @@
-import os
-from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest import mock
 
-from snowcli.config import CliConfigManager, config_init, get_default_connection
+from snowcli.config import config_init, get_config_section, get_connection
 
 from tests.testing_utils.fixtures import *
 
@@ -13,18 +10,15 @@ def test_empty_config_file_is_created_if_not_present():
         config_file = Path(tmp_dir) / "sub" / "config.toml"
         assert config_file.exists() is False
 
-        cm = CliConfigManager(file_path=config_file)
-        cm.from_context(config_path_override=None)
+        config_init(config_file)
         assert config_file.exists() is True
-        assert config_file.read_text() == """[connections]\n"""
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
 def test_get_connection_from_file(test_snowcli_config):
-    cm = CliConfigManager(file_path=test_snowcli_config)
-    cm.read_config()
+    config_init(test_snowcli_config)
 
-    assert cm.get_connection("full") == {
+    assert get_connection("full") == {
         "account": "dev_account",
         "user": "dev_user",
         "host": "dev_host",
@@ -40,18 +34,17 @@ def test_get_connection_from_file(test_snowcli_config):
 @mock.patch.dict(
     os.environ,
     {
-        "SNOWFLAKE_CONNECTIONS_DEV_DATABASE": "database_foo",
-        "SNOWFLAKE_CONNECTIONS_DEV_WAREHOUSE": "large",
-        "SNOWFLAKE_CONNECTIONS_DEV_ACCOUNT": "my_account_123",
-        "SNOWFLAKE_CONNECTIONS_DEV_PASSWORD": "my_pass",
+        "SNOWFLAKE_CONNECTIONS_DEFAULT_DATABASE": "database_foo",
+        "SNOWFLAKE_CONNECTIONS_DEFAULT_WAREHOUSE": "large",
+        "SNOWFLAKE_CONNECTIONS_DEFAULT_ACCOUNT": "my_account_123",
+        "SNOWFLAKE_CONNECTIONS_DEFAULT_PASSWORD": "my_pass",
     },
     clear=True,
 )
 def test_environment_variables_override_configuration_value(test_snowcli_config):
-    cm = CliConfigManager(file_path=test_snowcli_config)
-    cm.read_config()
+    config_init(test_snowcli_config)
 
-    assert cm.get_connection("dev") == {
+    assert get_connection("default") == {
         "database": "database_foo",
         "schema": "test_public",
         "role": "test_role",
@@ -71,10 +64,9 @@ def test_environment_variables_override_configuration_value(test_snowcli_config)
     clear=True,
 )
 def test_environment_variables_works_if_config_value_not_present(test_snowcli_config):
-    cm = CliConfigManager(file_path=test_snowcli_config)
-    cm.read_config()
+    config_init(test_snowcli_config)
 
-    assert cm.get_connection("empty") == {
+    assert get_connection("empty") == {
         "account": "some_account",
         "database": "test_database",
         "warehouse": "large",
@@ -84,18 +76,17 @@ def test_environment_variables_works_if_config_value_not_present(test_snowcli_co
 @mock.patch.dict(
     os.environ,
     {
-        "SNOWFLAKE_CONNECTIONS_DEV_WAREHOUSE": "large",
+        "SNOWFLAKE_CONNECTIONS_DEFAULT_WAREHOUSE": "large",
         "SNOWFLAKE_CONNECTIONS_EMPTY_ACCOUNT": "some_account",
         "SNOWFLAKE_CONNECTIONS_FULL_DATABASE": "test_database",
     },
     clear=True,
 )
 def test_get_all_connections(test_snowcli_config):
-    cm = CliConfigManager(file_path=test_snowcli_config)
-    cm.read_config()
+    config_init(test_snowcli_config)
 
-    assert cm.get_section("connections") == {
-        "dev": {
+    assert get_config_section("connections") == {
+        "default": {
             "database": "db_for_test",
             "role": "test_role",
             "schema": "test_public",
@@ -115,78 +106,3 @@ def test_get_all_connections(test_snowcli_config):
             "warehouse": "dev_warehouse",
         },
     }
-
-
-@mock.patch.dict(
-    os.environ,
-    {
-        "SNOWFLAKE_OPTIONS_DEFAULT_CONNECTION": "fooBarConn",
-    },
-    clear=True,
-)
-def test_get_default_connection_from_env():
-    result = get_default_connection()
-    assert result == "fooBarConn"
-
-
-def test_get_default_connection_if_not_present_in_config(test_snowcli_config):
-    config_init(test_snowcli_config)
-    result = get_default_connection()
-    assert result == "dev"
-
-
-@pytest.mark.parametrize(
-    "config_content, expect",
-    [
-        ("""[connections]\n[options]\ndefault_connection = "conn" """, "conn"),
-        (
-            """[connections]\n[connections.other_conn]\n[options]\ndefault_connection = "conn" """,
-            "conn",
-        ),
-        ("""[connections]\n[connections.conn]\n[options]\n""", "conn"),
-        ("""[connections]\n[connections.conn]\n""", "conn"),
-        ("""[connections]\n""", "dev"),
-        (
-            """[connections]\n[connections.conn1]\n[connections.conn2]\n[options]\n """,
-            "dev",
-        ),
-    ],
-)
-def test_get_default_connection_from_config(config_content, expect):
-    with TemporaryDirectory() as tmp_dir:
-        config_path = Path(tmp_dir) / "config.toml"
-        with open(config_path, "w+") as config:
-            config.write(config_content)
-            config.flush()
-            os.chmod(config_path, 0o700)
-
-            config_init(config_path)
-            result = get_default_connection()
-            assert result == expect
-
-
-@pytest.mark.parametrize(
-    "config_content",
-    [
-        """[connections]\n[options]\ndefault_connection = "conn" """,
-        """[connections]\n[connections.conn1]\n[connections.conn2]\n[options]\n """,
-        """[connections]\n[connections.conn1]\n[connections.conn2]\n[options]\ndefault_connection = "conn" """,
-        """[connections]\n[connections.conn1]\n[connections.conn2]\n[connections.dev]\n[options]\ndefault_connection = "conn" """,
-    ],
-)
-@mock.patch.dict(
-    os.environ, {"SNOWFLAKE_OPTIONS_DEFAULT_CONNECTION": "conn1234"}, clear=True
-)
-def test_if_default_connection_in_env_variable_overrides_config(
-    config_content,
-):
-    with TemporaryDirectory() as tmp_dir:
-        config_path = Path(tmp_dir) / "config.toml"
-        with open(config_path, "w+") as config:
-            config.write(config_content)
-            config.flush()
-            os.chmod(config_path, 0o700)
-
-            config_init(config_path)
-            result = get_default_connection()
-            assert result == "conn1234"

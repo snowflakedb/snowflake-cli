@@ -180,7 +180,7 @@ def test_lists_connection_information(runner):
             },
         },
         {
-            "connection_name": "dev",
+            "connection_name": "default",
             "parameters": {
                 "database": "db_for_test",
                 "password": "****",  # masked
@@ -385,7 +385,7 @@ def test_key_pair_authentication_from_config(mock_load, mock_conn, temp_dir, run
 
         result = runner.invoke_with_config_file(
             tmp_file.name,
-            ["object", "list", "warehouse"],
+            ["object", "list", "warehouse", "-c", "jwt"],
         )
 
     assert result.exit_code == 1, result.output

@@ -7,7 +7,7 @@ import typing as t
 from click import Command
 from snowcli.__about__ import VERSION
 from snowcli.app.cli_app import app_context_holder
-from snowcli.config import cli_config
+from snowflake.connector.config_manager import CONFIG_MANAGER
 from typer.core import TyperArgument, TyperOption
 
 from tests.testing_utils.fixtures import *
@@ -53,7 +53,7 @@ def test_info_callback(runner):
     payload = json.loads(result.output)
     assert payload == [
         {"key": "version", "value": VERSION},
-        {"key": "default_config_file_path", "value": str(cli_config.file_path)},
+        {"key": "default_config_file_path", "value": str(CONFIG_MANAGER.file_path)},
     ]
 
 

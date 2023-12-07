@@ -10,7 +10,7 @@ schema = "dev_schema"
 database = "dev_database"
 warehouse = "dev_warehouse"
 
-[connections.dev]
+[connections.default]
 database = "db_for_test"
 schema = "test_public"
 role = "test_role"
