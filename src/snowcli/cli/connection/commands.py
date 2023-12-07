@@ -164,6 +164,20 @@ def add(
         prompt="Snowflake region",
         help="Region name if not the default Snowflake deployment.",
     ),
+    authenticator: str = typer.Option(
+        EmptyInput(),
+        "--authenticator",
+        "-a",
+        click_type=OptionalPrompt()
+    ),
+    private_key_path: str = typer.Option(
+        EmptyInput(),
+        "--private-key",
+        "-k",
+        click_type=OptionalPrompt(),
+        prompt="Path to private key file",
+        help="Path to file containing private key"
+    ),
     **options,
 ) -> CommandResult:
     """Adds a connection to configuration file."""
