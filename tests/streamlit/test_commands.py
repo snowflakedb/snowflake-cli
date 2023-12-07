@@ -322,6 +322,7 @@ def test_deploy_all_streamlit_files(
         _put_query("environment.yml", root_path),
         _put_query("pages/*.py", f"{root_path}/pages"),
         _put_query("utils/utils.py", f"{root_path}/utils"),
+        _put_query("extra_file.py", root_path),
         dedent(
             f"""
             CREATE STREAMLIT {STREAMLIT_NAME}

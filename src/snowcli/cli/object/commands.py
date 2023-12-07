@@ -17,9 +17,8 @@ app = typer.Typer(
 app.add_typer(stage_app)
 
 
-NameArgument = typer.Argument(None, help="Name of the object")
+NameArgument = typer.Argument(help="Name of the object")
 ObjectArgument = typer.Argument(
-    None,
     help="Type of object. For example table, procedure, streamlit.",
     case_sensitive=False,
 )
