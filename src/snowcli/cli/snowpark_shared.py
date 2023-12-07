@@ -85,6 +85,7 @@ def snowpark_package(
                     "requirements.other.txt",
                     check_anaconda_for_pypi_deps,
                     package_native_libraries,
+                    install_directory=source / ".packages",
                 )
                 if should_pack:
                     # add the Anaconda packages discovered as dependencies

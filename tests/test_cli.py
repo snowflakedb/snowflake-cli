@@ -23,3 +23,9 @@ def test_namespace(namespace, expected, runner):
     assert result.exit_code == 0
 
     assert expected in result.output
+
+
+def test_a(runner): #TODO remove this
+    os.chdir("/Users/jsikorski/PycharmProjects/test/example_snowpark")
+    result = runner.invoke(["snowpark", "build", "--pypi-download", "yes"])
+    assert result.exit_code == 0

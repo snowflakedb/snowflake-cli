@@ -20,6 +20,7 @@ import requirements
 import typer
 from jinja2 import Environment, FileSystemLoader
 from requirements.requirement import Requirement
+from snowcli.cli.constants import PACKAGES_DIR
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -330,6 +331,7 @@ def install_packages(
     perform_anaconda_check: bool = True,
     package_native_libraries: YesNoAskOptionsType = "ask",
     package_name: str | None = None,
+    install_directory=PACKAGES_DIR,
 ) -> tuple[bool, SplitRequirements | None]:
     """
     Install packages from a requirements.txt file or a single package name,
@@ -347,7 +349,7 @@ def install_packages(
     if file_name is not None:
         try:
             process = subprocess.Popen(
-                [PIP_PATH, "install", "-t", ".packages/", "-r", file_name],
+                [PIP_PATH, "install", "-t", install_directory, "-r", file_name],
                 stdout=subprocess.PIPE,
                 universal_newlines=True,
             )
