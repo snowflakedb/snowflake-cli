@@ -125,7 +125,7 @@ def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
         for package in packages:
             # pip package names are case insensitive,
             # Anaconda package names are lowercased
-            if check_if_package_is_avaiable_in_conda(package, channel_data):
+            if check_if_package_is_avaiable_in_conda(package, channel_data["packages"]):
                 snowflake_packages.append(package)
             else:
                 log.info(
@@ -504,20 +504,18 @@ def path_resolver(path_to_file: str):
     return path_to_file
 
 
-def check_if_package_is_avaiable_in_conda(
-    package: Requirement, channel_data: dict
-) -> bool:
-    if package.name.lower() not in channel_data["packages"]:
+def check_if_package_is_avaiable_in_conda(package: Requirement, packages: dict) -> bool:
+    if package.name.lower() not in packages:
         return False
 
     if package.specs:
-        latest_ver = channel_data["packages"][package.name.lower()]["version"]
-        return compare_specs(package.specs, latest_ver)
+        latest_ver = packages[package.name.lower()]["version"]
+        return _compare_specs(package.specs, latest_ver)
 
     return True
 
 
-def compare_specs(specs: List, latest: str):
+def _compare_specs(specs: List, latest: str):
     operators = {
         "<": operator.lt,
         "<=": operator.le,

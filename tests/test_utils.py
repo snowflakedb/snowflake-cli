@@ -346,7 +346,7 @@ def test_path_resolver(mock_system, argument, expected):
 def test_check_if_package_is_avaiable_in_conda(argument, expected):
     assert (
         utils.check_if_package_is_avaiable_in_conda(
-            argument, test_data.anaconda_response
+            argument, test_data.anaconda_response["packages"]
         )
         == expected
     )
