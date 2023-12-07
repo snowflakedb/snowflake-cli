@@ -135,7 +135,8 @@ def app_teardown(
     **options,
 ) -> CommandResult:
     """
-    Drops an application and an application package as defined in the project definition file.
+    Attempts to drop both the application and package as defined in the project definition file.
+    This command will succeed even if one or both of these objects do not exist.
     As a note, this command does not accept role or warehouse overrides to your `config.toml` file,
     because your native app definition in `snowflake.yml/snowflake.local.yml` is used for any overrides.
     """
