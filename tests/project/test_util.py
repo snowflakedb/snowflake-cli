@@ -2,6 +2,7 @@ import pytest
 from snowcli.cli.project.util import (
     append_to_identifier,
     is_valid_identifier,
+    is_valid_package_distribution,
     is_valid_quoted_identifier,
     is_valid_string_literal,
     is_valid_unquoted_identifier,
@@ -138,6 +139,23 @@ def test_append_to_identifier():
 )
 def test_is_valid_string_literal(literal, valid):
     assert is_valid_string_literal(literal) == valid
+
+
+@pytest.mark.parametrize(
+    "distribution,valid",
+    [
+        ("internal", True),
+        ("external", True),
+        ("INTERNAL", True),
+        ("EXTERNAL", True),
+        ("Jinternal", False),
+        ("internalJ", False),
+        ("random", False),
+        ("", False),
+    ],
+)
+def test_is_valid_package_distribution(distribution, valid):
+    assert is_valid_package_distribution(distribution) == valid
 
 
 @pytest.mark.parametrize(

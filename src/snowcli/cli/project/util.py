@@ -15,6 +15,8 @@ SINGLE_QUOTED_STRING_LITERAL_REGEX = r"'((?:\\.|''|[^'\n])+?)'"
 UNQUOTED_IDENTIFIER_REGEX = r"(^[a-zA-Z_])([a-zA-Z0-9_$]{0,254})"
 QUOTED_IDENTIFIER_REGEX = r'"((""|[^"])*)"'
 
+PACKAGE_DISTRIBUTION_REGEX = r"^(internal|external|INTERNAL|EXTERNAL)$"
+
 
 def clean_identifier(input):
     """
@@ -88,6 +90,13 @@ def is_valid_string_literal(literal: str) -> bool:
     Determines if a literal is a valid single quoted string literal
     """
     return re.fullmatch(SINGLE_QUOTED_STRING_LITERAL_REGEX, literal) is not None
+
+
+def is_valid_package_distribution(distribution: str) -> bool:
+    """
+    Determines whether the provided distribution is a valid Snowflake distribution type.
+    """
+    return re.fullmatch(PACKAGE_DISTRIBUTION_REGEX, distribution) is not None
 
 
 def to_string_literal(raw_value: str) -> str:

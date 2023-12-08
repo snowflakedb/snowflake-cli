@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from snowcli.cli.project.schemas.relaxed_map import FilePath, Glob, RelaxedMap
-from snowcli.cli.project.util import IDENTIFIER, SCHEMA_AND_NAME
+from snowcli.cli.project.util import (
+    IDENTIFIER,
+    PACKAGE_DISTRIBUTION_REGEX,
+    SCHEMA_AND_NAME,
+)
 from strictyaml import (
     Bool,
     Optional,
@@ -30,6 +34,9 @@ native_app_schema = RelaxedMap(
                 Optional("role"): Regex(IDENTIFIER),
                 Optional("name"): Regex(IDENTIFIER),
                 Optional("warehouse"): Regex(IDENTIFIER),
+                Optional("distribution", default="internal"): Regex(
+                    PACKAGE_DISTRIBUTION_REGEX
+                ),
             }
         ),
         Optional("application"): RelaxedMap(

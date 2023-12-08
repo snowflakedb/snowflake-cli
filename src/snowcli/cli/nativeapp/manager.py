@@ -7,6 +7,7 @@ from textwrap import dedent
 from typing import Callable, List, Literal, Optional
 
 import jinja2
+import typer
 from click.exceptions import ClickException
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.connection.util import make_snowsight_url
@@ -44,6 +45,9 @@ COMMENT_COL = "comment"
 OWNER_COL = "owner"
 VERSION_COL = "version"
 
+INTERNAL_DISTRIBUTION = "internal"
+EXTERNAL_DISTRIBUTION = "external"
+
 ERROR_MESSAGE_2043 = "Object does not exist, or operation cannot be performed."
 ERROR_MESSAGE_606 = "No active warehouse selected in the current session."
 
@@ -66,15 +70,6 @@ class ApplicationAlreadyExistsError(ClickException):
         super().__init__(
             f'A non-dev application "{name}" already exists in the account.'
         )
-
-
-class CouldNotDropObjectError(ClickException):
-    """
-    Could not successfully drop the required Snowflake object.
-    """
-
-    def __init__(self, message: str):
-        super().__init__(message=message)
 
 
 class UnexpectedOwnerError(ClickException):
@@ -140,6 +135,15 @@ def _generic_sql_error_handler(
                 """
             ),
             errno=err.errno,
+        )
+    elif err.msg.__contains__("does not exist or not authorized"):
+        raise ProgrammingError(
+            msg=dedent(
+                f"""\
+                Received error message '{err.msg}' while executing SQL statement.
+                Please check the name of the resource you are trying to query or the permissions of the role you are using to run the query.
+                """
+            )
         )
     raise err
 
@@ -211,6 +215,10 @@ class NativeAppManager(SqlExecutionMixin):
         return self.definition.get("package", {}).get("role", None) or default_role()
 
     @cached_property
+    def package_distribution(self) -> str:
+        return self.definition.get("package", {}).get("distribution", "internal")
+
+    @cached_property
     def app_name(self) -> str:
         return to_identifier(
             self.definition.get("application", {}).get(
@@ -227,6 +235,34 @@ class NativeAppManager(SqlExecutionMixin):
     @cached_property
     def debug_mode(self) -> bool:
         return self.definition.get("application", {}).get("debug", True)
+
+    @cached_property
+    def get_app_pkg_distribution_in_snowflake(self) -> str:
+        """
+        Returns the 'distribution' attribute of a 'describe application package' SQL query, in lowercase.
+        """
+        with self.use_role(self.package_role):
+            try:
+                desc_cursor = self._execute_query(
+                    f"describe application package {self.package_name}"
+                )
+            except ProgrammingError as err:
+                _generic_sql_error_handler(err)
+
+            if desc_cursor.rowcount is None or desc_cursor.rowcount == 0:
+                raise SnowflakeSQLExecutionError()
+            else:
+                for row in desc_cursor:
+                    if row[0].lower() == "distribution":
+                        return row[1].lower()
+        raise ProgrammingError(
+            msg=dedent(
+                f"""\
+                Could not find the 'distribution' attribute for app package {self.package_name} in the output of SQL query:
+                'describe application package {self.package_name}'
+                """
+            )
+        )
 
     def build_bundle(self) -> None:
         """
@@ -416,9 +452,28 @@ class NativeAppManager(SqlExecutionMixin):
                 is not None
             )
 
-    def app_run(self) -> None:
+    def is_app_pkg_distribution_same_in_sf(self) -> bool:
         """
-        Implementation of the "snow app run" dev command.
+        Returns true if the 'distribution' attribute of an existing application package in snowflake
+        is the same as the the attribute specified in project definition file.
+        """
+        actual_distribution = self.get_app_pkg_distribution_in_snowflake
+        project_def_distribution = self.package_distribution.lower()
+        if actual_distribution != project_def_distribution:
+            log.warning(
+                dedent(
+                    f"""\
+                    App pkg {self.package_name} in your Snowflake account has distribution property {actual_distribution},
+                    which does not match the value specified in project definition file: {project_def_distribution}.
+                    """
+                )
+            )
+            return False
+        return True
+
+    def create_app_package(self) -> None:
+        """
+        Creates the application package with our up-to-date stage if none exists.
         """
         with self.use_role(self.package_role):
             show_cursor = self._execute_query(
@@ -434,6 +489,7 @@ class NativeAppManager(SqlExecutionMixin):
                 show_cursor,
                 lambda row: row[NAME_COL] == unquote_identifier(self.package_name),
             )
+
             if show_app_row is None:
                 # Create an app pkg, with distribution = internal to avoid triggering security scan
                 log.info(
@@ -443,23 +499,42 @@ class NativeAppManager(SqlExecutionMixin):
                     f"""
                     create application package {self.package_name}
                         comment = {SPECIAL_COMMENT}
-                        distribution = internal
+                        distribution = {self.package_distribution}
                     """
                 )
             else:
-                row_comment = show_app_row[
-                    COMMENT_COL
-                ]  # Because we use a DictCursor, we are guaranteed a dictionary instead of indexing through a list.
-
-                if row_comment != SPECIAL_COMMENT:
-                    raise ApplicationPackageAlreadyExistsError(self.package_name)
-
+                # 1. Check for the right owner role
                 actual_owner = show_app_row[OWNER_COL]
                 if actual_owner != unquote_identifier(self.package_role):
                     raise UnexpectedOwnerError(
                         self.app_name, self.app_role, actual_owner
                     )
 
+                # 2. Check distribution of the existing app package
+                actual_distribution = self.get_app_pkg_distribution_in_snowflake
+                if not self.is_app_pkg_distribution_same_in_sf():
+                    log.warning(
+                        dedent(
+                            f"""\
+                        Continuing to execute `snow app run` on app pkg {self.package_name} with distribution '{actual_distribution}'.
+                        """
+                        )
+                    )
+
+                # 3. If actual_distribution is external, skip comment check
+                if actual_distribution == INTERNAL_DISTRIBUTION:
+                    row_comment = show_app_row[COMMENT_COL]
+
+                    if row_comment != SPECIAL_COMMENT:
+                        raise ApplicationPackageAlreadyExistsError(self.package_name)
+
+    def app_run(self) -> None:
+        """
+        Implementation of the "snow app run" dev command.
+        """
+        self.create_app_package()
+
+        with self.use_role(self.package_role):
             # now that the application package exists, create shared data
             self._apply_package_scripts()
 
@@ -479,6 +554,7 @@ class NativeAppManager(SqlExecutionMixin):
         object_role: str,
         object_type: Literal["application", "package"],
         query_dict: dict,
+        is_external_distribution: bool = False,
     ) -> bool:
         """
         N.B. query_dict['show'] must be a like % clause
@@ -508,14 +584,25 @@ class NativeAppManager(SqlExecutionMixin):
                 return False
 
             # There can only be one possible pre-existing object with the same name
-            row_comment = show_obj_row[
-                COMMENT_COL
-            ]  # Because we use a DictCursor, we are guaranteed a dictionary instead of indexing through a list.
+            row_comment = show_obj_row[COMMENT_COL]
 
-            if row_comment != SPECIAL_COMMENT:
-                raise CouldNotDropObjectError(
-                    f"{log_object_type} {object_name} was not created by SnowCLI. Cannot drop the {log_object_type.lower()}."
+            # Application instance will always have is_external_distribution = False, hence perform comment check
+            # If application package has distribution = external, skip comment check
+            if (not is_external_distribution) and (row_comment != SPECIAL_COMMENT):
+                should_drop_object = typer.confirm(
+                    f"""\
+                    {log_object_type} {object_name} was not created by SnowCLI. Are you sure you want drop it?
+                    """
                 )
+                if not should_drop_object:
+                    log.info(
+                        dedent(
+                            f"""\
+                        Did not drop {log_object_type} {object_name}.
+                        """
+                        )
+                    )
+                    return False
 
             log.info(f"Dropping {log_object_type.lower()} {object_name} now.")
             drop_query = f"{query_dict['drop']} {object_name}"
@@ -528,6 +615,31 @@ class NativeAppManager(SqlExecutionMixin):
             log.info(f"Dropped {log_object_type.lower()} {object_name} successfully.")
             return True
 
+    def does_app_pkg_exist(self):
+        """
+        TEMPORARY workaround - will be removed in the followup PR as part of a refactor.
+        It is currently similar to 'show application packages' section of drop_object method.
+        """
+        with self.use_role(self.package_role):
+            show_obj_query = f"show application packages like '{unquote_identifier(self.package_name)}'"
+            show_obj_cursor = self._execute_query(
+                show_obj_query, cursor_class=DictCursor
+            )
+
+            if show_obj_cursor.rowcount is None:
+                raise SnowflakeSQLExecutionError(show_obj_query)
+
+            show_obj_row = find_row(
+                show_obj_cursor,
+                lambda row: row[NAME_COL] == unquote_identifier(self.package_name),
+            )
+            if show_obj_row is None:
+                log.info(
+                    f"Role {self.package_role} does not own any application package with the name {self.package_name}, or the object does not exist."
+                )
+                return False
+            return True
+
     def teardown(self) -> None:
         # Drop the application first
         self.drop_object(
@@ -537,7 +649,42 @@ class NativeAppManager(SqlExecutionMixin):
             query_dict={"show": "show applications like", "drop": "drop application"},
         )
 
-        # Drop the application package next
+        # If package does not exist, as in case of idempotent teardown, return early.
+        # TEMPORARY workaround - will be fixed in the followup PR as part of a refactor.
+        if not self.does_app_pkg_exist():
+            return
+
+        # Check distribution of the existing app pkg
+        actual_distribution = self.get_app_pkg_distribution_in_snowflake
+        if not self.is_app_pkg_distribution_same_in_sf():
+            log.warning(
+                dedent(
+                    f"""\
+                Continuing to execute `snow app teardown` on app pkg {self.package_name} with distribution {actual_distribution}.
+                """
+                )
+            )
+
+        is_external_distribution = False
+        if actual_distribution == EXTERNAL_DISTRIBUTION:
+            is_external_distribution = True
+            should_drop_object = typer.confirm(
+                f"""\
+                    Application package {self.package_name} in your Snowflake account has distribution property '{EXTERNAL_DISTRIBUTION}'.
+                    Are you sure you want drop it?
+                    """
+            )
+            if not should_drop_object:
+                log.info(
+                    dedent(
+                        f"""\
+                    Did not drop application package {self.package_name}.
+                    """
+                    )
+                )
+                return
+
+        # Drop the application package
         self.drop_object(
             object_name=self.package_name,
             object_role=self.package_role,
@@ -546,4 +693,5 @@ class NativeAppManager(SqlExecutionMixin):
                 "show": "show application packages like",
                 "drop": "drop application package",
             },
+            is_external_distribution=is_external_distribution,
         )
