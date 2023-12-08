@@ -2,6 +2,8 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from unittest import mock
 
+import pytest
+
 from tests.testing_utils.fixtures import *
 from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
 
@@ -37,7 +39,7 @@ def test_sql_execute_from_stdin(mock_connector, runner, mock_ctx, mock_cursor):
     mock_connector.return_value = ctx
     query = "query from input"
 
-    result = runner.invoke(["sql"], input=query)
+    result = runner.invoke(["sql", "-i"], input=query)
 
     assert result.exit_code == 0
     assert ctx.get_query() == query
@@ -47,16 +49,23 @@ def test_sql_fails_if_no_query_file_or_stdin(runner):
     result = runner.invoke(["sql"])
 
     assert_that_result_is_usage_error(
-        result, "Provide either query or filename argument"
+        result, "Use either query, filename or input option."
     )
 
 
-def test_sql_fails_for_both_stdin_and_other_query_source(runner):
+@pytest.mark.parametrize("inputs", [("-i", "-q", "foo"), ("-i",), ("-q", "foo")])
+def test_sql_fails_if_other_inputs_and_file_provided(runner, inputs):
     with NamedTemporaryFile("r") as tmp_file:
-        result = runner.invoke(["sql", "-f", tmp_file.name], input="query from input")
+        result = runner.invoke(["sql", *inputs, "-f", tmp_file.name])
+        assert_that_result_is_usage_error(
+            result, "Multiple input sources specified. Please specify only one. "
+        )
 
+
+def test_sql_fails_if_query_and_stdin_provided(runner):
+    result = runner.invoke(["sql", "-q", "fooo", "-i"])
     assert_that_result_is_usage_error(
-        result, "Can't use stdin input together with query or filename"
+        result, "Multiple input sources specified. Please specify only one. "
     )
 
 
