@@ -9,6 +9,8 @@ from snowcli.cli.nativeapp.exceptions import (
 from snowcli.cli.nativeapp.run_processor import NativeAppRunProcessor
 from snowcli.cli.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
+from snowcli.cli.project.definition_manager import DefinitionManager
+from snowflake.connector import ProgrammingError
 
 from tests.nativeapp.patch_utils import mock_connection
 from tests.nativeapp.utils import (
