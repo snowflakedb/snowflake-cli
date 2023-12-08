@@ -1,39 +1,34 @@
 from textwrap import dedent
-from unittest.mock import PropertyMock
+from unittest import mock
 
-from snowcli.cli.nativeapp.manager import (
+import pytest
+from snowcli.cli.nativeapp.exceptions import (
     InvalidPackageScriptError,
     MissingPackageScriptError,
-    NativeAppManager,
 )
-from snowcli.cli.project.definition_manager import DefinitionManager
+from snowcli.cli.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.connector import ProgrammingError
+from snowcli.cli.project.definition_manager import DefinitionManager
 
+from tests.nativeapp.utils import (
+    NATIVEAPP_MANAGER_EXECUTE,
+    NATIVEAPP_MANAGER_EXECUTE_QUERIES,
+    mock_connection,
+)
+from tests.project.fixtures import *
 from tests.testing_utils.fixtures import *
-
-NATIVEAPP_MODULE = "snowcli.cli.nativeapp.manager"
-NATIVEAPP_MANAGER_EXECUTE_QUERIES = (
-    f"{NATIVEAPP_MODULE}.NativeAppManager._execute_queries"
-)
-NATIVEAPP_MANAGER_EXECUTE_QUERY = f"{NATIVEAPP_MODULE}.NativeAppManager._execute_query"
-
-
-mock_connection = mock.patch(
-    "snowcli.cli.common.cli_global_context._CliGlobalContextAccess.connection",
-    new_callable=PropertyMock,
-)
 
 
 def _get_na_manager(working_dir):
     dm = DefinitionManager(working_dir)
-    return NativeAppManager(
+    return NativeAppRunProcessor(
         project_definition=dm.project_definition["native_app"],
         project_root=dm.project_root,
     )
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERY)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock_connection
 @pytest.mark.parametrize(
     "project_definition_files,expected_call",
@@ -129,7 +124,7 @@ def test_undefined_var_package_script(mock_execute, project_definition_files):
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERY)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock_connection
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_package_scripts_w_missing_warehouse_exception(
@@ -154,7 +149,7 @@ def test_package_scripts_w_missing_warehouse_exception(
     assert "Please provide a warehouse for the active session role" in err.value.msg
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERY)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock_connection
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_package_scripts_w_warehouse_access_exception(

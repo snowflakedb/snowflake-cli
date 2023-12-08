@@ -10,6 +10,8 @@ from snowcli.cli.common.decorators import (
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.nativeapp.init import nativeapp_init
 from snowcli.cli.nativeapp.manager import NativeAppManager
+from snowcli.cli.nativeapp.run_processor import NativeAppRunProcessor
+from snowcli.cli.nativeapp.teardown_processor import NativeAppTeardownProcessor
 from snowcli.output.decorators import with_output
 from snowcli.output.types import CommandResult, MessageResult
 
