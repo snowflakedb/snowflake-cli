@@ -2,7 +2,7 @@ from textwrap import dedent
 from unittest.mock import PropertyMock
 
 from snowcli.cli.nativeapp.manager import (
-    LOOSE_FILES_MAGIC_VERSIONS,
+    LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
     ApplicationAlreadyExistsError,
     CouldNotDropObjectError,
@@ -340,7 +340,7 @@ def test_create_dev_app_noop(mock_conn, mock_execute, temp_dir, mock_cursor):
                         {
                             "name": "MYAPP",
                             "comment": SPECIAL_COMMENT,
-                            "version": "UNVERSIONED",
+                            "version": LOOSE_FILES_MAGIC_VERSION,
                             "owner": "APP_ROLE",
                         }
                     ],
@@ -386,7 +386,7 @@ def test_create_dev_app_recreate(mock_conn, mock_execute, temp_dir, mock_cursor)
                         {
                             "name": "MYAPP",
                             "comment": SPECIAL_COMMENT,
-                            "version": "UNVERSIONED",
+                            "version": LOOSE_FILES_MAGIC_VERSION,
                             "owner": "APP_ROLE",
                         }
                     ],
@@ -440,7 +440,7 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
                         {
                             "name": "MYAPP",
                             "comment": SPECIAL_COMMENT,
-                            "version": "UNVERSIONED",
+                            "version": LOOSE_FILES_MAGIC_VERSION,
                             "owner": "APP_ROLE",
                         }
                     ],
@@ -794,10 +794,7 @@ def test_create_dev_app_create_new_with_additional_privileges(
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock_connection
-@pytest.mark.parametrize("loose_files_magic_version", LOOSE_FILES_MAGIC_VERSIONS)
-def test_create_dev_app_bad_comment(
-    mock_conn, mock_execute, loose_files_magic_version, temp_dir, mock_cursor
-):
+def test_create_dev_app_bad_comment(mock_conn, mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -812,7 +809,7 @@ def test_create_dev_app_bad_comment(
                         {
                             "name": "MYAPP",
                             "comment": "bad comment",
-                            "version": loose_files_magic_version,
+                            "version": LOOSE_FILES_MAGIC_VERSION,
                             "owner": "APP_ROLE",
                         }
                     ],
@@ -906,7 +903,7 @@ def test_create_dev_app_bad_owner(mock_conn, mock_execute, temp_dir, mock_cursor
                         {
                             "name": "MYAPP",
                             "comment": SPECIAL_COMMENT,
-                            "version": "UNVERSIONED",
+                            "version": LOOSE_FILES_MAGIC_VERSION,
                             "owner": "accountadmin_or_something",
                         }
                     ],
@@ -951,7 +948,7 @@ def test_app_exists(mock_execute, temp_dir, mock_cursor):
                         {
                             "name": "MYAPP",
                             "comment": SPECIAL_COMMENT,
-                            "version": "UNVERSIONED",
+                            "version": LOOSE_FILES_MAGIC_VERSION,
                             "owner": "app_role",
                         }
                     ],

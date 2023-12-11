@@ -39,7 +39,7 @@ def test_stage_copy_remote_to_local(mock_execute, runner, mock_cursor):
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_stage_copy_remote_to_local_quoted(mock_execute, runner, mock_cursor):
+def test_stage_copy_remote_to_local_quoted_stage(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
@@ -49,6 +49,38 @@ def test_stage_copy_remote_to_local_quoted(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with(
         f"get '@\"stage name\"' file://{Path(tmp_dir).resolve()}/ parallel=4"
     )
+
+
+@pytest.mark.parametrize(
+    "raw_path,expected_uri",
+    [
+        ("{}/dest", "file://{}/dest/"),
+        ("{}/dest.dir", "file://{}/dest.dir/"),
+        ("{}/dest0", "file://{}/dest0/"),
+        ("{}/dest dir", "'file://{}/dest dir/'"),
+        ("{}/dest#dir", "file://{}/dest#dir/"),
+        ("{}/dest*dir", "file://{}/dest*dir/"),
+        ("{}/dest_?dir", "file://{}/dest_?dir/"),
+        ("{}/dest%dir", "file://{}/dest%dir/"),
+        ('{}/dest"dir', 'file://{}/dest"dir/'),
+        ("{}/dest'dir", r"'file://{}/dest\'dir/'"),
+        ("{}/dest\tdir", r"'file://{}/dest\tdir/'"),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_stage_copy_remote_to_local_quoted_uri(
+    mock_execute, runner, mock_cursor, raw_path, expected_uri
+):
+    mock_execute.return_value = mock_cursor(["row"], [])
+    with TemporaryDirectory() as tmp_dir:
+        tmp_dir = Path(tmp_dir).resolve()
+        local_path = raw_path.replace("{}", str(tmp_dir))
+        file_uri = expected_uri.replace("{}", str(tmp_dir))
+        result = runner.invoke(
+            ["object", "stage", "copy", "-c", "empty", "@stageName", local_path]
+        )
+    assert result.exit_code == 0, result.output
+    mock_execute.assert_called_once_with(f"get @stageName {file_uri} parallel=4")
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -76,7 +108,7 @@ def test_stage_copy_local_to_remote(mock_execute, runner, mock_cursor):
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_stage_copy_local_to_remote_quoted(mock_execute, runner, mock_cursor):
+def test_stage_copy_local_to_remote_quoted_stage(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
@@ -96,6 +128,51 @@ def test_stage_copy_local_to_remote_quoted(mock_execute, runner, mock_cursor):
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
         f"put file://{Path(tmp_dir).resolve()}/* '@\"stage name\"' auto_compress=false parallel=42 overwrite=True"
+    )
+
+
+@pytest.mark.parametrize(
+    "raw_path,expected_uri",
+    [
+        ("{}/readme.md", "file://{}/readme.md"),
+        ("{}/readme0.md", "file://{}/readme0.md"),
+        ("{}/read me.md", "'file://{}/read me.md'"),
+        ("{}/read#me.md", "file://{}/read#me.md"),
+        ("{}/read*.md", "file://{}/read*.md"),
+        ("{}/read_?me.md", "file://{}/read_?me.md"),
+        ("{}/read%me.md", "file://{}/read%me.md"),
+        ('{}/read"me.md', 'file://{}/read"me.md'),
+        ("{}/read'me.md", r"'file://{}/read\'me.md'"),
+        ("{}/read\tme.md", r"'file://{}/read\tme.md'"),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_stage_copy_local_to_remote_quoted_path(
+    mock_execute, runner, mock_cursor, raw_path, expected_uri
+):
+    mock_execute.return_value = mock_cursor(["row"], [])
+    with TemporaryDirectory() as tmp_dir:
+        tmp_dir = Path(tmp_dir).resolve()
+        local_path = raw_path.replace("{}", str(tmp_dir))
+        file_uri = expected_uri.replace("{}", str(tmp_dir))
+
+        result = runner.invoke(
+            [
+                "object",
+                "stage",
+                "copy",
+                "-c",
+                "empty",
+                "--overwrite",
+                "--parallel",
+                42,
+                local_path,
+                "@stageName",
+            ]
+        )
+    assert result.exit_code == 0, result.output
+    mock_execute.assert_called_once_with(
+        f"put {file_uri} @stageName auto_compress=false parallel=42 overwrite=True"
     )
 
 
@@ -247,7 +324,7 @@ def test_stage_internal_put(mock_execute, mock_cursor):
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_stage_internal_put_quoted(mock_execute, mock_cursor):
+def test_stage_internal_put_quoted_stage(mock_execute, mock_cursor):
     mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
     with TemporaryDirectory() as tmp_dir:
         sm = StageManager()
@@ -257,6 +334,43 @@ def test_stage_internal_put_quoted(mock_execute, mock_cursor):
             mock.call("use role new_role"),
             mock.call(
                 f"put file://{Path(tmp_dir).resolve()} '@\"stage name\"' auto_compress=false parallel=4 overwrite=False"
+            ),
+            mock.call("use role old_role"),
+        ]
+        assert mock_execute.mock_calls == expected
+
+
+@pytest.mark.parametrize(
+    "raw_path,expected_uri",
+    [
+        ("{}/readme.md", "file://{}/readme.md"),
+        ("{}/readme0.md", "file://{}/readme0.md"),
+        ("{}/read me.md", "'file://{}/read me.md'"),
+        ("{}/read#me.md", "file://{}/read#me.md"),
+        ("{}/read*.md", "file://{}/read*.md"),
+        ("{}/read_?me.md", "file://{}/read_?me.md"),
+        ("{}/read%me.md", "file://{}/read%me.md"),
+        ('{}/read"me.md', 'file://{}/read"me.md'),
+        ("{}/read'me.md", r"'file://{}/read\'me.md'"),
+        ("{}/read\tme.md", r"'file://{}/read\tme.md'"),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_stage_internal_put_quoted_path(
+    mock_execute, mock_cursor, raw_path, expected_uri
+):
+    mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
+    with TemporaryDirectory() as tmp_dir:
+        sm = StageManager()
+        tmp_dir = Path(tmp_dir).resolve()
+        src_path = raw_path.replace("{}", str(tmp_dir))
+        src_uri = expected_uri.replace("{}", str(tmp_dir))
+        sm._put(src_path, "stageName", "new_role")
+        expected = [
+            mock.call("select current_role()", cursor_class=DictCursor),
+            mock.call("use role new_role"),
+            mock.call(
+                f"put {src_uri} @stageName auto_compress=false parallel=4 overwrite=False"
             ),
             mock.call("use role old_role"),
         ]
