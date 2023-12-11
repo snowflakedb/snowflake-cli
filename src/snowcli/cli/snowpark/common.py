@@ -115,7 +115,7 @@ def _sql_to_python_return_type_mapper(resource_return_type: str) -> str:
 
 class SnowparkObjectManager(SqlExecutionMixin):
     @property
-    def _object_type(self):
+    def _object_type(self) -> ObjectType:
         raise NotImplementedError()
 
     @property
@@ -145,7 +145,7 @@ class SnowparkObjectManager(SqlExecutionMixin):
     ) -> str:
         packages_list = ",".join(f"'{p}'" for p in packages)
         query = [
-            f"create or replace {self._object_type} {identifier}",
+            f"create or replace {self._object_type.value.sf_name} {identifier}",
             f"returns {return_type}",
             "language python",
             "runtime_version=3.8",
