@@ -2,21 +2,20 @@ from pathlib import Path
 from typing import Dict, List, Union
 
 from snowcli.cli.common.cli_global_context import cli_context
-from snowcli.cli.project.schema import (
+from snowcli.cli.project.schemas.project_definition import (
     project_override_schema,
     project_schema,
+)
+from snowcli.cli.project.util import (
+    append_to_identifier,
+    clean_identifier,
+    get_env_username,
+    to_identifier,
 )
 from strictyaml import (
     YAML,
     as_document,
     load,
-)
-
-from .util import (
-    append_to_identifier,
-    clean_identifier,
-    get_env_username,
-    to_identifier,
 )
 
 DEFAULT_USERNAME = "unknown_user"
