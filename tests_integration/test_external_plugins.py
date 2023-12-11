@@ -19,16 +19,18 @@ def install_plugins():
 
 @pytest.mark.integration
 def test_loading_of_installed_plugins_if_all_plugins_enabled(
-    runner, snowflake_session, install_plugins
+    runner, install_plugins, caplog
 ):
     runner.use_config("config_with_enabled_all_external_plugins.toml")
 
     result_of_top_level_help = runner.invoke(["--help"])
     assert_that_result_is_successful(result_of_top_level_help)
+    _assert_that_no_error_logs(caplog)
     assert "multilingual-hello" in result_of_top_level_help.output
 
     result_of_multilingual_hello_help = runner.invoke(["multilingual-hello", "--help"])
     assert_that_result_is_successful(result_of_multilingual_hello_help)
+    _assert_that_no_error_logs(caplog)
     assert "hello-en" in result_of_multilingual_hello_help.output
     assert "hello-fr" in result_of_multilingual_hello_help.output
 
@@ -36,16 +38,19 @@ def test_loading_of_installed_plugins_if_all_plugins_enabled(
         ["multilingual-hello", "hello-fr", "--help"]
     )
     assert_that_result_is_successful(result_of_multilingual_hello_fr_help)
+    _assert_that_no_error_logs(caplog)
     assert "Says hello in French" in result_of_multilingual_hello_fr_help.output
     assert "Your name" in result_of_multilingual_hello_fr_help.output
 
     result_of_snowpark_help = runner.invoke(["snowpark", "--help"])
     assert_that_result_is_successful(result_of_snowpark_help)
+    _assert_that_no_error_logs(caplog)
     assert "hello" in result_of_snowpark_help.output
     assert "Says hello" in result_of_snowpark_help.output
 
     result_of_snowpark_hello_help = runner.invoke(["snowpark", "hello", "--help"])
     assert_that_result_is_successful(result_of_snowpark_hello_help)
+    _assert_that_no_error_logs(caplog)
     assert "Your name" in result_of_snowpark_hello_help.output
 
     result_of_snowpark_hello = runner.invoke_with_connection_json(
@@ -72,12 +77,13 @@ def test_loading_of_installed_plugins_if_all_plugins_enabled(
 
 @pytest.mark.integration
 def test_loading_of_installed_plugins_if_only_one_plugin_is_enabled(
-    runner, snowflake_session, install_plugins
+    runner, install_plugins, caplog
 ):
     runner.use_config("config_with_enabled_only_one_external_plugin.toml")
 
     result_of_top_level_help = runner.invoke(["--help"])
     assert_that_result_is_successful(result_of_top_level_help)
+    _assert_that_no_error_logs(caplog)
     assert "multilingual-hello" not in result_of_top_level_help.output
 
     result_of_snowpark_hello = runner.invoke_with_connection_json(
@@ -86,3 +92,10 @@ def test_loading_of_installed_plugins_if_only_one_plugin_is_enabled(
     assert_that_result_is_successful_and_output_json_contains(
         result_of_snowpark_hello, {"GREETING": "Hello John! You are in Snowpark!"}
     )
+
+
+def _assert_that_no_error_logs(caplog):
+    error_logs = [
+        record.message for record in caplog.records if record.levelname == "ERROR"
+    ]
+    assert error_logs == []
