@@ -28,6 +28,7 @@ class FunctionManager(SnowparkObjectManager):
         packages: List[str],
         external_access_integrations: Optional[List[str]] = None,
         secrets: Optional[Dict[str, str]] = None,
+        runtime: Optional[str] = None,
     ) -> SnowflakeCursor:
         log.debug(f"Creating function {identifier} using @{artifact_file}")
         query = self.create_query(
@@ -38,6 +39,7 @@ class FunctionManager(SnowparkObjectManager):
             packages,
             external_access_integrations,
             secrets,
+            runtime,
         )
         return self._execute_query(query)
 
@@ -60,6 +62,7 @@ class ProcedureManager(SnowparkObjectManager):
         packages: List[str],
         external_access_integrations: Optional[List[str]] = None,
         secrets: Optional[Dict[str, str]] = None,
+        runtime: Optional[str] = None,
         execute_as_caller: bool = False,
     ) -> SnowflakeCursor:
         log.debug(f"Creating procedure {identifier} using @{artifact_file}")
@@ -71,6 +74,7 @@ class ProcedureManager(SnowparkObjectManager):
             packages,
             external_access_integrations,
             secrets,
+            runtime,
             execute_as_caller,
         )
         return self._execute_query(query)

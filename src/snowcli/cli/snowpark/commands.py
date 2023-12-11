@@ -343,6 +343,7 @@ def _deploy_single_object(
         "return_type": returns,
         "artifact_file": stage_artifact_path,
         "packages": packages,
+        "runtime": object_definition.get("runtime"),
         "external_access_integrations": object_definition.get(
             "external_access_integrations"
         ),
