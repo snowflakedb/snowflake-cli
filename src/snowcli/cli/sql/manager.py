@@ -1,5 +1,4 @@
 import sys
-from itertools import combinations, starmap
 from pathlib import Path
 from typing import List, Optional
 
@@ -17,7 +16,7 @@ class SqlManager(SqlExecutionMixin):
             raise UsageError("Use either query, filename or input option.")
 
         # Check if any two inputs were provided simultaneously
-        if any(starmap(lambda *t: all(t), combinations(inputs, 2))):
+        if len([i for i in inputs if i]) > 1:
             raise UsageError(
                 "Multiple input sources specified. Please specify only one."
             )

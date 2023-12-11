@@ -7,6 +7,7 @@
 * `snow stage get` and `snow stage put` are replaced by `snow object stage copy [FROM] [TO]`
 * `snow warehouse status` is now `snow object show warehouse`
 * `snow connection test` now outputs all connection details (except for the password), along with connection status
+* `snow sql` requires explicit `-i` flag to read input from stdin: `cat my.sql | snow sql -i`
 
 * Snowpark changes
   * Removed `procedure` and `function` subgroups.
