@@ -6,7 +6,6 @@ import pytest
 
 from tests_integration.testing_utils import (
     SnowparkTestSteps,
-    assert_that_result_is_successful,
 )
 from tests_integration.testing_utils.snowpark_utils import (
     SnowparkTestSetup,
@@ -90,7 +89,7 @@ def test_snowpark_flow(_test_steps, project_directory, alter_snowflake_yml):
 
         # Subsequent deploy of same object should fail
         _test_steps.snowpark_deploy_should_return_error_with_message_contains(
-            "already exists"
+            "Following objects already exists"
         )
 
         # Apply changes to project objects

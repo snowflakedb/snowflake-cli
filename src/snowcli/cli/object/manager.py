@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from functools import wraps
-
 from click import ClickException
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.constants import OBJECT_TO_NAMES, ObjectNames
@@ -16,9 +14,14 @@ def _get_object_names(object_type: str) -> ObjectNames:
 
 
 class ObjectManager(SqlExecutionMixin):
-    def show(self, *, object_type: str, like: str) -> SnowflakeCursor:
+    def show(
+        self, *, object_type: str, like: str | None = None, **kwargs
+    ) -> SnowflakeCursor:
         object_name = _get_object_names(object_type).sf_plural_name
-        return self._execute_query(f"show {object_name} like '{like}'")
+        query = f"show {object_name}"
+        if like:
+            query += f" like '{like}'"
+        return self._execute_query(query, **kwargs)
 
     def drop(self, *, object_type, name: str) -> SnowflakeCursor:
         object_name = _get_object_names(object_type).sf_name
