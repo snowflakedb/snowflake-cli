@@ -8,16 +8,13 @@ from snowflake.connector import ProgrammingError
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.cli.snowpark.commands.ObjectManager")
-@mock.patch("snowcli.cli.snowpark.manager.SnowparkObjectManager.get_existing_objects")
 def test_deploy_function(
-    mock_get_existing_objects,
     mock_object_manager,
     mock_connector,
     mock_ctx,
     runner,
     project_directory,
 ):
-    mock_get_existing_objects.return_value = {}
     mock_object_manager.return_value.describe.side_effect = ProgrammingError(
         "does not exist or not authorized"
     )
@@ -53,16 +50,13 @@ def test_deploy_function(
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowcli.cli.snowpark.commands.ObjectManager")
-@mock.patch("snowcli.cli.snowpark.manager.SnowparkObjectManager.get_existing_objects")
 def test_deploy_function_with_external_access(
-    mock_get_existing_objects,
     mock_object_manager,
     mock_connector,
     mock_ctx,
     runner,
     project_directory,
 ):
-    mock_get_existing_objects.return_value = {}
     mock_object_manager.return_value.show.return_value = [
         {"name": "external_1", "type": "EXTERNAL_ACCESS"},
         {"name": "external_2", "type": "EXTERNAL_ACCESS"},
@@ -104,11 +98,9 @@ def test_deploy_function_with_external_access(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.manager.SnowparkObjectManager.get_existing_objects")
 @mock.patch("snowcli.cli.snowpark.commands.ObjectManager")
 def test_deploy_function_secrets_without_external_access(
     mock_object_manager,
-    mock_get_existing_objects,
     mock_conn,
     runner,
     mock_ctx,
@@ -119,7 +111,6 @@ def test_deploy_function_secrets_without_external_access(
         {"name": "external_1", "type": "EXTERNAL_ACCESS"},
         {"name": "external_2", "type": "EXTERNAL_ACCESS"},
     ]
-    mock_get_existing_objects.return_value = {}
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
@@ -300,12 +291,9 @@ def _deploy_function(
 ):
     ctx = mock_ctx(mock_cursor(rows=rows, columns=[]))
     mock_connector.return_value = ctx
-    with mock.patch(
-        "snowcli.cli.snowpark.manager.SnowparkObjectManager.get_existing_objects"
-    ) as m, mock.patch("snowcli.cli.snowpark.commands.ObjectManager") as om:
+    with mock.patch("snowcli.cli.snowpark.commands.ObjectManager") as om:
 
         om.return_value.describe.return_value = rows
-        m.return_value = {}
 
         with project_directory("snowpark_functions") as temp_dir:
             (Path(temp_dir) / "requirements.snowflake.txt").write_text(

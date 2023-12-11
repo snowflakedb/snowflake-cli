@@ -4,21 +4,9 @@ import os
 from typing import Dict, List, Optional
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
-from snowcli.cli.constants import ObjectNames, ObjectType
+from snowcli.cli.constants import ObjectType
 from snowcli.utils import generate_deploy_stage_name
-from snowflake.connector.cursor import DictCursor, SnowflakeCursor
-
-
-def _map_type(type_: str):
-    mapping = {"string": "varchar"}
-    return mapping.get(type_.lower(), type_)
-
-
-def object_to_signature(function_or_procedure: Dict):
-    signature = ", ".join(
-        _map_type(o["type"]) for o in function_or_procedure["signature"]
-    )
-    return f"{function_or_procedure['name']}({signature}) RETURN {_map_type(function_or_procedure['returns'])}".upper()
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 def remove_parameter_names(identifier: str):
@@ -143,16 +131,6 @@ class SnowparkObjectManager(SqlExecutionMixin):
     @staticmethod
     def artifact_stage_path(identifier: str):
         return generate_deploy_stage_name(identifier).lower()
-
-    def get_existing_objects(self):
-        """
-        Returns list of existing objects identified by their signature, for example ['HELLO(VARCHAR) RETURN VARCHAR']
-        """
-        results = self._execute_query(
-            f"show user {self._object_type.value.sf_plural_name}",
-            cursor_class=DictCursor,
-        )
-        return {o["arguments"]: o for o in results}
 
     def create_query(
         self,

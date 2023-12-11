@@ -27,7 +27,6 @@ from snowcli.cli.object.stage.manager import StageManager
 from snowcli.cli.snowpark.common import (
     build_udf_sproc_identifier,
     check_if_replace_is_required,
-    object_to_signature,
     remove_parameter_names,
 )
 from snowcli.cli.snowpark.manager import FunctionManager, ProcedureManager
@@ -38,8 +37,6 @@ from snowcli.cli.snowpark_shared import (
     snowpark_package,
 )
 from snowcli.exception import (
-    NoProjectDefinitionError,
-    ObjectAlreadyExistsError,
     SecretsWithoutExternalAccessIntegrationError,
 )
 from snowcli.output.decorators import with_output
@@ -150,8 +147,8 @@ def deploy(
 
     _check_if_all_defined_integrations_exists(om, functions, procedures)
 
-    existing_functions = _check_if_any_object_exist_already(fm, functions)
-    existing_procedures = _check_if_any_object_exist_already(pm, procedures)
+    existing_functions = _find_existing_objects(ObjectType.FUNCTION, functions, om)
+    existing_procedures = _find_existing_objects(ObjectType.PROCEDURE, procedures, om)
 
     if (existing_functions or existing_procedures) and not replace:
         msg = "Following objects already exists. Consider using --replace.\n"
@@ -174,7 +171,6 @@ def deploy(
     # Coverage case
     if install_coverage_wrapper:
         return _deploy_procedure_with_coverage(
-            object_manager=om,
             artifact_stage_directory=artifact_stage_directory,
             artifact_stage_target=artifact_stage_target,
             build_artifact_path=build_artifact_path,
@@ -183,6 +179,7 @@ def deploy(
             procedure=procedures[0],
             stage_manager=stage_manager,
             stage_name=stage_name,
+            existing_objects=existing_procedures,
         )
 
     stage_manager.put(
@@ -195,10 +192,10 @@ def deploy(
     # Procedures
     for procedure in procedures:
         operation_result = _deploy_single_object(
-            object_manager=om,
             manager=pm,
             object_type=ObjectType.PROCEDURE,
             object_definition=procedure,
+            existing_objects=existing_procedures,
             packages=packages,
             stage_artifact_path=artifact_stage_target,
         )
@@ -207,16 +204,33 @@ def deploy(
     # Functions
     for function in functions:
         operation_result = _deploy_single_object(
-            object_manager=om,
             manager=fm,
             object_type=ObjectType.FUNCTION,
             object_definition=function,
+            existing_objects=existing_functions,
             packages=packages,
             stage_artifact_path=artifact_stage_target,
         )
         deploy_status.append(operation_result)
 
     return CollectionResult(deploy_status)
+
+
+def _find_existing_objects(
+    object_type: ObjectType, objects: List[Dict], om: ObjectManager
+):
+    existing_objects = {}
+    for object_definition in objects:
+        identifier = build_udf_sproc_identifier(object_definition)
+        try:
+            current_state = om.describe(
+                object_type=object_type.value.sf_name,
+                name=remove_parameter_names(identifier),
+            )
+            existing_objects[identifier] = current_state
+        except ProgrammingError:
+            pass
+    return existing_objects
 
 
 def _check_if_all_defined_integrations_exists(
@@ -248,19 +262,7 @@ def _check_if_all_defined_integrations_exists(
         )
 
 
-def _check_if_any_object_exist_already(manager, declared_objects):
-    objects_in_sf = manager.get_existing_objects()
-
-    existing_objects = []
-    for obj in declared_objects:
-        full_object_identifier = object_to_signature(obj)
-        if full_object_identifier in objects_in_sf:
-            existing_objects.append(full_object_identifier)
-    return existing_objects
-
-
 def _deploy_procedure_with_coverage(
-    object_manager: ObjectManager,
     artifact_stage_directory: str,
     artifact_stage_target: str,
     build_artifact_path: Path,
@@ -269,6 +271,7 @@ def _deploy_procedure_with_coverage(
     procedure: Dict,
     stage_manager: StageManager,
     stage_name: str,
+    existing_objects: Dict[str, Dict],
 ):
     # This changes existing artifact, so we need to generate wrapper and only then deploy
     handler = _alter_procedure_artifact_with_coverage_wrapper(
@@ -286,12 +289,12 @@ def _deploy_procedure_with_coverage(
     procedure["handler"] = handler
     packages.append("coverage")
     operation_result = _deploy_single_object(
-        object_manager=object_manager,
         manager=pm,
         object_type=ObjectType.PROCEDURE,
         object_definition=procedure,
         packages=packages,
         stage_artifact_path=artifact_stage_target,
+        existing_objects=existing_objects,
     )
     return CollectionResult([operation_result])
 
@@ -304,10 +307,10 @@ def get_app_stage_path(snowpark):
 
 
 def _deploy_single_object(
-    object_manager: ObjectManager,
     manager: FunctionManager | ProcedureManager,
     object_type: ObjectType,
     object_definition: Dict,
+    existing_objects: Dict[str, Dict],
     packages: List[str],
     stage_artifact_path: str,
 ):
@@ -316,20 +319,13 @@ def _deploy_single_object(
 
     handler = object_definition["handler"]
     returns = object_definition["returns"]
-    object_exists = True
     replace_object = False
-    current_state = None
-    try:
-        current_state = object_manager.describe(
-            object_type=str(object_type), name=remove_parameter_names(identifier)
-        )
-    except ProgrammingError:
-        object_exists = False
 
+    object_exists = identifier in existing_objects
     if object_exists:
         replace_object = check_if_replace_is_required(
             object_type,
-            current_state,
+            existing_objects[identifier],
             handler,
             returns,
         )

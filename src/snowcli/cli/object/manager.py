@@ -18,8 +18,10 @@ class ObjectManager(SqlExecutionMixin):
         self, *, object_type: str, like: str | None = None, **kwargs
     ) -> SnowflakeCursor:
         object_name = _get_object_names(object_type).sf_plural_name
-        like = like or "%%"
-        return self._execute_query(f"show {object_name} like '{like}'", **kwargs)
+        query = f"show {object_name}"
+        if like:
+            query += f" like '{like}'"
+        return self._execute_query(query, **kwargs)
 
     def drop(self, *, object_type, name: str) -> SnowflakeCursor:
         object_name = _get_object_names(object_type).sf_name
