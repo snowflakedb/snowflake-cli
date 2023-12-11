@@ -149,6 +149,7 @@ def test_deploy_procedure_secrets_without_external_access(
     runner,
     mock_ctx,
     project_directory,
+    snapshot,
 ):
     mock_get_existing_objects.return_value = {}
     ctx = mock_ctx()
@@ -169,9 +170,7 @@ def test_deploy_procedure_secrets_without_external_access(
         )
 
     assert result.exit_code == 1, result.output
-    assert result.output.__contains__(
-        "Can not provide secrets without external access integration"
-    )
+    assert result.output == snapshot
 
 
 @mock.patch("snowflake.connector.connect")
@@ -184,6 +183,7 @@ def test_deploy_procedure_fails_if_integration_does_not_exists(
     runner,
     mock_ctx,
     project_directory,
+    snapshot,
 ):
     mock_get_existing_objects.return_value = {}
     ctx = mock_ctx()
@@ -203,9 +203,7 @@ def test_deploy_procedure_fails_if_integration_does_not_exists(
         )
 
     assert result.exit_code == 1, result.output
-    assert result.output.__contains__(
-        "One of defined external access integrations does not exist"
-    )
+    assert result.output == snapshot
 
 
 @mock.patch("snowflake.connector.connect")
@@ -332,7 +330,7 @@ def test_deploy_procedure_replace_nothing_to_update(
     with project_directory("snowpark_procedures"):
         result = runner.invoke(["snowpark", "deploy", "--replace", "--format", "json"])
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert json.loads(result.output) == [
         {
             "object": "procedureName(name string)",

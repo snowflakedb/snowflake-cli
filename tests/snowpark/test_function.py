@@ -113,6 +113,7 @@ def test_deploy_function_secrets_without_external_access(
     runner,
     mock_ctx,
     project_directory,
+    snapshot,
 ):
     mock_object_manager.return_value.show.return_value = [
         {"name": "external_1", "type": "EXTERNAL_ACCESS"},
@@ -131,9 +132,7 @@ def test_deploy_function_secrets_without_external_access(
         )
 
     assert result.exit_code == 1, result.output
-    assert result.output.__contains__(
-        "Can not provide secrets without external access integration"
-    )
+    assert result.output == snapshot
 
 
 @mock.patch("snowflake.connector.connect")

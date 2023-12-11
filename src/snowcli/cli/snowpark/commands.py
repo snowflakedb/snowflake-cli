@@ -5,7 +5,7 @@ import os
 from enum import Enum
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Dict, List
+from typing import Dict, List, Set
 
 import typer
 from click import ClickException
@@ -148,8 +148,16 @@ def deploy(
     fm = FunctionManager()
     om = ObjectManager()
 
-    _check_if_any_object_exist_already(fm, functions, pm, procedures, replace)
     _check_if_all_defined_integrations_exists(om, functions, procedures)
+
+    existing_functions = _check_if_any_object_exist_already(fm, functions)
+    existing_procedures = _check_if_any_object_exist_already(pm, procedures)
+
+    if (existing_functions or existing_procedures) and not replace:
+        msg = "Following objects already exists. Consider using --replace.\n"
+        msg += "\n".join(f"function: {n}" for n in existing_functions)
+        msg += "\n".join(f"procedure: {n}" for n in existing_procedures)
+        raise ClickException(msg)
 
     # Create stage
     stage_name = snowpark.get("stage_name", DEPLOYMENT_STAGE)
@@ -214,44 +222,41 @@ def deploy(
 def _check_if_all_defined_integrations_exists(
     om: ObjectManager, functions: List[Dict], procedures: List[Dict]
 ):
-    existing_integrations = [
+    existing_integrations = {
         i["name"].lower()
         for i in om.show(object_type="integration", cursor_class=DictCursor, like=None)
         if i["type"] == "EXTERNAL_ACCESS"
-    ]
+    }
+    declared_integration: Set[str] = set()
     for object_definition in [*functions, *procedures]:
-        external_access_integrations = [
+        external_access_integrations = {
             s.lower() for s in object_definition.get("external_access_integrations", [])
-        ]
+        }
         secrets = [s.lower() for s in object_definition.get("secrets", [])]
 
         if not external_access_integrations and secrets:
-            raise SecretsWithoutExternalAccessIntegrationError()
-
-        if any(i not in existing_integrations for i in external_access_integrations):
-            raise ClickException(
-                "One of defined external access integrations does not exist in Snowflake."
+            raise SecretsWithoutExternalAccessIntegrationError(
+                object_definition["name"]
             )
 
+        declared_integration = declared_integration | external_access_integrations
 
-def _check_if_any_object_exist_already(fm, functions, pm, procedures, replace):
-    existing_functions = fm.get_existing_objects()
-    existing_procedures = pm.get_existing_objects()
-    existing_objects = []
-    object_state = {
-        "function": (functions, existing_functions),
-        "procedure": (procedures, existing_procedures),
-    }
-    for object_type, (objects, existing) in object_state.items():
-        for obj in objects:
-            full_object_identifier = object_to_signature(obj)
-            if full_object_identifier in existing:
-                existing_objects.append(f"{object_type}: {full_object_identifier}")
-    if any(existing_objects) and not replace:
-        existing = "\n".join(existing_objects)
+    missing = declared_integration - existing_integrations
+    if missing:
         raise ClickException(
-            f"Following object already exists. Consider using --replace.\n {existing}"
+            f"Following external access integration does not exists in Snowflake: {', '.join(missing)}"
         )
+
+
+def _check_if_any_object_exist_already(manager, declared_objects):
+    objects_in_sf = manager.get_existing_objects()
+
+    existing_objects = []
+    for obj in declared_objects:
+        full_object_identifier = object_to_signature(obj)
+        if full_object_identifier in objects_in_sf:
+            existing_objects.append(full_object_identifier)
+    return existing_objects
 
 
 def _deploy_procedure_with_coverage(
