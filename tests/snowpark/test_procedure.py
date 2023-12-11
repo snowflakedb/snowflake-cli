@@ -70,7 +70,7 @@ def test_deploy_procedure(
             create or replace procedure test()
             returns string
             language python
-            runtime_version=3.8
+            runtime_version=3.10
             imports=('@dev_deployment/my_snowpark_project/app.zip')
             handler='test'
             packages=()
