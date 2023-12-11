@@ -7,10 +7,14 @@ from pathlib import Path
 from typing import Optional, Union
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.cli.project.util import to_string_literal
 from snowcli.utils import path_resolver
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__file__)
+
+
+UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
 
 
 class StageManager(SqlExecutionMixin):
@@ -31,10 +35,15 @@ class StageManager(SqlExecutionMixin):
         if standard_name.startswith("@") and not re.fullmatch(
             r"@([\w./$])+", standard_name
         ):
-            escaped = standard_name.replace("'", "''")
-            return f"'{escaped}'"
+            return to_string_literal(standard_name)
 
         return standard_name
+
+    def _to_uri(self, local_path: str):
+        uri = f"file://{local_path}"
+        if re.fullmatch(UNQUOTED_FILE_URI_REGEX, uri):
+            return uri
+        return to_string_literal(uri)
 
     def list(self, stage_name: str) -> SnowflakeCursor:
         stage_name = self.get_standard_stage_name(stage_name)
@@ -44,8 +53,9 @@ class StageManager(SqlExecutionMixin):
         self, stage_name: str, dest_path: Path, parallel: int = 4
     ) -> SnowflakeCursor:
         stage_name = self.get_standard_stage_name(stage_name)
+        dest_directory = f"{dest_path}/"
         return self._execute_query(
-            f"get {self.quote_stage_name(stage_name)} file://{dest_path}/ parallel={parallel}"
+            f"get {self.quote_stage_name(stage_name)} {self._to_uri(dest_directory)} parallel={parallel}"
         )
 
     def put(
@@ -59,7 +69,7 @@ class StageManager(SqlExecutionMixin):
         stage_path = self.get_standard_stage_name(stage_path)
         local_resolved_path = path_resolver(str(local_path))
         return self._execute_query(
-            f"put file://{local_resolved_path} {self.quote_stage_name(stage_path)} "
+            f"put {self._to_uri(local_resolved_path)} {self.quote_stage_name(stage_path)} "
             f"auto_compress=false parallel={parallel} overwrite={overwrite}"
         )
 
@@ -83,7 +93,7 @@ class StageManager(SqlExecutionMixin):
             local_resolved_path = path_resolver(str(local_path))
             log.info(f"Uploading {local_resolved_path} to @{stage_path}")
             cursor = self._execute_query(
-                f"put file://{local_resolved_path} {self.quote_stage_name(stage_path)} "
+                f"put {self._to_uri(local_resolved_path)} {self.quote_stage_name(stage_path)} "
                 f"auto_compress=false parallel={parallel} overwrite={overwrite}"
             )
         return cursor
