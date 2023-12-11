@@ -27,6 +27,19 @@ def test_multi_queries_from_file(runner, snowflake_session, test_root_path):
     ]
 
 
+@pytest.mark.integration
+def test_multi_input_from_stdin(runner, snowflake_session, test_root_path):
+    result = runner.invoke_with_connection_json(
+        [
+            "sql",
+            "-i",
+        ],
+        input="select 42;",
+    )
+    assert result.exit_code == 0
+    assert result.json == [{"42": 42}]
+
+
 def _round_values(results):
     for result in results:
         for k, v in result.items():

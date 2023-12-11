@@ -28,7 +28,7 @@ class _ConnectionContext:
         We invalidate connection cache every time connection attributes change.
         """
         super.__setattr__(self, key, value)
-        if key is not "_cached_connection":
+        if key != "_cached_connection":
             self._cached_connection = None
 
     @property
