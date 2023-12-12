@@ -32,6 +32,28 @@ def test_new_connection_can_be_added(runner, snapshot):
     assert result.exit_code == 0, result.output
     assert content == snapshot
 
+def test_new_connection_with_jwt_auth(runner, snapshot):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            [
+                "connection",
+                "add",
+                "--connection-name",
+                "conn2",
+                "--username",
+                "user2",
+                "--account",
+                "account1",
+                "--authenticator",
+                "SNOWFLAKE_JWT",
+                "--private-key",
+                "~\private_key"
+            ],
+        )
+        content = tmp_file.read()
+    assert result.exit_code == 0, result.output
+    assert content == snapshot
 
 def test_port_has_cannot_be_string(runner):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:

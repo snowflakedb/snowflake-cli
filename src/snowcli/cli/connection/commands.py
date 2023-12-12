@@ -168,7 +168,9 @@ def add(
         EmptyInput(),
         "--authenticator",
         "-A",
-        click_type=OptionalPrompt()
+        click_type=OptionalPrompt(),
+        prompt="Authentication method",
+        help="Chosen authenticator, if other than password-based"
     ),
     private_key_path: str = typer.Option(
         EmptyInput(),
