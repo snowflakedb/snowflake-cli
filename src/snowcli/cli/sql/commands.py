@@ -35,6 +35,7 @@ def execute_sql(
     ),
     std_in: Optional[bool] = typer.Option(
         False,
+        "--stdin",
         "-i",
         help="Read the query from standard input. Use it when piping input to this command.",
     ),
