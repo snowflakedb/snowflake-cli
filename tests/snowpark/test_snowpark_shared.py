@@ -29,7 +29,5 @@ def test_snowpark_package(
     assert os.path.isfile(zip_path)
     assert ZipFile(zip_path).namelist() == [
         "app.py",
-        os.path.join(
-            ".packages", "totally-awesome-package", "totally-awesome-module.py"
-        ),
+        os.path.join("totally-awesome-package", "totally-awesome-module.py"),
     ]

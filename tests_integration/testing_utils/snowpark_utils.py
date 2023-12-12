@@ -167,6 +167,8 @@ class SnowparkTestSteps:
             *current_files,
             Path("app.zip"),
             Path("requirements.snowflake.txt"),
+            Path("requirements.other.txt"),
+            excluded_paths=[".packages"],
         )
 
     def snowpark_deploy_with_coverage_wrapper_should_finish_successfully_and_return(

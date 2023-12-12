@@ -49,9 +49,9 @@ def test_zip_current_dir(temp_dir):
     assert set(zip_file.namelist()) == {
         "app.py",
         "additional_module.py",
-        ".packages/bin/py.test",
-        ".packages/snowcli/snowcli.py",
-        ".packages/snowcli/snowcli.dist-info/METADATA.py",
+        "bin/py.test",
+        "snowcli/snowcli.py",
+        "snowcli/snowcli.dist-info/METADATA.py",
         "utils/utils.py",
     }
 
