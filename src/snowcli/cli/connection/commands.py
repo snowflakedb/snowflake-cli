@@ -170,7 +170,7 @@ def add(
         "-A",
         click_type=OptionalPrompt(),
         prompt="Authentication method",
-        help="Chosen authenticator, if other than password-based"
+        help="Chosen authenticator, if other than password-based",
     ),
     private_key_path: str = typer.Option(
         EmptyInput(),
@@ -178,7 +178,7 @@ def add(
         "-k",
         click_type=OptionalPrompt(),
         prompt="Path to private key file",
-        help="Path to file containing private key"
+        help="Path to file containing private key",
     ),
     **options,
 ) -> CommandResult:
@@ -195,7 +195,7 @@ def add(
         "warehouse": warehouse,
         "role": role,
         "authenticator": authenticator,
-        "private_key_path": private_key_path
+        "private_key_path": private_key_path,
     }
     connection_entry = {k: v for k, v in connection_entry.items() if v is not None}
 
