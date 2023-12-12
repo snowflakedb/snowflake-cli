@@ -47,7 +47,7 @@ def zip_dir(source: Path, dest_zip: Path) -> None:
     with ZipFile(dest_zip, "w", ZIP_DEFLATED, allowZip64=True) as package_zip:
         for file in files_to_pack:
             log.debug("Adding %s to %s", file, dest_zip)
-            package_zip.write(file, arcname=get_arcname(file, source))
+            package_zip.write(file, arcname=_get_arcname(file, source))
 
 
 def _to_be_zipped(file: Path) -> bool:
@@ -63,7 +63,7 @@ def _to_be_zipped(file: Path) -> bool:
     return True
 
 
-def get_arcname(file: Path, source: Path) -> Path:
+def _get_arcname(file: Path, source: Path) -> Path:
     if ".packages" in file.parts:
         rel_path = source.absolute().joinpath(".packages")
     else:
