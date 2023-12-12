@@ -1,0 +1,9 @@
+# serializer version: 1
+# name: test_deploy_function_secrets_without_external_access
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ func1 defined with secrets but without external integration.                 │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---

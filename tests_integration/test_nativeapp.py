@@ -142,3 +142,61 @@ def test_nativeapp_run_existing(
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+
+
+@pytest.mark.integration
+def test_nativeapp_init_run_handles_spaces(
+    runner,
+    snowflake_session,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    project_dir = "app root"
+    result = runner.invoke_json(
+        ["app", "init", project_dir, "--name", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_dir)):
+        result = runner.invoke_with_connection_json(
+            ["app", "run"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        try:
+            # app + package exist
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            app_name = f"{project_name}_{USER_NAME}".upper()
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show application packages like '{package_name}'",
+                    )
+                ),
+                dict(name=package_name),
+            )
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show applications like '{app_name}'",
+                    )
+                ),
+                dict(name=app_name),
+            )
+
+        finally:
+            # make sure we always delete the app
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0

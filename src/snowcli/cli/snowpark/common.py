@@ -8,6 +8,8 @@ from snowcli.cli.constants import ObjectType
 from snowcli.utils import generate_deploy_stage_name
 from snowflake.connector.cursor import SnowflakeCursor
 
+DEFAULT_RUNTIME = "3.8"
+
 
 def remove_parameter_names(identifier: str):
     """
@@ -115,7 +117,7 @@ def _sql_to_python_return_type_mapper(resource_return_type: str) -> str:
 
 class SnowparkObjectManager(SqlExecutionMixin):
     @property
-    def _object_type(self):
+    def _object_type(self) -> ObjectType:
         raise NotImplementedError()
 
     @property
@@ -141,14 +143,15 @@ class SnowparkObjectManager(SqlExecutionMixin):
         packages: List[str],
         external_access_integrations: Optional[List[str]] = None,
         secrets: Optional[Dict[str, str]] = None,
+        runtime: Optional[str] = None,
         execute_as_caller: bool = False,
     ) -> str:
         packages_list = ",".join(f"'{p}'" for p in packages)
         query = [
-            f"create or replace {self._object_type} {identifier}",
+            f"create or replace {self._object_type.value.sf_name} {identifier}",
             f"returns {return_type}",
             "language python",
-            "runtime_version=3.8",
+            f"runtime_version={runtime or DEFAULT_RUNTIME}",
             f"imports=('{artifact_file}')",
             f"handler='{handler}'",
             f"packages=({packages_list})",
