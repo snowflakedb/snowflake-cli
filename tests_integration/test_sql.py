@@ -1,4 +1,4 @@
-from datetime import datetime
+import time
 from unittest import mock
 
 import pytest
@@ -63,20 +63,28 @@ def _round_values_for_multi_queries(results):
 def test_queries_are_streamed_to_output(
     _, mock_get_table, runner, capsys, test_root_path
 ):
+    log = []
+
+    def _log(
+        *args,
+    ):
+        log.append((time.monotonic(), *args))
+
+    # We mock add_row by a function that logs call time, later we compare call times
+    # to make sure those were separated in time
+    mock_get_table().add_row = _log
+
     runner.invoke_with_connection(
         [
             "sql",
             "-q",
-            "select CURRENT_TIME(); select system$wait(10); select CURRENT_TIME();",
+            "select 13; select system$wait(10);",
         ],
     )
 
-    add_row = mock_get_table().add_row
-    results = [p.args[0] for p in add_row.mock_calls]
-    assert len(results) == 3
-    start, wait, end = results
-    assert wait == "waited 10 seconds"
-    start_ts = datetime.strptime(start[:8], "%H:%M:%S")
-    end_ts = datetime.strptime(end[:8], "%H:%M:%S")
-    duration = (end_ts - start_ts).total_seconds()
-    assert 10.0 <= duration <= 11.0
+    assert len(log) == 2
+    (time_0, query_0), (time_1, query_1) = log
+
+    assert query_0 == "13"
+    assert time_1 - time_0 >= 10.0
+    assert "waited 10 seconds" in query_1
