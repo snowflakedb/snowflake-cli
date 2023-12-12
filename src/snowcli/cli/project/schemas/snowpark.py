@@ -19,6 +19,7 @@ _callable_mapping = {
     "handler": Str(),
     "returns": Str(),
     "signature": Seq(Argument) | EmptyList(),
+    Optional("runtime"): Str(),
     Optional("external_access_integration"): Seq(Str()),
     Optional("secrets"): MapPattern(Str(), Str()),
 }

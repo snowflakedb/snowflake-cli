@@ -39,7 +39,7 @@ def test_deploy_function(
             create or replace function func1(a string, b variant)
             returns string
             language python
-            runtime_version=3.8
+            runtime_version=3.10
             imports=('@dev_deployment/my_snowpark_project/app.zip')
             handler='app.func1_handler'
             packages=()
@@ -204,7 +204,7 @@ def test_deploy_function_needs_update_because_packages_changes(
             create or replace function func1(a string, b variant)
             returns string
             language python
-            runtime_version=3.8
+            runtime_version=3.10
             imports=('@dev_deployment/my_snowpark_project/app.zip')
             handler='app.func1_handler'
             packages=('foo=1.2.3','bar>=3.0.0')
@@ -254,7 +254,7 @@ def test_deploy_function_needs_update_because_handler_changes(
             create or replace function func1(a string, b variant)
             returns string
             language python
-            runtime_version=3.8
+            runtime_version=3.10
             imports=('@dev_deployment/my_snowpark_project/app.zip')
             handler='app.func1_handler'
             packages=('foo=1.2.3','bar>=3.0.0')
