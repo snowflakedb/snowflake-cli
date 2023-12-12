@@ -57,6 +57,11 @@ def test_info_callback(runner):
     ]
 
 
+def test_info_cdocs(runner):
+    result = runner.invoke(["--docs"])
+    assert result.exit_code == 0, result.output
+
+
 def test_all_commands_have_proper_documentation(runner):
     # invoke any command to populate app context (plugins registration)
     runner.invoke("--help")

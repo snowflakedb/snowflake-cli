@@ -1,0 +1,28 @@
+# serializer version: 1
+# name: test_deploy_procedure_fails_if_integration_does_not_exists
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Following external access integration does not exists in Snowflake:          │
+  │ external_2                                                                   │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_deploy_procedure_fails_if_object_exists_and_no_replace
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Following objects already exists. Consider using --replace.                  │
+  │ procedure: procedureName(name string)                                        │
+  │ procedure: test()                                                            │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_deploy_procedure_secrets_without_external_access
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ procedureName defined with secrets but without external integration.         │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---

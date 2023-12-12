@@ -80,5 +80,7 @@ class InvalidSchemaError(ClickException):
 
 
 class SecretsWithoutExternalAccessIntegrationError(ClickException):
-    def __init__(self):
-        super().__init__("Can not provide secrets without external access integration")
+    def __init__(self, object_name: str):
+        super().__init__(
+            f"{object_name} defined with secrets but without external integration."
+        )
