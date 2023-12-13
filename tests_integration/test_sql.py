@@ -1,3 +1,6 @@
+import time
+from unittest import mock
+
 import pytest
 
 
@@ -34,10 +37,13 @@ def test_multi_input_from_stdin(runner, snowflake_session, test_root_path):
             "sql",
             "-i",
         ],
-        input="select 42;",
+        input="select 1, 2, 3 union select 4, 5, 6; select 42",
     )
     assert result.exit_code == 0
-    assert result.json == [{"42": 42}]
+    assert result.json == [
+        [{"1": 1, "2": 2, "3": 3}, {"1": 4, "2": 5, "3": 6}],
+        [{"42": 42}],
+    ]
 
 
 def _round_values(results):
@@ -49,3 +55,36 @@ def _round_values(results):
 
 def _round_values_for_multi_queries(results):
     return [_round_values(r) for r in results]
+
+
+@pytest.mark.integration
+@mock.patch("snowcli.output.printing._get_table")
+@mock.patch("snowcli.output.printing.Live")
+def test_queries_are_streamed_to_output(
+    _, mock_get_table, runner, capsys, test_root_path
+):
+    log = []
+
+    def _log(
+        *args,
+    ):
+        log.append((time.monotonic(), *args))
+
+    # We mock add_row by a function that logs call time, later we compare call times
+    # to make sure those were separated in time
+    mock_get_table().add_row = _log
+
+    runner.invoke_with_connection(
+        [
+            "sql",
+            "-q",
+            "select 13; select system$wait(10);",
+        ],
+    )
+
+    assert len(log) == 2
+    (time_0, query_0), (time_1, query_1) = log
+
+    assert query_0 == "13"
+    assert time_1 - time_0 >= 10.0
+    assert "waited 10 seconds" in query_1

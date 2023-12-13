@@ -31,11 +31,11 @@ class CollectionResult(CommandResult):
 
 
 class MultipleResults(CommandResult):
-    def __init__(self, elements: t.List[CommandResult] | None = None):
+    def __init__(self, elements: t.Iterable[CommandResult] | None = None):
         self._elements = elements or []
 
     def add(self, element: CommandResult):
-        self._elements.append(element)
+        self._elements.append(element)  # type: ignore
 
     @property
     def result(self):
@@ -77,12 +77,6 @@ class QueryJsonValueResult(QueryResult):
             # Return value of the first tuple
             return json.loads(list(results[0].items())[0][1])
         return None
-
-
-class StreamResult(CommandResult):
-    def __init__(self, generator_func, mapper):
-        self._generator_func = generator_func
-        self._mapper = mapper
 
 
 class MessageResult(CommandResult):
