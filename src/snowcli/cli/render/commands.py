@@ -43,6 +43,7 @@ def render_template(
     ),
     data_override: Optional[List[str]] = typer.Option(
         None,
+        "--data",
         "-D",
         help="String in format of key=value that will be passed to rendered template. "
         "If used together with data file then this will override existing values",
