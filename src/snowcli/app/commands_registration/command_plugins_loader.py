@@ -72,9 +72,12 @@ class CommandPluginsLoader:
         )
         if other_plugin_with_the_same_command_path:
             log.error(
-                f"Cannot load plugin [{plugin_name}] "
-                f"because it defines the same command [{loaded_plugin.command_spec.full_command_path}] "
-                f"as already loaded plugin [{other_plugin_with_the_same_command_path.plugin_name}]."
+                "Cannot load plugin [%s] "
+                "because it defines the same command [%s] "
+                "as already loaded plugin [%s].",
+                plugin_name,
+                loaded_plugin.command_spec.full_command_path,
+                other_plugin_with_the_same_command_path.plugin_name,
             )
             return None
         self._loaded_plugins[plugin_name] = loaded_plugin

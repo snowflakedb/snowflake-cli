@@ -314,7 +314,7 @@ def _deploy_single_object(
     stage_artifact_path: str,
 ):
     identifier = build_udf_sproc_identifier(object_definition)
-    log.info(f"Deploying {object_type}: {identifier}")
+    log.info("Deploying %s: %s", object_type, identifier)
 
     handler = object_definition["handler"]
     returns = object_definition["returns"]

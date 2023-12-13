@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import os.path
-from pathlib import Path
-
 import pytest
 
 from tests_integration.testing_utils import (

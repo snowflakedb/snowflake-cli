@@ -11,7 +11,6 @@ from snowcli.config import (
     add_connection,
     connection_exists,
     get_config_section,
-    get_connection,
 )
 from snowcli.output.decorators import with_output
 from snowcli.output.types import (
@@ -22,7 +21,6 @@ from snowcli.output.types import (
 )
 from snowcli.snow_connector import connect_to_snowflake
 from snowflake.connector.config_manager import CONFIG_MANAGER
-from tomlkit.exceptions import KeyAlreadyPresent
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,

@@ -41,7 +41,7 @@ def create(
 @app.command()
 @global_options_with_connection
 def logs(
-    id: str = typer.Argument(..., help="Job id"),
+    identifier: str = typer.Argument(..., help="Job id"),
     container_name: str = typer.Option(
         ..., "--container-name", help="Name of the container."
     ),
@@ -50,20 +50,20 @@ def logs(
     """
     Retrieves local logs from a job container.
     """
-    results = JobManager().logs(job_name=id, container_name=container_name)
+    results = JobManager().logs(job_name=identifier, container_name=container_name)
     cursor = results.fetchone()
     logs = next(iter(cursor)).split("\n")
-    print_log_lines(sys.stdout, id, "0", logs)
+    print_log_lines(sys.stdout, identifier, "0", logs)
 
 
 @app.command()
 @with_output
 @global_options_with_connection
 def status(
-    id: str = typer.Argument(..., help="ID of the job."), **options
+    identifier: str = typer.Argument(..., help="ID of the job."), **options
 ) -> CommandResult:
     """
     Returns the status of a named Snowpark Container Services job.
     """
-    cursor = JobManager().status(job_name=id)
+    cursor = JobManager().status(job_name=identifier)
     return SingleQueryResult(cursor)

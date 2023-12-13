@@ -94,7 +94,7 @@ def get_config_value(*path, key: str, default: Optional[Any] = Empty) -> Any:
 def _initialise_config(config_file: Path) -> None:
     os.makedirs(os.path.dirname(config_file), exist_ok=True)
     config_file.touch()
-    log.info(f"Created Snowflake configuration file at {CONFIG_MANAGER.file_path}")
+    log.info("Created Snowflake configuration file at %s", CONFIG_MANAGER.file_path)
 
 
 def _get_env_value(*path, key: str) -> str | None:
