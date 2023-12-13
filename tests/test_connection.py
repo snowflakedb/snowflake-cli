@@ -49,7 +49,7 @@ def test_new_connection_with_jwt_auth(runner, snapshot):
                 "--authenticator",
                 "SNOWFLAKE_JWT",
                 "--private-key",
-                "~\private_key",
+                "~/private_key",
             ],
         )
         content = tmp_file.read()
