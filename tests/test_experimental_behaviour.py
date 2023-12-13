@@ -1,4 +1,5 @@
 import json
+from unittest import mock
 
 import typer
 from snowcli.api.plugin.command import (
@@ -11,8 +12,6 @@ from snowcli.cli.common.decorators import global_options, with_experimental_beha
 from snowcli.cli.common.experimental_behaviour import experimental_behaviour_enabled
 from snowcli.output.decorators import with_output
 from snowcli.output.types import MessageResult
-
-from tests.testing_utils.fixtures import *
 
 _test_experimental_typer = typer.Typer(name="test")
 

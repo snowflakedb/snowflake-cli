@@ -458,7 +458,7 @@ To use `uAMQP` as the underlying transport:
 1. Install `uamqp` with pip.
 
 ```
-$ pip install uamqp 
+$ pip install uamqp
 ```
 
 2. Pass `uamqp_transport=True` during client construction.

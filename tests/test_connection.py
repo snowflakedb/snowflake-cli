@@ -1,12 +1,11 @@
 import json
+import os
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import mock
 
 import pytest
 from snowcli.exception import SnowflakeConnectionError
-
-from tests.testing_utils.fixtures import *
 
 
 def test_new_connection_can_be_added(runner, snapshot):

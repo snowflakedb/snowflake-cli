@@ -16,12 +16,12 @@ from strictyaml import as_document
 from typer import Typer
 from typer.testing import CliRunner
 
-from tests.test_data import test_data
-from tests.testing_utils.files_and_dirs import create_named_file, create_temp_file
+from testing_utils.files_and_dirs import create_named_file, create_temp_file
+from testing_utils.test_data import test_data
 
 REQUIREMENTS_SNOWFLAKE = "requirements.snowflake.txt"
 REQUIREMENTS_TXT = "requirements.txt"
-TEST_DIR = Path(__file__).parent.parent
+TEST_DIR = Path(__file__).parent
 
 
 class SnowCLIRunner(CliRunner):
@@ -204,6 +204,11 @@ def test_snowcli_config():
 @pytest.fixture(scope="session")
 def test_root_path():
     return TEST_DIR
+
+
+@pytest.fixture(scope="session")
+def project_dir(test_root_path):
+    return test_root_path / "test_data" / "projects"
 
 
 @pytest.fixture

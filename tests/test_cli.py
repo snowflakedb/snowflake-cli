@@ -1,4 +1,4 @@
-from tests.testing_utils.fixtures import *
+import pytest
 
 
 def test_global(runner):

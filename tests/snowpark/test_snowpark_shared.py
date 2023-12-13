@@ -1,10 +1,11 @@
+import os
+from pathlib import Path
+from unittest import mock
 from zipfile import ZipFile
 
 import snowcli.cli.snowpark_shared as shared
 from requirements.requirement import Requirement
 from snowcli.utils import SplitRequirements
-
-from tests.testing_utils.fixtures import *
 
 
 @mock.patch("tests.snowpark.test_snowpark_shared.shared.utils.parse_anaconda_packages")
