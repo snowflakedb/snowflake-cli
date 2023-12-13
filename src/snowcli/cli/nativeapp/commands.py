@@ -1,10 +1,11 @@
 import logging
-from typing import Optional
 
 import typer
+from snowcli.cli.common.cli_global_context import cli_context
 from snowcli.cli.common.decorators import (
     global_options,
     global_options_with_connection,
+    with_project_definition,
 )
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.nativeapp.init import nativeapp_init
@@ -19,14 +20,6 @@ app = typer.Typer(
 )
 
 log = logging.getLogger(__name__)
-
-ProjectArgument = typer.Option(
-    None,
-    "-p",
-    "--project",
-    help="Path where the Native Apps project resides. Defaults to current working directory",
-    show_default=False,
-)
 
 
 @app.command("init")
@@ -71,24 +64,27 @@ def app_init(
 
 @app.command("bundle", hidden=True)
 @with_output
+@with_project_definition("native_app")
 @global_options
 def app_bundle(
-    project_path: Optional[str] = ProjectArgument,
     **options,
 ) -> CommandResult:
     """
     Prepares a local folder with configured app artifacts.
     """
-    manager = NativeAppManager(project_path)
+    manager = NativeAppManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
     manager.build_bundle()
     return MessageResult(f"Bundle generated at {manager.deploy_root}")
 
 
 @app.command("run")
 @with_output
+@with_project_definition("native_app")
 @global_options_with_connection
 def app_run(
-    project_path: Optional[str] = ProjectArgument,
     **options,
 ) -> CommandResult:
     """
@@ -97,7 +93,10 @@ def app_run(
     command does not accept role or warehouse overrides to your `config.toml` file, because your
     native app definition in `snowflake.yml` or `snowflake.local.yml` is used for any overrides.
     """
-    manager = NativeAppManager(project_path)
+    manager = NativeAppManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
     manager.build_bundle()
     manager.app_run()
     return MessageResult(
@@ -108,16 +107,19 @@ def app_run(
 
 @app.command("open")
 @with_output
+@with_project_definition("native_app")
 @global_options_with_connection
 def app_open(
-    project_path: Optional[str] = ProjectArgument,
     **options,
 ) -> CommandResult:
     """
     Opens the (development mode) application inside of your browser,
     once it has been installed in your account.
     """
-    manager = NativeAppManager(project_path)
+    manager = NativeAppManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
     if manager.app_exists():
         typer.launch(manager.get_snowsight_url())
         return MessageResult(f"Application opened in browser.")
@@ -129,9 +131,9 @@ def app_open(
 
 @app.command("teardown")
 @with_output
+@with_project_definition("native_app")
 @global_options_with_connection
 def app_teardown(
-    project_path: Optional[str] = ProjectArgument,
     **options,
 ) -> CommandResult:
     """
@@ -140,6 +142,9 @@ def app_teardown(
     As a note, this command does not accept role or warehouse overrides to your `config.toml` file,
     because your native app definition in `snowflake.yml/snowflake.local.yml` is used for any overrides.
     """
-    manager = NativeAppManager(project_path)
+    manager = NativeAppManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
     manager.teardown()
     return MessageResult(f"Teardown is now complete.")
