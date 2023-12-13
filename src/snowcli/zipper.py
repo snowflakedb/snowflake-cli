@@ -4,7 +4,7 @@ import fnmatch
 import logging
 import os
 from pathlib import Path
-from typing import Generator, Iterator, List
+from typing import Iterator, Literal
 from zipfile import ZIP_DEFLATED, ZipFile
 
 log = logging.getLogger(__name__)
@@ -14,6 +14,7 @@ IGNORED_FILES = [
     "**/.git/*",
     "**/.gitignore",
     "**/.env/*",
+    "**/.packages/*",
     "**/.venv/*",
     "**/__pycache__",
     "**/*.zip",
@@ -39,15 +40,17 @@ def add_file_to_existing_zip(zip_file: str, file: str):
         myzip.write(file, os.path.basename(file))
 
 
-def zip_dir(source: Path, dest_zip: Path) -> None:
+def zip_dir(
+    source: Path, dest_zip: Path, mode: Literal["r", "w", "x", "a"] = "w"
+) -> None:
     files_to_pack: Iterator[Path] = filter(
         _to_be_zipped, map(lambda f: f.absolute(), source.glob("**/*"))
     )
 
-    with ZipFile(dest_zip, "w", ZIP_DEFLATED, allowZip64=True) as package_zip:
+    with ZipFile(dest_zip, mode, ZIP_DEFLATED, allowZip64=True) as package_zip:
         for file in files_to_pack:
             log.debug("Adding %s to %s", file, dest_zip)
-            package_zip.write(file, arcname=_get_arcname(file, source))
+            package_zip.write(file, arcname=os.path.relpath(file, source))
 
 
 def _to_be_zipped(file: Path) -> bool:

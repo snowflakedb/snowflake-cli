@@ -19,6 +19,7 @@ import requests
 import requirements
 import typer
 from jinja2 import Environment, FileSystemLoader
+from packaging.version import parse
 from requirements.requirement import Requirement
 from snowcli.cli.constants import PACKAGES_DIR
 
@@ -331,7 +332,6 @@ def install_packages(
     perform_anaconda_check: bool = True,
     package_native_libraries: YesNoAskOptionsType = "ask",
     package_name: str | None = None,
-    install_directory=PACKAGES_DIR,
 ) -> tuple[bool, SplitRequirements | None]:
     """
     Install packages from a requirements.txt file or a single package name,
@@ -346,10 +346,11 @@ def install_packages(
     """
     pip_install_result = None
     second_chance_results = None
+
     if file_name is not None:
         try:
             process = subprocess.Popen(
-                [PIP_PATH, "install", "-t", install_directory, "-r", file_name],
+                [PIP_PATH, "install", "-t", ".packages", "-r", file_name],
                 stdout=subprocess.PIPE,
                 universal_newlines=True,
             )
@@ -507,12 +508,14 @@ def path_resolver(path_to_file: str):
 
 
 def check_if_package_is_avaiable_in_conda(package: Requirement, packages: dict) -> bool:
-    if package.name.lower() not in packages:
+    package_name = package.name.lower()
+    if package_name not in packages:
         return False
-
     if package.specs:
-        latest_ver = packages[package.name.lower()]["version"]
-        return _compare_specs(package.specs, latest_ver)
+        latest_ver = parse(packages[package_name]["version"])
+        return all(
+            [parse(spec[1]) <= latest_ver for spec in package.specs]
+        )  # _compare_specs(package.specs, latest_ver)
 
     return True
 

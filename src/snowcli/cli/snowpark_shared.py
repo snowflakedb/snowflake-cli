@@ -7,6 +7,7 @@ from typing import List
 
 import click
 import typer
+from requirements.requirement import Requirement
 from snowcli import utils
 from snowcli.utils import (
     YesNoAskOptionsType,
@@ -64,13 +65,8 @@ def snowpark_package(
         split_requirements = utils.parse_anaconda_packages(requirements)
         if not split_requirements.other:
             log.info("No packages to manually resolve")
-        if split_requirements.other:
-            log.info("Writing requirements.other.txt...")
-            with open("requirements.other.txt", "w", encoding="utf-8") as f:
-                for package in split_requirements.other:
-                    f.write(package.line + "\n")
-        # if requirements.other.txt exists
-        if os.path.isfile("requirements.other.txt"):
+        else:
+            _write_requirements_file("requirements.other.txt", split_requirements.other)
             do_download = (
                 click.confirm(
                     "Do you want to try to download non-Anaconda packages?",
@@ -85,7 +81,6 @@ def snowpark_package(
                     "requirements.other.txt",
                     check_anaconda_for_pypi_deps,
                     package_native_libraries,
-                    install_directory=source / ".packages",
                 )
                 if should_pack:
                     # add the Anaconda packages discovered as dependencies
@@ -97,16 +92,20 @@ def snowpark_package(
 
         # write requirements.snowflake.txt file
         if split_requirements.snowflake:
-            log.info("Writing requirements.snowflake.txt file...")
-            with open(
+            _write_requirements_file(
                 "requirements.snowflake.txt",
-                "w",
-                encoding="utf-8",
-            ) as f:
-                for package in utils.deduplicate_and_sort_reqs(
-                    split_requirements.snowflake
-                ):
-                    f.write(package.line + "\n")
+                utils.deduplicate_and_sort_reqs(split_requirements.snowflake),
+            )
 
     zip_dir(source=source, dest_zip=artefact_file)
+
+    if os.path.exists(".packages"):
+        zip_dir(source=Path(".packages"), dest_zip=artefact_file, mode="a")
     log.info("Deployment package now ready: app.zip")
+
+
+def _write_requirements_file(file_name: str, reqirements: List[Requirement]):
+    log.info(f"Writing {file_name} file")
+    with open(file_name, "w", encoding="utf-8") as f:
+        for package in reqirements:
+            f.write(package.line + "\n")
