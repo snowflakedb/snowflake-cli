@@ -3,11 +3,13 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from functools import cached_property
+from io import StringIO
 from textwrap import dedent
+from typing import Iterable
 
 from click import ClickException
 from snowcli.cli.common.cli_global_context import cli_context
-from snowflake.connector.cursor import DictCursor
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
 
@@ -23,13 +25,32 @@ class SqlExecutionMixin:
     def _log(self):
         return logging.getLogger(__name__)
 
+    def _execute_string(
+        self,
+        sql_text: str,
+        remove_comments: bool = False,
+        return_cursors: bool = True,
+        cursor_class: SnowflakeCursor = SnowflakeCursor,
+        **kwargs,
+    ) -> Iterable[SnowflakeCursor]:
+        """
+        This is a custom implementation of SnowflakeConnection.execute_string that returns generator
+        instead of list. In case of executing multiple queries are executed one by one. This mean we can
+        access result of previous queries while evaluating next one. For example, we can print the results.
+        """
+        self._log.debug("Executing %s", sql_text)
+        stream = StringIO(sql_text)
+        stream_generator = self._conn.execute_stream(
+            stream, remove_comments=remove_comments, cursor_class=cursor_class, **kwargs
+        )
+        return stream_generator if return_cursors else list()
+
     def _execute_query(self, query: str, **kwargs):
         *_, last_result = self._execute_queries(query, **kwargs)
         return last_result
 
     def _execute_queries(self, queries: str, **kwargs):
-        self._log.debug("Executing %s", queries)
-        return self._conn.execute_string(dedent(queries), **kwargs)
+        return list(self._execute_string(dedent(queries), **kwargs))
 
     @contextmanager
     def use_role(self, new_role: str):

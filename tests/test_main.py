@@ -27,7 +27,7 @@ def test_streamlit_help(runner):
 @mock.patch.dict(os.environ, {}, clear=True)
 def test_custom_config_path(mock_conn, runner, mock_cursor):
     config_file = Path(__file__).parent / "test.toml"
-    mock_conn.return_value.execute_string.return_value = [
+    mock_conn.return_value.execute_stream.return_value = [
         None,
         mock_cursor(["row"], []),
     ]
