@@ -38,7 +38,7 @@ class SqlExecutionMixin:
         instead of list. In case of executing multiple queries are executed one by one. This mean we can
         access result of previous queries while evaluating next one. For example, we can print the results.
         """
-        self._log.info("Executing %s", sql_text)
+        self._log.debug("Executing %s", sql_text)
         stream = StringIO(sql_text)
         stream_generator = self._conn.execute_stream(
             stream, remove_comments=remove_comments, cursor_class=cursor_class, **kwargs
