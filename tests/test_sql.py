@@ -1,6 +1,4 @@
-from pathlib import Path
 from tempfile import NamedTemporaryFile
-from unittest import mock
 
 import pytest
 
@@ -8,21 +6,19 @@ from tests.testing_utils.fixtures import *
 from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
 
 
-@mock.patch("snowflake.connector.connect")
-def test_sql_execute_query(mock_connector, runner, mock_ctx, mock_cursor):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
+@mock.patch("snowcli.cli.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_execute_query(mock_execute, runner, mock_cursor):
+    mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
 
     result = runner.invoke(["sql", "-q", "query"])
 
     assert result.exit_code == 0
-    assert ctx.get_query() == "query"
+    mock_execute.assert_called_once_with("query")
 
 
-@mock.patch("snowflake.connector.connect")
-def test_sql_execute_file(mock_connector, runner, mock_ctx, mock_cursor):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
+@mock.patch("snowcli.cli.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_execute_file(mock_execute, runner, mock_cursor):
+    mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
     query = "query from file"
 
     with NamedTemporaryFile("r") as tmp_file:
@@ -30,19 +26,18 @@ def test_sql_execute_file(mock_connector, runner, mock_ctx, mock_cursor):
         result = runner.invoke(["sql", "-f", tmp_file.name])
 
     assert result.exit_code == 0
-    assert ctx.get_query() == query
+    mock_execute.assert_called_once_with(query)
 
 
-@mock.patch("snowflake.connector.connect")
-def test_sql_execute_from_stdin(mock_connector, runner, mock_ctx, mock_cursor):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
+@mock.patch("snowcli.cli.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_execute_from_stdin(mock_execute, runner, mock_cursor):
+    mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
     query = "query from input"
 
     result = runner.invoke(["sql", "-i"], input=query)
 
     assert result.exit_code == 0
-    assert ctx.get_query() == query
+    mock_execute.assert_called_once_with(query)
 
 
 def test_sql_fails_if_no_query_file_or_stdin(runner):

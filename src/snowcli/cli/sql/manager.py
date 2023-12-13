@@ -1,16 +1,18 @@
 import sys
+from io import StringIO
 from pathlib import Path
-from typing import List, Optional
+from typing import Iterable, Optional, Tuple
 
 from click import UsageError
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.util_text import split_statements
 
 
 class SqlManager(SqlExecutionMixin):
     def execute(
         self, query: Optional[str], file: Optional[Path], std_in: bool
-    ) -> List[SnowflakeCursor]:
+    ) -> Tuple[int, Iterable[SnowflakeCursor]]:
         inputs = [query, file, std_in]
         if not any(inputs):
             raise UsageError("Use either query, filename or input option.")
@@ -26,4 +28,5 @@ class SqlManager(SqlExecutionMixin):
         elif file:
             query = file.read_text()
 
-        return self._execute_queries(query)
+        single_statement = len(list(split_statements(StringIO(query)))) == 1
+        return single_statement, self._execute_string(query)
