@@ -42,7 +42,7 @@ def test_multi_input_from_stdin(runner, snowflake_session, test_root_path):
     assert result.exit_code == 0
     assert result.json == [
         [{"1": 1, "2": 2, "3": 3}, {"1": 4, "2": 5, "3": 6}],
-        [{"42": 42}]
+        [{"42": 42}],
     ]
 
 

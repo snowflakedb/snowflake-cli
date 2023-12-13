@@ -28,6 +28,5 @@ class SqlManager(SqlExecutionMixin):
         elif file:
             query = file.read_text()
 
-
         single_statement = len(list(split_statements(StringIO(query)))) == 1
         return single_statement, self._execute_string(query)
