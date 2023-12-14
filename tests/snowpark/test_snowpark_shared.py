@@ -21,9 +21,10 @@ def test_snowpark_package(
         True,
         SplitRequirements([Requirement.parse("another-package-in-anaconda")], []),
     )
-    Path("app.py").touch()
+    os.mkdir("app")
+    Path(os.path.join("app", "app.py")).touch()
 
-    shared.snowpark_package(Path.cwd(), Path("app.zip"), "yes", False, "yes")
+    shared.snowpark_package(Path("app"), Path("app.zip"), "yes", False, "yes")
 
     zip_path = os.path.join(temp_dir, "app.zip")
     assert os.path.isfile(zip_path)

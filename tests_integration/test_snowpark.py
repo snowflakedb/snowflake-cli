@@ -182,6 +182,14 @@ def test_snowpark_flow(_test_steps, project_directory, alter_snowflake_yml):
         )
 
 
+def test_snowpark_with_separately_created_package(
+    _test_steps, project_directory, alter_snowflake_yml
+):
+
+    with project_directory("snowpark") as proj_dir:
+        pass
+
+
 @pytest.fixture
 def _test_setup(
     runner,

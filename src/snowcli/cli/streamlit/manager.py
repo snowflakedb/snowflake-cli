@@ -160,7 +160,7 @@ class StreamlitManager(SqlExecutionMixin):
 
         return self.get_url(streamlit_name)
 
-    def _packaging_workaround(
+    def _packaging_workaround(  # TODO: do we need this? It seems unused
         self,
         streamlit_name: str,
         stage_name: str,

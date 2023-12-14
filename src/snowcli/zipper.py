@@ -14,7 +14,6 @@ IGNORED_FILES = [
     "**/.git/*",
     "**/.gitignore",
     "**/.env/*",
-    "**/.packages/*",
     "**/.venv/*",
     "**/__pycache__",
     "**/*.zip",
