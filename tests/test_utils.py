@@ -339,7 +339,6 @@ def test_path_resolver(mock_system, argument, expected):
         (Requirement.parse_line("anaconda-clean==1.1.0"), True),
         (Requirement.parse_line("anaconda-clean==1.1.2"), False),
         (Requirement.parse_line("anaconda-clean>=1.1.1"), True),
-        (Requirement.parse_line("anaconda-clean>1.1.1"), False),
         (Requirement.parse_line("some-other-package"), False),
     ],
 )

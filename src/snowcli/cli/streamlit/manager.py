@@ -160,47 +160,6 @@ class StreamlitManager(SqlExecutionMixin):
 
         return self.get_url(streamlit_name)
 
-    def _packaging_workaround(  # TODO: do we need this? It seems unused
-        self,
-        streamlit_name: str,
-        stage_name: str,
-        file: Path,
-        packaging_workaround_includes_content: bool,
-        pypi_download: str,
-        check_anaconda_for_pypi_deps: bool,
-        package_native_libraries: str,
-        excluded_anaconda_deps: str,
-        stage_manager: StageManager,
-    ):
-        # package an app.zip file, same as the other snowpark_containers_cmds package commands
-        snowpark_package(
-            pypi_download,  # type: ignore[arg-type]
-            check_anaconda_for_pypi_deps,
-            package_native_libraries,  # type: ignore[arg-type]
-        )
-
-        # upload the resulting app.zip file
-        stage_name = stage_name or f"{streamlit_name}_stage"
-        stage_manager.put("app.zip", stage_name, 4, True)
-        main_module = str(file).replace(".py", "")
-        file = generate_streamlit_package_wrapper(
-            stage_name=stage_name,
-            main_module=main_module,
-            extract_zip=packaging_workaround_includes_content,
-        )
-
-        # upload the wrapper file
-        stage_manager.put(str(file), stage_name, 4, True)
-
-        # if the packaging process generated an environment.snowflake.txt
-        # file, convert it into an environment.yml file
-        excluded_anaconda_deps_list: Optional[List[str]] = None
-        if excluded_anaconda_deps is not None:
-            excluded_anaconda_deps_list = excluded_anaconda_deps.split(",")
-        env_file = generate_streamlit_environment_file(excluded_anaconda_deps_list)
-        if env_file:
-            stage_manager.put(str(env_file), stage_name, 4, True)
-
     def get_url(self, streamlit_name: str) -> str:
         try:
             return make_snowsight_url(
