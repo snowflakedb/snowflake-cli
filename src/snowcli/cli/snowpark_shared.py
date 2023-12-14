@@ -77,14 +77,14 @@ def snowpark_package(
             )
             if do_download:
                 log.info("Installing non-Anaconda packages...")
-                should_pack, second_chance_results = utils.install_packages(
+                should_continue, second_chance_results = utils.install_packages(
                     "requirements.other.txt",
                     check_anaconda_for_pypi_deps,
                     package_native_libraries,
                 )
-                if should_pack:
+                if should_continue:
                     # add the Anaconda packages discovered as dependencies
-                    if second_chance_results is not None:
+                    if second_chance_results:
                         split_requirements.snowflake = (
                             split_requirements.snowflake
                             + second_chance_results.snowflake
@@ -101,7 +101,7 @@ def snowpark_package(
 
     if os.path.exists(".packages"):
         zip_dir(source=Path(".packages"), dest_zip=artefact_file, mode="a")
-    log.info("Deployment package now ready: app.zip")
+    log.info(f"Deployment package now ready: {artefact_file}")
 
 
 def _write_requirements_file(file_name: str, reqirements: List[Requirement]):
