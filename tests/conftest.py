@@ -7,9 +7,7 @@ from snowcli.cli import loggers
 from snowcli.cli.common.cli_global_context import cli_context_manager
 from snowcli.config import config_init
 
-pytest_plugins = [
-    "tests.testing_utils.fixtures",
-]
+pytest_plugins = ["tests.testing_utils.fixtures", "tests.project.fixtures"]
 
 
 @pytest.fixture(autouse=True)

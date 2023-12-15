@@ -46,6 +46,7 @@
 * Added support for external access integration for functions and procedures
 * Added support for runtime version in snowpark procedures ad functions.
 * You can include previously uploaded packages in your functions, by listing them under `imports` in `snowflake.yml`
+* Added more options to `snow connection add` - now you can also specify authenticator and path to private key
 
 ## Fixes and improvements
 * Allow the use of quoted identifiers in stages
