@@ -68,7 +68,7 @@ TEST_OBJECTS = [
 def test_describe(
     mock_connector, object_type, object_name, mock_cursor, runner, snapshot
 ):
-    mock_connector.connect.return_value.execute_string.return_value = (
+    mock_connector.connect.return_value.execute_stream.return_value = (
         None,
         mock_cursor(
             rows=[("ID", "NUMBER(38,0", "COLUMN"), ("NAME", "VARCHAR(100", "COLUMN")],
@@ -86,7 +86,7 @@ def test_describe(
     TEST_OBJECTS,
 )
 def test_drop(mock_connector, object_type, object_name, mock_cursor, runner, snapshot):
-    mock_connector.connect.return_value.execute_string.return_value = (
+    mock_connector.connect.return_value.execute_stream.return_value = (
         None,
         mock_cursor(rows=[f"{object_name} successfully dropped."], columns=["status"]),
     )
