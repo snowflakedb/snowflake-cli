@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import json
 import sys
 from datetime import datetime
 from json import JSONEncoder
 from pathlib import Path
-from typing import Union
 
 from rich import box, get_console, print
 from rich.live import Live

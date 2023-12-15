@@ -36,7 +36,13 @@ def generate_docs(root: Path, command: Command, cmd_parts: Optional[List] = None
 
 
 def get_main_option(options: List[str]) -> str:
-    return next(option for option in options if option.startswith("--"))
+    long_options = [option for option in options if option.startswith("--")]
+    short_options = [option for option in options if option.startswith("-")]
+    if long_options:
+        return long_options[0]
+    if short_options:
+        return short_options[0]
+    return ""
 
 
 def _render_usage(
