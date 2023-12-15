@@ -1,5 +1,7 @@
 import logging
+import os
 from pathlib import Path
+from unittest import mock
 from unittest.mock import ANY, MagicMock, patch
 from zipfile import ZipFile
 
@@ -9,7 +11,7 @@ from snowcli.cli.snowpark import package
 from snowcli.cli.snowpark.package.utils import NotInAnaconda
 from snowcli.utils import SplitRequirements
 
-from tests.testing_utils.fixtures import *
+from testing_utils.test_data import test_data
 
 
 class TestPackage:

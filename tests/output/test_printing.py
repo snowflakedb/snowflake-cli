@@ -1,7 +1,9 @@
 import json
 from datetime import datetime
 from textwrap import dedent
+from typing import NamedTuple
 
+import pytest
 from click import Command, Context
 from snowcli.output.formats import OutputFormat
 from snowcli.output.printing import print_result
@@ -13,8 +15,6 @@ from snowcli.output.types import (
     QueryResult,
     SingleQueryResult,
 )
-
-from tests.testing_utils.fixtures import *
 
 
 class MockResultMetadata(NamedTuple):

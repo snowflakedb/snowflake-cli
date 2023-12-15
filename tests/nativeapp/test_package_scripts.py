@@ -11,8 +11,7 @@ from snowcli.cli.nativeapp.manager import (
 )
 from snowflake.connector import ProgrammingError
 
-from tests.project.fixtures import *
-from tests.testing_utils.fixtures import *
+from testing_utils.fixtures import MockConnectionCtx
 
 NATIVEAPP_MODULE = "snowcli.cli.nativeapp.manager"
 NATIVEAPP_MANAGER_EXECUTE_QUERIES = (

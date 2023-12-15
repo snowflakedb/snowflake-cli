@@ -1,8 +1,6 @@
 import json
 from unittest import mock
 
-from tests.testing_utils.fixtures import *
-
 
 @mock.patch("snowcli.cli.registry.manager.RegistryManager._conn")
 @mock.patch("snowcli.cli.registry.manager.RegistryManager._execute_query")

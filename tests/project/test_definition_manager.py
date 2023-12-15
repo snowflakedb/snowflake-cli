@@ -2,10 +2,8 @@ from pathlib import Path
 from unittest import TestCase, mock
 from unittest.mock import patch
 
+import pytest
 from snowcli.cli.project.definition_manager import DefinitionManager
-
-from tests.project.fixtures import *
-from tests.testing_utils.fixtures import *
 
 
 def mock_is_file_for(*known_files):

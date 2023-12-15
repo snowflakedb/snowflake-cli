@@ -2,8 +2,6 @@ import json
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from tests.testing_utils.fixtures import *
-
 
 def test_render_template(runner):
     with NamedTemporaryFile("r") as tmp_file, NamedTemporaryFile("r") as json_file:

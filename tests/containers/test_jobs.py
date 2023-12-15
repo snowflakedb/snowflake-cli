@@ -1,6 +1,6 @@
+import os
 from tempfile import TemporaryDirectory
-
-from tests.testing_utils.fixtures import *
+from unittest import mock
 
 
 @mock.patch("snowflake.connector.connect")

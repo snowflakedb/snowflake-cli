@@ -1,14 +1,17 @@
 import json
+import os
 from distutils.dir_util import copy_tree
-from pathlib import PosixPath
+from pathlib import Path, PosixPath
+from unittest import mock
 from unittest.mock import MagicMock, mock_open, patch
 from zipfile import ZipFile
 
+import pytest
 import typer
 from requirements.requirement import Requirement
 from snowcli import utils
 
-from tests.testing_utils.fixtures import *
+from testing_utils.test_data import test_data
 
 
 @pytest.mark.parametrize("argument", utils.YesNoAskOptions)
@@ -225,14 +228,14 @@ def test_parse_requirements(correct_requirements_txt: str):
 
 
 @mock.patch("requests.get")
-def test_parse_anaconda_packages(mock_get):
+def test_parse_anaconda_packages(mock_get, test_root_path):
     mock_response = mock.Mock()
     mock_response.status_code = 200
     # load the contents of the local json file under test_data/anaconda_channel_data.json
     mock_response.json.return_value = json.loads(
-        Path(
-            os.path.join(Path(__file__).parent, "test_data/anaconda_channel_data.json")
-        ).read_text(encoding="utf-8")
+        Path(test_root_path, "test_data/anaconda_channel_data.json").read_text(
+            encoding="utf-8"
+        )
     )
     mock_get.return_value = mock_response
 

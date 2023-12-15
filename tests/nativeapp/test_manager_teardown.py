@@ -1,6 +1,9 @@
+import os
 from textwrap import dedent
+from unittest import mock
 from unittest.mock import PropertyMock
 
+import pytest
 from snowcli.cli.nativeapp.manager import (
     SPECIAL_COMMENT,
     CouldNotDropObjectError,
@@ -10,7 +13,7 @@ from snowcli.cli.nativeapp.manager import (
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
-from tests.testing_utils.fixtures import *
+from testing_utils.files_and_dirs import create_named_file
 
 NATIVEAPP_MODULE = "snowcli.cli.nativeapp.manager"
 NATIVEAPP_MANAGER_EXECUTE = f"{NATIVEAPP_MODULE}.NativeAppManager._execute_query"

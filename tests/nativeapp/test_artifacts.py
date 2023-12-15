@@ -1,4 +1,5 @@
-from typing import Optional
+from pathlib import Path
+from typing import List, Optional
 from unittest import mock
 
 import pytest
@@ -13,9 +14,6 @@ from snowcli.cli.nativeapp.artifacts import (
     translate_artifact,
 )
 from snowcli.cli.project.definition import load_project_definition
-
-from tests.project.fixtures import *
-from tests.testing_utils.fixtures import *
 
 
 def trimmed_contents(path: Path) -> Optional[str]:

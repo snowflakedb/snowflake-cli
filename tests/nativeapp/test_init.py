@@ -18,7 +18,7 @@ from snowcli.cli.nativeapp.init import (
 )
 from snowcli.exception import MissingConfiguration
 
-from tests.testing_utils.fixtures import *
+from testing_utils.files_and_dirs import create_named_file
 
 PROJECT_PATH = "demo-na-project"
 PROJECT_NAME = "demo_na_project"

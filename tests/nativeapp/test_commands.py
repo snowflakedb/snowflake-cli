@@ -2,8 +2,6 @@ from unittest import mock
 
 import pytest
 
-from tests.testing_utils.fixtures import *
-
 PROJECT_PATH = "demo_na_project"
 
 

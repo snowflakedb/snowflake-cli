@@ -1,9 +1,9 @@
+import os
+from pathlib import Path
 from zipfile import ZipFile
 
 from snowcli.cli.snowpark.commands import _replace_handler_in_zip
 from snowcli.zipper import add_file_to_existing_zip, zip_dir
-
-from tests.testing_utils.fixtures import *
 
 
 def test_zip_current_dir(temp_dir):

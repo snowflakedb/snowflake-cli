@@ -7,7 +7,7 @@ from snowcli.cli.snowpark.common import (
     _sql_to_python_return_type_mapper,
 )
 
-from tests.testing_utils.fixtures import (
+from testing_utils.fixtures import (
     correct_requirements_snowflake_txt,
     temp_dir,
     test_data,

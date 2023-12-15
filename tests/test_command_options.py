@@ -1,6 +1,3 @@
-from tests.testing_utils.fixtures import *
-
-
 def test_format(runner):
     result = runner.invoke(
         ["object", "stage", "list", "stage_name", "--format", "invalid_format"]

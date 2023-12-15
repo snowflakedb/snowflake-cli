@@ -5,8 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 import strictyaml
 from snowcli.cli.containers.services.manager import ServiceManager
-
-from tests.testing_utils.fixtures import *
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 @patch("snowcli.cli.containers.services.manager.ServiceManager._execute_schema_query")

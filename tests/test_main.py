@@ -2,15 +2,15 @@
 from __future__ import annotations
 
 import json
+import os
 import typing as t
+from unittest import mock
 
 from click import Command
 from snowcli.__about__ import VERSION
 from snowcli.app.cli_app import app_context_holder
 from snowcli.config import cli_config
 from typer.core import TyperArgument, TyperOption
-
-from tests.testing_utils.fixtures import *
 
 
 def test_help_option(runner):
@@ -25,8 +25,8 @@ def test_streamlit_help(runner):
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch.dict(os.environ, {}, clear=True)
-def test_custom_config_path(mock_conn, runner, mock_cursor):
-    config_file = Path(__file__).parent / "test.toml"
+def test_custom_config_path(mock_conn, runner, mock_cursor, test_root_path):
+    config_file = test_root_path / "test.toml"
     mock_conn.return_value.execute_stream.return_value = [
         None,
         mock_cursor(["row"], []),

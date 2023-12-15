@@ -3,9 +3,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
+import pytest
 from snowcli.config import CliConfigManager, config_init, get_default_connection
-
-from tests.testing_utils.fixtures import *
 
 
 def test_empty_config_file_is_created_if_not_present():
