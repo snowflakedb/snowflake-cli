@@ -60,7 +60,7 @@ def test_deploy_procedure(
             returns string
             language python
             runtime_version=3.8
-            imports=('@dev_deployment/my_snowpark_project/app.zip',)
+            imports=('@dev_deployment/my_snowpark_project/app.zip')
             handler='hello'
             packages=()
             """
@@ -71,7 +71,7 @@ def test_deploy_procedure(
             returns string
             language python
             runtime_version=3.10
-            imports=('@dev_deployment/my_snowpark_project/app.zip',)
+            imports=('@dev_deployment/my_snowpark_project/app.zip')
             handler='test'
             packages=()
             """
@@ -123,7 +123,7 @@ def test_deploy_procedure_with_external_access(
             returns string
             language python
             runtime_version=3.8
-            imports=('@dev_deployment/my_snowpark_project/app.zip',)
+            imports=('@dev_deployment/my_snowpark_project/app.zip')
             handler='app.hello'
             packages=()
             external_access_integrations=(external_1,external_2)
@@ -232,7 +232,7 @@ def test_deploy_procedure_with_coverage(
             returns variant
             language python
             runtime_version=3.8
-            imports=('@dev_deployment/my_snowpark_project/app.zip',)
+            imports=('@dev_deployment/my_snowpark_project/app.zip')
             handler='snowpark_coverage.measure_coverage'
             packages=('coverage')
             """

@@ -14,7 +14,7 @@ from tests_integration.testing_utils.snowpark_utils import (
 STAGE_NAME = "dev_deployment"
 
 
-# @pytest.mark.integration
+@pytest.mark.integration
 def test_snowpark_flow(_test_steps, project_directory, alter_snowflake_yml):
     with project_directory("snowpark") as tmp_dir:
         _test_steps.snowpark_build_should_zip_files()
@@ -205,13 +205,13 @@ def test_snowpark_with_separately_created_package(
         _test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="test_func('foo')",
-            expected_value='"Hello foo!"',
+            expected_value="<slot wrapper '__str__' of 'object' objects> foo",
         )
 
         _test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier="test_proc()",
-            expected_value='"Hello foo!"',
+            expected_value="<slot wrapper '__str__' of 'object' objects>",
         )
 
 

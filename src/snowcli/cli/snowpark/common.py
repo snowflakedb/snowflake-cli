@@ -157,7 +157,7 @@ class SnowparkObjectManager(SqlExecutionMixin):
             f"returns {return_type}",
             "language python",
             f"runtime_version={runtime or DEFAULT_RUNTIME}",
-            f"imports= ({', '.join(imports)})",
+            f"imports=({', '.join(imports)})",
             f"handler='{handler}'",
             f"packages=({packages_list})",
         ]
