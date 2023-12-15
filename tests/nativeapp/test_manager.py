@@ -10,6 +10,7 @@ from snowcli.cli.nativeapp.manager import (
     UnexpectedOwnerError,
 )
 from snowcli.cli.object.stage.diff import DiffResult
+from snowcli.cli.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -83,6 +84,14 @@ quoted_override_yml_file = dedent(
 )
 
 
+def _get_na_manager():
+    dm = DefinitionManager()
+    return NativeAppManager(
+        project_definition=dm.project_definition["native_app"],
+        project_root=dm.project_root,
+    )
+
+
 def mock_execute_helper(mock_input: list):
     side_effects, expected = map(list, zip(*mock_input))
     return side_effects, expected
@@ -105,7 +114,7 @@ def test_sync_deploy_root_with_stage(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     assert mock_diff_result.has_changes()
     native_app_manager.sync_deploy_root_with_stage("new_role")
 
@@ -175,7 +184,7 @@ def test_drop_object(mock_execute, temp_dir, mock_cursor):
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     native_app_manager.drop_object(
         object_name="sample_package_name",
         object_role="sample_package_role",
@@ -214,7 +223,7 @@ def test_drop_object_no_show_object(mock_execute, temp_dir, mock_cursor):
         dir=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
 
     dropped = native_app_manager.drop_object(
         object_name="sample_package_name",
@@ -263,7 +272,7 @@ def test_drop_object_no_special_comment(mock_execute, temp_dir, mock_cursor):
         dir=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     with pytest.raises(
         CouldNotDropObjectError,
         match="Application Package sample_package_name was not created by SnowCLI. Cannot drop the application package.",
@@ -313,7 +322,7 @@ def test_create_dev_app_w_warehouse_access_exception(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     assert not mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
@@ -363,7 +372,7 @@ def test_create_dev_app_noop(mock_conn, mock_execute, temp_dir, mock_cursor):
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     assert not mock_diff_result.has_changes()
     native_app_manager._create_dev_app(mock_diff_result)
     assert mock_execute.mock_calls == expected
@@ -415,7 +424,7 @@ def test_create_dev_app_recreate(mock_conn, mock_execute, temp_dir, mock_cursor)
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     assert mock_diff_result.has_changes()
     native_app_manager._create_dev_app(mock_diff_result)
     assert mock_execute.mock_calls == expected
@@ -470,7 +479,7 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     assert mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
@@ -521,7 +530,7 @@ def test_create_dev_app_create_new(mock_conn, mock_execute, temp_dir, mock_curso
         contents=[mock_snowflake_yml_file.replace("package_role", "app_role")],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     assert not mock_diff_result.has_changes()
     native_app_manager._create_dev_app(mock_diff_result)
     assert mock_execute.mock_calls == expected
@@ -573,7 +582,7 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
         contents=[mock_snowflake_yml_file.replace("package_role", "app_role")],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     assert not mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
@@ -659,7 +668,7 @@ def test_create_dev_app_create_new_quoted(
         ],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     assert not mock_diff_result.has_changes()
     native_app_manager._create_dev_app(mock_diff_result)
     assert mock_execute.mock_calls == expected
@@ -715,7 +724,7 @@ def test_create_dev_app_create_new_quoted_override(
         contents=[quoted_override_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     assert not mock_diff_result.has_changes()
     native_app_manager._create_dev_app(mock_diff_result)
     assert mock_execute.mock_calls == expected
@@ -785,7 +794,7 @@ def test_create_dev_app_create_new_with_additional_privileges(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     assert not mock_diff_result.has_changes()
     native_app_manager._create_dev_app(mock_diff_result)
     assert mock_execute_query.mock_calls == mock_execute_query_expected
@@ -832,7 +841,7 @@ def test_create_dev_app_bad_comment(mock_conn, mock_execute, temp_dir, mock_curs
     )
 
     with pytest.raises(ApplicationAlreadyExistsError):
-        native_app_manager = NativeAppManager()
+        native_app_manager = _get_na_manager()
         assert not mock_diff_result.has_changes()
         native_app_manager._create_dev_app(mock_diff_result)
 
@@ -879,7 +888,7 @@ def test_create_dev_app_bad_version(mock_conn, mock_execute, temp_dir, mock_curs
     )
 
     with pytest.raises(ApplicationAlreadyExistsError):
-        native_app_manager = NativeAppManager()
+        native_app_manager = _get_na_manager()
         assert not mock_diff_result.has_changes()
         native_app_manager._create_dev_app(mock_diff_result)
 
@@ -926,7 +935,7 @@ def test_create_dev_app_bad_owner(mock_conn, mock_execute, temp_dir, mock_cursor
     )
 
     with pytest.raises(UnexpectedOwnerError):
-        native_app_manager = NativeAppManager()
+        native_app_manager = _get_na_manager()
         assert not mock_diff_result.has_changes()
         native_app_manager._create_dev_app(mock_diff_result)
 
@@ -968,7 +977,7 @@ def test_app_exists(mock_execute, temp_dir, mock_cursor):
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     assert native_app_manager.app_exists() is True
     assert mock_execute.mock_calls == expected
 
@@ -998,7 +1007,7 @@ def test_app_does_not_exist(mock_execute, temp_dir, mock_cursor):
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     assert native_app_manager.app_exists() is False
     assert mock_execute.mock_calls == expected
 
@@ -1022,7 +1031,7 @@ def test_get_snowsight_url(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     assert (
         native_app_manager.get_snowsight_url()
         == "https://host/organization/account/#/apps/application/MYAPP"

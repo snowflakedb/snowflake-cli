@@ -7,6 +7,7 @@ from snowcli.cli.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
 )
+from snowcli.cli.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -65,6 +66,14 @@ quoted_override_yml_file = dedent(
                     "My Package"
     """
 )
+
+
+def _get_na_manager():
+    dm = DefinitionManager()
+    return NativeAppManager(
+        project_definition=dm.project_definition["native_app"],
+        project_root=dm.project_root,
+    )
 
 
 def mock_execute_helper(mock_input: list):
@@ -158,7 +167,7 @@ def test_idempotent_app_teardown(mock_execute, temp_dir, mock_cursor):
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     native_app_manager.teardown()
     native_app_manager.teardown()
     assert mock_execute.mock_calls == expected
@@ -214,7 +223,7 @@ def test_teardown_without_app_instance(mock_execute, temp_dir, mock_cursor):
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     native_app_manager.teardown()
     assert mock_execute.mock_calls == expected
 
@@ -256,7 +265,7 @@ def test_teardown_app_has_wrong_comment(mock_execute, temp_dir, mock_cursor):
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     with pytest.raises(CouldNotDropObjectError):
         native_app_manager.teardown()
 
@@ -307,7 +316,7 @@ def test_teardown_drop_app_fails(mock_execute, temp_dir, mock_cursor):
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     with pytest.raises(SnowflakeSQLExecutionError):
         native_app_manager.teardown()
 
@@ -382,6 +391,6 @@ def test_quoting_app_teardown(mock_execute, temp_dir, mock_cursor):
         contents=[quoted_override_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     native_app_manager.teardown()
     assert mock_execute.mock_calls == expected
