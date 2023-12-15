@@ -513,23 +513,9 @@ def check_if_package_is_avaiable_in_conda(package: Requirement, packages: dict) 
         return False
     if package.specs:
         latest_ver = parse(packages[package_name]["version"])
-        return all(
-            [parse(spec[1]) <= latest_ver for spec in package.specs]
-        )  # _compare_specs(package.specs, latest_ver)
+        return all([parse(spec[1]) <= latest_ver for spec in package.specs])
 
     return True
-
-
-def _compare_specs(specs: List, latest: str):
-    operators = {
-        "<": operator.lt,
-        "<=": operator.le,
-        "==": operator.ge,
-        "!=": operator.ne,
-        ">=": operator.ge,
-        ">": operator.gt,
-    }
-    return all([operators[spec[0]](latest, spec[1]) for spec in specs])
 
 
 T = TypeVar("T")

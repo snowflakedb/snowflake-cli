@@ -348,6 +348,7 @@ def _deploy_single_object(
             "external_access_integrations"
         ),
         "secrets": object_definition.get("secrets"),
+        "imports": object_definition.get("imports", []),
     }
     if object_type == ObjectType.PROCEDURE:
         create_or_replace_kwargs["execute_as_caller"] = object_definition.get(

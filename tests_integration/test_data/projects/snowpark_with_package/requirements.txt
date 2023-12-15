@@ -1,0 +1,3 @@
+snowflake-snowpark-python
+syrupy
+#snowcli  # for local development

@@ -40,7 +40,7 @@ def test_deploy_function(
             returns string
             language python
             runtime_version=3.10
-            imports=('@dev_deployment/my_snowpark_project/app.zip')
+            imports=('@dev_deployment/my_snowpark_project/app.zip',)
             handler='app.func1_handler'
             packages=()
             """
@@ -87,7 +87,7 @@ def test_deploy_function_with_external_access(
             returns string
             language python
             runtime_version=3.8
-            imports=('@dev_deployment/my_snowpark_project/app.zip')
+            imports=('@dev_deployment/my_snowpark_project/app.zip',)
             handler='app.func1_handler'
             packages=()
             external_access_integrations=(external_1,external_2)
@@ -205,7 +205,7 @@ def test_deploy_function_needs_update_because_packages_changes(
             returns string
             language python
             runtime_version=3.10
-            imports=('@dev_deployment/my_snowpark_project/app.zip')
+            imports=('@dev_deployment/my_snowpark_project/app.zip',)
             handler='app.func1_handler'
             packages=('foo=1.2.3','bar>=3.0.0')
             """
@@ -255,7 +255,7 @@ def test_deploy_function_needs_update_because_handler_changes(
             returns string
             language python
             runtime_version=3.10
-            imports=('@dev_deployment/my_snowpark_project/app.zip')
+            imports=('@dev_deployment/my_snowpark_project/app.zip',)
             handler='app.func1_handler'
             packages=('foo=1.2.3','bar>=3.0.0')
             """
