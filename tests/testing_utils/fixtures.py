@@ -117,8 +117,8 @@ class MockConnectionCtx(mock.MagicMock):
         self.queries.append(query)
         return (self.cs,)
 
-    def execute_stream(self, query: StringIO):
-        return self.execute_string(query.read())
+    def execute_stream(self, query: StringIO, **kwargs):
+        return self.execute_string(query.read(), **kwargs)
 
 
 @pytest.fixture

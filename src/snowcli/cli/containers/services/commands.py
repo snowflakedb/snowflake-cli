@@ -10,7 +10,6 @@ from snowcli.output.decorators import with_output
 from snowcli.output.types import (
     CommandResult,
     QueryJsonValueResult,
-    QueryResult,
     SingleQueryResult,
 )
 

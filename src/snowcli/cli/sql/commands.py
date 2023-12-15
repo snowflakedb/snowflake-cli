@@ -1,9 +1,7 @@
-import sys
 from pathlib import Path
 from typing import Optional
 
 import typer
-from click import UsageError
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.sql.manager import SqlManager
 from snowcli.output.decorators import with_output
@@ -35,6 +33,7 @@ def execute_sql(
     ),
     std_in: Optional[bool] = typer.Option(
         False,
+        "--stdin",
         "-i",
         help="Read the query from standard input. Use it when piping input to this command.",
     ),
@@ -46,11 +45,7 @@ def execute_sql(
     Query to execute can be specified using query option, filename option (all queries from file will be executed)
     or via stdin by piping output from other command. For example `cat my.sql | snow sql -i`.
     """
-    cursors = SqlManager().execute(query, file, std_in)
-    if len(cursors) > 1:
-        result = MultipleResults()
-        for curr in cursors:
-            result.add(QueryResult(curr))
-    else:
-        result = QueryResult(cursors[0])
-    return result
+    single_statement, cursors = SqlManager().execute(query, file, std_in)
+    if single_statement:
+        return QueryResult(next(cursors))
+    return MultipleResults((QueryResult(c) for c in cursors))
