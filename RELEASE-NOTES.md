@@ -45,6 +45,7 @@
   * Introduced new `build` command for project with procedure and functions
 * Added support for external access integration for functions and procedures
 * Added support for runtime version in snowpark procedures ad functions.
+* You can include previously uploaded packages in your functions, by listing them under `imports` in `snowflake.yml`
 
 ## Fixes and improvements
 * Allow the use of quoted identifiers in stages

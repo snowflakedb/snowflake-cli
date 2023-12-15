@@ -141,21 +141,23 @@ class SnowparkObjectManager(SqlExecutionMixin):
         handler: str,
         artifact_file: str,
         packages: List[str],
-        additional_imports: List[str],
+        imports: List[str],
         external_access_integrations: Optional[List[str]] = None,
         secrets: Optional[Dict[str, str]] = None,
         runtime: Optional[str] = None,
         execute_as_caller: bool = False,
     ) -> str:
 
-        additional_imports.append(artifact_file)
+        imports.append(artifact_file)
+        imports = list(map(lambda x: f"'{x}'", imports))
         packages_list = ",".join(f"'{p}'" for p in packages)
+
         query = [
             f"create or replace {self._object_type.value.sf_name} {identifier}",
             f"returns {return_type}",
             "language python",
             f"runtime_version={runtime or DEFAULT_RUNTIME}",
-            f"imports={tuple(additional_imports)}",
+            f"imports= ({', '.join(imports)})",
             f"handler='{handler}'",
             f"packages=({packages_list})",
         ]

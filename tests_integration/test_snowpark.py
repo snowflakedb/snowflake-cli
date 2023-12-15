@@ -14,7 +14,7 @@ from tests_integration.testing_utils.snowpark_utils import (
 STAGE_NAME = "dev_deployment"
 
 
-#@pytest.mark.integration
+# @pytest.mark.integration
 def test_snowpark_flow(_test_steps, project_directory, alter_snowflake_yml):
     with project_directory("snowpark") as tmp_dir:
         _test_steps.snowpark_build_should_zip_files()
