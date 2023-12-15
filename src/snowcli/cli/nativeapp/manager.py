@@ -4,7 +4,7 @@ import logging
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import Callable, List, Literal, Optional
+from typing import Callable, Dict, List, Literal, Optional
 
 import jinja2
 from click.exceptions import ClickException
@@ -145,19 +145,18 @@ def _generic_sql_error_handler(
 
 
 class NativeAppManager(SqlExecutionMixin):
-    definition_manager: DefinitionManager
-
-    def __init__(self, search_path: Optional[str] = None):
+    def __init__(self, project_definition: Dict, project_root: Path):
         super().__init__()
-        self.definition_manager = DefinitionManager(search_path or "")
+        self._project_root = project_root
+        self._project_definition = project_definition
 
     @property
     def project_root(self) -> Path:
-        return self.definition_manager.project_root
+        return self._project_root
 
     @property
-    def definition(self) -> dict:
-        return self.definition_manager.project_definition["native_app"]
+    def definition(self) -> Dict:
+        return self._project_definition
 
     @cached_property
     def artifacts(self) -> List[ArtifactMapping]:

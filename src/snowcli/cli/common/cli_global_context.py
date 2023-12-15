@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 from typing import Dict, Optional
 
 from snowcli.exception import InvalidSchemaError
@@ -155,6 +156,7 @@ class _CliGlobalContextManager:
         self._verbose = False
         self._experimental = False
         self._project_definition = None
+        self._project_root = None
 
     def reset(self):
         self.__init__()
@@ -195,6 +197,13 @@ class _CliGlobalContextManager:
         self._project_definition = value
 
     @property
+    def project_root(self):
+        return self._project_root
+
+    def set_project_root(self, project_root: Path):
+        self._project_root = project_root
+
+    @property
     def connection_context(self) -> _ConnectionContext:
         return self._connection_context
 
@@ -230,6 +239,10 @@ class _CliGlobalContextAccess:
     @property
     def project_definition(self):
         return self._manager.project_definition
+
+    @property
+    def project_root(self):
+        return self._manager.project_root
 
 
 cli_context_manager: _CliGlobalContextManager = _CliGlobalContextManager()
