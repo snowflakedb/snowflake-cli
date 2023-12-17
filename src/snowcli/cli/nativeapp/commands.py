@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 import typer
 from snowcli.cli.common.cli_global_context import cli_context
@@ -95,12 +96,12 @@ def app_run(
     command does not accept role or warehouse overrides to your `config.toml` file, because your
     native app definition in `snowflake.yml` or `snowflake.local.yml` is used for any overrides.
     """
-    manager = NativeAppManager(
+    manager = NativeAppRunProcessor(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
     manager.build_bundle()
-    manager.app_run()
+    manager.process()
     return MessageResult(
         f"Your application ({manager.app_name}) is now live:\n"
         + manager.get_snowsight_url()
@@ -122,7 +123,7 @@ def app_open(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    if manager.app_exists():
+    if manager.get_existing_app_info() is not None:
         typer.launch(manager.get_snowsight_url())
         return MessageResult(f"Application opened in browser.")
     else:
@@ -136,6 +137,12 @@ def app_open(
 @with_project_definition("native_app")
 @global_options_with_connection
 def app_teardown(
+    force: Optional[bool] = typer.Option(
+        False,
+        "--force",
+        help="Defaults to unset (False). If set (True), we will implicitly respond “yes” to any prompts that come up.",
+        is_flag=True,
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -144,9 +151,9 @@ def app_teardown(
     As a note, this command does not accept role or warehouse overrides to your `config.toml` file,
     because your native app definition in `snowflake.yml/snowflake.local.yml` is used for any overrides.
     """
-    manager = NativeAppManager(
+    manager = NativeAppTeardownProcessor(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    manager.teardown()
+    manager.process(force)
     return MessageResult(f"Teardown is now complete.")

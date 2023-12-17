@@ -40,12 +40,14 @@ mock_project_definition_override = {
     }
 }
 
+
 def _get_na_manager():
     dm = DefinitionManager()
     return NativeAppManager(
         project_definition=dm.project_definition["native_app"],
         project_root=dm.project_root,
     )
+
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(f"{NATIVEAPP_MODULE}.stage_diff")
@@ -352,7 +354,7 @@ def test_get_existing_app_info_app_does_not_exist(mock_execute, temp_dir, mock_c
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppManager()
+    native_app_manager = _get_na_manager()
     show_obj_row = native_app_manager.get_existing_app_info()
     assert show_obj_row is None
     assert mock_execute.mock_calls == expected

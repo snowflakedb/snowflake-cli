@@ -7,11 +7,20 @@ from snowcli.cli.nativeapp.exceptions import (
 )
 from snowcli.cli.nativeapp.manager import SnowflakeSQLExecutionError
 from snowcli.cli.nativeapp.teardown_processor import NativeAppTeardownProcessor
+from snowcli.cli.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.utils import *
 from tests.testing_utils.fixtures import *
+
+
+def _get_na_manager():
+    dm = DefinitionManager()
+    return NativeAppTeardownProcessor(
+        project_definition=dm.project_definition["native_app"],
+        project_root=dm.project_root,
+    )
 
 
 # Test drop_generic_object() with success
@@ -37,7 +46,7 @@ def test_drop_generic_object_success(mock_execute, temp_dir, mock_cursor):
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.drop_generic_object(
         object_type="application", object_name="myapp", role="app_role"
     )
@@ -73,7 +82,7 @@ def test_drop_generic_object_failure_w_exception(mock_execute, temp_dir, mock_cu
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     with pytest.raises(SnowflakeSQLExecutionError):
         native_app_manager.drop_generic_object(
             object_type="application package",
@@ -100,7 +109,7 @@ def test_drop_application_no_existing_application(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.drop_application(auto_yes_param)
     mock_get_existing_app_info.assert_called_once()
     mock_log_info.assert_called_once_with(
@@ -130,7 +139,7 @@ def test_drop_application_incorrect_owner(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     with pytest.raises(UnexpectedOwnerError):
         native_app_manager.drop_application(auto_yes_param)
     mock_get_existing_app_info.assert_called_once()
@@ -164,7 +173,7 @@ def test_drop_application_has_special_comment(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.drop_application(auto_yes_param)
     mock_get_existing_app_info.assert_called_once()
     mock_is_correct_owner.assert_called_once()
@@ -232,7 +241,7 @@ def test_drop_application_has_special_comment_and_quoted_name(
         contents=[quoted_override_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.drop_application(auto_yes_param)
     mock_execute.mock_calls == expected
 
@@ -268,7 +277,7 @@ def test_drop_application_user_prohibits_drop(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.drop_application(auto_yes=False)
     mock_get_existing_app_info.assert_called_once()
     mock_is_correct_owner.assert_called_once()
@@ -325,7 +334,7 @@ def test_drop_application_user_allows_drop(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.drop_application(auto_yes_param)
     mock_get_existing_app_info.assert_called_once()
     mock_is_correct_owner.assert_called_once()
@@ -362,7 +371,7 @@ def test_drop_application_idempotent(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.drop_application(auto_yes_param)
     native_app_manager.drop_application(auto_yes_param)
     native_app_manager.drop_application(auto_yes_param)
@@ -393,7 +402,7 @@ def test_drop_package_no_existing_application(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.drop_package(auto_yes_param)
     mock_get_existing_app_pkg_info.assert_called_once()
     mock_log_info.assert_called_once_with(
@@ -423,7 +432,7 @@ def test_drop_package_incorrect_owner(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     with pytest.raises(UnexpectedOwnerError):
         native_app_manager.drop_package(auto_yes_param)
     mock_get_existing_app_pkg_info.assert_called_once()
@@ -473,7 +482,7 @@ def test_show_versions_failure_w_exception(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     with pytest.raises(CouldNotDropApplicationPackageWithVersions):
         native_app_manager.drop_package(auto_yes_param)
     mock_is_correct_owner.assert_called_once()
@@ -530,7 +539,7 @@ def test_drop_package_no_mismatch_no_drop(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.drop_package(auto_yes=False)
     mock_execute.mock_calls == expected
     mock_log_info.assert_called_once_with("Did not drop application package app_pkg.")
@@ -598,7 +607,7 @@ def test_drop_package_variable_mismatch_allowed_user_allows_drop(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.drop_package(auto_yes_param)
     mock_execute.mock_calls == expected
     if not is_pkg_distribution_same:
@@ -671,7 +680,7 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.drop_package(auto_yes_param)
     mock_execute.mock_calls == expected
     mock_drop_generic_object.assert_called_once()
@@ -755,7 +764,7 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
         contents=[quoted_override_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.drop_package(auto_yes_param)
     mock_execute.mock_calls == expected
 
@@ -817,7 +826,7 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_prohibits_drop(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.drop_package(auto_yes=False)
     mock_execute.mock_calls == expected
     mock_log_info.assert_called_once_with("Did not drop application package app_pkg.")
@@ -888,7 +897,7 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_allows_drop(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.drop_package(auto_yes_param)
     mock_execute.mock_calls == expected
     mock_drop_generic_object.assert_called_once()
@@ -949,7 +958,7 @@ def test_drop_package_idempotent(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppTeardownProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.drop_package(auto_yes_param)
     native_app_manager.drop_package(auto_yes_param)
     native_app_manager.drop_package(auto_yes_param)

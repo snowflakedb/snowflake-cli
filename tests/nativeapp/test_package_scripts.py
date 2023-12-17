@@ -7,8 +7,8 @@ from snowcli.cli.nativeapp.exceptions import (
     MissingPackageScriptError,
 )
 from snowcli.cli.nativeapp.run_processor import NativeAppRunProcessor
-from snowflake.connector import ProgrammingError
 from snowcli.cli.project.definition_manager import DefinitionManager
+from snowflake.connector import ProgrammingError
 
 from tests.nativeapp.utils import (
     NATIVEAPP_MANAGER_EXECUTE,

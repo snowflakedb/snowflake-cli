@@ -12,6 +12,7 @@ from snowcli.cli.nativeapp.exceptions import (
 )
 from snowcli.cli.nativeapp.run_processor import NativeAppRunProcessor
 from snowcli.cli.object.stage.diff import DiffResult
+from snowcli.cli.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -30,6 +31,14 @@ mock_project_definition_override = {
         },
     }
 }
+
+
+def _get_na_manager():
+    dm = DefinitionManager()
+    return NativeAppRunProcessor(
+        project_definition=dm.project_definition["native_app"],
+        project_root=dm.project_root,
+    )
 
 
 # Test create_app_package() with no existing package available
@@ -71,7 +80,7 @@ def test_create_app_pkg_no_existing_package(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppRunProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.create_app_package()
     assert mock_execute.mock_calls == expected
     mock_get_existing_app_pkg_info.assert_called_once()
@@ -100,7 +109,7 @@ def test_create_app_pkg_incorrect_owner(
     )
 
     with pytest.raises(UnexpectedOwnerError):
-        native_app_manager = NativeAppRunProcessor()
+        native_app_manager = _get_na_manager()
         native_app_manager.create_app_package()
 
 
@@ -140,7 +149,7 @@ def test_create_app_pkg_external_distribution(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppRunProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.create_app_package()
     if not is_pkg_distribution_same:
         mock_warning.assert_called_once_with(
@@ -184,7 +193,7 @@ def test_create_app_pkg_internal_distribution_special_comment(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppRunProcessor()
+    native_app_manager = _get_na_manager()
     native_app_manager.create_app_package()
     if not is_pkg_distribution_same:
         mock_warning.assert_called_once_with(
@@ -228,7 +237,7 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppRunProcessor()
+    native_app_manager = _get_na_manager()
     with pytest.raises(ApplicationPackageAlreadyExistsError):
         native_app_manager.create_app_package()
 
@@ -272,7 +281,7 @@ def test_create_dev_app_w_warehouse_access_exception(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppRunProcessor()
+    native_app_manager = _get_na_manager()
     assert not mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
@@ -325,7 +334,7 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
         contents=[mock_snowflake_yml_file.replace("package_role", "app_role")],
     )
 
-    native_app_manager = NativeAppRunProcessor()
+    native_app_manager = _get_na_manager()
     assert not mock_diff_result.has_changes()
     native_app_manager._create_dev_app(mock_diff_result)
     assert mock_execute.mock_calls == expected
@@ -399,7 +408,7 @@ def test_create_dev_app_create_new_with_additional_privileges(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppRunProcessor()
+    native_app_manager = _get_na_manager()
     assert not mock_diff_result.has_changes()
     native_app_manager._create_dev_app(mock_diff_result)
     assert mock_execute_query.mock_calls == mock_execute_query_expected
@@ -452,7 +461,7 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
         contents=[mock_snowflake_yml_file.replace("package_role", "app_role")],
     )
 
-    native_app_manager = NativeAppRunProcessor()
+    native_app_manager = _get_na_manager()
     assert not mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
@@ -514,7 +523,7 @@ def test_create_dev_app_incorrect_properties(
     )
 
     with pytest.raises(ApplicationAlreadyExistsError):
-        native_app_manager = NativeAppRunProcessor()
+        native_app_manager = _get_na_manager()
         assert not mock_diff_result.has_changes()
         native_app_manager._create_dev_app(mock_diff_result)
 
@@ -557,7 +566,7 @@ def test_create_dev_app_incorrect_owner(
     )
 
     with pytest.raises(UnexpectedOwnerError):
-        native_app_manager = NativeAppRunProcessor()
+        native_app_manager = _get_na_manager()
         assert not mock_diff_result.has_changes()
         native_app_manager._create_dev_app(mock_diff_result)
 
@@ -600,7 +609,7 @@ def test_create_dev_app_no_diff_changes(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppRunProcessor()
+    native_app_manager = _get_na_manager()
     assert not mock_diff_result.has_changes()
     native_app_manager._create_dev_app(mock_diff_result)
     assert mock_execute.mock_calls == expected
@@ -648,7 +657,7 @@ def test_create_dev_app_w_diff_changes(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppRunProcessor()
+    native_app_manager = _get_na_manager()
     assert mock_diff_result.has_changes()
     native_app_manager._create_dev_app(mock_diff_result)
     assert mock_execute.mock_calls == expected
@@ -697,7 +706,7 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = NativeAppRunProcessor()
+    native_app_manager = _get_na_manager()
     assert mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
@@ -781,7 +790,7 @@ def test_create_dev_app_create_new_quoted(
         ],
     )
 
-    native_app_manager = NativeAppRunProcessor()
+    native_app_manager = _get_na_manager()
     assert not mock_diff_result.has_changes()
     native_app_manager._create_dev_app(mock_diff_result)
     assert mock_execute.mock_calls == expected
@@ -835,7 +844,7 @@ def test_create_dev_app_create_new_quoted_override(
         contents=[quoted_override_yml_file],
     )
 
-    native_app_manager = NativeAppRunProcessor()
+    native_app_manager = _get_na_manager()
     assert not mock_diff_result.has_changes()
     native_app_manager._create_dev_app(mock_diff_result)
     assert mock_execute.mock_calls == expected

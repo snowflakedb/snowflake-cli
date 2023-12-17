@@ -1,5 +1,6 @@
+from pathlib import Path
 from textwrap import dedent
-from typing import Optional
+from typing import Dict
 
 import jinja2
 from snowcli.cli.nativeapp.constants import (
@@ -28,8 +29,8 @@ from snowflake.connector import ProgrammingError
 
 
 class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
-    def __init__(self, search_path: Optional[str] = None):
-        super().__init__(search_path)
+    def __init__(self, project_definition: Dict, project_root: Path):
+        super().__init__(project_definition, project_root)
 
     def create_app_package(self) -> None:
         """

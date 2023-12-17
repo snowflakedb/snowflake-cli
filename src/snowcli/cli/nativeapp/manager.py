@@ -286,7 +286,7 @@ class NativeAppManager(SqlExecutionMixin):
             )
         return diff
 
-    def get_existing_app_info(self) -> dict:
+    def get_existing_app_info(self) -> Optional[dict]:
         """
         Check for an existing application by the same name as in project definition, in account
         """
