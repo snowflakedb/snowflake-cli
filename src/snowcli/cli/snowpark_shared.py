@@ -50,6 +50,9 @@ OverwriteOption = typer.Option(
 
 log = logging.getLogger(__name__)
 
+REQUIREMENTS_SNOWFLAKE = "requirements.snowflake.txt"
+REQUIREMENTS_OTHER = "requirements.other.txt"
+
 
 def snowpark_package(
     source: Path,
@@ -66,7 +69,7 @@ def snowpark_package(
         if not split_requirements.other:
             log.info("No packages to manually resolve")
         else:
-            _write_requirements_file("requirements.other.txt", split_requirements.other)
+            _write_requirements_file(REQUIREMENTS_OTHER, split_requirements.other)
             do_download = (
                 click.confirm(
                     "Do you want to try to download non-Anaconda packages?",
@@ -82,18 +85,16 @@ def snowpark_package(
                     check_anaconda_for_pypi_deps,
                     package_native_libraries,
                 )
-                if should_continue:
-                    # add the Anaconda packages discovered as dependencies
-                    if second_chance_results:
-                        split_requirements.snowflake = (
-                            split_requirements.snowflake
-                            + second_chance_results.snowflake
-                        )
+                # add the Anaconda packages discovered as dependencies
+                if should_continue and second_chance_results:
+                    split_requirements.snowflake = (
+                        split_requirements.snowflake + second_chance_results.snowflake
+                    )
 
         # write requirements.snowflake.txt file
         if split_requirements.snowflake:
             _write_requirements_file(
-                "requirements.snowflake.txt",
+                REQUIREMENTS_SNOWFLAKE,
                 utils.deduplicate_and_sort_reqs(split_requirements.snowflake),
             )
 
@@ -105,7 +106,7 @@ def snowpark_package(
 
 
 def _write_requirements_file(file_name: str, reqirements: List[Requirement]):
-    log.info(f"Writing {file_name} file")
+    log.info(f"Writing %s file", file_name)
     with open(file_name, "w", encoding="utf-8") as f:
         for package in reqirements:
             f.write(package.line + "\n")

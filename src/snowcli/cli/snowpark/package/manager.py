@@ -62,9 +62,7 @@ def upload(file: Path, stage: str, overwrite: bool):
 
 def create(zip_name: str):
     file_name = zip_name if zip_name.endswith(".zip") else f"{zip_name}.zip"
-    zip_dir(
-        dest_zip=Path(file_name), source=Path(os.path.join(os.getcwd(), ".packages"))
-    )
+    zip_dir(dest_zip=Path(file_name), source=Path.cwd() / ".packages")
 
     if os.path.exists(file_name):
         return CreatedSuccessfully(zip_name, Path(file_name))

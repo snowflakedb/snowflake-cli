@@ -182,6 +182,7 @@ def test_snowpark_flow(_test_steps, project_directory, alter_snowflake_yml):
         )
 
 
+@pytest.mark.integration
 def test_snowpark_with_separately_created_package(
     _test_steps, project_directory, alter_snowflake_yml
 ):

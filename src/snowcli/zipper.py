@@ -63,12 +63,3 @@ def _to_be_zipped(file: Path) -> bool:
             return False
 
     return True
-
-
-def _get_arcname(file: Path, source: Path) -> Path:
-    if ".packages" in file.parts:
-        rel_path = source.absolute().joinpath(".packages")
-    else:
-        rel_path = source.absolute()
-
-    return file.relative_to(rel_path)
