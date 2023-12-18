@@ -118,7 +118,7 @@ def test_create_app_pkg_incorrect_owner(
 @mock_connection
 @mock_get_app_pkg_distribution_in_sf
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
-@mock.patch(f"{NATIVEAPP_MODULE}.log.warning")
+@mock.patch(f"{RUN_MODULE}.print")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
     [False, True],
@@ -162,7 +162,7 @@ def test_create_app_pkg_external_distribution(
 @mock_connection
 @mock_get_app_pkg_distribution_in_sf
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
-@mock.patch(f"{NATIVEAPP_MODULE}.log.warning")
+@mock.patch(f"{RUN_MODULE}.print")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
     [False, True],
@@ -206,7 +206,7 @@ def test_create_app_pkg_internal_distribution_special_comment(
 @mock_connection
 @mock_get_app_pkg_distribution_in_sf
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
-@mock.patch(f"{NATIVEAPP_MODULE}.log.warning")
+@mock.patch(f"{RUN_MODULE}.print")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
     [False, True],

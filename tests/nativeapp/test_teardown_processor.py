@@ -94,7 +94,7 @@ def test_drop_generic_object_failure_w_exception(mock_execute, temp_dir, mock_cu
 
 # Test drop_application() when no application exists
 @mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO, return_value=None)
-@mock.patch(f"{NATIVEAPP_MODULE}.log.info")
+@mock.patch(f"{TEARDOWN_MODULE}.print")
 @pytest.mark.parametrize(
     "auto_yes_param",
     [True, False],  # This should have no effect on the test
@@ -251,7 +251,7 @@ def test_drop_application_has_special_comment_and_quoted_name(
 @mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
 @mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=False)
-@mock.patch(f"{NATIVEAPP_MODULE}.log.info")
+@mock.patch(f"{TEARDOWN_MODULE}.print")
 def test_drop_application_user_prohibits_drop(
     mock_log_info,
     mock_confirm,
@@ -386,7 +386,7 @@ def test_drop_application_idempotent(
     TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO,
     return_value=None,
 )
-@mock.patch(f"{NATIVEAPP_MODULE}.log.info")
+@mock.patch(f"{TEARDOWN_MODULE}.print")
 @pytest.mark.parametrize(
     "auto_yes_param",
     [True, False],  # This should have no effect on the test
@@ -493,7 +493,7 @@ def test_show_versions_failure_w_exception(
 @mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
 @mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(f"{NATIVEAPP_MODULE}.log.info")
+@mock.patch(f"{TEARDOWN_MODULE}.print")
 @mock_get_app_pkg_distribution_in_sf
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME, return_value=True)
 @mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=False)
@@ -542,7 +542,7 @@ def test_drop_package_no_mismatch_no_drop(
     native_app_manager = _get_na_manager()
     native_app_manager.drop_package(auto_yes=False)
     mock_execute.mock_calls == expected
-    mock_log_info.assert_called_once_with("Did not drop application package app_pkg.")
+    mock_log_info.assert_any_call("Did not drop application package app_pkg.")
 
 
 # Test drop_package when there is no distribution mismatch AND distribution = external AND auto_yes is False AND should_drop is True
@@ -552,7 +552,7 @@ def test_drop_package_no_mismatch_no_drop(
 @mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
 @mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(f"{NATIVEAPP_MODULE}.log.warning")
+@mock.patch(f"{TEARDOWN_MODULE}.print")
 @mock_get_app_pkg_distribution_in_sf
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
 @mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=True)
@@ -629,7 +629,7 @@ def test_drop_package_variable_mismatch_allowed_user_allows_drop(
 @mock_get_app_pkg_distribution_in_sf
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
 @mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
-@mock.patch(f"{NATIVEAPP_MODULE}.log.warning")
+@mock.patch(f"{TEARDOWN_MODULE}.print")
 @pytest.mark.parametrize(
     "auto_yes_param, is_pkg_distribution_same",  # auto_yes_param should have no effect on the test
     [(True, True), (True, False), (False, True), (False, False)],
@@ -777,12 +777,10 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
 @mock_get_app_pkg_distribution_in_sf
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
 @mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=False)
-@mock.patch(f"{NATIVEAPP_MODULE}.log.info")
-@mock.patch(f"{NATIVEAPP_MODULE}.log.warning")
+@mock.patch(f"{TEARDOWN_MODULE}.print")
 @pytest.mark.parametrize("is_pkg_distribution_same", [True, False])
 def test_drop_package_variable_mistmatch_no_special_comment_user_prohibits_drop(
     mock_log_warning,
-    mock_log_info,
     mock_confirm,
     mock_is_distribution_same,
     mock_get_distribution,
@@ -829,7 +827,7 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_prohibits_drop(
     native_app_manager = _get_na_manager()
     native_app_manager.drop_package(auto_yes=False)
     mock_execute.mock_calls == expected
-    mock_log_info.assert_called_once_with("Did not drop application package app_pkg.")
+    mock_log_warning.assert_any_call("Did not drop application package app_pkg.")
     if not is_pkg_distribution_same:
         mock_log_warning.assert_any_call(
             "Continuing to execute `snow app teardown` on app pkg app_pkg with distribution internal."

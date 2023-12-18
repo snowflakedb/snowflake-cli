@@ -1,6 +1,7 @@
 import os
 import uuid
 
+from rich import print
 from snowcli.cli.project.util import generate_user_env
 
 from tests.project.fixtures import *
@@ -8,7 +9,6 @@ from tests_integration.test_utils import (
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
-    rows_from_snowflake_session,
 )
 
 USER_NAME = f"user_{uuid.uuid4().hex}"

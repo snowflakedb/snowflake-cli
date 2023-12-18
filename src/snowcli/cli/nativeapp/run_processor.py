@@ -3,6 +3,7 @@ from textwrap import dedent
 from typing import Dict
 
 import jinja2
+from rich import print
 from snowcli.cli.nativeapp.constants import (
     COMMENT_COL,
     INTERNAL_DISTRIBUTION,
@@ -21,7 +22,6 @@ from snowcli.cli.nativeapp.manager import (
     NativeAppManager,
     _generic_sql_error_handler,
     is_correct_owner,
-    log,
 )
 from snowcli.cli.object.stage.diff import DiffResult
 from snowcli.cli.object.stage.manager import StageManager
@@ -49,7 +49,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             # 2. Check distribution of the existing app package
             actual_distribution = self.get_app_pkg_distribution_in_snowflake
             if not self.is_app_pkg_distribution_same_in_sf():
-                log.warning(
+                print(
                     f"Continuing to execute `snow app run` on app pkg {self.package_name} with distribution '{actual_distribution}'."
                 )
 
@@ -64,9 +64,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
 
         # If no app pkg pre-exists, create an app pkg, with the specified distribution in the project definition file.
         with self.use_role(self.package_role):
-            log.info(
-                f"Creating new application package {self.package_name} in account."
-            )
+            print(f"Creating new application package {self.package_name} in account.")
             self._execute_query(
                 dedent(
                     f"""\
@@ -110,7 +108,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 self._execute_query(f"use warehouse {self.package_warehouse}")
 
             for i, queries in enumerate(queued_queries):
-                log.info(f"Applying package script: {self.package_scripts[i]}")
+                print(f"Applying package script: {self.package_scripts[i]}")
                 self._execute_queries(queries)
         except ProgrammingError as err:
             _generic_sql_error_handler(
@@ -152,7 +150,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 # If all the above checks are in order, proceed to upgrade
                 try:
                     if diff.has_changes():
-                        log.info(f"Upgrading existing application {self.app_name}.")
+                        print(f"Upgrading existing application {self.app_name}.")
                         self._execute_query(
                             f"alter application {self.app_name} upgrade using @{self.stage_fqn}"
                         )
@@ -168,7 +166,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     _generic_sql_error_handler(err)
 
             # 4. If no existing application is found, create an app using "loose files" / stage dev mode.
-            log.info(f"Creating new application {self.app_name} in account.")
+            print(f"Creating new application {self.app_name} in account.")
 
             if self.app_role != self.package_role:
                 with self.use_role(new_role=self.package_role):
