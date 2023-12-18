@@ -102,7 +102,7 @@ def snowpark_package(
 
     if os.path.exists(".packages"):
         zip_dir(source=Path(".packages"), dest_zip=artefact_file, mode="a")
-    log.info(f"Deployment package now ready: {artefact_file}")
+    log.info(f"Deployment package now ready: %s", artefact_file)
 
 
 def _write_requirements_file(file_name: str, reqirements: List[Requirement]):
