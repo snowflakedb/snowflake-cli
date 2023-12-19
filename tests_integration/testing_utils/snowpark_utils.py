@@ -164,6 +164,7 @@ class SnowparkTestSteps:
         assert result.exit_code == 0, result.output
         assert result.json, result.output
         assert "message" in result.json
+        assert os.path.exists(".packages/exceptiongroup/__init__.py")
         assert (
             "exceptiongroup/__init__.py" in ZipFile("app.zip").namelist()
         )  # added as dependency of syrupy
