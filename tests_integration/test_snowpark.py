@@ -212,7 +212,7 @@ def test_snowpark_with_separately_created_package(
         _test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier="test_proc()",
-            expected_value="<slot wrapper '__str__' of 'object' objects> foo",
+            expected_value="StyleSheet.__str__",
         )
 
 
