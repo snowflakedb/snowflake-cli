@@ -1,3 +1,4 @@
 snowflake-snowpark-python
-syrupy # This should be a package that is not in snowflake anaconda
+# Package below should not be in snowflake anaconda
+syrupy
 #snowcli  # for local development
