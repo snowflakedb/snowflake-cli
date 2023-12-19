@@ -86,10 +86,11 @@ def snowpark_package(
                     package_native_libraries,
                 )
                 # add the Anaconda packages discovered as dependencies
-                if should_continue and second_chance_results:
-                    split_requirements.snowflake = (
+                if should_continue:
+                    if second_chance_results:
+                        split_requirements.snowflake = (
                         split_requirements.snowflake + second_chance_results.snowflake
-                    )
+                        )
 
         # write requirements.snowflake.txt file
         if split_requirements.snowflake:
