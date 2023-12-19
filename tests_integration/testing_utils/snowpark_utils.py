@@ -245,6 +245,14 @@ class SnowparkTestSteps:
             f"Package {file_name} UPLOADED to Snowflake @{stage_name}/{file_name}."
             in result.json["message"]
         )
+    def artifacts_left_after_package_creation_should_be_deleted(self, file_name):
+        if os.path.isfile(file_name):
+            os.remove(file_name)
+        if os.path.isdir(".packages"):
+            os.rmdir(".packages")
+
+        assert not os.path.exists(file_name)
+        assert not os.path.exists(".packages")
 
     def procedure_coverage_should_return_report_when_files_are_present_on_stage(
         self, identifier: str

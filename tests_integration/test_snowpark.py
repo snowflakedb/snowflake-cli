@@ -182,13 +182,15 @@ def test_snowpark_flow(_test_steps, project_directory, alter_snowflake_yml):
         )
 
 
-#@pytest.mark.integration
+@pytest.mark.integration
 def test_snowpark_with_separately_created_package(
     _test_steps, project_directory, alter_snowflake_yml
 ):
 
     _test_steps.package_should_build_proper_artifact("PyRTF3")
     _test_steps.package_should_upload_artifact_to_stage("PyRTF3.zip", STAGE_NAME)
+
+    _test_steps.artifacts_left_after_package_creation_should_be_deleted("PyRTF3.zip")
 
     with project_directory("snowpark_with_package") as proj_dir:
         _test_steps.snowpark_build_should_zip_files()
