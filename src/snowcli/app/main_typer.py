@@ -1,8 +1,8 @@
+import sys
 import click
-from snowcli.cli.common.cli_global_context import cli_context
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.common.cli_global_context import cli_context, cli_context_manager
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, DebugOption
 from typer import Typer
-
 
 def _handle_exception(exception: Exception):
     if cli_context.enable_tracebacks:
@@ -29,6 +29,14 @@ class SnowCliMainTyper(Typer):
         )
 
     def __call__(self, *args, **kwargs):
+        # early detection of "--debug" flag
+        # necessary in case of errors which happen during argument parsing
+        # (for example badly formatted config file)
+        # Hack: We have to go around Typer by checking sys.argv as it does not allow
+        #       to easily peek into subcommand arguments.  We can simply look for "--debug"
+        #       as DebugOption is parsed only in this format (it's not possible to do "--debug false" etc.)
+        DebugOption.callback("--debug" in sys.argv)
+
         try:
             super().__call__(*args, **kwargs)
         except Exception as exception:
