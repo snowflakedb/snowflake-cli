@@ -91,6 +91,8 @@ def snowpark_package(
                         split_requirements.snowflake + second_chance_results.snowflake
                     )
 
+            assert os.path.exists(".packages/exceptiongroup/__init__.py") #TODO remove this
+
         # write requirements.snowflake.txt file
         if split_requirements.snowflake:
             _write_requirements_file(
