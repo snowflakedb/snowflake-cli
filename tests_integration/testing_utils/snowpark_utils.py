@@ -162,6 +162,7 @@ class SnowparkTestSteps:
         assert result.exit_code == 0, result.output
         assert result.json, result.output
         assert "message" in result.json
+        assert "exceptiongroup/__init__.py" in ZipFile("app.zip").namelist() #added as dependency of syrupy
         assert "Build done. Artefact path:" in result.json["message"]  # type: ignore
 
         assert_that_current_working_directory_contains_only_following_files(
@@ -245,6 +246,7 @@ class SnowparkTestSteps:
             f"Package {file_name} UPLOADED to Snowflake @{stage_name}/{file_name}."
             in result.json["message"]
         )
+
     def artifacts_left_after_package_creation_should_be_deleted(self, file_name):
         if os.path.isfile(file_name):
             os.remove(file_name)
