@@ -45,7 +45,7 @@ def zip_dir(
     files_to_pack: Iterator[Path] = filter(
         _to_be_zipped, map(lambda f: f.absolute(), source.glob("**/*"))
     )
-
+    print(files_to_pack)
     with ZipFile(dest_zip, mode, ZIP_DEFLATED, allowZip64=True) as package_zip:
         for file in files_to_pack:
             log.debug("Adding %s to %s", file, dest_zip)
