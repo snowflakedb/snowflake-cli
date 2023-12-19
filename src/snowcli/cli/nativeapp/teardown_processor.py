@@ -17,16 +17,14 @@ from snowcli.cli.nativeapp.exceptions import (
 from snowcli.cli.nativeapp.manager import (
     NativeAppCommandProcessor,
     NativeAppManager,
-    is_correct_owner,
+    ensure_correct_owner,
 )
+from snowcli.cli.nativeapp.utils import needs_confirmation
 from snowcli.exception import SnowflakeSQLExecutionError
 from snowflake.connector.cursor import DictCursor
 
 
 class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
-
-    needs_confirm: bool = True
-
     def __init__(self, project_definition: Dict, project_root: Path):
         super().__init__(project_definition, project_root)
 
@@ -44,13 +42,12 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
 
             print(f"Dropped {object_type} {object_name} successfully.")
 
-    def needs_confirmation(self, auto_yes: bool) -> bool:
-        return self.needs_confirm and not auto_yes
-
     def drop_application(self, auto_yes: bool):
         """
         Attempts to drop the application if all validations and user prompts allow so.
         """
+
+        needs_confirm = True
 
         # 1. If existing application package is not found, exit gracefully
         show_obj_row = self.get_existing_app_info()
@@ -61,15 +58,17 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             return
 
         # 2. Check for the right owner
-        is_correct_owner(row=show_obj_row, role=self.app_role, obj_name=self.app_name)
+        ensure_correct_owner(
+            row=show_obj_row, role=self.app_role, obj_name=self.app_name
+        )
 
         # 3. Check if created by the snowCLI
         row_comment = show_obj_row[COMMENT_COL]
         if row_comment == SPECIAL_COMMENT:
             # No confirmation needed before dropping
-            self.needs_confirm = False
+            needs_confirm = False
         else:
-            if self.needs_confirmation(auto_yes):
+            if needs_confirmation(needs_confirm, auto_yes):
                 should_drop_object = typer.confirm(
                     dedent(
                         f"""\
@@ -100,7 +99,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
         """
         Attemps to drop application package unless user specifies otherwise.
         """
-        self.needs_confirm = True
+        needs_confirm = True
 
         # 1. If existing application package is not found, exit gracefully
         show_obj_row = self.get_existing_app_pkg_info()
@@ -111,7 +110,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             return
 
         # 2. Check for the right owner
-        is_correct_owner(
+        ensure_correct_owner(
             row=show_obj_row, role=self.package_role, obj_name=self.package_name
         )
 
@@ -139,19 +138,19 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
         row_comment = show_obj_row[COMMENT_COL]
         if actual_distribution == INTERNAL_DISTRIBUTION:
             if row_comment == SPECIAL_COMMENT:
-                self.needs_confirm = False
+                needs_confirm = False
             else:
-                if self.needs_confirmation(auto_yes):
+                if needs_confirmation(needs_confirm, auto_yes):
                     print(
                         f"Application package {self.package_name} was not created by SnowCLI!"
                     )
         else:
-            if self.needs_confirmation(auto_yes):
+            if needs_confirmation(needs_confirm, auto_yes):
                 print(
                     f"Application package {self.package_name} in your Snowflake account has distribution property '{EXTERNAL_DISTRIBUTION}'"
                 )
 
-        if self.needs_confirmation(auto_yes):
+        if needs_confirmation(needs_confirm, auto_yes):
             print(
                 dedent(
                     f"""\
@@ -178,8 +177,6 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
         return  # The app pkg was successfully dropped, therefore exit gracefully
 
     def process(self, force_drop: bool = False, *args, **kwargs):
-
-        self.needs_confirm = True
 
         # Drop the application
         self.drop_application(auto_yes=force_drop)

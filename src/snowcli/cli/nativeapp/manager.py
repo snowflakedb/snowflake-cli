@@ -44,7 +44,7 @@ from snowflake.connector.cursor import DictCursor
 log = logging.getLogger(__name__)
 
 
-def _generic_sql_error_handler(
+def generic_sql_error_handler(
     err: ProgrammingError, role: Optional[str] = None, warehouse: Optional[str] = None
 ):
     # Potential refactor: If moving away from python 3.8 and 3.9 to >= 3.10, use match ... case
@@ -81,7 +81,7 @@ def _generic_sql_error_handler(
     raise err
 
 
-def is_correct_owner(row: dict, role: str, obj_name: str) -> bool:
+def ensure_correct_owner(row: dict, role: str, obj_name: str) -> None:
     """
     Check if an object has the right owner role
     """
@@ -90,7 +90,6 @@ def is_correct_owner(row: dict, role: str, obj_name: str) -> bool:
     ].upper()  # Because unquote_identifier() always returns uppercase str
     if actual_owner != unquote_identifier(role):
         raise UnexpectedOwnerError(obj_name, role, actual_owner)
-    return True
 
 
 class NativeAppCommandProcessor(ABC):
@@ -100,6 +99,10 @@ class NativeAppCommandProcessor(ABC):
 
 
 class NativeAppManager(SqlExecutionMixin):
+    """
+    Base class with frequently used functionality already implemented and ready to be used by related subclasses.
+    """
+
     def __init__(self, project_definition: Dict, project_root: Path):
         super().__init__()
         self._project_root = project_root
@@ -199,7 +202,7 @@ class NativeAppManager(SqlExecutionMixin):
                     f"describe application package {self.package_name}"
                 )
             except ProgrammingError as err:
-                _generic_sql_error_handler(err)
+                generic_sql_error_handler(err)
 
             if desc_cursor.rowcount is None or desc_cursor.rowcount == 0:
                 raise SnowflakeSQLExecutionError()
@@ -288,7 +291,8 @@ class NativeAppManager(SqlExecutionMixin):
 
     def get_existing_app_info(self) -> Optional[dict]:
         """
-        Check for an existing application by the same name as in project definition, in account
+        Check for an existing application by the same name as in project definition, in account.
+        It executes a 'show applications like' query and returns the result as single row, if one exists.
         """
         with self.use_role(self.app_role):
             show_obj_query = (
@@ -311,7 +315,8 @@ class NativeAppManager(SqlExecutionMixin):
 
     def get_existing_app_pkg_info(self) -> Optional[dict]:
         """
-        Check for an existing application package by the same name as in project definition, in account
+        Check for an existing application package by the same name as in project definition, in account.
+        It executes a 'show application packages like' query and returns the result as single row, if one exists.
         """
 
         with self.use_role(self.package_role):

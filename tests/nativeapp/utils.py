@@ -1,6 +1,4 @@
 from textwrap import dedent
-from unittest import mock
-from unittest.mock import PropertyMock
 
 NATIVEAPP_MODULE = "snowcli.cli.nativeapp.manager"
 TEARDOWN_MODULE = "snowcli.cli.nativeapp.teardown_processor"
@@ -25,7 +23,7 @@ TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO = f"{TEARDOWN_PROCESSOR}.get_existing_a
 TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO = (
     f"{TEARDOWN_PROCESSOR}.get_existing_app_pkg_info"
 )
-TEARDOWN_PROCESSOR_IS_CORRECT_OWNER = f"{TEARDOWN_MODULE}.is_correct_owner"
+TEARDOWN_PROCESSOR_IS_CORRECT_OWNER = f"{TEARDOWN_MODULE}.ensure_correct_owner"
 TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT = f"{TEARDOWN_PROCESSOR}.drop_generic_object"
 
 RUN_PROCESSOR_GET_EXISTING_APP_INFO = f"{RUN_PROCESSOR}.get_existing_app_info"
@@ -70,16 +68,6 @@ quoted_override_yml_file = dedent(
                 name: >-
                     "My Package"
     """
-)
-
-mock_connection = mock.patch(
-    "snowcli.cli.common.cli_global_context._CliGlobalContextAccess.connection",
-    new_callable=PropertyMock,
-)
-
-mock_get_app_pkg_distribution_in_sf = mock.patch(
-    NATIVEAPP_MANAGER_APP_PKG_DISTRIBUTION_IN_SF,
-    new_callable=PropertyMock,
 )
 
 

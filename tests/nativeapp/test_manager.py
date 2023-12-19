@@ -10,19 +10,21 @@ from snowcli.cli.nativeapp.exceptions import UnexpectedOwnerError
 from snowcli.cli.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
-    is_correct_owner,
+    ensure_correct_owner,
 )
 from snowcli.cli.object.stage.diff import DiffResult
 from snowcli.cli.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
+from tests.nativeapp.patch_utils import (
+    mock_connection,
+    mock_get_app_pkg_distribution_in_sf,
+)
 from tests.nativeapp.utils import (
     NATIVEAPP_MANAGER_EXECUTE,
     NATIVEAPP_MODULE,
-    mock_connection,
     mock_execute_helper,
-    mock_get_app_pkg_distribution_in_sf,
     mock_snowflake_yml_file,
 )
 from tests.testing_utils.fixtures import *
@@ -236,7 +238,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
     assert mock_execute.mock_calls == expected
 
 
-@mock_get_app_pkg_distribution_in_sf
+@mock_get_app_pkg_distribution_in_sf()
 def test_is_app_pkg_distribution_same_in_sf_no_mismatch(mock_mismatch, temp_dir):
     mock_mismatch.return_value = "external"
 
@@ -266,7 +268,7 @@ def test_is_app_pkg_distribution_same_in_sf_no_mismatch(mock_mismatch, temp_dir)
     assert native_app_manager.is_app_pkg_distribution_same_in_sf() is True
 
 
-@mock_get_app_pkg_distribution_in_sf
+@mock_get_app_pkg_distribution_in_sf()
 @mock.patch(f"{NATIVEAPP_MODULE}.log.warning")
 def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
     mock_warning, mock_mismatch, temp_dir
@@ -442,7 +444,7 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
 @mock.patch("snowcli.cli.connection.util.get_context")
 @mock.patch("snowcli.cli.connection.util.get_account")
 @mock.patch("snowcli.cli.connection.util.get_snowsight_host")
-@mock_connection
+@mock_connection()
 def test_get_snowsight_url(
     mock_conn, mock_snowsight_host, mock_account, mock_context, temp_dir
 ):
@@ -465,14 +467,15 @@ def test_get_snowsight_url(
     )
 
 
-def test_is_correct_owner():
+def test_ensure_correct_owner():
     test_row = {"name": "some_name", "owner": "some_role", "comment": "some_comment"}
     assert (
-        is_correct_owner(row=test_row, role="some_role", obj_name="some_name") is True
+        ensure_correct_owner(row=test_row, role="some_role", obj_name="some_name")
+        is None
     )
 
 
 def test_is_correct_owner_bad_owner():
     test_row = {"name": "some_name", "owner": "wrong_role", "comment": "some_comment"}
     with pytest.raises(UnexpectedOwnerError):
-        is_correct_owner(row=test_row, role="right_role", obj_name="some_name")
+        ensure_correct_owner(row=test_row, role="right_role", obj_name="some_name")

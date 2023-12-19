@@ -20,8 +20,8 @@ from snowcli.cli.nativeapp.exceptions import (
 from snowcli.cli.nativeapp.manager import (
     NativeAppCommandProcessor,
     NativeAppManager,
-    _generic_sql_error_handler,
-    is_correct_owner,
+    ensure_correct_owner,
+    generic_sql_error_handler,
 )
 from snowcli.cli.object.stage.diff import DiffResult
 from snowcli.cli.object.stage.manager import StageManager
@@ -40,9 +40,9 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         # 1. Check for existing existing application package
         show_obj_row = self.get_existing_app_pkg_info()
 
-        if show_obj_row is not None:
+        if show_obj_row:
             # 1. Check for the right owner role
-            is_correct_owner(
+            ensure_correct_owner(
                 row=show_obj_row, role=self.package_role, obj_name=self.package_name
             )
 
@@ -111,7 +111,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 print(f"Applying package script: {self.package_scripts[i]}")
                 self._execute_queries(queries)
         except ProgrammingError as err:
-            _generic_sql_error_handler(
+            generic_sql_error_handler(
                 err, role=self.package_role, warehouse=self.package_warehouse
             )
 
@@ -126,7 +126,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 if self.application_warehouse:
                     self._execute_query(f"use warehouse {self.application_warehouse}")
             except ProgrammingError as err:
-                _generic_sql_error_handler(
+                generic_sql_error_handler(
                     err=err, role=self.app_role, warehouse=self.application_warehouse
                 )
 
@@ -134,7 +134,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             show_app_row = self.get_existing_app_info()
 
             # 3. If existing application is found, perform a few validations and upgrade the instance.
-            if show_app_row is not None:
+            if show_app_row:
 
                 # Check if not created by snowCLI or not created using "loose files" / stage dev mode.
                 if show_app_row[COMMENT_COL] != SPECIAL_COMMENT or (
@@ -143,7 +143,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     raise ApplicationAlreadyExistsError(self.app_name)
 
                 # Check for the right owner
-                is_correct_owner(
+                ensure_correct_owner(
                     row=show_app_row, role=self.app_role, obj_name=self.app_name
                 )
 
@@ -163,7 +163,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     return
 
                 except ProgrammingError as err:
-                    _generic_sql_error_handler(err)
+                    generic_sql_error_handler(err)
 
             # 4. If no existing application is found, create an app using "loose files" / stage dev mode.
             print(f"Creating new application {self.app_name} in account.")
@@ -195,7 +195,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     )
                 )
             except ProgrammingError as err:
-                _generic_sql_error_handler(err)
+                generic_sql_error_handler(err)
 
     def process(self, *args, **kwargs):
         """app run process"""

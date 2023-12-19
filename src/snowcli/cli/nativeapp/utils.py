@@ -9,3 +9,7 @@ def find_row(cursor: DictCursor, predicate: Callable[[dict], bool]) -> Optional[
         (row for row in cursor.fetchall() if predicate(row)),
         None,
     )
+
+
+def needs_confirmation(needs_confirm: bool, auto_yes: bool) -> bool:
+    return needs_confirm and not auto_yes

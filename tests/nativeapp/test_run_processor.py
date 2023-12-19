@@ -16,6 +16,10 @@ from snowcli.cli.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
+from tests.nativeapp.patch_utils import (
+    mock_connection,
+    mock_get_app_pkg_distribution_in_sf,
+)
 from tests.nativeapp.utils import *
 from tests.testing_utils.fixtures import *
 
@@ -33,7 +37,7 @@ mock_project_definition_override = {
 }
 
 
-def _get_na_manager():
+def _get_na_run_processor():
     dm = DefinitionManager()
     return NativeAppRunProcessor(
         project_definition=dm.project_definition["native_app"],
@@ -44,7 +48,7 @@ def _get_na_manager():
 # Test create_app_package() with no existing package available
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO, return_value=None)
-@mock_connection
+@mock_connection()
 def test_create_app_pkg_no_existing_package(
     mock_conn, mock_get_existing_app_pkg_info, mock_execute, temp_dir, mock_cursor
 ):
@@ -80,15 +84,15 @@ def test_create_app_pkg_no_existing_package(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = _get_na_manager()
-    native_app_manager.create_app_package()
+    run_processor = _get_na_run_processor()
+    run_processor.create_app_package()
     assert mock_execute.mock_calls == expected
     mock_get_existing_app_pkg_info.assert_called_once()
 
 
 # Test create_app_package() with incorrect owner
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock_connection
+@mock_connection()
 def test_create_app_pkg_incorrect_owner(
     mock_conn, mock_get_existing_app_pkg_info, temp_dir
 ):
@@ -109,14 +113,14 @@ def test_create_app_pkg_incorrect_owner(
     )
 
     with pytest.raises(UnexpectedOwnerError):
-        native_app_manager = _get_na_manager()
-        native_app_manager.create_app_package()
+        run_processor = _get_na_run_processor()
+        run_processor.create_app_package()
 
 
 # Test create_app_package() with distribution external AND variable mismatch
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock_connection
-@mock_get_app_pkg_distribution_in_sf
+@mock_connection()
+@mock_get_app_pkg_distribution_in_sf()
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
 @mock.patch(f"{RUN_MODULE}.print")
 @pytest.mark.parametrize(
@@ -149,8 +153,8 @@ def test_create_app_pkg_external_distribution(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = _get_na_manager()
-    native_app_manager.create_app_package()
+    run_processor = _get_na_run_processor()
+    run_processor.create_app_package()
     if not is_pkg_distribution_same:
         mock_warning.assert_called_once_with(
             "Continuing to execute `snow app run` on app pkg app_pkg with distribution 'external'."
@@ -159,8 +163,8 @@ def test_create_app_pkg_external_distribution(
 
 # Test create_app_package() with distribution internal AND variable mismatch AND special comment is True
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock_connection
-@mock_get_app_pkg_distribution_in_sf
+@mock_connection()
+@mock_get_app_pkg_distribution_in_sf()
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
 @mock.patch(f"{RUN_MODULE}.print")
 @pytest.mark.parametrize(
@@ -193,8 +197,8 @@ def test_create_app_pkg_internal_distribution_special_comment(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = _get_na_manager()
-    native_app_manager.create_app_package()
+    run_processor = _get_na_run_processor()
+    run_processor.create_app_package()
     if not is_pkg_distribution_same:
         mock_warning.assert_called_once_with(
             "Continuing to execute `snow app run` on app pkg app_pkg with distribution 'internal'."
@@ -203,8 +207,8 @@ def test_create_app_pkg_internal_distribution_special_comment(
 
 # Test create_app_package() with distribution internal AND variable mismatch AND special comment is False
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock_connection
-@mock_get_app_pkg_distribution_in_sf
+@mock_connection()
+@mock_get_app_pkg_distribution_in_sf()
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
 @mock.patch(f"{RUN_MODULE}.print")
 @pytest.mark.parametrize(
@@ -237,9 +241,9 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = _get_na_manager()
+    run_processor = _get_na_run_processor()
     with pytest.raises(ApplicationPackageAlreadyExistsError):
-        native_app_manager.create_app_package()
+        run_processor.create_app_package()
 
     if not is_pkg_distribution_same:
         mock_warning.assert_called_once_with(
@@ -249,7 +253,7 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
 
 # Test create_dev_app with exception thrown trying to use the warehouse
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock_connection
+@mock_connection()
 def test_create_dev_app_w_warehouse_access_exception(
     mock_conn, mock_execute, temp_dir, mock_cursor
 ):
@@ -281,11 +285,11 @@ def test_create_dev_app_w_warehouse_access_exception(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = _get_na_manager()
+    run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        native_app_manager._create_dev_app(mock_diff_result)
+        run_processor._create_dev_app(mock_diff_result)
 
     assert mock_execute.mock_calls == expected
     assert "Please grant usage privilege on warehouse to this role." in err.value.msg
@@ -294,7 +298,7 @@ def test_create_dev_app_w_warehouse_access_exception(
 # Test create_dev_app with no existing application AND create succeeds AND app role == package role
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock_connection
+@mock_connection()
 def test_create_dev_app_create_new_w_no_additional_privileges(
     mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
 ):
@@ -334,9 +338,9 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
         contents=[mock_snowflake_yml_file.replace("package_role", "app_role")],
     )
 
-    native_app_manager = _get_na_manager()
+    run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    native_app_manager._create_dev_app(mock_diff_result)
+    run_processor._create_dev_app(mock_diff_result)
     assert mock_execute.mock_calls == expected
 
 
@@ -344,7 +348,7 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
-@mock_connection
+@mock_connection()
 def test_create_dev_app_create_new_with_additional_privileges(
     mock_conn,
     mock_execute_queries,
@@ -408,9 +412,9 @@ def test_create_dev_app_create_new_with_additional_privileges(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = _get_na_manager()
+    run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    native_app_manager._create_dev_app(mock_diff_result)
+    run_processor._create_dev_app(mock_diff_result)
     assert mock_execute_query.mock_calls == mock_execute_query_expected
     assert mock_execute_queries.mock_calls == mock_execute_queries_expected
 
@@ -418,7 +422,7 @@ def test_create_dev_app_create_new_with_additional_privileges(
 # Test create_dev_app with no existing application AND create throws an exception
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock_connection
+@mock_connection()
 def test_create_dev_app_create_new_w_missing_warehouse_exception(
     mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
 ):
@@ -461,11 +465,11 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
         contents=[mock_snowflake_yml_file.replace("package_role", "app_role")],
     )
 
-    native_app_manager = _get_na_manager()
+    run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        native_app_manager._create_dev_app(mock_diff_result)
+        run_processor._create_dev_app(mock_diff_result)
 
     assert "Please provide a warehouse for the active session role" in err.value.msg
     assert mock_execute.mock_calls == expected
@@ -476,7 +480,7 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
 # Test create_dev_app with existing application AND good comment AND bad version
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock_connection
+@mock_connection()
 @pytest.mark.parametrize(
     "comment, version",
     [
@@ -523,9 +527,9 @@ def test_create_dev_app_incorrect_properties(
     )
 
     with pytest.raises(ApplicationAlreadyExistsError):
-        native_app_manager = _get_na_manager()
+        run_processor = _get_na_run_processor()
         assert not mock_diff_result.has_changes()
-        native_app_manager._create_dev_app(mock_diff_result)
+        run_processor._create_dev_app(mock_diff_result)
 
     assert mock_execute.mock_calls == expected
 
@@ -533,7 +537,7 @@ def test_create_dev_app_incorrect_properties(
 # Test create_dev_app with existing application AND incorrect owner
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock_connection
+@mock_connection()
 def test_create_dev_app_incorrect_owner(
     mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
 ):
@@ -566,9 +570,9 @@ def test_create_dev_app_incorrect_owner(
     )
 
     with pytest.raises(UnexpectedOwnerError):
-        native_app_manager = _get_na_manager()
+        run_processor = _get_na_run_processor()
         assert not mock_diff_result.has_changes()
-        native_app_manager._create_dev_app(mock_diff_result)
+        run_processor._create_dev_app(mock_diff_result)
 
     assert mock_execute.mock_calls == expected
 
@@ -576,7 +580,7 @@ def test_create_dev_app_incorrect_owner(
 # Test create_dev_app with existing application AND diff has no changes
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock_connection
+@mock_connection()
 def test_create_dev_app_no_diff_changes(
     mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
 ):
@@ -609,16 +613,16 @@ def test_create_dev_app_no_diff_changes(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = _get_na_manager()
+    run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    native_app_manager._create_dev_app(mock_diff_result)
+    run_processor._create_dev_app(mock_diff_result)
     assert mock_execute.mock_calls == expected
 
 
 # Test create_dev_app with existing application AND diff has changes
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock_connection
+@mock_connection()
 def test_create_dev_app_w_diff_changes(
     mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
 ):
@@ -657,16 +661,16 @@ def test_create_dev_app_w_diff_changes(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = _get_na_manager()
+    run_processor = _get_na_run_processor()
     assert mock_diff_result.has_changes()
-    native_app_manager._create_dev_app(mock_diff_result)
+    run_processor._create_dev_app(mock_diff_result)
     assert mock_execute.mock_calls == expected
 
 
 # Test create_dev_app with existing application AND alter throws an error
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock_connection
+@mock_connection()
 def test_create_dev_app_recreate_w_missing_warehouse_exception(
     mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
 ):
@@ -706,11 +710,11 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = _get_na_manager()
+    run_processor = _get_na_run_processor()
     assert mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        native_app_manager._create_dev_app(mock_diff_result)
+        run_processor._create_dev_app(mock_diff_result)
 
     assert mock_execute.mock_calls == expected
     assert "Please provide a warehouse for the active session role" in err.value.msg
@@ -719,7 +723,7 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
 # Test create_dev_app with no existing application AND quoted name scenario 1
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock_connection
+@mock_connection()
 def test_create_dev_app_create_new_quoted(
     mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
 ):
@@ -790,16 +794,16 @@ def test_create_dev_app_create_new_quoted(
         ],
     )
 
-    native_app_manager = _get_na_manager()
+    run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    native_app_manager._create_dev_app(mock_diff_result)
+    run_processor._create_dev_app(mock_diff_result)
     assert mock_execute.mock_calls == expected
 
 
 # Test create_dev_app with no existing application AND quoted name scenario 2
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock_connection
+@mock_connection()
 def test_create_dev_app_create_new_quoted_override(
     mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
 ):
@@ -844,7 +848,7 @@ def test_create_dev_app_create_new_quoted_override(
         contents=[quoted_override_yml_file],
     )
 
-    native_app_manager = _get_na_manager()
+    run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    native_app_manager._create_dev_app(mock_diff_result)
+    run_processor._create_dev_app(mock_diff_result)
     assert mock_execute.mock_calls == expected

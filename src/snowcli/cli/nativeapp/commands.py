@@ -96,15 +96,15 @@ def app_run(
     command does not accept role or warehouse overrides to your `config.toml` file, because your
     native app definition in `snowflake.yml` or `snowflake.local.yml` is used for any overrides.
     """
-    manager = NativeAppRunProcessor(
+    processor = NativeAppRunProcessor(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    manager.build_bundle()
-    manager.process()
+    processor.build_bundle()
+    processor.process()
     return MessageResult(
-        f"Your application ({manager.app_name}) is now live:\n"
-        + manager.get_snowsight_url()
+        f"Your application ({processor.app_name}) is now live:\n"
+        + processor.get_snowsight_url()
     )
 
 
@@ -123,7 +123,7 @@ def app_open(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    if manager.get_existing_app_info() is not None:
+    if manager.get_existing_app_info():
         typer.launch(manager.get_snowsight_url())
         return MessageResult(f"Application opened in browser.")
     else:
@@ -151,9 +151,9 @@ def app_teardown(
     As a note, this command does not accept role or warehouse overrides to your `config.toml` file,
     because your native app definition in `snowflake.yml/snowflake.local.yml` is used for any overrides.
     """
-    manager = NativeAppTeardownProcessor(
+    processor = NativeAppTeardownProcessor(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    manager.process(force)
+    processor.process(force)
     return MessageResult(f"Teardown is now complete.")

@@ -10,10 +10,10 @@ from snowcli.cli.nativeapp.run_processor import NativeAppRunProcessor
 from snowcli.cli.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 
+from tests.nativeapp.patch_utils import mock_connection
 from tests.nativeapp.utils import (
     NATIVEAPP_MANAGER_EXECUTE,
     NATIVEAPP_MANAGER_EXECUTE_QUERIES,
-    mock_connection,
 )
 from tests.project.fixtures import *
 from tests.testing_utils.fixtures import *
@@ -29,7 +29,7 @@ def _get_na_manager(working_dir):
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock_connection
+@mock_connection()
 @pytest.mark.parametrize(
     "project_definition_files,expected_call",
     [
@@ -125,7 +125,7 @@ def test_undefined_var_package_script(mock_execute, project_definition_files):
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock_connection
+@mock_connection()
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_package_scripts_w_missing_warehouse_exception(
     mock_conn,
@@ -150,7 +150,7 @@ def test_package_scripts_w_missing_warehouse_exception(
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock_connection
+@mock_connection()
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_package_scripts_w_warehouse_access_exception(
     mock_conn,
