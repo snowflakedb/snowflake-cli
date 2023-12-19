@@ -159,10 +159,14 @@ class SnowparkTestSteps:
                 "JSON",
             ]
         )
+
+        print(ZipFile("app.zip").namelist())
         assert result.exit_code == 0, result.output
         assert result.json, result.output
         assert "message" in result.json
-        assert "exceptiongroup/__init__.py" in ZipFile("app.zip").namelist() #added as dependency of syrupy
+        assert (
+            "exceptiongroup/__init__.py" in ZipFile("app.zip").namelist()
+        )  # added as dependency of syrupy
         assert "Build done. Artefact path:" in result.json["message"]  # type: ignore
 
         assert_that_current_working_directory_contains_only_following_files(
