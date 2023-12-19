@@ -11,4 +11,3 @@ def hello_function(name: str) -> str:
 
 def hello_procedure(session: Session) -> str:
     return f"StyleSheet.__str__"
-
