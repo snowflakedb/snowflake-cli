@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os.path
 from pathlib import Path
 
 import pytest
@@ -182,7 +183,7 @@ def test_snowpark_flow(_test_steps, project_directory, alter_snowflake_yml):
         )
 
 
-# @pytest.mark.integration
+@pytest.mark.integration
 def test_snowpark_with_separately_created_package(
     _test_steps, project_directory, alter_snowflake_yml
 ):
@@ -234,6 +235,15 @@ def _test_setup(
     )
     yield snowpark_procedure_test_setup
 
+
+@pytest.mark.integration
+def test_diagnostic(runner):  # TODO: delete this test
+    from zipfile import ZipFile
+
+    result = runner.invoke_with_connection_json(["snowpark","package","create", "syrupy","-y"])
+
+    assert result.exit_code == 0
+    assert "exceptiongroup/__init__.py" in ZipFile("syrupy.zip").namelist()
 
 @pytest.fixture
 def _test_steps(_test_setup):
