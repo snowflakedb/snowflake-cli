@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import pdfplumber
+from jose import jwt
 from PyRTF.Elements import StyleSheet
 from snowflake.snowpark import Session
 
