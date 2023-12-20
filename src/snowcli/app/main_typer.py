@@ -35,9 +35,10 @@ class SnowCliMainTyper(Typer):
         # necessary in case of errors which happen during argument parsing
         # (for example badly formatted config file)
         # Hack: We have to go around Typer by checking sys.argv as it does not allow
-        #       to easily peek into subcommand arguments.  We can simply look for "--debug"
-        #       as DebugOption is parsed only in this format (it's not possible to do "--debug false" etc.)
-        DebugOption.callback("--debug" in sys.argv)
+        #       to easily peek into subcommand arguments.
+        DebugOption.callback(
+            any(param in sys.argv for param in DebugOption.param_decls)
+        )
 
         try:
             super().__call__(*args, **kwargs)
