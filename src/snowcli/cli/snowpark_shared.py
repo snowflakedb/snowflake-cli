@@ -81,7 +81,7 @@ def snowpark_package(
             if do_download:
                 log.info("Installing non-Anaconda packages...")
                 should_continue, second_chance_results = utils.install_packages(
-                    "requirements.other.txt",
+                    REQUIREMENTS_OTHER,
                     check_anaconda_for_pypi_deps,
                     package_native_libraries,
                 )
