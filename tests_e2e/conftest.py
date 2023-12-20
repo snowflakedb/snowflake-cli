@@ -51,7 +51,15 @@ def _create_venv(tmp_dir: Path) -> None:
 
 def _build_snowcli(venv_path: Path, test_root_path: Path) -> None:
     subprocess.check_call(
-        [_python_path(venv_path), "-m", "pip", "install", "--upgrade", "build"]
+        [
+            _python_path(venv_path),
+            "-m",
+            "pip",
+            "install",
+            "--upgrade",
+            "build",
+            "setuptools",
+        ]
     )
     subprocess.check_call(
         [_python_path(venv_path), "-m", "build", test_root_path / ".."]
