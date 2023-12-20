@@ -12,10 +12,3 @@ snowpark:
       returns: string
       imports: 
         - "@dev_deployment/PyRTF3.zip"
-  procedures:
-    - name: test_proc
-      handler: "functions.hello_procedure"
-      signature: ""
-      returns: "string"
-      imports:
-        - "@dev_deployment/PyRTF3.zip"

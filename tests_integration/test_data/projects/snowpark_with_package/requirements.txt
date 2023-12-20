@@ -1,4 +1,4 @@
 snowflake-snowpark-python
 # Package below should not be in snowflake anaconda
-jose
+syrupy
 #snowcli  # for local development
