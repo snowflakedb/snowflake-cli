@@ -1,5 +1,6 @@
 __pycache__
 .venv
+.python-version
 *.egg-info
 config.ini
 credentials
