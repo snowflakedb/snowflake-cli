@@ -1,8 +1,10 @@
 import sys
+
 import click
 from snowcli.cli.common.cli_global_context import cli_context, cli_context_manager
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, DebugOption
 from typer import Typer
+
 
 def _handle_exception(exception: Exception):
     if cli_context.enable_tracebacks:
