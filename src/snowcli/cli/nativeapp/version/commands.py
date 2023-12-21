@@ -2,14 +2,13 @@ import logging
 from typing import Optional
 
 import typer
-from click import ClickException
+from click import MissingParameter
 from snowcli.cli.common.cli_global_context import cli_context
 from snowcli.cli.common.decorators import (
     global_options_with_connection,
     with_project_definition,
 )
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
-from snowcli.cli.nativeapp.teardown_processor import NativeAppTeardownProcessor
 from snowcli.cli.nativeapp.version.version_processor import (
     NativeAppVersionCreateProcessor,
     NativeAppVersionDropProcessor,
@@ -55,7 +54,7 @@ def create(
     Adds a new patch to the provided version for your application package. If the version does not exist, creates a version with patch 0.
     """
     if version is None and patch is not None:
-        raise ClickException("Cannot provide patch without version!")
+        raise MissingParameter("Cannot provide a patch without version!")
 
     processor = NativeAppVersionCreateProcessor(
         project_definition=cli_context.project_definition,

@@ -68,45 +68,6 @@ def check_index_changes_in_git_repo(
         pass  # not a git repository, which is acceptable
 
 
-def warn_user_about_existing_release_directive(
-    existing_release_directives: List[dict],
-    version: str,
-    package_name: str,
-    user_confirmation_policy: UserConfirmationPolicy,
-) -> None:
-    """
-    Warns the user if a version is already referenced in a release directive(s), and asks for confirmation to add a patch.
-    """
-    if existing_release_directives:
-        release_directive_names = ", ".join(
-            row["name"] for row in existing_release_directives
-        )
-        print(
-            dedent(
-                f"""\
-                Version {version} already exists for application package {package_name} and in release directive(s): {release_directive_names}.
-            """
-            )
-        )
-        ask_user_confirmation(
-            user_confirmation_policy=user_confirmation_policy,
-            prompts=Prompts(
-                f"Are you sure you want to create a new patch for version {version} of application package {package_name}? Once added, this operation cannot be undone.",
-                f"Not creating a new patch.",
-                "Cannot create a new patch non-interactively without --force.",
-            ),
-        )
-
-
-class ManifestVersionNotFoundError(ClickException):
-    """
-    Manifest.yml file does not contain a value for the version field.
-    """
-
-    def __init__(self):
-        super().__init__(self.__doc__)
-
-
 class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
     def __init__(self, project_definition: Dict, project_root: Path):
         super().__init__(project_definition, project_root)
@@ -174,7 +135,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 f"Version {version} created for application package {self.package_name}."
             )
 
-    def add_new_patch_to_version(self, version: str, patch: Optional[str]):
+    def add_new_patch_to_version(self, version: str, patch: Optional[str] = None):
         """
         Add a new patch, optionally a custom one, to an existing version of an application package.
         """
@@ -189,7 +150,13 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
             result_cursor = self._execute_query(
                 add_version_query, cursor_class=DictCursor
             )
-            new_patch = result_cursor["patch"]
+
+            show_row = find_first_row(
+                result_cursor,
+                lambda row: row[VERSION_COL] == unquote_identifier(version),
+            )
+
+            new_patch = show_row["patch"]
             print(
                 f"Patch {new_patch} created for version {version} for application package {self.package_name}."
             )
@@ -239,14 +206,28 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
             self.sync_deploy_root_with_stage(self.package_role)
 
         # Warn if the version exists in a release directive(s)
-        warn_user_about_existing_release_directive(
-            existing_release_directives=self.get_existing_release_directive_info_for_version(
-                version
-            ),
-            version=version,
-            package_name=self.package_name,
-            user_confirmation_policy=user_confirmation_policy,
+        existing_release_directives = (
+            self.get_existing_release_directive_info_for_version(version)
         )
+        if existing_release_directives:
+            release_directive_names = ", ".join(
+                row["name"] for row in existing_release_directives
+            )
+            print(
+                dedent(
+                    f"""\
+                    Version {version} already exists for application package {self.package_name} and in release directive(s): {release_directive_names}.
+                """
+                )
+            )
+            ask_user_confirmation(
+                user_confirmation_policy=user_confirmation_policy,
+                prompts=Prompts(
+                    f"Are you sure you want to create a new patch for version {version} of application package {self.package_name}? Once added, this operation cannot be undone.",
+                    f"Not creating a new patch.",
+                    "Cannot create a new patch non-interactively without --force.",
+                ),
+            )
 
         # Add a new version to the app package
         if not self.get_existing_version_info(version):

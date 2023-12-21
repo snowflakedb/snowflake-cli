@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, List, Optional, Tuple, Union
 
 import strictyaml
-from click.exceptions import ClickException
+from click import ClickException
 
 
 class DeployRootError(ClickException):
@@ -46,20 +46,6 @@ class SourceNotFoundError(ClickException):
     def __init__(self, path: Path):
         super().__init__(f"{self.__doc__}\npath = {path}")
         self.path = path
-
-
-class ManifestYmlFileNotFoundError(ClickException):
-    """
-    Manifest.yml file not found in the deploy root of the native apps project.
-    """
-
-    def __init__(self, deploy_root: Path):
-        super().__init__(
-            f"""
-            {self.__doc__}
-            deploy_root = {deploy_root}
-            """
-        )
 
 
 class TooManyFilesError(ClickException):
@@ -261,7 +247,9 @@ def find_manifest_file(deploy_root: Path) -> Path:
             if file.lower() == "manifest.yml":
                 return Path(os.path.join(root, file))
 
-    raise ManifestYmlFileNotFoundError(deploy_root=resolved_root)
+    raise ClickException(
+        "Required manifest.yml file not found in the deploy root of the native apps project."
+    )
 
 
 def find_version_info_in_manifest_file(
