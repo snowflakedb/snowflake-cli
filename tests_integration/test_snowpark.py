@@ -229,25 +229,6 @@ def _test_setup(
     yield snowpark_procedure_test_setup
 
 
-@pytest.mark.integration
-@pytest.mark.skip
-def test_diagnostic(runner, project_directory):  # TODO: delete this test
-    with project_directory("snowpark_with_package") as proj_dir:
-        with open("requirements.txt", "w") as reqs:
-            reqs.write("syrupy")
-
-        from requirements.requirement import Requirement
-
-        from src.snowcli.utils import install_packages
-
-        result, packages = install_packages(
-            "requirements.txt", package_native_libraries="yes"
-        )
-
-        assert result is True
-        assert Requirement.parse_line("exceptiongroup==1.2.0") in packages.other
-
-
 @pytest.fixture
 def _test_steps(_test_setup):
     yield SnowparkTestSteps(_test_setup)

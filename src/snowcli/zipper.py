@@ -49,7 +49,7 @@ def zip_dir(
     with ZipFile(dest_zip, mode, ZIP_DEFLATED, allowZip64=True) as package_zip:
         for file in files_to_pack:
             log.debug("Adding %s to %s", file, dest_zip)
-            package_zip.write(file, arcname=os.path.relpath(file, source))
+            package_zip.write(file, arcname=file.relative_to(source.absolute()))
 
 
 def _to_be_zipped(file: Path) -> bool:
