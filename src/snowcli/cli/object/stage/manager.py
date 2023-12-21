@@ -11,7 +11,7 @@ from snowcli.cli.project.util import to_string_literal
 from snowcli.utils.path_utils import path_resolver
 from snowflake.connector.cursor import SnowflakeCursor
 
-log = logging.getLogger(__file__)
+log = logging.getLogger(__name__)
 
 
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
