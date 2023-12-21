@@ -3,16 +3,15 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import List
 
 import click
 import typer
-from snowcli import utils
-from snowcli.utils import (
+from snowcli.utils import utils
+from snowcli.utils.utils import (
     YesNoAskOptionsType,
     yes_no_ask_callback,
 )
-from snowcli.zipper import zip_dir
+from snowcli.utils.zipper import zip_dir
 
 PyPiDownloadOption = typer.Option(
     "ask",

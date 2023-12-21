@@ -4,9 +4,10 @@ from pathlib import PosixPath
 from unittest.mock import MagicMock, mock_open, patch
 from zipfile import ZipFile
 
+import snowcli.utils.path_utils
 import typer
 from requirements.requirement import Requirement
-from snowcli import utils
+from snowcli.utils import utils
 
 from tests.testing_utils.fixtures import *
 
@@ -325,4 +326,4 @@ def test_deduplicate_and_sort_reqs():
 def test_path_resolver(mock_system, argument, expected):
     mock_system.response_value = "Windows"
 
-    assert utils.path_resolver(argument) == expected
+    assert snowcli.utils.path_utils.path_resolver(argument) == expected

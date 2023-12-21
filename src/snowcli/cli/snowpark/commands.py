@@ -9,7 +9,6 @@ from typing import Dict, List, Set
 
 import typer
 from click import ClickException
-from snowcli import utils
 from snowcli.cli.common.cli_global_context import cli_context
 from snowcli.cli.common.decorators import (
     global_options,
@@ -46,10 +45,9 @@ from snowcli.output.types import (
     MessageResult,
     SingleQueryResult,
 )
-from snowcli.utils import (
-    get_snowflake_packages,
-)
-from snowcli.zipper import add_file_to_existing_zip
+from snowcli.utils import utils
+from snowcli.utils.utils import get_snowflake_packages
+from snowcli.utils.zipper import add_file_to_existing_zip
 from snowflake.connector import DictCursor, ProgrammingError
 
 log = logging.getLogger(__name__)

@@ -10,7 +10,7 @@ import typer
 from click import ClickException
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.object.stage.manager import StageManager
-from snowcli.utils import generate_deploy_stage_name
+from snowcli.utils.utils import generate_deploy_stage_name
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)

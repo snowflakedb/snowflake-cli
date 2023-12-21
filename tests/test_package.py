@@ -7,7 +7,7 @@ import pytest
 from requirements.requirement import Requirement
 from snowcli.cli.snowpark import package
 from snowcli.cli.snowpark.package.utils import NotInAnaconda
-from snowcli.utils import SplitRequirements
+from snowcli.utils.utils import SplitRequirements
 
 from tests.testing_utils.fixtures import *
 
@@ -28,7 +28,7 @@ class TestPackage:
             ),
         ],
     )
-    @patch("tests.test_package.package.manager.utils.requests")
+    @patch("snowcli.utils.utils.requests")
     def test_package_lookup(
         self, mock_requests, argument, monkeypatch, runner, snapshot
     ) -> None:
@@ -41,11 +41,12 @@ class TestPackage:
         assert result.exit_code == 0
         assert result.output == snapshot
 
-    @patch("tests.test_package.package.manager.utils.install_packages")
-    @patch("tests.test_package.package.manager.utils.parse_anaconda_packages")
+    @patch("snowcli.utils.utils.install_packages")
+    @patch("snowcli.utils.utils.parse_anaconda_packages")
     def test_package_lookup_with_install_packages(
         self, mock_package, mock_install, runner, capfd, snapshot
     ) -> None:
+
         mock_package.return_value = SplitRequirements(
             [], [Requirement("some-other-package")]
         )

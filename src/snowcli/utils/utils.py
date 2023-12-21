@@ -1,18 +1,15 @@
 from __future__ import annotations
 
 import glob
-import json
 import logging
 import os
 import re
 import shutil
 import subprocess
-import sys
-import threading
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Generic, List, Literal, Optional, TypeVar
+from typing import Dict, List, Literal, Optional
 
 import click
 import requests
@@ -20,7 +17,6 @@ import requirements
 import typer
 from jinja2 import Environment, FileSystemLoader
 from requirements.requirement import Requirement
-from snowflake.connector.cursor import SnowflakeCursor
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -29,11 +25,9 @@ YesNoAskOptionsType = Literal["yes", "no", "ask"]
 
 PIP_PATH = os.environ.get("SNOWCLI_PIP_PATH", "pip")
 
-templates_path = os.path.join(Path(__file__).parent, "python_templates")
+templates_path = os.path.join(Path(__file__).parent, "../python_templates")
 
 log = logging.getLogger(__name__)
-
-BUFFER_SIZE = 4096
 
 
 # TODO: add typing to all functions
@@ -46,9 +40,6 @@ def yes_no_ask_callback(value: str):
             f"Valid values: {YesNoAskOptions}. You provided: {value}",
         )
     return value
-
-
-# create a temporary directory, copy the file_path to it and rename to app.zip
 
 
 def prepare_app_zip(file_path, temp_dir) -> str:
@@ -490,47 +481,3 @@ def create_project_template(template_name: str, project_directory: str | None = 
         target,
         dirs_exist_ok=True,
     )
-
-
-def path_resolver(path_to_file: str):
-    if sys.platform == "win32" and "~1" in path_to_file:
-        from ctypes import create_unicode_buffer, windll  # type: ignore
-
-        buffer = create_unicode_buffer(BUFFER_SIZE)
-        get_long_path_name = windll.kernel32.GetLongPathNameW
-        return_value = get_long_path_name(path_to_file, buffer, BUFFER_SIZE)
-
-        if 0 < return_value <= BUFFER_SIZE:
-            return buffer.value
-    return path_to_file
-
-
-T = TypeVar("T")
-
-
-class ThreadsafeValue(Generic[T]):
-    def __init__(self, value: T):
-        self._value = value
-        self._lock = threading.Lock()
-
-    def set(self, new_value: T) -> T:
-        return self.transform(lambda _: new_value)
-
-    def transform(self, f: Callable[[T], T]) -> T:
-        with self._lock:
-            new_value = f(self._value)
-            self._value = new_value
-            return new_value
-
-    @property
-    def value(self) -> T:
-        with self._lock:
-            return self._value
-
-
-class ThreadsafeCounter(ThreadsafeValue[int]):
-    def increment(self, d=1) -> int:
-        return self.transform(lambda v: v + d)
-
-    def decrement(self, d=1) -> int:
-        return self.increment(-d)
