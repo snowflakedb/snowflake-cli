@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import syrupy
+import fonts
 from PyRTF.Elements import StyleSheet
 from snowflake.snowpark import Session
 
