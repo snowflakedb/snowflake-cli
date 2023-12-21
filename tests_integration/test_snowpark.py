@@ -244,7 +244,7 @@ def test_diagnostic(runner, project_directory):  # TODO: delete this test
             "requirements.txt", package_native_libraries="yes"
         )
 
-        assert result == True
+        assert result is True
         assert Requirement.parse_line("exceptiongroup==1.2.0") in packages.other
 
 
