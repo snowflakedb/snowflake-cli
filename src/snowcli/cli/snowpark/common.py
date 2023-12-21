@@ -149,7 +149,7 @@ class SnowparkObjectManager(SqlExecutionMixin):
     ) -> str:
 
         imports.append(artifact_file)
-        imports = list(map(lambda x: f"'{x}'", imports))
+        imports = [f"'{x}'" for x in imports]
         packages_list = ",".join(f"'{p}'" for p in packages)
 
         query = [

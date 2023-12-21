@@ -100,13 +100,12 @@ def snowpark_package(
 
     zip_dir(source=source, dest_zip=artefact_file)
 
-    if os.path.exists(".packages"):
+    if Path(".packages").exists():
         zip_dir(source=Path(".packages"), dest_zip=artefact_file, mode="a")
     log.info(f"Deployment package now ready: %s", artefact_file)
 
 
-def _write_requirements_file(file_name: str, reqirements: List[Requirement]):
+def _write_requirements_file(file_name: str, requirements: List[Requirement]):
     log.info(f"Writing %s file", file_name)
     with open(file_name, "w", encoding="utf-8") as f:
-        for package in reqirements:
-            f.write(package.line + "\n")
+        f.write("\n".join([req.line for req in requirements]))
