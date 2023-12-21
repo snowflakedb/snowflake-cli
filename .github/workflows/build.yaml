@@ -74,7 +74,7 @@ jobs:
       - name: Build with pyinstaller for ${{matrix.TARGET}}
         run: ${{matrix.CMD_BUILD}}
       - name: Archive python artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{matrix.ARTIFACT_NAME}}
           path: ${{matrix.PATH}}
