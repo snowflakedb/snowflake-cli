@@ -5,12 +5,10 @@ import os
 from pathlib import Path
 
 import click
+import snowcli.utils.package_utils
 import typer
 from snowcli.utils import utils
-from snowcli.utils.utils import (
-    YesNoAskOptionsType,
-    yes_no_ask_callback,
-)
+from snowcli.utils.package_utils import YesNoAskOptionsType, yes_no_ask_callback
 from snowcli.utils.zipper import zip_dir
 
 PyPiDownloadOption = typer.Option(
@@ -57,10 +55,12 @@ def snowpark_package(
     package_native_libraries: YesNoAskOptionsType,
 ):
     log.info("Resolving any requirements from requirements.txt...")
-    requirements = utils.parse_requirements()
+    requirements = snowcli.utils.package_utils.parse_requirements()
     if requirements:
         log.info("Comparing provided packages from Snowflake Anaconda...")
-        split_requirements = utils.parse_anaconda_packages(requirements)
+        split_requirements = snowcli.utils.package_utils.parse_anaconda_packages(
+            requirements
+        )
         if not split_requirements.other:
             log.info("No packages to manually resolve")
         if split_requirements.other:
@@ -80,7 +80,10 @@ def snowpark_package(
             )
             if do_download:
                 log.info("Installing non-Anaconda packages...")
-                should_pack, second_chance_results = utils.install_packages(
+                (
+                    should_pack,
+                    second_chance_results,
+                ) = snowcli.utils.package_utils.install_packages(
                     "requirements.other.txt",
                     check_anaconda_for_pypi_deps,
                     package_native_libraries,
@@ -101,7 +104,7 @@ def snowpark_package(
                 "w",
                 encoding="utf-8",
             ) as f:
-                for package in utils.deduplicate_and_sort_reqs(
+                for package in snowcli.utils.package_utils.deduplicate_and_sort_reqs(
                     split_requirements.snowflake
                 ):
                     f.write(package.line + "\n")

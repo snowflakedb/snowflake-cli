@@ -76,6 +76,17 @@ def test_streamlit_deploy(
     assert row_from_snowflake_session(expect) == []
 
 
+def test_streamlit_is_visible_in_anaconda_channel():
+    from requirements.requirement import Requirement
+    from snowcli.utils.package_utils import parse_anaconda_packages
+
+    streamlit = Requirement.parse_line("streamlit")
+
+    result = parse_anaconda_packages([streamlit])
+
+    assert streamlit in result.snowflake
+
+
 @pytest.fixture
 def _new_streamlit_role(snowflake_session, test_database):
     role_name = f"snowcli_streamlit_role_{uuid.uuid4().hex}"

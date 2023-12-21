@@ -6,6 +6,8 @@ import tempfile
 from pathlib import Path
 from shutil import rmtree
 
+import snowcli.utils.file_utils
+import snowcli.utils.package_utils
 from requirements.requirement import Requirement
 from snowcli.cli.constants import PACKAGES_DIR
 from snowcli.cli.object.stage.manager import StageManager
@@ -18,7 +20,7 @@ from snowcli.cli.snowpark.package.utils import (
     RequiresPackages,
 )
 from snowcli.utils import utils
-from snowcli.utils.utils import SplitRequirements
+from snowcli.utils.package_utils import SplitRequirements
 from snowcli.utils.zipper import zip_dir
 
 log = logging.getLogger(__name__)
@@ -26,12 +28,14 @@ log = logging.getLogger(__name__)
 
 def lookup(name: str, install_packages: bool) -> LookupResult:
 
-    package_response = utils.parse_anaconda_packages([Requirement.parse(name)])
+    package_response = snowcli.utils.package_utils.parse_anaconda_packages(
+        [Requirement.parse(name)]
+    )
 
     if package_response.snowflake and not package_response.other:
         return InAnaconda(package_response, name)
     elif install_packages:
-        status, result = utils.install_packages(
+        status, result = snowcli.utils.package_utils.install_packages(
             perform_anaconda_check=True, package_name=name, file_name=None
         )
 
@@ -47,7 +51,7 @@ def lookup(name: str, install_packages: bool) -> LookupResult:
 def upload(file: Path, stage: str, overwrite: bool):
     log.info(f"Uploading {file} to Snowflake @{stage}/{file}...")
     with tempfile.TemporaryDirectory() as temp_dir:
-        temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
+        temp_app_zip_path = snowcli.utils.file_utils.prepare_app_zip(file, temp_dir)
         sm = StageManager()
         sm.create(stage)
         put_response = sm.put(temp_app_zip_path, stage, overwrite=overwrite).fetchone()
