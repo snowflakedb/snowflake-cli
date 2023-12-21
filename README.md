@@ -37,7 +37,6 @@ Requires Python >= 3.8 and git
 git clone https://github.com/snowflake-labs/snowcli
 cd snowcli
 # you can also do the below in an active virtual environment:
-# when using pyenv update `.python-version` for python version you are working with
 # python -m venv .venv
 # source .venv/bin/activate
 hatch build && pip install .
