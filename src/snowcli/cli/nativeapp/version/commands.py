@@ -9,6 +9,7 @@ from snowcli.cli.common.decorators import (
     with_project_definition,
 )
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.nativeapp.policy import AllowAlwaysPolicy, AlwaysAskPolicy
 from snowcli.cli.nativeapp.version.version_processor import (
     NativeAppVersionCreateProcessor,
     NativeAppVersionDropProcessor,
@@ -56,11 +57,16 @@ def create(
     if version is None and patch is not None:
         raise MissingParameter("Cannot provide a patch without version!")
 
+    if force:
+        policy = AllowAlwaysPolicy()
+    else:
+        policy = AlwaysAskPolicy()
+
     processor = NativeAppVersionCreateProcessor(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    processor.process(version, patch, force)
+    processor.process(version, patch, policy)
     return MessageResult(f"Version create is now complete.")
 
 
@@ -85,9 +91,14 @@ def drop(
     Drops a version associated with your application package. Version can either be passed in as an argument to the command or read from the manifest.yml file.
     Dropping patches is not allowed.
     """
+    if force:
+        policy = AllowAlwaysPolicy()
+    else:
+        policy = AlwaysAskPolicy()
+
     processor = NativeAppVersionDropProcessor(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    processor.process(version, force)
+    processor.process(version, policy)
     return MessageResult(f"Version drop is now complete.")

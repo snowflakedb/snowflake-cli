@@ -17,13 +17,12 @@ from snowcli.cli.nativeapp.manager import (
     NativeAppManager,
     ensure_correct_owner,
 )
+from snowcli.cli.nativeapp.policy import PolicyBase, TaskContext
 from snowcli.cli.nativeapp.run_processor import NativeAppRunProcessor
 from snowcli.cli.nativeapp.utils import (
-    Prompts,
-    UserConfirmationPolicy,
-    ask_user_confirmation,
     find_all_rows,
     find_first_row,
+    is_user_in_interactive_mode,
 )
 from snowcli.cli.project.util import unquote_identifier
 from snowcli.exception import SnowflakeSQLExecutionError
@@ -40,7 +39,7 @@ log = logging.getLogger(__name__)
 
 def check_index_changes_in_git_repo(
     project_root: Path,
-    user_confirmation_policy: UserConfirmationPolicy,
+    policy: PolicyBase,
 ) -> None:
     """
     Checks if the project root, i.e. the native apps project is a git repository. If it is a git repository,
@@ -55,14 +54,19 @@ def check_index_changes_in_git_repo(
             # show differences between current files and last commit
             print(repo.git.diff(repo.head.commit.tree))
 
-            ask_user_confirmation(
-                user_confirmation_policy=user_confirmation_policy,
-                prompts=Prompts(
-                    f"You have local changes in this repository that are not part of a previous commit. Do you still want to continue?",
-                    f"Not creating a new version.",
-                    "Cannot create a new version non-interactively without --force.",
-                ),
+            ctx = TaskContext(
+                user_prompt="You have local changes in this repository that are not part of a previous commit. Do you still want to continue?",
+                is_interactive_mode=is_user_in_interactive_mode(),
             )
+
+            if not policy.should_proceed(ctx):
+                if policy.exit_code:
+                    print(
+                        "Cannot create a new version non-interactively without --force"
+                    )
+                else:
+                    print("Not creating a new version.")
+                raise typer.Exit(policy.exit_code)
 
     except InvalidGitRepositoryError:
         pass  # not a git repository, which is acceptable
@@ -165,19 +169,13 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         self,
         version: Optional[str],
         patch: Optional[str],
-        force: bool = False,
+        policy: PolicyBase,
         *args,
         **kwargs,
     ):
         """
         Perform bundle, app package creation, stage upload, version and/or patch to an application package. If --force is provided, then no user prompts will be executed.
         """
-
-        user_confirmation_policy = UserConfirmationPolicy(
-            is_force=is_force_lambda(force),
-            is_interactive_mode=is_interactive_mode_lambda(),
-            confirm_with_user=confirm_with_user_lambda,
-        )
 
         # We need build_bundle() to (optionally) find version in manifest.yml and create app package
         self.build_bundle()
@@ -193,7 +191,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
 
         check_index_changes_in_git_repo(
             project_root=self.project_root,
-            user_confirmation_policy=user_confirmation_policy,
+            policy=policy,
         )
 
         self.create_app_package()
@@ -220,14 +218,19 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 """
                 )
             )
-            ask_user_confirmation(
-                user_confirmation_policy=user_confirmation_policy,
-                prompts=Prompts(
-                    f"Are you sure you want to create a new patch for version {version} of application package {self.package_name}? Once added, this operation cannot be undone.",
-                    f"Not creating a new patch.",
-                    "Cannot create a new patch non-interactively without --force.",
-                ),
+
+            ctx = TaskContext(
+                user_prompt=f"Are you sure you want to create a new patch for version {version} of application package {self.package_name}? Once added, this operation cannot be undone.",
+                is_interactive_mode=is_user_in_interactive_mode(),
             )
+            if not policy.should_proceed(ctx):
+                if policy.exit_code:
+                    print(
+                        "Cannot create a new patch non-interactively without --force."
+                    )
+                else:
+                    print("Not creating a new patch.")
+                raise typer.Exit(policy.exit_code)
 
         # Add a new version to the app package
         if not self.get_existing_version_info(version):
@@ -242,25 +245,20 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
     def __init__(self, project_definition: Dict, project_root: Path):
         super().__init__(project_definition, project_root)
 
-    def process(self, version: Optional[str], force: bool = False, *args, **kwargs):
+    def process(self, version: Optional[str], policy: PolicyBase, *args, **kwargs):
         """
         Drops a version associated with an application package. If --force is provided, then no user prompts will be executed.
         """
-        user_confirmation_policy = UserConfirmationPolicy(
-            is_force=is_force_lambda(force),
-            is_interactive_mode=is_interactive_mode_lambda(),
-            confirm_with_user=confirm_with_user_lambda,
-        )
 
         # 1. Check for existing an existing application package
         show_obj_row = self.get_existing_app_pkg_info()
-        if show_obj_row is None:
-            raise ApplicationPackageDoesNotExistError(self.package_name)
-        else:
+        if show_obj_row:
             # Check for the right owner role
             ensure_correct_owner(
                 row=show_obj_row, role=self.package_role, obj_name=self.package_name
             )
+        else:
+            raise ApplicationPackageDoesNotExistError(self.package_name)
 
         # 2. If the user did not pass in a version string, determine from manifest.yml
         if version is None:
@@ -288,14 +286,17 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
         )
 
         # If user did not provide --force, ask for confirmation
-        ask_user_confirmation(
-            user_confirmation_policy=user_confirmation_policy,
-            prompts=Prompts(
-                f"Are you sure you want to drop version {version} of application package {self.package_name}? Once dropped, this operation cannot be undone.",
-                f"Not dropping version.",
-                "Cannot drop version non-interactively without --force.",
-            ),
+        ctx = TaskContext(
+            user_prompt=f"Are you sure you want to drop version {version} of application package {self.package_name}? Once dropped, this operation cannot be undone.",
+            is_interactive_mode=is_user_in_interactive_mode(),
         )
+
+        if not policy.should_proceed(ctx):
+            if policy.exit_code:
+                print("Cannot drop version non-interactively without --force.")
+            else:
+                print("Not dropping version.")
+            raise typer.Exit(policy.exit_code)
 
         # Drop the version
         with self.use_role(self.package_role):

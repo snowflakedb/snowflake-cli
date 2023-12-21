@@ -1,3 +1,5 @@
+from functools import cache
+from sys import stdin, stdout
 from textwrap import dedent
 
 NATIVEAPP_MODULE = "snowcli.cli.nativeapp.manager"
