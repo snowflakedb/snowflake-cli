@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from sys import stdin, stdout
 from textwrap import dedent
 from typing import Dict, List, Optional
 
@@ -29,11 +28,6 @@ from snowcli.exception import SnowflakeSQLExecutionError
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
-# Custom lambdas to plug in to UserConfirmationPolicy
-is_force_lambda = lambda force: force
-is_interactive_mode_lambda = lambda: stdin.isatty() and stdout.isatty()
-confirm_with_user_lambda = lambda prompt: typer.confirm(prompt)
-
 log = logging.getLogger(__name__)
 
 
@@ -46,13 +40,13 @@ def check_index_changes_in_git_repo(
     it also checks if there any local changes to the directory that may not be on the app package stage.
     """
     try:
-        repo = Repo(project_root)
+        repo = Repo(project_root, search_parent_directories=True)
+        assert repo.git_dir is not None
 
         # Check if the repo has any changes, including untracked files
         if repo.is_dirty(untracked_files=True):
             print("Changes detected in your git repository!")
-            # show differences between current files and last commit
-            print(repo.git.diff(repo.head.commit.tree))
+            repo.git.execute(["git", "status"])
 
             ctx = TaskContext(
                 user_prompt="You have local changes in this repository that are not part of a previous commit. Do you still want to continue?",
@@ -87,7 +81,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 show_obj_query, cursor_class=DictCursor
             )
 
-            if show_obj_cursor.rowcount is None:
+            if not show_obj_cursor.rowcount:
                 raise SnowflakeSQLExecutionError(show_obj_query)
 
             show_obj_row = find_first_row(
@@ -112,7 +106,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 show_obj_query, cursor_class=DictCursor
             )
 
-            if show_obj_cursor.rowcount is None:
+            if not show_obj_cursor.rowcount:
                 raise SnowflakeSQLExecutionError(show_obj_query)
 
             show_obj_rows = find_all_rows(
@@ -182,7 +176,14 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
 
         # Make sure version is not None before proceeding any further.
         # This will raise an exception if version information is not found. Patch can be None.
-        if version is None:
+        if not version:
+            log.info(
+                dedent(
+                    f"""\
+                        Version was not provided through the CLI. Checking version in the manifest.yml instead.
+                    """
+                )
+            )
             version, patch = find_version_info_in_manifest_file(self.deploy_root)
             if not version:
                 raise ClickException(
@@ -235,7 +236,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         # Add a new version to the app package
         if not self.get_existing_version_info(version):
             self.add_new_version(version=version)
-            raise typer.Exit()  # A new version created automatically has patch 0, we do not need to further increment the patch.
+            return  # A new version created automatically has patch 0, we do not need to further increment the patch.
 
         # Add a new patch to an existing (old) version
         self.add_new_patch_to_version(version=version, patch=patch)
@@ -261,13 +262,13 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
             raise ApplicationPackageDoesNotExistError(self.package_name)
 
         # 2. If the user did not pass in a version string, determine from manifest.yml
-        if version is None:
+        if not version:
             log.info(
                 dedent(
                     f"""\
-                    Version was not provided through the CLI. Checking version in the manifest.yml instead.
-                    This step will bundle your app artifacts to determine the location of the manifest.yml file.
-                  """
+                        Version was not provided through the CLI. Checking version in the manifest.yml instead.
+                        This step will bundle your app artifacts to determine the location of the manifest.yml file.
+                    """
                 )
             )
             self.build_bundle()
@@ -292,9 +293,9 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
         )
 
         if not policy.should_proceed(ctx):
-            if policy.exit_code:
+            if policy.exit_code:  # Interactive Mode disabled
                 print("Cannot drop version non-interactively without --force.")
-            else:
+            else:  # User did not want to drop
                 print("Not dropping version.")
             raise typer.Exit(policy.exit_code)
 

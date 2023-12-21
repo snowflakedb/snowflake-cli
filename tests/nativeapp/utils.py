@@ -1,5 +1,3 @@
-from functools import cache
-from sys import stdin, stdout
 from textwrap import dedent
 
 NATIVEAPP_MODULE = "snowcli.cli.nativeapp.manager"
@@ -31,6 +29,8 @@ TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT = f"{TEARDOWN_PROCESSOR}.drop_generic_obj
 
 RUN_PROCESSOR_GET_EXISTING_APP_INFO = f"{RUN_PROCESSOR}.get_existing_app_info"
 RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO = f"{RUN_PROCESSOR}.get_existing_app_pkg_info"
+
+FIND_VERSION_FROM_MANIFEST = f"{VERSION_MODULE}.find_version_info_in_manifest_file"
 
 mock_snowflake_yml_file = dedent(
     """\

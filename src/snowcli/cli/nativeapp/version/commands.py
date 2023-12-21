@@ -9,7 +9,7 @@ from snowcli.cli.common.decorators import (
     with_project_definition,
 )
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
-from snowcli.cli.nativeapp.policy import AllowAlwaysPolicy, AlwaysAskPolicy
+from snowcli.cli.nativeapp.policy import AllowAlwaysPolicy, AskAlwaysPolicy
 from snowcli.cli.nativeapp.version.version_processor import (
     NativeAppVersionCreateProcessor,
     NativeAppVersionDropProcessor,
@@ -60,7 +60,7 @@ def create(
     if force:
         policy = AllowAlwaysPolicy()
     else:
-        policy = AlwaysAskPolicy()
+        policy = AskAlwaysPolicy()
 
     processor = NativeAppVersionCreateProcessor(
         project_definition=cli_context.project_definition,
@@ -94,7 +94,7 @@ def drop(
     if force:
         policy = AllowAlwaysPolicy()
     else:
-        policy = AlwaysAskPolicy()
+        policy = AskAlwaysPolicy()
 
     processor = NativeAppVersionDropProcessor(
         project_definition=cli_context.project_definition,

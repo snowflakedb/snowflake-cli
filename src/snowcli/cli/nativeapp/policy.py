@@ -21,7 +21,7 @@ class AllowAlwaysPolicy(PolicyBase):
         return True
 
 
-class AlwaysAskPolicy(PolicyBase):
+class AskAlwaysPolicy(PolicyBase):
     def should_proceed(self, ctx: TaskContext):
         if ctx.is_interactive_mode:
             should_continue = typer.confirm(ctx.user_prompt)
