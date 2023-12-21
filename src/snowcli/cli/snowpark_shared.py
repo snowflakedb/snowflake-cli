@@ -108,4 +108,5 @@ def snowpark_package(
 def _write_requirements_file(file_name: str, requirements: List[Requirement]):
     log.info(f"Writing %s file", file_name)
     with open(file_name, "w", encoding="utf-8") as f:
-        f.write("\n".join([req.line for req in requirements]))
+        for req in requirements:
+            f.write(f"{req}\n")
