@@ -49,6 +49,15 @@
 
 ## Fixes and improvements
 * Allow the use of quoted identifiers in stages
+
+
+# v1.2.3
+## Fixes and improvements
+* Removed hardcoded values of instance families for `snow snowpark pool create` command.
+
+
+# v1.2.2
+## Fixes and improvements
 * Fixed parsing of commands and arguments lists in specifications of snowpark services and jobs
 
 
