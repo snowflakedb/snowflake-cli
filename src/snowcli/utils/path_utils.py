@@ -5,7 +5,7 @@ import sys
 BUFFER_SIZE = 4096
 
 
-def path_resolver(path_to_file: str):
+def path_resolver(path_to_file: str) -> str:
     if sys.platform == "win32" and "~1" in path_to_file:
         from ctypes import create_unicode_buffer, windll  # type: ignore
 

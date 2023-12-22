@@ -25,7 +25,7 @@ def generate_snowpark_coverage_wrapper(
     handler_module: str,
     handler_function: str,
     coverage_reports_stage_path: str,
-):
+) -> None:
     """Using a hardcoded template (python_templates/snowpark_coverage.py.jinja), substitutes variables
     and writes out a file.
     The resulting file can be used as the initial handler for the stored proc, and uses the coverage package
@@ -55,7 +55,7 @@ def generate_snowpark_coverage_wrapper(
         output_file.write(content)
 
 
-def create_project_template(template_name: str, project_directory: str | None = None):
+def create_project_template(template_name: str, project_directory: str | None = None) -> None:
     target = project_directory or os.getcwd()
     shutil.copytree(
         Path(importlib.util.find_spec("templates").origin).parent / template_name,  # type: ignore
