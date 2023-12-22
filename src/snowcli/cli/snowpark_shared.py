@@ -8,7 +8,7 @@ import click
 import snowcli.utils.package_utils
 import typer
 from snowcli.utils import utils
-from snowcli.utils.package_utils import PypiOption
+from snowcli.utils.models import PypiOption
 from snowcli.utils.zipper import zip_dir
 
 PyPiDownloadOption: PypiOption = typer.Option(

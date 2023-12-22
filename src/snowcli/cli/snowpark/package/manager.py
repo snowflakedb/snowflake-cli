@@ -20,7 +20,7 @@ from snowcli.cli.snowpark.package.utils import (
     RequiresPackages,
 )
 from snowcli.utils import utils
-from snowcli.utils.package_utils import SplitRequirements
+from snowcli.utils.models import SplitRequirements
 from snowcli.utils.zipper import zip_dir
 
 log = logging.getLogger(__name__)

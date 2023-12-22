@@ -2,7 +2,7 @@ from zipfile import ZipFile
 
 import snowcli.cli.snowpark_shared as shared
 from requirements.requirement import Requirement
-from snowcli.utils.package_utils import SplitRequirements
+from snowcli.utils.models import SplitRequirements
 
 from tests.testing_utils.fixtures import *
 

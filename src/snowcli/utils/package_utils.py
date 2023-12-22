@@ -6,40 +6,20 @@ import os
 import re
 import shutil
 import subprocess
-from dataclasses import dataclass
-from enum import Enum
-from typing import Dict, List, Literal
+from typing import Dict, List
 
 import click
 import requests
 import requirements
 import typer
 from requirements.requirement import Requirement
+from snowcli.utils.models import PypiOption, RequirementWithFiles, SplitRequirements
 
 log = logging.getLogger(__name__)
 
 ANACONDA_CHANNEL_DATA = "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
 
 PIP_PATH = os.environ.get("SNOWCLI_PIP_PATH", "pip")
-
-
-@dataclass
-class SplitRequirements:
-    """A dataclass to hold the results of parsing requirements files and dividing them into
-    snowflake-supported vs other packages.
-    """
-
-    snowflake: List[Requirement]
-    other: List[Requirement]
-
-
-@dataclass
-class RequirementWithFiles:
-    """A dataclass to hold a requirement and the path to the
-    downloaded files/folders that belong to it"""
-
-    requirement: Requirement
-    files: List[str]
 
 
 def parse_requirements(
@@ -80,9 +60,6 @@ def deduplicate_and_sort_reqs(packages: List[Requirement]) -> List[Requirement]:
     return deduped
 
 
-# parse JSON from https://repo.anaconda.com/pkgs/snowflake/channeldata.json and
-# return a list of packages that exist in packages with the .packages json
-# response from https://repo.anaconda.com/pkgs/snowflake/channeldata.json
 def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
     """
     Checks if a list of packages are available in the Snowflake Anaconda channel.
@@ -200,7 +177,7 @@ def get_package_name_from_metadata(metadata_file_path: str) -> Requirement | Non
 def install_packages(
     file_name: str | None,
     perform_anaconda_check: bool = True,
-    package_native_libraries: PypiOption = "ask",
+    package_native_libraries: PypiOption = PypiOption.ASK,
     package_name: str | None = None,
 ) -> tuple[bool, SplitRequirements | None]:
     """
@@ -214,47 +191,17 @@ def install_packages(
     which are available on the Snowflake anaconda channel. These will have
     been deleted from the local packages folder.
     """
-    pip_install_result = None
     second_chance_results = None
     if file_name is not None:
-        try:
-            process = subprocess.Popen(
-                [PIP_PATH, "install", "-t", ".packages/", "-r", file_name],
-                stdout=subprocess.PIPE,
-                universal_newlines=True,
-            )
-            for line in process.stdout:  # type: ignore
-                log.info(line.strip())
-            process.wait()
-            pip_install_result = process.returncode
-        except FileNotFoundError:
-            log.error(
-                "pip not found. Please install pip and try again. "
-                "HINT: you can also set the environment variable 'SNOWCLI_PIP_PATH' to the path of pip.",
-            )
-            return False, None
-    if package_name is not None:
-        try:
-            process = subprocess.Popen(
-                [PIP_PATH, "install", "-t", ".packages/", package_name],
-                stdout=subprocess.PIPE,
-                universal_newlines=True,
-            )
-            for line in process.stdout:  # type: ignore
-                log.info(line.strip())
-            process.wait()
-            pip_install_result = process.returncode
-        except FileNotFoundError:
-            log.error(
-                "pip not found. Please install pip and try again. "
-                "HINT: you can also set the environment variable 'SNOWCLI_PIP_PATH' to the path of pip.",
-            )
-            return False, None
+        pip_install_result = _run_pip_install(file_name, "file")
 
-    if pip_install_result is not None and pip_install_result != 0:
+    if package_name is not None:
+        pip_install_result = _run_pip_install(package_name, "package")
+
+    if pip_install_result != 0:
         log.info(
             f"pip failed with return code {pip_install_result}. "
-            "This may happen when attempting to install a package "
+            "If pip is installed correctly, this may mean you`re trying to install a package "
             "that isn't compatible with the host architecture - "
             "and generally means it has native libraries."
         )
@@ -290,21 +237,11 @@ def install_packages(
             for k, v in downloaded_packages_dict.items()
             if k in second_chance_snowflake_package_names
         }
-        for package, items in downloaded_packages_not_needed.items():
-            log.info(f"Package {package}: deleting {len(items.files)} files")
-            for item in items.files:
-                item_path = os.path.join(".packages", item)
-                if os.path.exists(item_path):
-                    if os.path.isdir(item_path):
-                        shutil.rmtree(item_path)
-                    else:
-                        os.remove(item_path)
+        _delete_packages(downloaded_packages_not_needed)
 
     log.info("Checking to see if packages have native libraries...")
     # use glob to see if any files in packages have a .so extension
-    if glob.glob(".packages/**/*.so"):
-        for path in glob.glob(".packages/**/*.so"):
-            log.info(f"Potential native library: {path}")
+    if _check_for_native_libraries():
         continue_installation = (
             click.confirm(
                 "\n\nWARNING! Some packages appear to have native libraries!\n"
@@ -312,16 +249,54 @@ def install_packages(
                 default=False,
             )
             if package_native_libraries == PypiOption.ASK
-            else package_native_libraries == PypiOption.YES
+            else True
         )
-        if continue_installation:
-            return True, second_chance_results
-        else:
+        if not continue_installation:
             shutil.rmtree(".packages")
             return False, second_chance_results
     else:
         log.info("No non-supported native libraries found in packages (Good news!)...")
-        return True, second_chance_results
+    return True, second_chance_results
+
+
+def _run_pip_install(name: str, type: str):
+    arguments = ["-r", name] if type == "file" else [name]
+
+    try:
+        process = subprocess.Popen(
+            [PIP_PATH, "install", "-t", ".packages/"] + arguments,
+            stdout=subprocess.PIPE,
+            universal_newlines=True,
+        )
+        for line in process.stdout:  # type: ignore
+            log.info(line.strip())
+        process.wait()
+    except FileNotFoundError:
+        log.error(
+            "pip not found. Please install pip and try again. "
+            "HINT: you can also set the environment variable 'SNOWCLI_PIP_PATH' to the path of pip.",
+        )
+    return process.returncode
+
+
+def _delete_packages(to_be_deleted: Dict) -> None:
+    for package, items in to_be_deleted.items():
+        log.info(f"Package {package}: deleting {len(items.files)} files")
+        for item in items.files:
+            item_path = os.path.join(".packages", item)
+            if os.path.exists(item_path):
+                if os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
+                else:
+                    os.remove(item_path)
+
+
+def _check_for_native_libraries():
+    if glob.glob(".packages/**/*.so"):
+        for path in glob.glob(".packages/**/*.so"):
+            log.info(f"Potential native library: {path}")
+        return True
+    return False
 
 
 def get_snowflake_packages() -> List[str]:
@@ -332,7 +307,23 @@ def get_snowflake_packages() -> List[str]:
         return []
 
 
-class PypiOption(Enum):
-    YES = "yes"
-    NO = "no"
-    ASK = "ask"
+def generate_deploy_stage_name(identifier: str) -> str:
+    return (
+        identifier.replace("()", "")
+        .replace(
+            "(",
+            "_",
+        )
+        .replace(
+            ")",
+            "",
+        )
+        .replace(
+            " ",
+            "_",
+        )
+        .replace(
+            ",",
+            "",
+        )
+    )

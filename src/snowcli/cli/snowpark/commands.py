@@ -47,7 +47,8 @@ from snowcli.output.types import (
     SingleQueryResult,
 )
 from snowcli.utils import utils
-from snowcli.utils.package_utils import PypiOption, get_snowflake_packages
+from snowcli.utils.models import PypiOption
+from snowcli.utils.package_utils import get_snowflake_packages
 from snowcli.utils.zipper import add_file_to_existing_zip
 from snowflake.connector import DictCursor, ProgrammingError
 

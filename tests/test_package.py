@@ -7,7 +7,7 @@ import pytest
 from requirements.requirement import Requirement
 from snowcli.cli.snowpark import package
 from snowcli.cli.snowpark.package.utils import NotInAnaconda
-from snowcli.utils.package_utils import SplitRequirements
+from snowcli.utils.models import SplitRequirements
 
 from tests.testing_utils.fixtures import *
 
