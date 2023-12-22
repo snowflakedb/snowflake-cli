@@ -3,7 +3,7 @@ import subprocess
 import pytest
 
 
-#@pytest.mark.e2e
+@pytest.mark.e2e
 def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
     traceback_msg = "Traceback (most recent call last)"
 
