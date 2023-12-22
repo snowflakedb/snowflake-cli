@@ -3,7 +3,7 @@
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-unstable";
     src-stable = {
-      url = "github:Snowflake-Labs/snowcli?ref=v1.1.1-rc3"; # Pins to last stable version tag by hand
+      url = "github:Snowflake-Labs/snowcli?ref=v1.2.3"; # Pins to last stable version tag by hand
       flake = false;
     };
     src-live = {
@@ -15,7 +15,7 @@
       flake = false;
     };
     snowflake-connector-python-src-live = {
-      url = "github:snowflakedb/snowflake-connector-python?ref=v3.3.1"; # Unpin if needed
+      url = "github:snowflakedb/snowflake-connector-python?ref=v3.6.0"; # Unpin if needed
       flake = false;
     };
   };
