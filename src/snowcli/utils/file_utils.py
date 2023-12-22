@@ -55,7 +55,9 @@ def generate_snowpark_coverage_wrapper(
         output_file.write(content)
 
 
-def create_project_template(template_name: str, project_directory: str | None = None) -> None:
+def create_project_template(
+    template_name: str, project_directory: str | None = None
+) -> None:
     target = project_directory or os.getcwd()
     shutil.copytree(
         Path(importlib.util.find_spec("templates").origin).parent / template_name,  # type: ignore
