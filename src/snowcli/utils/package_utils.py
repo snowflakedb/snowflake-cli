@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 from dataclasses import dataclass
+from enum import Enum
 from typing import Dict, List, Literal
 
 import click
@@ -20,9 +21,6 @@ log = logging.getLogger(__name__)
 ANACONDA_CHANNEL_DATA = "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
 
 PIP_PATH = os.environ.get("SNOWCLI_PIP_PATH", "pip")
-
-YesNoAskOptionsType = Literal["yes", "no", "ask"]
-YesNoAskOptions = ["yes", "no", "ask"]
 
 
 @dataclass
@@ -202,7 +200,7 @@ def get_package_name_from_metadata(metadata_file_path: str) -> Requirement | Non
 def install_packages(
     file_name: str | None,
     perform_anaconda_check: bool = True,
-    package_native_libraries: YesNoAskOptionsType = "ask",
+    package_native_libraries: PypiOption = "ask",
     package_name: str | None = None,
 ) -> tuple[bool, SplitRequirements | None]:
     """
@@ -313,8 +311,8 @@ def install_packages(
                 "Continue with package installation?",
                 default=False,
             )
-            if package_native_libraries == "ask"
-            else package_native_libraries == "yes"
+            if package_native_libraries == PypiOption.ASK
+            else package_native_libraries == PypiOption.YES
         )
         if continue_installation:
             return True, second_chance_results
@@ -334,12 +332,7 @@ def get_snowflake_packages() -> List[str]:
         return []
 
 
-def yes_no_ask_callback(value: str):  # TODO: check if it can be replaced with enum
-    """
-    A typer callback to handle yes/no/ask parameters
-    """
-    if value not in YesNoAskOptions:
-        raise typer.BadParameter(
-            f"Valid values: {YesNoAskOptions}. You provided: {value}",
-        )
-    return value
+class PypiOption(Enum):
+    YES = "yes"
+    NO = "no"
+    ASK = "ask"

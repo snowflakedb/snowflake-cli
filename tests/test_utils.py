@@ -14,27 +14,6 @@ from requirements.requirement import Requirement
 from tests.testing_utils.fixtures import *
 
 
-@pytest.mark.parametrize("argument", snowcli.utils.package_utils.YesNoAskOptions)
-def test_yes_no_ask_callback_with_correct_argument(argument: str):
-    result = snowcli.utils.package_utils.yes_no_ask_callback(argument)
-
-    assert result == argument
-
-
-@pytest.mark.parametrize(
-    "argument",
-    ["Yes", "No", "Ask", "yse", 42, "and_now_for_something_completely_different"],
-)
-def test_yes_no_ask_callback_with_incorrect_argument(argument):
-    with pytest.raises(typer.BadParameter) as e_info:
-        snowcli.utils.package_utils.yes_no_ask_callback(argument)
-
-    assert (
-        e_info.value.message
-        == f"Valid values: ['yes', 'no', 'ask']. You provided: {argument}"
-    )
-
-
 def test_prepare_app_zip(
     temp_dir,
     app_zip: str,

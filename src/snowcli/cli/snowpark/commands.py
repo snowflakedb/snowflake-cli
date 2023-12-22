@@ -47,7 +47,7 @@ from snowcli.output.types import (
     SingleQueryResult,
 )
 from snowcli.utils import utils
-from snowcli.utils.package_utils import get_snowflake_packages
+from snowcli.utils.package_utils import PypiOption, get_snowflake_packages
 from snowcli.utils.zipper import add_file_to_existing_zip
 from snowflake.connector import DictCursor, ProgrammingError
 
@@ -370,9 +370,9 @@ def _get_snowpark_artefact_path(snowpark_definition: Dict):
 @with_output
 @with_project_definition("snowpark")
 def build(
-    pypi_download: str = PyPiDownloadOption,
+    pypi_download: PypiOption = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
-    package_native_libraries: str = PackageNativeLibrariesOption,
+    package_native_libraries: PypiOption = PackageNativeLibrariesOption,
     **options,
 ) -> CommandResult:
     """

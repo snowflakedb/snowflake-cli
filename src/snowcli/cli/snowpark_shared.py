@@ -8,19 +8,16 @@ import click
 import snowcli.utils.package_utils
 import typer
 from snowcli.utils import utils
-from snowcli.utils.package_utils import YesNoAskOptionsType, yes_no_ask_callback
+from snowcli.utils.package_utils import PypiOption
 from snowcli.utils.zipper import zip_dir
 
-PyPiDownloadOption = typer.Option(
-    "ask",
-    help="Whether to download non-Anaconda packages from PyPi. Valid values include: `yes`, `no`, `ask`. Default: `no`.",
-    callback=yes_no_ask_callback,
+PyPiDownloadOption: PypiOption = typer.Option(
+    PypiOption.ASK.value, help="Whether to download non-Anaconda packages from PyPi."
 )
 
-PackageNativeLibrariesOption = typer.Option(
-    "ask",
-    help="When using packages from PyPi, whether to allow native libraries. Valid values include: `yes`, `no`, `ask`. Default: `no`.",
-    callback=yes_no_ask_callback,
+PackageNativeLibrariesOption: PypiOption = typer.Option(
+    PypiOption.NO.value,
+    help="When using packages from PyPi, whether to allow native libraries.",
 )
 
 CheckAnacondaForPyPiDependencies: bool = typer.Option(
@@ -50,9 +47,9 @@ log = logging.getLogger(__name__)
 def snowpark_package(
     source: Path,
     artefact_file: Path,
-    pypi_download: YesNoAskOptionsType,
+    pypi_download: PypiOption,
     check_anaconda_for_pypi_deps: bool,
-    package_native_libraries: YesNoAskOptionsType,
+    package_native_libraries: PypiOption,
 ):
     log.info("Resolving any requirements from requirements.txt...")
     requirements = snowcli.utils.package_utils.parse_requirements()
@@ -75,8 +72,8 @@ def snowpark_package(
                     "Do you want to try to download non-Anaconda packages?",
                     default=True,
                 )
-                if pypi_download == "ask"
-                else pypi_download == "yes"
+                if pypi_download == PypiOption.ASK
+                else pypi_download == PypiOption.YES
             )
             if do_download:
                 log.info("Installing non-Anaconda packages...")
