@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import fnmatch
 import logging
-import os
 from pathlib import Path
-from typing import Generator, Iterator, List
+from typing import Iterator
 from zipfile import ZIP_DEFLATED, ZipFile
 
 log = logging.getLogger(__name__)
@@ -36,7 +35,7 @@ def add_file_to_existing_zip(zip_file: str, file: str):
         file (str): The new file to add
     """
     with ZipFile(zip_file, mode="a") as myzip:
-        myzip.write(file, os.path.basename(file))
+        myzip.write(file, Path(file).name)
 
 
 def zip_dir(source: Path, dest_zip: Path) -> None:

@@ -46,7 +46,6 @@ from snowcli.output.types import (
     MessageResult,
     SingleQueryResult,
 )
-from snowcli.utils import utils
 from snowcli.utils.models import PypiOption
 from snowcli.utils.package_utils import get_snowflake_packages
 from snowcli.utils.zipper import add_file_to_existing_zip

@@ -7,7 +7,6 @@ from pathlib import Path
 import click
 import snowcli.utils.package_utils
 import typer
-from snowcli.utils import utils
 from snowcli.utils.models import PypiOption
 from snowcli.utils.zipper import zip_dir
 

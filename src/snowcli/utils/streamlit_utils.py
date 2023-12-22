@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -20,7 +19,7 @@ def generate_streamlit_environment_file(
     requirements file exists.
     The file path is returned if it was generated, otherwise None is returned.
     """
-    if os.path.exists(requirements_file):
+    if Path(requirements_file).exists():
         snowflake_requirements = parse_requirements(requirements_file)
 
         # remove explicitly excluded anaconda dependencies
