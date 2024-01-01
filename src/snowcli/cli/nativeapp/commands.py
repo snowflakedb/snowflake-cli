@@ -11,8 +11,14 @@ from snowcli.cli.common.decorators import (
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.nativeapp.init import nativeapp_init
 from snowcli.cli.nativeapp.manager import NativeAppManager
+from snowcli.cli.nativeapp.policy import (
+    AllowAlwaysPolicy,
+    AskAlwaysPolicy,
+    DenyAlwaysPolicy,
+)
 from snowcli.cli.nativeapp.run_processor import NativeAppRunProcessor
 from snowcli.cli.nativeapp.teardown_processor import NativeAppTeardownProcessor
+from snowcli.cli.nativeapp.utils import is_tty_interactive
 from snowcli.cli.nativeapp.version.commands import app as versions_app
 from snowcli.output.decorators import with_output
 from snowcli.output.types import CommandResult, MessageResult
@@ -90,20 +96,70 @@ def app_bundle(
 @with_project_definition("native_app")
 @global_options_with_connection
 def app_run(
+    version: Optional[str] = typer.Option(
+        None,
+        help=f"""The identifier or 'version string' of the version you would like to create a version and/or patch for.
+        Defaults to undefined, which means the CLI will use the version, if present, in the manifest.yml.""",
+    ),
+    patch: Optional[str] = typer.Option(
+        None,
+        "--patch",
+        help=f"""The patch number you would like to create for an existing version.
+        Defaults to undefined if it is not set, which means the CLI will either use the version, if present, in the manifest.yml,
+        or auto-generate the patch number.""",
+    ),
+    from_release_directive: Optional[bool] = typer.Option(
+        False,
+        "--from-release-directive",
+        help=f"""Flag to upgrade the application using a release directive that must already be set on the application package.""",
+        is_flag=True,
+    ),
+    interactive: Optional[bool] = typer.Option(
+        False,
+        "--interactive",
+        "-i",
+        help=f"""Defaults to False. Passing in --interactive/-i turns this to true, i.e. we will prompt you to confirm certain actions before the CLI executes them.
+        If not provided, the CLI will try to determine whether you are in an interactive mode.""",
+        is_flag=True,
+    ),
+    force: Optional[bool] = typer.Option(
+        False,
+        "--force",
+        help=f"""Defaults to False. Passing in --force turns this to True, i.e. we will implicitly respond “yes” to any prompts that come up.
+        This flag should be passed in if you are not in an interactive mode and want the command to succeed.""",
+        is_flag=True,
+    ),
     **options,
 ) -> CommandResult:
     """
-    Creates an application package in your Snowflake account, uploads code files to its stage,
-    then creates (or upgrades) a development-mode instance of that application. As a note, this
-    command does not accept role or warehouse overrides to your `config.toml` file, because your
+    Without any flags, this command creates an application package in your Snowflake account, uploads code files to its stage,
+    then creates (or upgrades) a development-mode instance of that application.
+    If passed in the version, patch or release directive flags, this command upgrades your existing application instance, or creates one if none exists. It does not create an application package in this scenario.
+    As a note, this command does not accept role or warehouse overrides to your `config.toml` file, because your
     native app definition in `snowflake.yml` or `snowflake.local.yml` is used for any overrides.
     """
+
+    is_interactive = False
+    if force:
+        policy = AllowAlwaysPolicy()
+    elif interactive or is_tty_interactive():
+        is_interactive = True
+        policy = AskAlwaysPolicy()
+    else:
+        policy = DenyAlwaysPolicy()
+
     processor = NativeAppRunProcessor(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
     processor.build_bundle()
-    processor.process()
+    processor.process(
+        policy=policy,
+        version=version,
+        patch=patch,
+        from_release_directive=from_release_directive,
+        is_interactive=is_interactive,
+    )
     return MessageResult(
         f"Your application ({processor.app_name}) is now live:\n"
         + processor.get_snowsight_url()
@@ -142,7 +198,8 @@ def app_teardown(
     force: Optional[bool] = typer.Option(
         False,
         "--force",
-        help="Defaults to False. Passing in --force turns this to True, i.e. we will implicitly respond “yes” to any prompts that come up.",
+        help=f"""Defaults to False. Passing in --force turns this to True, i.e. we will implicitly respond “yes” to any prompts that come up.
+        This flag should be passed in if you are not in an interactive mode and want the command to succeed.""",
         is_flag=True,
     ),
     **options,

@@ -14,13 +14,14 @@ from snowcli.cli.nativeapp.policy import (
     AskAlwaysPolicy,
     DenyAlwaysPolicy,
 )
+from snowcli.cli.nativeapp.run_processor import NativeAppRunProcessor
 from snowcli.cli.nativeapp.utils import is_tty_interactive
 from snowcli.cli.nativeapp.version.version_processor import (
     NativeAppVersionCreateProcessor,
     NativeAppVersionDropProcessor,
 )
 from snowcli.output.decorators import with_output
-from snowcli.output.types import CommandResult, MessageResult
+from snowcli.output.types import CommandResult, MessageResult, QueryResult
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -106,6 +107,24 @@ def create(
         is_interactive=is_interactive,
     )
     return MessageResult(f"Version create is now complete.")
+
+
+@app.command("list")
+@with_output
+@with_project_definition("native_app")
+@global_options_with_connection
+def version_list(
+    **options,
+) -> CommandResult:
+    """
+    List all version available in an application package.
+    """
+    processor = NativeAppRunProcessor(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    cursor = processor.get_all_existing_versions()
+    return QueryResult(cursor)
 
 
 @app.command()
