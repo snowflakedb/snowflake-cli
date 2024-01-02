@@ -9,7 +9,7 @@ from snowcli.app.commands_registration.command_plugins_loader import (
 from snowcli.app.commands_registration.typer_registration import (
     register_commands_from_plugins,
 )
-from snowcli.utils import ThreadsafeCounter
+from snowcli.utils.threadsafe import ThreadsafeCounter
 
 
 @dataclass
