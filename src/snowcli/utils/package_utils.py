@@ -326,6 +326,6 @@ pip_failed_msg = """pip failed with return code {}.
             that isn't compatible with the host architecture -
             and generally means it has native libraries."""
 
-second_chance_msg = """Good news! The following package dependencies can be 
-                imported directly from Anaconda, and will be excluded from 
+second_chance_msg = """Good news! The following package dependencies can be
+                imported directly from Anaconda, and will be excluded from
                 the zip: {}"""
