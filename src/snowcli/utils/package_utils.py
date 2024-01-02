@@ -199,13 +199,9 @@ def install_packages(
         pip_install_result = _run_pip_install(package_name, "package")
 
     if pip_install_result != 0:
-        log.info(
-            f"pip failed with return code {pip_install_result}. "
-            "If pip is installed correctly, this may mean you`re trying to install a package "
-            "that isn't compatible with the host architecture - "
-            "and generally means it has native libraries."
-        )
+        log.info(pip_failed_msg.format(pip_install_result))
         return False, None
+
     if perform_anaconda_check:
         log.info("Checking for dependencies available in Anaconda...")
         # it's not over just yet. a non-Anaconda package may have brought in
@@ -327,3 +323,9 @@ def generate_deploy_stage_name(identifier: str) -> str:
             "",
         )
     )
+
+
+pip_failed_msg = """pip failed with return code {}.
+            If pip is installed correctly, this may mean you`re trying to install a package
+            that isn't compatible with the host architecture -
+            and generally means it has native libraries."""

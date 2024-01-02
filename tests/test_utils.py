@@ -1,4 +1,5 @@
 import json
+import logging
 from distutils.dir_util import copy_tree
 from pathlib import PosixPath
 from unittest.mock import MagicMock, mock_open, patch
@@ -10,6 +11,7 @@ import snowcli.utils.path_utils
 import snowcli.utils.streamlit_utils
 import typer
 from requirements.requirement import Requirement
+from snowcli.utils.models import PypiOption
 
 from tests.testing_utils.fixtures import *
 
@@ -322,3 +324,15 @@ def test_path_resolver(mock_system, argument, expected):
     mock_system.response_value = "Windows"
 
     assert snowcli.utils.path_utils.path_resolver(argument) == expected
+
+
+@mock.patch("snowcli.utils.package_utils._run_pip_install")
+def test_pip_fail_message(mock_pip, correct_requirements_txt, caplog):
+    mock_pip.return_value = 42
+
+    with caplog.at_level(logging.INFO, "snowcli.utils.package_utils"):
+        result = snowcli.utils.package_utils.install_packages(
+            correct_requirements_txt, True, PypiOption.YES
+        )
+
+    assert "pip failed with return code 42" in caplog.text
