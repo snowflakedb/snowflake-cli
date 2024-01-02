@@ -3,14 +3,10 @@ import logging
 from distutils.dir_util import copy_tree
 from pathlib import PosixPath
 from unittest.mock import MagicMock, mock_open, patch
-from zipfile import ZipFile
 
-import snowcli.utils.file_utils
-import snowcli.utils.package_utils
-import snowcli.utils.path_utils
-import snowcli.utils.streamlit_utils
 import typer
 from requirements.requirement import Requirement
+from snowcli.utils import file_utils, package_utils, path_utils, streamlit_utils
 from snowcli.utils.models import PypiOption
 
 from tests.testing_utils.fixtures import *
@@ -21,9 +17,7 @@ def test_prepare_app_zip(
     app_zip: str,
     temp_directory_for_app_zip: str,
 ):
-    result = snowcli.utils.file_utils.prepare_app_zip(
-        Path(app_zip), temp_directory_for_app_zip
-    )
+    result = file_utils.prepare_app_zip(Path(app_zip), temp_directory_for_app_zip)
     assert result == os.path.join(temp_directory_for_app_zip, Path(app_zip).name)
 
 
@@ -31,7 +25,7 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_source(
     temp_directory_for_app_zip,
 ):
     with pytest.raises(FileNotFoundError) as expected_error:
-        snowcli.utils.file_utils.prepare_app_zip(
+        file_utils.prepare_app_zip(
             Path("/non/existent/path"), temp_directory_for_app_zip
         )
 
@@ -41,7 +35,7 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_source(
 
 def test_prepare_app_zip_if_exception_is_raised_if_no_dst(app_zip):
     with pytest.raises(FileNotFoundError) as expected_error:
-        snowcli.utils.file_utils.prepare_app_zip(Path(app_zip), "/non/existent/path")
+        file_utils.prepare_app_zip(Path(app_zip), "/non/existent/path")
 
     assert expected_error.value.errno == 2
     assert expected_error.type == FileNotFoundError
@@ -50,16 +44,14 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_dst(app_zip):
 def test_parse_requierements_with_correct_file(
     correct_requirements_snowflake_txt: str, temp_dir
 ):
-    result = snowcli.utils.package_utils.parse_requirements(
-        correct_requirements_snowflake_txt
-    )
+    result = package_utils.parse_requirements(correct_requirements_snowflake_txt)
 
     assert len(result) == len(test_data.requirements)
 
 
 def test_parse_requirements_with_nonexistent_file(temp_dir):
     path = os.path.join(temp_dir, "non_existent.file")
-    result = snowcli.utils.package_utils.parse_requirements(path)
+    result = package_utils.parse_requirements(path)
 
     assert result == []
 
@@ -71,9 +63,7 @@ def test_anaconda_packages(mock_requests):
     mock_response.json.return_value = test_data.anaconda_response
     mock_requests.get.return_value = mock_response
 
-    anaconda_packages = snowcli.utils.package_utils.parse_anaconda_packages(
-        test_data.packages
-    )
+    anaconda_packages = package_utils.parse_anaconda_packages(test_data.packages)
     assert (
         Requirement.parse_line("snowflake-connector-python")
         in anaconda_packages.snowflake
@@ -91,9 +81,7 @@ def test_anaconda_packages_streamlit(mock_requests):
     mock_requests.get.return_value = mock_response
 
     test_data.packages.append(Requirement.parse_line("streamlit"))
-    anaconda_packages = snowcli.utils.package_utils.parse_anaconda_packages(
-        test_data.packages
-    )
+    anaconda_packages = package_utils.parse_anaconda_packages(test_data.packages)
 
     assert Requirement.parse_line("streamlit") not in anaconda_packages.other
 
@@ -106,18 +94,18 @@ def test_anaconda_packages_with_incorrect_response(mock_requests):
     mock_requests.get.return_value = mock_response
 
     with pytest.raises(typer.Abort):
-        result = snowcli.utils.package_utils.parse_anaconda_packages(test_data.packages)
+        result = package_utils.parse_anaconda_packages(test_data.packages)
 
 
 def test_generate_streamlit_environment_file_with_no_requirements(temp_dir):
-    result = snowcli.utils.streamlit_utils.generate_streamlit_environment_file(
+    result = streamlit_utils.generate_streamlit_environment_file(
         [],
     )
     assert result is None
 
 
 def test_generate_streamlit_file(correct_requirements_snowflake_txt: str, temp_dir):
-    result = snowcli.utils.streamlit_utils.generate_streamlit_environment_file(
+    result = streamlit_utils.generate_streamlit_environment_file(
         [], correct_requirements_snowflake_txt
     )
 
@@ -129,7 +117,7 @@ def test_generate_streamlit_environment_file_with_excluded_dependencies(
     correct_requirements_snowflake_txt: str, temp_dir
 ):
 
-    result = snowcli.utils.streamlit_utils.generate_streamlit_environment_file(
+    result = streamlit_utils.generate_streamlit_environment_file(
         test_data.excluded_anaconda_deps, correct_requirements_snowflake_txt
     )
 
@@ -142,7 +130,7 @@ def test_generate_streamlit_environment_file_with_excluded_dependencies(
 
 
 def test_generate_streamlit_package_wrapper():
-    result = snowcli.utils.streamlit_utils.generate_streamlit_package_wrapper(
+    result = streamlit_utils.generate_streamlit_package_wrapper(
         "example_stage", "example_module", False
     )
 
@@ -155,15 +143,13 @@ def test_generate_streamlit_package_wrapper():
 def test_get_package_name_from_metadata_using_correct_data(
     correct_metadata_file: str, tmp_path
 ):
-    result = snowcli.utils.package_utils.get_package_name_from_metadata(
-        correct_metadata_file
-    )
+    result = package_utils.get_package_name_from_metadata(correct_metadata_file)
     assert result == Requirement.parse_line("my-awesome-package==0.0.1")
 
 
 def test_generate_snowpark_coverage_wrapper(temp_dir):
     path = os.path.join(temp_dir, "coverage.py")
-    snowcli.utils.file_utils.generate_snowpark_coverage_wrapper(
+    file_utils.generate_snowpark_coverage_wrapper(
         target_file=path,
         proc_name="process",
         proc_signature="signature",
@@ -200,13 +186,13 @@ def test_generate_snowpark_coverage_wrapper(temp_dir):
 def test_get_packages(contents, expected, correct_requirements_snowflake_txt):
     with patch("builtins.open", mock_open(read_data=contents)) as mock_file:
         mock_file.return_value.__iter__.return_value = contents.splitlines()
-        result = snowcli.utils.package_utils.get_snowflake_packages()
+        result = package_utils.get_snowflake_packages()
     mock_file.assert_called_with("requirements.snowflake.txt", encoding="utf-8")
     assert result == expected
 
 
 def test_parse_requirements(correct_requirements_txt: str):
-    result = snowcli.utils.package_utils.parse_requirements(correct_requirements_txt)
+    result = package_utils.parse_requirements(correct_requirements_txt)
 
     assert len(result) == 3
     assert result[0].name == "Django"
@@ -236,9 +222,7 @@ def test_parse_anaconda_packages(mock_get):
         Requirement.parse("pandas==1.0.0"),
         Requirement.parse("FuelSDK>=0.9.3"),
     ]
-    split_requirements = snowcli.utils.package_utils.parse_anaconda_packages(
-        packages=packages
-    )
+    split_requirements = package_utils.parse_anaconda_packages(packages=packages)
     assert len(split_requirements.snowflake) == 1
     assert len(split_requirements.other) == 1
     assert split_requirements.snowflake[0].name == "pandas"
@@ -256,7 +240,7 @@ def test_get_downloaded_packages(test_root_path, temp_dir):
         os.path.join(test_root_path, "test_data", "local_packages"),
         temp_dir,
     )
-    requirements_with_files = snowcli.utils.package_utils.get_downloaded_packages()
+    requirements_with_files = package_utils.get_downloaded_packages()
 
     assert len(requirements_with_files) == 4
 
@@ -302,7 +286,7 @@ def test_deduplicate_and_sort_reqs():
         Requirement.parse("a==0.9.3"),
         Requirement.parse("c>=0.9.5"),
     ]
-    sorted_packages = snowcli.utils.package_utils.deduplicate_and_sort_reqs(packages)
+    sorted_packages = package_utils.deduplicate_and_sort_reqs(packages)
     assert len(sorted_packages) == 4
     assert sorted_packages[0].name == "a"
     assert sorted_packages[0].specifier is True
@@ -323,7 +307,7 @@ def test_deduplicate_and_sort_reqs():
 def test_path_resolver(mock_system, argument, expected):
     mock_system.response_value = "Windows"
 
-    assert snowcli.utils.path_utils.path_resolver(argument) == expected
+    assert path_utils.path_resolver(argument) == expected
 
 
 @mock.patch("snowcli.utils.package_utils._run_pip_install")
@@ -331,7 +315,7 @@ def test_pip_fail_message(mock_pip, correct_requirements_txt, caplog):
     mock_pip.return_value = 42
 
     with caplog.at_level(logging.INFO, "snowcli.utils.package_utils"):
-        result = snowcli.utils.package_utils.install_packages(
+        result = package_utils.install_packages(
             correct_requirements_txt, True, PypiOption.YES
         )
 
