@@ -218,11 +218,7 @@ def install_packages(
         )
         second_chance_snowflake_packages = second_chance_results.snowflake
         if len(second_chance_snowflake_packages) > 0:
-            log.info(
-                "Good news! The following package dependencies can be "
-                "imported directly from Anaconda, and will be excluded from "
-                f"the zip: {second_chance_snowflake_packages}"
-            )
+            log.info(second_chance_msg.format(second_chance_results))
         else:
             log.info("None of the package dependencies were found on Anaconda")
         second_chance_snowflake_package_names = [
@@ -329,3 +325,7 @@ pip_failed_msg = """pip failed with return code {}.
             If pip is installed correctly, this may mean you`re trying to install a package
             that isn't compatible with the host architecture -
             and generally means it has native libraries."""
+
+second_chance_msg = """Good news! The following package dependencies can be 
+                imported directly from Anaconda, and will be excluded from 
+                the zip: {}"""
