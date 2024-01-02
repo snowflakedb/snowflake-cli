@@ -7,7 +7,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, List, Set
 
-import snowcli.utils.file_utils
 import typer
 from click import ClickException
 from snowcli.cli.common.cli_global_context import cli_context
@@ -46,6 +45,7 @@ from snowcli.output.types import (
     MessageResult,
     SingleQueryResult,
 )
+from snowcli.utils import file_utils
 from snowcli.utils.models import PypiOption
 from snowcli.utils.package_utils import get_snowflake_packages
 from snowcli.utils.zipper import add_file_to_existing_zip
@@ -448,7 +448,7 @@ def _replace_handler_in_zip(
     handler_module, _, handler_function = handler.rpartition(".")
     with TemporaryDirectory() as temp_dir:
         wrapper_file = os.path.join(temp_dir, "snowpark_coverage.py")
-        snowcli.utils.file_utils.generate_snowpark_coverage_wrapper(
+        file_utils.generate_snowpark_coverage_wrapper(
             target_file=wrapper_file,
             proc_name=proc_name,
             proc_signature=proc_signature,
