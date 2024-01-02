@@ -8,7 +8,7 @@ from typing import Optional, Union
 
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.project.util import to_string_literal
-from snowcli.utils import path_resolver
+from snowcli.utils.path_utils import path_resolver
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__file__)

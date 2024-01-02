@@ -10,7 +10,7 @@ from snowcli.cli.connection.util import MissingConnectionHostError, make_snowsig
 from snowcli.cli.object.stage.manager import StageManager
 from snowcli.cli.project.util import unquote_identifier
 from snowcli.cli.snowpark_shared import snowpark_package
-from snowcli.utils import (
+from snowcli.utils.streamlit_utils import (
     generate_streamlit_environment_file,
     generate_streamlit_package_wrapper,
 )
