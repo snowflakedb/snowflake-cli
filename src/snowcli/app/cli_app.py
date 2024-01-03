@@ -22,10 +22,11 @@ from snowcli.app.dev.pycharm_remote_debug import (
     setup_pycharm_remote_debugger_if_provided,
 )
 from snowcli.app.main_typer import SnowCliMainTyper
-from snowcli.config import cli_config, config_init
+from snowcli.config import config_init
 from snowcli.output.formats import OutputFormat
 from snowcli.output.printing import print_result
 from snowcli.output.types import CollectionResult
+from snowflake.connector.config_manager import CONFIG_MANAGER
 
 app: SnowCliMainTyper = SnowCliMainTyper()
 log = logging.getLogger(__name__)
@@ -110,7 +111,10 @@ def _info_callback(value: bool):
         result = CollectionResult(
             [
                 {"key": "version", "value": __about__.VERSION},
-                {"key": "default_config_file_path", "value": cli_config.file_path},
+                {
+                    "key": "default_config_file_path",
+                    "value": str(CONFIG_MANAGER.file_path),
+                },
             ],
         )
         print_result(result, output_format=OutputFormat.JSON)
