@@ -3,7 +3,11 @@ import unittest
 import typer
 from click import ClickException
 from snowcli.cli.nativeapp.exceptions import ApplicationPackageDoesNotExistError
-from snowcli.cli.nativeapp.policy import AllowAlwaysPolicy, AskAlwaysPolicy
+from snowcli.cli.nativeapp.policy import (
+    AllowAlwaysPolicy,
+    AskAlwaysPolicy,
+    DenyAlwaysPolicy,
+)
 from snowcli.cli.nativeapp.version.version_processor import (
     NativeAppVersionDropProcessor,
 )
@@ -17,6 +21,7 @@ DROP_PROCESSOR = "NativeAppVersionDropProcessor"
 
 allow_always_policy = AllowAlwaysPolicy()
 ask_always_policy = AskAlwaysPolicy()
+deny_always_policy = DenyAlwaysPolicy()
 
 
 def _get_version_drop_processor():
@@ -32,7 +37,10 @@ def _get_version_drop_processor():
 @mock.patch(
     f"{VERSION_MODULE}.{DROP_PROCESSOR}.get_existing_app_pkg_info", return_value=None
 )
-def test_process_has_no_existing_app_pkg(mock_get_existing, temp_dir):
+@pytest.mark.parametrize(
+    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+)
+def test_process_has_no_existing_app_pkg(mock_get_existing, policy_param, temp_dir):
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -44,7 +52,7 @@ def test_process_has_no_existing_app_pkg(mock_get_existing, temp_dir):
     processor = _get_version_drop_processor()
     with pytest.raises(ApplicationPackageDoesNotExistError):
         processor.process(
-            version="some_version", policy=ask_always_policy
+            version="some_version", policy=policy_param
         )  # policy does not matter here
 
 
@@ -56,11 +64,15 @@ def test_process_has_no_existing_app_pkg(mock_get_existing, temp_dir):
 @mock.patch(f"{VERSION_MODULE}.{DROP_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=(None, None))
 @mock.patch(f"{VERSION_MODULE}.log.info")
+@pytest.mark.parametrize(
+    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+)
 def test_process_no_version_from_user_no_version_in_manifest(
     mock_log,
     mock_version_info_in_manifest,
     mock_build_bundle,
     mock_get_existing,
+    policy_param,
     temp_dir,
 ):
     current_working_directory = os.getcwd()
@@ -73,14 +85,15 @@ def test_process_no_version_from_user_no_version_in_manifest(
     processor = _get_version_drop_processor()
     with pytest.raises(ClickException):
         processor.process(
-            version=None, policy=allow_always_policy
+            version=None, policy=policy_param
         )  # policy does not matter here
     mock_log.assert_called_once()
     mock_build_bundle.assert_called_once()
     mock_version_info_in_manifest.assert_called_once()
 
 
-# Test version drop process when user did not pass in a version AND manifest file has a version in it AND --force is False AND interactive mode is False
+# Test version drop process when user did not pass in a version AND manifest file has a version in it AND --force is False AND interactive mode is False AND --interactive is False
+# Test version drop process when user did not pass in a version AND manifest file has a version in it AND --force is False AND interactive mode is False AND --interactive is True AND user does not want to proceed
 # Test version drop process when user did not pass in a version AND manifest file has a version in it AND --force is False AND interactive mode is True AND user does not want to proceed
 @mock.patch(
     f"{VERSION_MODULE}.{DROP_PROCESSOR}.get_existing_app_pkg_info",
@@ -88,19 +101,21 @@ def test_process_no_version_from_user_no_version_in_manifest(
 )
 @mock.patch(f"{VERSION_MODULE}.{DROP_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=("manifest_version", None))
-@mock.patch(f"{VERSION_MODULE}.is_user_in_interactive_mode")
 @mock.patch(f"snowcli.cli.nativeapp.policy.{TYPER_CONFIRM}", return_value=False)
-@pytest.mark.parametrize("is_interactive", [False, True])
+@pytest.mark.parametrize(
+    "policy_param, expected_code",
+    [(deny_always_policy, 1), (ask_always_policy, 0), (ask_always_policy, 0)],
+)
 def test_process_drop_cannot_complete(
     mock_typer_confirm,
-    mock_is_interactive,
     mock_version_info_in_manifest,
     mock_build_bundle,
     mock_get_existing,
-    is_interactive,
+    policy_param,
+    expected_code,
     temp_dir,
 ):
-    mock_is_interactive.return_value = is_interactive
+
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -110,13 +125,12 @@ def test_process_drop_cannot_complete(
 
     processor = _get_version_drop_processor()
     with pytest.raises(typer.Exit):
-        result = processor.process(version=None, policy=ask_always_policy)
-        assert result.exit_code == (
-            not is_interactive
-        )  # exit_code is 1 if is_interactive is False/0
+        result = processor.process(version=None, policy=policy_param)
+        assert result.exit_code == expected_code
 
 
 # Test version drop process when user did not pass in a version AND manifest file has a version in it AND --force is True
+# Test version drop process when user did not pass in a version AND manifest file has a version in it AND --force is False AND interactive mode is False AND --interactive is True AND user wants to proceed
 # Test version drop process when user did not pass in a version AND manifest file has a version in it AND --force is False AND interactive mode is True AND user wants to proceed
 @mock.patch(
     f"{VERSION_MODULE}.{DROP_PROCESSOR}.get_existing_app_pkg_info",
@@ -125,21 +139,20 @@ def test_process_drop_cannot_complete(
 @mock.patch(f"{VERSION_MODULE}.{DROP_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=("manifest_version", None))
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(f"{VERSION_MODULE}.is_user_in_interactive_mode", return_value=True)
 @mock.patch(f"snowcli.cli.nativeapp.policy.{TYPER_CONFIRM}", return_value=True)
-@pytest.mark.parametrize("var_policy", [allow_always_policy, ask_always_policy])
+@pytest.mark.parametrize(
+    "policy_param", [allow_always_policy, ask_always_policy, ask_always_policy]
+)
 def test_process_drop_success(
     mock_typer_confirm,
-    mock_is_interactive,
     mock_execute,
     mock_version_info_in_manifest,
     mock_build_bundle,
     mock_get_existing,
-    var_policy,
+    policy_param,
     temp_dir,
     mock_cursor,
 ):
-    mock_is_interactive.return_value = True
 
     side_effects, expected = mock_execute_helper(
         [
@@ -167,5 +180,5 @@ def test_process_drop_success(
     )
 
     processor = _get_version_drop_processor()
-    processor.process(version=None, policy=var_policy)
+    processor.process(version=None, policy=policy_param)
     assert mock_execute.mock_calls == expected

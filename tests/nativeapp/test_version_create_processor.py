@@ -4,7 +4,11 @@ from textwrap import dedent
 import typer
 from click import ClickException
 from snowcli.cli.nativeapp.constants import SPECIAL_COMMENT
-from snowcli.cli.nativeapp.policy import AllowAlwaysPolicy, AskAlwaysPolicy
+from snowcli.cli.nativeapp.policy import (
+    AllowAlwaysPolicy,
+    AskAlwaysPolicy,
+    DenyAlwaysPolicy,
+)
 from snowcli.cli.nativeapp.version.version_processor import (
     NativeAppVersionCreateProcessor,
 )
@@ -18,6 +22,7 @@ CREATE_PROCESSOR = "NativeAppVersionCreateProcessor"
 
 allow_always_policy = AllowAlwaysPolicy()
 ask_always_policy = AskAlwaysPolicy()
+deny_always_policy = DenyAlwaysPolicy()
 
 
 def _get_version_create_processor():
@@ -244,8 +249,11 @@ def test_add_new_patch_custom(mock_execute, temp_dir, mock_cursor):
 @mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=(None, None))
 @mock.patch(f"{VERSION_MODULE}.log.info")
+@pytest.mark.parametrize(
+    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+)
 def test_process_no_version_from_user_no_version_in_manifest(
-    mock_log, mock_version_info_in_manifest, mock_build_bundle, temp_dir
+    mock_log, mock_version_info_in_manifest, mock_build_bundle, policy_param, temp_dir
 ):
     current_working_directory = os.getcwd()
     create_named_file(
@@ -257,8 +265,8 @@ def test_process_no_version_from_user_no_version_in_manifest(
     processor = _get_version_create_processor()
     with pytest.raises(ClickException):
         processor.process(
-            None, None, policy=allow_always_policy
-        )  # policy does not matter here
+            None, None, policy=policy_param
+        )  # policy does not matter here, so it should succeed for all policies.
     mock_log.assert_called_once()
     mock_build_bundle.assert_called_once()
     mock_version_info_in_manifest.assert_called_once()
@@ -287,6 +295,9 @@ def test_process_no_version_from_user_no_version_in_manifest(
     f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_version_info", return_value=None
 )
 @mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.add_new_version", return_value=None)
+@pytest.mark.parametrize(
+    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+)
 def test_process_no_existing_release_directives_or_versions(
     mock_add_new_version,
     mock_existing_version_info,
@@ -298,6 +309,7 @@ def test_process_no_existing_release_directives_or_versions(
     mock_check_git,
     mock_find_version,
     mock_build_bundle,
+    policy_param,
     temp_dir,
     mock_cursor,
 ):
@@ -322,9 +334,7 @@ def test_process_no_existing_release_directives_or_versions(
     )
 
     processor = _get_version_create_processor()
-    processor.process(
-        version, 12, policy=allow_always_policy
-    )  # policy does not matter here
+    processor.process(version, 12, policy=policy_param)  # policy does not matter here
     assert mock_execute.mock_calls == expected
     mock_build_bundle.assert_called_once()
     mock_find_version.assert_not_called()
@@ -361,6 +371,9 @@ def test_process_no_existing_release_directives_or_versions(
 @mock.patch(
     f"{VERSION_MODULE}.{CREATE_PROCESSOR}.add_new_patch_to_version", return_value=None
 )
+@pytest.mark.parametrize(
+    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+)
 def test_process_no_existing_release_directives_w_existing_version(
     mock_add_patch,
     mock_add_new_version,
@@ -373,6 +386,7 @@ def test_process_no_existing_release_directives_w_existing_version(
     mock_check_git,
     mock_find_version,
     mock_build_bundle,
+    policy_param,
     temp_dir,
     mock_cursor,
 ):
@@ -403,9 +417,7 @@ def test_process_no_existing_release_directives_w_existing_version(
     )
 
     processor = _get_version_create_processor()
-    processor.process(
-        version, 12, policy=allow_always_policy
-    )  # policy does not matter here
+    processor.process(version, 12, policy=policy_param)  # policy does not matter here
     assert mock_execute.mock_calls == expected
     mock_build_bundle.assert_called_once()
     mock_find_version.assert_not_called()
@@ -419,7 +431,8 @@ def test_process_no_existing_release_directives_w_existing_version(
     mock_add_patch.assert_called_once()
 
 
-# Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is False AND interactive mode is False
+# Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is False AND interactive mode is False AND --interactive is False
+# Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is False AND interactive mode is False AND --interactive is True AND  user does not want to proceed
 # Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is False AND interactive mode is True AND user does not want to proceed
 @mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(f"{VERSION_MODULE}.check_index_changes_in_git_repo", return_value=None)
@@ -438,12 +451,13 @@ def test_process_no_existing_release_directives_w_existing_version(
     f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_release_directive_info_for_version",
     return_value=None,
 )
-@mock.patch(f"{VERSION_MODULE}.is_user_in_interactive_mode")
 @mock.patch(f"snowcli.cli.nativeapp.policy.{TYPER_CONFIRM}", return_value=False)
-@pytest.mark.parametrize("is_interactive", [False, True])
+@pytest.mark.parametrize(
+    "policy_param, expected_code",
+    [(deny_always_policy, 1), (ask_always_policy, 0), (ask_always_policy, 0)],
+)
 def test_process_existing_release_directives_user_does_not_proceed(
     mock_typer_confirm,
-    mock_is_interactive,
     mock_rd,
     mock_sync,
     mock_apply_package_scripts,
@@ -451,12 +465,12 @@ def test_process_existing_release_directives_user_does_not_proceed(
     mock_create_app_pkg,
     mock_check_git,
     mock_build_bundle,
-    is_interactive,
+    policy_param,
+    expected_code,
     temp_dir,
     mock_cursor,
 ):
     version = "V1"
-    mock_is_interactive.return_value = is_interactive
     mock_rd.return_value = [
         {"name": "RD1", "version": version},
         {"name": "RD3", "version": version},
@@ -482,8 +496,8 @@ def test_process_existing_release_directives_user_does_not_proceed(
 
     processor = _get_version_create_processor()
     with pytest.raises(typer.Exit):
-        result = processor.process(version, 12, policy=ask_always_policy)
-        assert result.exit_code == (not is_interactive)
+        result = processor.process(version, 12, policy=policy_param)
+        assert result.exit_code == expected_code
     assert mock_execute.mock_calls == expected
     mock_build_bundle.assert_called_once()
     mock_check_git.assert_called_once()
@@ -494,6 +508,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
 
 
 # Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is True
+# Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is False AND interactive mode is False AND --interactive is True AND user wants to proceed
 # Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is False AND interactive mode is True AND user wants to proceed
 @mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(f"{VERSION_MODULE}.check_index_changes_in_git_repo", return_value=None)
@@ -518,12 +533,12 @@ def test_process_existing_release_directives_user_does_not_proceed(
 @mock.patch(
     f"{VERSION_MODULE}.{CREATE_PROCESSOR}.add_new_patch_to_version", return_value=None
 )
-@mock.patch(f"{VERSION_MODULE}.is_user_in_interactive_mode", return_value=True)
 @mock.patch(f"snowcli.cli.nativeapp.policy.{TYPER_CONFIRM}", return_value=True)
-@pytest.mark.parametrize("var_policy", [allow_always_policy, ask_always_policy])
+@pytest.mark.parametrize(
+    "policy_param", [allow_always_policy, ask_always_policy, ask_always_policy]
+)
 def test_process_existing_release_directives_w_existing_version_two(
     mock_typer_confirm,
-    mock_is_interactive,
     mock_add_patch,
     mock_existing_version_info,
     mock_rd,
@@ -533,7 +548,7 @@ def test_process_existing_release_directives_w_existing_version_two(
     mock_create_app_pkg,
     mock_check_git,
     mock_build_bundle,
-    var_policy,
+    policy_param,
     temp_dir,
     mock_cursor,
 ):
@@ -568,9 +583,7 @@ def test_process_existing_release_directives_w_existing_version_two(
     )
 
     processor = _get_version_create_processor()
-    result = processor.process(
-        version, 12, policy=var_policy
-    )  # policy does not matter here
+    result = processor.process(version, 12, policy=policy_param)
     assert mock_execute.mock_calls == expected
     mock_build_bundle.assert_called_once()
     mock_check_git.assert_called_once()

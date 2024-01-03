@@ -9,7 +9,12 @@ from snowcli.cli.common.decorators import (
     with_project_definition,
 )
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
-from snowcli.cli.nativeapp.policy import AllowAlwaysPolicy, AskAlwaysPolicy
+from snowcli.cli.nativeapp.policy import (
+    AllowAlwaysPolicy,
+    AskAlwaysPolicy,
+    DenyAlwaysPolicy,
+)
+from snowcli.cli.nativeapp.utils import is_interactive_mode
 from snowcli.cli.nativeapp.version.version_processor import (
     NativeAppVersionCreateProcessor,
     NativeAppVersionDropProcessor,
@@ -43,10 +48,25 @@ def create(
         Defaults to undefined if it is not set, which means the CLI will either use the version, if present, in the manifest.yml,
         or auto-generate the patch number.""",
     ),
+    interactive: Optional[bool] = typer.Option(
+        False,
+        "--interactive",
+        "-i",
+        help=f"""Defaults to False. Passing in --interactive/-i turns this to true, i.e. we will prompt you to confirm certain actions before the CLI executes them.
+        If not provided, the CLI will try to determine whether you are in an interactive mode.""",
+        is_flag=True,
+    ),
     force: Optional[bool] = typer.Option(
         False,
         "--force",
-        help="Defaults to False. Passing in --force turns this to True, i.e. we will implicitly respond “yes” to any prompts that come up.",
+        help=f"""Defaults to False. Passing in --force turns this to True, i.e. we will implicitly respond “yes” to any prompts that come up.
+        This flag should be passed in if you are not in an interactive mode and want the command to succeed.""",
+        is_flag=True,
+    ),
+    skip_git_check: Optional[bool] = typer.Option(
+        False,
+        "--skip-git-check",
+        help="Defaults to False. Passing in --skip-git-check turns this to True, i.e. we will skip checking if your project has any untracked or stages files in git.",
         is_flag=True,
     ),
     **options,
@@ -59,14 +79,16 @@ def create(
 
     if force:
         policy = AllowAlwaysPolicy()
-    else:
+    elif interactive or is_interactive_mode():
         policy = AskAlwaysPolicy()
+    else:
+        policy = DenyAlwaysPolicy()
 
     processor = NativeAppVersionCreateProcessor(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    processor.process(version, patch, policy)
+    processor.process(version, patch, policy, skip_git_check)
     return MessageResult(f"Version create is now complete.")
 
 
@@ -79,10 +101,19 @@ def drop(
         None,
         help="Version of the app package that you would like to drop. Defaults to the version specified in the manifest.yml.",
     ),
+    interactive: Optional[bool] = typer.Option(
+        False,
+        "--interactive",
+        "-i",
+        help=f"""Defaults to False. Passing in --interactive/-i turns this to true, i.e. we will prompt you to confirm certain actions before the CLI executes them.
+        If not provided, the CLI will try to determine whether you are in an interactive mode.""",
+        is_flag=True,
+    ),
     force: Optional[bool] = typer.Option(
         False,
         "--force",
-        help="Defaults to False. Passing in --force turns this to True, i.e. we will implicitly respond “yes” to any prompts that come up.",
+        help=f"""Defaults to False. Passing in --force turns this to True, i.e. we will implicitly respond “yes” to any prompts that come up.
+        This flag should be passed in if you are not in an interactive mode and want the command to succeed.""",
         is_flag=True,
     ),
     **options,
@@ -93,8 +124,10 @@ def drop(
     """
     if force:
         policy = AllowAlwaysPolicy()
-    else:
+    elif interactive or is_interactive_mode():
         policy = AskAlwaysPolicy()
+    else:
+        policy = DenyAlwaysPolicy()
 
     processor = NativeAppVersionDropProcessor(
         project_definition=cli_context.project_definition,

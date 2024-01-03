@@ -1,4 +1,3 @@
-from functools import cache
 from sys import stdin, stdout
 from typing import Callable, List, Optional
 
@@ -24,6 +23,5 @@ def needs_confirmation(needs_confirm: bool, auto_yes: bool) -> bool:
     return needs_confirm and not auto_yes
 
 
-@cache
-def is_user_in_interactive_mode():
+def is_interactive_mode():
     return stdin.isatty() and stdout.isatty()

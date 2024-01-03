@@ -16,12 +16,11 @@ from snowcli.cli.nativeapp.manager import (
     NativeAppManager,
     ensure_correct_owner,
 )
-from snowcli.cli.nativeapp.policy import PolicyBase, TaskContext
+from snowcli.cli.nativeapp.policy import PolicyBase
 from snowcli.cli.nativeapp.run_processor import NativeAppRunProcessor
 from snowcli.cli.nativeapp.utils import (
     find_all_rows,
     find_first_row,
-    is_user_in_interactive_mode,
 )
 from snowcli.cli.project.util import unquote_identifier
 from snowcli.exception import SnowflakeSQLExecutionError
@@ -48,15 +47,13 @@ def check_index_changes_in_git_repo(
             print("Changes detected in your git repository!")
             repo.git.execute(["git", "status"])
 
-            ctx = TaskContext(
-                user_prompt="You have local changes in this repository that are not part of a previous commit. Do you still want to continue?",
-                is_interactive_mode=is_user_in_interactive_mode(),
+            user_prompt = (
+                "You have local changes in this repository that are not part of a previous commit. Do you still want to continue?",
             )
-
-            if not policy.should_proceed(ctx):
+            if not policy.should_proceed(user_prompt):
                 if policy.exit_code:
                     print(
-                        "Cannot create a new version non-interactively without --force"
+                        "Cannot create a new version non-interactively without --force."
                     )
                 else:
                     print("Not creating a new version.")
@@ -164,11 +161,12 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         version: Optional[str],
         patch: Optional[str],
         policy: PolicyBase,
+        skip_git_check: bool = False,
         *args,
         **kwargs,
     ):
         """
-        Perform bundle, app package creation, stage upload, version and/or patch to an application package. If --force is provided, then no user prompts will be executed.
+        Perform bundle, app package creation, stage upload, version and/or patch to an application package.
         """
 
         # We need build_bundle() to (optionally) find version in manifest.yml and create app package
@@ -190,10 +188,11 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                     "Manifest.yml file does not contain a value for the version field."
                 )
 
-        check_index_changes_in_git_repo(
-            project_root=self.project_root,
-            policy=policy,
-        )
+        if not skip_git_check:
+            check_index_changes_in_git_repo(
+                project_root=self.project_root,
+                policy=policy,
+            )
 
         self.create_app_package()
 
@@ -220,12 +219,11 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 )
             )
 
-            ctx = TaskContext(
-                user_prompt=f"Are you sure you want to create a new patch for version {version} of application package {self.package_name}? Once added, this operation cannot be undone.",
-                is_interactive_mode=is_user_in_interactive_mode(),
+            user_prompt = (
+                f"Are you sure you want to create a new patch for version {version} of application package {self.package_name}? Once added, this operation cannot be undone.",
             )
-            if not policy.should_proceed(ctx):
-                if policy.exit_code:
+            if not policy.should_proceed(user_prompt):
+                if policy.exit_code:  # is 1
                     print(
                         "Cannot create a new patch non-interactively without --force."
                     )
@@ -287,13 +285,11 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
         )
 
         # If user did not provide --force, ask for confirmation
-        ctx = TaskContext(
-            user_prompt=f"Are you sure you want to drop version {version} of application package {self.package_name}? Once dropped, this operation cannot be undone.",
-            is_interactive_mode=is_user_in_interactive_mode(),
+        user_prompt = (
+            f"Are you sure you want to drop version {version} of application package {self.package_name}? Once dropped, this operation cannot be undone.",
         )
-
-        if not policy.should_proceed(ctx):
-            if policy.exit_code:  # Interactive Mode disabled
+        if not policy.should_proceed(user_prompt):
+            if policy.exit_code:  # is 1
                 print("Cannot drop version non-interactively without --force.")
             else:  # User did not want to drop
                 print("Not dropping version.")
