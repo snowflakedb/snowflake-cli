@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "snowflake-cli-labs"
-authors = [{ name = "Snowflake, Inc" }]
+authors = [{ name = "Snowflake Inc." }]
 license = { file = "LICENSE" }
 dynamic = ["version"]
 requires-python = ">=3.8"
