@@ -25,7 +25,7 @@ from snowcli.output.types import CommandResult, MessageResult
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
     name="version",
-    help="Manage Native App Pkg versions in Snowflake",
+    help="Manage Native Application Package versions in Snowflake",
 )
 
 log = logging.getLogger(__name__)
@@ -44,7 +44,6 @@ def create(
     patch: Optional[str] = typer.Option(
         None,
         "--patch",
-        "-p",
         help=f"""The patch number you would like to create for an existing version.
         Defaults to undefined if it is not set, which means the CLI will either use the version, if present, in the manifest.yml,
         or auto-generate the patch number.""",

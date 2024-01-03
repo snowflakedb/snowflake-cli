@@ -78,7 +78,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 show_obj_query, cursor_class=DictCursor
             )
 
-            if not show_obj_cursor.rowcount:
+            if show_obj_cursor.rowcount is None:
                 raise SnowflakeSQLExecutionError(show_obj_query)
 
             show_obj_row = find_first_row(
@@ -103,7 +103,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 show_obj_query, cursor_class=DictCursor
             )
 
-            if not show_obj_cursor.rowcount:
+            if show_obj_cursor.rowcount is None:
                 raise SnowflakeSQLExecutionError(show_obj_query)
 
             show_obj_rows = find_all_rows(
