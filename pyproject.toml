@@ -12,14 +12,14 @@ requires-python = ">=3.8"
 description = "Snowflake CLI"
 readme = "README.md"
 dependencies = [
-  "coverage==7.3.2",
+  "coverage==7.4.0",
   "jinja2==3.1.2",
   "pluggy==1.3.0",
   "PyYAML==6.0.1",
   "rich==13.7.0",
   "requests==2.31.0",
   "requirements-parser==0.5.0",
-  "setuptools==69.0.0",
+  "setuptools==69.0.3",
   "snowflake-connector-python[secure-local-storage]==3.6.0",
   "strictyaml==1.7.3",
   "tomlkit==0.12.3",
@@ -41,9 +41,9 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = [
-  "coverage==7.3.2",
+  "coverage==7.4.0",
   "pre-commit>=3.5.0",
-  "pytest==7.4.3",
+  "pytest==7.4.4",
   "pytest-randomly==3.15.0",
   "syrupy==4.6.0",
   "tox==4.11.4",

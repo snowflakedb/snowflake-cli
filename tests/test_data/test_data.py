@@ -66,6 +66,14 @@ anaconda_response = {
             "timestamp": 1662317582,
             "version": "2.7.12",
         },
+        "streamlit": {
+            "name": "streamlit",
+            "subdirs": ["osx-64", "linux-64", "osx-arm64", "linux-aarch64", "win-64"],
+            "version": "1.22.0",
+            "license": "Apache-2.0",
+            "md5": "a6e6f90bb4d3fef3a2f5778ec7b5196c",
+            "timestamp": 1701377760,
+        },
     },
 }
 

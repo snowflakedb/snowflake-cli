@@ -9,7 +9,6 @@ from typing import Dict, List, Set
 
 import typer
 from click import ClickException
-from snowcli import utils
 from snowcli.cli.common.cli_global_context import cli_context
 from snowcli.cli.common.decorators import (
     global_options,
@@ -46,10 +45,10 @@ from snowcli.output.types import (
     MessageResult,
     SingleQueryResult,
 )
-from snowcli.utils import (
-    get_snowflake_packages,
-)
-from snowcli.zipper import add_file_to_existing_zip
+from snowcli.utils import file_utils
+from snowcli.utils.models import PypiOption
+from snowcli.utils.package_utils import get_snowflake_packages
+from snowcli.utils.zipper import add_file_to_existing_zip
 from snowflake.connector import DictCursor, ProgrammingError
 
 log = logging.getLogger(__name__)
@@ -372,9 +371,9 @@ def _get_snowpark_artefact_path(snowpark_definition: Dict):
 @with_output
 @with_project_definition("snowpark")
 def build(
-    pypi_download: str = PyPiDownloadOption,
+    pypi_download: PypiOption = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
-    package_native_libraries: str = PackageNativeLibrariesOption,
+    package_native_libraries: PypiOption = PackageNativeLibrariesOption,
     **options,
 ) -> CommandResult:
     """
@@ -450,7 +449,7 @@ def _replace_handler_in_zip(
     handler_module, _, handler_function = handler.rpartition(".")
     with TemporaryDirectory() as temp_dir:
         wrapper_file = os.path.join(temp_dir, "snowpark_coverage.py")
-        utils.generate_snowpark_coverage_wrapper(
+        file_utils.generate_snowpark_coverage_wrapper(
             target_file=wrapper_file,
             proc_name=proc_name,
             proc_signature=proc_signature,
