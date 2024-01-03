@@ -33,6 +33,7 @@ log = logging.getLogger(__name__)
 
 @app.command()
 @with_output
+@with_project_definition("native_app")
 @global_options_with_connection
 def create(
     version: Optional[str] = typer.Argument(
@@ -88,6 +89,9 @@ def create(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
+
+    # We need build_bundle() to (optionally) find version in manifest.yml and create app package
+    processor.build_bundle()
     processor.process(version, patch, policy, skip_git_check)
     return MessageResult(f"Version create is now complete.")
 

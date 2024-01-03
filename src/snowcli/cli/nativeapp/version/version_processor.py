@@ -169,9 +169,6 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         Perform bundle, app package creation, stage upload, version and/or patch to an application package.
         """
 
-        # We need build_bundle() to (optionally) find version in manifest.yml and create app package
-        self.build_bundle()
-
         # Make sure version is not None before proceeding any further.
         # This will raise an exception if version information is not found. Patch can be None.
         if not version:

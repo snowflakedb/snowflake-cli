@@ -246,14 +246,13 @@ def test_add_new_patch_custom(mock_execute, temp_dir, mock_cursor):
 
 
 # Test version create when user did not pass in a version AND we could not find a version in the manifest file either
-@mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=(None, None))
 @mock.patch(f"{VERSION_MODULE}.log.info")
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
 def test_process_no_version_from_user_no_version_in_manifest(
-    mock_log, mock_version_info_in_manifest, mock_build_bundle, policy_param, temp_dir
+    mock_log, mock_version_info_in_manifest, policy_param, temp_dir
 ):
     current_working_directory = os.getcwd()
     create_named_file(
@@ -268,12 +267,10 @@ def test_process_no_version_from_user_no_version_in_manifest(
             None, None, policy=policy_param
         )  # policy does not matter here, so it should succeed for all policies.
     mock_log.assert_called_once()
-    mock_build_bundle.assert_called_once()
     mock_version_info_in_manifest.assert_called_once()
 
 
 # Test version create when there are no release directives matching the version AND no version exists for app pkg
-@mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=("manifest_version", None))
 @mock.patch(f"{VERSION_MODULE}.check_index_changes_in_git_repo", return_value=None)
 @mock.patch(
@@ -308,7 +305,6 @@ def test_process_no_existing_release_directives_or_versions(
     mock_create_app_pkg,
     mock_check_git,
     mock_find_version,
-    mock_build_bundle,
     policy_param,
     temp_dir,
     mock_cursor,
@@ -336,7 +332,6 @@ def test_process_no_existing_release_directives_or_versions(
     processor = _get_version_create_processor()
     processor.process(version, 12, policy=policy_param)  # policy does not matter here
     assert mock_execute.mock_calls == expected
-    mock_build_bundle.assert_called_once()
     mock_find_version.assert_not_called()
     mock_check_git.assert_called_once()
     mock_rd.assert_called_once()
@@ -348,7 +343,6 @@ def test_process_no_existing_release_directives_or_versions(
 
 
 # Test version create when there are no release directives matching the version AND a version exists for app pkg
-@mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch("snowcli.cli.nativeapp.artifacts.find_version_info_in_manifest_file")
 @mock.patch(f"{VERSION_MODULE}.check_index_changes_in_git_repo", return_value=None)
 @mock.patch(
@@ -385,7 +379,6 @@ def test_process_no_existing_release_directives_w_existing_version(
     mock_create_app_pkg,
     mock_check_git,
     mock_find_version,
-    mock_build_bundle,
     policy_param,
     temp_dir,
     mock_cursor,
@@ -419,7 +412,6 @@ def test_process_no_existing_release_directives_w_existing_version(
     processor = _get_version_create_processor()
     processor.process(version, 12, policy=policy_param)  # policy does not matter here
     assert mock_execute.mock_calls == expected
-    mock_build_bundle.assert_called_once()
     mock_find_version.assert_not_called()
     mock_check_git.assert_called_once()
     mock_rd.assert_called_once()
@@ -434,7 +426,6 @@ def test_process_no_existing_release_directives_w_existing_version(
 # Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is False AND interactive mode is False AND --interactive is False
 # Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is False AND interactive mode is False AND --interactive is True AND  user does not want to proceed
 # Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is False AND interactive mode is True AND user does not want to proceed
-@mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(f"{VERSION_MODULE}.check_index_changes_in_git_repo", return_value=None)
 @mock.patch(
     f"{VERSION_MODULE}.{CREATE_PROCESSOR}.create_app_package", return_value=None
@@ -464,7 +455,6 @@ def test_process_existing_release_directives_user_does_not_proceed(
     mock_execute,
     mock_create_app_pkg,
     mock_check_git,
-    mock_build_bundle,
     policy_param,
     expected_code,
     temp_dir,
@@ -499,7 +489,6 @@ def test_process_existing_release_directives_user_does_not_proceed(
         result = processor.process(version, 12, policy=policy_param)
         assert result.exit_code == expected_code
     assert mock_execute.mock_calls == expected
-    mock_build_bundle.assert_called_once()
     mock_check_git.assert_called_once()
     mock_rd.assert_called_once()
     mock_create_app_pkg.assert_called_once()
@@ -510,7 +499,6 @@ def test_process_existing_release_directives_user_does_not_proceed(
 # Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is True
 # Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is False AND interactive mode is False AND --interactive is True AND user wants to proceed
 # Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is False AND interactive mode is True AND user wants to proceed
-@mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(f"{VERSION_MODULE}.check_index_changes_in_git_repo", return_value=None)
 @mock.patch(
     f"{VERSION_MODULE}.{CREATE_PROCESSOR}.create_app_package", return_value=None
@@ -547,7 +535,6 @@ def test_process_existing_release_directives_w_existing_version_two(
     mock_execute,
     mock_create_app_pkg,
     mock_check_git,
-    mock_build_bundle,
     policy_param,
     temp_dir,
     mock_cursor,
@@ -585,7 +572,6 @@ def test_process_existing_release_directives_w_existing_version_two(
     processor = _get_version_create_processor()
     result = processor.process(version, 12, policy=policy_param)
     assert mock_execute.mock_calls == expected
-    mock_build_bundle.assert_called_once()
     mock_check_git.assert_called_once()
     mock_rd.assert_called_once()
     mock_create_app_pkg.assert_called_once()
