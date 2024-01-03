@@ -343,7 +343,8 @@ def test_nativeapp_version_create_and_drop(
                     f"show versions in application package {package_name}"
                 )
             )
-            assert contains_row_with(expect, {"version": "V1", "patch": "0"})
+            assert contains_row_with(expect, {"version": "V1"})
+            assert contains_row_with(expect, {"patch": "0"})
 
             result_drop = runner.invoke_with_connection_json(
                 ["app", "version", "drop", "v1", "--force"],

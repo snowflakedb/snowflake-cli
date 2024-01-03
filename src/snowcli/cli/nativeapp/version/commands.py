@@ -14,7 +14,7 @@ from snowcli.cli.nativeapp.policy import (
     AskAlwaysPolicy,
     DenyAlwaysPolicy,
 )
-from snowcli.cli.nativeapp.utils import is_interactive_mode
+from snowcli.cli.nativeapp.utils import is_tty_interactive
 from snowcli.cli.nativeapp.version.version_processor import (
     NativeAppVersionCreateProcessor,
     NativeAppVersionDropProcessor,
@@ -79,7 +79,7 @@ def create(
 
     if force:
         policy = AllowAlwaysPolicy()
-    elif interactive or is_interactive_mode():
+    elif interactive or is_tty_interactive():
         policy = AskAlwaysPolicy()
     else:
         policy = DenyAlwaysPolicy()
@@ -127,7 +127,7 @@ def drop(
     """
     if force:
         policy = AllowAlwaysPolicy()
-    elif interactive or is_interactive_mode():
+    elif interactive or is_tty_interactive():
         policy = AskAlwaysPolicy()
     else:
         policy = DenyAlwaysPolicy()

@@ -1,0 +1,1 @@
+/Users/bgoel/snowcli/tests/test_data/projects/integration/app/setup.sql
