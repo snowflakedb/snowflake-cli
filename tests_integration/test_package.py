@@ -52,7 +52,7 @@ class TestPackage:
 
         assert result.exit_code == 0
         assert os.path.isfile("PyRTF3.zip")
-        assert ".packages/PyRTF/utils.py" in self._get_filenames_from_zip("PyRTF3.zip")
+        assert "PyRTF/utils.py" in self._get_filenames_from_zip("PyRTF3.zip")
 
     @pytest.mark.integration
     def test_package_create_with_non_anaconda_package_without_install(
