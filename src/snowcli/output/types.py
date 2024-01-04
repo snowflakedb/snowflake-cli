@@ -9,7 +9,7 @@ from snowflake.connector.cursor import SnowflakeCursor
 class CommandResult:
     @property
     def result(self):
-        raise NotImplemented()
+        raise NotImplementedError()
 
 
 class ObjectResult(CommandResult):
