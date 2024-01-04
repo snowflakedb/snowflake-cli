@@ -12,9 +12,9 @@ def test_zip_current_dir(temp_dir):
         Path(".DS_Store"),
         Path(".git/config"),
         Path(".gitignore"),
-        Path(".packages/bin/py.test"),
-        Path(".packages/snowcli/snowcli.py"),
-        Path(".packages/snowcli/snowcli.dist-info/METADATA.py"),
+        Path("bin/py.test"),
+        Path("snowcli/snowcli.py"),
+        Path("snowcli/snowcli.dist-info/METADATA.py"),
         Path(".venv/bin"),
         Path("__pycache__"),
         Path("app.py"),
@@ -32,9 +32,9 @@ def test_zip_current_dir(temp_dir):
     ]
     directories = [
         Path(".git"),
-        Path(".packages/bin"),
-        Path(".packages/snowcli"),
-        Path(".packages/snowcli/snowcli.dist-info"),
+        Path("bin"),
+        Path("snowcli"),
+        Path("snowcli/snowcli.dist-info"),
         Path(".venv"),
         Path("utils"),
     ]
@@ -49,9 +49,9 @@ def test_zip_current_dir(temp_dir):
     assert set(zip_file.namelist()) == {
         "app.py",
         "additional_module.py",
-        ".packages/bin/py.test",
-        ".packages/snowcli/snowcli.py",
-        ".packages/snowcli/snowcli.dist-info/METADATA.py",
+        "bin/py.test",
+        "snowcli/snowcli.py",
+        "snowcli/snowcli.dist-info/METADATA.py",
         "utils/utils.py",
     }
 

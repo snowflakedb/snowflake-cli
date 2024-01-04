@@ -221,16 +221,19 @@ def test_parse_anaconda_packages(mock_get):
     packages = [
         Requirement.parse("pandas==1.0.0"),
         Requirement.parse("FuelSDK>=0.9.3"),
+        Requirement.parse("Pamela==1.0.1"),
     ]
     split_requirements = package_utils.parse_anaconda_packages(packages=packages)
     assert len(split_requirements.snowflake) == 1
-    assert len(split_requirements.other) == 1
+    assert len(split_requirements.other) == 2
     assert split_requirements.snowflake[0].name == "pandas"
     assert split_requirements.snowflake[0].specifier is True
     assert split_requirements.snowflake[0].specs == [("==", "1.0.0")]
     assert split_requirements.other[0].name == "FuelSDK"
     assert split_requirements.other[0].specifier is True
     assert split_requirements.other[0].specs == [(">=", "0.9.3")]
+    assert split_requirements.other[1].name == "Pamela"
+    assert split_requirements.other[1].specs == [("==", "1.0.1")]
 
 
 def test_get_downloaded_packages(test_root_path, temp_dir):
@@ -320,3 +323,23 @@ def test_pip_fail_message(mock_pip, correct_requirements_txt, caplog):
         )
 
     assert "pip failed with return code 42" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "argument, expected",
+    [
+        (Requirement.parse_line("anaconda-clean"), True),
+        (Requirement.parse_line("anaconda-clean==1.1.1"), True),
+        (Requirement.parse_line("anaconda-clean==1.1.0"), True),
+        (Requirement.parse_line("anaconda-clean==1.1.2"), False),
+        (Requirement.parse_line("anaconda-clean>=1.1.1"), True),
+        (Requirement.parse_line("some-other-package"), False),
+    ],
+)
+def test_check_if_package_is_avaiable_in_conda(argument, expected):
+    assert (
+        package_utils.check_if_package_is_avaiable_in_conda(
+            argument, test_data.anaconda_response["packages"]
+        )
+        == expected
+    )

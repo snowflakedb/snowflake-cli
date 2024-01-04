@@ -22,6 +22,7 @@ _callable_mapping = {
     Optional("runtime"): Str(),
     Optional("external_access_integration"): Seq(Str()),
     Optional("secrets"): MapPattern(Str(), Str()),
+    Optional("imports"): Seq(Str()),
 }
 
 function_schema = RelaxedMap(_callable_mapping)
