@@ -338,7 +338,7 @@ def test_pip_fail_message(mock_pip, correct_requirements_txt, caplog):
 )
 def test_check_if_package_is_avaiable_in_conda(argument, expected):
     assert (
-        utils.check_if_package_is_avaiable_in_conda(
+        package_utils.check_if_package_is_avaiable_in_conda(
             argument, test_data.anaconda_response["packages"]
         )
         == expected

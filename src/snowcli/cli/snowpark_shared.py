@@ -3,11 +3,12 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import List
 
 import click
-import snowcli.utils.package_utils
 import typer
 from requirements.requirement import Requirement
+from snowcli.utils import package_utils
 from snowcli.utils.models import PypiOption
 from snowcli.utils.zipper import zip_dir
 
@@ -55,12 +56,10 @@ def snowpark_package(
     package_native_libraries: PypiOption,
 ):
     log.info("Resolving any requirements from requirements.txt...")
-    requirements = snowcli.utils.package_utils.parse_requirements()
+    requirements = package_utils.parse_requirements()
     if requirements:
         log.info("Comparing provided packages from Snowflake Anaconda...")
-        split_requirements = snowcli.utils.package_utils.parse_anaconda_packages(
-            requirements
-        )
+        split_requirements = package_utils.parse_anaconda_packages(requirements)
         if not split_requirements.other:
             log.info("No packages to manually resolve")
         else:
@@ -75,7 +74,7 @@ def snowpark_package(
             )
             if do_download:
                 log.info("Installing non-Anaconda packages...")
-                should_continue, second_chance_results = utils.install_packages(
+                should_continue, second_chance_results = package_utils.install_packages(
                     REQUIREMENTS_OTHER,
                     check_anaconda_for_pypi_deps,
                     package_native_libraries,
@@ -90,7 +89,7 @@ def snowpark_package(
         if split_requirements.snowflake:
             _write_requirements_file(
                 REQUIREMENTS_SNOWFLAKE,
-                utils.deduplicate_and_sort_reqs(split_requirements.snowflake),
+                package_utils.deduplicate_and_sort_reqs(split_requirements.snowflake),
             )
 
     zip_dir(source=source, dest_zip=artefact_file)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import fnmatch
 import logging
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Literal
 from zipfile import ZIP_DEFLATED, ZipFile
 
 log = logging.getLogger(__name__)
