@@ -264,8 +264,12 @@ def test_process_no_version_from_user_no_version_in_manifest(
     processor = _get_version_create_processor()
     with pytest.raises(ClickException):
         processor.process(
-            None, None, policy=policy_param
-        )  # policy does not matter here, so it should succeed for all policies.
+            version=None,
+            patch=None,
+            policy=policy_param,
+            git_policy=policy_param,
+            is_interactive=False,
+        )  # last three parameters do not matter here, so it should succeed for all policies.
     mock_log.assert_called_once()
     mock_version_info_in_manifest.assert_called_once()
 
@@ -330,7 +334,13 @@ def test_process_no_existing_release_directives_or_versions(
     )
 
     processor = _get_version_create_processor()
-    processor.process(version, 12, policy=policy_param)  # policy does not matter here
+    processor.process(
+        version=version,
+        patch=12,
+        policy=policy_param,
+        git_policy=allow_always_policy,
+        is_interactive=False,
+    )  # last three parameters do not matter here
     assert mock_execute.mock_calls == expected
     mock_find_version.assert_not_called()
     mock_check_git.assert_called_once()
@@ -410,7 +420,13 @@ def test_process_no_existing_release_directives_w_existing_version(
     )
 
     processor = _get_version_create_processor()
-    processor.process(version, 12, policy=policy_param)  # policy does not matter here
+    processor.process(
+        version=version,
+        patch=12,
+        policy=policy_param,
+        git_policy=allow_always_policy,
+        is_interactive=False,
+    )  # last three parameters do not matter here
     assert mock_execute.mock_calls == expected
     mock_find_version.assert_not_called()
     mock_check_git.assert_called_once()
@@ -444,8 +460,12 @@ def test_process_no_existing_release_directives_w_existing_version(
 )
 @mock.patch(f"snowcli.cli.nativeapp.policy.{TYPER_CONFIRM}", return_value=False)
 @pytest.mark.parametrize(
-    "policy_param, expected_code",
-    [(deny_always_policy, 1), (ask_always_policy, 0), (ask_always_policy, 0)],
+    "policy_param, is_interactive_param, expected_code",
+    [
+        (deny_always_policy, False, 1),
+        (ask_always_policy, True, 0),
+        (ask_always_policy, True, 0),
+    ],
 )
 def test_process_existing_release_directives_user_does_not_proceed(
     mock_typer_confirm,
@@ -456,6 +476,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
     mock_create_app_pkg,
     mock_check_git,
     policy_param,
+    is_interactive_param,
     expected_code,
     temp_dir,
     mock_cursor,
@@ -486,7 +507,13 @@ def test_process_existing_release_directives_user_does_not_proceed(
 
     processor = _get_version_create_processor()
     with pytest.raises(typer.Exit):
-        result = processor.process(version, 12, policy=policy_param)
+        result = processor.process(
+            version=version,
+            patch=12,
+            policy=policy_param,
+            git_policy=allow_always_policy,
+            is_interactive=is_interactive_param,
+        )
         assert result.exit_code == expected_code
     assert mock_execute.mock_calls == expected
     mock_check_git.assert_called_once()
@@ -523,7 +550,12 @@ def test_process_existing_release_directives_user_does_not_proceed(
 )
 @mock.patch(f"snowcli.cli.nativeapp.policy.{TYPER_CONFIRM}", return_value=True)
 @pytest.mark.parametrize(
-    "policy_param", [allow_always_policy, ask_always_policy, ask_always_policy]
+    "policy_param, is_interactive_param",
+    [
+        (allow_always_policy, False),
+        (ask_always_policy, True),
+        (ask_always_policy, True),
+    ],
 )
 def test_process_existing_release_directives_w_existing_version_two(
     mock_typer_confirm,
@@ -536,6 +568,7 @@ def test_process_existing_release_directives_w_existing_version_two(
     mock_create_app_pkg,
     mock_check_git,
     policy_param,
+    is_interactive_param,
     temp_dir,
     mock_cursor,
 ):
@@ -570,7 +603,13 @@ def test_process_existing_release_directives_w_existing_version_two(
     )
 
     processor = _get_version_create_processor()
-    result = processor.process(version, 12, policy=policy_param)
+    processor.process(
+        version=version,
+        patch=12,
+        policy=policy_param,
+        git_policy=allow_always_policy,
+        is_interactive=is_interactive_param,
+    )
     assert mock_execute.mock_calls == expected
     mock_check_git.assert_called_once()
     mock_rd.assert_called_once()

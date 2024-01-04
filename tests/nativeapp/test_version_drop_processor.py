@@ -52,8 +52,8 @@ def test_process_has_no_existing_app_pkg(mock_get_existing, policy_param, temp_d
     processor = _get_version_drop_processor()
     with pytest.raises(ApplicationPackageDoesNotExistError):
         processor.process(
-            version="some_version", policy=policy_param
-        )  # policy does not matter here
+            version="some_version", policy=policy_param, is_interactive=True
+        )  # last two don't matter here
 
 
 # Test version drop process when user did not pass in a version AND we could not find a version in the manifest file either
@@ -85,8 +85,8 @@ def test_process_no_version_from_user_no_version_in_manifest(
     processor = _get_version_drop_processor()
     with pytest.raises(ClickException):
         processor.process(
-            version=None, policy=policy_param
-        )  # policy does not matter here
+            version=None, policy=policy_param, is_interactive=True
+        )  # last two don't matter here
     mock_log.assert_called_once()
     mock_build_bundle.assert_called_once()
     mock_version_info_in_manifest.assert_called_once()
@@ -103,8 +103,12 @@ def test_process_no_version_from_user_no_version_in_manifest(
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=("manifest_version", None))
 @mock.patch(f"snowcli.cli.nativeapp.policy.{TYPER_CONFIRM}", return_value=False)
 @pytest.mark.parametrize(
-    "policy_param, expected_code",
-    [(deny_always_policy, 1), (ask_always_policy, 0), (ask_always_policy, 0)],
+    "policy_param, is_interactive_param, expected_code",
+    [
+        (deny_always_policy, False, 1),
+        (ask_always_policy, True, 0),
+        (ask_always_policy, True, 0),
+    ],
 )
 def test_process_drop_cannot_complete(
     mock_typer_confirm,
@@ -112,10 +116,10 @@ def test_process_drop_cannot_complete(
     mock_build_bundle,
     mock_get_existing,
     policy_param,
+    is_interactive_param,
     expected_code,
     temp_dir,
 ):
-
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -125,7 +129,9 @@ def test_process_drop_cannot_complete(
 
     processor = _get_version_drop_processor()
     with pytest.raises(typer.Exit):
-        result = processor.process(version=None, policy=policy_param)
+        result = processor.process(
+            version=None, policy=policy_param, is_interactive=is_interactive_param
+        )
         assert result.exit_code == expected_code
 
 
@@ -141,7 +147,12 @@ def test_process_drop_cannot_complete(
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(f"snowcli.cli.nativeapp.policy.{TYPER_CONFIRM}", return_value=True)
 @pytest.mark.parametrize(
-    "policy_param", [allow_always_policy, ask_always_policy, ask_always_policy]
+    "policy_param, is_interactive_param",
+    [
+        (allow_always_policy, False),
+        (ask_always_policy, True),
+        (ask_always_policy, True),
+    ],
 )
 def test_process_drop_success(
     mock_typer_confirm,
@@ -150,6 +161,7 @@ def test_process_drop_success(
     mock_build_bundle,
     mock_get_existing,
     policy_param,
+    is_interactive_param,
     temp_dir,
     mock_cursor,
 ):
@@ -180,5 +192,7 @@ def test_process_drop_success(
     )
 
     processor = _get_version_drop_processor()
-    processor.process(version=None, policy=policy_param)
+    processor.process(
+        version=None, policy=policy_param, is_interactive=is_interactive_param
+    )
     assert mock_execute.mock_calls == expected

@@ -31,8 +31,7 @@ log = logging.getLogger(__name__)
 
 
 def check_index_changes_in_git_repo(
-    project_root: Path,
-    policy: PolicyBase,
+    project_root: Path, policy: PolicyBase, is_interactive: bool
 ) -> None:
     """
     Checks if the project root, i.e. the native apps project is a git repository. If it is a git repository,
@@ -51,13 +50,14 @@ def check_index_changes_in_git_repo(
                 "You have local changes in this repository that are not part of a previous commit. Do you still want to continue?",
             )
             if not policy.should_proceed(user_prompt):
-                if policy.exit_code:
+                if is_interactive:
+                    print("Not creating a new version.")
+                    raise typer.Exit(0)
+                else:
                     print(
                         "Cannot create a new version non-interactively without --force."
                     )
-                else:
-                    print("Not creating a new version.")
-                raise typer.Exit(policy.exit_code)
+                    raise typer.Exit(1)
 
     except InvalidGitRepositoryError:
         pass  # not a git repository, which is acceptable
@@ -161,7 +161,8 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         version: Optional[str],
         patch: Optional[str],
         policy: PolicyBase,
-        skip_git_check: bool = False,
+        git_policy: PolicyBase,
+        is_interactive: bool,
         *args,
         **kwargs,
     ):
@@ -185,10 +186,11 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                     "Manifest.yml file does not contain a value for the version field."
                 )
 
-        if not skip_git_check:
+        if git_policy.should_proceed():
             check_index_changes_in_git_repo(
                 project_root=self.project_root,
                 policy=policy,
+                is_interactive=is_interactive,
             )
 
         self.create_app_package()
@@ -220,13 +222,14 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 f"Are you sure you want to create a new patch for version {version} of application package {self.package_name}? Once added, this operation cannot be undone.",
             )
             if not policy.should_proceed(user_prompt):
-                if policy.exit_code:  # is 1
+                if is_interactive:
+                    print("Not creating a new patch.")
+                    raise typer.Exit(0)
+                else:
                     print(
                         "Cannot create a new patch non-interactively without --force."
                     )
-                else:
-                    print("Not creating a new patch.")
-                raise typer.Exit(policy.exit_code)
+                    raise typer.Exit(1)
 
         # Add a new version to the app package
         if not self.get_existing_version_info(version):
@@ -241,7 +244,14 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
     def __init__(self, project_definition: Dict, project_root: Path):
         super().__init__(project_definition, project_root)
 
-    def process(self, version: Optional[str], policy: PolicyBase, *args, **kwargs):
+    def process(
+        self,
+        version: Optional[str],
+        policy: PolicyBase,
+        is_interactive: bool,
+        *args,
+        **kwargs,
+    ):
         """
         Drops a version associated with an application package. If --force is provided, then no user prompts will be executed.
         """
@@ -286,11 +296,12 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
             f"Are you sure you want to drop version {version} of application package {self.package_name}? Once dropped, this operation cannot be undone.",
         )
         if not policy.should_proceed(user_prompt):
-            if policy.exit_code:  # is 1
-                print("Cannot drop version non-interactively without --force.")
-            else:  # User did not want to drop
+            if is_interactive:
                 print("Not dropping version.")
-            raise typer.Exit(policy.exit_code)
+                raise typer.Exit(0)
+            else:
+                print("Cannot drop version non-interactively without --force.")
+                raise typer.Exit(1)
 
         # Drop the version
         with self.use_role(self.package_role):

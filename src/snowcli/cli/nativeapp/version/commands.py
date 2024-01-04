@@ -77,12 +77,19 @@ def create(
     if version is None and patch is not None:
         raise MissingParameter("Cannot provide a patch without version!")
 
+    is_interactive = False
     if force:
         policy = AllowAlwaysPolicy()
     elif interactive or is_tty_interactive():
+        is_interactive = True
         policy = AskAlwaysPolicy()
     else:
         policy = DenyAlwaysPolicy()
+
+    if skip_git_check:
+        git_policy = DenyAlwaysPolicy()
+    else:
+        git_policy = AllowAlwaysPolicy()
 
     processor = NativeAppVersionCreateProcessor(
         project_definition=cli_context.project_definition,
@@ -91,7 +98,13 @@ def create(
 
     # We need build_bundle() to (optionally) find version in manifest.yml and create app package
     processor.build_bundle()
-    processor.process(version, patch, policy, skip_git_check)
+    processor.process(
+        version=version,
+        patch=patch,
+        policy=policy,
+        git_policy=git_policy,
+        is_interactive=is_interactive,
+    )
     return MessageResult(f"Version create is now complete.")
 
 
@@ -125,9 +138,11 @@ def drop(
     Drops a version associated with your application package. Version can either be passed in as an argument to the command or read from the manifest.yml file.
     Dropping patches is not allowed.
     """
+    is_interactive = False
     if force:
         policy = AllowAlwaysPolicy()
     elif interactive or is_tty_interactive():
+        is_interactive = True
         policy = AskAlwaysPolicy()
     else:
         policy = DenyAlwaysPolicy()
@@ -136,5 +151,5 @@ def drop(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    processor.process(version, policy)
+    processor.process(version, policy, is_interactive)
     return MessageResult(f"Version drop is now complete.")

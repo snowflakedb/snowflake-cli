@@ -1,25 +1,34 @@
+from abc import ABC, abstractmethod
+from typing import Optional
+
 import typer
 
 
-class PolicyBase:
-    exit_code: int = 0
+class PolicyBase(ABC):
+    """Abtract Class for various policies that govern if a Snowflake CLI command can continue execution when it asks for a decision."""
 
-    def should_proceed(self, user_prompt: str):
+    @abstractmethod
+    def should_proceed(self, user_prompt: Optional[str]) -> bool:
         pass
 
 
 class AllowAlwaysPolicy(PolicyBase):
-    def should_proceed(self, user_prompt: str):
+    """Always allow a Snowflake CLI command to continue execution."""
+
+    def should_proceed(self, user_prompt: Optional[str] = None):
         return True
 
 
 class DenyAlwaysPolicy(PolicyBase):
-    def should_proceed(self, user_prompt: str):
-        self.exit_code = 1
+    """Never allow a Snowflake CLI command to continue execution."""
+
+    def should_proceed(self, user_prompt: Optional[str] = None):
         return False
 
 
 class AskAlwaysPolicy(PolicyBase):
-    def should_proceed(self, user_prompt: str):
+    """Ask the user whether to continue execution of a Snowflake CLI command."""
+
+    def should_proceed(self, user_prompt: Optional[str]):
         should_continue = typer.confirm(user_prompt)
         return should_continue
