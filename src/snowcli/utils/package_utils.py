@@ -12,6 +12,7 @@ import click
 import requests
 import requirements
 import typer
+from packaging.version import parse
 from requirements.requirement import Requirement
 from snowcli.utils.models import PypiOption, RequirementWithFiles, SplitRequirements
 
@@ -79,7 +80,7 @@ def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
 
     for package in packages:
         # pip package names are case-insensitive, while Anaconda package names are lowercase
-        if package.name.lower() in channel_data["packages"]:
+        if check_if_package_is_avaiable_in_conda(package, channel_data["packages"]):
             result.snowflake.append(package)
         else:
             log.info(
@@ -319,6 +320,16 @@ def generate_deploy_stage_name(identifier: str) -> str:
             "",
         )
     )
+
+
+def check_if_package_is_avaiable_in_conda(package: Requirement, packages: dict) -> bool:
+    package_name = package.name.lower()
+    if package_name not in packages:
+        return False
+    if package.specs:
+        latest_ver = parse(packages[package_name]["version"])
+        return all([parse(spec[1]) <= latest_ver for spec in package.specs])
+    return True
 
 
 pip_failed_msg = """pip failed with return code {}.
