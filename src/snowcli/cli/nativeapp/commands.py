@@ -9,6 +9,7 @@ from snowcli.cli.common.decorators import (
     with_project_definition,
 )
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowcli.cli.nativeapp.init import nativeapp_init
 from snowcli.cli.nativeapp.manager import NativeAppManager
 from snowcli.cli.nativeapp.policy import (
@@ -110,23 +111,11 @@ def app_run(
     from_release_directive: Optional[bool] = typer.Option(
         False,
         "--from-release-directive",
-        help=f"""Passing in this flag will upgrade an application without use of version (and patch) or stage. A release directive must already be set on an application package in order to use it here.""",
+        help=f"""Passing in this flag will upgrade the application if necessary to the version pointed to by the relevant release directive. Using this flag will fail if no such release directive exists.""",
         is_flag=True,
     ),
-    interactive: Optional[bool] = typer.Option(
-        False,
-        "--interactive",
-        "-i",
-        help=f"""Defaults to unset. If specified, enables user interactions even if the standard input and output are not terminal devices.""",
-        is_flag=True,
-    ),
-    force: Optional[bool] = typer.Option(
-        False,
-        "--force",
-        help=f"""Defaults to unset. Passing in --force turns this to True, i.e. the CLI will implicitly respond “yes” to any prompts that come up.
-        This flag should be passed in if you are not in an interactive mode and want the command to succeed.""",
-        is_flag=True,
-    ),
+    interactive: Optional[bool] = InteractiveOption,
+    force: Optional[bool] = ForceOption,
     **options,
 ) -> CommandResult:
     """
@@ -191,13 +180,7 @@ def app_open(
 @with_project_definition("native_app")
 @global_options_with_connection
 def app_teardown(
-    force: Optional[bool] = typer.Option(
-        False,
-        "--force",
-        help=f"""Defaults to False. Passing in --force turns this to True, i.e. the CLI will implicitly respond “yes” to any prompts that come up.
-        This flag should be passed in if you are not in an interactive mode and want the command to succeed.""",
-        is_flag=True,
-    ),
+    force: Optional[bool] = ForceOption,
     **options,
 ) -> CommandResult:
     """

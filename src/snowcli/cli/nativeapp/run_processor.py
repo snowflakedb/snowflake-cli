@@ -336,23 +336,6 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             except ProgrammingError as err:
                 generic_sql_error_handler(err)
 
-    def upgrade_from_version(
-        self,
-        policy: PolicyBase,
-        version: str,
-        is_interactive: bool,
-        patch: Optional[str] = None,
-    ):
-        existing_version = self.get_existing_version_info(version)
-        if not existing_version:
-            raise ClickException(
-                f"Application Package {self.package_name} does not contain any version {version}."
-            )
-
-        self.upgrade_app(
-            policy=policy, version=version, patch=patch, is_interactive=is_interactive
-        )
-
     def process(
         self,
         policy: PolicyBase,
@@ -370,7 +353,13 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             return
 
         if version:
-            self.upgrade_from_version(
+            existing_version = self.get_existing_version_info(version)
+            if not existing_version:
+                raise ClickException(
+                    f"Application Package {self.package_name} does not contain any version {version}."
+                )
+
+            self.upgrade_app(
                 policy=policy,
                 version=version,
                 patch=patch,

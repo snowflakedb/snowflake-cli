@@ -9,6 +9,7 @@ from snowcli.cli.common.decorators import (
     with_project_definition,
 )
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowcli.cli.nativeapp.policy import (
     AllowAlwaysPolicy,
     AskAlwaysPolicy,
@@ -49,26 +50,14 @@ def create(
         Defaults to undefined if it is not set, which means the CLI will either use the version, if present, in the manifest.yml,
         or auto-generate the patch number.""",
     ),
-    interactive: Optional[bool] = typer.Option(
-        False,
-        "--interactive",
-        "-i",
-        help=f"""Defaults to unset. If specified, enables user interactions even if the standard input and output are not terminal devices.""",
-        is_flag=True,
-    ),
-    force: Optional[bool] = typer.Option(
-        False,
-        "--force",
-        help=f"""Defaults to unset. Passing in --force turns this to True, i.e. we will implicitly respond “yes” to any prompts that come up.
-        This flag should be passed in if you are not in an interactive mode and want the command to succeed.""",
-        is_flag=True,
-    ),
     skip_git_check: Optional[bool] = typer.Option(
         False,
         "--skip-git-check",
         help="Defaults to unset. Passing in --skip-git-check turns this to True, i.e. we will skip checking if your project has any untracked or stages files in git.",
         is_flag=True,
     ),
+    interactive: Optional[bool] = InteractiveOption,
+    force: Optional[bool] = ForceOption,
     **options,
 ) -> CommandResult:
     """
@@ -135,20 +124,8 @@ def drop(
         None,
         help="Version of the app package that you would like to drop. Defaults to the version specified in the manifest.yml.",
     ),
-    interactive: Optional[bool] = typer.Option(
-        False,
-        "--interactive",
-        "-i",
-        help=f"""Defaults to unset. If specified, enables user interactions even if the standard input and output are not terminal devices.""",
-        is_flag=True,
-    ),
-    force: Optional[bool] = typer.Option(
-        False,
-        "--force",
-        help=f"""Defaults to unset. Passing in --force turns this to True, i.e. we will implicitly respond “yes” to any prompts that come up.
-        This flag should be passed in if you are not in an interactive mode and want the command to succeed.""",
-        is_flag=True,
-    ),
+    interactive: Optional[bool] = InteractiveOption,
+    force: Optional[bool] = ForceOption,
     **options,
 ) -> CommandResult:
     """

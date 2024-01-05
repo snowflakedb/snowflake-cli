@@ -1285,7 +1285,7 @@ def test_upgrade_app_from_version(mock_conn, mock_existing, policy_param, temp_d
 
     run_processor = _get_na_run_processor()
     with pytest.raises(ClickException):
-        run_processor.upgrade_from_version(policy_param, "v1", is_interactive=True)
+        run_processor.process(policy=policy_param, version="v1", is_interactive=True)
 
 
 # Test upgrade app method for version AND existing app info AND user wants to drop app AND drop succeeds AND app is created successfully
@@ -1373,7 +1373,7 @@ def test_upgrade_app_recreate_app_from_version(
     )
 
     run_processor = _get_na_run_processor()
-    run_processor.upgrade_from_version(policy_param, "v1", is_interactive=True)
+    run_processor.process(policy=policy_param, version="v1", is_interactive=True)
     assert mock_execute.mock_calls == expected
 
 
