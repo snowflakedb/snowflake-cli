@@ -241,6 +241,27 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
 
             return show_obj_row
 
+    def drop_application_before_upgrade(self, policy: PolicyBase, is_interactive: bool):
+        """
+        This method will attempt to drop an application if a previous upgrade fails.
+        """
+        user_prompt = (
+            "Do you want the CLI to drop the existing application and recreate it?"
+        )
+        if not policy.should_proceed(user_prompt):
+            if is_interactive:
+                print("Not upgrading the application.")
+                raise typer.Exit(0)
+            else:
+                print(
+                    "Cannot upgrade the application non-interactively without --force."
+                )
+                raise typer.Exit(1)
+        try:
+            self._execute_query(f"drop application {self.app_name}")
+        except ProgrammingError as err:
+            generic_sql_error_handler(err)
+
     def upgrade_app(
         self,
         policy: PolicyBase,
@@ -284,29 +305,11 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     return
 
                 except ProgrammingError as err:
-                    # The existing app was created from a different process.
-                    if err.errno in UPGRADE_RESTRICTION_CODES:
+                    if err.errno not in UPGRADE_RESTRICTION_CODES:
+                        generic_sql_error_handler(err=err)
+                    else:  # The existing app was created from a different process.
                         print(err.msg)
-                        user_prompt = "Do you want the CLI to drop the existing application and recreate it?"
-                        if not policy.should_proceed(user_prompt):
-                            if is_interactive:
-                                print("Not upgrading the application.")
-                                raise typer.Exit(0)
-                            else:
-                                print(
-                                    "Cannot upgrade the application non-interactively without --force."
-                                )
-                                raise typer.Exit(1)
-                        else:
-                            drop_app = True
-                    else:
-                        generic_sql_error_handler(err)
-
-                if drop_app:
-                    try:
-                        self._execute_query(f"drop application {self.app_name}")
-                    except ProgrammingError as err:
-                        generic_sql_error_handler(err)
+                        self.drop_application_before_upgrade(policy, is_interactive)
 
             # 4. With no (more) existing applications, create an app using the release directives
             print(f"Creating new application {self.app_name} in account.")

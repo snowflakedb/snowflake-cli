@@ -53,21 +53,20 @@ def create(
         False,
         "--interactive",
         "-i",
-        help=f"""Defaults to False. Passing in --interactive/-i turns this to true, i.e. we will prompt you to confirm certain actions before the CLI executes them.
-        If not provided, the CLI will try to determine whether you are in an interactive mode.""",
+        help=f"""Defaults to unset. If specified, enables user interactions even if the standard input and output are not terminal devices.""",
         is_flag=True,
     ),
     force: Optional[bool] = typer.Option(
         False,
         "--force",
-        help=f"""Defaults to False. Passing in --force turns this to True, i.e. we will implicitly respond “yes” to any prompts that come up.
+        help=f"""Defaults to unset. Passing in --force turns this to True, i.e. we will implicitly respond “yes” to any prompts that come up.
         This flag should be passed in if you are not in an interactive mode and want the command to succeed.""",
         is_flag=True,
     ),
     skip_git_check: Optional[bool] = typer.Option(
         False,
         "--skip-git-check",
-        help="Defaults to False. Passing in --skip-git-check turns this to True, i.e. we will skip checking if your project has any untracked or stages files in git.",
+        help="Defaults to unset. Passing in --skip-git-check turns this to True, i.e. we will skip checking if your project has any untracked or stages files in git.",
         is_flag=True,
     ),
     **options,
@@ -117,7 +116,7 @@ def version_list(
     **options,
 ) -> CommandResult:
     """
-    List all version available in an application package.
+    List all versions available in an application package.
     """
     processor = NativeAppRunProcessor(
         project_definition=cli_context.project_definition,
@@ -140,14 +139,13 @@ def drop(
         False,
         "--interactive",
         "-i",
-        help=f"""Defaults to False. Passing in --interactive/-i turns this to true, i.e. we will prompt you to confirm certain actions before the CLI executes them.
-        If not provided, the CLI will try to determine whether you are in an interactive mode.""",
+        help=f"""Defaults to unset. If specified, enables user interactions even if the standard input and output are not terminal devices.""",
         is_flag=True,
     ),
     force: Optional[bool] = typer.Option(
         False,
         "--force",
-        help=f"""Defaults to False. Passing in --force turns this to True, i.e. we will implicitly respond “yes” to any prompts that come up.
+        help=f"""Defaults to unset. Passing in --force turns this to True, i.e. we will implicitly respond “yes” to any prompts that come up.
         This flag should be passed in if you are not in an interactive mode and want the command to succeed.""",
         is_flag=True,
     ),

@@ -99,33 +99,31 @@ def app_run(
     version: Optional[str] = typer.Option(
         None,
         help=f"""The identifier or 'version string' of the version you would like to create a version and/or patch for.
-        Defaults to undefined, which means the CLI will use the version, if present, in the manifest.yml.""",
+        If not specified, the version from manifest.yml will be used.""",
     ),
     patch: Optional[str] = typer.Option(
         None,
         "--patch",
         help=f"""The patch number you would like to create for an existing version.
-        Defaults to undefined if it is not set, which means the CLI will either use the version, if present, in the manifest.yml,
-        or auto-generate the patch number.""",
+        If not specified, the patch from manifest.yml will be used if it is present in the file. Otherwise, Snowflake will auto-generate the patch number.""",
     ),
     from_release_directive: Optional[bool] = typer.Option(
         False,
         "--from-release-directive",
-        help=f"""Flag to upgrade the application using a release directive that must already be set on the application package.""",
+        help=f"""Passing in this flag will upgrade an application without use of version (and patch) or stage. A release directive must already be set on an application package in order to use it here.""",
         is_flag=True,
     ),
     interactive: Optional[bool] = typer.Option(
         False,
         "--interactive",
         "-i",
-        help=f"""Defaults to False. Passing in --interactive/-i turns this to true, i.e. we will prompt you to confirm certain actions before the CLI executes them.
-        If not provided, the CLI will try to determine whether you are in an interactive mode.""",
+        help=f"""Defaults to unset. If specified, enables user interactions even if the standard input and output are not terminal devices.""",
         is_flag=True,
     ),
     force: Optional[bool] = typer.Option(
         False,
         "--force",
-        help=f"""Defaults to False. Passing in --force turns this to True, i.e. we will implicitly respond “yes” to any prompts that come up.
+        help=f"""Defaults to unset. Passing in --force turns this to True, i.e. the CLI will implicitly respond “yes” to any prompts that come up.
         This flag should be passed in if you are not in an interactive mode and want the command to succeed.""",
         is_flag=True,
     ),
@@ -198,7 +196,7 @@ def app_teardown(
     force: Optional[bool] = typer.Option(
         False,
         "--force",
-        help=f"""Defaults to False. Passing in --force turns this to True, i.e. we will implicitly respond “yes” to any prompts that come up.
+        help=f"""Defaults to False. Passing in --force turns this to True, i.e. the CLI will implicitly respond “yes” to any prompts that come up.
         This flag should be passed in if you are not in an interactive mode and want the command to succeed.""",
         is_flag=True,
     ),
