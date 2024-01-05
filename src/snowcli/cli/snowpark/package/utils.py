@@ -2,7 +2,7 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 
-from snowcli.utils import SplitRequirements
+from snowcli.utils.models import SplitRequirements
 
 
 @dataclass

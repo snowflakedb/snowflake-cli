@@ -20,7 +20,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
       - name: Install pre-commit
@@ -61,7 +61,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up Python 3.11
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Install dependencies
@@ -74,7 +74,7 @@ jobs:
       - name: Build with pyinstaller for ${{matrix.TARGET}}
         run: ${{matrix.CMD_BUILD}}
       - name: Archive python artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{matrix.ARTIFACT_NAME}}
           path: ${{matrix.PATH}}
@@ -84,15 +84,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-          os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.8", "3.12"]
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip

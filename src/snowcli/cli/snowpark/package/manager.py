@@ -7,7 +7,6 @@ from pathlib import Path
 from shutil import rmtree
 
 from requirements.requirement import Requirement
-from snowcli import utils
 from snowcli.cli.constants import PACKAGES_DIR
 from snowcli.cli.object.stage.manager import StageManager
 from snowcli.cli.snowpark.package.utils import (
@@ -18,20 +17,21 @@ from snowcli.cli.snowpark.package.utils import (
     NotInAnaconda,
     RequiresPackages,
 )
-from snowcli.utils import SplitRequirements
-from snowcli.zipper import zip_dir
+from snowcli.utils import file_utils, package_utils
+from snowcli.utils.models import SplitRequirements
+from snowcli.utils.zipper import zip_dir
 
 log = logging.getLogger(__name__)
 
 
 def lookup(name: str, install_packages: bool) -> LookupResult:
 
-    package_response = utils.parse_anaconda_packages([Requirement.parse(name)])
+    package_response = package_utils.parse_anaconda_packages([Requirement.parse(name)])
 
     if package_response.snowflake and not package_response.other:
         return InAnaconda(package_response, name)
     elif install_packages:
-        status, result = utils.install_packages(
+        status, result = package_utils.install_packages(
             perform_anaconda_check=True, package_name=name, file_name=None
         )
 
@@ -47,7 +47,7 @@ def lookup(name: str, install_packages: bool) -> LookupResult:
 def upload(file: Path, stage: str, overwrite: bool):
     log.info(f"Uploading {file} to Snowflake @{stage}/{file}...")
     with tempfile.TemporaryDirectory() as temp_dir:
-        temp_app_zip_path = utils.prepare_app_zip(file, temp_dir)
+        temp_app_zip_path = file_utils.prepare_app_zip(file, temp_dir)
         sm = StageManager()
         sm.create(stage)
         put_response = sm.put(temp_app_zip_path, stage, overwrite=overwrite).fetchone()
@@ -62,7 +62,7 @@ def upload(file: Path, stage: str, overwrite: bool):
 
 def create(zip_name: str):
     file_name = zip_name if zip_name.endswith(".zip") else f"{zip_name}.zip"
-    zip_dir(dest_zip=Path(file_name), source=Path.cwd())
+    zip_dir(dest_zip=Path(file_name), source=Path.cwd() / ".packages")
 
     if os.path.exists(file_name):
         return CreatedSuccessfully(zip_name, Path(file_name))

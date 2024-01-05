@@ -216,6 +216,7 @@ def project_definition_option(project_name: str):
     def _callback(project_path: Optional[str]):
         dm = DefinitionManager(project_path)
         project_definition = dm.project_definition.get(project_name)
+        project_root = dm.project_root
 
         if not project_definition:
             raise NoProjectDefinitionError(
@@ -223,6 +224,7 @@ def project_definition_option(project_name: str):
             )
 
         cli_context_manager.set_project_definition(project_definition)
+        cli_context_manager.set_project_root(project_root)
         return project_definition
 
     return typer.Option(

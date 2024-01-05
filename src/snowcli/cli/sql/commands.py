@@ -31,19 +31,21 @@ def execute_sql(
         readable=True,
         help="File to execute.",
     ),
+    std_in: Optional[bool] = typer.Option(
+        False,
+        "--stdin",
+        "-i",
+        help="Read the query from standard input. Use it when piping input to this command.",
+    ),
     **options
 ) -> CommandResult:
     """
     Executes Snowflake query.
 
     Query to execute can be specified using query option, filename option (all queries from file will be executed)
-    or via stdin by piping output from other command. For example `cat my.sql | snow sql`.
+    or via stdin by piping output from other command. For example `cat my.sql | snow sql -i`.
     """
-    cursors = SqlManager().execute(query, file)
-    if len(cursors) > 1:
-        result = MultipleResults()
-        for curr in cursors:
-            result.add(QueryResult(curr))
-    else:
-        result = QueryResult(cursors[0])
-    return result
+    single_statement, cursors = SqlManager().execute(query, file, std_in)
+    if single_statement:
+        return QueryResult(next(cursors))
+    return MultipleResults((QueryResult(c) for c in cursors))

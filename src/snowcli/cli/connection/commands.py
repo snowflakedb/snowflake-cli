@@ -7,7 +7,12 @@ from click import ClickException
 from click.types import StringParamType
 from snowcli.cli.common.decorators import global_options
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
-from snowcli.config import cli_config
+from snowcli.config import (
+    add_connection,
+    connection_exists,
+    get_config_section,
+    get_connection,
+)
 from snowcli.output.decorators import with_output
 from snowcli.output.types import (
     CollectionResult,
@@ -16,6 +21,7 @@ from snowcli.output.types import (
     ObjectResult,
 )
 from snowcli.snow_connector import connect_to_snowflake
+from snowflake.connector.config_manager import CONFIG_MANAGER
 from tomlkit.exceptions import KeyAlreadyPresent
 
 app = typer.Typer(
@@ -49,7 +55,7 @@ def list_connections(**options) -> CommandResult:
     """
     Lists configured connections.
     """
-    connections = cli_config.get_section("connections")
+    connections = get_config_section("connections")
     result = (
         {"connection_name": k, "parameters": _mask_password(v)}
         for k, v in connections.items()
@@ -164,6 +170,22 @@ def add(
         prompt="Snowflake region",
         help="Region name if not the default Snowflake deployment.",
     ),
+    authenticator: str = typer.Option(
+        EmptyInput(),
+        "--authenticator",
+        "-A",
+        click_type=OptionalPrompt(),
+        prompt="Authentication method",
+        help="Chosen authenticator, if other than password-based",
+    ),
+    private_key_path: str = typer.Option(
+        EmptyInput(),
+        "--private-key",
+        "-k",
+        click_type=OptionalPrompt(),
+        prompt="Path to private key file",
+        help="Path to file containing private key",
+    ),
     **options,
 ) -> CommandResult:
     """Adds a connection to configuration file."""
@@ -178,16 +200,17 @@ def add(
         "schema": schema,
         "warehouse": warehouse,
         "role": role,
+        "authenticator": authenticator,
+        "private_key_path": private_key_path,
     }
     connection_entry = {k: v for k, v in connection_entry.items() if v is not None}
 
-    try:
-        cli_config.add_connection(name=connection_name, parameters=connection_entry)
-    except KeyAlreadyPresent:
+    if connection_exists(connection_name):
         raise ClickException(f"Connection {connection_name} already exists")
 
+    add_connection(connection_name, connection_entry)
     return MessageResult(
-        f"Wrote new connection {connection_name} to {cli_config.file_path}"
+        f"Wrote new connection {connection_name} to {CONFIG_MANAGER.file_path}"
     )
 
 

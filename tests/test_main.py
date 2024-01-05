@@ -7,7 +7,7 @@ import typing as t
 from click import Command
 from snowcli.__about__ import VERSION
 from snowcli.app.cli_app import app_context_holder
-from snowcli.config import cli_config
+from snowflake.connector.config_manager import CONFIG_MANAGER
 from typer.core import TyperArgument, TyperOption
 
 from tests.testing_utils.fixtures import *
@@ -27,7 +27,7 @@ def test_streamlit_help(runner):
 @mock.patch.dict(os.environ, {}, clear=True)
 def test_custom_config_path(mock_conn, runner, mock_cursor):
     config_file = Path(__file__).parent / "test.toml"
-    mock_conn.return_value.execute_string.return_value = [
+    mock_conn.return_value.execute_stream.return_value = [
         None,
         mock_cursor(["row"], []),
     ]
@@ -53,8 +53,13 @@ def test_info_callback(runner):
     payload = json.loads(result.output)
     assert payload == [
         {"key": "version", "value": VERSION},
-        {"key": "default_config_file_path", "value": str(cli_config.file_path)},
+        {"key": "default_config_file_path", "value": str(CONFIG_MANAGER.file_path)},
     ]
+
+
+def test_docs_callback(runner):
+    result = runner.invoke(["--docs"])
+    assert result.exit_code == 0, result.output
 
 
 def test_all_commands_have_proper_documentation(runner):
@@ -76,9 +81,18 @@ def test_all_commands_have_proper_documentation(runner):
                     f"Command `snow {' '.join(path)}` is missing help in docstring"
                 )
 
+            long_options = []
             for param in command.params:
+                is_argument = isinstance(param, TyperArgument)
+
+                long_options = [opt for opt in param.opts if opt.startswith("--")]
+                if not is_argument and len(long_options) == 0:
+                    errors.append(
+                        f"Command `snow {' '.join(path)}` is missing --long option for `{param.name}` option"
+                    )
+
                 if not param.help:  # type: ignore
-                    if isinstance(param, TyperArgument):
+                    if is_argument:
                         errors.append(
                             f"Command `snow {' '.join(path)}` is missing help for `{param.name}` argument"
                         )

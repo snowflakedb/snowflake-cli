@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Optional
 
+from snowcli.cli.constants import ObjectNames, ObjectType
 from snowcli.cli.snowpark.common import SnowparkObjectManager
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -12,7 +13,7 @@ log = logging.getLogger(__file__)
 class FunctionManager(SnowparkObjectManager):
     @property
     def _object_type(self):
-        return "function"
+        return ObjectType.FUNCTION
 
     @property
     def _object_execute(self):
@@ -25,8 +26,10 @@ class FunctionManager(SnowparkObjectManager):
         handler: str,
         artifact_file: str,
         packages: List[str],
+        imports: List[str],
         external_access_integrations: Optional[List[str]] = None,
         secrets: Optional[Dict[str, str]] = None,
+        runtime: Optional[str] = None,
     ) -> SnowflakeCursor:
         log.debug(f"Creating function {identifier} using @{artifact_file}")
         query = self.create_query(
@@ -35,8 +38,10 @@ class FunctionManager(SnowparkObjectManager):
             handler,
             artifact_file,
             packages,
+            imports,
             external_access_integrations,
             secrets,
+            runtime,
         )
         return self._execute_query(query)
 
@@ -44,7 +49,7 @@ class FunctionManager(SnowparkObjectManager):
 class ProcedureManager(SnowparkObjectManager):
     @property
     def _object_type(self):
-        return "procedure"
+        return ObjectType.PROCEDURE
 
     @property
     def _object_execute(self):
@@ -57,8 +62,10 @@ class ProcedureManager(SnowparkObjectManager):
         handler: str,
         artifact_file: str,
         packages: List[str],
+        imports: List[str],
         external_access_integrations: Optional[List[str]] = None,
         secrets: Optional[Dict[str, str]] = None,
+        runtime: Optional[str] = None,
         execute_as_caller: bool = False,
     ) -> SnowflakeCursor:
         log.debug(f"Creating procedure {identifier} using @{artifact_file}")
@@ -68,8 +75,10 @@ class ProcedureManager(SnowparkObjectManager):
             handler,
             artifact_file,
             packages,
+            imports,
             external_access_integrations,
             secrets,
+            runtime,
             execute_as_caller,
         )
         return self._execute_query(query)

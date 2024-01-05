@@ -1,33 +1,32 @@
 import sys
+from io import StringIO
 from pathlib import Path
-from typing import List, Optional
+from typing import Iterable, Optional, Tuple
 
 from click import UsageError
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.util_text import split_statements
 
 
 class SqlManager(SqlExecutionMixin):
     def execute(
-        self, query: Optional[str], file: Optional[Path]
-    ) -> List[SnowflakeCursor]:
-        sys_input = None
+        self, query: Optional[str], file: Optional[Path], std_in: bool
+    ) -> Tuple[int, Iterable[SnowflakeCursor]]:
+        inputs = [query, file, std_in]
+        if not any(inputs):
+            raise UsageError("Use either query, filename or input option.")
 
-        if query and file:
-            raise UsageError("Both query and file provided, please specify only one.")
-
-        if not sys.stdin.isatty():
-            sys_input = sys.stdin.read()
-
-        if sys_input and (query or file):
+        # Check if any two inputs were provided simultaneously
+        if len([i for i in inputs if i]) > 1:
             raise UsageError(
-                "Can't use stdin input together with query or filename option."
+                "Multiple input sources specified. Please specify only one."
             )
 
-        if not query and not file and not sys_input:
-            raise UsageError("Provide either query or filename argument")
-        elif sys_input:
-            sql = sys_input
-        else:
-            sql = query if query else file.read_text()  # type: ignore
-        return self._execute_queries(sql)
+        if std_in:
+            query = sys.stdin.read()
+        elif file:
+            query = file.read_text()
+
+        single_statement = len(list(split_statements(StringIO(query)))) == 1
+        return single_statement, self._execute_string(query)
