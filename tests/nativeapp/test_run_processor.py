@@ -1401,7 +1401,7 @@ def test_get_existing_version_info(mock_execute, temp_dir, mock_cursor):
                     [],
                 ),
                 mock.call(
-                    f"show versions in application package app_pkg",
+                    f"show versions like 'V1' in application package app_pkg",
                     cursor_class=DictCursor,
                 ),
             ),

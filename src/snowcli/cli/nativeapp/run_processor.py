@@ -213,9 +213,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         """
         with self.use_role(self.package_role):
             show_obj_query = f"show versions in application package {self.package_name}"
-            show_obj_cursor = self._execute_query(
-                show_obj_query, cursor_class=DictCursor
-            )
+            show_obj_cursor = self._execute_query(show_obj_query)
 
             if show_obj_cursor.rowcount is None:
                 raise SnowflakeSQLExecutionError(show_obj_query)
@@ -225,13 +223,23 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
     def get_existing_version_info(self, version: str) -> Optional[dict]:
         """
         Get an existing version, if present, by the same name for an application package.
+        It executes a 'show versions like ... in application package' query and returns the result as single row, if one exists.
         """
-        show_obj_cursor = self.get_all_existing_versions()
-        show_obj_row = find_first_row(
-            show_obj_cursor,
-            lambda row: row[VERSION_COL] == unquote_identifier(version),
-        )
-        return show_obj_row
+        with self.use_role(self.package_role):
+            show_obj_query = f"show versions like '{unquote_identifier(version)}' in application package {self.package_name}"
+            show_obj_cursor = self._execute_query(
+                show_obj_query, cursor_class=DictCursor
+            )
+
+            if show_obj_cursor.rowcount is None:
+                raise SnowflakeSQLExecutionError(show_obj_query)
+
+            show_obj_row = find_first_row(
+                show_obj_cursor,
+                lambda row: row[VERSION_COL] == unquote_identifier(version),
+            )
+
+            return show_obj_row
 
     def upgrade_app(
         self,
