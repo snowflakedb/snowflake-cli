@@ -290,7 +290,6 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             # 3. If existing application is found, perform a few validations and upgrade the instance.
             if show_app_row:
 
-                drop_app = False
                 # We skip comment check here, because prod apps/pre-existing apps may not be created by the CLI.
                 # Check for the right owner
                 ensure_correct_owner(

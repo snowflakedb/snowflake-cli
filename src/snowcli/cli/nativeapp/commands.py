@@ -133,8 +133,6 @@ def app_run(
     Without any flags, this command creates an application package in your Snowflake account, uploads code files to its stage,
     then creates (or upgrades) a development-mode instance of that application.
     If passed in the version, patch or release directive flags, this command upgrades your existing application instance, or creates one if none exists. It does not create an application package in this scenario.
-    As a note, this command does not accept role or warehouse overrides to your `config.toml` file, because your
-    native app definition in `snowflake.yml` or `snowflake.local.yml` is used for any overrides.
     """
 
     is_interactive = False
