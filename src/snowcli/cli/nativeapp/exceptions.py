@@ -13,6 +13,15 @@ class ApplicationPackageAlreadyExistsError(ClickException):
         )
 
 
+class ApplicationPackageDoesNotExistError(ClickException):
+    """An application package of the specified name does not exist in the Snowflake acccount."""
+
+    def __init__(self, name: str):
+        super().__init__(
+            f"Application Package {name} does not exist in the Snowflake account."
+        )
+
+
 class ApplicationAlreadyExistsError(ClickException):
     """An application not created by SnowCLI exists with the same name."""
 

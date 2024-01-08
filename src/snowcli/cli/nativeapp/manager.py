@@ -21,7 +21,7 @@ from snowcli.cli.nativeapp.constants import (
     OWNER_COL,
 )
 from snowcli.cli.nativeapp.exceptions import UnexpectedOwnerError
-from snowcli.cli.nativeapp.utils import find_row
+from snowcli.cli.nativeapp.utils import find_first_row
 from snowcli.cli.object.stage.diff import (
     DiffResult,
     stage_diff,
@@ -306,7 +306,7 @@ class NativeAppManager(SqlExecutionMixin):
             if show_obj_cursor.rowcount is None:
                 raise SnowflakeSQLExecutionError(show_obj_query)
 
-            show_obj_row = find_row(
+            show_obj_row = find_first_row(
                 show_obj_cursor,
                 lambda row: row[NAME_COL] == unquote_identifier(self.app_name),
             )
@@ -328,7 +328,7 @@ class NativeAppManager(SqlExecutionMixin):
             if show_obj_cursor.rowcount is None:
                 raise SnowflakeSQLExecutionError(show_obj_query)
 
-            show_obj_row = find_row(
+            show_obj_row = find_first_row(
                 show_obj_cursor,
                 lambda row: row[NAME_COL] == unquote_identifier(self.package_name),
             )
