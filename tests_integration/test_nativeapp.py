@@ -67,7 +67,6 @@ def test_nativeapp_init_run_without_modifications(
                 dict(name=app_name),
             )
 
-        finally:
             # make sure we always delete the app
             result = runner.invoke_with_connection_json(
                 ["app", "teardown"],
@@ -75,9 +74,10 @@ def test_nativeapp_init_run_without_modifications(
             )
             assert result.exit_code == 0
 
+        finally:
             # teardown is idempotent, so we can execute it again with no ill effects
             result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
+                ["app", "teardown", "--force"],
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
@@ -139,10 +139,18 @@ def test_nativeapp_run_existing(
                 ),
                 {"ECHO": test_string},
             )
-        finally:
+
             # make sure we always delete the app
             result = runner.invoke_with_connection_json(
                 ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
@@ -191,7 +199,6 @@ def test_nativeapp_init_run_handles_spaces(
                 dict(name=app_name),
             )
 
-        finally:
             # make sure we always delete the app
             result = runner.invoke_with_connection_json(
                 ["app", "teardown"],
@@ -199,9 +206,10 @@ def test_nativeapp_init_run_handles_spaces(
             )
             assert result.exit_code == 0
 
+        finally:
             # teardown is idempotent, so we can execute it again with no ill effects
             result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
+                ["app", "teardown", "--force"],
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
@@ -278,8 +286,8 @@ def test_nativeapp_run_existing_w_external(
                 ),
                 {"ECHO": test_string},
             )
-        finally:
-            # make sure we always delete the app
+
+            # make sure we always delete the app, --force required for external distribution
             result = runner.invoke_with_connection_json(
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,
@@ -300,9 +308,10 @@ def test_nativeapp_run_existing_w_external(
                 row_from_snowflake_session(expect), {"name": package_name}
             )
 
+        finally:
             # teardown is idempotent, so we can execute it again with no ill effects
             result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
+                ["app", "teardown", "--force"],
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
@@ -356,7 +365,6 @@ def test_nativeapp_version_create_and_drop(
             )
             assert len(actual.json) == 0
 
-        finally:
             # make sure we always delete the package
             result = runner.invoke_with_connection_json(
                 ["app", "teardown"],
@@ -370,6 +378,14 @@ def test_nativeapp_version_create_and_drop(
             assert not_contains_row_with(
                 row_from_snowflake_session(expect), {"name": package_name}
             )
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
 
 
 # Tests upgrading an app from an existing loose files installation to versioned installation.
@@ -421,10 +437,17 @@ def test_nativeapp_upgrade(
                 env=TEST_ENV,
             )
 
-        finally:
             # make sure we always delete the package
             result = runner.invoke_with_connection_json(
                 ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
