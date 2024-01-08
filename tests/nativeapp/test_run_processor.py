@@ -1,6 +1,8 @@
 import unittest
 from textwrap import dedent
 
+import typer
+from click import ClickException
 from snowcli.cli.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
@@ -9,6 +11,11 @@ from snowcli.cli.nativeapp.exceptions import (
     ApplicationAlreadyExistsError,
     ApplicationPackageAlreadyExistsError,
     UnexpectedOwnerError,
+)
+from snowcli.cli.nativeapp.policy import (
+    AllowAlwaysPolicy,
+    AskAlwaysPolicy,
+    DenyAlwaysPolicy,
 )
 from snowcli.cli.nativeapp.run_processor import NativeAppRunProcessor
 from snowcli.cli.object.stage.diff import DiffResult
@@ -35,6 +42,10 @@ mock_project_definition_override = {
         },
     }
 }
+
+allow_always_policy = AllowAlwaysPolicy()
+ask_always_policy = AskAlwaysPolicy()
+deny_always_policy = DenyAlwaysPolicy()
 
 
 def _get_na_run_processor():
@@ -852,3 +863,561 @@ def test_create_dev_app_create_new_quoted_override(
     assert not mock_diff_result.has_changes()
     run_processor._create_dev_app(mock_diff_result)
     assert mock_execute.mock_calls == expected
+
+
+# Test upgrade app method for release directives AND throws warehouse error
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock_connection()
+@pytest.mark.parametrize(
+    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+)
+def test_upgrade_app_warehouse_error(
+    mock_conn, mock_execute, policy_param, temp_dir, mock_cursor
+):
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role app_role")),
+            (
+                ProgrammingError(
+                    msg="Object does not exist, or operation cannot be performed.",
+                    errno=2043,
+                ),
+                mock.call("use warehouse app_warehouse"),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    run_processor = _get_na_run_processor()
+    with pytest.raises(ProgrammingError):
+        run_processor.upgrade_app(policy_param, is_interactive=True)
+    assert mock_execute.mock_calls == expected
+
+
+# Test upgrade app method for release directives AND existing app info AND bad owner
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock_connection()
+@pytest.mark.parametrize(
+    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+)
+def test_upgrade_app_incorrect_owner(
+    mock_conn,
+    mock_get_existing_app_info,
+    mock_execute,
+    policy_param,
+    temp_dir,
+    mock_cursor,
+):
+    mock_get_existing_app_info.return_value = {
+        "name": "APP",
+        "comment": SPECIAL_COMMENT,
+        "owner": "wrong_owner",
+    }
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role app_role")),
+            (None, mock.call("use warehouse app_warehouse")),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    run_processor = _get_na_run_processor()
+    with pytest.raises(UnexpectedOwnerError):
+        run_processor.upgrade_app(policy=policy_param, is_interactive=True)
+    assert mock_execute.mock_calls == expected
+
+
+# Test upgrade app method for release directives AND existing app info AND upgrade succeeds
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock_connection()
+@pytest.mark.parametrize(
+    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+)
+def test_upgrade_app_succeeds(
+    mock_conn,
+    mock_get_existing_app_info,
+    mock_execute,
+    policy_param,
+    temp_dir,
+    mock_cursor,
+):
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "comment": SPECIAL_COMMENT,
+        "owner": "app_role",
+    }
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role app_role")),
+            (None, mock.call("use warehouse app_warehouse")),
+            (None, mock.call("alter application myapp upgrade ")),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    run_processor = _get_na_run_processor()
+    run_processor.upgrade_app(policy=policy_param, is_interactive=True)
+    assert mock_execute.mock_calls == expected
+
+
+# Test upgrade app method for release directives AND existing app info AND upgrade fails due to generic error
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock_connection()
+@pytest.mark.parametrize(
+    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+)
+def test_upgrade_app_fails_generic_error(
+    mock_conn,
+    mock_get_existing_app_info,
+    mock_execute,
+    policy_param,
+    temp_dir,
+    mock_cursor,
+):
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "comment": SPECIAL_COMMENT,
+        "owner": "app_role",
+    }
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role app_role")),
+            (None, mock.call("use warehouse app_warehouse")),
+            (
+                ProgrammingError(
+                    msg="Some Error Message.",
+                    errno=1234,
+                ),
+                mock.call("alter application myapp upgrade "),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    run_processor = _get_na_run_processor()
+    with pytest.raises(ProgrammingError):
+        run_processor.upgrade_app(policy=policy_param, is_interactive=True)
+    assert mock_execute.mock_calls == expected
+
+
+# Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is False AND --interactive is False
+# Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is False AND --interactive is True AND  user does not want to proceed
+# Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is True AND user does not want to proceed
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(f"snowcli.cli.nativeapp.policy.{TYPER_CONFIRM}", return_value=False)
+@mock_connection()
+@pytest.mark.parametrize(
+    "policy_param, is_interactive_param, expected_code",
+    [(deny_always_policy, False, 1), (ask_always_policy, True, 0)],
+)
+def test_upgrade_app_fails_upgrade_restriction_error(
+    mock_conn,
+    mock_typer_confirm,
+    mock_get_existing_app_info,
+    mock_execute,
+    policy_param,
+    is_interactive_param,
+    expected_code,
+    temp_dir,
+    mock_cursor,
+):
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "comment": SPECIAL_COMMENT,
+        "owner": "app_role",
+    }
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role app_role")),
+            (None, mock.call("use warehouse app_warehouse")),
+            (
+                ProgrammingError(
+                    msg="Some Error Message.",
+                    errno=93044,
+                ),
+                mock.call("alter application myapp upgrade "),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    run_processor = _get_na_run_processor()
+    with pytest.raises(typer.Exit):
+        result = run_processor.upgrade_app(
+            policy_param, is_interactive=is_interactive_param
+        )
+        assert result.exit_code == expected_code
+    assert mock_execute.mock_calls == expected
+
+
+# Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is True AND drop fails
+# Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is False AND --interactive is True AND user wants to proceed AND drop fails
+# Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is True AND user wants to proceed AND drop fails
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(f"snowcli.cli.nativeapp.policy.{TYPER_CONFIRM}", return_value=True)
+@mock_connection()
+@pytest.mark.parametrize(
+    "policy_param, is_interactive_param",
+    [(allow_always_policy, False), (ask_always_policy, True)],
+)
+def test_upgrade_app_fails_drop_fails(
+    mock_conn,
+    mock_typer_confirm,
+    mock_get_existing_app_info,
+    mock_execute,
+    policy_param,
+    is_interactive_param,
+    temp_dir,
+    mock_cursor,
+):
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "comment": SPECIAL_COMMENT,
+        "owner": "app_role",
+    }
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role app_role")),
+            (None, mock.call("use warehouse app_warehouse")),
+            (
+                ProgrammingError(
+                    msg="Some Error Message.",
+                    errno=93044,
+                ),
+                mock.call("alter application myapp upgrade "),
+            ),
+            (
+                ProgrammingError(
+                    msg="Some Error Message.",
+                    errno=1234,
+                ),
+                mock.call("drop application myapp"),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    run_processor = _get_na_run_processor()
+    with pytest.raises(ProgrammingError):
+        run_processor.upgrade_app(policy_param, is_interactive=is_interactive_param)
+    assert mock_execute.mock_calls == expected
+
+
+# Test upgrade app method for release directives AND existing app info AND user wants to drop app AND drop succeeds AND app is created successfully.
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(f"snowcli.cli.nativeapp.policy.{TYPER_CONFIRM}", return_value=True)
+@mock_connection()
+@pytest.mark.parametrize("policy_param", [allow_always_policy, ask_always_policy])
+def test_upgrade_app_recreate_app(
+    mock_conn,
+    mock_typer_confirm,
+    mock_get_existing_app_info,
+    mock_execute,
+    policy_param,
+    temp_dir,
+    mock_cursor,
+):
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "comment": SPECIAL_COMMENT,
+        "owner": "app_role",
+    }
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role app_role")),
+            (None, mock.call("use warehouse app_warehouse")),
+            (
+                ProgrammingError(
+                    msg="Some Error Message.",
+                    errno=93044,
+                ),
+                mock.call("alter application myapp upgrade "),
+            ),
+            (None, mock.call("drop application myapp")),
+            (
+                mock_cursor([{"CURRENT_ROLE()": "app_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role package_role")),
+            (
+                None,
+                mock.call(
+                    "grant install on application package app_pkg to role app_role"
+                ),
+            ),
+            (None, mock.call("use role app_role")),
+            (
+                None,
+                mock.call(
+                    dedent(
+                        f"""\
+            create application myapp
+                from application package app_pkg 
+                comment = {SPECIAL_COMMENT}
+            """
+                    )
+                ),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    run_processor = _get_na_run_processor()
+    run_processor.upgrade_app(policy_param, is_interactive=True)
+    assert mock_execute.mock_calls == expected
+
+
+# Test upgrade app method for version AND no existing app info
+@mock.patch(
+    "snowcli.cli.nativeapp.run_processor.NativeAppRunProcessor.get_existing_version_info",
+    return_value=None,
+)
+@mock_connection()
+@pytest.mark.parametrize(
+    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+)
+def test_upgrade_app_from_version(mock_conn, mock_existing, policy_param, temp_dir):
+    mock_conn.return_value = MockConnectionCtx()
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    run_processor = _get_na_run_processor()
+    with pytest.raises(ClickException):
+        run_processor.process(policy=policy_param, version="v1", is_interactive=True)
+
+
+# Test upgrade app method for version AND existing app info AND user wants to drop app AND drop succeeds AND app is created successfully
+@mock.patch(
+    "snowcli.cli.nativeapp.run_processor.NativeAppRunProcessor.get_existing_version_info",
+    return_value={"key": "val"},
+)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(f"snowcli.cli.nativeapp.policy.{TYPER_CONFIRM}", return_value=True)
+@mock_connection()
+@pytest.mark.parametrize("policy_param", [allow_always_policy, ask_always_policy])
+def test_upgrade_app_recreate_app_from_version(
+    mock_conn,
+    mock_typer_confirm,
+    mock_get_existing_app_info,
+    mock_execute,
+    mock_existing,
+    policy_param,
+    temp_dir,
+    mock_cursor,
+):
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "comment": SPECIAL_COMMENT,
+        "owner": "app_role",
+    }
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role app_role")),
+            (None, mock.call("use warehouse app_warehouse")),
+            (
+                ProgrammingError(
+                    msg="Some Error Message.",
+                    errno=93044,
+                ),
+                mock.call("alter application myapp upgrade using version v1 "),
+            ),
+            (None, mock.call("drop application myapp")),
+            (
+                mock_cursor([{"CURRENT_ROLE()": "app_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role package_role")),
+            (
+                None,
+                mock.call(
+                    "grant install on application package app_pkg to role app_role"
+                ),
+            ),
+            (
+                None,
+                mock.call(
+                    "grant develop on application package app_pkg to role app_role"
+                ),
+            ),
+            (None, mock.call("use role app_role")),
+            (
+                None,
+                mock.call(
+                    dedent(
+                        f"""\
+            create application myapp
+                from application package app_pkg using version v1 
+                comment = {SPECIAL_COMMENT}
+            """
+                    )
+                ),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    run_processor = _get_na_run_processor()
+    run_processor.process(policy=policy_param, version="v1", is_interactive=True)
+    assert mock_execute.mock_calls == expected
+
+
+# Test get_existing_version_info returns version info correctly
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_get_existing_version_info(mock_execute, temp_dir, mock_cursor):
+    version = "V1"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role package_role")),
+            (
+                mock_cursor(
+                    [
+                        {
+                            "name": "My Package",
+                            "comment": "some comment",
+                            "owner": "PACKAGE_ROLE",
+                            "version": version,
+                        }
+                    ],
+                    [],
+                ),
+                mock.call(
+                    f"show versions like 'V1' in application package app_pkg",
+                    cursor_class=DictCursor,
+                ),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    processor = _get_na_run_processor()
+    result = processor.get_existing_version_info(version)
+    assert mock_execute.mock_calls == expected
+    assert result["version"] == version

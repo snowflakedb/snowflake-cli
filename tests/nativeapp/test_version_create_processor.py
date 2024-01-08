@@ -33,52 +33,6 @@ def _get_version_create_processor():
     )
 
 
-# Test get_existing_version_info returns version info correctly
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-def test_get_existing_version_info(mock_execute, temp_dir, mock_cursor):
-    version = "V1"
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
-            ),
-            (None, mock.call("use role package_role")),
-            (
-                mock_cursor(
-                    [
-                        {
-                            "name": "My Package",
-                            "comment": "some comment",
-                            "owner": "PACKAGE_ROLE",
-                            "version": version,
-                        }
-                    ],
-                    [],
-                ),
-                mock.call(
-                    f"show versions like 'V1' in application package app_pkg",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("use role old_role")),
-        ]
-    )
-    mock_execute.side_effect = side_effects
-
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir=current_working_directory,
-        contents=[mock_snowflake_yml_file],
-    )
-
-    processor = _get_version_create_processor()
-    result = processor.get_existing_version_info(version)
-    assert mock_execute.mock_calls == expected
-    assert result["version"] == version
-
-
 # Test get_existing_release_directive_info_for_version returns release directives info correctly
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 def test_get_existing_release_direction_info(mock_execute, temp_dir, mock_cursor):
