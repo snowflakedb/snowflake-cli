@@ -78,6 +78,15 @@ class CliConfigManager(ConfigManager):
         self._find_section("connections").add(name, parameters)
         self._dump_config()
 
+    def get_logs_config(self) -> dict:
+        logs_config = _DEFAULT_LOGS_CONFIG.copy()
+        if self.section_exists("logs"):
+            logs_config.update(**self.get_section("logs"))
+        return logs_config
+
+    def is_default_logs_path(self, path: Path) -> bool:
+        return path.resolve() == Path(str(_DEFAULT_LOGS_CONFIG["path"])).resolve()
+
     def _add_options(self):
         self.add_option(
             name="options",
@@ -89,6 +98,10 @@ class CliConfigManager(ConfigManager):
         )
         self.add_option(
             name="snowcli",
+            parse_str=tomlkit.parse,
+        )
+        self.add_option(
+            name="logs",
             parse_str=tomlkit.parse,
         )
 
@@ -126,12 +139,18 @@ class CliConfigManager(ConfigManager):
         }
 
     def _initialize_connection_section(self):
-        self.conf_file_cache = TOMLDocument()
         self.conf_file_cache.append("connections", table())
+
+    def _initialize_logs_section(self):
+        logs_table = table()
+        logs_table.update(_DEFAULT_LOGS_CONFIG)
+        self.conf_file_cache.append("logs", logs_table)
 
     def _initialise_config(self):
         os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
+        self.conf_file_cache = TOMLDocument()
         self._initialize_connection_section()
+        self._initialize_logs_section()
         self._dump_config()
         log.info(f"Created Snowflake configuration file at {cli_config.file_path}")
 
@@ -152,6 +171,11 @@ cli_config: CliConfigManager = CliConfigManager()  # type: ignore
 
 
 _DEFAULT_CONNECTION = "dev"
+_DEFAULT_LOGS_CONFIG = {
+    "save_logs": False,
+    "path": str(CONFIG_FILE.parent / "logs"),
+    "level": "info",
+}
 
 
 def get_default_connection() -> str:
