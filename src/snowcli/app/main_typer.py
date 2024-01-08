@@ -1,12 +1,28 @@
+import logging
 import sys
 
 import click
 from snowcli.cli.common.cli_global_context import cli_context
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, DebugOption
+from snowcli.cli.loggers import remove_console_output_handler_from_logs
 from typer import Typer
 
 
 def _handle_exception(exception: Exception):
+    # NOTES FOR REVIEWER:
+    # pczajka: I'd expect logs to contain traceback in case of exception, but I also wanted to preserve
+    #   current behavior. I decided to:
+    #   - Keep console output handler, so the users won't loose the output they've seen until now
+    #   - delete console handler in the line below, as:
+    #     - the program is about to end :)
+    #     - I'm not changing/reimplementing the logic of visibility of traceback on console output
+    #
+    # at some point we might want to reconsider to unify printing console output via "print" and "logging"
+    # (below is the only use of "click.echo" my grep search found)
+    remove_console_output_handler_from_logs()
+    logger = logging.getLogger("snowcli")
+    logger.exception(exception)
+
     if cli_context.enable_tracebacks:
         raise exception
     else:
