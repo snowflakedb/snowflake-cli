@@ -6,6 +6,7 @@ import re
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+from zipfile import ZipFile
 
 from syrupy import SnapshotAssertion
 
@@ -158,6 +159,7 @@ class SnowparkTestSteps:
                 "JSON",
             ]
         )
+
         assert result.exit_code == 0, result.output
         assert result.json, result.output
         assert "message" in result.json
@@ -167,6 +169,8 @@ class SnowparkTestSteps:
             *current_files,
             Path("app.zip"),
             Path("requirements.snowflake.txt"),
+            Path("requirements.other.txt"),
+            excluded_paths=[".packages"],
         )
 
     def snowpark_deploy_with_coverage_wrapper_should_finish_successfully_and_return(
@@ -222,6 +226,35 @@ class SnowparkTestSteps:
             ]
         )
         assert_that_result_is_successful(result)
+
+    def package_should_build_proper_artifact(self, package_name: str):
+        result = self._setup.runner.invoke_with_connection_json(
+            ["snowpark", "package", "create", package_name, "-y"]
+        )
+
+        assert result.exit_code == 0
+        assert os.path.isfile("PyRTF3.zip")
+        assert "pyparsing/results.py" in ZipFile("PyRTF3.zip").namelist()
+
+    def package_should_upload_artifact_to_stage(self, file_name, stage_name):
+        result = self._setup.runner.invoke_with_connection_json(
+            ["snowpark", "package", "upload", "-f", file_name, "-s", stage_name]
+        )
+
+        assert result.exit_code == 0
+        assert (
+            f"Package {file_name} UPLOADED to Snowflake @{stage_name}/{file_name}."
+            in result.json["message"]
+        )
+
+    def artifacts_left_after_package_creation_should_be_deleted(self, file_name):
+        if os.path.isfile(file_name):
+            os.remove(file_name)
+        if os.path.isdir(".packages"):
+            os.rmdir(".packages")
+
+        assert not os.path.exists(file_name)
+        assert not os.path.exists(".packages")
 
     def procedure_coverage_should_return_report_when_files_are_present_on_stage(
         self, identifier: str

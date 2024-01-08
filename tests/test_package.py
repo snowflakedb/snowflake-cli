@@ -84,8 +84,7 @@ class TestPackage:
         zip_file = ZipFile("totally-awesome-package.zip", "r")
 
         assert (
-            ".packages/totally-awesome-package/totally-awesome-module.py"
-            in zip_file.namelist()
+            "totally-awesome-package/totally-awesome-module.py" in zip_file.namelist()
         )
         os.remove("totally-awesome-package.zip")
 

@@ -306,3 +306,125 @@ def test_nativeapp_run_existing_w_external(
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+
+
+# Tests a simple flow of an existing project, executing snow app version create, drop and teardown, all with distribution=internal
+@pytest.mark.integration
+@pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
+def test_nativeapp_version_create_and_drop(
+    runner,
+    snowflake_session,
+    project_definition_files: List[Path],
+):
+    project_name = "integration"
+    dir = project_definition_files[0].parent
+    with pushd(dir):
+        result_create = runner.invoke_with_connection_json(
+            ["app", "version", "create", "v1", "--force", "--skip-git-check"],
+            env=TEST_ENV,
+        )
+        assert result_create.exit_code == 0
+
+        try:
+            # package exist
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show application packages like '{package_name}'",
+                    )
+                ),
+                dict(name=package_name),
+            )
+
+            # app package contains version v1
+            expect = snowflake_session.execute_string(
+                f"show versions in application package {package_name}"
+            )
+            actual = runner.invoke_with_connection_json(
+                ["app", "version", "list"], env=TEST_ENV
+            )
+            assert actual.json == row_from_snowflake_session(expect)
+
+            result_drop = runner.invoke_with_connection_json(
+                ["app", "version", "drop", "v1", "--force"],
+                env=TEST_ENV,
+            )
+            assert result_drop.exit_code == 0
+            actual = runner.invoke_with_connection_json(
+                ["app", "version", "list"], env=TEST_ENV
+            )
+            assert len(actual.json) == 0
+
+        finally:
+            # make sure we always delete the package
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            expect = snowflake_session.execute_string(
+                f"show application packages like '{package_name}'"
+            )
+            assert not_contains_row_with(
+                row_from_snowflake_session(expect), {"name": package_name}
+            )
+
+
+# Tests upgrading an app from an existing loose files installation to versioned installation.
+@pytest.mark.integration
+@pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
+def test_nativeapp_upgrade(
+    runner,
+    snowflake_session,
+    project_definition_files: List[Path],
+):
+    project_name = "integration"
+    dir = project_definition_files[0].parent
+    with pushd(dir):
+        runner.invoke_with_connection_json(
+            ["app", "run"],
+            env=TEST_ENV,
+        )
+        runner.invoke_with_connection_json(
+            ["app", "version", "create", "v1", "--force", "--skip-git-check"],
+            env=TEST_ENV,
+        )
+
+        try:
+            # package exist
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            app_name = f"{project_name}_{USER_NAME}".upper()
+            # app package contains version v1
+            expect = snowflake_session.execute_string(
+                f"show versions in application package {package_name}"
+            )
+            actual = runner.invoke_with_connection_json(
+                ["app", "version", "list"], env=TEST_ENV
+            )
+            assert actual.json == row_from_snowflake_session(expect)
+
+            runner.invoke_with_connection_json(
+                ["app", "run", "--version", "v1", "--force"], env=TEST_ENV
+            )
+
+            expect = row_from_snowflake_session(
+                snowflake_session.execute_string(f"desc application {app_name}")
+            )
+            assert contains_row_with(expect, {"property": "name", "value": app_name})
+            assert contains_row_with(expect, {"property": "version", "value": "V1"})
+            assert contains_row_with(expect, {"property": "patch", "value": "0"})
+
+            runner.invoke_with_connection_json(
+                ["app", "version", "drop", "v1", "--force"],
+                env=TEST_ENV,
+            )
+
+        finally:
+            # make sure we always delete the package
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
