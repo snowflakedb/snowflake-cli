@@ -6,6 +6,7 @@ from typing import Optional
 from snowcli.cli import loggers
 from snowcli.config import config_init
 from snowcli.exception import InvalidLogsConfiguration
+from snowflake.connector.config_manager import CONFIG_MANAGER
 
 from tests.conftest import clean_logging_handlers
 
@@ -42,7 +43,10 @@ def setup_logging(
 
     clean_logging_handlers()
     config_init(config_path)
+    print(CONFIG_MANAGER.file_path)
+    print(config_path.read_text())
     loggers.create_loggers(verbose=verbose, debug=debug)
+    print(_list_handlers())
     assert len(_list_handlers()) == (2 if save_logs else 1)
 
 

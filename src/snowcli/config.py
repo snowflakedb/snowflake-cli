@@ -176,6 +176,7 @@ def config_init(config_file: Path):
     if not config_file.exists():
         _initialise_config(config_file)
     CONFIG_MANAGER.read_config()
+    print(get_logs_config())
 
 
 def add_connection(name: str, parameters: dict):
@@ -186,14 +187,32 @@ def add_connection(name: str, parameters: dict):
     _dump_config(conf_file_cache)
 
 
-# <<<<<<< HEAD
-# _DEFAULT_CONNECTION = "dev"
-# _DEFAULT_LOGS_CONFIG = {
-#     "save_logs": False,
-#     "path": str(CONFIG_FILE.parent / "logs"),
-#     "level": "info",
-# }
-# =======
+def _initialise_logs_section():
+    conf_file_cache = CONFIG_MANAGER.conf_file_cache
+    if conf_file_cache.get("logs") is None:
+        conf_file_cache["logs"] = _DEFAULT_LOGS_CONFIG
+    _dump_config(conf_file_cache)
+
+
+_DEFAULT_LOGS_CONFIG = {
+    "save_logs": False,
+    "path": str(CONFIG_MANAGER.file_path.parent / "logs"),
+    "level": "info",
+}
+
+
+def get_logs_config() -> dict:
+    print(CONFIG_MANAGER.file_path)
+    logs_config = _DEFAULT_LOGS_CONFIG.copy()
+    if config_section_exists("snowcli", "logs"):
+        logs_config.update(**get_config_section("snowcli", "logs"))
+    return logs_config
+
+
+def is_default_logs_path(path: Path) -> bool:
+    return path.resolve() == Path(str(_DEFAULT_LOGS_CONFIG["path"])).resolve()
+
+
 def connection_exists(connection_name: str) -> bool:
     return config_section_exists("connections", connection_name)
 
@@ -238,6 +257,7 @@ def get_config_value(*path, key: str, default: Optional[Any] = Empty) -> Any:
 def _initialise_config(config_file: Path) -> None:
     os.makedirs(os.path.dirname(config_file), exist_ok=True)
     config_file.touch()
+    _initialise_logs_section()
     log.info(f"Created Snowflake configuration file at {CONFIG_MANAGER.file_path}")
 
 

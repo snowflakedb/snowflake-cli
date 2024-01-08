@@ -3,7 +3,10 @@ from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 import typer
-from snowcli.config import cli_config
+from snowcli.config import (
+    get_logs_config,
+    is_default_logs_path,
+)
 from snowcli.exception import InvalidLogsConfiguration
 
 DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s %(message)s"
@@ -15,7 +18,9 @@ _CONSOLE_OUTPUT = "console output"
 
 class LogsConfig:
     def __init__(self, debug: bool) -> None:
-        config = cli_config.get_logs_config()
+        config = get_logs_config()
+        print("----")
+        print(config)
 
         self.path: Path = Path(config["path"])
         self.save_logs: bool = config["save_logs"]
@@ -28,7 +33,7 @@ class LogsConfig:
 
     def _check_logs_directory_exists(self):
         if not self.path.exists():
-            if cli_config.is_default_logs_path(self.path):
+            if is_default_logs_path(self.path):
                 self.path.mkdir()
             else:
                 raise InvalidLogsConfiguration(
