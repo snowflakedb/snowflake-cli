@@ -1,4 +1,4 @@
-[connections.dev]
+[connections.default]
 [connections.integration]
 schema = "public"
 

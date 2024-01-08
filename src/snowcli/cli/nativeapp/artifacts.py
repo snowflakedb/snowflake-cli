@@ -2,9 +2,10 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Union
+from typing import Any, List, Optional, Tuple, Union
 
-from click.exceptions import ClickException
+import strictyaml
+from click import ClickException
 
 
 class DeployRootError(ClickException):
@@ -234,3 +235,44 @@ def build_bundle(
             else:
                 # refuse to map multiple source files to one destination (undefined behaviour)
                 raise TooManyFilesError(dest_path)
+
+
+def find_manifest_file(deploy_root: Path) -> Path:
+    """
+    Find manifest.yml file, if available, in the deploy_root of the native apps project.
+    """
+    resolved_root = deploy_root.resolve()
+    for root, _, files in os.walk(resolved_root):
+        for file in files:
+            if file.lower() == "manifest.yml":
+                return Path(os.path.join(root, file))
+
+    raise ClickException(
+        "Required manifest.yml file not found in the deploy root of the native apps project."
+    )
+
+
+def find_version_info_in_manifest_file(
+    deploy_root: Path,
+) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Find version and patch, if available, in the manifest.yml file.
+    """
+    version_field = "version"
+    name_field = "name"
+    patch_field = "patch"
+
+    manifest_file = find_manifest_file(deploy_root)
+    with open(manifest_file, "r") as file:
+        manifest_content = strictyaml.load(file.read())
+
+    version_name: Optional[str] = None
+    patch_name: Optional[str] = None
+
+    if version_field in manifest_content:
+        version_info = manifest_content[version_field]
+        version_name = version_info[name_field]
+        if patch_field in version_info:
+            patch_name = version_info[patch_field]
+
+    return version_name, patch_name

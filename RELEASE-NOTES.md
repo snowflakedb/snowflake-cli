@@ -8,6 +8,9 @@
 * `snow warehouse status` is now `snow object show warehouse`
 * `snow connection test` now outputs all connection details (except for the password), along with connection status
 * `snow sql` requires explicit `-i` flag to read input from stdin: `cat my.sql | snow sql -i`
+* Switched to Python Connector default connection https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect#setting-a-default-connection
+  * Default connection name changed from `dev` to `default`
+  * Environment variable for default connection name changed from `SNOWFLAKE_OPTIONS_DEFAULT_CONNECTION` to `SNOWFLAKE_DEFAULT_CONNECTION_NAME`
 
 * Snowpark changes
   * Removed `procedure` and `function` subgroups.
@@ -45,6 +48,7 @@
   * Introduced new `build` command for project with procedure and functions
 * Added support for external access integration for functions and procedures
 * Added support for runtime version in snowpark procedures ad functions.
+* You can include previously uploaded packages in your functions, by listing them under `imports` in `snowflake.yml`
 * Added more options to `snow connection add` - now you can also specify authenticator and path to private key
 
 ## Fixes and improvements

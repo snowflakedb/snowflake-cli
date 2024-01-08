@@ -1,8 +1,10 @@
 from pathlib import Path
 from textwrap import dedent
-from typing import Dict
+from typing import Dict, Optional
 
 import jinja2
+import typer
+from click import ClickException
 from rich import print
 from snowcli.cli.nativeapp.constants import (
     COMMENT_COL,
@@ -23,9 +25,16 @@ from snowcli.cli.nativeapp.manager import (
     ensure_correct_owner,
     generic_sql_error_handler,
 )
+from snowcli.cli.nativeapp.policy import PolicyBase
+from snowcli.cli.nativeapp.utils import find_first_row
 from snowcli.cli.object.stage.diff import DiffResult
 from snowcli.cli.object.stage.manager import StageManager
+from snowcli.cli.project.util import unquote_identifier
+from snowcli.exception import SnowflakeSQLExecutionError
 from snowflake.connector import ProgrammingError
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor
+
+UPGRADE_RESTRICTION_CODES = {93044, 93055, 93045, 93046}
 
 
 class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
@@ -197,8 +206,166 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             except ProgrammingError as err:
                 generic_sql_error_handler(err)
 
-    def process(self, *args, **kwargs):
+    def get_all_existing_versions(self) -> SnowflakeCursor:
+        """
+        Get all existing versions, if present, for an application package.
+        It executes a 'show versions in application package' query and returns all the results.
+        """
+        with self.use_role(self.package_role):
+            show_obj_query = f"show versions in application package {self.package_name}"
+            show_obj_cursor = self._execute_query(show_obj_query)
+
+            if show_obj_cursor.rowcount is None:
+                raise SnowflakeSQLExecutionError(show_obj_query)
+
+            return show_obj_cursor
+
+    def get_existing_version_info(self, version: str) -> Optional[dict]:
+        """
+        Get an existing version, if present, by the same name for an application package.
+        It executes a 'show versions like ... in application package' query and returns the result as single row, if one exists.
+        """
+        with self.use_role(self.package_role):
+            show_obj_query = f"show versions like '{unquote_identifier(version)}' in application package {self.package_name}"
+            show_obj_cursor = self._execute_query(
+                show_obj_query, cursor_class=DictCursor
+            )
+
+            if show_obj_cursor.rowcount is None:
+                raise SnowflakeSQLExecutionError(show_obj_query)
+
+            show_obj_row = find_first_row(
+                show_obj_cursor,
+                lambda row: row[VERSION_COL] == unquote_identifier(version),
+            )
+
+            return show_obj_row
+
+    def drop_application_before_upgrade(self, policy: PolicyBase, is_interactive: bool):
+        """
+        This method will attempt to drop an application if a previous upgrade fails.
+        """
+        user_prompt = (
+            "Do you want the CLI to drop the existing application and recreate it?"
+        )
+        if not policy.should_proceed(user_prompt):
+            if is_interactive:
+                print("Not upgrading the application.")
+                raise typer.Exit(0)
+            else:
+                print(
+                    "Cannot upgrade the application non-interactively without --force."
+                )
+                raise typer.Exit(1)
+        try:
+            self._execute_query(f"drop application {self.app_name}")
+        except ProgrammingError as err:
+            generic_sql_error_handler(err)
+
+    def upgrade_app(
+        self,
+        policy: PolicyBase,
+        is_interactive: bool,
+        version: Optional[str] = None,
+        patch: Optional[str] = None,
+    ):
+
+        patch_clause = f"patch {patch}" if patch else ""
+        using_clause = f"using version {version} {patch_clause}" if version else ""
+
+        with self.use_role(self.app_role):
+
+            # 1. Need to use a warehouse to create an application instance
+            try:
+                if self.application_warehouse:
+                    self._execute_query(f"use warehouse {self.application_warehouse}")
+            except ProgrammingError as err:
+                generic_sql_error_handler(
+                    err=err, role=self.app_role, warehouse=self.application_warehouse
+                )
+
+            # 2. Check for an existing application by the same name
+            show_app_row = self.get_existing_app_info()
+
+            # 3. If existing application is found, perform a few validations and upgrade the instance.
+            if show_app_row:
+
+                # We skip comment check here, because prod apps/pre-existing apps may not be created by the CLI.
+                # Check for the right owner
+                ensure_correct_owner(
+                    row=show_app_row, role=self.app_role, obj_name=self.app_name
+                )
+
+                # If all the above checks are in order, proceed to upgrade
+                try:
+                    self._execute_query(
+                        f"alter application {self.app_name} upgrade {using_clause}"
+                    )
+                    return
+
+                except ProgrammingError as err:
+                    if err.errno not in UPGRADE_RESTRICTION_CODES:
+                        generic_sql_error_handler(err=err)
+                    else:  # The existing app was created from a different process.
+                        print(err.msg)
+                        self.drop_application_before_upgrade(policy, is_interactive)
+
+            # 4. With no (more) existing applications, create an app using the release directives
+            print(f"Creating new application {self.app_name} in account.")
+
+            if self.app_role != self.package_role:
+                with self.use_role(new_role=self.package_role):
+                    self._execute_query(
+                        f"grant install on application package {self.package_name} to role {self.app_role}"
+                    )
+                    if version:
+                        self._execute_query(
+                            f"grant develop on application package {self.package_name} to role {self.app_role}"
+                        )
+
+            try:
+                self._execute_query(
+                    dedent(
+                        f"""\
+                    create application {self.app_name}
+                        from application package {self.package_name} {using_clause}
+                        comment = {SPECIAL_COMMENT}
+                    """
+                    )
+                )
+            except ProgrammingError as err:
+                generic_sql_error_handler(err)
+
+    def process(
+        self,
+        policy: PolicyBase,
+        version: Optional[str] = None,
+        patch: Optional[str] = None,
+        from_release_directive: bool = False,
+        is_interactive: bool = False,
+        *args,
+        **kwargs,
+    ):
         """app run process"""
+
+        if from_release_directive:
+            self.upgrade_app(policy=policy, is_interactive=is_interactive)
+            return
+
+        if version:
+            existing_version = self.get_existing_version_info(version)
+            if not existing_version:
+                raise ClickException(
+                    f"Application Package {self.package_name} does not contain any version {version}."
+                )
+
+            self.upgrade_app(
+                policy=policy,
+                version=version,
+                patch=patch,
+                is_interactive=is_interactive,
+            )
+            return
 
         # 1. Create an empty application package, if none exists
         self.create_app_package()
