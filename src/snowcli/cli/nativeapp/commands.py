@@ -13,6 +13,7 @@ from snowcli.cli.nativeapp.init import nativeapp_init
 from snowcli.cli.nativeapp.manager import NativeAppManager
 from snowcli.cli.nativeapp.run_processor import NativeAppRunProcessor
 from snowcli.cli.nativeapp.teardown_processor import NativeAppTeardownProcessor
+from snowcli.cli.nativeapp.version.commands import app as versions_app
 from snowcli.output.decorators import with_output
 from snowcli.output.types import CommandResult, MessageResult
 
@@ -21,6 +22,7 @@ app = typer.Typer(
     name="app",
     help="Manage Native Apps in Snowflake",
 )
+app.add_typer(versions_app)
 
 log = logging.getLogger(__name__)
 
@@ -140,7 +142,7 @@ def app_teardown(
     force: Optional[bool] = typer.Option(
         False,
         "--force",
-        help="Defaults to unset (False). If set (True), we will implicitly respond “yes” to any prompts that come up.",
+        help="Defaults to False. Passing in --force turns this to True, i.e. we will implicitly respond “yes” to any prompts that come up.",
         is_flag=True,
     ),
     **options,

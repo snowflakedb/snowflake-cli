@@ -306,3 +306,63 @@ def test_nativeapp_run_existing_w_external(
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+
+
+# Tests a simple flow of an existing project, executing snow app version create, drop and teardown, all with distribution=internal
+@pytest.mark.integration
+@pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
+def test_nativeapp_version_create_and_drop(
+    runner,
+    snowflake_session,
+    project_definition_files: List[Path],
+):
+    project_name = "integration"
+    dir = project_definition_files[0].parent
+    with pushd(dir):
+        result_create = runner.invoke_with_connection_json(
+            ["app", "version", "create", "v1", "--force", "--skip-git-check"],
+            env=TEST_ENV,
+        )
+        assert result_create.exit_code == 0
+
+        try:
+            # package exist
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show application packages like '{package_name}'",
+                    )
+                ),
+                dict(name=package_name),
+            )
+
+            # app package contains version v1
+            expect = row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show versions in application package {package_name}"
+                )
+            )
+            assert contains_row_with(expect, {"version": "V1"})
+            assert contains_row_with(expect, {"patch": 0})
+
+            result_drop = runner.invoke_with_connection_json(
+                ["app", "version", "drop", "v1", "--force"],
+                env=TEST_ENV,
+            )
+            assert result_drop.exit_code == 0
+
+        finally:
+            # make sure we always delete the package
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            expect = snowflake_session.execute_string(
+                f"show application packages like '{package_name}'"
+            )
+            assert not_contains_row_with(
+                row_from_snowflake_session(expect), {"name": package_name}
+            )
