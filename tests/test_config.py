@@ -4,6 +4,7 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 from snowcli.config import CliConfigManager, config_init, get_default_connection
+from snowflake.connector.constants import CONFIG_FILE
 
 from tests.testing_utils.fixtures import *
 
@@ -15,8 +16,18 @@ def test_empty_config_file_is_created_if_not_present():
 
         cm = CliConfigManager(file_path=config_file)
         cm.from_context(config_path_override=None)
+        expected_logs_path = CONFIG_FILE.parent / "logs"
         assert config_file.exists() is True
-        assert config_file.read_text() == """[connections]\n"""
+        assert (
+            config_file.read_text()
+            == f"""[connections]
+
+[logs]
+save_logs = false
+path = "{expected_logs_path}"
+level = "info"
+"""
+        )
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
