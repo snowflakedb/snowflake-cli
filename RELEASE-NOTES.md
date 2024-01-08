@@ -1,3 +1,7 @@
+# v1.2.4
+## Fixes and improvements
+* Fixed look up for all folders in downloaded package.
+
 # v1.2.3
 ## Fixes and improvements
 * Removed hardcoded values of instance families for `snow snowpark pool create` command.
