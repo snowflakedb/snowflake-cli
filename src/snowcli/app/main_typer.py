@@ -1,18 +1,12 @@
-import logging
 import sys
 
 import click
 from snowcli.cli.common.cli_global_context import cli_context
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, DebugOption
-from snowcli.cli.loggers import remove_console_output_handler_from_logs
 from typer import Typer
 
 
 def _handle_exception(exception: Exception):
-    remove_console_output_handler_from_logs()
-    logger = logging.getLogger("snowcli")
-    logger.exception(exception)
-
     if cli_context.enable_tracebacks:
         raise exception
     else:

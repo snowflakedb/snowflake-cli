@@ -32,7 +32,7 @@ class LogsConfig:
     def _check_logs_directory_exists(self):
         if not self.path.exists():
             if is_default_logs_path(self.path):
-                self.path.mkdir()
+                self.path.mkdir(parents=True)
             else:
                 raise InvalidLogsConfiguration(
                     f"Directory '{self.path}' does not exist"
