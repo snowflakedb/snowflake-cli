@@ -27,7 +27,8 @@ class LogsConfig:
             self.file_log_level = logging.DEBUG
 
         self._check_log_level(config)
-        self._check_logs_directory_exists()
+        if self.save_logs:
+            self._check_logs_directory_exists()
 
     def _check_logs_directory_exists(self):
         if not self.path.exists():
