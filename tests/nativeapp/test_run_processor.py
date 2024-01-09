@@ -2,7 +2,7 @@ import unittest
 from textwrap import dedent
 
 import typer
-from click import ClickException
+from click import UsageError
 from snowcli.cli.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
@@ -10,6 +10,7 @@ from snowcli.cli.nativeapp.constants import (
 from snowcli.cli.nativeapp.exceptions import (
     ApplicationAlreadyExistsError,
     ApplicationPackageAlreadyExistsError,
+    ApplicationPackageDoesNotExistError,
     UnexpectedOwnerError,
 )
 from snowcli.cli.nativeapp.policy import (
@@ -59,9 +60,8 @@ def _get_na_run_processor():
 # Test create_app_package() with no existing package available
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO, return_value=None)
-@mock_connection()
 def test_create_app_pkg_no_existing_package(
-    mock_conn, mock_get_existing_app_pkg_info, mock_execute, temp_dir, mock_cursor
+    mock_get_existing_app_pkg_info, mock_execute, temp_dir, mock_cursor
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -85,7 +85,6 @@ def test_create_app_pkg_no_existing_package(
             (None, mock.call("use role old_role")),
         ]
     )
-    mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
 
     current_working_directory = os.getcwd()
@@ -103,18 +102,13 @@ def test_create_app_pkg_no_existing_package(
 
 # Test create_app_package() with incorrect owner
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock_connection()
-def test_create_app_pkg_incorrect_owner(
-    mock_conn, mock_get_existing_app_pkg_info, temp_dir
-):
+def test_create_app_pkg_incorrect_owner(mock_get_existing_app_pkg_info, temp_dir):
     mock_get_existing_app_pkg_info.return_value = {
         "name": "APP_PKG",
         "comment": SPECIAL_COMMENT,
         "version": LOOSE_FILES_MAGIC_VERSION,
         "owner": "wrong_owner",
     }
-
-    mock_conn.return_value = MockConnectionCtx()
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -130,7 +124,6 @@ def test_create_app_pkg_incorrect_owner(
 
 # Test create_app_package() with distribution external AND variable mismatch
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock_connection()
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
 @mock.patch(f"{RUN_MODULE}.print")
@@ -142,7 +135,6 @@ def test_create_app_pkg_external_distribution(
     mock_warning,
     mock_is_distribution_same,
     mock_get_distribution,
-    mock_conn,
     mock_get_existing_app_pkg_info,
     is_pkg_distribution_same,
     temp_dir,
@@ -155,7 +147,6 @@ def test_create_app_pkg_external_distribution(
         "version": LOOSE_FILES_MAGIC_VERSION,
         "owner": "PACKAGE_ROLE",
     }
-    mock_conn.return_value = MockConnectionCtx()
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -174,7 +165,6 @@ def test_create_app_pkg_external_distribution(
 
 # Test create_app_package() with distribution internal AND variable mismatch AND special comment is True
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock_connection()
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
 @mock.patch(f"{RUN_MODULE}.print")
@@ -186,7 +176,6 @@ def test_create_app_pkg_internal_distribution_special_comment(
     mock_warning,
     mock_is_distribution_same,
     mock_get_distribution,
-    mock_conn,
     mock_get_existing_app_pkg_info,
     is_pkg_distribution_same,
     temp_dir,
@@ -199,7 +188,6 @@ def test_create_app_pkg_internal_distribution_special_comment(
         "version": LOOSE_FILES_MAGIC_VERSION,
         "owner": "PACKAGE_ROLE",
     }
-    mock_conn.return_value = MockConnectionCtx()
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -218,7 +206,6 @@ def test_create_app_pkg_internal_distribution_special_comment(
 
 # Test create_app_package() with distribution internal AND variable mismatch AND special comment is False
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock_connection()
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
 @mock.patch(f"{RUN_MODULE}.print")
@@ -230,7 +217,6 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
     mock_warning,
     mock_is_distribution_same,
     mock_get_distribution,
-    mock_conn,
     mock_get_existing_app_pkg_info,
     is_pkg_distribution_same,
     temp_dir,
@@ -243,7 +229,6 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
         "version": LOOSE_FILES_MAGIC_VERSION,
         "owner": "PACKAGE_ROLE",
     }
-    mock_conn.return_value = MockConnectionCtx()
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -1264,17 +1249,17 @@ def test_upgrade_app_recreate_app(
     assert mock_execute.mock_calls == expected
 
 
-# Test upgrade app method for version AND no existing app info
+# Test upgrade app method for version AND no existing version info
 @mock.patch(
     "snowcli.cli.nativeapp.run_processor.NativeAppRunProcessor.get_existing_version_info",
     return_value=None,
 )
-@mock_connection()
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
-def test_upgrade_app_from_version(mock_conn, mock_existing, policy_param, temp_dir):
-    mock_conn.return_value = MockConnectionCtx()
+def test_upgrade_app_from_version_throws_usage_error_one(
+    mock_existing, policy_param, temp_dir
+):
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -1284,7 +1269,31 @@ def test_upgrade_app_from_version(mock_conn, mock_existing, policy_param, temp_d
     )
 
     run_processor = _get_na_run_processor()
-    with pytest.raises(ClickException):
+    with pytest.raises(UsageError):
+        run_processor.process(policy=policy_param, version="v1", is_interactive=True)
+
+
+# Test upgrade app method for version AND no existing app package from version info
+@mock.patch(
+    "snowcli.cli.nativeapp.run_processor.NativeAppRunProcessor.get_existing_version_info",
+    side_effect=ApplicationPackageDoesNotExistError("app_pkg"),
+)
+@pytest.mark.parametrize(
+    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+)
+def test_upgrade_app_from_version_throws_usage_error_two(
+    mock_existing, policy_param, temp_dir
+):
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    run_processor = _get_na_run_processor()
+    with pytest.raises(UsageError):
         run_processor.process(policy=policy_param, version="v1", is_interactive=True)
 
 
