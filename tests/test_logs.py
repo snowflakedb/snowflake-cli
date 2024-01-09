@@ -95,6 +95,15 @@ def assert_log_dir_is_empty(logs_path: Path) -> None:
     assert len(list(logs_path.iterdir())) == 0
 
 
+def test_logs_section_appears_in_fresh_config_file(temp_dir):
+    config_file = Path(temp_dir) / "sub" / "config.toml"
+    assert config_file.exists() is False
+    config_init(config_file)
+    assert config_file.exists() is True
+    assert '[logs]\nsave_logs = false\npath = "' in config_file.read_text()
+    assert '/logs"\nlevel = "info"' in config_file.read_text()
+
+
 def test_logs_not_saved_by_default(setup_config_and_logs):
     with setup_config_and_logs() as logs_path:
         print_log_messages()
