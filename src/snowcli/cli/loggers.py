@@ -19,8 +19,6 @@ _CONSOLE_OUTPUT = "console output"
 class LogsConfig:
     def __init__(self, debug: bool) -> None:
         config = get_logs_config()
-        print("----")
-        print(config)
 
         self.path: Path = Path(config["path"])
         self.save_logs: bool = config["save_logs"]
