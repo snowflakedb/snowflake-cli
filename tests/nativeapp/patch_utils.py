@@ -16,3 +16,7 @@ def mock_get_app_pkg_distribution_in_sf():
         NATIVEAPP_MANAGER_APP_PKG_DISTRIBUTION_IN_SF,
         new_callable=PropertyMock,
     )
+
+
+def mock_is_interactive_mode():
+    return mock.patch("snowcli.cli.nativeapp.utils.is_user_in_interactive_mode")
