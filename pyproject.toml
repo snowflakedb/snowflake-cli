@@ -4,9 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "snowflake-cli-labs"
-author = "Snowflake, Inc"
-license = "Apache-2.0"
-license_files = ["LICENSE"]
+authors = [{ name = "Snowflake Inc." }]
+license = { file = "LICENSE" }
 dynamic = ["version"]
 requires-python = ">=3.8"
 description = "Snowflake CLI"
@@ -36,7 +35,7 @@ classifiers = [
   "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: SQL",
-  "Topic :: Database"
+  "Topic :: Database",
 ]
 
 [project.optional-dependencies]
@@ -60,9 +59,7 @@ snow = "snowcli.app.__main__:main"
 path = "src/snowcli/__about__.py"
 
 [tool.hatch.build.targets.sdist]
-exclude = [
-  "/.github",
-]
+exclude = ["/.github"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/snowcli", "src/templates"]
@@ -70,8 +67,8 @@ packages = ["src/snowcli", "src/templates"]
 [tool.ruff]
 line-length = 88
 select = [
-    "N",
-    "I"  # isort
+  "N",
+  "I", # isort
 ]
 
 [tool.pytest.ini_options]
