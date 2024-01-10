@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Iterable, Optional, Tuple
 
 from click import UsageError
-from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.util_text import split_statements
 

@@ -1,14 +1,14 @@
 from pathlib import Path
 
 import typer
-from snowcli.api.output.decorators import with_output
-from snowcli.api.output.types import CommandResult, MessageResult, SingleQueryResult
-from snowcli.cli.common.cli_global_context import cli_context
-from snowcli.cli.common.decorators import (
+from snowcli.api.cli_global_context import cli_context
+from snowcli.api.commands.decorators import (
     global_options_with_connection,
     with_project_definition,
 )
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, identifier_argument
+from snowcli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS, identifier_argument
+from snowcli.api.output.decorators import with_output
+from snowcli.api.output.types import CommandResult, MessageResult, SingleQueryResult
 from snowcli.cli.snowpark.commands import (
     get_app_stage_path,
 )

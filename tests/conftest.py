@@ -3,9 +3,9 @@ from __future__ import annotations
 import logging
 
 import pytest
+from snowcli.api.cli_global_context import cli_context_manager
 from snowcli.api.config import config_init
 from snowcli.cli import loggers
-from snowcli.cli.common.cli_global_context import cli_context_manager
 
 pytest_plugins = ["tests.testing_utils.fixtures", "tests.project.fixtures"]
 

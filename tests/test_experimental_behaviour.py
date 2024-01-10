@@ -1,6 +1,8 @@
 import json
 
 import typer
+from snowcli.api.commands.decorators import global_options, with_experimental_behaviour
+from snowcli.api.commands.experimental_behaviour import experimental_behaviour_enabled
 from snowcli.api.output.decorators import with_output
 from snowcli.api.output.types import MessageResult
 from snowcli.api.plugin.command import (
@@ -9,8 +11,6 @@ from snowcli.api.plugin.command import (
     CommandType,
     plugin_hook_impl,
 )
-from snowcli.cli.common.decorators import global_options, with_experimental_behaviour
-from snowcli.cli.common.experimental_behaviour import experimental_behaviour_enabled
 
 from tests.testing_utils.fixtures import *
 

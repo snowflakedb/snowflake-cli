@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any, Callable, Optional
 
 import typer
+from snowcli.api.cli_global_context import cli_context_manager
 from snowcli.api.output.formats import OutputFormat
-from snowcli.cli.common.cli_global_context import cli_context_manager
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 

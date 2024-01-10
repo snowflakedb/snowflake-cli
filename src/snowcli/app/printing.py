@@ -8,6 +8,7 @@ from pathlib import Path
 from rich import box, get_console, print
 from rich.live import Live
 from rich.table import Table
+from snowcli.api.cli_global_context import cli_context
 from snowcli.api.output.formats import OutputFormat
 from snowcli.api.output.types import (
     CollectionResult,
@@ -17,7 +18,6 @@ from snowcli.api.output.types import (
     ObjectResult,
     QueryResult,
 )
-from snowcli.cli.common.cli_global_context import cli_context
 
 NO_ITEMS_FOUND: str = "No data"
 

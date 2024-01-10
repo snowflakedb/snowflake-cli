@@ -228,7 +228,7 @@ def test_second_connection_not_update_default_connection(runner, snapshot):
         assert content == snapshot
 
 
-@mock.patch("snowcli.cli.connection.commands.connect_to_snowflake")
+@mock.patch("snowcli.app.snow_connector.connect_to_snowflake")
 def test_connection_test(mock_connect, runner):
     result = runner.invoke(["connection", "test", "-c", "full"])
     assert result.exit_code == 0, result.output

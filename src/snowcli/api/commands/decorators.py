@@ -5,10 +5,8 @@ from functools import wraps
 from inspect import Signature
 from typing import Callable, Dict, List, Optional, get_type_hints
 
-from snowcli.api.output.formats import OutputFormat
-from snowcli.cli import loggers
-from snowcli.cli.common.cli_global_context import cli_context
-from snowcli.cli.common.flags import (
+from snowcli.api.cli_global_context import cli_context
+from snowcli.api.commands.flags import (
     AccountOption,
     AuthenticatorOption,
     ConnectionOption,
@@ -26,6 +24,8 @@ from snowcli.cli.common.flags import (
     experimental_option,
     project_definition_option,
 )
+from snowcli.api.output.formats import OutputFormat
+from snowcli.cli import loggers
 
 
 def global_options(func: Callable):

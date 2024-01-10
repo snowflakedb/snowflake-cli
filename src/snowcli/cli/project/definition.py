@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Dict, List, Union
 
-from snowcli.cli.common.cli_global_context import cli_context
+from snowcli.api.cli_global_context import cli_context
 from snowcli.cli.project.schemas.project_definition import (
     project_override_schema,
     project_schema,

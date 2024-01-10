@@ -4,6 +4,8 @@ from pathlib import Path
 
 import click
 import typer
+from snowcli.api.commands.decorators import global_options_with_connection
+from snowcli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.api.output.decorators import with_output
 from snowcli.api.output.types import (
     CommandResult,
@@ -11,8 +13,6 @@ from snowcli.api.output.types import (
     QueryResult,
     SingleQueryResult,
 )
-from snowcli.cli.common.decorators import global_options_with_connection
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.object.stage.diff import DiffResult
 from snowcli.cli.object.stage.manager import StageManager
 
