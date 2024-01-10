@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
+from snowcli.api.constants import TEMPLATES_PATH
 from snowcli.cli.snowpark.models import SplitRequirements
 
 
@@ -57,9 +58,6 @@ class CreatedSuccessfully(CreateResult):
         return f"Package {self.package_name}.zip created. You can now upload it to a stage (`snow snowpark package upload -f {self.package_name}.zip -s packages`) and reference it in your procedure or function."
 
 
-templates_path = Path(__file__).parent.parent.parent.parent / "python_templates"
-
-
 def prepare_app_zip(file_path: Path, temp_dir: str) -> str:
     # get filename from file path (e.g. app.zip from /path/to/app.zip)
     # TODO: think if no file exceptions are handled correctly
@@ -91,7 +89,7 @@ def generate_snowpark_coverage_wrapper(
         handler_function (str): _description_
     """
 
-    environment = Environment(loader=FileSystemLoader(templates_path))
+    environment = Environment(loader=FileSystemLoader(TEMPLATES_PATH))
     template = environment.get_template("snowpark_coverage.py.jinja")
     content = template.render(
         {
