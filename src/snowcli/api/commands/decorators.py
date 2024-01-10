@@ -24,7 +24,7 @@ from snowcli.api.commands.flags import (
     experimental_option,
     project_definition_option,
 )
-from snowcli.api.exception import CommandReturnTypeError
+from snowcli.api.exceptions import CommandReturnTypeError
 from snowcli.api.output.formats import OutputFormat
 from snowcli.api.output.types import CommandResult
 from snowcli.app import loggers

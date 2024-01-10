@@ -4,7 +4,7 @@ from unittest.mock import call
 import pytest
 from snowcli.api.cli_global_context import cli_context, cli_context_manager
 from snowcli.api.commands import flags
-from snowcli.api.exception import InvalidSchemaError
+from snowcli.api.exceptions import InvalidSchemaError
 
 
 def test_default_setup_of_global_connection():

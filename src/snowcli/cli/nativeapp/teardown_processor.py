@@ -4,7 +4,7 @@ from typing import Dict
 
 import typer
 from rich import print
-from snowcli.api.exception import SnowflakeSQLExecutionError
+from snowcli.api.exceptions import SnowflakeSQLExecutionError
 from snowcli.cli.nativeapp.constants import (
     COMMENT_COL,
     EXTERNAL_DISTRIBUTION,

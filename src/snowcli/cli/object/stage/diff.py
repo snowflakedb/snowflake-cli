@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from snowcli.api.exception import SnowflakeSQLExecutionError
+from snowcli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.connector.cursor import SnowflakeCursor
 
 from .manager import StageManager

@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List, Optional
 
 import pluggy
-from snowcli.api.plugin.command import (
+from snowcli.api.plugins.command import (
     SNOWCLI_COMMAND_PLUGIN_NAMESPACE,
     CommandPath,
     CommandSpec,

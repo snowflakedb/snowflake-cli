@@ -1,7 +1,7 @@
 import hashlib
 from typing import Dict, Tuple
 
-from snowcli.api.exception import SnowflakeSQLExecutionError
+from snowcli.api.exceptions import SnowflakeSQLExecutionError
 from snowcli.cli.object.stage.diff import (
     DiffResult,
     delete_only_on_stage_files,

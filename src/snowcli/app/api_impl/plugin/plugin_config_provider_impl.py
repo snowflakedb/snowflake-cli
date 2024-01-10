@@ -6,7 +6,7 @@ from snowcli.api.config import (
     get_config_section,
     get_config_value,
 )
-from snowcli.api.plugin.plugin_config import PluginConfig
+from snowcli.api.plugins.plugin_config import PluginConfig
 
 
 class PluginConfigProviderImpl(PluginConfigProvider):

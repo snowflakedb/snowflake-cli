@@ -2,7 +2,7 @@ import json
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 
-from snowcli.api.exception import SnowflakeConnectionError
+from snowcli.api.exceptions import SnowflakeConnectionError
 
 from tests.testing_utils.fixtures import *
 

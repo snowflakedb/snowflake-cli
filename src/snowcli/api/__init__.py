@@ -1,6 +1,6 @@
 from typing import Optional
 
-from snowcli.api.plugin.plugin_config import PluginConfigProvider
+from snowcli.api.plugins.plugin_config import PluginConfigProvider
 
 
 class Api:

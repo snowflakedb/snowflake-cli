@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import tomlkit
-from snowcli.api.exception import (
+from snowcli.api.exceptions import (
     MissingConfiguration,
     UnsupportedConfigSectionTypeError,
 )

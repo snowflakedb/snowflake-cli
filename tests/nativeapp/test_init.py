@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from snowcli.api.exception import MissingConfiguration
+from snowcli.api.exceptions import MissingConfiguration
 from snowcli.cli.nativeapp.init import (
     CannotInitializeAnExistingProjectError,
     DirectoryAlreadyExistsError,

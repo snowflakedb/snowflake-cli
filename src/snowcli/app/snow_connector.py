@@ -10,7 +10,7 @@ import click
 import snowflake.connector
 from click.exceptions import ClickException
 from snowcli.api.config import get_connection
-from snowcli.api.exception import (
+from snowcli.api.exceptions import (
     InvalidConnectionConfiguration,
     SnowflakeConnectionError,
 )

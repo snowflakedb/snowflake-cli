@@ -8,7 +8,7 @@ from snowcli.api.commands.decorators import (
 )
 from snowcli.api.commands.experimental_behaviour import experimental_behaviour_enabled
 from snowcli.api.output.types import MessageResult
-from snowcli.api.plugin.command import (
+from snowcli.api.plugins.command import (
     SNOWCLI_ROOT_COMMAND_PATH,
     CommandSpec,
     CommandType,

@@ -22,7 +22,7 @@ from snowcli.api.commands.flags import (
     execution_identifier_argument,
 )
 from snowcli.api.constants import DEPLOYMENT_STAGE, ObjectType
-from snowcli.api.exception import (
+from snowcli.api.exceptions import (
     SecretsWithoutExternalAccessIntegrationError,
 )
 from snowcli.api.output.types import (

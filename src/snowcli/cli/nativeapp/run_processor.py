@@ -6,7 +6,7 @@ import jinja2
 import typer
 from click import ClickException
 from rich import print
-from snowcli.api.exception import SnowflakeSQLExecutionError
+from snowcli.api.exceptions import SnowflakeSQLExecutionError
 from snowcli.cli.nativeapp.constants import (
     COMMENT_COL,
     INTERNAL_DISTRIBUTION,

@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import List, Optional
 
-from snowcli.api.exception import MissingConfiguration
+from snowcli.api.exceptions import MissingConfiguration
 from snowcli.cli.project.definition import load_project_definition
 
 
