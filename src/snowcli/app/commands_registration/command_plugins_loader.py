@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List, Optional
 
 import pluggy
-from snowcli.api.plugin.command import (
+from snowcli.api.plugins.command import (
     SNOWCLI_COMMAND_PLUGIN_NAMESPACE,
     CommandPath,
     CommandSpec,
@@ -16,7 +16,7 @@ from snowcli.app.commands_registration import (
 from snowcli.app.commands_registration.builtin_plugins import (
     builtin_plugin_name_to_plugin_spec,
 )
-from snowcli.cli.exception_logging import exception_logging
+from snowcli.app.commands_registration.exception_logging import exception_logging
 
 log = logging.getLogger(__name__)
 log_exception = exception_logging(log)

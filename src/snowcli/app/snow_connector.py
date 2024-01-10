@@ -9,8 +9,11 @@ from typing import Dict, Optional
 import click
 import snowflake.connector
 from click.exceptions import ClickException
-from snowcli.config import get_connection
-from snowcli.exception import InvalidConnectionConfiguration, SnowflakeConnectionError
+from snowcli.api.config import get_connection
+from snowcli.api.exceptions import (
+    InvalidConnectionConfiguration,
+    SnowflakeConnectionError,
+)
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.config_manager import _get_default_connection_params
 from snowflake.connector.errors import DatabaseError, ForbiddenError

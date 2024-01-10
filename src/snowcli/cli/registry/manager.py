@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 import requests
 from click import ClickException
-from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
 

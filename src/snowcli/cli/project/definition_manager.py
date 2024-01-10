@@ -5,8 +5,8 @@ import os
 from pathlib import Path
 from typing import List, Optional
 
+from snowcli.api.exceptions import MissingConfiguration
 from snowcli.cli.project.definition import load_project_definition
-from snowcli.exception import MissingConfiguration
 
 
 def _compat_is_mount(path: Path):

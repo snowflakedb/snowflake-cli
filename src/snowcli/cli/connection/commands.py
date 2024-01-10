@@ -5,21 +5,19 @@ import logging
 import typer
 from click import ClickException
 from click.types import StringParamType
-from snowcli.cli.common.decorators import global_options
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
-from snowcli.config import (
+from snowcli.api.commands.decorators import global_options, with_output
+from snowcli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
+from snowcli.api.config import (
     add_connection,
     connection_exists,
     get_config_section,
 )
-from snowcli.output.decorators import with_output
-from snowcli.output.types import (
+from snowcli.api.output.types import (
     CollectionResult,
     CommandResult,
     MessageResult,
     ObjectResult,
 )
-from snowcli.snow_connector import connect_to_snowflake
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
 app = typer.Typer(
@@ -219,6 +217,8 @@ def test(connection: str = ConnectionOption, **options) -> CommandResult:
     """
     Tests the connection to Snowflake.
     """
+    from snowcli.app.snow_connector import connect_to_snowflake
+
     conn = connect_to_snowflake(connection_name=connection)
     result = {
         "Connection name": connection,

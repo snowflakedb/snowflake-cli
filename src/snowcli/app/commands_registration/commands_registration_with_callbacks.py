@@ -1,15 +1,15 @@
 from dataclasses import dataclass
 from typing import Callable, List
 
-from snowcli.api.plugin.plugin_config import PluginConfigProvider
+from snowcli.api.plugins.plugin_config import PluginConfigProvider
 from snowcli.app.commands_registration.command_plugins_loader import (
     load_builtin_and_external_command_plugins,
     load_only_builtin_command_plugins,
 )
+from snowcli.app.commands_registration.threadsafe import ThreadsafeCounter
 from snowcli.app.commands_registration.typer_registration import (
     register_commands_from_plugins,
 )
-from snowcli.utils.threadsafe import ThreadsafeCounter
 
 
 @dataclass

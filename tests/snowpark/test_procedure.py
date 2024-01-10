@@ -4,7 +4,7 @@ from textwrap import dedent
 from unittest import mock
 from unittest.mock import call
 
-from snowcli.cli.constants import ObjectType
+from snowcli.api.constants import ObjectType
 from snowflake.connector import ProgrammingError
 
 
@@ -425,7 +425,7 @@ def test_execute_procedure(mock_connector, runner, mock_ctx):
     assert ctx.get_query() == "call procedureName(42, 'string')"
 
 
-@mock.patch("snowcli.cli.common.project_initialisation._create_project_template")
+@mock.patch("snowcli.api.commands.project_initialisation._create_project_template")
 def test_init_procedure(mock_create_project_template, runner, temp_dir):
     runner.invoke(["snowpark", "init", "my_project2"])
     mock_create_project_template.assert_called_once_with(

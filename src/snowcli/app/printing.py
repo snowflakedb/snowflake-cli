@@ -8,9 +8,9 @@ from pathlib import Path
 from rich import box, get_console, print
 from rich.live import Live
 from rich.table import Table
-from snowcli.cli.common.cli_global_context import cli_context
-from snowcli.output.formats import OutputFormat
-from snowcli.output.types import (
+from snowcli.api.cli_global_context import cli_context
+from snowcli.api.output.formats import OutputFormat
+from snowcli.api.output.types import (
     CollectionResult,
     CommandResult,
     MessageResult,

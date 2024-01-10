@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from snowcli.api.plugin.command import CommandSpec
+from snowcli.api.plugins.command import CommandSpec
 
 
 @dataclass

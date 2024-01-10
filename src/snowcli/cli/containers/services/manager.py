@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
 
