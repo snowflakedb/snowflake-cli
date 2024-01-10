@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Optional
 
-from snowcli.cli.constants import ObjectNames, ObjectType
+from snowcli.cli.constants import ObjectType
 from snowcli.cli.snowpark.common import SnowparkObjectManager
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -31,7 +31,7 @@ class FunctionManager(SnowparkObjectManager):
         secrets: Optional[Dict[str, str]] = None,
         runtime: Optional[str] = None,
     ) -> SnowflakeCursor:
-        log.debug(f"Creating function {identifier} using @{artifact_file}")
+        log.debug("Creating function %s using @%s", identifier, artifact_file)
         query = self.create_query(
             identifier,
             return_type,
@@ -68,7 +68,7 @@ class ProcedureManager(SnowparkObjectManager):
         runtime: Optional[str] = None,
         execute_as_caller: bool = False,
     ) -> SnowflakeCursor:
-        log.debug(f"Creating procedure {identifier} using @{artifact_file}")
+        log.debug("Creating procedure %s using @%s", identifier, artifact_file)
         query = self.create_query(
             identifier,
             return_type,

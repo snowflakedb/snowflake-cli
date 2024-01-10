@@ -1,6 +1,5 @@
 import base64
 import json
-import sys
 from urllib.parse import urlparse
 
 import requests
@@ -27,11 +26,11 @@ class RegistryManager(SqlExecutionMixin):
             "alter session set PYTHON_CONNECTOR_QUERY_RESULT_FORMAT = 'json'"
         ).fetchall()
         # disable session deletion
-        self._conn._all_async_queries_finished = lambda: False
-        if self._conn._rest is None:
+        self._conn._all_async_queries_finished = lambda: False  # noqa: SLF001
+        if self._conn._rest is None:  # noqa: SLF001
             raise Exception("Failed to connect to Snowflake to retrieve token.")
         # obtain and create the token
-        token_data = self._conn._rest._token_request("ISSUE")
+        token_data = self._conn._rest._token_request("ISSUE")  # noqa: SLF001
 
         return {
             "token": token_data["data"]["sessionToken"],

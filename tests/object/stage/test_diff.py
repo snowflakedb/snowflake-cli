@@ -49,7 +49,7 @@ def stage_contents(
     ]
 
 
-@mock.patch(f"{STAGE_MANAGER}.list")
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 def test_empty_stage(mock_list, mock_cursor):
     mock_list.return_value = mock_cursor(rows=[], columns=STAGE_LS_COLUMNS)
 
@@ -61,7 +61,7 @@ def test_empty_stage(mock_list, mock_cursor):
         assert sorted(diff_result.only_local) == sorted(FILE_CONTENTS.keys())
 
 
-@mock.patch(f"{STAGE_MANAGER}.list")
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 def test_empty_dir(mock_list, mock_cursor):
     mock_list.return_value = mock_cursor(
         rows=stage_contents(FILE_CONTENTS),
@@ -76,7 +76,7 @@ def test_empty_dir(mock_list, mock_cursor):
         assert len(diff_result.only_local) == 0
 
 
-@mock.patch(f"{STAGE_MANAGER}.list")
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 def test_identical_stage(mock_list, mock_cursor):
     mock_list.return_value = mock_cursor(
         rows=stage_contents(FILE_CONTENTS),
@@ -91,7 +91,7 @@ def test_identical_stage(mock_list, mock_cursor):
         assert len(diff_result.only_local) == 0
 
 
-@mock.patch(f"{STAGE_MANAGER}.list")
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 def test_new_local_file(mock_list, mock_cursor):
     mock_list.return_value = mock_cursor(
         rows=stage_contents(FILE_CONTENTS),
@@ -108,7 +108,7 @@ def test_new_local_file(mock_list, mock_cursor):
         assert diff_result.only_local == ["a/new/README.md"]
 
 
-@mock.patch(f"{STAGE_MANAGER}.list")
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 def test_modified_file(mock_list, mock_cursor):
     mock_list.return_value = mock_cursor(
         rows=stage_contents(FILE_CONTENTS),
@@ -151,7 +151,7 @@ def test_get_stage_path_from_file():
     assert actual.sort() == expected
 
 
-@mock.patch(f"{STAGE_MANAGER}._remove")
+@mock.patch(f"{STAGE_MANAGER}.remove")
 def test_delete_only_on_stage_files(mock_remove):
     stage_name = "some_stage_name"
     random_file = "some_file_on_stage"
@@ -162,7 +162,7 @@ def test_delete_only_on_stage_files(mock_remove):
     )
 
 
-@mock.patch(f"{STAGE_MANAGER}._put")
+@mock.patch(f"{STAGE_MANAGER}.put")
 @pytest.mark.parametrize("overwrite_param", [True, False])
 def test_put_files_on_stage(mock_put, overwrite_param):
     stage_name = "some_stage_name"
@@ -197,7 +197,7 @@ def test_put_files_on_stage(mock_put, overwrite_param):
         assert mock_put.mock_calls == expected
 
 
-@mock.patch(f"{STAGE_MANAGER}._remove")
+@mock.patch(f"{STAGE_MANAGER}.remove")
 def test_sync_local_diff_with_stage(mock_remove, other_directory):
     temp_dir = Path(other_directory)
     mock_remove.side_effect = Exception("Mock Exception")

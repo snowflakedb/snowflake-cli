@@ -67,8 +67,14 @@ packages = ["src/snowcli", "src/templates"]
 [tool.ruff]
 line-length = 88
 select = [
-  "N",
-  "I", # isort
+    "N",
+    "I",  # isort
+    "G",  # flake8-logging-format
+    "N",  # pep8 naming
+    "A",  # flake 8 builtins
+    "TID252",  # relative imports
+    "SLF",  # Accessing private methods
+    "F401", # unused imports
 ]
 
 [tool.pytest.ini_options]

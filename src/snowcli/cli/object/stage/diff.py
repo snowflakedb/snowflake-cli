@@ -118,7 +118,7 @@ def stage_diff(local_path: Path, stage_fqn: str) -> DiffResult:
     """
     stage_manager = StageManager()
     local_files = enumerate_files(local_path)
-    remote_md5 = build_md5_map(stage_manager.list(stage_fqn))
+    remote_md5 = build_md5_map(stage_manager.list_files(stage_fqn))
 
     result: DiffResult = DiffResult()
 
@@ -167,7 +167,7 @@ def delete_only_on_stage_files(
     Deletes all files from a Snowflake stage according to the input list of filenames, using a custom role.
     """
     for _file in only_on_stage:
-        stage_manager._remove(stage_name=stage_fqn, path=_file, role=role)
+        stage_manager.remove(stage_name=stage_fqn, path=_file, role=role)
 
 
 def put_files_on_stage(
@@ -186,7 +186,7 @@ def put_files_on_stage(
         full_stage_path = (
             f"{stage_fqn}/{stage_sub_path}" if stage_sub_path else stage_fqn
         )
-        stage_manager._put(
+        stage_manager.put(
             local_path=deploy_root_path / _file,
             stage_path=full_stage_path,
             role=role,
@@ -202,7 +202,8 @@ def sync_local_diff_with_stage(
     """
     stage_manager = StageManager()
     log.info(
-        f"Uploading diff-ed files from your local {deploy_root_path} directory to the Snowflake stage."
+        "Uploading diff-ed files from your local %s directory to the Snowflake stage.",
+        deploy_root_path,
     )
 
     try:

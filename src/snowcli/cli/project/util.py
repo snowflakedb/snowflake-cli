@@ -16,12 +16,12 @@ UNQUOTED_IDENTIFIER_REGEX = r"(^[a-zA-Z_])([a-zA-Z0-9_$]{0,254})"
 QUOTED_IDENTIFIER_REGEX = r'"((""|[^"])*)"'
 
 
-def clean_identifier(input):
+def clean_identifier(input_: str):
     """
     Removes characters that cannot be used in an unquoted identifier,
     converting to lowercase as well.
     """
-    return re.sub(r"[^a-z0-9_$]", "", f"{input}".lower())
+    return re.sub(r"[^a-z0-9_$]", "", f"{input_}".lower())
 
 
 def is_valid_unquoted_identifier(identifier: str) -> bool:
