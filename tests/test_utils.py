@@ -6,7 +6,10 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import typer
 from requirements.requirement import Requirement
-from snowcli.api.utils import file_utils, path_utils
+
+import snowcli.cli.snowpark.package.utils
+from snowcli.api.utils import path_utils
+from snowcli.cli.snowpark.package import utils as file_utils
 from snowcli.cli.snowpark import package_utils
 from snowcli.cli.snowpark.models import PypiOption
 from snowcli.cli.streamlit import streamlit_utils
@@ -19,7 +22,9 @@ def test_prepare_app_zip(
     app_zip: str,
     temp_directory_for_app_zip: str,
 ):
-    result = file_utils.prepare_app_zip(Path(app_zip), temp_directory_for_app_zip)
+    result = snowcli.cli.snowpark.package.utils.prepare_app_zip(
+        Path(app_zip), temp_directory_for_app_zip
+    )
     assert result == os.path.join(temp_directory_for_app_zip, Path(app_zip).name)
 
 
@@ -27,7 +32,7 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_source(
     temp_directory_for_app_zip,
 ):
     with pytest.raises(FileNotFoundError) as expected_error:
-        file_utils.prepare_app_zip(
+        snowcli.cli.snowpark.package.utils.prepare_app_zip(
             Path("/non/existent/path"), temp_directory_for_app_zip
         )
 
@@ -37,7 +42,9 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_source(
 
 def test_prepare_app_zip_if_exception_is_raised_if_no_dst(app_zip):
     with pytest.raises(FileNotFoundError) as expected_error:
-        file_utils.prepare_app_zip(Path(app_zip), "/non/existent/path")
+        snowcli.cli.snowpark.package.utils.prepare_app_zip(
+            Path(app_zip), "/non/existent/path"
+        )
 
     assert expected_error.value.errno == 2
     assert expected_error.type == FileNotFoundError
@@ -151,7 +158,7 @@ def test_get_package_name_from_metadata_using_correct_data(
 
 def test_generate_snowpark_coverage_wrapper(temp_dir):
     path = os.path.join(temp_dir, "coverage.py")
-    file_utils.generate_snowpark_coverage_wrapper(
+    snowcli.cli.snowpark.package.utils.generate_snowpark_coverage_wrapper(
         target_file=path,
         proc_name="process",
         proc_signature="signature",

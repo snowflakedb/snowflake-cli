@@ -8,7 +8,6 @@ from shutil import rmtree
 
 from requirements.requirement import Requirement
 from snowcli.api.constants import PACKAGES_DIR
-from snowcli.api.utils import file_utils
 from snowcli.api.utils.zipper import zip_dir
 from snowcli.cli.object.stage.manager import StageManager
 from snowcli.cli.snowpark import package_utils
@@ -20,6 +19,7 @@ from snowcli.cli.snowpark.package.utils import (
     NothingFound,
     NotInAnaconda,
     RequiresPackages,
+    prepare_app_zip,
 )
 
 log = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ def lookup(name: str, install_packages: bool) -> LookupResult:
 def upload(file: Path, stage: str, overwrite: bool):
     log.info("Uploading %s to Snowflake @%s/%s...", file, stage, file)
     with tempfile.TemporaryDirectory() as temp_dir:
-        temp_app_zip_path = file_utils.prepare_app_zip(file, temp_dir)
+        temp_app_zip_path = prepare_app_zip(file, temp_dir)
         sm = StageManager()
         sm.create(stage)
         put_response = sm.put(temp_app_zip_path, stage, overwrite=overwrite).fetchone()

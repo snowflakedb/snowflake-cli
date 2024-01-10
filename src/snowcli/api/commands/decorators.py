@@ -24,8 +24,11 @@ from snowcli.api.commands.flags import (
     experimental_option,
     project_definition_option,
 )
+from snowcli.api.exception import CommandReturnTypeError
 from snowcli.api.output.formats import OutputFormat
+from snowcli.api.output.types import CommandResult
 from snowcli.app import loggers
+from snowcli.app.printing import print_result
 
 
 def global_options(func: Callable):
@@ -253,3 +256,14 @@ GLOBAL_OPTIONS = [
         default=DebugOption,
     ),
 ]
+
+
+def with_output(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        output_data = func(*args, **kwargs)
+        if not isinstance(output_data, CommandResult):
+            raise CommandReturnTypeError(type(output_data))
+        print_result(output_data)
+
+    return wrapper

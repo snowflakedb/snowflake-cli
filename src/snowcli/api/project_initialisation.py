@@ -17,8 +17,7 @@ def _create_project_template(template_name: str, project_directory: str):
 
 
 def add_init_command(app: Typer, project_type: str, template: str):
-    from snowcli.api.commands.decorators import global_options
-    from snowcli.api.output.decorators import with_output
+    from snowcli.api.commands.decorators import global_options, with_output
 
     @app.command()
     @with_output

@@ -7,12 +7,14 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, List, Set
 
+import snowcli.cli.snowpark.package.utils
 import typer
 from click import ClickException
 from snowcli.api.cli_global_context import cli_context
 from snowcli.api.commands.decorators import (
     global_options,
     global_options_with_connection,
+    with_output,
     with_project_definition,
 )
 from snowcli.api.commands.flags import (
@@ -23,7 +25,6 @@ from snowcli.api.constants import DEPLOYMENT_STAGE, ObjectType
 from snowcli.api.exception import (
     SecretsWithoutExternalAccessIntegrationError,
 )
-from snowcli.api.output.decorators import with_output
 from snowcli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -31,7 +32,6 @@ from snowcli.api.output.types import (
     SingleQueryResult,
 )
 from snowcli.api.project_initialisation import add_init_command
-from snowcli.api.utils import file_utils
 from snowcli.api.utils.zipper import add_file_to_existing_zip
 from snowcli.cli.object.manager import ObjectManager
 from snowcli.cli.object.stage.manager import StageManager
@@ -449,7 +449,7 @@ def _replace_handler_in_zip(
     handler_module, _, handler_function = handler.rpartition(".")
     with TemporaryDirectory() as temp_dir:
         wrapper_file = os.path.join(temp_dir, "snowpark_coverage.py")
-        file_utils.generate_snowpark_coverage_wrapper(
+        snowcli.cli.snowpark.package.utils.generate_snowpark_coverage_wrapper(
             target_file=wrapper_file,
             proc_name=proc_name,
             proc_signature=proc_signature,

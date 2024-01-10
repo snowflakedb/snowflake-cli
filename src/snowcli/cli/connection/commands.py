@@ -5,14 +5,13 @@ import logging
 import typer
 from click import ClickException
 from click.types import StringParamType
-from snowcli.api.commands.decorators import global_options
+from snowcli.api.commands.decorators import global_options, with_output
 from snowcli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
 from snowcli.api.config import (
     add_connection,
     connection_exists,
     get_config_section,
 )
-from snowcli.api.output.decorators import with_output
 from snowcli.api.output.types import (
     CollectionResult,
     CommandResult,

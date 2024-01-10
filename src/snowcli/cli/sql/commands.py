@@ -2,8 +2,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-from snowcli.api.commands.decorators import global_options_with_connection
-from snowcli.api.output.decorators import with_output
+from snowcli.api.commands.decorators import global_options_with_connection, with_output
 from snowcli.api.output.types import CommandResult, MultipleResults, QueryResult
 from snowcli.cli.sql.manager import SqlManager
 

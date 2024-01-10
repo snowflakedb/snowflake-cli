@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import typer
-from snowcli.api.commands.decorators import global_options_with_connection
+from snowcli.api.commands.decorators import global_options_with_connection, with_output
 from snowcli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.api.constants import SUPPORTED_OBJECTS
-from snowcli.api.output.decorators import with_output
 from snowcli.api.output.types import QueryResult
 from snowcli.cli.object.manager import ObjectManager
 from snowcli.cli.object.stage.commands import app as stage_app

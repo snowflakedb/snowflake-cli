@@ -6,10 +6,10 @@ from snowcli.api.cli_global_context import cli_context
 from snowcli.api.commands.decorators import (
     global_options,
     global_options_with_connection,
+    with_output,
     with_project_definition,
 )
 from snowcli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
-from snowcli.api.output.decorators import with_output
 from snowcli.api.output.types import CommandResult, MessageResult
 from snowcli.cli.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowcli.cli.nativeapp.init import nativeapp_init
