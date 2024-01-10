@@ -32,7 +32,6 @@ from snowcli.api.output.types import (
     SingleQueryResult,
 )
 from snowcli.api.project_initialisation import add_init_command
-from snowcli.api.utils.zipper import add_file_to_existing_zip
 from snowcli.cli.object.manager import ObjectManager
 from snowcli.cli.object.stage.manager import StageManager
 from snowcli.cli.snowpark.common import (
@@ -49,6 +48,7 @@ from snowcli.cli.snowpark.snowpark_shared import (
     PyPiDownloadOption,
     snowpark_package,
 )
+from snowcli.cli.snowpark.zipper import add_file_to_existing_zip
 from snowflake.connector import DictCursor, ProgrammingError
 
 log = logging.getLogger(__name__)

@@ -8,7 +8,6 @@ from shutil import rmtree
 
 from requirements.requirement import Requirement
 from snowcli.api.constants import PACKAGES_DIR
-from snowcli.api.utils.zipper import zip_dir
 from snowcli.cli.object.stage.manager import StageManager
 from snowcli.cli.snowpark import package_utils
 from snowcli.cli.snowpark.models import SplitRequirements
@@ -21,6 +20,7 @@ from snowcli.cli.snowpark.package.utils import (
     RequiresPackages,
     prepare_app_zip,
 )
+from snowcli.cli.snowpark.zipper import zip_dir
 
 log = logging.getLogger(__name__)
 
