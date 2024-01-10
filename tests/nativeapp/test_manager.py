@@ -13,7 +13,7 @@ from snowcli.cli.nativeapp.manager import (
     ensure_correct_owner,
 )
 from snowcli.cli.object.stage.diff import DiffResult
-from snowcli.cli.project.definition_manager import DefinitionManager
+from snowcli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 

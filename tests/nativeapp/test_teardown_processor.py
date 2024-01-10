@@ -7,7 +7,7 @@ from snowcli.cli.nativeapp.exceptions import (
 )
 from snowcli.cli.nativeapp.manager import SnowflakeSQLExecutionError
 from snowcli.cli.nativeapp.teardown_processor import NativeAppTeardownProcessor
-from snowcli.cli.project.definition_manager import DefinitionManager
+from snowcli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 

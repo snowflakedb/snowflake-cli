@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from snowcli.cli.project.schemas.relaxed_map import FilePath, Glob, RelaxedMap
-from snowcli.cli.project.util import (
+from snowcli.api.project.schemas.relaxed_map import FilePath, Glob, RelaxedMap
+from snowcli.api.project.util import (
     IDENTIFIER,
     SCHEMA_AND_NAME,
 )

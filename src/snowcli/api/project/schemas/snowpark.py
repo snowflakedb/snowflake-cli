@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from snowcli.cli.project.schemas.relaxed_map import RelaxedMap
-from snowcli.cli.project.util import IDENTIFIER
+from snowcli.api.project.schemas.relaxed_map import RelaxedMap
+from snowcli.api.project.util import IDENTIFIER
 from strictyaml import (
     Bool,
     EmptyList,

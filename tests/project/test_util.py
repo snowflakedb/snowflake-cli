@@ -1,5 +1,5 @@
 import pytest
-from snowcli.cli.project.util import (
+from snowcli.api.project.util import (
     append_to_identifier,
     is_valid_identifier,
     is_valid_quoted_identifier,

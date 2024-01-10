@@ -8,6 +8,16 @@ from textwrap import dedent
 from typing import Dict, List, Optional
 
 from snowcli.api.exceptions import SnowflakeSQLExecutionError
+from snowcli.api.project.definition import (
+    default_app_package,
+    default_application,
+    default_role,
+)
+from snowcli.api.project.util import (
+    extract_schema,
+    to_identifier,
+    unquote_identifier,
+)
 from snowcli.api.sql_execution import SqlExecutionMixin
 from snowcli.cli.connection.util import make_snowsight_url
 from snowcli.cli.nativeapp.artifacts import (
@@ -27,16 +37,6 @@ from snowcli.cli.object.stage.diff import (
     DiffResult,
     stage_diff,
     sync_local_diff_with_stage,
-)
-from snowcli.cli.project.definition import (
-    default_app_package,
-    default_application,
-    default_role,
-)
-from snowcli.cli.project.util import (
-    extract_schema,
-    to_identifier,
-    unquote_identifier,
 )
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
