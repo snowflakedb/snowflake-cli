@@ -48,7 +48,7 @@ class CommandSpec:
 
     @cached_property
     def command(self) -> click.Command:
-        self.typer_instance._add_completion = False
+        self.typer_instance._add_completion = False  # noqa: SLF001
         return get_command(self.typer_instance)
 
     @cached_property

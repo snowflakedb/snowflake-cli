@@ -1,7 +1,6 @@
 import os
 import uuid
 
-from rich import print
 from snowcli.cli.project.util import generate_user_env
 
 from tests.project.fixtures import *
@@ -16,11 +15,11 @@ TEST_ENV = generate_user_env(USER_NAME)
 
 
 @contextmanager
-def pushd(dir: Path):
+def pushd(directory: Path):
     cwd = os.getcwd()
-    os.chdir(dir)
+    os.chdir(directory)
     try:
-        yield dir
+        yield directory
     finally:
         os.chdir(cwd)
 
@@ -92,8 +91,8 @@ def test_nativeapp_run_existing(
     project_definition_files: List[Path],
 ):
     project_name = "integration"
-    dir = project_definition_files[0].parent
-    with pushd(dir):
+    project_dir = project_definition_files[0].parent
+    with pushd(project_dir):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=TEST_ENV,
@@ -226,8 +225,8 @@ def test_nativeapp_run_existing_w_external(
     project_definition_files: List[Path],
 ):
     project_name = "integration_external"
-    dir = project_definition_files[0].parent
-    with pushd(dir):
+    project_dir = project_definition_files[0].parent
+    with pushd(project_dir):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=TEST_ENV,
@@ -326,8 +325,8 @@ def test_nativeapp_version_create_and_drop(
     project_definition_files: List[Path],
 ):
     project_name = "integration"
-    dir = project_definition_files[0].parent
-    with pushd(dir):
+    project_dir = project_definition_files[0].parent
+    with pushd(project_dir):
         result_create = runner.invoke_with_connection_json(
             ["app", "version", "create", "v1", "--force", "--skip-git-check"],
             env=TEST_ENV,
@@ -397,8 +396,8 @@ def test_nativeapp_upgrade(
     project_definition_files: List[Path],
 ):
     project_name = "integration"
-    dir = project_definition_files[0].parent
-    with pushd(dir):
+    project_dir = project_definition_files[0].parent
+    with pushd(project_dir):
         runner.invoke_with_connection_json(
             ["app", "run"],
             env=TEST_ENV,

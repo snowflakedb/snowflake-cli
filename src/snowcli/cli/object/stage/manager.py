@@ -45,7 +45,7 @@ class StageManager(SqlExecutionMixin):
             return uri
         return to_string_literal(uri)
 
-    def list(self, stage_name: str) -> SnowflakeCursor:
+    def list_files(self, stage_name: str) -> SnowflakeCursor:
         stage_name = self.get_standard_stage_name(stage_name)
         return self._execute_query(f"ls {self.quote_stage_name(stage_name)}")
 
@@ -64,25 +64,9 @@ class StageManager(SqlExecutionMixin):
         stage_path: str,
         parallel: int = 4,
         overwrite: bool = False,
-    ) -> SnowflakeCursor:
-
-        stage_path = self.get_standard_stage_name(stage_path)
-        local_resolved_path = path_resolver(str(local_path))
-        return self._execute_query(
-            f"put {self._to_uri(local_resolved_path)} {self.quote_stage_name(stage_path)} "
-            f"auto_compress=false parallel={parallel} overwrite={overwrite}"
-        )
-
-    def _put(
-        self,
-        local_path: Union[str, Path],
-        stage_path: str,
         role: Optional[str] = None,
-        parallel: int = 4,
-        overwrite: bool = False,
     ) -> SnowflakeCursor:
         """
-        Internal only method, created for Native Apps use case.
         This method will take a file path from the user's system and put it into a Snowflake stage,
         which includes its fully qualified name as well as the path within the stage.
         If provided with a role, then temporarily use this role to perform the operation above,
@@ -91,32 +75,27 @@ class StageManager(SqlExecutionMixin):
         with self.use_role(role) if role else nullcontext():
             stage_path = self.get_standard_stage_name(stage_path)
             local_resolved_path = path_resolver(str(local_path))
-            log.info(f"Uploading {local_resolved_path} to @{stage_path}")
+            log.info("Uploading %s to @%s", local_resolved_path, stage_path)
             cursor = self._execute_query(
                 f"put {self._to_uri(local_resolved_path)} {self.quote_stage_name(stage_path)} "
                 f"auto_compress=false parallel={parallel} overwrite={overwrite}"
             )
         return cursor
 
-    def remove(self, stage_name: str, path: str) -> SnowflakeCursor:
-        stage_name = self.get_standard_stage_name(stage_name)
-        path = path if path.startswith("/") else "/" + path
-        quoted_stage_name = self.quote_stage_name(f"{stage_name}{path}")
-        return self._execute_query(f"remove {quoted_stage_name}")
-
-    def _remove(
+    def remove(
         self, stage_name: str, path: str, role: Optional[str] = None
     ) -> SnowflakeCursor:
         """
-        Internal only method, created for Native Apps use case.
         This method will take a file path that exists on a Snowflake stage,
         and remove it from the stage.
         If provided with a role, then temporarily use this role to perform the operation above,
         and switch back to the original role for the next commands to run.
         """
         with self.use_role(role) if role else nullcontext():
-            cursor = self.remove(stage_name=stage_name, path=path)
-        return cursor
+            stage_name = self.get_standard_stage_name(stage_name)
+            path = path if path.startswith("/") else "/" + path
+            quoted_stage_name = self.quote_stage_name(f"{stage_name}{path}")
+            return self._execute_query(f"remove {quoted_stage_name}")
 
     def create(self, stage_name: str, comment: Optional[str] = None) -> SnowflakeCursor:
         query = f"create stage if not exists {stage_name}"

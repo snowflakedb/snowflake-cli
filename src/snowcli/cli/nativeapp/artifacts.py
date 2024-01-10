@@ -2,7 +2,7 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import strictyaml
 from click import ClickException

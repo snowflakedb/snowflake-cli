@@ -270,7 +270,7 @@ def test_stage_remove_quoted(mock_execute, runner, mock_cursor):
 def test_stage_internal_remove(mock_execute, mock_cursor):
     mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
     sm = StageManager()
-    sm._remove("stageName", "my/file/foo.csv", "new_role")
+    sm.remove("stageName", "my/file/foo.csv", "new_role")
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role new_role"),
@@ -284,7 +284,7 @@ def test_stage_internal_remove(mock_execute, mock_cursor):
 def test_stage_internal_remove_quoted(mock_execute, mock_cursor):
     mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
     sm = StageManager()
-    sm._remove('"stage name"', "my/file/foo.csv", "new_role")
+    sm.remove('"stage name"', "my/file/foo.csv", "new_role")
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("use role new_role"),
@@ -298,7 +298,7 @@ def test_stage_internal_remove_quoted(mock_execute, mock_cursor):
 def test_stage_internal_remove_no_role_change(mock_execute, mock_cursor):
     mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
     sm = StageManager()
-    sm._remove("stageName", "my/file/foo.csv", "old_role")
+    sm.remove("stageName", "my/file/foo.csv", "old_role")
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
         mock.call("remove @stageName/my/file/foo.csv"),
@@ -311,7 +311,7 @@ def test_stage_internal_put(mock_execute, mock_cursor):
     mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
     with TemporaryDirectory() as tmp_dir:
         sm = StageManager()
-        sm._put(Path(tmp_dir).resolve(), "stageName", "new_role")
+        sm.put(Path(tmp_dir).resolve(), "stageName", role="new_role")
         expected = [
             mock.call("select current_role()", cursor_class=DictCursor),
             mock.call("use role new_role"),
@@ -328,7 +328,7 @@ def test_stage_internal_put_quoted_stage(mock_execute, mock_cursor):
     mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
     with TemporaryDirectory() as tmp_dir:
         sm = StageManager()
-        sm._put(Path(tmp_dir).resolve(), '"stage name"', "new_role")
+        sm.put(Path(tmp_dir).resolve(), '"stage name"', role="new_role")
         expected = [
             mock.call("select current_role()", cursor_class=DictCursor),
             mock.call("use role new_role"),
@@ -365,7 +365,7 @@ def test_stage_internal_put_quoted_path(
         tmp_dir = Path(tmp_dir).resolve()
         src_path = raw_path.replace("{}", str(tmp_dir))
         src_uri = expected_uri.replace("{}", str(tmp_dir))
-        sm._put(src_path, "stageName", "new_role")
+        sm.put(src_path, "stageName", role="new_role")
         expected = [
             mock.call("select current_role()", cursor_class=DictCursor),
             mock.call("use role new_role"),

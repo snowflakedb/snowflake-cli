@@ -10,7 +10,6 @@ import typer
 from click import ClickException
 from snowcli.cli.common.sql_execution import SqlExecutionMixin
 from snowcli.cli.object.stage.manager import StageManager
-from snowcli.utils.package_utils import generate_deploy_stage_name
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
@@ -70,7 +69,7 @@ class ProcedureCoverageManager(SqlExecutionMixin):
                     "and that you provided the correct inputs"
                 )
                 raise typer.Abort()
-            log.info(f"Combining data from {len(results)} reports")
+            log.info("Combining data from %d reports", len(results))
             combined_coverage.combine(
                 # the tuple contains the columns: (file, size, status, message)
                 data_paths=[
@@ -100,7 +99,8 @@ class ProcedureCoverageManager(SqlExecutionMixin):
 
             if store_as_comment:
                 log.info(
-                    f"Storing total coverage value of {str(coverage_percentage)} as a procedure comment."
+                    "Storing total coverage value of %d as a procedure comment.",
+                    coverage_percentage,
                 )
                 self._execute_query(
                     f"ALTER PROCEDURE {identifier} SET COMMENT = $${str(coverage_percentage)}$$"

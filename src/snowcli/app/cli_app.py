@@ -94,7 +94,7 @@ def _docs_callback(value: bool):
 def _commands_structure_callback(value: bool):
     if value:
         ctx = click.get_current_context()
-        generate_commands_structure(ctx.command).print()
+        generate_commands_structure(ctx.command).print_node()
         _exit_with_cleanup()
 
 

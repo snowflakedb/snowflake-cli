@@ -71,13 +71,13 @@ class SnowCLIRunner(CliRunner):
         )
 
     @functools.wraps(CliRunner.invoke)
-    def _invoke(self, *a, **kw):
+    def invoke(self, *a, **kw):
         if "catch_exceptions" not in kw:
             kw.update(catch_exceptions=False)
         return super().invoke(self.app, *a, **kw)
 
-    def invoke(self, args, **kwargs) -> CommandResult:
-        result = self._invoke(
+    def invoke_with_config(self, args, **kwargs) -> CommandResult:
+        result = self.invoke(
             [
                 "--config-file",
                 self._test_config_path,
@@ -94,7 +94,7 @@ class SnowCLIRunner(CliRunner):
             return CommandResult(result.exit_code, output=result.output)
 
     def invoke_json(self, args, **kwargs) -> CommandResult:
-        return self.invoke([*args, "--format", "JSON"], **kwargs)
+        return self.invoke_with_config([*args, "--format", "JSON"], **kwargs)
 
     def invoke_with_connection_json(
         self, args, connection: str = "integration", **kwargs
@@ -104,7 +104,7 @@ class SnowCLIRunner(CliRunner):
     def invoke_with_connection(
         self, args, connection: str = "integration", **kwargs
     ) -> CommandResult:
-        return self.invoke([*args, "-c", connection], **kwargs)
+        return self.invoke_with_config([*args, "-c", connection], **kwargs)
 
 
 @pytest.fixture

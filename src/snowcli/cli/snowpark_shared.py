@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 from typing import List
 
@@ -96,11 +95,11 @@ def snowpark_package(
 
     if Path(".packages").exists():
         zip_dir(source=Path(".packages"), dest_zip=artefact_file, mode="a")
-    log.info(f"Deployment package now ready: %s", artefact_file)
+    log.info("Deployment package now ready: %s", artefact_file)
 
 
 def _write_requirements_file(file_name: str, requirements: List[Requirement]):
-    log.info(f"Writing %s file", file_name)
+    log.info("Writing %s file", file_name)
     with open(file_name, "w", encoding="utf-8") as f:
         for req in requirements:
             f.write(f"{req.line}\n")

@@ -30,8 +30,8 @@ def _prefix_line(prefix: str, line: str) -> str:
     return line
 
 
-def print_log_lines(file: TextIO, name, id, logs):
-    prefix = f"{GREEN}{name}/{id}{ENDC} "
+def print_log_lines(file: TextIO, name, identifier, logs):
+    prefix = f"{GREEN}{name}/{identifier}{ENDC} "
     logs = logs[0:-1]
     for log in logs:
         print(_prefix_line(prefix, log + "\n"), file=file, end="", flush=True)

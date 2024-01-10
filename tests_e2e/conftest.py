@@ -3,7 +3,6 @@ import subprocess
 import tempfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import List
 
 import pytest
 from snowcli import __about__
