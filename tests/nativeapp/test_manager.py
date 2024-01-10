@@ -264,7 +264,12 @@ def test_is_app_pkg_distribution_same_in_sf_w_arg(mock_mismatch, temp_dir):
     )
 
     native_app_manager = _get_na_manager()
-    assert native_app_manager.is_app_pkg_distribution_same_in_sf("internal") is False
+    assert (
+        native_app_manager.check_app_pkg_distribution_against_resolved_definition(
+            "internal"
+        )
+        is False
+    )
     mock_mismatch.assert_not_called()
 
 
@@ -295,7 +300,10 @@ def test_is_app_pkg_distribution_same_in_sf_no_mismatch(mock_mismatch, temp_dir)
     )
 
     native_app_manager = _get_na_manager()
-    assert native_app_manager.is_app_pkg_distribution_same_in_sf() is True
+    assert (
+        native_app_manager.check_app_pkg_distribution_against_resolved_definition()
+        is True
+    )
 
 
 @mock_get_app_pkg_distribution_in_sf()
@@ -313,7 +321,10 @@ def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
     )
 
     native_app_manager = _get_na_manager()
-    assert native_app_manager.is_app_pkg_distribution_same_in_sf() is False
+    assert (
+        native_app_manager.check_app_pkg_distribution_against_resolved_definition()
+        is False
+    )
     mock_warning.assert_called_once_with(
         "App pkg app_pkg in your Snowflake account has distribution property external,\nwhich does not match the value specified in project definition file: internal.\n"
     )

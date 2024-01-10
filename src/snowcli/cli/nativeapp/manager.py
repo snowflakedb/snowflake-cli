@@ -219,7 +219,7 @@ class NativeAppManager(SqlExecutionMixin):
             )
         )
 
-    def is_app_pkg_distribution_same_in_sf(
+    def check_app_pkg_distribution_against_resolved_definition(
         self, sf_distribution: Optional[str] = None
     ) -> bool:
         """
