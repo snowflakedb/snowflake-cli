@@ -1,15 +1,15 @@
 import logging
-from pathlib import Path
-from unittest.mock import ANY, MagicMock, patch
+import os
+from unittest import mock
+from unittest.mock import MagicMock, patch
 from zipfile import ZipFile
 
 import pytest
 from requirements.requirement import Requirement
-from snowcli.cli.snowpark import package
+from snowcli.cli.snowpark.models import SplitRequirements
 from snowcli.cli.snowpark.package.utils import NotInAnaconda
-from snowcli.utils.models import SplitRequirements
 
-from tests.testing_utils.fixtures import *
+from tests.test_data import test_data
 
 
 class TestPackage:
@@ -28,7 +28,7 @@ class TestPackage:
             ),
         ],
     )
-    @patch("snowcli.utils.package_utils.requests")
+    @patch("snowcli.cli.snowpark.package_utils.requests")
     def test_package_lookup(
         self, mock_requests, argument, monkeypatch, runner, snapshot
     ) -> None:
@@ -41,8 +41,8 @@ class TestPackage:
         assert result.exit_code == 0
         assert result.output == snapshot
 
-    @patch("snowcli.utils.package_utils.install_packages")
-    @patch("snowcli.utils.package_utils.parse_anaconda_packages")
+    @patch("snowcli.cli.snowpark.package_utils.install_packages")
+    @patch("snowcli.cli.snowpark.package_utils.parse_anaconda_packages")
     def test_package_lookup_with_install_packages(
         self, mock_package, mock_install, runner, capfd, snapshot
     ) -> None:
@@ -64,7 +64,7 @@ class TestPackage:
         assert result.exit_code == 0
         assert result.output == snapshot
 
-    @patch("tests.test_package.package.commands.lookup")
+    @patch("snowcli.cli.snowpark.package.commands.lookup")
     def test_package_create(
         self, mock_lookup, caplog, temp_dir, dot_packages_directory, runner
     ) -> None:

@@ -1,8 +1,12 @@
 from typing import List
 
 from snowcli.api import PluginConfigProvider
+from snowcli.api.config import (
+    config_section_exists,
+    get_config_section,
+    get_config_value,
+)
 from snowcli.api.plugin.plugin_config import PluginConfig
-from snowcli.config import config_section_exists, get_config_section, get_config_value
 
 
 class PluginConfigProviderImpl(PluginConfigProvider):

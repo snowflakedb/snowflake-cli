@@ -7,9 +7,9 @@ from typing import List
 import click
 import typer
 from requirements.requirement import Requirement
-from snowcli.utils import package_utils
-from snowcli.utils.models import PypiOption
-from snowcli.utils.zipper import zip_dir
+from snowcli.api.utils.zipper import zip_dir
+from snowcli.cli.snowpark import package_utils
+from snowcli.cli.snowpark.models import PypiOption
 
 PyPiDownloadOption: PypiOption = typer.Option(
     PypiOption.ASK.value, help="Whether to download non-Anaconda packages from PyPi."

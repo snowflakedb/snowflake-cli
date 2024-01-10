@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from functools import wraps
 
-from snowcli.exception import CommandReturnTypeError
-from snowcli.output.printing import print_result
-from snowcli.output.types import CommandResult
+from snowcli.api.exception import CommandReturnTypeError
+from snowcli.api.output.types import CommandResult
+from snowcli.app.printing import print_result
 from snowflake.connector.cursor import SnowflakeCursor
 
 

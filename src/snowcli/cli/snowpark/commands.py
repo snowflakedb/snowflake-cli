@@ -9,6 +9,18 @@ from typing import Dict, List, Set
 
 import typer
 from click import ClickException
+from snowcli.api.exception import (
+    SecretsWithoutExternalAccessIntegrationError,
+)
+from snowcli.api.output.decorators import with_output
+from snowcli.api.output.types import (
+    CollectionResult,
+    CommandResult,
+    MessageResult,
+    SingleQueryResult,
+)
+from snowcli.api.utils import file_utils
+from snowcli.api.utils.zipper import add_file_to_existing_zip
 from snowcli.cli.common.cli_global_context import cli_context
 from snowcli.cli.common.decorators import (
     global_options,
@@ -29,26 +41,14 @@ from snowcli.cli.snowpark.common import (
     remove_parameter_names,
 )
 from snowcli.cli.snowpark.manager import FunctionManager, ProcedureManager
-from snowcli.cli.snowpark_shared import (
+from snowcli.cli.snowpark.models import PypiOption
+from snowcli.cli.snowpark.package_utils import get_snowflake_packages
+from snowcli.cli.snowpark.snowpark_shared import (
     CheckAnacondaForPyPiDependencies,
     PackageNativeLibrariesOption,
     PyPiDownloadOption,
     snowpark_package,
 )
-from snowcli.exception import (
-    SecretsWithoutExternalAccessIntegrationError,
-)
-from snowcli.output.decorators import with_output
-from snowcli.output.types import (
-    CollectionResult,
-    CommandResult,
-    MessageResult,
-    SingleQueryResult,
-)
-from snowcli.utils import file_utils
-from snowcli.utils.models import PypiOption
-from snowcli.utils.package_utils import get_snowflake_packages
-from snowcli.utils.zipper import add_file_to_existing_zip
 from snowflake.connector import DictCursor, ProgrammingError
 
 log = logging.getLogger(__name__)

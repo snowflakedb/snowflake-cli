@@ -2,16 +2,16 @@ import sys
 from pathlib import Path
 
 import typer
-from snowcli.cli.common.decorators import global_options_with_connection
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
-from snowcli.cli.containers.common import print_log_lines
-from snowcli.cli.containers.services.manager import ServiceManager
-from snowcli.output.decorators import with_output
-from snowcli.output.types import (
+from snowcli.api.output.decorators import with_output
+from snowcli.api.output.types import (
     CommandResult,
     QueryJsonValueResult,
     SingleQueryResult,
 )
+from snowcli.cli.common.decorators import global_options_with_connection
+from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.cli.containers.common import print_log_lines
+from snowcli.cli.containers.services.manager import ServiceManager
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,

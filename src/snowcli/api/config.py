@@ -6,7 +6,10 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import tomlkit
-from snowcli.exception import MissingConfiguration, UnsupportedConfigSectionTypeError
+from snowcli.api.exception import (
+    MissingConfiguration,
+    UnsupportedConfigSectionTypeError,
+)
 from snowflake.connector.config_manager import CONFIG_MANAGER
 from snowflake.connector.errors import MissingConfigOptionError
 from tomlkit import TOMLDocument, dump

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-templates_path = Path(__file__).parent / "../python_templates"
+templates_path = Path(__file__).parent.parent.parent / "python_templates"
 
 
 def prepare_app_zip(file_path: Path, temp_dir: str) -> str:

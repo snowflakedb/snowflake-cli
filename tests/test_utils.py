@@ -6,8 +6,10 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import typer
 from requirements.requirement import Requirement
-from snowcli.utils import file_utils, package_utils, path_utils, streamlit_utils
-from snowcli.utils.models import PypiOption
+from snowcli.api.utils import file_utils, path_utils
+from snowcli.cli.snowpark import package_utils
+from snowcli.cli.snowpark.models import PypiOption
+from snowcli.cli.streamlit import streamlit_utils
 
 from tests.testing_utils.fixtures import *
 
@@ -56,7 +58,7 @@ def test_parse_requirements_with_nonexistent_file(temp_dir):
     assert result == []
 
 
-@patch("snowcli.utils.package_utils.requests")
+@patch("snowcli.cli.snowpark.package_utils.requests")
 def test_anaconda_packages(mock_requests):
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -73,7 +75,7 @@ def test_anaconda_packages(mock_requests):
     )
 
 
-@patch("snowcli.utils.package_utils.requests")
+@patch("snowcli.cli.snowpark.package_utils.requests")
 def test_anaconda_packages_streamlit(mock_requests):
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -86,7 +88,7 @@ def test_anaconda_packages_streamlit(mock_requests):
     assert Requirement.parse_line("streamlit") not in anaconda_packages.other
 
 
-@patch("snowcli.utils.package_utils.requests")
+@patch("snowcli.cli.snowpark.package_utils.requests")
 def test_anaconda_packages_with_incorrect_response(mock_requests):
     mock_response = MagicMock()
     mock_response.status_code = 404
@@ -313,11 +315,11 @@ def test_path_resolver(mock_system, argument, expected):
     assert path_utils.path_resolver(argument) == expected
 
 
-@mock.patch("snowcli.utils.package_utils._run_pip_install")
+@mock.patch("snowcli.cli.snowpark.package_utils._run_pip_install")
 def test_pip_fail_message(mock_pip, correct_requirements_txt, caplog):
     mock_pip.return_value = 42
 
-    with caplog.at_level(logging.INFO, "snowcli.utils.package_utils"):
+    with caplog.at_level(logging.INFO, "snowcli.cli.snowpark.package_utils"):
         result = package_utils.install_packages(
             correct_requirements_txt, True, PypiOption.YES
         )

@@ -1,7 +1,7 @@
 import typer
+from snowcli.api.output.decorators import with_output
+from snowcli.api.output.types import CommandResult, SingleQueryResult
 from snowcli.cli.common.decorators import global_options_with_connection
-from snowcli.output.decorators import with_output
-from snowcli.output.types import CommandResult, SingleQueryResult
 from snowflakecli.test_plugins.snowpark_hello.manager import SnowparkHelloManager
 
 app = typer.Typer(name="hello")

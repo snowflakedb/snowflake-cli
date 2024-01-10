@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import typer
+from snowcli.api.output.decorators import with_output
+from snowcli.api.output.types import QueryResult
 from snowcli.cli.common.decorators import global_options_with_connection
 from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
 from snowcli.cli.constants import SUPPORTED_OBJECTS
 from snowcli.cli.object.manager import ObjectManager
 from snowcli.cli.object.stage.commands import app as stage_app
-from snowcli.output.decorators import with_output
-from snowcli.output.types import QueryResult
 
 app = typer.Typer(
     name="object",

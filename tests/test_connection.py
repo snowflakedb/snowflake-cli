@@ -1,10 +1,8 @@
 import json
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
-from unittest import mock
 
-import pytest
-from snowcli.exception import SnowflakeConnectionError
+from snowcli.api.exception import SnowflakeConnectionError
 
 from tests.testing_utils.fixtures import *
 
@@ -364,7 +362,7 @@ def test_key_pair_authentication(mock_conn, runner):
     clear=True,
 )
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.snow_connector._load_pem_to_der")
+@mock.patch("snowcli.app.snow_connector._load_pem_to_der")
 def test_key_pair_authentication_from_config(mock_load, mock_conn, temp_dir, runner):
     mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
     mock_load.return_value = "secret value"

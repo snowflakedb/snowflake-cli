@@ -7,8 +7,12 @@ from pathlib import Path
 from shutil import rmtree
 
 from requirements.requirement import Requirement
+from snowcli.api.utils import file_utils
+from snowcli.api.utils.zipper import zip_dir
 from snowcli.cli.constants import PACKAGES_DIR
 from snowcli.cli.object.stage.manager import StageManager
+from snowcli.cli.snowpark import package_utils
+from snowcli.cli.snowpark.models import SplitRequirements
 from snowcli.cli.snowpark.package.utils import (
     CreatedSuccessfully,
     InAnaconda,
@@ -17,9 +21,6 @@ from snowcli.cli.snowpark.package.utils import (
     NotInAnaconda,
     RequiresPackages,
 )
-from snowcli.utils import file_utils, package_utils
-from snowcli.utils.models import SplitRequirements
-from snowcli.utils.zipper import zip_dir
 
 log = logging.getLogger(__name__)
 

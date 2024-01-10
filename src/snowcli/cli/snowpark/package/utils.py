@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from snowcli.utils.models import SplitRequirements
+from snowcli.cli.snowpark.models import SplitRequirements
 
 
 @dataclass

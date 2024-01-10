@@ -14,7 +14,11 @@ import requirements
 import typer
 from packaging.version import parse
 from requirements.requirement import Requirement
-from snowcli.utils.models import PypiOption, RequirementWithFiles, SplitRequirements
+from snowcli.cli.snowpark.models import (
+    PypiOption,
+    RequirementWithFiles,
+    SplitRequirements,
+)
 
 log = logging.getLogger(__name__)
 

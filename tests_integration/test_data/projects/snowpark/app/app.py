@@ -20,7 +20,7 @@ def hello_function(name: str) -> str:
 # For local debugging. Be aware you may need to type-convert arguments if
 # you add input parameters
 if __name__ == "__main__":
-    from snowcli.config import cli_config
+    from snowcli.api.config import cli_config
 
     session = Session.builder.configs(cli_config.get_connection("dev")).create()
     if len(sys.argv) > 1:

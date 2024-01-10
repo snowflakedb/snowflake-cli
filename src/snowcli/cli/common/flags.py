@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any, Callable, Optional
 
 import typer
+from snowcli.api.output.formats import OutputFormat
 from snowcli.cli.common.cli_global_context import cli_context_manager
-from snowcli.output.formats import OutputFormat
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
@@ -210,8 +210,8 @@ def execution_identifier_argument(sf_object: str, example: str) -> typer.Argumen
 
 
 def project_definition_option(project_name: str):
+    from snowcli.api.exception import NoProjectDefinitionError
     from snowcli.cli.project.definition_manager import DefinitionManager
-    from snowcli.exception import NoProjectDefinitionError
 
     def _callback(project_path: Optional[str]):
         dm = DefinitionManager(project_path)

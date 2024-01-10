@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import List, Optional
 
 from jinja2 import Environment, FileSystemLoader
-from snowcli.utils.file_utils import templates_path
-from snowcli.utils.package_utils import parse_requirements
+from snowcli.api.utils.file_utils import templates_path
+from snowcli.cli.snowpark.package_utils import parse_requirements
 
 log = logging.getLogger(__name__)
 

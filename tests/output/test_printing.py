@@ -3,9 +3,8 @@ from datetime import datetime
 from textwrap import dedent
 
 from click import Command, Context
-from snowcli.output.formats import OutputFormat
-from snowcli.output.printing import print_result
-from snowcli.output.types import (
+from snowcli.api.output.formats import OutputFormat
+from snowcli.api.output.types import (
     CollectionResult,
     MessageResult,
     MultipleResults,
@@ -13,6 +12,7 @@ from snowcli.output.types import (
     QueryResult,
     SingleQueryResult,
 )
+from snowcli.app.printing import print_result
 
 from tests.testing_utils.fixtures import *
 
