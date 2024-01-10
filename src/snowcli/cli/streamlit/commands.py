@@ -13,12 +13,12 @@ from snowcli.api.commands.decorators import (
     with_project_definition,
 )
 from snowcli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.api.commands.project_initialisation import add_init_command
 from snowcli.api.output.types import (
     CommandResult,
     MessageResult,
     SingleQueryResult,
 )
-from snowcli.api.project_initialisation import add_init_command
 from snowcli.cli.streamlit.manager import StreamlitManager
 
 app = typer.Typer(

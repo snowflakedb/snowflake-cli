@@ -2,7 +2,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from snowcli.api.project_initialisation import add_init_command
+from snowcli.api.commands.project_initialisation import add_init_command
 from typer import Typer
 from typer.testing import CliRunner
 

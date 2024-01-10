@@ -21,6 +21,7 @@ from snowcli.api.commands.flags import (
     DEFAULT_CONTEXT_SETTINGS,
     execution_identifier_argument,
 )
+from snowcli.api.commands.project_initialisation import add_init_command
 from snowcli.api.constants import DEPLOYMENT_STAGE, ObjectType
 from snowcli.api.exceptions import (
     SecretsWithoutExternalAccessIntegrationError,
@@ -31,7 +32,6 @@ from snowcli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
-from snowcli.api.project_initialisation import add_init_command
 from snowcli.cli.object.manager import ObjectManager
 from snowcli.cli.object.stage.manager import StageManager
 from snowcli.cli.snowpark.common import (
