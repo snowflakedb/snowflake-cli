@@ -40,8 +40,9 @@ def check_if_replace_is_required(
     resource_json = _convert_resource_details_to_dict(current_state)
     anaconda_packages = resource_json["packages"]
     log.info(
-        f"Found {len(anaconda_packages)} defined Anaconda "
-        f"packages in deployed {object_type}..."
+        "Found %s defined Anaconda packages in deployed %s...",
+        len(anaconda_packages),
+        object_type,
     )
     log.info("Checking if app configuration has changed...")
     updated_package_list = _get_snowflake_packages_delta(
@@ -50,7 +51,9 @@ def check_if_replace_is_required(
 
     if updated_package_list:
         diff = len(updated_package_list) - len(anaconda_packages)
-        log.info(f"Found difference of {diff} packages. Replacing the {object_type}.")
+        log.info(
+            "Found difference of %s packages. Replacing the %s.", diff, object_type
+        )
         return True
 
     if (
@@ -59,7 +62,7 @@ def check_if_replace_is_required(
         != return_type.lower()
     ):
         log.info(
-            f"Return type or handler types do not match. Replacing the {object_type}."
+            "Return type or handler types do not match. Replacing the %s.", object_type
         )
         return True
 

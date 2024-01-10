@@ -5,9 +5,8 @@ from functools import wraps
 from inspect import Signature
 from typing import Callable, Dict, List, Optional, get_type_hints
 
-import typer
 from snowcli.cli import loggers
-from snowcli.cli.common.cli_global_context import cli_context, cli_context_manager
+from snowcli.cli.common.cli_global_context import cli_context
 from snowcli.cli.common.flags import (
     AccountOption,
     AuthenticatorOption,
@@ -26,7 +25,6 @@ from snowcli.cli.common.flags import (
     experimental_option,
     project_definition_option,
 )
-from snowcli.exception import NoProjectDefinitionError
 from snowcli.output.formats import OutputFormat
 
 

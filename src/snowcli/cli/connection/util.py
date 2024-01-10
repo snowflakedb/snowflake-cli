@@ -1,6 +1,5 @@
 import logging
 
-import typer
 from click.exceptions import ClickException
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
