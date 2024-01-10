@@ -129,9 +129,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
 
         # 4. Check distribution of the existing app pkg
         actual_distribution = self.get_app_pkg_distribution_in_snowflake
-        if not self.check_app_pkg_distribution_against_resolved_definition(
-            actual_distribution
-        ):
+        if not self.verify_project_distribution(actual_distribution):
             print(
                 f"Continuing to execute `snow app teardown` on app pkg {self.package_name} with distribution {actual_distribution}."
             )

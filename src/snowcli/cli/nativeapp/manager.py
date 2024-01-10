@@ -219,16 +219,16 @@ class NativeAppManager(SqlExecutionMixin):
             )
         )
 
-    def check_app_pkg_distribution_against_resolved_definition(
-        self, sf_distribution: Optional[str] = None
+    def verify_project_distribution(
+        self, expected_distribution: Optional[str] = None
     ) -> bool:
         """
         Returns true if the 'distribution' attribute of an existing application package in snowflake
         is the same as the the attribute specified in project definition file.
         """
         actual_distribution = (
-            sf_distribution
-            if sf_distribution
+            expected_distribution
+            if expected_distribution
             else self.get_app_pkg_distribution_in_snowflake
         )
         project_def_distribution = self.package_distribution.lower()
