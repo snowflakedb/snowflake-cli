@@ -1,5 +1,5 @@
 import logging
-from logging.handlers import TimedRotatingFileHandler
+import logging.config
 from pathlib import Path
 
 import typer
@@ -13,7 +13,7 @@ DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s %(message)s"
 DEBUG_LOG_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
 FILE_LOG_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-_CONSOLE_OUTPUT = "console output"
+_DEFAULT_LOG_FILENAME = "snowcli.log"
 
 
 class LogsConfig:
@@ -53,23 +53,9 @@ class LogsConfig:
                 f"'level' should be one of: {' / '.join(logging.getLevelName(lvl) for lvl in possible_log_levels)}"
             )
 
-
-def remove_console_output_handler_from_logs() -> None:
-    logger = logging.getLogger("snowcli")
-    for handler in logger.handlers:
-        if handler.name == _CONSOLE_OUTPUT:
-            logger.removeHandler(handler)
-
-
-def add_console_output_handler_to_logs(
-    log_level: int, formatter: logging.Formatter
-) -> None:
-    logger = logging.getLogger("snowcli")
-    console = logging.StreamHandler()
-    console.set_name(_CONSOLE_OUTPUT)
-    console.setFormatter(formatter)
-    console.setLevel(log_level)
-    logger.addHandler(console)
+    @property
+    def filename(self):
+        return self.path / _DEFAULT_LOG_FILENAME
 
 
 def create_loggers(verbose: bool, debug: bool):
@@ -97,17 +83,50 @@ def create_loggers(verbose: bool, debug: bool):
     else:
         global_log_level = config.file_log_level
 
-    logger = logging.getLogger("snowcli")
-    logger.setLevel(global_log_level)
-    logging.getLogger("snowflake").setLevel(global_log_level)
-
-    add_console_output_handler_to_logs(
-        console_log_level, formatter=logging.Formatter(console_log_format, DATE_FORMAT)
-    )
-
+    enabled_handlers = ["console"]
+    handlers_config = {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "console_formatter",
+            "level": console_log_level,
+        },
+    }
     if config.save_logs:
-        filename = config.path / "snowcli.log"
-        file = TimedRotatingFileHandler(filename=filename, when="midnight")
-        file.setFormatter(logging.Formatter(FILE_LOG_FORMAT, DATE_FORMAT))
-        file.setLevel(config.file_log_level)
-        logger.addHandler(file)
+        enabled_handlers.append("file")
+        handlers_config["file"] = {
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": config.filename,
+            "when": "midnight",
+            "formatter": "file_formatter",
+            "level": config.file_log_level,
+        }
+
+    logging.config.dictConfig(
+        {
+            "version": 1,
+            "disable_existing_loggers": True,
+            "formatters": {
+                "console_formatter": {
+                    "class": "logging.Formatter",
+                    "format": console_log_format,
+                    "datefmt": DATE_FORMAT,
+                },
+                "file_formatter": {
+                    "class": "logging.Formatter",
+                    "format": FILE_LOG_FORMAT,
+                    "datefmt": DATE_FORMAT,
+                },
+            },
+            "filters": {},
+            "handlers": handlers_config,
+            "loggers": {
+                "snowcli": {
+                    "level": global_log_level,
+                    "handlers": enabled_handlers,
+                },
+                "snowflake": {
+                    "level": global_log_level,
+                },
+            },
+        }
+    )
