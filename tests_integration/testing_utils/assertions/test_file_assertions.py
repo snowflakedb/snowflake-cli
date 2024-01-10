@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import List
-
-from syrupy import SnapshotAssertion
 
 
 def assert_that_current_working_directory_contains_only_following_files(

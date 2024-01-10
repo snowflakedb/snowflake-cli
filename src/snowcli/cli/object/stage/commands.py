@@ -32,7 +32,7 @@ def stage_list(stage_name: str = StageNameArgument, **options) -> CommandResult:
     """
     Lists the stage contents.
     """
-    cursor = StageManager().list(stage_name=stage_name)
+    cursor = StageManager().list_files(stage_name=stage_name)
     return QueryResult(cursor)
 
 

@@ -12,10 +12,10 @@ class _Node:
     children: Dict[str, _Node] = field(default_factory=dict)
     level: int = 0
 
-    def print(self):
+    def print_node(self):
         print("    " * self.level, self.name)
         for ch in self.children.values():
-            ch.print()
+            ch.print_node()
 
 
 def generate_commands_structure(command: Command, root: _Node | None = None):

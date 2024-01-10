@@ -24,7 +24,7 @@ def generate_streamlit_environment_file(
 
         # remove explicitly excluded anaconda dependencies
         if excluded_anaconda_deps is not None:
-            log.info(f"Excluded dependencies: {','.join(excluded_anaconda_deps)}")
+            log.info("Excluded dependencies: %s", ",".join(excluded_anaconda_deps))
             snowflake_requirements = [
                 r
                 for r in snowflake_requirements

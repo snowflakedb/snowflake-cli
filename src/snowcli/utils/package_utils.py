@@ -41,7 +41,7 @@ def parse_requirements(
             for req in requirements.parse(f):
                 reqs.append(req)
     else:
-        log.info(f"No {requirements_file} found")
+        log.info("No %s found", requirements_file)
 
     return deduplicate_and_sort_reqs(reqs)
 
@@ -83,9 +83,7 @@ def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
         if check_if_package_is_avaiable_in_conda(package, channel_data["packages"]):
             result.snowflake.append(package)
         else:
-            log.info(
-                f"'{package.name}' not found in Snowflake anaconda channel...",
-            )
+            log.info("'%s' not found in Snowflake anaconda channel...", package.name)
             result.other.append(package)
     return result
 
@@ -95,7 +93,7 @@ def _get_anaconda_channel_contents():
     if response.status_code == 200:
         return response.json()
     else:
-        log.error(f"Error reading Anaconda channel data: {response.status_code}")
+        log.error("Error reading Anaconda channel data: %s", response.status_code)
         raise typer.Abort()
 
 
@@ -209,7 +207,7 @@ def install_packages(
         # a package available on Anaconda.
         # use each folder's METADATA file to determine its real name
         downloaded_packages_dict = get_downloaded_packages()
-        log.info(f"Downloaded packages: {downloaded_packages_dict.keys()}")
+        log.info("Downloaded packages: %s", downloaded_packages_dict.keys())
         # look for all the downloaded packages on the Anaconda channel
         downloaded_package_requirements = [
             r.requirement for r in downloaded_packages_dict.values()
@@ -252,8 +250,8 @@ def install_packages(
     return True, second_chance_results
 
 
-def _run_pip_install(name: str, type: str):
-    arguments = ["-r", name] if type == "file" else [name]
+def _run_pip_install(name: str, type_: str):
+    arguments = ["-r", name] if type_ == "file" else [name]
 
     try:
         process = subprocess.Popen(
@@ -274,7 +272,7 @@ def _run_pip_install(name: str, type: str):
 
 def _delete_packages(to_be_deleted: Dict) -> None:
     for package, items in to_be_deleted.items():
-        log.info(f"Package {package}: deleting {len(items.files)} files")
+        log.info("Package %s: deleting %d files", package, len(items.files))
         for item in items.files:
             item_path = os.path.join(".packages", item)
             if os.path.exists(item_path):
@@ -287,7 +285,7 @@ def _delete_packages(to_be_deleted: Dict) -> None:
 def _check_for_native_libraries():
     if glob.glob(".packages/**/*.so"):
         for path in glob.glob(".packages/**/*.so"):
-            log.info(f"Potential native library: {path}")
+            log.info("Potential native library: %s", path)
         return True
     return False
 

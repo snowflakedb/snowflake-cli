@@ -3,7 +3,7 @@ import pytest
 
 @pytest.mark.integration
 def test_temporary_connection(runner):
-    result = runner._invoke(
+    result = runner.invoke(
         [
             "object",
             "list",

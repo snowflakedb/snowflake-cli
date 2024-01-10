@@ -197,15 +197,15 @@ def experimental_option(
     )
 
 
-def identifier_argument(object: str, example: str) -> typer.Argument:
+def identifier_argument(sf_object: str, example: str) -> typer.Argument:
     return typer.Argument(
-        ..., help=f"Identifier of the {object}. For example: {example}"
+        ..., help=f"Identifier of the {sf_object}. For example: {example}"
     )
 
 
-def execution_identifier_argument(object: str, example: str) -> typer.Argument:
+def execution_identifier_argument(sf_object: str, example: str) -> typer.Argument:
     return typer.Argument(
-        ..., help=f"Execution identifier of the {object}. For example: {example}"
+        ..., help=f"Execution identifier of the {sf_object}. For example: {example}"
     )
 
 
