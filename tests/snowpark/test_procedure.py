@@ -4,7 +4,7 @@ from textwrap import dedent
 from unittest import mock
 from unittest.mock import call
 
-from snowcli.cli.constants import ObjectType
+from snowcli.api.constants import ObjectType
 from snowflake.connector import ProgrammingError
 
 

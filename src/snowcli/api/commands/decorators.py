@@ -25,7 +25,7 @@ from snowcli.api.commands.flags import (
     project_definition_option,
 )
 from snowcli.api.output.formats import OutputFormat
-from snowcli.cli import loggers
+from snowcli.app import loggers
 
 
 def global_options(func: Callable):
