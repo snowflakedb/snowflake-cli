@@ -1,4 +1,4 @@
-from snowcli.api.plugin.command import (
+from snowcli.api.plugins.command import (
     SNOWCLI_ROOT_COMMAND_PATH,
     CommandSpec,
     CommandType,

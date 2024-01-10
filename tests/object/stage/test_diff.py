@@ -1,6 +1,7 @@
 import hashlib
 from typing import Dict, Tuple
 
+from snowcli.api.exceptions import SnowflakeSQLExecutionError
 from snowcli.cli.object.stage.diff import (
     DiffResult,
     delete_only_on_stage_files,
@@ -11,7 +12,6 @@ from snowcli.cli.object.stage.diff import (
     sync_local_diff_with_stage,
 )
 from snowcli.cli.object.stage.manager import StageManager
-from snowcli.exception import SnowflakeSQLExecutionError
 
 from tests.testing_utils.files_and_dirs import temp_local_dir
 from tests.testing_utils.fixtures import *

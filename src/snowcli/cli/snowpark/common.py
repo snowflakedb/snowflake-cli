@@ -3,9 +3,9 @@ from __future__ import annotations
 import os
 from typing import Dict, List, Optional
 
-from snowcli.cli.common.sql_execution import SqlExecutionMixin
-from snowcli.cli.constants import ObjectType
-from snowcli.utils.package_utils import generate_deploy_stage_name
+from snowcli.api.constants import ObjectType
+from snowcli.api.sql_execution import SqlExecutionMixin
+from snowcli.cli.snowpark.package_utils import generate_deploy_stage_name
 from snowflake.connector.cursor import SnowflakeCursor
 
 DEFAULT_RUNTIME = "3.8"

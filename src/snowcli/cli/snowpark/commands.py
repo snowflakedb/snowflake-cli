@@ -7,20 +7,31 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, List, Set
 
+import snowcli.cli.snowpark.package.utils
 import typer
 from click import ClickException
-from snowcli.cli.common.cli_global_context import cli_context
-from snowcli.cli.common.decorators import (
+from snowcli.api.cli_global_context import cli_context
+from snowcli.api.commands.decorators import (
     global_options,
     global_options_with_connection,
+    with_output,
     with_project_definition,
 )
-from snowcli.cli.common.flags import (
+from snowcli.api.commands.flags import (
     DEFAULT_CONTEXT_SETTINGS,
     execution_identifier_argument,
 )
-from snowcli.cli.common.project_initialisation import add_init_command
-from snowcli.cli.constants import DEPLOYMENT_STAGE, ObjectType
+from snowcli.api.commands.project_initialisation import add_init_command
+from snowcli.api.constants import DEPLOYMENT_STAGE, ObjectType
+from snowcli.api.exceptions import (
+    SecretsWithoutExternalAccessIntegrationError,
+)
+from snowcli.api.output.types import (
+    CollectionResult,
+    CommandResult,
+    MessageResult,
+    SingleQueryResult,
+)
 from snowcli.cli.object.manager import ObjectManager
 from snowcli.cli.object.stage.manager import StageManager
 from snowcli.cli.snowpark.common import (
@@ -29,26 +40,15 @@ from snowcli.cli.snowpark.common import (
     remove_parameter_names,
 )
 from snowcli.cli.snowpark.manager import FunctionManager, ProcedureManager
-from snowcli.cli.snowpark_shared import (
+from snowcli.cli.snowpark.models import PypiOption
+from snowcli.cli.snowpark.package_utils import get_snowflake_packages
+from snowcli.cli.snowpark.snowpark_shared import (
     CheckAnacondaForPyPiDependencies,
     PackageNativeLibrariesOption,
     PyPiDownloadOption,
     snowpark_package,
 )
-from snowcli.exception import (
-    SecretsWithoutExternalAccessIntegrationError,
-)
-from snowcli.output.decorators import with_output
-from snowcli.output.types import (
-    CollectionResult,
-    CommandResult,
-    MessageResult,
-    SingleQueryResult,
-)
-from snowcli.utils import file_utils
-from snowcli.utils.models import PypiOption
-from snowcli.utils.package_utils import get_snowflake_packages
-from snowcli.utils.zipper import add_file_to_existing_zip
+from snowcli.cli.snowpark.zipper import add_file_to_existing_zip
 from snowflake.connector import DictCursor, ProgrammingError
 
 log = logging.getLogger(__name__)
@@ -449,7 +449,7 @@ def _replace_handler_in_zip(
     handler_module, _, handler_function = handler.rpartition(".")
     with TemporaryDirectory() as temp_dir:
         wrapper_file = os.path.join(temp_dir, "snowpark_coverage.py")
-        file_utils.generate_snowpark_coverage_wrapper(
+        snowcli.cli.snowpark.package.utils.generate_snowpark_coverage_wrapper(
             target_file=wrapper_file,
             proc_name=proc_name,
             proc_signature=proc_signature,

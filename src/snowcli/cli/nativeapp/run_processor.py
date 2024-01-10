@@ -6,6 +6,7 @@ import jinja2
 import typer
 from click import ClickException
 from rich import print
+from snowcli.api.exceptions import SnowflakeSQLExecutionError
 from snowcli.cli.nativeapp.constants import (
     COMMENT_COL,
     INTERNAL_DISTRIBUTION,
@@ -30,7 +31,6 @@ from snowcli.cli.nativeapp.utils import find_first_row
 from snowcli.cli.object.stage.diff import DiffResult
 from snowcli.cli.object.stage.manager import StageManager
 from snowcli.cli.project.util import unquote_identifier
-from snowcli.exception import SnowflakeSQLExecutionError
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 

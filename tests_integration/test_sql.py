@@ -58,8 +58,8 @@ def _round_values_for_multi_queries(results):
 
 
 @pytest.mark.integration
-@mock.patch("snowcli.output.printing._get_table")
-@mock.patch("snowcli.output.printing.Live")
+@mock.patch("snowcli.app.printing._get_table")
+@mock.patch("snowcli.app.printing.Live")
 def test_queries_are_streamed_to_output(
     _, mock_get_table, runner, capsys, test_root_path
 ):

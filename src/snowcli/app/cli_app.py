@@ -10,6 +10,9 @@ import typer
 from click import Context
 from snowcli import __about__
 from snowcli.api import Api, api_provider
+from snowcli.api.config import config_init
+from snowcli.api.output.formats import OutputFormat
+from snowcli.api.output.types import CollectionResult
 from snowcli.app.api_impl.plugin.plugin_config_provider_impl import (
     PluginConfigProviderImpl,
 )
@@ -22,10 +25,7 @@ from snowcli.app.dev.pycharm_remote_debug import (
     setup_pycharm_remote_debugger_if_provided,
 )
 from snowcli.app.main_typer import SnowCliMainTyper
-from snowcli.config import config_init
-from snowcli.output.formats import OutputFormat
-from snowcli.output.printing import print_result
-from snowcli.output.types import CollectionResult
+from snowcli.app.printing import print_result
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
 app: SnowCliMainTyper = SnowCliMainTyper()

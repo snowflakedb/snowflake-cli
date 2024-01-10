@@ -1,4 +1,4 @@
-from snowcli.cli.common.cli_global_context import cli_context
+from snowcli.api.cli_global_context import cli_context
 
 
 def experimental_behaviour_enabled() -> bool:

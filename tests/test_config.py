@@ -1,6 +1,6 @@
 from tempfile import TemporaryDirectory
 
-from snowcli.config import config_init, get_config_section, get_connection
+from snowcli.api.config import config_init, get_config_section, get_connection
 
 from tests.testing_utils.fixtures import *
 

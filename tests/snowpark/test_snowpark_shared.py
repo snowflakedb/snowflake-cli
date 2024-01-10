@@ -1,14 +1,14 @@
 from zipfile import ZipFile
 
-import snowcli.cli.snowpark_shared as shared
+import snowcli.cli.snowpark.snowpark_shared as shared
 from requirements.requirement import Requirement
-from snowcli.utils.models import SplitRequirements
+from snowcli.cli.snowpark.models import SplitRequirements
 
 from tests.testing_utils.fixtures import *
 
 
-@mock.patch("snowcli.utils.package_utils.parse_anaconda_packages")
-@mock.patch("snowcli.utils.package_utils.install_packages")
+@mock.patch("snowcli.cli.snowpark.package_utils.parse_anaconda_packages")
+@mock.patch("snowcli.cli.snowpark.package_utils.install_packages")
 def test_snowpark_package(
     mock_install, mock_parse, temp_dir, correct_requirements_txt, dot_packages_directory
 ):

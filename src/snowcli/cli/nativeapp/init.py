@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 from typing import Optional
 
 from click.exceptions import ClickException
-from snowcli.cli.common.utils import generic_render_template
+from snowcli.api.utils.rendering import generic_render_template
 from snowcli.cli.project.definition_manager import DefinitionManager
 from snowcli.cli.project.util import (
     is_valid_identifier,

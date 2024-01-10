@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
-from snowcli.cli.common.decorators import global_options
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
-from snowcli.cli.common.utils import generic_render_template
+from snowcli.api.commands.decorators import global_options
+from snowcli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.api.utils.rendering import generic_render_template
 
 app = typer.Typer(context_settings=DEFAULT_CONTEXT_SETTINGS, hidden=True, name="render")
 

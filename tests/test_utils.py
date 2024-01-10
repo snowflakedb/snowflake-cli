@@ -6,8 +6,13 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import typer
 from requirements.requirement import Requirement
-from snowcli.utils import file_utils, package_utils, path_utils, streamlit_utils
-from snowcli.utils.models import PypiOption
+
+import snowcli.cli.snowpark.package.utils
+from snowcli.api.utils import path_utils
+from snowcli.cli.snowpark.package import utils as file_utils
+from snowcli.cli.snowpark import package_utils
+from snowcli.cli.snowpark.models import PypiOption
+from snowcli.cli.streamlit import streamlit_utils
 
 from tests.testing_utils.fixtures import *
 
@@ -17,7 +22,9 @@ def test_prepare_app_zip(
     app_zip: str,
     temp_directory_for_app_zip: str,
 ):
-    result = file_utils.prepare_app_zip(Path(app_zip), temp_directory_for_app_zip)
+    result = snowcli.cli.snowpark.package.utils.prepare_app_zip(
+        Path(app_zip), temp_directory_for_app_zip
+    )
     assert result == os.path.join(temp_directory_for_app_zip, Path(app_zip).name)
 
 
@@ -25,7 +32,7 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_source(
     temp_directory_for_app_zip,
 ):
     with pytest.raises(FileNotFoundError) as expected_error:
-        file_utils.prepare_app_zip(
+        snowcli.cli.snowpark.package.utils.prepare_app_zip(
             Path("/non/existent/path"), temp_directory_for_app_zip
         )
 
@@ -35,7 +42,9 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_source(
 
 def test_prepare_app_zip_if_exception_is_raised_if_no_dst(app_zip):
     with pytest.raises(FileNotFoundError) as expected_error:
-        file_utils.prepare_app_zip(Path(app_zip), "/non/existent/path")
+        snowcli.cli.snowpark.package.utils.prepare_app_zip(
+            Path(app_zip), "/non/existent/path"
+        )
 
     assert expected_error.value.errno == 2
     assert expected_error.type == FileNotFoundError
@@ -56,7 +65,7 @@ def test_parse_requirements_with_nonexistent_file(temp_dir):
     assert result == []
 
 
-@patch("snowcli.utils.package_utils.requests")
+@patch("snowcli.cli.snowpark.package_utils.requests")
 def test_anaconda_packages(mock_requests):
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -73,7 +82,7 @@ def test_anaconda_packages(mock_requests):
     )
 
 
-@patch("snowcli.utils.package_utils.requests")
+@patch("snowcli.cli.snowpark.package_utils.requests")
 def test_anaconda_packages_streamlit(mock_requests):
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -86,7 +95,7 @@ def test_anaconda_packages_streamlit(mock_requests):
     assert Requirement.parse_line("streamlit") not in anaconda_packages.other
 
 
-@patch("snowcli.utils.package_utils.requests")
+@patch("snowcli.cli.snowpark.package_utils.requests")
 def test_anaconda_packages_with_incorrect_response(mock_requests):
     mock_response = MagicMock()
     mock_response.status_code = 404
@@ -149,7 +158,7 @@ def test_get_package_name_from_metadata_using_correct_data(
 
 def test_generate_snowpark_coverage_wrapper(temp_dir):
     path = os.path.join(temp_dir, "coverage.py")
-    file_utils.generate_snowpark_coverage_wrapper(
+    snowcli.cli.snowpark.package.utils.generate_snowpark_coverage_wrapper(
         target_file=path,
         proc_name="process",
         proc_signature="signature",
@@ -313,11 +322,11 @@ def test_path_resolver(mock_system, argument, expected):
     assert path_utils.path_resolver(argument) == expected
 
 
-@mock.patch("snowcli.utils.package_utils._run_pip_install")
+@mock.patch("snowcli.cli.snowpark.package_utils._run_pip_install")
 def test_pip_fail_message(mock_pip, correct_requirements_txt, caplog):
     mock_pip.return_value = 42
 
-    with caplog.at_level(logging.INFO, "snowcli.utils.package_utils"):
+    with caplog.at_level(logging.INFO, "snowcli.cli.snowpark.package_utils"):
         result = package_utils.install_packages(
             correct_requirements_txt, True, PypiOption.YES
         )
