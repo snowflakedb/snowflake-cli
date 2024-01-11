@@ -4,7 +4,7 @@ from textwrap import dedent
 from typing import Dict, List, Optional
 
 import typer
-from click import ClickException
+from click import BadOptionUsage, ClickException
 from git import Repo
 from git.exc import InvalidGitRepositoryError
 from rich import print
@@ -165,6 +165,20 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                     "Manifest.yml file does not contain a value for the version field."
                 )
 
+        # Check if --patch needs to throw a bad option error, either if app package does not exist or if version does not exist
+        if patch:
+            try:
+                if not self.get_existing_version_info(version):
+                    raise BadOptionUsage(
+                        option_name="patch",
+                        message=f"Cannot create a custom patch when version {version} does not exist for application package {self.package_name}. Try again without using --patch.",
+                    )
+            except ApplicationPackageDoesNotExistError as app_err:
+                raise BadOptionUsage(
+                    option_name="patch",
+                    message=f"Cannot create a custom patch when application package {self.package_name} does not exist. Try again without using --patch.",
+                )
+
         if git_policy.should_proceed():
             check_index_changes_in_git_repo(
                 project_root=self.project_root,
@@ -245,7 +259,14 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
         else:
             raise ApplicationPackageDoesNotExistError(self.package_name)
 
-        # 2. If the user did not pass in a version string, determine from manifest.yml
+        # 2. Check distribution of the existing app package
+        actual_distribution = self.get_app_pkg_distribution_in_snowflake
+        if not self.verify_project_distribution(actual_distribution):
+            print(
+                f"Continuing to execute `snow app version drop` on app pkg {self.package_name} with distribution '{actual_distribution}'."
+            )
+
+        # 3. If the user did not pass in a version string, determine from manifest.yml
         if not version:
             log.info(
                 dedent(
