@@ -27,8 +27,6 @@ from snowcli.api.commands.flags import (
 from snowcli.api.exceptions import CommandReturnTypeError
 from snowcli.api.output.formats import OutputFormat
 from snowcli.api.output.types import CommandResult
-from snowcli.app import loggers
-from snowcli.app.printing import print_result
 
 
 def global_options(func: Callable):
@@ -97,7 +95,9 @@ def with_experimental_behaviour(
 
 
 def _execute_before_command_using_global_options():
-    loggers.create_loggers(cli_context.verbose, cli_context.enable_tracebacks)
+    from snowcli.app.loggers import create_loggers
+
+    create_loggers(cli_context.verbose, cli_context.enable_tracebacks)
 
 
 def _global_options_decorator_factory(
@@ -259,6 +259,8 @@ GLOBAL_OPTIONS = [
 
 
 def with_output(func):
+    from snowcli.app.printing import print_result
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         output_data = func(*args, **kwargs)

@@ -9,13 +9,13 @@ from tempfile import TemporaryDirectory
 from typing import Optional
 
 from click.exceptions import ClickException
-from snowcli.api.utils.rendering import generic_render_template
-from snowcli.cli.project.definition_manager import DefinitionManager
-from snowcli.cli.project.util import (
+from snowcli.api.project.definition_manager import DefinitionManager
+from snowcli.api.project.util import (
     is_valid_identifier,
     is_valid_unquoted_identifier,
     to_identifier,
 )
+from snowcli.api.utils.rendering import generic_render_template
 from strictyaml import as_document, load
 from yaml import dump
 

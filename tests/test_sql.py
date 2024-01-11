@@ -65,7 +65,7 @@ def test_sql_fails_if_query_and_stdin_provided(runner):
     )
 
 
-@mock.patch("snowcli.api.cli_global_context.connect_to_snowflake")
+@mock.patch("snowcli.app.snow_connector.connect_to_snowflake")
 def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
     mock_conn.return_value.execute_string.return_value = [mock_cursor(["row"], [])]
 
