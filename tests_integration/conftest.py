@@ -13,8 +13,8 @@ from typing import Any, Dict, List, Optional
 import pytest
 import strictyaml
 from snowcli.api.cli_global_context import cli_context_manager
+from snowcli.api.project.definition import merge_left
 from snowcli.app.cli_app import app
-from snowcli.cli.project.definition import merge_left
 from strictyaml import as_document
 from typer import Typer
 from typer.testing import CliRunner

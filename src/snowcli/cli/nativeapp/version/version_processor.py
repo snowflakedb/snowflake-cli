@@ -9,6 +9,7 @@ from git import Repo
 from git.exc import InvalidGitRepositoryError
 from rich import print
 from snowcli.api.exceptions import SnowflakeSQLExecutionError
+from snowcli.api.project.util import unquote_identifier
 from snowcli.cli.nativeapp.artifacts import find_version_info_in_manifest_file
 from snowcli.cli.nativeapp.constants import VERSION_COL
 from snowcli.cli.nativeapp.exceptions import ApplicationPackageDoesNotExistError
@@ -23,7 +24,6 @@ from snowcli.cli.nativeapp.utils import (
     find_all_rows,
     find_first_row,
 )
-from snowcli.cli.project.util import unquote_identifier
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 

@@ -3,7 +3,7 @@ from unittest import mock
 from unittest.mock import PropertyMock
 
 import pytest
-from snowcli.cli.project.definition import (
+from snowcli.api.project.definition import (
     generate_local_override_yml,
     load_project_definition,
 )

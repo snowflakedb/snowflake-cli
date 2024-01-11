@@ -20,7 +20,7 @@ from snowcli.cli.nativeapp.policy import (
 )
 from snowcli.cli.nativeapp.run_processor import NativeAppRunProcessor
 from snowcli.cli.object.stage.diff import DiffResult
-from snowcli.cli.project.definition_manager import DefinitionManager
+from snowcli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 

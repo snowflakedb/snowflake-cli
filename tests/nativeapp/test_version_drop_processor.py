@@ -11,7 +11,7 @@ from snowcli.cli.nativeapp.policy import (
 from snowcli.cli.nativeapp.version.version_processor import (
     NativeAppVersionDropProcessor,
 )
-from snowcli.cli.project.definition_manager import DefinitionManager
+from snowcli.api.project.definition_manager import DefinitionManager
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.patch_utils import mock_get_app_pkg_distribution_in_sf
