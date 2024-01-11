@@ -16,7 +16,7 @@ NATIVEAPP_MANAGER_APP_PKG_DISTRIBUTION_IN_SF = (
     f"{NATIVEAPP_MANAGER}.get_app_pkg_distribution_in_snowflake"
 )
 NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME = (
-    f"{NATIVEAPP_MANAGER}.is_app_pkg_distribution_same_in_sf"
+    f"{NATIVEAPP_MANAGER}.verify_project_distribution"
 )
 
 TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO = f"{TEARDOWN_PROCESSOR}.get_existing_app_info"
