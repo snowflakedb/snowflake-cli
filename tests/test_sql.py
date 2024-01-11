@@ -7,7 +7,7 @@ import pytest
 from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
 
 
-@mock.patch("snowcli.cli.sql.manager.SqlExecutionMixin._execute_string")
+@mock.patch("snowcli.plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_execute_query(mock_execute, runner, mock_cursor):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
 
@@ -17,7 +17,7 @@ def test_sql_execute_query(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with("query")
 
 
-@mock.patch("snowcli.cli.sql.manager.SqlExecutionMixin._execute_string")
+@mock.patch("snowcli.plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_execute_file(mock_execute, runner, mock_cursor):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
     query = "query from file"
@@ -30,7 +30,7 @@ def test_sql_execute_file(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with(query)
 
 
-@mock.patch("snowcli.cli.sql.manager.SqlExecutionMixin._execute_string")
+@mock.patch("snowcli.plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_execute_from_stdin(mock_execute, runner, mock_cursor):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
     query = "query from input"
