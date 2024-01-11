@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Optional
 
-from snowcli.cli.constants import ObjectType
+from snowcli.api.constants import ObjectType
 from snowcli.cli.snowpark.common import SnowparkObjectManager
 from snowflake.connector.cursor import SnowflakeCursor
 

@@ -2,9 +2,9 @@ import re
 from pathlib import Path
 from typing import Dict, Optional
 
-from snowcli.exception import InvalidSchemaError
-from snowcli.output.formats import OutputFormat
-from snowcli.snow_connector import connect_to_snowflake
+from snowcli.api.exceptions import InvalidSchemaError
+from snowcli.api.output.formats import OutputFormat
+from snowcli.app.snow_connector import connect_to_snowflake
 from snowflake.connector import SnowflakeConnection
 
 

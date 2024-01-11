@@ -4,6 +4,7 @@ from typing import Dict
 
 import typer
 from rich import print
+from snowcli.api.exceptions import SnowflakeSQLExecutionError
 from snowcli.cli.nativeapp.constants import (
     COMMENT_COL,
     EXTERNAL_DISTRIBUTION,
@@ -20,7 +21,6 @@ from snowcli.cli.nativeapp.manager import (
     ensure_correct_owner,
 )
 from snowcli.cli.nativeapp.utils import needs_confirmation
-from snowcli.exception import SnowflakeSQLExecutionError
 from snowflake.connector.cursor import DictCursor
 
 

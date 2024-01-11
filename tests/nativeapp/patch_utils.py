@@ -6,7 +6,7 @@ from tests.nativeapp.utils import NATIVEAPP_MANAGER_APP_PKG_DISTRIBUTION_IN_SF
 
 def mock_connection():
     return mock.patch(
-        "snowcli.cli.common.cli_global_context._CliGlobalContextAccess.connection",
+        "snowcli.api.cli_global_context._CliGlobalContextAccess.connection",
         new_callable=PropertyMock,
     )
 

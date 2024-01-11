@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from click import ClickException
-from snowcli.cli.common.sql_execution import SqlExecutionMixin
-from snowcli.cli.constants import OBJECT_TO_NAMES, ObjectNames
+from snowcli.api.constants import OBJECT_TO_NAMES, ObjectNames
+from snowcli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
 

@@ -2,9 +2,9 @@ from unittest import mock
 from unittest.mock import call
 
 import pytest
-from snowcli.cli.common import flags
-from snowcli.cli.common.cli_global_context import cli_context, cli_context_manager
-from snowcli.exception import InvalidSchemaError
+from snowcli.api.cli_global_context import cli_context, cli_context_manager
+from snowcli.api.commands import flags
+from snowcli.api.exceptions import InvalidSchemaError
 
 
 def test_default_setup_of_global_connection():
@@ -38,7 +38,7 @@ def test_connection_details_callback():
     assert cli_context_manager.connection_context.temporary_connection is False
 
 
-@mock.patch("snowcli.cli.common.cli_global_context.connect_to_snowflake")
+@mock.patch("snowcli.api.cli_global_context.connect_to_snowflake")
 def test_connection_caching(mock_connect):
     flags.RoleOption.callback("newValue")
     flags.WarehouseOption.callback("newValue2")

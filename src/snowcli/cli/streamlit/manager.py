@@ -4,8 +4,8 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
-from snowcli.cli.common.experimental_behaviour import experimental_behaviour_enabled
-from snowcli.cli.common.sql_execution import SqlExecutionMixin
+from snowcli.api.commands.experimental_behaviour import experimental_behaviour_enabled
+from snowcli.api.sql_execution import SqlExecutionMixin
 from snowcli.cli.connection.util import MissingConnectionHostError, make_snowsight_url
 from snowcli.cli.object.stage.manager import StageManager
 from snowcli.cli.project.util import unquote_identifier

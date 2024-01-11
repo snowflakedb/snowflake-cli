@@ -5,9 +5,8 @@ from functools import wraps
 from inspect import Signature
 from typing import Callable, Dict, List, Optional, get_type_hints
 
-from snowcli.cli import loggers
-from snowcli.cli.common.cli_global_context import cli_context
-from snowcli.cli.common.flags import (
+from snowcli.api.cli_global_context import cli_context
+from snowcli.api.commands.flags import (
     AccountOption,
     AuthenticatorOption,
     ConnectionOption,
@@ -25,7 +24,11 @@ from snowcli.cli.common.flags import (
     experimental_option,
     project_definition_option,
 )
-from snowcli.output.formats import OutputFormat
+from snowcli.api.exceptions import CommandReturnTypeError
+from snowcli.api.output.formats import OutputFormat
+from snowcli.api.output.types import CommandResult
+from snowcli.app import loggers
+from snowcli.app.printing import print_result
 
 
 def global_options(func: Callable):
@@ -253,3 +256,14 @@ GLOBAL_OPTIONS = [
         default=DebugOption,
     ),
 ]
+
+
+def with_output(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        output_data = func(*args, **kwargs)
+        if not isinstance(output_data, CommandResult):
+            raise CommandReturnTypeError(type(output_data))
+        print_result(output_data)
+
+    return wrapper

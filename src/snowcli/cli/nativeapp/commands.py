@@ -2,13 +2,15 @@ import logging
 from typing import Optional
 
 import typer
-from snowcli.cli.common.cli_global_context import cli_context
-from snowcli.cli.common.decorators import (
+from snowcli.api.cli_global_context import cli_context
+from snowcli.api.commands.decorators import (
     global_options,
     global_options_with_connection,
+    with_output,
     with_project_definition,
 )
-from snowcli.cli.common.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
+from snowcli.api.output.types import CommandResult, MessageResult
 from snowcli.cli.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowcli.cli.nativeapp.init import nativeapp_init
 from snowcli.cli.nativeapp.manager import NativeAppManager
@@ -21,8 +23,6 @@ from snowcli.cli.nativeapp.run_processor import NativeAppRunProcessor
 from snowcli.cli.nativeapp.teardown_processor import NativeAppTeardownProcessor
 from snowcli.cli.nativeapp.utils import is_tty_interactive
 from snowcli.cli.nativeapp.version.commands import app as versions_app
-from snowcli.output.decorators import with_output
-from snowcli.output.types import CommandResult, MessageResult
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,

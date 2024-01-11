@@ -78,7 +78,7 @@ def test_streamlit_deploy(
 @pytest.mark.integration
 def test_streamlit_is_visible_in_anaconda_channel():
     from requirements.requirement import Requirement
-    from snowcli.utils.package_utils import parse_anaconda_packages
+    from snowcli.cli.snowpark.package_utils import parse_anaconda_packages
 
     streamlit = Requirement.parse_line("streamlit")
 

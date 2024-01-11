@@ -1,8 +1,6 @@
-from pathlib import Path
 from textwrap import dedent
-from unittest import mock
 
-import pytest
+from snowcli.api.exceptions import MissingConfiguration
 from snowcli.cli.nativeapp.init import (
     CannotInitializeAnExistingProjectError,
     DirectoryAlreadyExistsError,
@@ -16,7 +14,6 @@ from snowcli.cli.nativeapp.init import (
     _validate_and_update_snowflake_yml,
     nativeapp_init,
 )
-from snowcli.exception import MissingConfiguration
 
 from tests.testing_utils.fixtures import *
 

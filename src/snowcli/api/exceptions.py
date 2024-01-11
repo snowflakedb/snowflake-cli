@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 from click.exceptions import ClickException
-from snowcli.cli.constants import ObjectType
+from snowcli.api.constants import ObjectType
 
 
 class EnvironmentVariableNotFoundError(ClickException):

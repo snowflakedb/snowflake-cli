@@ -1,4 +1,4 @@
-from snowcli.api.plugin.command import plugin_hook_spec
+from snowcli.api.plugins.command import plugin_hook_spec
 
 
 @plugin_hook_spec

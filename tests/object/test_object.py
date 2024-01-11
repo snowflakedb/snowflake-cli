@@ -1,7 +1,7 @@
 from unittest import mock
 
 import pytest
-from snowcli.cli.constants import SUPPORTED_OBJECTS
+from snowcli.api.constants import SUPPORTED_OBJECTS
 
 
 @mock.patch("snowflake.connector.connect")

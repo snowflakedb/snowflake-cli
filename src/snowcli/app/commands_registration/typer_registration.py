@@ -2,9 +2,9 @@ import logging
 from typing import List
 
 import click
-from snowcli.api.plugin.command import CommandSpec, CommandType
+from snowcli.api.plugins.command import CommandSpec, CommandType
 from snowcli.app.commands_registration import LoadedCommandPlugin
-from snowcli.cli.exception_logging import exception_logging
+from snowcli.app.commands_registration.exception_logging import exception_logging
 from typer.core import TyperGroup
 
 log = logging.getLogger(__name__)
