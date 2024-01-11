@@ -2,11 +2,11 @@ from pathlib import Path
 from typing import Dict, List, Union
 
 from snowcli.api.cli_global_context import cli_context
-from snowcli.cli.project.schemas.project_definition import (
+from snowcli.api.project.schemas.project_definition import (
     project_override_schema,
     project_schema,
 )
-from snowcli.cli.project.util import (
+from snowcli.api.project.util import (
     append_to_identifier,
     clean_identifier,
     get_env_username,

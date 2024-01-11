@@ -8,6 +8,16 @@ from textwrap import dedent
 from typing import Dict, List, Optional
 
 from snowcli.api.exceptions import SnowflakeSQLExecutionError
+from snowcli.api.project.definition import (
+    default_app_package,
+    default_application,
+    default_role,
+)
+from snowcli.api.project.util import (
+    extract_schema,
+    to_identifier,
+    unquote_identifier,
+)
 from snowcli.api.sql_execution import SqlExecutionMixin
 from snowcli.cli.connection.util import make_snowsight_url
 from snowcli.cli.nativeapp.artifacts import (
@@ -27,16 +37,6 @@ from snowcli.cli.object.stage.diff import (
     DiffResult,
     stage_diff,
     sync_local_diff_with_stage,
-)
-from snowcli.cli.project.definition import (
-    default_app_package,
-    default_application,
-    default_role,
-)
-from snowcli.cli.project.util import (
-    extract_schema,
-    to_identifier,
-    unquote_identifier,
 )
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
@@ -219,12 +219,18 @@ class NativeAppManager(SqlExecutionMixin):
             )
         )
 
-    def is_app_pkg_distribution_same_in_sf(self) -> bool:
+    def verify_project_distribution(
+        self, expected_distribution: Optional[str] = None
+    ) -> bool:
         """
         Returns true if the 'distribution' attribute of an existing application package in snowflake
         is the same as the the attribute specified in project definition file.
         """
-        actual_distribution = self.get_app_pkg_distribution_in_snowflake
+        actual_distribution = (
+            expected_distribution
+            if expected_distribution
+            else self.get_app_pkg_distribution_in_snowflake
+        )
         project_def_distribution = self.package_distribution.lower()
         if actual_distribution != project_def_distribution:
             log.warning(

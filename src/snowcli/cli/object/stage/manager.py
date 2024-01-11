@@ -6,9 +6,9 @@ from contextlib import nullcontext
 from pathlib import Path
 from typing import Optional, Union
 
+from snowcli.api.project.util import to_string_literal
 from snowcli.api.sql_execution import SqlExecutionMixin
 from snowcli.api.utils.path_utils import path_resolver
-from snowcli.cli.project.util import to_string_literal
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__file__)

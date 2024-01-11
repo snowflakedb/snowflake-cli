@@ -12,7 +12,7 @@ from snowcli.cli.nativeapp.artifacts import (
     build_bundle,
     translate_artifact,
 )
-from snowcli.cli.project.definition import load_project_definition
+from snowcli.api.project.definition import load_project_definition
 
 from tests.project.fixtures import *
 from tests.testing_utils.fixtures import *

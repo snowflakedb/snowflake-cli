@@ -5,10 +5,10 @@ from pathlib import Path
 from typing import List, Optional
 
 from snowcli.api.commands.experimental_behaviour import experimental_behaviour_enabled
+from snowcli.api.project.util import unquote_identifier
 from snowcli.api.sql_execution import SqlExecutionMixin
 from snowcli.cli.connection.util import MissingConnectionHostError, make_snowsight_url
 from snowcli.cli.object.stage.manager import StageManager
-from snowcli.cli.project.util import unquote_identifier
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)

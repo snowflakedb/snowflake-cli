@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from snowcli.cli.project.schemas.relaxed_map import FilePath, RelaxedMap
+from snowcli.api.project.schemas.relaxed_map import FilePath, RelaxedMap
 from strictyaml import (
     Optional,
     Seq,

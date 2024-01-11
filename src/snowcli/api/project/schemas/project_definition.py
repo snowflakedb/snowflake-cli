@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from snowcli.cli.project.schemas import (
+from snowcli.api.project.schemas import (
     native_app,
     snowpark,
     streamlit,
 )
-from snowcli.cli.project.schemas.relaxed_map import RelaxedMap
+from snowcli.api.project.schemas.relaxed_map import RelaxedMap
 from strictyaml import (
     Int,
     Optional,

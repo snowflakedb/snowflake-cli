@@ -4,9 +4,10 @@ from typing import Dict, Optional
 
 import jinja2
 import typer
-from click import ClickException
+from click import UsageError
 from rich import print
 from snowcli.api.exceptions import SnowflakeSQLExecutionError
+from snowcli.api.project.util import unquote_identifier
 from snowcli.cli.nativeapp.constants import (
     COMMENT_COL,
     INTERNAL_DISTRIBUTION,
@@ -17,6 +18,7 @@ from snowcli.cli.nativeapp.constants import (
 from snowcli.cli.nativeapp.exceptions import (
     ApplicationAlreadyExistsError,
     ApplicationPackageAlreadyExistsError,
+    ApplicationPackageDoesNotExistError,
     InvalidPackageScriptError,
     MissingPackageScriptError,
 )
@@ -30,7 +32,6 @@ from snowcli.cli.nativeapp.policy import PolicyBase
 from snowcli.cli.nativeapp.utils import find_first_row
 from snowcli.cli.object.stage.diff import DiffResult
 from snowcli.cli.object.stage.manager import StageManager
-from snowcli.cli.project.util import unquote_identifier
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
@@ -57,7 +58,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
 
             # 2. Check distribution of the existing app package
             actual_distribution = self.get_app_pkg_distribution_in_snowflake
-            if not self.is_app_pkg_distribution_same_in_sf():
+            if not self.verify_project_distribution(actual_distribution):
                 print(
                     f"Continuing to execute `snow app run` on app pkg {self.package_name} with distribution '{actual_distribution}'."
                 )
@@ -227,9 +228,16 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         """
         with self.use_role(self.package_role):
             show_obj_query = f"show versions like '{unquote_identifier(version)}' in application package {self.package_name}"
-            show_obj_cursor = self._execute_query(
-                show_obj_query, cursor_class=DictCursor
-            )
+
+            try:
+                show_obj_cursor = self._execute_query(
+                    show_obj_query, cursor_class=DictCursor
+                )
+            except ProgrammingError as err:
+                if err.msg.__contains__("does not exist or not authorized"):
+                    raise ApplicationPackageDoesNotExistError(self.package_name)
+                else:
+                    generic_sql_error_handler(err=err, role=self.package_role)
 
             if show_obj_cursor.rowcount is None:
                 raise SnowflakeSQLExecutionError(show_obj_query)
@@ -353,10 +361,15 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             return
 
         if version:
-            existing_version = self.get_existing_version_info(version)
-            if not existing_version:
-                raise ClickException(
-                    f"Application Package {self.package_name} does not contain any version {version}."
+            try:
+                version_exists = self.get_existing_version_info(version)
+                if not version_exists:
+                    raise UsageError(
+                        f"Application package {self.package_name} does not contain any version {version}. Use 'snow app version create' to create a version on the application package first."
+                    )
+            except ApplicationPackageDoesNotExistError as app_err:
+                raise UsageError(
+                    f"Application package {self.package_name} does not exist. Use 'snow app version create' to create an application package and/or version first."
                 )
 
             self.upgrade_app(
