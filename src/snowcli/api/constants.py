@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
+TEMPLATES_PATH = Path(__file__).parent.parent.parent / "templates"
 DEPLOYMENT_STAGE = "deployments"
 
 
