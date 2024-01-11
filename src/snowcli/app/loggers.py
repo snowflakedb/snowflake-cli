@@ -3,11 +3,11 @@ import logging.config
 from pathlib import Path
 
 import typer
-from snowcli.config import (
+from snowcli.api.config import (
     get_logs_config,
     is_default_logs_path,
 )
-from snowcli.exception import InvalidLogsConfiguration
+from snowcli.api.exceptions import InvalidLogsConfiguration
 
 DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s %(message)s"
 DEBUG_LOG_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"

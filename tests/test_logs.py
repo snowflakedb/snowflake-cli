@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import Optional
 
 import pytest
-from snowcli.cli import loggers
-from snowcli.config import config_init
-from snowcli.exception import InvalidLogsConfiguration
+from snowcli.app import loggers
+from snowcli.api.config import config_init
+from snowcli.api.exceptions import InvalidLogsConfiguration
 
 from tests.conftest import clean_logging_handlers
 
