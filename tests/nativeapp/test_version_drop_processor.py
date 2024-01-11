@@ -14,6 +14,7 @@ from snowcli.cli.nativeapp.version.version_processor import (
 from snowcli.cli.project.definition_manager import DefinitionManager
 from snowflake.connector.cursor import DictCursor
 
+from tests.nativeapp.patch_utils import mock_get_app_pkg_distribution_in_sf
 from tests.nativeapp.utils import *
 from tests.testing_utils.fixtures import *
 
@@ -61,6 +62,7 @@ def test_process_has_no_existing_app_pkg(mock_get_existing, policy_param, temp_d
     f"{VERSION_MODULE}.{DROP_PROCESSOR}.get_existing_app_pkg_info",
     return_value={"owner": "package_role"},
 )
+@mock_get_app_pkg_distribution_in_sf()
 @mock.patch(f"{VERSION_MODULE}.{DROP_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=(None, None))
 @mock.patch(f"{VERSION_MODULE}.log.info")
@@ -71,10 +73,13 @@ def test_process_no_version_from_user_no_version_in_manifest(
     mock_log,
     mock_version_info_in_manifest,
     mock_build_bundle,
+    mock_mismatch,
     mock_get_existing,
     policy_param,
     temp_dir,
 ):
+
+    mock_mismatch.return_Value = "internal"
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -99,6 +104,7 @@ def test_process_no_version_from_user_no_version_in_manifest(
     f"{VERSION_MODULE}.{DROP_PROCESSOR}.get_existing_app_pkg_info",
     return_value={"owner": "package_role"},
 )
+@mock_get_app_pkg_distribution_in_sf()
 @mock.patch(f"{VERSION_MODULE}.{DROP_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=("manifest_version", None))
 @mock.patch(f"snowcli.cli.nativeapp.policy.{TYPER_CONFIRM}", return_value=False)
@@ -114,12 +120,15 @@ def test_process_drop_cannot_complete(
     mock_typer_confirm,
     mock_version_info_in_manifest,
     mock_build_bundle,
+    mock_mismatch,
     mock_get_existing,
     policy_param,
     is_interactive_param,
     expected_code,
     temp_dir,
 ):
+
+    mock_mismatch.return_value = "internal"
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -142,6 +151,7 @@ def test_process_drop_cannot_complete(
     f"{VERSION_MODULE}.{DROP_PROCESSOR}.get_existing_app_pkg_info",
     return_value={"owner": "package_role"},
 )
+@mock_get_app_pkg_distribution_in_sf()
 @mock.patch(f"{VERSION_MODULE}.{DROP_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=("manifest_version", None))
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
@@ -159,6 +169,7 @@ def test_process_drop_success(
     mock_execute,
     mock_version_info_in_manifest,
     mock_build_bundle,
+    mock_mismatch,
     mock_get_existing,
     policy_param,
     is_interactive_param,
@@ -166,6 +177,7 @@ def test_process_drop_success(
     mock_cursor,
 ):
 
+    mock_mismatch.return_value = "internal"
     side_effects, expected = mock_execute_helper(
         [
             (
