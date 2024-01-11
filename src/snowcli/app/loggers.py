@@ -1,6 +1,8 @@
+import copy
 import logging
 import logging.config
 from pathlib import Path
+from typing import Any
 
 import typer
 from snowcli.api.config import (
@@ -9,22 +11,59 @@ from snowcli.api.config import (
 )
 from snowcli.api.exceptions import InvalidLogsConfiguration
 
-DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s %(message)s"
-DEBUG_LOG_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
-FILE_LOG_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
-DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 _DEFAULT_LOG_FILENAME = "snowcli.log"
 
+DEFAULT_LOGGING_CONFIG: dict[str, Any] = {
+    "version": 1,
+    "disable_existing_loggers": True,
+    "formatters": {
+        "default_formatter": {
+            "class": "logging.Formatter",
+            "format": "%(asctime)s %(levelname)s %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+        "detailed_formatter": {
+            "class": "logging.Formatter",
+            "format": "%(asctime)s %(levelname)s [%(name)s] %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "filters": {},
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "default_formatter",
+            "level": logging.ERROR,
+        },
+        "file": {
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": None,
+            "when": "midnight",
+            "formatter": "detailed_formatter",
+            "level": logging.INFO,
+        },
+    },
+    "loggers": {
+        "snowcli": {
+            "level": logging.NOTSET,
+            "handlers": ["console", "file"],
+        },
+        "snowflake": {
+            "level": logging.NOTSET,
+        },
+    },
+}
 
-class LogsConfig:
+
+class FileLogsConfig:
     def __init__(self, debug: bool) -> None:
         config = get_logs_config()
 
         self.path: Path = Path(config["path"])
         self.save_logs: bool = config["save_logs"]
-        self.file_log_level: int = logging.getLevelName(config["level"].upper())
+        self.level: int = logging.getLevelName(config["level"].upper())
         if debug:
-            self.file_log_level = logging.DEBUG
+            self.level = logging.DEBUG
 
         self._check_log_level(config)
         if self.save_logs:
@@ -47,7 +86,7 @@ class LogsConfig:
             logging.ERROR,
             logging.CRITICAL,
         ]
-        if self.file_log_level not in possible_log_levels:
+        if self.level not in possible_log_levels:
             raise InvalidLogsConfiguration(
                 f"Invalid 'level' value set in [logs] section: {config['level']}. "
                 f"'level' should be one of: {' / '.join(logging.getLevelName(lvl) for lvl in possible_log_levels)}"
@@ -64,69 +103,33 @@ def create_loggers(verbose: bool, debug: bool):
     debug == True - print debug and higher logs in debug format
     none of above - print only error logs in default format
     """
-    config = LogsConfig(debug=debug)
+    config = copy.deepcopy(DEFAULT_LOGGING_CONFIG)
 
     if verbose and debug:
         raise typer.BadParameter("Only one parameter `verbose` or `debug` is possible")
     elif debug:
-        console_log_format = DEBUG_LOG_FORMAT
-        console_log_level = logging.DEBUG
+        config["handlers"]["console"].update(
+            level=logging.DEBUG,
+            formatter="detailed_formatter",
+        )
     elif verbose:
-        console_log_format = DEFAULT_LOG_FORMAT
-        console_log_level = logging.INFO
+        config["handlers"]["console"].update(level=logging.INFO)
+
+    global_log_level = config["handlers"]["console"]["level"]
+
+    file_logs_config = FileLogsConfig(debug=debug)
+    if file_logs_config.save_logs:
+        config["handlers"]["file"].update(
+            level=file_logs_config.level,
+            filename=file_logs_config.filename,
+        )
+        if file_logs_config.level < global_log_level:
+            global_log_level = file_logs_config.level
     else:
-        console_log_format = DEFAULT_LOG_FORMAT
-        console_log_level = logging.ERROR
+        del config["handlers"]["file"]
+        config["loggers"]["snowcli"]["handlers"].remove("file")
 
-    if console_log_level < config.file_log_level:
-        global_log_level = console_log_level
-    else:
-        global_log_level = config.file_log_level
+    config["loggers"]["snowcli"]["level"] = global_log_level
+    config["loggers"]["snowflake"]["level"] = global_log_level
 
-    enabled_handlers = ["console"]
-    handlers_config = {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "console_formatter",
-            "level": console_log_level,
-        },
-    }
-    if config.save_logs:
-        enabled_handlers.append("file")
-        handlers_config["file"] = {
-            "class": "logging.handlers.TimedRotatingFileHandler",
-            "filename": config.filename,
-            "when": "midnight",
-            "formatter": "file_formatter",
-            "level": config.file_log_level,
-        }
-
-    logging.config.dictConfig(
-        {
-            "version": 1,
-            "disable_existing_loggers": True,
-            "formatters": {
-                "console_formatter": {
-                    "class": "logging.Formatter",
-                    "format": console_log_format,
-                    "datefmt": DATE_FORMAT,
-                },
-                "file_formatter": {
-                    "class": "logging.Formatter",
-                    "format": FILE_LOG_FORMAT,
-                    "datefmt": DATE_FORMAT,
-                },
-            },
-            "filters": {},
-            "handlers": handlers_config,
-            "loggers": {
-                "snowcli": {
-                    "level": global_log_level,
-                    "handlers": enabled_handlers,
-                },
-                "snowflake": {
-                    "level": global_log_level,
-                },
-            },
-        }
-    )
+    logging.config.dictConfig(config)
