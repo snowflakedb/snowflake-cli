@@ -21,7 +21,7 @@ def test_deploy_function_no_procedure(runner, project_directory):
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.commands.ObjectManager")
+@mock.patch("snowcli.plugins.snowpark.commands.ObjectManager")
 def test_deploy_procedure(
     mock_object_manager,
     mock_conn,
@@ -80,7 +80,7 @@ def test_deploy_procedure(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.commands.ObjectManager")
+@mock.patch("snowcli.plugins.snowpark.commands.ObjectManager")
 def test_deploy_procedure_with_external_access(
     mock_object_manager,
     mock_conn,
@@ -134,7 +134,7 @@ def test_deploy_procedure_with_external_access(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.commands.ObjectManager")
+@mock.patch("snowcli.plugins.snowpark.commands.ObjectManager")
 def test_deploy_procedure_secrets_without_external_access(
     mock_object_manager,
     mock_conn,
@@ -165,7 +165,7 @@ def test_deploy_procedure_secrets_without_external_access(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.commands.ObjectManager")
+@mock.patch("snowcli.plugins.snowpark.commands.ObjectManager")
 def test_deploy_procedure_fails_if_integration_does_not_exists(
     mock_object_manager,
     mock_conn,
@@ -196,9 +196,9 @@ def test_deploy_procedure_fails_if_integration_does_not_exists(
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
-    "snowcli.cli.snowpark.commands._alter_procedure_artifact_with_coverage_wrapper"
+    "snowcli.plugins.snowpark.commands._alter_procedure_artifact_with_coverage_wrapper"
 )
-@mock.patch("snowcli.cli.snowpark.commands.ObjectManager")
+@mock.patch("snowcli.plugins.snowpark.commands.ObjectManager")
 def test_deploy_procedure_with_coverage(
     mock_object_manager,
     mock_alter_procedure_artifact,
@@ -249,8 +249,10 @@ def test_coverage_wrapper_does_not_work_for_multiple_procedures(
     assert "Using coverage wrapper is currently limited" in result.output
 
 
-@mock.patch("snowcli.cli.snowpark.commands._check_if_all_defined_integrations_exists")
-@mock.patch("snowcli.cli.snowpark.commands.ObjectManager")
+@mock.patch(
+    "snowcli.plugins.snowpark.commands._check_if_all_defined_integrations_exists"
+)
+@mock.patch("snowcli.plugins.snowpark.commands.ObjectManager")
 def test_deploy_procedure_fails_if_object_exists_and_no_replace(
     mock_object_manager,
     _,
@@ -281,7 +283,7 @@ def test_deploy_procedure_fails_if_object_exists_and_no_replace(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.commands.ObjectManager")
+@mock.patch("snowcli.plugins.snowpark.commands.ObjectManager")
 def test_deploy_procedure_replace_nothing_to_update(
     mock_object_manager,
     mock_conn,
@@ -326,7 +328,7 @@ def test_deploy_procedure_replace_nothing_to_update(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.commands.ObjectManager")
+@mock.patch("snowcli.plugins.snowpark.commands.ObjectManager")
 def test_deploy_procedure_replace_updates_single_object(
     mock_object_manager,
     mock_conn,
@@ -371,7 +373,7 @@ def test_deploy_procedure_replace_updates_single_object(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.commands.ObjectManager")
+@mock.patch("snowcli.plugins.snowpark.commands.ObjectManager")
 def test_deploy_procedure_replace_creates_missing_object(
     mock_object_manager,
     mock_conn,

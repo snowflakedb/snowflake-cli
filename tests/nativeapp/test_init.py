@@ -1,7 +1,7 @@
 from textwrap import dedent
 
 from snowcli.api.exceptions import MissingConfiguration
-from snowcli.cli.nativeapp.init import (
+from snowcli.plugins.nativeapp.init import (
     CannotInitializeAnExistingProjectError,
     DirectoryAlreadyExistsError,
     InitError,
@@ -338,7 +338,7 @@ def test_nativeapp_init_with_unknown_template_name(mock_clone_from, temp_dir):
         nativeapp_init(path=PROJECT_PATH, name=PROJECT_NAME, template="does-not-exist")
 
 
-@mock.patch("snowcli.cli.nativeapp.init._init_from_template", return_value=None)
+@mock.patch("snowcli.plugins.nativeapp.init._init_from_template", return_value=None)
 def test_init_expands_user(mock_init_from_template):
     expanded_project_path = Path("/home/testuser/my_app")
     with mock.patch("pathlib.Path.expanduser", return_value=expanded_project_path) as m:
@@ -347,7 +347,7 @@ def test_init_expands_user(mock_init_from_template):
     assert project.path == expanded_project_path.resolve()
 
 
-@mock.patch("snowcli.cli.nativeapp.init._init_from_template", return_value=None)
+@mock.patch("snowcli.plugins.nativeapp.init._init_from_template", return_value=None)
 def test_init_fails_on_invalid_path(mock_init_from_template):
     with pytest.raises(InitError):
         with mock.patch("pathlib.Path.expanduser", side_effect=RuntimeError()) as m:

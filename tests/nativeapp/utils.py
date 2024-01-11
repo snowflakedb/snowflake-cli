@@ -1,10 +1,10 @@
 from textwrap import dedent
 
-NATIVEAPP_MODULE = "snowcli.cli.nativeapp.manager"
-TEARDOWN_MODULE = "snowcli.cli.nativeapp.teardown_processor"
+NATIVEAPP_MODULE = "snowcli.plugins.nativeapp.manager"
+TEARDOWN_MODULE = "snowcli.plugins.nativeapp.teardown_processor"
 TYPER_CONFIRM = "typer.confirm"
-RUN_MODULE = "snowcli.cli.nativeapp.run_processor"
-VERSION_MODULE = "snowcli.cli.nativeapp.version.version_processor"
+RUN_MODULE = "snowcli.plugins.nativeapp.run_processor"
+VERSION_MODULE = "snowcli.plugins.nativeapp.version.version_processor"
 
 TEARDOWN_PROCESSOR = f"{TEARDOWN_MODULE}.NativeAppTeardownProcessor"
 NATIVEAPP_MANAGER = f"{NATIVEAPP_MODULE}.NativeAppManager"

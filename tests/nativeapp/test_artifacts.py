@@ -2,7 +2,7 @@ from typing import Optional
 from unittest import mock
 
 import pytest
-from snowcli.cli.nativeapp.artifacts import (
+from snowcli.plugins.nativeapp.artifacts import (
     ArtifactMapping,
     DeployRootError,
     GlobMatchedNothingError,

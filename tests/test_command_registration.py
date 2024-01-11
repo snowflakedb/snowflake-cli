@@ -4,8 +4,8 @@ from snowcli.api.plugins.command import (
     CommandSpec,
     CommandType,
 )
-from snowcli.cli.connection import plugin_spec as connection_plugin_spec
-from snowcli.cli.streamlit import plugin_spec as streamlit_plugin_spec
+from snowcli.plugins.connection import plugin_spec as connection_plugin_spec
+from snowcli.plugins.streamlit import plugin_spec as streamlit_plugin_spec
 from typer import Typer
 
 from tests.testing_utils.fixtures import *
@@ -31,7 +31,7 @@ def test_multiple_use_of_test_runner(runner):
     assert_result_is_correct(runner.invoke(["-h"]))
 
 
-@mock.patch("snowcli.cli.connection.plugin_spec.command_spec")
+@mock.patch("snowcli.plugins.connection.plugin_spec.command_spec")
 def test_auto_empty_callback_for_new_groups_with_single_command(
     connection_command_spec_mock, runner
 ):
@@ -57,7 +57,7 @@ def test_auto_empty_callback_for_new_groups_with_single_command(
     assert result3.output.count("Test command help") == 1
 
 
-@mock.patch("snowcli.cli.connection.plugin_spec.command_spec")
+@mock.patch("snowcli.plugins.connection.plugin_spec.command_spec")
 def test_exception_handling_if_single_command_has_callback(
     connection_command_spec_mock, runner
 ):
@@ -78,7 +78,7 @@ def test_exception_handling_if_single_command_has_callback(
     assert result.output.count("Manages Streamlit in Snowflake") == 1
 
 
-@mock.patch("snowcli.cli.connection.plugin_spec.command_spec")
+@mock.patch("snowcli.plugins.connection.plugin_spec.command_spec")
 def test_exception_handling_if_single_command_has_multiple_commands(
     connection_command_spec_mock, runner
 ):
@@ -110,7 +110,7 @@ def test_duplicated_plugin_handling(runner):
     assert result.output.count("Manages Streamlit in Snowflake") == 0
 
 
-@mock.patch("snowcli.cli.connection.plugin_spec.command_spec")
+@mock.patch("snowcli.plugins.connection.plugin_spec.command_spec")
 def test_conflicting_command_plugin_paths_handling(
     connection_command_spec_mock, runner
 ):
@@ -122,7 +122,7 @@ def test_conflicting_command_plugin_paths_handling(
     assert result.output.count("Manages Streamlit in Snowflake") == 1
 
 
-@mock.patch("snowcli.cli.streamlit.plugin_spec.command_spec")
+@mock.patch("snowcli.plugins.streamlit.plugin_spec.command_spec")
 def test_conflicting_commands_handling(streamlit_command_spec_mock, runner):
     streamlit_command_spec_mock.return_value = CommandSpec(
         parent_command_path=CommandPath(["connection"]),
@@ -143,7 +143,7 @@ def test_conflicting_commands_handling(streamlit_command_spec_mock, runner):
     assert result3.output.count("Lists configured connections") == 1
 
 
-@mock.patch("snowcli.cli.connection.plugin_spec.command_spec")
+@mock.patch("snowcli.plugins.connection.plugin_spec.command_spec")
 def test_not_existing_command_group_handling(connection_command_spec_mock, runner):
     connection_command_spec_mock.return_value = CommandSpec(
         parent_command_path=CommandPath(["xyz123"]),
@@ -158,7 +158,7 @@ def test_not_existing_command_group_handling(connection_command_spec_mock, runne
     assert result.output.count("Manages Streamlit in Snowflake") == 1
 
 
-@mock.patch("snowcli.cli.connection.plugin_spec.command_spec")
+@mock.patch("snowcli.plugins.connection.plugin_spec.command_spec")
 def test_broken_command_spec_handling(connection_command_spec_mock, runner):
     connection_command_spec_mock.side_effect = RuntimeError("Test exception")
 

@@ -2,7 +2,7 @@ import hashlib
 from typing import Dict, Tuple
 
 from snowcli.api.exceptions import SnowflakeSQLExecutionError
-from snowcli.cli.object.stage.diff import (
+from snowcli.plugins.object.stage.diff import (
     DiffResult,
     delete_only_on_stage_files,
     enumerate_files,
@@ -11,12 +11,12 @@ from snowcli.cli.object.stage.diff import (
     stage_diff,
     sync_local_diff_with_stage,
 )
-from snowcli.cli.object.stage.manager import StageManager
+from snowcli.plugins.object.stage.manager import StageManager
 
 from tests.testing_utils.files_and_dirs import temp_local_dir
 from tests.testing_utils.fixtures import *
 
-STAGE_MANAGER = "snowcli.cli.object.stage.manager.StageManager"
+STAGE_MANAGER = "snowcli.plugins.object.stage.manager.StageManager"
 
 FILE_CONTENTS = {
     "README.md": "This is a README\n",
