@@ -2,7 +2,7 @@ import copy
 import logging
 import logging.config
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
 import typer
 from snowcli.api.config import (
@@ -13,7 +13,7 @@ from snowcli.api.exceptions import InvalidLogsConfiguration
 
 _DEFAULT_LOG_FILENAME = "snowcli.log"
 
-DEFAULT_LOGGING_CONFIG: dict[str, Any] = {
+DEFAULT_LOGGING_CONFIG: Dict[str, Any] = {
     "version": 1,
     "disable_existing_loggers": True,
     "formatters": {
@@ -126,6 +126,7 @@ def create_loggers(verbose: bool, debug: bool):
         if file_logs_config.level < global_log_level:
             global_log_level = file_logs_config.level
     else:
+        # We need to remove handler definition - otherwise it creates file even if `save_logs` is False
         del config["handlers"]["file"]
         config["loggers"]["snowcli"]["handlers"].remove("file")
 
