@@ -14,7 +14,7 @@ def test_sql_execute_query(mock_execute, runner, mock_cursor):
     result = runner.invoke(["sql", "-q", "query"])
 
     assert result.exit_code == 0
-    mock_execute.assert_called_once_with("query")
+    mock_execute.assert_called_once_with("query", remove_comments=True)
 
 
 @mock.patch("snowcli.cli.sql.manager.SqlExecutionMixin._execute_string")
@@ -27,7 +27,7 @@ def test_sql_execute_file(mock_execute, runner, mock_cursor):
         result = runner.invoke(["sql", "-f", tmp_file.name])
 
     assert result.exit_code == 0
-    mock_execute.assert_called_once_with(query)
+    mock_execute.assert_called_once_with(query, remove_comments=True)
 
 
 @mock.patch("snowcli.cli.sql.manager.SqlExecutionMixin._execute_string")
@@ -38,7 +38,7 @@ def test_sql_execute_from_stdin(mock_execute, runner, mock_cursor):
     result = runner.invoke(["sql", "-i"], input=query)
 
     assert result.exit_code == 0
-    mock_execute.assert_called_once_with(query)
+    mock_execute.assert_called_once_with(query, remove_comments=True)
 
 
 def test_sql_fails_if_no_query_file_or_stdin(runner):

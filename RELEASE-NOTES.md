@@ -50,6 +50,7 @@
 * Added support for runtime version in snowpark procedures ad functions.
 * You can include previously uploaded packages in your functions, by listing them under `imports` in `snowflake.yml`
 * Added more options to `snow connection add` - now you can also specify authenticator and path to private key
+* Added `-s` flag to `snow sql` command, that shows comments. Comments, now are not shown by default
 
 ## Fixes and improvements
 * Allow the use of quoted identifiers in stages

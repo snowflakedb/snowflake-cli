@@ -1,7 +1,10 @@
 import time
+from pathlib import Path
 from unittest import mock
 
 import pytest
+
+TEST_FILE = Path(__file__).parent / "test_data" / "example.sql"
 
 
 @pytest.mark.integration
@@ -88,3 +91,19 @@ def test_queries_are_streamed_to_output(
     assert query_0 == "13"
     assert time_1 - time_0 >= 10.0
     assert "waited 10 seconds" in query_1
+
+
+@pytest.mark.integration
+def test_if_comments_flag_works(runner, snapshot):
+    result = runner.invoke_with_connection(["sql", "-f", TEST_FILE, "-s"])
+
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot
+
+
+@pytest.mark.integration
+def test_if_comments_are_not_shown(runner, snapshot):
+    result = runner.invoke_with_connection(["sql", "-f", TEST_FILE])
+
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot

@@ -1,0 +1,24 @@
+# serializer version: 1
+# name: test_if_comments_are_not_shown
+  '''
+  SELECT 1;
+  +---+
+  | 1 |
+  |---|
+  | 1 |
+  +---+
+  
+  '''
+# ---
+# name: test_if_comments_flag_works
+  '''
+  -- this is a comment;
+  SELECT 1;
+  +---+
+  | 1 |
+  |---|
+  | 1 |
+  +---+
+  
+  '''
+# ---

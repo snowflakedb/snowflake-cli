@@ -11,7 +11,11 @@ from snowflake.connector.util_text import split_statements
 
 class SqlManager(SqlExecutionMixin):
     def execute(
-        self, query: Optional[str], file: Optional[Path], std_in: bool
+        self,
+        query: Optional[str],
+        file: Optional[Path],
+        std_in: bool,
+        remove_comments: bool = False,
     ) -> Tuple[int, Iterable[SnowflakeCursor]]:
         inputs = [query, file, std_in]
         if not any(inputs):
@@ -29,4 +33,6 @@ class SqlManager(SqlExecutionMixin):
             query = file.read_text()
 
         single_statement = len(list(split_statements(StringIO(query)))) == 1
-        return single_statement, self._execute_string(query)
+        return single_statement, self._execute_string(
+            query, remove_comments=remove_comments
+        )

@@ -36,6 +36,9 @@ def execute_sql(
         "-i",
         help="Read the query from standard input. Use it when piping input to this command.",
     ),
+    show_comments: Optional[bool] = typer.Option(
+        False, "--show-comments", "-s", help="Removes comments from the input query"
+    ),
     **options
 ) -> CommandResult:
     """
@@ -44,7 +47,9 @@ def execute_sql(
     Query to execute can be specified using query option, filename option (all queries from file will be executed)
     or via stdin by piping output from other command. For example `cat my.sql | snow sql -i`.
     """
-    single_statement, cursors = SqlManager().execute(query, file, std_in)
+    single_statement, cursors = SqlManager().execute(
+        query, file, std_in, not show_comments
+    )
     if single_statement:
         return QueryResult(next(cursors))
     return MultipleResults((QueryResult(c) for c in cursors))
