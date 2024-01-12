@@ -10,7 +10,7 @@ from unittest import mock
 
 import pytest
 import strictyaml
-from snowcli.cli.project.definition import merge_left
+from snowcli.api.project.definition import merge_left
 from snowflake.connector.cursor import SnowflakeCursor
 from strictyaml import as_document
 from typer import Typer

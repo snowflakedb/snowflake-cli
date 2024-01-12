@@ -211,7 +211,7 @@ def execution_identifier_argument(sf_object: str, example: str) -> typer.Argumen
 
 def project_definition_option(project_name: str):
     from snowcli.api.exceptions import NoProjectDefinitionError
-    from snowcli.cli.project.definition_manager import DefinitionManager
+    from snowcli.api.project.definition_manager import DefinitionManager
 
     def _callback(project_path: Optional[str]):
         dm = DefinitionManager(project_path)

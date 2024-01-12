@@ -3,8 +3,8 @@ from unittest import mock
 IDENTIFIER = "test_procedure(a int, b string)"
 
 
-@mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.coverage")
-@mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.StageManager")
+@mock.patch("snowcli.plugins.snowpark.procedure_coverage.manager.coverage")
+@mock.patch("snowcli.plugins.snowpark.procedure_coverage.manager.StageManager")
 @mock.patch("snowflake.connector.connect")
 def test_procedure_coverage_report_error_when_no_report_on_stage(
     mock_connector, mock_stage_manager, mock_coverage, runner, mock_ctx, mock_cursor
@@ -29,8 +29,8 @@ def test_procedure_coverage_report_error_when_no_report_on_stage(
     assert ctx.get_query() == ""
 
 
-@mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.coverage")
-@mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.StageManager")
+@mock.patch("snowcli.plugins.snowpark.procedure_coverage.manager.coverage")
+@mock.patch("snowcli.plugins.snowpark.procedure_coverage.manager.StageManager")
 @mock.patch("snowflake.connector.connect")
 def test_procedure_coverage_report_create_default_report(
     mock_connector,
@@ -68,8 +68,8 @@ def test_procedure_coverage_report_create_default_report(
     assert ctx.get_query() == ""
 
 
-@mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.coverage")
-@mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.StageManager")
+@mock.patch("snowcli.plugins.snowpark.procedure_coverage.manager.coverage")
+@mock.patch("snowcli.plugins.snowpark.procedure_coverage.manager.StageManager")
 @mock.patch("snowflake.connector.connect")
 def test_procedure_coverage_report_create_html_report(
     mock_connector,
@@ -111,8 +111,8 @@ def test_procedure_coverage_report_create_html_report(
     assert ctx.get_query() == ""
 
 
-@mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.coverage")
-@mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.StageManager")
+@mock.patch("snowcli.plugins.snowpark.procedure_coverage.manager.coverage")
+@mock.patch("snowcli.plugins.snowpark.procedure_coverage.manager.StageManager")
 @mock.patch("snowflake.connector.connect")
 def test_procedure_coverage_report_create_json_report(
     mock_connector,
@@ -154,8 +154,8 @@ def test_procedure_coverage_report_create_json_report(
     assert ctx.get_query() == ""
 
 
-@mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.coverage")
-@mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.StageManager")
+@mock.patch("snowcli.plugins.snowpark.procedure_coverage.manager.coverage")
+@mock.patch("snowcli.plugins.snowpark.procedure_coverage.manager.StageManager")
 @mock.patch("snowflake.connector.connect")
 def test_procedure_coverage_report_create_lcov_report(
     mock_connector,
@@ -197,8 +197,8 @@ def test_procedure_coverage_report_create_lcov_report(
     assert ctx.get_query() == ""
 
 
-@mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.coverage")
-@mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.StageManager")
+@mock.patch("snowcli.plugins.snowpark.procedure_coverage.manager.coverage")
+@mock.patch("snowcli.plugins.snowpark.procedure_coverage.manager.StageManager")
 @mock.patch("snowflake.connector.connect")
 def test_procedure_coverage_report_store_as_comment(
     mock_connector,
@@ -242,7 +242,7 @@ def test_procedure_coverage_report_store_as_comment(
     )
 
 
-@mock.patch("snowcli.cli.snowpark.procedure_coverage.manager.StageManager")
+@mock.patch("snowcli.plugins.snowpark.procedure_coverage.manager.StageManager")
 @mock.patch("snowflake.connector.connect")
 def test_procedure_coverage_clear(
     mock_connector, mock_stage_manager, runner, mock_ctx, mock_cursor, project_directory

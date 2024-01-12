@@ -1,10 +1,10 @@
 from textwrap import dedent
 
-NATIVEAPP_MODULE = "snowcli.cli.nativeapp.manager"
-TEARDOWN_MODULE = "snowcli.cli.nativeapp.teardown_processor"
+NATIVEAPP_MODULE = "snowcli.plugins.nativeapp.manager"
+TEARDOWN_MODULE = "snowcli.plugins.nativeapp.teardown_processor"
 TYPER_CONFIRM = "typer.confirm"
-RUN_MODULE = "snowcli.cli.nativeapp.run_processor"
-VERSION_MODULE = "snowcli.cli.nativeapp.version.version_processor"
+RUN_MODULE = "snowcli.plugins.nativeapp.run_processor"
+VERSION_MODULE = "snowcli.plugins.nativeapp.version.version_processor"
 
 TEARDOWN_PROCESSOR = f"{TEARDOWN_MODULE}.NativeAppTeardownProcessor"
 NATIVEAPP_MANAGER = f"{NATIVEAPP_MODULE}.NativeAppManager"
@@ -16,7 +16,7 @@ NATIVEAPP_MANAGER_APP_PKG_DISTRIBUTION_IN_SF = (
     f"{NATIVEAPP_MANAGER}.get_app_pkg_distribution_in_snowflake"
 )
 NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME = (
-    f"{NATIVEAPP_MANAGER}.is_app_pkg_distribution_same_in_sf"
+    f"{NATIVEAPP_MANAGER}.verify_project_distribution"
 )
 
 TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO = f"{TEARDOWN_PROCESSOR}.get_existing_app_info"

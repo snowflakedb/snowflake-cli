@@ -1,13 +1,13 @@
 import unittest
 
-from snowcli.cli.nativeapp.constants import SPECIAL_COMMENT
-from snowcli.cli.nativeapp.exceptions import (
+from snowcli.plugins.nativeapp.constants import SPECIAL_COMMENT
+from snowcli.plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
     UnexpectedOwnerError,
 )
-from snowcli.cli.nativeapp.manager import SnowflakeSQLExecutionError
-from snowcli.cli.nativeapp.teardown_processor import NativeAppTeardownProcessor
-from snowcli.cli.project.definition_manager import DefinitionManager
+from snowcli.plugins.nativeapp.manager import SnowflakeSQLExecutionError
+from snowcli.plugins.nativeapp.teardown_processor import NativeAppTeardownProcessor
+from snowcli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 

@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import pytest
-from snowcli.cli.snowpark.common import (
+from snowcli.plugins.snowpark.common import (
     _convert_resource_details_to_dict,
     _get_snowflake_packages_delta,
     _sql_to_python_return_type_mapper,

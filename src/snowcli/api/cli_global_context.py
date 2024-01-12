@@ -4,7 +4,6 @@ from typing import Dict, Optional
 
 from snowcli.api.exceptions import InvalidSchemaError
 from snowcli.api.output.formats import OutputFormat
-from snowcli.app.snow_connector import connect_to_snowflake
 from snowflake.connector import SnowflakeConnection
 
 
@@ -141,6 +140,8 @@ class _ConnectionContext:
         return not_empty_attributes
 
     def _build_connection(self):
+        from snowcli.app.snow_connector import connect_to_snowflake
+
         return connect_to_snowflake(
             temporary_connection=self.temporary_connection,
             connection_name=self.connection_name,

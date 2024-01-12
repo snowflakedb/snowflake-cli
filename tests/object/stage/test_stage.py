@@ -3,10 +3,10 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 import pytest
-from snowcli.cli.object.stage.manager import StageManager
+from snowcli.plugins.object.stage.manager import StageManager
 from snowflake.connector.cursor import DictCursor
 
-STAGE_MANAGER = "snowcli.cli.object.stage.manager.StageManager"
+STAGE_MANAGER = "snowcli.plugins.object.stage.manager.StageManager"
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -230,7 +230,7 @@ def test_stage_create_quoted(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with('create stage if not exists "stage name"')
 
 
-@mock.patch("snowcli.cli.object.commands.ObjectManager._execute_query")
+@mock.patch("snowcli.plugins.object.commands.ObjectManager._execute_query")
 def test_stage_drop(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "drop", "stage", "stageName", "-c", "empty"])
@@ -238,7 +238,7 @@ def test_stage_drop(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with("drop stage stageName")
 
 
-@mock.patch("snowcli.cli.object.commands.ObjectManager._execute_query")
+@mock.patch("snowcli.plugins.object.commands.ObjectManager._execute_query")
 def test_stage_drop_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "drop", "stage", '"stage name"', "-c", "empty"])

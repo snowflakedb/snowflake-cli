@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest import TestCase, mock
 from unittest.mock import patch
 
-from snowcli.cli.project.definition_manager import DefinitionManager
+from snowcli.api.project.definition_manager import DefinitionManager
 
 from tests.project.fixtures import *
 from tests.testing_utils.fixtures import *

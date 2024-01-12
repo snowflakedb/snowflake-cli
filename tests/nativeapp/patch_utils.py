@@ -19,4 +19,4 @@ def mock_get_app_pkg_distribution_in_sf():
 
 
 def mock_is_interactive_mode():
-    return mock.patch("snowcli.cli.nativeapp.utils.is_user_in_interactive_mode")
+    return mock.patch("snowcli.plugins.nativeapp.utils.is_user_in_interactive_mode")
