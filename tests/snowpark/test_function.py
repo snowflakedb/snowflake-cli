@@ -7,7 +7,7 @@ from snowflake.connector import ProgrammingError
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.commands.ObjectManager")
+@mock.patch("snowcli.plugins.snowpark.commands.ObjectManager")
 def test_deploy_function(
     mock_object_manager,
     mock_connector,
@@ -49,7 +49,7 @@ def test_deploy_function(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.commands.ObjectManager")
+@mock.patch("snowcli.plugins.snowpark.commands.ObjectManager")
 def test_deploy_function_with_external_access(
     mock_object_manager,
     mock_connector,
@@ -98,7 +98,7 @@ def test_deploy_function_with_external_access(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.cli.snowpark.commands.ObjectManager")
+@mock.patch("snowcli.plugins.snowpark.commands.ObjectManager")
 def test_deploy_function_secrets_without_external_access(
     mock_object_manager,
     mock_conn,
@@ -291,7 +291,7 @@ def _deploy_function(
 ):
     ctx = mock_ctx(mock_cursor(rows=rows, columns=[]))
     mock_connector.return_value = ctx
-    with mock.patch("snowcli.cli.snowpark.commands.ObjectManager") as om:
+    with mock.patch("snowcli.plugins.snowpark.commands.ObjectManager") as om:
 
         om.return_value.describe.return_value = rows
 

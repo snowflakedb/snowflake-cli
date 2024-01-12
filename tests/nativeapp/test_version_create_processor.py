@@ -2,17 +2,18 @@ import unittest
 from textwrap import dedent
 
 import typer
-from click import ClickException
-from snowcli.cli.nativeapp.constants import SPECIAL_COMMENT
-from snowcli.cli.nativeapp.policy import (
+from click import BadOptionUsage, ClickException
+from snowcli.plugins.nativeapp.constants import SPECIAL_COMMENT
+from snowcli.plugins.nativeapp.exceptions import ApplicationPackageDoesNotExistError
+from snowcli.plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
     AskAlwaysPolicy,
     DenyAlwaysPolicy,
 )
-from snowcli.cli.nativeapp.version.version_processor import (
+from snowcli.plugins.nativeapp.version.version_processor import (
     NativeAppVersionCreateProcessor,
 )
-from snowcli.cli.project.definition_manager import DefinitionManager
+from snowcli.api.project.definition_manager import DefinitionManager
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.utils import *
@@ -228,6 +229,63 @@ def test_process_no_version_from_user_no_version_in_manifest(
     mock_version_info_in_manifest.assert_called_once()
 
 
+# Test version create when user passed in a version and patch AND version does not exist in app package
+@mock.patch(
+    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_version_info", return_value=None
+)
+@pytest.mark.parametrize(
+    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+)
+def test_process_no_version_exists_throws_bad_option_exception_one(
+    mock_existing_version_info, policy_param, temp_dir
+):
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    processor = _get_version_create_processor()
+    with pytest.raises(BadOptionUsage):
+        processor.process(
+            version="v1",
+            patch="12",
+            policy=policy_param,
+            git_policy=policy_param,
+            is_interactive=False,
+        )  # last three parameters do not matter here, so it should succeed for all policies.
+
+
+# Test version create when user passed in a version and patch AND app package does not exist
+@mock.patch(
+    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_version_info",
+    side_effect=ApplicationPackageDoesNotExistError("app_pkg"),
+)
+@pytest.mark.parametrize(
+    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+)
+def test_process_no_version_exists_throws_bad_option_exception_two(
+    mock_existing_version_info, policy_param, temp_dir
+):
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    processor = _get_version_create_processor()
+    with pytest.raises(BadOptionUsage):
+        processor.process(
+            version="v1",
+            patch="12",
+            policy=policy_param,
+            git_policy=policy_param,
+            is_interactive=False,
+        )  # last three parameters do not matter here, so it should succeed for all policies.
+
+
 # Test version create when there are no release directives matching the version AND no version exists for app pkg
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=("manifest_version", None))
 @mock.patch(f"{VERSION_MODULE}.check_index_changes_in_git_repo", return_value=None)
@@ -290,7 +348,7 @@ def test_process_no_existing_release_directives_or_versions(
     processor = _get_version_create_processor()
     processor.process(
         version=version,
-        patch=12,
+        patch=None,
         policy=policy_param,
         git_policy=allow_always_policy,
         is_interactive=False,
@@ -307,7 +365,7 @@ def test_process_no_existing_release_directives_or_versions(
 
 
 # Test version create when there are no release directives matching the version AND a version exists for app pkg
-@mock.patch("snowcli.cli.nativeapp.artifacts.find_version_info_in_manifest_file")
+@mock.patch("snowcli.plugins.nativeapp.artifacts.find_version_info_in_manifest_file")
 @mock.patch(f"{VERSION_MODULE}.check_index_changes_in_git_repo", return_value=None)
 @mock.patch(
     f"{VERSION_MODULE}.{CREATE_PROCESSOR}.create_app_package", return_value=None
@@ -388,7 +446,7 @@ def test_process_no_existing_release_directives_w_existing_version(
     mock_create_app_pkg.assert_called_once()
     mock_apply_package_scripts.assert_called_once()
     mock_sync.assert_called_once()
-    mock_existing_version_info.assert_called_once()
+    assert mock_existing_version_info.call_count == 2
     mock_add_new_version.assert_not_called()
     mock_add_patch.assert_called_once()
 
@@ -412,7 +470,8 @@ def test_process_no_existing_release_directives_w_existing_version(
     f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_release_directive_info_for_version",
     return_value=None,
 )
-@mock.patch(f"snowcli.cli.nativeapp.policy.{TYPER_CONFIRM}", return_value=False)
+@mock.patch(f"snowcli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False)
+@mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_version_info")
 @pytest.mark.parametrize(
     "policy_param, is_interactive_param, expected_code",
     [
@@ -422,6 +481,7 @@ def test_process_no_existing_release_directives_w_existing_version(
     ],
 )
 def test_process_existing_release_directives_user_does_not_proceed(
+    mock_existing_version_info,
     mock_typer_confirm,
     mock_rd,
     mock_sync,
@@ -436,6 +496,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
     mock_cursor,
 ):
     version = "V1"
+    mock_existing_version_info.return_value = {"version": version, "patch": 0}
     mock_rd.return_value = [
         {"name": "RD1", "version": version},
         {"name": "RD3", "version": version},
@@ -502,7 +563,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
 @mock.patch(
     f"{VERSION_MODULE}.{CREATE_PROCESSOR}.add_new_patch_to_version", return_value=None
 )
-@mock.patch(f"snowcli.cli.nativeapp.policy.{TYPER_CONFIRM}", return_value=True)
+@mock.patch(f"snowcli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True)
 @pytest.mark.parametrize(
     "policy_param, is_interactive_param",
     [
@@ -570,5 +631,5 @@ def test_process_existing_release_directives_w_existing_version_two(
     mock_create_app_pkg.assert_called_once()
     mock_apply_package_scripts.assert_called_once()
     mock_sync.assert_called_once()
-    mock_existing_version_info.assert_called_once()
+    assert mock_existing_version_info.call_count == 2
     mock_add_patch.assert_called_once()

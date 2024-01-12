@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
-from pathlib import Path
 from typing import Dict, Optional
 
 import click
@@ -19,7 +18,7 @@ from snowflake.connector.config_manager import _get_default_connection_params
 from snowflake.connector.errors import DatabaseError, ForbiddenError
 
 log = logging.getLogger(__name__)
-TEMPLATES_PATH = Path(__file__).parent / "sql"
+
 ENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN ENCRYPTED PRIVATE KEY-----"
 UNENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN PRIVATE KEY-----"
 

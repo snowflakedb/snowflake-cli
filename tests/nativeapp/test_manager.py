@@ -1,19 +1,19 @@
 import unittest
 from textwrap import dedent
 
-from snowcli.cli.nativeapp.constants import (
+from snowcli.plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     NAME_COL,
     SPECIAL_COMMENT,
 )
-from snowcli.cli.nativeapp.exceptions import UnexpectedOwnerError
-from snowcli.cli.nativeapp.manager import (
+from snowcli.plugins.nativeapp.exceptions import UnexpectedOwnerError
+from snowcli.plugins.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
     ensure_correct_owner,
 )
-from snowcli.cli.object.stage.diff import DiffResult
-from snowcli.cli.project.definition_manager import DefinitionManager
+from snowcli.plugins.object.stage.diff import DiffResult
+from snowcli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -239,6 +239,36 @@ def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
 
 
 @mock_get_app_pkg_distribution_in_sf()
+def test_is_app_pkg_distribution_same_in_sf_w_arg(mock_mismatch, temp_dir):
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    create_named_file(
+        file_name="snowflake.local.yml",
+        dir=current_working_directory,
+        contents=[
+            dedent(
+                """\
+                    native_app:
+                        package:
+                            distribution: >-
+                                EXTERNAL
+                """
+            )
+        ],
+    )
+
+    native_app_manager = _get_na_manager()
+    assert native_app_manager.verify_project_distribution("internal") is False
+    mock_mismatch.assert_not_called()
+
+
+@mock_get_app_pkg_distribution_in_sf()
 def test_is_app_pkg_distribution_same_in_sf_no_mismatch(mock_mismatch, temp_dir):
     mock_mismatch.return_value = "external"
 
@@ -265,7 +295,7 @@ def test_is_app_pkg_distribution_same_in_sf_no_mismatch(mock_mismatch, temp_dir)
     )
 
     native_app_manager = _get_na_manager()
-    assert native_app_manager.is_app_pkg_distribution_same_in_sf() is True
+    assert native_app_manager.verify_project_distribution() is True
 
 
 @mock_get_app_pkg_distribution_in_sf()
@@ -283,7 +313,7 @@ def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
     )
 
     native_app_manager = _get_na_manager()
-    assert native_app_manager.is_app_pkg_distribution_same_in_sf() is False
+    assert native_app_manager.verify_project_distribution() is False
     mock_warning.assert_called_once_with(
         "App pkg app_pkg in your Snowflake account has distribution property external,\nwhich does not match the value specified in project definition file: internal.\n"
     )
@@ -441,9 +471,9 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch("snowcli.cli.connection.util.get_context")
-@mock.patch("snowcli.cli.connection.util.get_account")
-@mock.patch("snowcli.cli.connection.util.get_snowsight_host")
+@mock.patch("snowcli.plugins.connection.util.get_context")
+@mock.patch("snowcli.plugins.connection.util.get_account")
+@mock.patch("snowcli.plugins.connection.util.get_snowsight_host")
 @mock_connection()
 def test_get_snowsight_url(
     mock_conn, mock_snowsight_host, mock_account, mock_context, temp_dir

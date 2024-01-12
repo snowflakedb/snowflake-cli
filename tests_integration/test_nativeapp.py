@@ -1,7 +1,7 @@
 import os
 import uuid
 
-from snowcli.cli.project.util import generate_user_env
+from snowcli.api.project.util import generate_user_env
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import (

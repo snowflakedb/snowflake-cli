@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-import importlib
 import shutil
-from pathlib import Path
 
+from snowcli.api.constants import TEMPLATES_PATH
 from snowcli.api.output.types import CommandResult, MessageResult
 from typer import Argument, Typer
 
 
 def _create_project_template(template_name: str, project_directory: str):
     shutil.copytree(
-        Path(importlib.util.find_spec("templates").origin).parent / template_name,  # type: ignore
+        TEMPLATES_PATH / template_name,  # type: ignore
         project_directory,
         dirs_exist_ok=True,
     )

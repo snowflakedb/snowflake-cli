@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from snowcli.cli.connection.util import REGIONLESS_QUERY
+from snowcli.plugins.connection.util import REGIONLESS_QUERY
 
 from tests.testing_utils.fixtures import *
 
@@ -38,8 +38,8 @@ def _put_query(source: str, dest: str):
     )
 
 
-@mock.patch("snowcli.cli.connection.util.get_account")
-@mock.patch("snowcli.cli.streamlit.commands.typer")
+@mock.patch("snowcli.plugins.connection.util.get_account")
+@mock.patch("snowcli.plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
 def test_deploy_only_streamlit_file(
     mock_connector,
@@ -88,8 +88,8 @@ def test_deploy_only_streamlit_file(
     mock_typer.launch.assert_not_called()
 
 
-@mock.patch("snowcli.cli.connection.util.get_account")
-@mock.patch("snowcli.cli.streamlit.commands.typer")
+@mock.patch("snowcli.plugins.connection.util.get_account")
+@mock.patch("snowcli.plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
 def test_deploy_only_streamlit_file_no_stage(
     mock_connector,
@@ -138,8 +138,8 @@ def test_deploy_only_streamlit_file_no_stage(
     mock_typer.launch.assert_not_called()
 
 
-@mock.patch("snowcli.cli.connection.util.get_account")
-@mock.patch("snowcli.cli.streamlit.commands.typer")
+@mock.patch("snowcli.plugins.connection.util.get_account")
+@mock.patch("snowcli.plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
 def test_deploy_only_streamlit_file_replace(
     mock_connector,
@@ -188,7 +188,7 @@ def test_deploy_only_streamlit_file_replace(
     mock_typer.launch.assert_not_called()
 
 
-@mock.patch("snowcli.cli.streamlit.commands.typer")
+@mock.patch("snowcli.plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
 def test_deploy_launch_browser(
     mock_connector, mock_typer, mock_cursor, runner, mock_ctx, project_directory

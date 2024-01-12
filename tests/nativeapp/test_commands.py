@@ -62,7 +62,7 @@ PROJECT_PATH = "demo_na_project"
         ],
     ],
 )
-@mock.patch("snowcli.cli.nativeapp.init._init_from_template", return_value=None)
+@mock.patch("snowcli.plugins.nativeapp.init._init_from_template", return_value=None)
 def test_init_no_template_success(
     mock_init_from_template, runner, temp_dir, snapshot, id, init_args
 ):
@@ -97,7 +97,7 @@ def test_init_no_template_success(
         ["empty_name", [PROJECT_PATH, "--name", ""]],
     ],
 )
-@mock.patch("snowcli.cli.nativeapp.init._init_from_template", return_value=None)
+@mock.patch("snowcli.plugins.nativeapp.init._init_from_template", return_value=None)
 def test_init_no_template_failure(
     mock_init_from_template, runner, temp_dir, snapshot, id, init_args
 ):
