@@ -21,12 +21,7 @@ app = typer.Typer(
 @with_output
 @global_options_with_connection
 def token(**options) -> ObjectResult:
-    """
-    Gets the token from environment to use for authenticating with the registry. Example usage with docker:
-
-    snow registry token --format=JSON | docker login YOUR_HOST -u 0sessiontoken --password-stdin
-
-    """
+    """Gets the token from environment to use for authenticating with the registry."""
     return ObjectResult(RegistryManager().get_token())
 
 
