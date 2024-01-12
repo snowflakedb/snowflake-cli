@@ -1,19 +1,19 @@
 from pathlib import Path
 from typing import Optional
-from typing_extensions import Annotated
 
 import typer
 from snowcli.api.commands.decorators import global_options_with_connection, with_output
 from snowcli.api.output.types import CommandResult, MultipleResults, QueryResult
 from snowcli.plugins.sql.manager import SqlManager
+from typing_extensions import Annotated
 
 # simple Typer with defaults because it won't become a command group as it contains only one command
 app = typer.Typer()
 
 CommentsOption = typer.Option(
-    "--comments/--no-comments",
-    help="Removes comments from the input query"
+    "--comments/--no-comments", help="Removes comments from the input query"
 )
+
 
 @app.command(name="sql")
 @with_output
