@@ -95,7 +95,7 @@ def test_queries_are_streamed_to_output(
 
 @pytest.mark.integration
 def test_if_comments_flag_works(runner, snapshot):
-    result = runner.invoke_with_connection(["sql", "-f", TEST_FILE, "-s"])
+    result = runner.invoke_with_connection(["sql", "-f", TEST_FILE, "--comments"])
 
     assert result.exit_code == 0, result.output
     assert result.output == snapshot

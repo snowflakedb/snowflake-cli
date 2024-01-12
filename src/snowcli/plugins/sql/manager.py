@@ -15,7 +15,7 @@ class SqlManager(SqlExecutionMixin):
         query: Optional[str],
         file: Optional[Path],
         std_in: bool,
-        remove_comments: bool = False,
+        remove_comments: bool = True,
     ) -> Tuple[int, Iterable[SnowflakeCursor]]:
         inputs = [query, file, std_in]
         if not any(inputs):

@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Optional
+from typing_extensions import Annotated
 
 import typer
 from snowcli.api.commands.decorators import global_options_with_connection, with_output
@@ -9,6 +10,10 @@ from snowcli.plugins.sql.manager import SqlManager
 # simple Typer with defaults because it won't become a command group as it contains only one command
 app = typer.Typer()
 
+CommentsOption = typer.Option(
+    "--comments/--no-comments",
+    help="Removes comments from the input query"
+)
 
 @app.command(name="sql")
 @with_output
@@ -36,9 +41,7 @@ def execute_sql(
         "-i",
         help="Read the query from standard input. Use it when piping input to this command.",
     ),
-    show_comments: Optional[bool] = typer.Option(
-        False, "--show-comments", "-s", help="Removes comments from the input query"
-    ),
+    show_comments: Annotated[bool, CommentsOption] = False,
     **options
 ) -> CommandResult:
     """
