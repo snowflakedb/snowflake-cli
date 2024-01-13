@@ -11,7 +11,7 @@ InteractiveOption = typer.Option(
 ForceOption = typer.Option(
     False,
     "--force",
-    help=f"""Defaults to unset. Passing in --force turns this to True, i.e. the CLI will implicitly respond “yes” to any prompts that come up.
-    This flag should be passed in if you are not in interactive mode and want to perform potentially destructive actions.""",
+    help=f"""Defaults to unset. If specified, allows the CLI to implicitly respond “yes” to any prompts that come up.
+    This option should be passed in if you are not in interactive mode and want to perform potentially destructive actions.""",
     is_flag=True,
 )

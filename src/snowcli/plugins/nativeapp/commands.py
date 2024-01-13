@@ -99,19 +99,20 @@ def app_bundle(
 def app_run(
     version: Optional[str] = typer.Option(
         None,
-        help=f"""The identifier or 'version string' of the version you would like to create a version and/or patch for.
-        If not specified, the version from manifest.yml will be used.""",
+        help=f"""The identifier or version name of the version of an existing application package from which you would like to create an application instance.
+        The application and application package names are determined from the project definition file.""",
     ),
     patch: Optional[str] = typer.Option(
         None,
         "--patch",
-        help=f"""The patch number you would like to create for an existing version.
-        If not specified, the patch from manifest.yml will be used if it is present in the file. Otherwise, Snowflake will auto-generate the patch number.""",
+        help=f"""The patch number, together with `--version` name of an existing application package, from which you would like to create an application instance.
+        The application and application package names are determined from the project definition file.""",
     ),
     from_release_directive: Optional[bool] = typer.Option(
         False,
         "--from-release-directive",
-        help=f"""Passing in this flag will upgrade the application if necessary to the version pointed to by the relevant release directive. Using this flag will fail if no such release directive exists.""",
+        help=f"""Defaults to unset. If specified, the CLI creates or upgrades an application to the version and patch referenced in the release directive for your Snowflake account.
+        The command fails if no release directive exists for your Snowflake account for a given application package, which is determined from the project definition file.""",
         is_flag=True,
     ),
     interactive: Optional[bool] = InteractiveOption,
@@ -119,9 +120,9 @@ def app_run(
     **options,
 ) -> CommandResult:
     """
-    Without any flags, this command creates an application package in your Snowflake account, uploads code files to its stage,
+    By default, this command creates an application package in your Snowflake account, uploads code files to its stage,
     then creates (or upgrades) a development-mode instance of that application.
-    If passed in the version, patch or release directive flags, this command upgrades your existing application instance, or creates one if none exists. It does not create an application package in this scenario.
+    If passed in the version, patch or release directive options, this command upgrades your existing application instance, or creates one if none exists. It does not create an application package in this scenario.
     """
 
     is_interactive = False
@@ -185,9 +186,7 @@ def app_teardown(
 ) -> CommandResult:
     """
     Attempts to drop both the application and package as defined in the project definition file.
-    This command will succeed even if one or both of these objects do not exist.
-    As a note, this command does not accept role or warehouse overrides to your `config.toml` file,
-    because your native app definition in `snowflake.yml/snowflake.local.yml` is used for any overrides.
+    This command succeeds even if one or both of these objects do not exist.
     """
     processor = NativeAppTeardownProcessor(
         project_definition=cli_context.project_definition,
