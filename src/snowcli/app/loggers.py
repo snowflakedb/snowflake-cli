@@ -89,7 +89,6 @@ class FileLogsConfig:
             self._check_logs_directory_exists()
 
     def _check_logs_directory_exists(self):
-        print(self.path.exists())
         if not self.path.exists():
             if is_default_logs_path(self.path):
                 self.path.mkdir(parents=True)
