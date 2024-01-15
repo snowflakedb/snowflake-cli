@@ -7,7 +7,7 @@ from snowcli.api.constants import ObjectType
 from snowcli.plugins.snowpark.common import SnowparkObjectManager
 from snowflake.connector.cursor import SnowflakeCursor
 
-log = logging.getLogger(__file__)
+log = logging.getLogger(__name__)
 
 
 class FunctionManager(SnowparkObjectManager):
