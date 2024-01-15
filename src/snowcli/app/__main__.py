@@ -6,6 +6,10 @@ from snowcli.app.cli_app import app
 
 
 def main(*args):
+    if not sys.warnoptions:
+        import warnings
+
+        warnings.filterwarnings("ignore", module="snowflake\.connector")
     app(*args)
 
 
