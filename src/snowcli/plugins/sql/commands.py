@@ -51,7 +51,7 @@ def execute_sql(
     or via stdin by piping output from other command. For example `cat my.sql | snow sql -i`.
     """
     single_statement, cursors = SqlManager().execute(
-        query, file, std_in, not show_comments
+        query, file, std_in, show_comments
     )
     if single_statement:
         return QueryResult(next(cursors))

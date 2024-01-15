@@ -15,7 +15,7 @@ class SqlManager(SqlExecutionMixin):
         query: Optional[str],
         file: Optional[Path],
         std_in: bool,
-        remove_comments: bool = True,
+        show_comments: bool = True,
     ) -> Tuple[int, Iterable[SnowflakeCursor]]:
         inputs = [query, file, std_in]
         if not any(inputs):
@@ -34,5 +34,5 @@ class SqlManager(SqlExecutionMixin):
 
         single_statement = len(list(split_statements(StringIO(query)))) == 1
         return single_statement, self._execute_string(
-            query, remove_comments=remove_comments
+            query, remove_comments=not show_comments
         )
