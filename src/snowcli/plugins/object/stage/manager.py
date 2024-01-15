@@ -11,7 +11,7 @@ from snowcli.api.sql_execution import SqlExecutionMixin
 from snowcli.api.utils.path_utils import path_resolver
 from snowflake.connector.cursor import SnowflakeCursor
 
-log = logging.getLogger(__file__)
+log = logging.getLogger(__name__)
 
 
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
