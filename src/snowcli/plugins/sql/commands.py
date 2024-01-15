@@ -50,9 +50,7 @@ def execute_sql(
     Query to execute can be specified using query option, filename option (all queries from file will be executed)
     or via stdin by piping output from other command. For example `cat my.sql | snow sql -i`.
     """
-    single_statement, cursors = SqlManager().execute(
-        query, file, std_in, show_comments
-    )
+    single_statement, cursors = SqlManager().execute(query, file, std_in, show_comments)
     if single_statement:
         return QueryResult(next(cursors))
     return MultipleResults((QueryResult(c) for c in cursors))
