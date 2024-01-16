@@ -145,7 +145,7 @@ class _ConnectionContext:
         return connect_to_snowflake(
             temporary_connection=self.temporary_connection,
             connection_name=self.connection_name,
-            **self._collect_not_empty_connection_attributes()
+            **self._collect_not_empty_connection_attributes(),
         )
 
 
@@ -158,6 +158,7 @@ class _CliGlobalContextManager:
         self._experimental = False
         self._project_definition = None
         self._project_root = None
+        self._silent: bool = False
 
     def reset(self):
         self.__init__()
@@ -212,6 +213,13 @@ class _CliGlobalContextManager:
     def connection(self) -> SnowflakeConnection:
         return self.connection_context.connection
 
+    @property
+    def silent(self) -> bool:
+        return self._silent
+
+    def set_silent(self, value: bool):
+        self._silent = value
+
 
 class _CliGlobalContextAccess:
     def __init__(self, manager: _CliGlobalContextManager):
@@ -244,6 +252,10 @@ class _CliGlobalContextAccess:
     @property
     def project_root(self):
         return self._manager.project_root
+
+    @property
+    def silent(self) -> bool:
+        return self._manager.silent
 
 
 cli_context_manager: _CliGlobalContextManager = _CliGlobalContextManager()
