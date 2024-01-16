@@ -105,13 +105,13 @@ def app_run(
     patch: Optional[str] = typer.Option(
         None,
         "--patch",
-        help=f"""The patch number, together with `--version` name of an existing application package, from which you want to create an application instance.
+        help=f"""The patch number under the given `--version` of an existing application package that should be used to create an application instance.
         The application and application package names are determined from the project definition file.""",
     ),
     from_release_directive: Optional[bool] = typer.Option(
         False,
         "--from-release-directive",
-        help=f"""Creates or upgrades an application to the version and patch referenced in the release directive for your Snowflake account.
+        help=f"""Creates or upgrades an application to the version and patch specified by the release directive applicable to your Snowflake account.
         The command fails if no release directive exists for your Snowflake account for a given application package, which is determined from the project definition file. Default: unset.""",
         is_flag=True,
     ),
@@ -120,7 +120,7 @@ def app_run(
     **options,
 ) -> CommandResult:
     """
-    Creates an application package, in your Snowflake account, uploads code files to its stage,
+    Creates an application package in your Snowflake account, uploads code files to its stage,
     then creates (or upgrades) a development-mode instance of that application.
     """
 
