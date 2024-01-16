@@ -24,7 +24,7 @@ dependencies = [
   "tomlkit==0.12.3",
   "typer==0.9.0",
   "urllib3>=1.21.1,<2.2",
-  "GitPython==3.1.40",
+  "GitPython==3.1.41",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
