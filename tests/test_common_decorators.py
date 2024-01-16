@@ -20,9 +20,10 @@ _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "format",
     "verbose",
     "debug",
+    "silent",
 ]
 
-_KNOWN_SIG_GLOBAL_PARAMETERS = ["format", "verbose", "debug"]
+_KNOWN_SIG_GLOBAL_PARAMETERS = ["format", "verbose", "debug", "silent"]
 
 
 def _extract_arguments(func):
