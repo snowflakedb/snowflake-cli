@@ -154,7 +154,6 @@ OutputFormatOption = typer.Option(
 SilentOption = typer.Option(
     False,
     "--silent",
-    "-s",
     help="Turns off intermediate output to console.",
     callback=_callback(lambda: cli_context_manager.set_silent),
     is_flag=True,
