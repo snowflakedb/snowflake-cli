@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import platform
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -115,6 +117,8 @@ def _info_callback(value: bool):
                     "key": "default_config_file_path",
                     "value": str(CONFIG_MANAGER.file_path),
                 },
+                {"key": "python_version", "value": sys.version},
+                {"key": "system_info", "value": platform.platform()},
             ],
         )
         print_result(result, output_format=OutputFormat.JSON)
