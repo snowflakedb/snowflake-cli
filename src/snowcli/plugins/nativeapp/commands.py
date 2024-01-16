@@ -40,8 +40,7 @@ log = logging.getLogger(__name__)
 def app_init(
     path: str = typer.Argument(
         ...,
-        help=f"""Directory to be initialized with the Native Application project. This directory must not already
-        exist.""",
+        help=f"""Directory to be initialized with the Native Application project. This directory must not already exist.""",
     ),
     name: str = typer.Option(
         None,
