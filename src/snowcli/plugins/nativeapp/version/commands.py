@@ -40,20 +40,18 @@ log = logging.getLogger(__name__)
 def create(
     version: Optional[str] = typer.Argument(
         None,
-        help=f"""The identifier or 'version string' of the version you would like to create a version and/or patch for.
-        Defaults to undefined, which means the CLI uses the version, if present, in the `manifest.yml`.""",
+        help=f"""Version of the app package that you would like to create a version or patch for. Defaults to the version specified in the `manifest.yml` file.""",
     ),
     patch: Optional[str] = typer.Option(
         None,
         "--patch",
         help=f"""The patch number you would like to create for an existing version.
-        Defaults to undefined if it is not set, which means the CLI either uses the patch, if present, in the `manifest.yml`,
-        or auto-generates the patch number.""",
+        Defaults to undefined if it is not set, which means the CLI either uses the patch specified in the `manifest.yml` file or automatically generates a new patch number.""",
     ),
     skip_git_check: Optional[bool] = typer.Option(
         False,
         "--skip-git-check",
-        help="Defaults to unset. If specified, the CLI skips checking if your project has any untracked or stages files in git.",
+        help="When enabled, the CLI skips checking if your project has any untracked or stages files in git. Default: unset.",
         is_flag=True,
     ),
     interactive: Optional[bool] = InteractiveOption,
@@ -122,7 +120,7 @@ def version_list(
 def drop(
     version: Optional[str] = typer.Argument(
         None,
-        help="Version of the app package that you would like to drop. Defaults to the version specified in the `manifest.yml`.",
+        help="Version of the app package that you want to drop. Defaults to the version specified in the `manifest.yml` file.",
     ),
     interactive: Optional[bool] = InteractiveOption,
     force: Optional[bool] = ForceOption,

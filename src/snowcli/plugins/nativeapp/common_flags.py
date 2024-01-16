@@ -4,14 +4,14 @@ InteractiveOption = typer.Option(
     False,
     "--interactive",
     "-i",
-    help=f"""Defaults to unset. If specified, enables user interactions even if the standard input and output are not terminal devices.""",
+    help=f"""When enabled, this option displays prompts even if the standard input and output are not terminal devices. Defaults to unset.""",
     is_flag=True,
 )
 
 ForceOption = typer.Option(
     False,
     "--force",
-    help=f"""Defaults to unset. If specified, allows the CLI to implicitly respond “yes” to any prompts that come up.
-    This option should be passed in if you are not in interactive mode and want to perform potentially destructive actions.""",
+    help=f"""When enabled, this option causes the command to implicitly approve any prompts that arise.
+    You should enable this option if interactive mode is not specified and if you want perform potentially destructive actions. Defaults to unset.""",
     is_flag=True,
 )
