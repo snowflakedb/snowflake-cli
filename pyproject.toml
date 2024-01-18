@@ -12,7 +12,7 @@ description = "Snowflake CLI"
 readme = "README.md"
 dependencies = [
   "coverage==7.4.0",
-  "jinja2==3.1.2",
+  "jinja2==3.1.3",
   "pluggy==1.3.0",
   "PyYAML==6.0.1",
   "rich==13.7.0",
@@ -24,7 +24,7 @@ dependencies = [
   "tomlkit==0.12.3",
   "typer==0.9.0",
   "urllib3>=1.21.1,<2.2",
-  "GitPython==3.1.40",
+  "GitPython==3.1.41",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -66,15 +66,17 @@ packages = ["src/snowcli", "src/templates"]
 
 [tool.ruff]
 line-length = 88
+
+[tool.ruff.lint]
 select = [
-    "N",
-    "I",  # isort
-    "G",  # flake8-logging-format
-    "N",  # pep8 naming
-    "A",  # flake 8 builtins
-    "TID252",  # relative imports
-    "SLF",  # Accessing private methods
-    "F401", # unused imports
+  "N",
+  "I",      # isort
+  "G",      # flake8-logging-format
+  "N",      # pep8 naming
+  "A",      # flake 8 builtins
+  "TID252", # relative imports
+  "SLF",    # Accessing private methods
+  "F401",   # unused imports
 ]
 
 [tool.pytest.ini_options]

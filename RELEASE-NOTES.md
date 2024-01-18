@@ -20,8 +20,8 @@
   * Procedures and functions use single zip artifact for all functions and procedures in project.
   * Changed path to coverage reports on stage, previously created procedures with coverage will not work, have to be recreated.
   * Previously created procedures or functions won't work with `deploy` command due to change in stage path of artefact. Previous code will remain under old path on stage.
-  * Coverage commands are now under `snow snowpark coverage`.
   * Package commands are now under `snow snowpark package`.
+  * Coverage commands were removed. To measure coverage of your procedures or functions use coverage locally.
 
 * Snowpark Containers services commands
   * `compute-pool` commands and its alias `cp` were renamed to `pool` commands.
