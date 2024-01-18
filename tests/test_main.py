@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import platform
+import sys
 import typing as t
 
 from click import Command
@@ -54,6 +56,8 @@ def test_info_callback(runner):
     assert payload == [
         {"key": "version", "value": VERSION},
         {"key": "default_config_file_path", "value": str(CONFIG_MANAGER.file_path)},
+        {"key": "python_version", "value": sys.version},
+        {"key": "system_info", "value": platform.platform()},
     ]
 
 
