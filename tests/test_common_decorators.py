@@ -1,5 +1,5 @@
 import typer
-from snowcli.api.commands.decorators import (
+from snowflake.cli.api.commands.decorators import (
     global_options,
     global_options_with_connection,
     with_experimental_behaviour,

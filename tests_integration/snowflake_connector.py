@@ -4,8 +4,8 @@ import os
 import uuid
 
 import pytest
-from snowcli.api.exceptions import EnvironmentVariableNotFoundError
 from snowflake import connector
+from snowflake.cli.api.exceptions import EnvironmentVariableNotFoundError
 
 _ENV_PARAMETER_PREFIX = "SNOWFLAKE_CONNECTIONS_INTEGRATION"
 

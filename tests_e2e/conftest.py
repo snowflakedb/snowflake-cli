@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
-from snowcli import __about__
+from snowflake.cli import __about__
 
 TEST_DIR = Path(__file__).parent
 

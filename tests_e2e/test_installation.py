@@ -1,4 +1,5 @@
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -33,6 +34,10 @@ def test_snow_streamlit_init(temp_dir, snowcli, snapshot):
         [snowcli, "streamlit", "init", "streamlit_test"], encoding="utf-8"
     )
     snapshot.assert_match(output)
+    expected_generated_file = f"{temp_dir}/streamlit_test/pages/my_page.py"
+    assert Path(
+        expected_generated_file
+    ).exists(), f"[{expected_generated_file}] does not exist. It should be generated from templates directory."
 
 
 @pytest.mark.e2e
