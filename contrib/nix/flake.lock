@@ -113,16 +113,16 @@
     "src-stable": {
       "flake": false,
       "locked": {
-        "lastModified": 1702994849,
-        "narHash": "sha256-pwfQB/6UnN8keYLMVS1mjuy71/CwSk2UPyt+Klw9ah8=",
+        "lastModified": 1704728099,
+        "narHash": "sha256-ahUPDcf1Ql97IQSgalAUIZo2U2MiKxNPn0pKvDDQIu0=",
         "owner": "Snowflake-Labs",
         "repo": "snowcli",
-        "rev": "acfba9730cc161121f04a6866c4b3fe20647b614",
+        "rev": "2f606973ceeaf5a689d9449bfc12cf43e0005a45",
         "type": "github"
       },
       "original": {
         "owner": "Snowflake-Labs",
-        "ref": "v1.2.3",
+        "ref": "v1.2.4",
         "repo": "snowcli",
         "type": "github"
       }

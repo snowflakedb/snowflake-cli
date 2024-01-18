@@ -3,7 +3,7 @@
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-unstable";
     src-stable = {
-      url = "github:Snowflake-Labs/snowcli?ref=v1.2.3"; # Pins to last stable version tag by hand
+      url = "github:Snowflake-Labs/snowcli?ref=v1.2.4"; # Pins to last stable version tag by hand
       flake = false;
     };
     src-live = {
@@ -141,7 +141,7 @@
                 };
                 # This is last released version
                 snowcli-stable = mkSnowCli {
-                  version = "1.1.1";
+                  version = "1.2.4";
                   snowflakeConnectorPkg = flake-snowflake-connector-python;
                   patchFile = ./patches/pyproject.patch;
                   src = inputs.src-stable;
