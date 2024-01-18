@@ -2,7 +2,7 @@ from typing import Optional
 from unittest import mock
 
 import pytest
-from snowcli.plugins.nativeapp.artifacts import (
+from snowflake.cli.plugins.nativeapp.artifacts import (
     ArtifactMapping,
     DeployRootError,
     GlobMatchedNothingError,
@@ -12,7 +12,7 @@ from snowcli.plugins.nativeapp.artifacts import (
     build_bundle,
     translate_artifact,
 )
-from snowcli.api.project.definition import load_project_definition
+from snowflake.cli.api.project.definition import load_project_definition
 
 from tests.project.fixtures import *
 from tests.testing_utils.fixtures import *

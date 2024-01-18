@@ -2,7 +2,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from snowcli.api.commands.project_initialisation import add_init_command
+from snowflake.cli.api.commands.project_initialisation import add_init_command
 from typer import Typer
 from typer.testing import CliRunner
 
@@ -20,7 +20,7 @@ def test_adds_init_command(mock_copy):
         test_file.touch()
 
         with mock.patch(
-            "snowcli.api.commands.project_initialisation.TEMPLATES_PATH",
+            "snowflake.cli.api.commands.project_initialisation.TEMPLATES_PATH",
             Path(tmp_templates),
         ):
             add_init_command(app, "my_project_type", template="my_template")

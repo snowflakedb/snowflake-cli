@@ -2,16 +2,18 @@ import unittest
 
 import typer
 from click import ClickException
-from snowcli.plugins.nativeapp.exceptions import ApplicationPackageDoesNotExistError
-from snowcli.plugins.nativeapp.policy import (
+from snowflake.cli.plugins.nativeapp.exceptions import (
+    ApplicationPackageDoesNotExistError,
+)
+from snowflake.cli.plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
     AskAlwaysPolicy,
     DenyAlwaysPolicy,
 )
-from snowcli.plugins.nativeapp.version.version_processor import (
+from snowflake.cli.plugins.nativeapp.version.version_processor import (
     NativeAppVersionDropProcessor,
 )
-from snowcli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.patch_utils import mock_get_app_pkg_distribution_in_sf
@@ -107,7 +109,9 @@ def test_process_no_version_from_user_no_version_in_manifest(
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(f"{VERSION_MODULE}.{DROP_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=("manifest_version", None))
-@mock.patch(f"snowcli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False)
+@mock.patch(
+    f"snowflake.cli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
+)
 @pytest.mark.parametrize(
     "policy_param, is_interactive_param, expected_code",
     [
@@ -155,7 +159,9 @@ def test_process_drop_cannot_complete(
 @mock.patch(f"{VERSION_MODULE}.{DROP_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=("manifest_version", None))
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(f"snowcli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True)
+@mock.patch(
+    f"snowflake.cli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
+)
 @pytest.mark.parametrize(
     "policy_param, is_interactive_param",
     [

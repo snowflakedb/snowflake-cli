@@ -3,8 +3,8 @@ from datetime import datetime
 from textwrap import dedent
 
 from click import Command, Context
-from snowcli.api.output.formats import OutputFormat
-from snowcli.api.output.types import (
+from snowflake.cli.api.output.formats import OutputFormat
+from snowflake.cli.api.output.types import (
     CollectionResult,
     MessageResult,
     MultipleResults,
@@ -12,7 +12,7 @@ from snowcli.api.output.types import (
     QueryResult,
     SingleQueryResult,
 )
-from snowcli.app.printing import print_result
+from snowflake.cli.app.printing import print_result
 
 from tests.testing_utils.fixtures import *
 

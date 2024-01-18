@@ -53,16 +53,16 @@ dev = [
 "Bug Tracker" = "https://github.com/Snowflake-Labs/snowcli/issues"
 
 [project.scripts]
-snow = "snowcli.app.__main__:main"
+snow = "snowflake.cli.app.__main__:main"
 
 [tool.hatch.version]
-path = "src/snowcli/__about__.py"
+path = "src/snowflake/cli/__about__.py"
 
 [tool.hatch.build.targets.sdist]
 exclude = ["/.github"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/snowcli", "src/templates"]
+packages = ["src/snowflake"]
 
 [tool.ruff]
 line-length = 88

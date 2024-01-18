@@ -4,8 +4,8 @@ from unittest import mock
 from tests.testing_utils.fixtures import *
 
 
-@mock.patch("snowcli.plugins.registry.manager.RegistryManager._conn")
-@mock.patch("snowcli.plugins.registry.manager.RegistryManager._execute_query")
+@mock.patch("snowflake.cli.plugins.registry.manager.RegistryManager._conn")
+@mock.patch("snowflake.cli.plugins.registry.manager.RegistryManager._execute_query")
 def test_registry_get_token_2(mock_execute, mock_conn, mock_cursor, runner):
     mock_execute.return_value = mock_cursor(
         ["row"], ["Statement executed successfully"]
@@ -21,10 +21,10 @@ def test_registry_get_token_2(mock_execute, mock_conn, mock_cursor, runner):
     assert json.loads(result.stdout) == {"token": "token1234", "expires_in": 42}
 
 
-@mock.patch("snowcli.plugins.registry.commands.requests.get")
-@mock.patch("snowcli.plugins.registry.commands.RegistryManager._execute_query")
-@mock.patch("snowcli.plugins.registry.commands.RegistryManager._conn")
-@mock.patch("snowcli.plugins.registry.commands.RegistryManager.login_to_registry")
+@mock.patch("snowflake.cli.plugins.registry.commands.requests.get")
+@mock.patch("snowflake.cli.plugins.registry.commands.RegistryManager._execute_query")
+@mock.patch("snowflake.cli.plugins.registry.commands.RegistryManager._conn")
+@mock.patch("snowflake.cli.plugins.registry.commands.RegistryManager.login_to_registry")
 def test_list_images(
     mock_login,
     mock_conn,
@@ -74,10 +74,10 @@ def test_list_images(
     assert json.loads(result.output) == [{"image": "DB/SCHEMA/IMAGES/super-cool-repo"}]
 
 
-@mock.patch("snowcli.plugins.registry.commands.requests.get")
-@mock.patch("snowcli.plugins.registry.manager.RegistryManager._execute_query")
-@mock.patch("snowcli.plugins.registry.commands.RegistryManager._conn")
-@mock.patch("snowcli.plugins.registry.manager.RegistryManager.login_to_registry")
+@mock.patch("snowflake.cli.plugins.registry.commands.requests.get")
+@mock.patch("snowflake.cli.plugins.registry.manager.RegistryManager._execute_query")
+@mock.patch("snowflake.cli.plugins.registry.commands.RegistryManager._conn")
+@mock.patch("snowflake.cli.plugins.registry.manager.RegistryManager.login_to_registry")
 def test_list_tags(
     mock_login,
     mock_conn,

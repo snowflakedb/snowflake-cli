@@ -10,7 +10,7 @@ from unittest import mock
 
 import pytest
 import strictyaml
-from snowcli.api.project.definition import merge_left
+from snowflake.cli.api.project.definition import merge_left
 from snowflake.connector.cursor import SnowflakeCursor
 from strictyaml import as_document
 from typer import Typer
@@ -171,7 +171,7 @@ def package_file():
 
 @pytest.fixture(scope="function")
 def runner(test_snowcli_config):
-    from snowcli.app.cli_app import app
+    from snowflake.cli.app.cli_app import app
 
     return SnowCLIRunner(app, test_snowcli_config)
 

@@ -3,7 +3,7 @@ from unittest import mock
 from unittest.mock import PropertyMock
 
 import pytest
-from snowcli.api.project.definition import (
+from snowflake.cli.api.project.definition import (
     generate_local_override_yml,
     load_project_definition,
 )
@@ -38,7 +38,7 @@ def test_na_minimal_project(project_definition_files: List[Path]):
         return original_getenv(key, default)
 
     with mock.patch(
-        "snowcli.api.cli_global_context._CliGlobalContextAccess.connection",
+        "snowflake.cli.api.cli_global_context._CliGlobalContextAccess.connection",
         new_callable=PropertyMock,
     ) as connection:
         connection.return_value.role = "resolved_role"
