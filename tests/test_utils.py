@@ -9,7 +9,6 @@ from requirements.requirement import Requirement
 
 import snowcli.plugins.snowpark.package.utils
 from snowcli.api.utils import path_utils
-from snowcli.plugins.snowpark.package import utils as file_utils
 from snowcli.plugins.snowpark import package_utils
 from snowcli.plugins.snowpark.models import PypiOption
 from snowcli.plugins.streamlit import streamlit_utils
@@ -154,25 +153,6 @@ def test_get_package_name_from_metadata_using_correct_data(
 ):
     result = package_utils.get_package_name_from_metadata(correct_metadata_file)
     assert result == Requirement.parse_line("my-awesome-package==0.0.1")
-
-
-def test_generate_snowpark_coverage_wrapper(temp_dir):
-    path = os.path.join(temp_dir, "coverage.py")
-    snowcli.plugins.snowpark.package.utils.generate_snowpark_coverage_wrapper(
-        target_file=path,
-        proc_name="process",
-        proc_signature="signature",
-        handler_module="awesomeModule",
-        handler_function="even_better_function",
-        coverage_reports_stage_path="@example_stage/nyan-cat.jpg",
-    )
-
-    assert os.path.isfile(path)
-    with open(path) as coverage_file:
-        assert (
-            "return awesomeModule.even_better_function(*args,**kwargs)"
-            in coverage_file.read()
-        )
 
 
 @pytest.mark.parametrize(
