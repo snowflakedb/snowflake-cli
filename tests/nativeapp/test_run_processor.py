@@ -1376,6 +1376,7 @@ def test_upgrade_app_recreate_app_from_version(
                     )
                 ),
             ),
+            (None, mock.call("alter application myapp set debug_mode = True")),
             (None, mock.call("use role old_role")),
         ]
     )
