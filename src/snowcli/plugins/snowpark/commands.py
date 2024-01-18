@@ -111,8 +111,9 @@ def deploy(
 
     if (existing_functions or existing_procedures) and not replace:
         msg = "Following objects already exists. Consider using --replace.\n"
-        msg += "\n".join(f"function: {n}" for n in existing_functions) + "\n"
-        msg += "\n".join(f"procedure: {n}" for n in existing_procedures) + "\n"
+        msg += "\n".join(f"function: {n}" for n in existing_functions)
+        msg += "\n" if existing_functions and existing_procedures else ""
+        msg += "\n".join(f"procedure: {n}" for n in existing_procedures)
         raise ClickException(msg)
 
     # Create stage
