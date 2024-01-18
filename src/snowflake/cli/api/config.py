@@ -37,17 +37,15 @@ CONFIG_MANAGER.add_option(
 )
 
 
-def config_init(config_file: Path):
+def config_init(config_file: Optional[Path]):
     """
     Initializes the app configuration. Config provided via cli flag takes precedence.
     If config file does not exist we create an empty one.
     """
-    if not config_file:
-        return
-
-    CONFIG_MANAGER.file_path = config_file
-    if not config_file.exists():
-        _initialise_config(config_file)
+    if config_file:
+        CONFIG_MANAGER.file_path = config_file
+    if not CONFIG_MANAGER.file_path.exists():
+        _initialise_config(CONFIG_MANAGER.file_path)
     CONFIG_MANAGER.read_config()
 
 
@@ -67,6 +65,7 @@ _DEFAULT_LOGS_CONFIG = {
 
 
 def _initialise_logs_section():
+    CONFIG_MANAGER.read_config()
     conf_file_cache = CONFIG_MANAGER.conf_file_cache
     if conf_file_cache.get("logs") is None:
         conf_file_cache["logs"] = _DEFAULT_LOGS_CONFIG
