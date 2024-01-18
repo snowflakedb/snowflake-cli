@@ -91,7 +91,7 @@ def streamlit_deploy(
     """
     Uploads local files to specified stage and creates a Streamlit dashboard using the files. You must specify the
     main python file and query warehouse. By default, the command will upload environment.yml and pages/ folder
-    if present. If you don't provide any stage name then 'streamlit' stage will be used. If provided stage will be
+    if present. If you don't provide any stage name then 'streamlit' stage will be used. If provided, a stage will be
     created if it does not exist.
     You can modify the behaviour using flags. For details check help information.
     """
