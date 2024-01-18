@@ -78,9 +78,9 @@ def deploy(
     **options,
 ) -> CommandResult:
     """
-    Deploys procedures and functions defined in project. Deploying the project alters all object defined in it.
+    Deploys procedures and functions defined in project. Deploying the project alters all objects defined in it.
     By default, if any of the objects exist already the commands will fail unless `--replace` flag is provided.
-    All deployed object use the same artefact which is deployed only once.
+    All deployed objects use the same artifact which is deployed only once.
     """
     snowpark = cli_context.project_definition
 
@@ -89,7 +89,7 @@ def deploy(
 
     if not procedures and not functions:
         raise ClickException(
-            "No procedures or functions were specified in project definition."
+            "No procedures or functions were specified in the project definition."
         )
 
     build_artifact_path = _get_snowpark_artefact_path(snowpark)
@@ -112,6 +112,7 @@ def deploy(
     if (existing_functions or existing_procedures) and not replace:
         msg = "Following objects already exists. Consider using --replace.\n"
         msg += "\n".join(f"function: {n}" for n in existing_functions)
+        msg += "\n" if existing_functions and existing_procedures else ""
         msg += "\n".join(f"procedure: {n}" for n in existing_procedures)
         raise ClickException(msg)
 
@@ -287,7 +288,7 @@ def build(
 ) -> CommandResult:
     """
     Builds the Snowpark project as a `.zip` archive that can be used by `deploy` command.
-    The archive is built using only `src` directory specified in project file.
+    The archive is built using only the `src` directory specified in the project file.
     """
     snowpark = cli_context.project_definition
     source = Path(snowpark.get("src"))

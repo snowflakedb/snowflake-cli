@@ -25,8 +25,8 @@ LikeOption = typer.Option(
     "%%",
     "--like",
     "-l",
-    help='Regular expression for filtering the functions by name. For example, `list --like "my%"` lists '
-    "all functions in the **dev** (default) environment that begin with “my”.",
+    help='SQL LIKE pattern for filtering objects by name. For example, `list function --like "my%"` lists '
+    "all functions that begin with “my”.",
 )
 
 SUPPORTED_TYPES_MSG = "\n\nSupported types: " + ", ".join(SUPPORTED_OBJECTS)
