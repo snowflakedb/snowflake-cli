@@ -4,8 +4,6 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
-from snowcli.api.constants import TEMPLATES_PATH
 from snowcli.plugins.snowpark.models import SplitRequirements
 
 
@@ -65,40 +63,3 @@ def prepare_app_zip(file_path: Path, temp_dir: str) -> str:
     temp_path = temp_dir + "/" + file_name
     shutil.copy(file_path, temp_path)
     return temp_path
-
-
-def generate_snowpark_coverage_wrapper(
-    target_file: str,
-    proc_name: str,
-    proc_signature: str,
-    handler_module: str,
-    handler_function: str,
-    coverage_reports_stage_path: str,
-) -> None:
-    """Using a hardcoded template (python_templates/snowpark_coverage.py.jinja), substitutes variables
-    and writes out a file.
-    The resulting file can be used as the initial handler for the stored proc, and uses the coverage package
-    to measure code coverage of the actual stored proc code.
-    Afterwards, the handler persists the coverage report to json by executing a query.
-
-    Args:
-        target_file (str): _description_
-        proc_name (str): _description_
-        proc_signature (str): _description_
-        handler_module (str): _description_
-        handler_function (str): _description_
-    """
-
-    environment = Environment(loader=FileSystemLoader(TEMPLATES_PATH))
-    template = environment.get_template("snowpark_coverage.py.jinja")
-    content = template.render(
-        {
-            "proc_name": proc_name,
-            "proc_signature": proc_signature,
-            "handler_module": handler_module,
-            "handler_function": handler_function,
-            "coverage_reports_stage_path": coverage_reports_stage_path,
-        }
-    )
-    with open(target_file, "w", encoding="utf-8") as output_file:
-        output_file.write(content)

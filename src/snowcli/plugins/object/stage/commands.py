@@ -55,13 +55,13 @@ def copy(
     ),
     parallel: int = typer.Option(
         4,
-        help="Number of parallel threads to use when uploading files. Default: 4.",
+        help="Number of parallel threads to use when uploading files.",
     ),
     **options,
 ) -> CommandResult:
     """
-    Copies all files from target path to target directory. This works for both, uploading
-    to and downloading from stage.
+    Copies all files from target path to target directory. This works for both uploading
+    to and downloading files from the stage.
     """
     is_get = _is_stage_path(source_path)
     is_put = _is_stage_path(destination_path)

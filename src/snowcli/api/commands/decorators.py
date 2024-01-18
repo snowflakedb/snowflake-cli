@@ -17,6 +17,7 @@ from snowcli.api.commands.flags import (
     PrivateKeyPathOption,
     RoleOption,
     SchemaOption,
+    SilentOption,
     TemporaryConnectionOption,
     UserOption,
     VerboseOption,
@@ -254,6 +255,12 @@ GLOBAL_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[bool],
         default=DebugOption,
+    ),
+    inspect.Parameter(
+        "silent",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[bool],
+        default=SilentOption,
     ),
 ]
 

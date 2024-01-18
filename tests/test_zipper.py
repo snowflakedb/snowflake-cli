@@ -1,7 +1,6 @@
 from zipfile import ZipFile
 
 from snowcli.plugins.snowpark.zipper import add_file_to_existing_zip, zip_dir
-from snowcli.plugins.snowpark.commands import _replace_handler_in_zip
 
 from tests.testing_utils.fixtures import *
 
@@ -54,26 +53,6 @@ def test_zip_current_dir(temp_dir):
         "snowcli/snowcli.dist-info/METADATA.py",
         "utils/utils.py",
     }
-
-
-def test_replace_handler_in_zip(temp_dir, app_zip):
-    result = _replace_handler_in_zip(
-        proc_name="hello",
-        proc_signature="()",
-        handler="app.hello",
-        zip_file_path=str(app_zip),
-        coverage_reports_stage="@example",
-        coverage_reports_stage_path="test_db.public.example",
-    )
-    assert os.path.isfile(app_zip)
-    assert result == "snowpark_coverage.measure_coverage"
-
-    with ZipFile(str(app_zip), "r") as zip:
-        assert "snowpark_coverage.py" in zip.namelist()
-        with zip.open("snowpark_coverage.py") as coverage:
-            coverage_file = coverage.readlines()
-            assert b"        return app.hello(*args,**kwargs)\n" in coverage_file
-            assert b"    import app\n" in coverage_file
 
 
 def test_add_file_to_existing_zip(
