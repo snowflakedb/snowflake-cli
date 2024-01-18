@@ -29,6 +29,12 @@ CONFIG_MANAGER.add_option(
     parse_str=tomlkit.parse,
     default=dict(),
 )
+CONFIG_MANAGER.add_option(
+    name="logs",
+    parse_str=tomlkit.parse,
+    env_name=False,
+    default=dict(),
+)
 
 
 def config_init(config_file: Path):
@@ -51,6 +57,30 @@ def add_connection(name: str, parameters: dict):
         conf_file_cache["connections"] = {}
     conf_file_cache["connections"][name] = parameters
     _dump_config(conf_file_cache)
+
+
+_DEFAULT_LOGS_CONFIG = {
+    "save_logs": False,
+    "path": str(CONFIG_MANAGER.file_path.parent / "logs"),
+    "level": "info",
+}
+
+
+def _initialise_logs_section():
+    conf_file_cache = CONFIG_MANAGER.conf_file_cache
+    if conf_file_cache.get("logs") is None:
+        conf_file_cache["logs"] = _DEFAULT_LOGS_CONFIG
+    _dump_config(conf_file_cache)
+
+
+def get_logs_config() -> dict:
+    logs_config = _DEFAULT_LOGS_CONFIG.copy()
+    logs_config.update(**CONFIG_MANAGER["logs"])
+    return logs_config
+
+
+def is_default_logs_path(path: Path) -> bool:
+    return path.resolve() == Path(str(_DEFAULT_LOGS_CONFIG["path"])).resolve()
 
 
 def connection_exists(connection_name: str) -> bool:
@@ -97,6 +127,7 @@ def get_config_value(*path, key: str, default: Optional[Any] = Empty) -> Any:
 def _initialise_config(config_file: Path) -> None:
     os.makedirs(os.path.dirname(config_file), exist_ok=True)
     config_file.touch()
+    _initialise_logs_section()
     log.info("Created Snowflake configuration file at %s", CONFIG_MANAGER.file_path)
 
 
