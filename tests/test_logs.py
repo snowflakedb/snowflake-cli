@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import Optional
 
 import pytest
-from snowcli.app import loggers
-from snowcli.api.config import config_init
-from snowcli.api.exceptions import InvalidLogsConfiguration
+from snowflake.cli.app import loggers
+from snowflake.cli.api.config import config_init
+from snowflake.cli.api.exceptions import InvalidLogsConfiguration
 
 from tests.conftest import clean_logging_handlers
 
@@ -54,7 +54,7 @@ def setup_config_and_logs(temp_dir):
 
 
 def print_log_messages():
-    logger = logging.getLogger("snowcli")
+    logger = logging.getLogger("snowflake.cli")
     logger.debug("debug message")
     logger.info("info message")
     logger.warning("warning message")
@@ -64,12 +64,12 @@ def print_log_messages():
 
 
 def _flush_logs() -> None:
-    for handler in logging.getLogger("snowcli").handlers:
+    for handler in logging.getLogger("snowflake.cli").handlers:
         handler.flush()
 
 
 def _list_handlers():
-    return logging.getLogger("snowcli").handlers
+    return logging.getLogger("snowflake.cli").handlers
 
 
 def _get_logs_file(logs_path: Path) -> Path:

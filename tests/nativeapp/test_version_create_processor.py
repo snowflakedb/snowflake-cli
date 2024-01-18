@@ -3,17 +3,19 @@ from textwrap import dedent
 
 import typer
 from click import BadOptionUsage, ClickException
-from snowcli.plugins.nativeapp.constants import SPECIAL_COMMENT
-from snowcli.plugins.nativeapp.exceptions import ApplicationPackageDoesNotExistError
-from snowcli.plugins.nativeapp.policy import (
+from snowflake.cli.plugins.nativeapp.constants import SPECIAL_COMMENT
+from snowflake.cli.plugins.nativeapp.exceptions import (
+    ApplicationPackageDoesNotExistError,
+)
+from snowflake.cli.plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
     AskAlwaysPolicy,
     DenyAlwaysPolicy,
 )
-from snowcli.plugins.nativeapp.version.version_processor import (
+from snowflake.cli.plugins.nativeapp.version.version_processor import (
     NativeAppVersionCreateProcessor,
 )
-from snowcli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.utils import *
@@ -365,7 +367,9 @@ def test_process_no_existing_release_directives_or_versions(
 
 
 # Test version create when there are no release directives matching the version AND a version exists for app pkg
-@mock.patch("snowcli.plugins.nativeapp.artifacts.find_version_info_in_manifest_file")
+@mock.patch(
+    "snowflake.cli.plugins.nativeapp.artifacts.find_version_info_in_manifest_file"
+)
 @mock.patch(f"{VERSION_MODULE}.check_index_changes_in_git_repo", return_value=None)
 @mock.patch(
     f"{VERSION_MODULE}.{CREATE_PROCESSOR}.create_app_package", return_value=None
@@ -470,7 +474,9 @@ def test_process_no_existing_release_directives_w_existing_version(
     f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_release_directive_info_for_version",
     return_value=None,
 )
-@mock.patch(f"snowcli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False)
+@mock.patch(
+    f"snowflake.cli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
+)
 @mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_version_info")
 @pytest.mark.parametrize(
     "policy_param, is_interactive_param, expected_code",
@@ -563,7 +569,9 @@ def test_process_existing_release_directives_user_does_not_proceed(
 @mock.patch(
     f"{VERSION_MODULE}.{CREATE_PROCESSOR}.add_new_patch_to_version", return_value=None
 )
-@mock.patch(f"snowcli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True)
+@mock.patch(
+    f"snowflake.cli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
+)
 @pytest.mark.parametrize(
     "policy_param, is_interactive_param",
     [

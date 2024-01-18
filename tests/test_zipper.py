@@ -1,6 +1,6 @@
 from zipfile import ZipFile
 
-from snowcli.plugins.snowpark.zipper import add_file_to_existing_zip, zip_dir
+from snowflake.cli.plugins.snowpark.zipper import add_file_to_existing_zip, zip_dir
 
 from tests.testing_utils.fixtures import *
 

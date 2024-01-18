@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from snowcli.plugins.connection.util import REGIONLESS_QUERY
+from snowflake.cli.plugins.connection.util import REGIONLESS_QUERY
 
 from tests.testing_utils.fixtures import *
 
@@ -38,8 +38,8 @@ def _put_query(source: str, dest: str):
     )
 
 
-@mock.patch("snowcli.plugins.connection.util.get_account")
-@mock.patch("snowcli.plugins.streamlit.commands.typer")
+@mock.patch("snowflake.cli.plugins.connection.util.get_account")
+@mock.patch("snowflake.cli.plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
 def test_deploy_only_streamlit_file(
     mock_connector,
@@ -88,8 +88,8 @@ def test_deploy_only_streamlit_file(
     mock_typer.launch.assert_not_called()
 
 
-@mock.patch("snowcli.plugins.connection.util.get_account")
-@mock.patch("snowcli.plugins.streamlit.commands.typer")
+@mock.patch("snowflake.cli.plugins.connection.util.get_account")
+@mock.patch("snowflake.cli.plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
 def test_deploy_only_streamlit_file_no_stage(
     mock_connector,
@@ -138,8 +138,8 @@ def test_deploy_only_streamlit_file_no_stage(
     mock_typer.launch.assert_not_called()
 
 
-@mock.patch("snowcli.plugins.connection.util.get_account")
-@mock.patch("snowcli.plugins.streamlit.commands.typer")
+@mock.patch("snowflake.cli.plugins.connection.util.get_account")
+@mock.patch("snowflake.cli.plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
 def test_deploy_only_streamlit_file_replace(
     mock_connector,
@@ -188,7 +188,7 @@ def test_deploy_only_streamlit_file_replace(
     mock_typer.launch.assert_not_called()
 
 
-@mock.patch("snowcli.plugins.streamlit.commands.typer")
+@mock.patch("snowflake.cli.plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
 def test_deploy_launch_browser(
     mock_connector, mock_typer, mock_cursor, runner, mock_ctx, project_directory
@@ -593,7 +593,9 @@ def test_drop_streamlit(mock_connector, runner, mock_ctx):
     assert ctx.get_query() == f"drop streamlit {STREAMLIT_NAME}"
 
 
-@mock.patch("snowcli.api.commands.project_initialisation._create_project_template")
+@mock.patch(
+    "snowflake.cli.api.commands.project_initialisation._create_project_template"
+)
 def test_init_streamlit(mock_create_project_template, runner, temp_dir):
     runner.invoke(["streamlit", "init", "my_project3"])
     mock_create_project_template.assert_called_once_with(
