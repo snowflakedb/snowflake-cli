@@ -7,8 +7,8 @@ import sys
 import typing as t
 
 from click import Command
-from snowcli.__about__ import VERSION
-from snowcli.app.cli_app import app_context_holder
+from snowflake.cli.__about__ import VERSION
+from snowflake.cli.app.cli_app import app_context_holder
 from snowflake.connector.config_manager import CONFIG_MANAGER
 from typer.core import TyperArgument, TyperOption
 

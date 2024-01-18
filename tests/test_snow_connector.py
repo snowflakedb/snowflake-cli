@@ -23,11 +23,11 @@ MOCK_CONNECTION = {
     ],
 )
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.app.snow_connector.click")
+@mock.patch("snowflake.cli.app.snow_connector.click")
 def test_command_context_is_passed_to_snowflake_connection(
     mock_click, mock_connect, cmd, expected
 ):
-    from snowcli.app.snow_connector import connect_to_snowflake
+    from snowflake.cli.app.snow_connector import connect_to_snowflake
 
     mock_ctx = mock.Mock()
     mock_ctx.command_path = cmd

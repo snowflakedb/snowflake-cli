@@ -5,10 +5,10 @@ block_cipher = None
 
 
 a = Analysis(
-    ['src/snowcli/app/__main__.py'],
+    ['src/snowflake/cli/app/__main__.py'],
     pathex=[],
     binaries=[],
-    datas=[('src/templates', 'templates'), ('src/snowcli', 'snowcli')],
+    datas=[('src/snowflake', 'snowflake')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
