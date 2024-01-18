@@ -55,6 +55,9 @@ dev = [
 [project.scripts]
 snow = "snowflake.cli.app.__main__:main"
 
+[tool.coverage.report]
+exclude_also = ["@(abc\\.)?abstractmethod", "@(abc\\.)?abstractproperty"]
+
 [tool.hatch.version]
 path = "src/snowflake/cli/__about__.py"
 
@@ -63,6 +66,12 @@ exclude = ["/.github"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/snowflake"]
+
+[tool.hatch.envs.default]
+features = ["dev"]
+
+[[tool.hatch.envs.default.matrix]]
+python = ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
 [tool.ruff]
 line-length = 88
