@@ -4,7 +4,7 @@ import pytest
 
 
 @pytest.mark.usefixtures("faker_app")
-def test_format_enables_silent(runner):
+def test_table_result_with_silent_enabled(runner):
     expected_output = dedent(
         """\
         SELECT A MOCK QUERY
@@ -22,7 +22,7 @@ def test_format_enables_silent(runner):
 
 
 @pytest.mark.usefixtures("faker_app")
-def test_intermediate_output_and_result(runner):
+def test_table_result_with_silent_disabled(runner):
     expected_output = dedent(
         """\
         Faker. Phase UNO.
