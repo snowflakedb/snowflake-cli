@@ -1,7 +1,6 @@
 from datetime import datetime
 from textwrap import dedent
 
-from click import Command, Context
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -300,12 +299,6 @@ def test_print_with_no_response_json(capsys):
     print_result(None, output_format=OutputFormat.JSON)
 
     assert get_output(capsys) == "null"
-
-
-def _mock_output_format(mock_context, format):
-    context = Context(Command("foo"))
-    context.params = {"output_format": format}
-    mock_context.return_value = context
 
 
 @pytest.fixture
