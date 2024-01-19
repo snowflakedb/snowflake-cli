@@ -176,6 +176,8 @@ class _CliGlobalContextManager:
         return self._output_format
 
     def set_output_format(self, value: OutputFormat):
+        if value == OutputFormat.JSON:
+            self._mute_intermediate_output()
         self._output_format = value
 
     @property
@@ -219,7 +221,12 @@ class _CliGlobalContextManager:
         return self._silent
 
     def set_silent(self, value: bool):
+        if self.output_format == OutputFormat.JSON:
+            value = True
         self._silent = value
+
+    def _mute_intermediate_output(self):
+        self.set_silent(True)
 
 
 class _CliGlobalContextAccess:

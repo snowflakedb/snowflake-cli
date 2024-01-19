@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 
 import pytest
 from snowflake.cli.api.cli_global_context import cli_context_manager
-from snowflake.cli.api.commands.decorators import global_options
+from snowflake.cli.api.commands.decorators import global_options, with_output
 from snowflake.cli.api.config import config_init
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.output.types import QueryResult
 from snowflake.cli.app import loggers
 from snowflake.cli.app.cli_app import app
 
@@ -56,13 +58,27 @@ def clean_logging_handlers():
             logger.removeHandler(handler)
 
 
+@pytest.fixture(name="_create_mock_cursor")
+def make_mock_cursor(mock_cursor):
+    return lambda: mock_cursor(
+        columns=["string", "number", "array", "object", "date"],
+        rows=[
+            ("string", 42, ["array"], {"k": "object"}, datetime(2022, 3, 21)),
+            ("string", 43, ["array"], {"k": "object"}, datetime(2022, 3, 21)),
+        ],
+    )
+
+
 @pytest.fixture(name="faker_app")
-def make_faker_app():
+def make_faker_app(_create_mock_cursor):
     @app.command("Faker")
+    @with_output
     @global_options
     def faker_app(**options):
         """Faker app"""
         cli_console.phase("Faker. Phase UNO.")
         cli_console.step("Faker. Teeny Tiny step: UNO UNO")
+
+        return QueryResult(_create_mock_cursor())
 
     yield

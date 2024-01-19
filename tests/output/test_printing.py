@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 from textwrap import dedent
 
@@ -14,6 +13,7 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.app.printing import print_result
 
+from tests.testing_utils.conversion import get_output, get_output_as_json
 from tests.testing_utils.fixtures import *
 
 
@@ -32,7 +32,7 @@ def test_single_value_from_query(capsys, mock_cursor):
     )
 
     print_result(output_data, output_format=OutputFormat.TABLE)
-    assert _get_output(capsys) == dedent(
+    assert get_output(capsys) == dedent(
         """\
     +------------------------------+
     | key    | value               |
@@ -51,7 +51,7 @@ def test_single_object_result(capsys, mock_cursor):
     )
 
     print_result(output_data, output_format=OutputFormat.TABLE)
-    assert _get_output(capsys) == dedent(
+    assert get_output(capsys) == dedent(
         """\
     +------------------------------+
     | key    | value               |
@@ -73,7 +73,7 @@ def test_single_collection_result(capsys, mock_cursor):
     collection = CollectionResult([output_data, output_data])
 
     print_result(collection, output_format=OutputFormat.TABLE)
-    assert _get_output(capsys) == dedent(
+    assert get_output(capsys) == dedent(
         """\
     +---------------------------------------------------+
     | array     | object          | date                |
@@ -95,7 +95,7 @@ def test_print_multi_results_table(capsys, _create_mock_cursor):
 
     print_result(output_data, output_format=OutputFormat.TABLE)
 
-    assert _get_output(capsys) == dedent(
+    assert get_output(capsys) == dedent(
         """\
     SELECT A MOCK QUERY
     +---------------------------------------------------------------------+
@@ -153,7 +153,7 @@ def test_print_different_multi_results_table(capsys, mock_cursor):
 
     print_result(output_data, output_format=OutputFormat.TABLE)
 
-    assert _get_output(capsys) == dedent(
+    assert get_output(capsys) == dedent(
         """\
     SELECT A MOCK QUERY
     +-----------------+
@@ -184,7 +184,7 @@ def test_print_different_data_sources_table(capsys, _create_mock_cursor):
 
     print_result(output_data, output_format=OutputFormat.TABLE)
 
-    assert _get_output(capsys) == dedent(
+    assert get_output(capsys) == dedent(
         """\
     SELECT A MOCK QUERY
     +---------------------------------------------------------------------+
@@ -212,7 +212,7 @@ def test_print_multi_db_cursor_json(capsys, _create_mock_cursor):
     )
     print_result(output_data, output_format=OutputFormat.JSON)
 
-    assert _get_output_as_json(capsys) == [
+    assert get_output_as_json(capsys) == [
         [
             {
                 "string": "string",
@@ -259,7 +259,7 @@ def test_print_different_data_sources_json(capsys, _create_mock_cursor):
 
     print_result(output_data, output_format=OutputFormat.JSON)
 
-    assert _get_output_as_json(capsys) == [
+    assert get_output_as_json(capsys) == [
         [
             {
                 "string": "string",
@@ -283,49 +283,29 @@ def test_print_different_data_sources_json(capsys, _create_mock_cursor):
 
 def test_print_with_no_data_table(capsys):
     print_result(None)
-    assert _get_output(capsys) == "Done\n"
+    assert get_output(capsys) == "Done\n"
 
 
 def test_print_with_no_data_in_query_json(capsys, _empty_cursor):
     print_result(QueryResult(_empty_cursor()), output_format=OutputFormat.JSON)
-    assert _get_output(capsys) == "[]"
+    assert get_output(capsys) == "[]"
 
 
 def test_print_with_no_data_in_single_value_query_json(capsys, _empty_cursor):
     print_result(SingleQueryResult(_empty_cursor()), output_format=OutputFormat.JSON)
-    assert _get_output(capsys) == "null"
+    assert get_output(capsys) == "null"
 
 
 def test_print_with_no_response_json(capsys):
     print_result(None, output_format=OutputFormat.JSON)
 
-    assert _get_output(capsys) == "null"
+    assert get_output(capsys) == "null"
 
 
 def _mock_output_format(mock_context, format):
     context = Context(Command("foo"))
     context.params = {"output_format": format}
     mock_context.return_value = context
-
-
-def _get_output(capsys):
-    captured = capsys.readouterr()
-    return captured.out
-
-
-def _get_output_as_json(capsys):
-    return json.loads(_get_output(capsys))
-
-
-@pytest.fixture
-def _create_mock_cursor(mock_cursor):
-    return lambda: mock_cursor(
-        columns=["string", "number", "array", "object", "date"],
-        rows=[
-            ("string", 42, ["array"], {"k": "object"}, datetime(2022, 3, 21)),
-            ("string", 43, ["array"], {"k": "object"}, datetime(2022, 3, 21)),
-        ],
-    )
 
 
 @pytest.fixture
