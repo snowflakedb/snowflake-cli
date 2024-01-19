@@ -114,6 +114,29 @@ git checkout <your-branch>
 git rebase sfcli/main
 ```
 
+## Displaying intermediate progress to stdout
+If you want to display some additional informtion to stdout during command execution you should use methods provided by `cli_console`.
+
+- `phase` is the method designed to display main action points in your command
+- `step` is the method, that provides automatic indentation. If `phase` was used than all subsequent `step` outputs will be indented.
+
+```python
+from snowflake.cli.api.console import cli_console
+
+cli_console.phase("foo")
+cli_console.step("bar")
+cli_console.step("bar")
+cli_console.phase("foo")
+cli_console.phase("foo")
+cli_console.step("bar")
+
+foo
+  bar
+  bar
+foo
+foo
+  bar
+```
 ## Known issues
 
 ### `permission denied` during integration tests on Windows
