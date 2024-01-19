@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import tempfile
 
 import typer
 from click import ClickException
@@ -213,13 +215,64 @@ def add(
 @app.command()
 @global_options
 @with_output
-def test(connection: str = ConnectionOption, **options) -> CommandResult:
+def test(
+    connection: str = ConnectionOption,
+    enable_diag: bool = typer.Option(
+        False,
+        "--enable-diag",
+        help="Run python connector diagnostic test.",
+        show_default=False,
+    ),
+    diag_log_path: str = typer.Option(
+        tempfile.gettempdir(),
+        "--diag-log-path",
+        help="Diagnostic report path.",
+    ),
+    diag_allowlist_path: str = typer.Option(
+        None,
+        "--diag-allowlist-path",
+        help="Diagnostic report path to optional allow list.",
+    ),
+    **options,
+) -> CommandResult:
     """
     Tests the connection to Snowflake.
     """
     from snowflake.cli.app.snow_connector import connect_to_snowflake
 
-    conn = connect_to_snowflake(connection_name=connection)
+    if enable_diag:
+        diag_result = ""
+        use_diag_allowlist = False
+        if not os.path.isdir(diag_log_path):
+            diag_result = f"{diag_result}{diag_log_path} did not exist using {tempfile.gettempdir()} instead. "
+            diag_log_path = tempfile.gettempdir()
+
+        if not os.access(diag_log_path, os.W_OK):
+            diag_result = f"{diag_result}{diag_log_path} cannot be written to, using {tempfile.gettempdir()} instead. "
+            diag_log_path = tempfile.gettempdir()
+
+        if diag_allowlist_path is not None:
+            if os.path.isfile(diag_allowlist_path):
+                use_diag_allowlist = True
+            else:
+                diag_result = f"{diag_result}{diag_allowlist_path} does not exist, using connection to get allowlist. "
+
+        if use_diag_allowlist:
+            conn = connect_to_snowflake(
+                connection_name=connection,
+                enable_connection_diag="true",
+                connection_diag_log_path=diag_log_path,
+                connection_diag_whitelist_path=diag_allowlist_path,
+            )
+        else:
+            conn = connect_to_snowflake(
+                connection_name=connection,
+                enable_connection_diag="true",
+                connection_diag_log_path=diag_log_path,
+            )
+    else:
+        conn = connect_to_snowflake(connection_name=connection)
+
     result = {
         "Connection name": connection,
         "Status": "OK",
@@ -230,5 +283,11 @@ def test(connection: str = ConnectionOption, **options) -> CommandResult:
         "Database": f'{conn.database or "not set"}',
         "Warehouse": f'{conn.warehouse or "not set"}',
     }
+
+    if enable_diag:
+        if diag_result != "":
+            result["Report Message"] = diag_result
+
+        result["Report File"] = f"{diag_log_path}/SnowflakeConnectionTestReport.txt"
 
     return ObjectResult(result)

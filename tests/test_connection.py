@@ -395,3 +395,18 @@ def test_key_pair_authentication_from_config(mock_load, mock_conn, temp_dir, run
         authenticator="SNOWFLAKE_JWT",
         private_key="secret value",
     )
+
+
+@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
+def test_connection_test_diag_report(mock_connect, runner):
+    result = runner.invoke(
+        ["connection", "test", "-c", "full", "--enable-diag", "--diag-log-path", "/tmp"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "Host" in result.output
+    assert "Report File" in result.output
+    mock_connect.assert_called_once_with(
+        connection_name="full",
+        enable_connection_diag="true",
+        connection_diag_log_path="/tmp",
+    )
