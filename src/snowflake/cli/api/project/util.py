@@ -13,7 +13,7 @@ SINGLE_QUOTED_STRING_LITERAL_REGEX = r"'((?:\\.|''|[^'\n])+?)'"
 
 # See https://docs.snowflake.com/en/sql-reference/identifiers-syntax for identifier syntax
 UNQUOTED_IDENTIFIER_REGEX = r"(^[a-zA-Z_])([a-zA-Z0-9_$]{0,254})"
-QUOTED_IDENTIFIER_REGEX = r'"((""|[^"])*)"'
+QUOTED_IDENTIFIER_REGEX = r'"((""|[^"]){0,255})"'
 
 
 def clean_identifier(input_: str):

@@ -2,10 +2,11 @@ from pathlib import Path
 from textwrap import dedent
 from unittest.mock import Mock, patch
 
+from click import ClickException
 import pytest
 import strictyaml
 from snowflake.cli.plugins.containers.services.manager import ServiceManager
-
+from snowflake.cli.plugins.object.common import Tag
 from tests.testing_utils.fixtures import *
 
 
@@ -33,23 +34,34 @@ def test_create_service(mock_execute_schema_query, other_directory):
     """
         )
     )
+    auto_resume = True
+    external_access_integrations = ["google_apis_access_integration", "salesforce_api_access_integration"]
+    query_warehouse = "test_warehouse"
+    tags = [Tag("test_tag", "'test value'"), Tag("key", "'value'")]
+    comment = "'user\\'s comment'"
 
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_schema_query.return_value = cursor
 
     result = ServiceManager().create(
-        service_name, compute_pool, Path(spec_path), num_instances
+        service_name, compute_pool, Path(spec_path), num_instances, auto_resume, external_access_integrations,
+        query_warehouse, tags, comment
     )
-    expected_query = (
-        "CREATE SERVICE IF NOT EXISTS test_service "
-        "IN COMPUTE POOL test_pool "
-        'FROM SPECIFICATION $$ {"spec": {"containers": [{"name": "cloudbeaver", "image": '
-        '"/spcs_demos_db/cloudbeaver:23.2.1"}], "endpoints": [{"name": "cloudbeaver", '
-        '"port": 80, "public": true}]}} $$ '
-        "WITH MIN_INSTANCES = 42 MAX_INSTANCES = 42"
-    )
+    expected_query = " ".join([
+        "CREATE SERVICE IF NOT EXISTS test_service",
+        "IN COMPUTE POOL test_pool",
+        'FROM SPECIFICATION $$ {"spec": {"containers": [{"name": "cloudbeaver", "image":',
+        '"/spcs_demos_db/cloudbeaver:23.2.1"}], "endpoints": [{"name": "cloudbeaver",',
+        '"port": 80, "public": true}]}} $$',
+        "WITH MIN_INSTANCES = 42 MAX_INSTANCES = 42",
+        "AUTO_RESUME = True",
+        "EXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration,salesforce_api_access_integration)",
+        "QUERY_WAREHOUSE = test_warehouse",
+        "TAG (test_tag='test value',key='value')",
+        "COMMENT = 'user\\'s comment'",
+    ])
     actual_query = " ".join(
-        mock_execute_schema_query.mock_calls[0].args[0].replace("\n", "").split()
+        mock_execute_schema_query.mock_calls[0].args[0].split()
     )
     assert expected_query == actual_query
     assert result == cursor
@@ -61,11 +73,36 @@ def test_create_service_with_invalid_spec(mock_read_yaml):
     compute_pool = "test_pool"
     spec_path = "/path/to/spec.yaml"
     num_instances = 42
+    external_access_integrations = query_warehouse = tags = comment = None
+    auto_resume = False
     mock_read_yaml.side_effect = strictyaml.YAMLError("Invalid YAML")
+
     with pytest.raises(strictyaml.YAMLError):
         ServiceManager().create(
-            service_name, compute_pool, Path(spec_path), num_instances
+            service_name, compute_pool, Path(spec_path), num_instances, auto_resume, external_access_integrations,
+            query_warehouse, tags, comment
         )
+
+
+@patch("snowflake.cli.plugins.object.common._parse_tag")
+@patch("snowflake.cli.plugins.containers.services.manager.ServiceManager._read_yaml")
+def test_create_service_with_invalid_tag(mock_parse_tag, mock_read_yaml):
+    service_name = "test_service"
+    compute_pool = "test_pool"
+    spec_path = "/path/to/spec.yaml"
+    num_instances = 42
+    tags = [Tag("test name", "test_value")]
+    external_access_integrations = query_warehouse = comment = None
+    auto_resume = False
+    mock_parse_tag.side_effect = ClickException("Invalid Tag")
+    with pytest.raises(ClickException):
+        ServiceManager().create(
+            service_name, compute_pool, Path(spec_path), num_instances, auto_resume, external_access_integrations,
+            query_warehouse, tags, comment
+        )
+
+
+
 
 
 @patch(
