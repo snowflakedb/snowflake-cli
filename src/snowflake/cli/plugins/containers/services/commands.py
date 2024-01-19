@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from typing import List, Optional
 
 import typer
 from snowflake.cli.api.commands.decorators import (
@@ -37,20 +38,20 @@ def create(
         exists=True,
     ),
     num_instances: int = typer.Option(1, "--num-instances", help="Number of instances"),
+    external_access_integrations: Optional[List[str]] = typer.Option(None, "--eai-name", help = "Identifies External Access Integrations(EAI), on the internet, that the service can access. This option may be specified multiple times for multiple EAIs."),
     **options,
 ) -> CommandResult:
     """
     Creates a new Snowpark Container Services service in the current schema.
     """
-
     cursor = ServiceManager().create(
         service_name=name,
         num_instances=num_instances,
         compute_pool=compute_pool,
         spec_path=spec_path,
+        external_access_integrations=external_access_integrations
     )
     return SingleQueryResult(cursor)
-
 
 @app.command()
 @with_output

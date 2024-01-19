@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import List, Optional
 
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
@@ -11,8 +12,13 @@ class ServiceManager(SqlExecutionMixin):
         compute_pool: str,
         spec_path: Path,
         num_instances: int,
+        external_access_integrations: Optional[List[str]]
     ) -> SnowflakeCursor:
         spec = self._read_yaml(spec_path)
+        external_access_integration_name = ",".join(
+            f"{e}" for e in external_access_integrations
+        ) if external_access_integrations else ""
+
         return self._execute_schema_query(
             f"""\
             CREATE SERVICE IF NOT EXISTS {service_name}
@@ -23,6 +29,7 @@ class ServiceManager(SqlExecutionMixin):
             WITH
             MIN_INSTANCES = {num_instances}
             MAX_INSTANCES = {num_instances}
+            EXTERNAL_ACCESS_INTEGRATIONS = ({external_access_integration_name})
             """
         )
 
