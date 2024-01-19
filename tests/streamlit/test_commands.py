@@ -66,7 +66,7 @@ def test_deploy_only_streamlit_file(
     with project_directory("example_streamlit") as pdir:
         (pdir / "environment.yml").unlink()
         shutil.rmtree(pdir / "pages")
-        result = runner.invoke(["streamlit", "deploy"])
+        result = runner.invoke(["streamlit", "deploy", "."])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
@@ -116,7 +116,7 @@ def test_deploy_only_streamlit_file_no_stage(
     with project_directory("example_streamlit_no_stage") as pdir:
         (pdir / "environment.yml").unlink()
         shutil.rmtree(pdir / "pages")
-        result = runner.invoke(["streamlit", "deploy"])
+        result = runner.invoke(["streamlit", "deploy", "."])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
@@ -166,7 +166,7 @@ def test_deploy_only_streamlit_file_replace(
     with project_directory("example_streamlit") as pdir:
         (pdir / "environment.yml").unlink()
         shutil.rmtree(pdir / "pages")
-        result = runner.invoke(["streamlit", "deploy", "--replace"])
+        result = runner.invoke(["streamlit", "deploy", "--replace", "."])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
@@ -205,7 +205,7 @@ def test_deploy_launch_browser(
     mock_connector.return_value = ctx
 
     with project_directory("example_streamlit"):
-        result = runner.invoke(["streamlit", "deploy", "--open"])
+        result = runner.invoke(["streamlit", "deploy", "--open", "."])
 
     assert result.exit_code == 0, result.output
 
@@ -233,7 +233,7 @@ def test_deploy_streamlit_and_environment_files(
     with project_directory("example_streamlit") as pdir:
         shutil.rmtree(pdir / "pages")
 
-        result = runner.invoke(["streamlit", "deploy"])
+        result = runner.invoke(["streamlit", "deploy", "."])
 
     root_path = f"@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
@@ -273,7 +273,7 @@ def test_deploy_streamlit_and_pages_files(
 
     with project_directory("example_streamlit") as pdir:
         (pdir / "environment.yml").unlink()
-        result = runner.invoke(["streamlit", "deploy"])
+        result = runner.invoke(["streamlit", "deploy", "."])
 
     root_path = f"@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
@@ -312,7 +312,7 @@ def test_deploy_all_streamlit_files(
     mock_connector.return_value = ctx
 
     with project_directory("streamlit_full_definition"):
-        result = runner.invoke(["streamlit", "deploy"])
+        result = runner.invoke(["streamlit", "deploy", "."])
 
     root_path = f"@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
@@ -357,7 +357,7 @@ def test_deploy_put_files_on_stage(
         "example_streamlit",
         merge_project_definition={"streamlit": {"stage": "streamlit_stage"}},
     ):
-        result = runner.invoke(["streamlit", "deploy"])
+        result = runner.invoke(["streamlit", "deploy", "."])
 
     root_path = f"@MOCKDATABASE.MOCKSCHEMA.STREAMLIT_STAGE/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
@@ -397,7 +397,7 @@ def test_deploy_all_streamlit_files_not_defaults(
     mock_connector.return_value = ctx
 
     with project_directory("example_streamlit_no_defaults"):
-        result = runner.invoke(["streamlit", "deploy"])
+        result = runner.invoke(["streamlit", "deploy", "."])
 
     root_path = f"@MOCKDATABASE.MOCKSCHEMA.STREAMLIT_STAGE/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
@@ -437,7 +437,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
     mock_connector.return_value = ctx
 
     with project_directory("example_streamlit"):
-        result = runner.invoke(["streamlit", "deploy", "--experimental"])
+        result = runner.invoke(["streamlit", "deploy", "--experimental", "."])
 
     root_path = (
         f"snow://streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
@@ -479,7 +479,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
     mock_connector.return_value = ctx
 
     with project_directory("example_streamlit_no_stage"):
-        result = runner.invoke(["streamlit", "deploy", "--experimental"])
+        result = runner.invoke(["streamlit", "deploy", "--experimental", "."])
 
     root_path = (
         f"snow://streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
@@ -521,7 +521,9 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
     mock_connector.return_value = ctx
 
     with project_directory("example_streamlit"):
-        result = runner.invoke(["streamlit", "deploy", "--experimental", "--replace"])
+        result = runner.invoke(
+            ["streamlit", "deploy", "--experimental", "--replace", "."]
+        )
 
     root_path = (
         f"snow://streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
@@ -563,7 +565,7 @@ def test_deploy_streamlit_nonexisting_file(
     with project_directory(
         "example_streamlit", merge_project_definition={"streamlit": {opts[0]: opts[1]}}
     ):
-        result = runner.invoke(["streamlit", "deploy"])
+        result = runner.invoke(["streamlit", "deploy", "."])
 
         assert f"Provided file {opts[1]} does not exist" in result.output
 

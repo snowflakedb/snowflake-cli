@@ -24,6 +24,7 @@ from snowflake.cli.api.commands.flags import (
     WarehouseOption,
     experimental_option,
     project_definition_option,
+    project_root_option,
 )
 from snowflake.cli.api.exceptions import CommandReturnTypeError
 from snowflake.cli.api.output.formats import OutputFormat
@@ -58,11 +59,17 @@ def with_project_definition(project_name: str):
             func,
             additional_options=[
                 inspect.Parameter(
-                    "project_definition",
+                    "project_directory",
+                    inspect.Parameter.KEYWORD_ONLY,
+                    annotation=str,
+                    default=project_root_option(project_name),
+                ),
+                inspect.Parameter(
+                    "project_file",
                     inspect.Parameter.KEYWORD_ONLY,
                     annotation=Optional[str],
                     default=project_definition_option(project_name),
-                )
+                ),
             ],
         )
 

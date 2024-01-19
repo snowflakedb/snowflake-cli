@@ -21,7 +21,7 @@ def test_streamlit_deploy(
     streamlit_name = "test_streamlit_deploy_snowcli"
 
     with project_directory("streamlit"):
-        result = runner.invoke_with_connection_json(["streamlit", "deploy"])
+        result = runner.invoke_with_connection_json(["streamlit", "deploy", "."])
         assert result.exit_code == 0
 
         result = runner.invoke_with_connection_json(["object", "list", "streamlit"])

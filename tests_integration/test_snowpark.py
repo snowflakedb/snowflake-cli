@@ -15,7 +15,7 @@ STAGE_NAME = "dev_deployment"
 @pytest.mark.integration
 def test_snowpark_flow(_test_steps, project_directory, alter_snowflake_yml):
     with project_directory("snowpark") as tmp_dir:
-        _test_steps.snowpark_build_should_zip_files()
+        _test_steps.snowpark_build_should_zip_files(project_root=tmp_dir)
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
@@ -104,6 +104,7 @@ def test_snowpark_flow(_test_steps, project_directory, alter_snowflake_yml):
 
         # Now we deploy with replace flag, it should update existing objects
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            project_root=tmp_dir,  # Just to test it works if explicit path provided
             additional_arguments=["--replace"],
             expected_result=[
                 {

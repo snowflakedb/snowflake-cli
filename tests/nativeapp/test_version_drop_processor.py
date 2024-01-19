@@ -28,7 +28,7 @@ deny_always_policy = DenyAlwaysPolicy()
 
 
 def _get_version_drop_processor():
-    dm = DefinitionManager()
+    dm = DefinitionManager(project_root=Path.cwd())
 
     return NativeAppVersionDropProcessor(
         project_definition=dm.project_definition["native_app"],

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Any, Callable, Optional
 
+import click
 import typer
-from snowflake.cli.api.cli_global_context import cli_context_manager
+from click.core import ParameterSource  # type: ignore
+from snowflake.cli.api.cli_global_context import cli_context, cli_context_manager
 from snowflake.cli.api.output.formats import OutputFormat
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
@@ -218,30 +222,52 @@ def execution_identifier_argument(sf_object: str, example: str) -> typer.Argumen
     )
 
 
+def project_root_option(project_name: str):
+    def _callback(project_root: Path):
+        resolved_path = Path(project_root).resolve()
+        cli_context_manager.set_project_root(resolved_path)
+        # Change working directory
+        os.chdir(resolved_path)
+        return project_root
+
+    return typer.Argument(
+        None,
+        help=f"Path where the {project_name.replace('_', ' ').capitalize()} project resides.",
+        callback=_callback,
+        click_type=click.Path(exists=True, file_okay=False, dir_okay=True),
+        show_default=False,
+    )
+
+
 def project_definition_option(project_name: str):
     from snowflake.cli.api.exceptions import NoProjectDefinitionError
     from snowflake.cli.api.project.definition_manager import DefinitionManager
 
-    def _callback(project_path: Optional[str]):
-        dm = DefinitionManager(project_path)
+    def _callback(ctx: click.Context, project_path: str):
+        if ctx.get_parameter_source("project_file") == ParameterSource.DEFAULT:  # type: ignore
+            dm = DefinitionManager(project_root=cli_context.project_root)
+        else:
+            project_paths = [project_path]
+            dm = DefinitionManager(
+                project_root=cli_context.project_root, project_files=project_paths
+            )
+
         project_definition = dm.project_definition.get(project_name)
-        project_root = dm.project_root
 
         if not project_definition:
             raise NoProjectDefinitionError(
-                project_type=project_name, project_file=project_path
+                project_type=project_name, project_root=cli_context.project_root
             )
 
         cli_context_manager.set_project_definition(project_definition)
-        cli_context_manager.set_project_root(project_root)
         return project_definition
 
     return typer.Option(
-        None,
-        "-p",
-        "--project",
-        help=f"Path where the {project_name.replace('_', ' ').capitalize()} project resides. "
-        f"Defaults to current working directory.",
+        "snowflake.yml",
+        "-f",
+        "--project-file",
+        help="Path to project file to use. Should be relative to project root directory.",
         callback=_callback,
-        show_default=False,
+        click_type=click.Path(exists=False, dir_okay=False, file_okay=True),
+        show_default=True,
     )

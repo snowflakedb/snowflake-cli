@@ -22,10 +22,7 @@ def test_deploy_function(
     mock_connector.return_value = ctx
     with project_directory("snowpark_functions") as project_dir:
         result = runner.invoke(
-            [
-                "snowpark",
-                "deploy",
-            ],
+            ["snowpark", "deploy", "."],
             catch_exceptions=False,
         )
 
@@ -69,10 +66,7 @@ def test_deploy_function_with_external_access(
 
     with project_directory("snowpark_function_external_access") as project_dir:
         result = runner.invoke(
-            [
-                "snowpark",
-                "deploy",
-            ],
+            ["snowpark", "deploy", "."],
             catch_exceptions=False,
         )
 
@@ -116,10 +110,7 @@ def test_deploy_function_secrets_without_external_access(
 
     with project_directory("snowpark_function_secrets_without_external_access"):
         result = runner.invoke(
-            [
-                "snowpark",
-                "deploy",
-            ],
+            ["snowpark", "deploy", "."],
         )
 
     assert result.exit_code == 1, result.output
@@ -300,13 +291,7 @@ def _deploy_function(
                 "foo=1.2.3\nbar>=3.0.0"
             )
             result = runner.invoke(
-                [
-                    "snowpark",
-                    "deploy",
-                    "--format",
-                    "json",
-                    *args,
-                ]
+                ["snowpark", "deploy", "--format", "json", *args, "."]
             )
     queries = ctx.get_queries()
     return queries, result, temp_dir

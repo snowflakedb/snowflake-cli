@@ -50,7 +50,9 @@ deny_always_policy = DenyAlwaysPolicy()
 
 
 def _get_na_run_processor():
-    dm = DefinitionManager()
+    dm = DefinitionManager(
+        project_root=Path.cwd(),
+    )
     return NativeAppRunProcessor(
         project_definition=dm.project_definition["native_app"],
         project_root=dm.project_root,

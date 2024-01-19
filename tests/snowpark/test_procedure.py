@@ -11,10 +11,7 @@ from snowflake.connector import ProgrammingError
 def test_deploy_function_no_procedure(runner, project_directory):
     with project_directory("empty_project"):
         result = runner.invoke(
-            [
-                "snowpark",
-                "deploy",
-            ],
+            ["snowpark", "deploy", "."],
         )
     assert result.exit_code == 1
     assert "No snowpark project definition found" in result.output
@@ -37,12 +34,7 @@ def test_deploy_procedure(
     mock_conn.return_value = ctx
 
     with project_directory("snowpark_procedures") as tmp:
-        result = runner.invoke(
-            [
-                "snowpark",
-                "deploy",
-            ]
-        )
+        result = runner.invoke(["snowpark", "deploy", "."])
 
     assert result.exit_code == 0, result.output
     mock_object_manager.return_value.describe.assert_has_calls(
@@ -100,12 +92,7 @@ def test_deploy_procedure_with_external_access(
     mock_conn.return_value = ctx
 
     with project_directory("snowpark_procedure_external_access") as project_dir:
-        result = runner.invoke(
-            [
-                "snowpark",
-                "deploy",
-            ]
-        )
+        result = runner.invoke(["snowpark", "deploy", "."])
 
     assert result.exit_code == 0, result.output
     mock_object_manager.return_value.describe.assert_has_calls(
@@ -153,10 +140,7 @@ def test_deploy_procedure_secrets_without_external_access(
 
     with project_directory("snowpark_procedure_secrets_without_external_access"):
         result = runner.invoke(
-            [
-                "snowpark",
-                "deploy",
-            ],
+            ["snowpark", "deploy", "."],
             catch_exceptions=False,
         )
 
@@ -183,10 +167,7 @@ def test_deploy_procedure_fails_if_integration_does_not_exists(
 
     with project_directory("snowpark_procedure_external_access"):
         result = runner.invoke(
-            [
-                "snowpark",
-                "deploy",
-            ],
+            ["snowpark", "deploy", "."],
             catch_exceptions=False,
         )
 
@@ -216,12 +197,7 @@ def test_deploy_procedure_fails_if_object_exists_and_no_replace(
     )
 
     with project_directory("snowpark_procedures"):
-        result = runner.invoke(
-            [
-                "snowpark",
-                "deploy",
-            ]
-        )
+        result = runner.invoke(["snowpark", "deploy", "."])
 
     assert result.exit_code == 1
     assert result.output == snapshot
@@ -259,7 +235,9 @@ def test_deploy_procedure_replace_nothing_to_update(
     mock_conn.return_value = ctx
 
     with project_directory("snowpark_procedures"):
-        result = runner.invoke(["snowpark", "deploy", "--replace", "--format", "json"])
+        result = runner.invoke(
+            ["snowpark", "deploy", "--replace", "--format", "json", "."]
+        )
 
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == [
@@ -304,7 +282,9 @@ def test_deploy_procedure_replace_updates_single_object(
     mock_conn.return_value = ctx
 
     with project_directory("snowpark_procedures"):
-        result = runner.invoke(["snowpark", "deploy", "--replace", "--format", "json"])
+        result = runner.invoke(
+            ["snowpark", "deploy", "--replace", "--format", "json", "."]
+        )
 
     assert result.exit_code == 0
     assert json.loads(result.output) == [
@@ -342,7 +322,9 @@ def test_deploy_procedure_replace_creates_missing_object(
     mock_conn.return_value = ctx
 
     with project_directory("snowpark_procedures"):
-        result = runner.invoke(["snowpark", "deploy", "--replace", "--format", "json"])
+        result = runner.invoke(
+            ["snowpark", "deploy", "--replace", "--format", "json", "."]
+        )
 
     assert result.exit_code == 0
     assert json.loads(result.output) == [

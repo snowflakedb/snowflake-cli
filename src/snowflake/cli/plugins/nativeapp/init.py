@@ -189,7 +189,7 @@ def _validate_and_update_snowflake_yml(target_directory: Path, project_identifie
     )
 
     # 3. Validate the Project Definition File(s)
-    definition_manager.project_definition
+    _ = definition_manager.project_definition
 
 
 def _generate_project_name_from_path(p: Path):

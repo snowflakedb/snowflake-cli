@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import functools
-import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -25,18 +24,27 @@ class DefinitionManager:
     project_root: Path
     _project_config_paths: List[Path]
 
-    def __init__(self, project_arg: Optional[str] = None) -> None:
-        search_path = os.getcwd()
-        if project_arg:
-            search_path = os.path.abspath(project_arg)
-        project_root = DefinitionManager.find_project_root(Path(search_path))
-        if not project_root:
-            raise MissingConfiguration(
-                f"Cannot find project definition (snowflake.yml). Please provide a path to the project or run this command in a valid project directory."
-            )
-
+    def __init__(
+        self, project_root: Path, project_files: List[Path] | None = None
+    ) -> None:
+        """
+        :param project_root: project root where the project lives
+        :param project_files: List of project definition files, relative to project root
+        """
         self.project_root = project_root
-        self._project_config_paths = self._find_definition_files(self.project_root)
+
+        if project_files is None:
+            project_files = self._find_definition_files(self.project_root)
+        else:
+            project_files = [self.project_root / p for p in project_files]
+
+        for project_file in project_files:
+            if not project_file.is_file():
+                raise MissingConfiguration(
+                    f"Cannot find project definition ({project_file}) in {project_root}."
+                )
+
+        self._project_config_paths = project_files
 
     @staticmethod
     def _find_definition_files(project_root: Path) -> List[Path]:
