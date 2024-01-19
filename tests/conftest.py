@@ -4,8 +4,11 @@ import logging
 
 import pytest
 from snowflake.cli.api.cli_global_context import cli_context_manager
+from snowflake.cli.api.commands.decorators import global_options
 from snowflake.cli.api.config import config_init
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.app import loggers
+from snowflake.cli.app.cli_app import app
 
 
 pytest_plugins = ["tests.testing_utils.fixtures", "tests.project.fixtures"]
@@ -51,3 +54,15 @@ def clean_logging_handlers():
         handlers = [hdl for hdl in getattr(logger, "handlers", [])]
         for handler in handlers:
             logger.removeHandler(handler)
+
+
+@pytest.fixture(name="faker_app")
+def make_faker_app():
+    @app.command("Faker")
+    @global_options
+    def faker_app(**options):
+        """Faker app"""
+        cli_console.phase("Faker. Phase UNO.")
+        cli_console.step("Faker. Teeny Tiny step: UNO UNO")
+
+    yield
