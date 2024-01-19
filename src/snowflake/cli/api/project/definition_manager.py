@@ -25,12 +25,15 @@ class DefinitionManager:
     _project_config_paths: List[Path]
 
     def __init__(
-        self, project_root: Path, project_files: List[Path] | None = None
+        self, project_root: Path | None = None, project_files: List[Path] | None = None
     ) -> None:
         """
         :param project_root: project root where the project lives
         :param project_files: List of project definition files, relative to project root
         """
+        if project_root is None:
+            project_root = Path.cwd()
+
         self.project_root = project_root
 
         if project_files is None:

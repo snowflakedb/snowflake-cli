@@ -147,7 +147,7 @@ class SnowparkTestSteps:
         )
         assert result.json is not None
 
-    def snowpark_build_should_zip_files(self, project_root: str | Path = ".") -> None:
+    def snowpark_build_should_zip_files(self) -> None:
         current_files = set(Path(".").glob("**/*"))
         result = self._setup.runner.invoke_json(
             [
@@ -157,7 +157,6 @@ class SnowparkTestSteps:
                 "yes",
                 "--format",
                 "JSON",
-                str(project_root),
             ]
         )
 
@@ -183,19 +182,18 @@ class SnowparkTestSteps:
         self,
         expected_result: List[Dict[str, str]],
         additional_arguments: List[str] = [],
-        project_root: str = ".",
     ):
-        self._run_deploy(
-            expected_result, additional_arguments, project_root=project_root
-        )
+        self._run_deploy(expected_result, additional_arguments)
 
     def _run_deploy(
         self,
         expected_result: List[Dict[str, str]],
         additional_arguments: List[str] = [],
-        project_root: str = ".",
     ):
-        arguments = ["snowpark", "deploy", str(project_root)]
+        arguments = [
+            "snowpark",
+            "deploy",
+        ]
 
         if additional_arguments:
             arguments.append(*additional_arguments)
@@ -208,7 +206,10 @@ class SnowparkTestSteps:
         self, message_contains: str
     ):
         result = self._setup.runner.invoke_with_connection_json(
-            ["snowpark", "deploy", "."]
+            [
+                "snowpark",
+                "deploy",
+            ]
         )
         assert_that_result_is_error(result, 1)
         assert result.output and result.output.__contains__(message_contains)

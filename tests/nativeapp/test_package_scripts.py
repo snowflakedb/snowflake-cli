@@ -19,15 +19,14 @@ from tests.project.fixtures import *
 from tests.testing_utils.fixtures import *
 
 
-def _get_na_manager(working_dir, project_files: Optional[List[Path]] = None):
-    dm = DefinitionManager(project_root=Path(working_dir), project_files=project_files)
+def _get_na_manager(working_dir):
+    dm = DefinitionManager(Path(working_dir))
     return NativeAppRunProcessor(
         project_definition=dm.project_definition["native_app"],
         project_root=dm.project_root,
     )
 
 
-@mock.patch.dict(os.environ, {"USER": "polly"})
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock_connection()
@@ -48,9 +47,7 @@ def test_package_scripts(
 ):
     mock_conn.return_value = MockConnectionCtx()
     working_dir: Path = project_definition_files[0].parent
-    native_app_manager = _get_na_manager(
-        str(working_dir), project_files=project_definition_files
-    )
+    native_app_manager = _get_na_manager(str(working_dir))
     native_app_manager._apply_package_scripts()
     assert mock_execute_query.mock_calls == [
         mock.call(expected_call),

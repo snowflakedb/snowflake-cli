@@ -61,7 +61,7 @@ def with_project_definition(project_name: str):
                 inspect.Parameter(
                     "project_directory",
                     inspect.Parameter.KEYWORD_ONLY,
-                    annotation=str,
+                    annotation=Optional[str],
                     default=project_root_option(project_name),
                 ),
                 inspect.Parameter(

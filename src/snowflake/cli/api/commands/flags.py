@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -224,15 +223,16 @@ def execution_identifier_argument(sf_object: str, example: str) -> typer.Argumen
 
 def project_root_option(project_name: str):
     def _callback(project_root: Path):
+        if project_root is None:
+            project_root = Path.cwd()
         resolved_path = Path(project_root).resolve()
         cli_context_manager.set_project_root(resolved_path)
-        # Change working directory
-        os.chdir(resolved_path)
         return project_root
 
-    return typer.Argument(
+    return typer.Option(
         None,
-        help=f"Path where the {project_name.replace('_', ' ').capitalize()} project resides.",
+        "--project-root",
+        help=f"Path where the {project_name.replace('_', ' ').capitalize()} project resides. Default to current working directory.",
         callback=_callback,
         click_type=click.Path(exists=True, file_okay=False, dir_okay=True),
         show_default=False,
@@ -264,7 +264,6 @@ def project_definition_option(project_name: str):
 
     return typer.Option(
         "snowflake.yml",
-        "-f",
         "--project-file",
         help="Path to project file to use. Should be relative to project root directory.",
         callback=_callback,
