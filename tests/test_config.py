@@ -106,3 +106,16 @@ def test_get_all_connections(test_snowcli_config):
             "warehouse": "dev_warehouse",
         },
     }
+
+
+@mock.patch("snowflake.cli.api.config.CONFIG_MANAGER")
+def test_create_default_config_if_not_exists(mock_config_manager):
+
+    with TemporaryDirectory() as tmp_dir:
+        config_path = Path(f"{tmp_dir}/snowflake/config.toml")
+        mock_config_manager.file_path = config_path
+        mock_config_manager.conf_file_cache = {}
+
+        config_init(None)
+
+        assert config_path.exists()
