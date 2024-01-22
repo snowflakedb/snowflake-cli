@@ -53,7 +53,9 @@ class ServiceManager(SqlExecutionMixin):
 
         if comment:
             query.append(f"COMMENT = {comment}")
-        return self._execute_schema_query("\n".join(query))
+
+        query = "\n".join([q.strip() for q in query if q.strip()])
+        return self._execute_schema_query(query)
 
     def _read_yaml(self, path: Path) -> str:
         # TODO(aivanou): Add validation towards schema

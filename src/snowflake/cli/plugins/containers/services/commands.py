@@ -40,7 +40,7 @@ def create(
             exists=True,
         ),
         num_instances: int = typer.Option(1, "--num-instances", help="Number of instances"),
-        auto_resume: bool = typer.Option(False, "--auto-resume",
+        auto_resume: bool = typer.Option(True, "--auto-resume/--no-auto-resume",
                                          help="The service will automatically resume when a service function or ingress is called."),
         external_access_integrations: Optional[List[str]] = typer.Option(None, "--eai-name",
                                                                          help="Identifies External Access Integrations(EAI) that the service can access. This option may be specified multiple times for multiple EAIs."),

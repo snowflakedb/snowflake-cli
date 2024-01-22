@@ -37,8 +37,8 @@ def test_create_service(mock_execute_schema_query, other_directory):
     auto_resume = True
     external_access_integrations = ["google_apis_access_integration", "salesforce_api_access_integration"]
     query_warehouse = "test_warehouse"
-    tags = [Tag("test_tag", "test value"), Tag("key", "value")]
-    comment = "user's comment"
+    tags = [Tag("test_tag", "'test value'"), Tag("key", "'value'")]
+    comment = "'user\\'s comment'"
 
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_schema_query.return_value = cursor
