@@ -160,7 +160,7 @@ def app_open(
     **options,
 ) -> CommandResult:
     """
-    Opens the (development mode) application inside of your browser,
+    Opens the application inside of your browser,
     once it has been installed in your account.
     """
     manager = NativeAppManager(

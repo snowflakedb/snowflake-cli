@@ -79,7 +79,8 @@ def test_sync_deploy_root_with_stage(
         mock.call(
             f"""
                     create stage if not exists app_pkg.app_src.stage
-                    encryption = (TYPE = 'SNOWFLAKE_SSE')"""
+                    encryption = (TYPE = 'SNOWFLAKE_SSE')
+                    DIRECTORY = (ENABLE = TRUE)"""
         ),
         mock.call("use role old_role"),
     ]

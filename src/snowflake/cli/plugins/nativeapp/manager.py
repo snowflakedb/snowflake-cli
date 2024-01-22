@@ -266,7 +266,8 @@ class NativeAppManager(SqlExecutionMixin):
             self._execute_query(
                 f"""
                     create stage if not exists {self.stage_fqn}
-                    encryption = (TYPE = 'SNOWFLAKE_SSE')"""
+                    encryption = (TYPE = 'SNOWFLAKE_SSE')
+                    DIRECTORY = (ENABLE = TRUE)"""
             )
 
         # Perform a diff operation and display results to the user for informational purposes

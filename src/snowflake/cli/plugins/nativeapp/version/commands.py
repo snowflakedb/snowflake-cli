@@ -40,12 +40,12 @@ log = logging.getLogger(__name__)
 def create(
     version: Optional[str] = typer.Argument(
         None,
-        help=f"""Version of the app package that you would like to create a version or patch for. Defaults to the version specified in the `manifest.yml` file.""",
+        help=f"""Version of the app package for which you want to a version or patch. Defaults to the version specified in the `manifest.yml` file.""",
     ),
     patch: Optional[str] = typer.Option(
         None,
         "--patch",
-        help=f"""The patch number you would like to create for an existing version.
+        help=f"""The patch number you want to create for an existing version.
         Defaults to undefined if it is not set, which means the CLI either uses the patch specified in the `manifest.yml` file or automatically generates a new patch number.""",
     ),
     skip_git_check: Optional[bool] = typer.Option(
