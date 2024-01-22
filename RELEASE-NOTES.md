@@ -11,6 +11,7 @@
 * Switched to Python Connector default connection https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect#setting-a-default-connection
   * Default connection name changed from `dev` to `default`
   * Environment variable for default connection name changed from `SNOWFLAKE_OPTIONS_DEFAULT_CONNECTION` to `SNOWFLAKE_DEFAULT_CONNECTION_NAME`
+* `snow spcs pool create` and `snow spcs service create` have been updated with all options available through SQL interface.
 
 * Snowpark changes
   * Removed `procedure` and `function` subgroups.

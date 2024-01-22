@@ -35,3 +35,7 @@ def print_log_lines(file: TextIO, name, identifier, logs):
     logs = logs[0:-1]
     for log in logs:
         print(_prefix_line(prefix, log + "\n"), file=file, end="", flush=True)
+
+
+def strip_empty_lines(lines: list[str]) -> str:
+    return "\n".join(stripped for l in lines if (stripped := l.strip()))
