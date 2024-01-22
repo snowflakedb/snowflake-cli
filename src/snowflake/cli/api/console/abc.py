@@ -3,6 +3,7 @@ from typing import Callable
 
 from snowflake.cli.api.cli_global_context import _CliGlobalContextAccess
 from snowflake.cli.api.console.context import CliConsoleContext
+from snowflake.cli.api.console.enum import Output
 
 
 class AbstractConsole(ABC):
@@ -13,15 +14,14 @@ class AbstractConsole(ABC):
     - `step` for more detailed informations on step
     """
 
-    _ctx: CliConsoleContext
+    _context: CliConsoleContext
     _print_fn: Callable
     _cli_context: _CliGlobalContextAccess
 
-    def __init__(self, print_fn: Callable, cli_context: _CliGlobalContextAccess):
+    def __init__(self, cli_context: _CliGlobalContextAccess):
         super().__init__()
-        self._ctx = CliConsoleContext()
+        self._context = CliConsoleContext()
         self._cli_context = cli_context
-        self._print_fn = print_fn
 
     @property
     def is_silent(self) -> bool:
@@ -31,12 +31,7 @@ class AbstractConsole(ABC):
     @property
     def should_indent_output(self) -> bool:
         """Informs if intermediate output is intended or not."""
-        return self._ctx.is_in_phase
-
-    def _print(self, message: str):
-        if self.is_silent:
-            return
-        self._print_fn(message)
+        return self._context.is_in_phase
 
     @abstractmethod
     def phase(self, message: str):
@@ -47,3 +42,6 @@ class AbstractConsole(ABC):
     def step(self, message: str):
         """Prints message according to _should_indent_output flag."""
         ...
+
+    def register_output(self, output: Output, /, **kwargs):
+        self._context.push(output)

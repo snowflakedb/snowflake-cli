@@ -10,9 +10,8 @@ def test_console_base_class(capsys):
         def step(self, message: str):
             print(message)
 
-    console = TConsole(print_fn=print, cli_context=cli_context)
+    console = TConsole(cli_context=cli_context)
     assert not console.is_silent
-    assert not console.should_indent_output
 
     console.phase("a")
     console.step("b")

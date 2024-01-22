@@ -9,7 +9,7 @@ from snowflake.cli.api.console.console import CliConsole
 
 @pytest.fixture(name="cli_console")
 def make_cli_console() -> Generator[CliConsole, None, None]:
-    console = CliConsole(print_fn=print, cli_context=cli_context)
+    console = CliConsole(cli_context=cli_context)
     yield console
 
 
