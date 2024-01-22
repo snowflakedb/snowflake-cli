@@ -6,8 +6,7 @@ from click import ClickException
 import pytest
 import strictyaml
 from snowflake.cli.plugins.containers.services.manager import ServiceManager
-from snowflake.cli.plugins.containers.services.commands import _parse_tag
-
+from snowflake.cli.plugins.object.common import Tag
 from tests.testing_utils.fixtures import *
 
 
@@ -38,7 +37,7 @@ def test_create_service(mock_execute_schema_query, other_directory):
     auto_resume = True
     external_access_integrations = ["google_apis_access_integration", "salesforce_api_access_integration"]
     query_warehouse = "test_warehouse"
-    tags = [("test_tag", "test value"), ("key", "value")]
+    tags = [Tag("test_tag", "test value"), Tag("key", "value")]
     comment = "user's comment"
 
     cursor = Mock(spec=SnowflakeCursor)
@@ -85,14 +84,14 @@ def test_create_service_with_invalid_spec(mock_read_yaml):
         )
 
 
-@patch("snowflake.cli.plugins.containers.services.commands._parse_tag")
+@patch("snowflake.cli.plugins.object.common._parse_tag")
 @patch("snowflake.cli.plugins.containers.services.manager.ServiceManager._read_yaml")
 def test_create_service_with_invalid_tag(mock_parse_tag, mock_read_yaml):
     service_name = "test_service"
     compute_pool = "test_pool"
     spec_path = "/path/to/spec.yaml"
     num_instances = 42
-    tags = [("test name", "test_value")]
+    tags = [Tag("test name", "test_value")]
     external_access_integrations = query_warehouse = comment = None
     auto_resume = False
     mock_parse_tag.side_effect = ClickException("Invalid Tag")
@@ -103,32 +102,7 @@ def test_create_service_with_invalid_tag(mock_parse_tag, mock_read_yaml):
         )
 
 
-INVALID_TAGS = (
-    "123_name=value",  # starts with a digit
-    "tag name=value",  # space in identifier
-    "tag&_name=value",  # special characters in identifier
-    "tag",  # no equals sign
-    "=value",  # empty identifier
-    'a' * 257 + '=value'  # identifier is over 256 characters
-)
-VALID_TAGS = (
-    ("tag=value", ("tag", "value")),
-    ("_underscore_start=value", ("_underscore_start", "value")),
-    ("a=xyz", ("a", "xyz")),
-    ("A=123", ("A", "123")),
-    ("mixedCase=value", ("mixedCase", "value")),
-    ("_=value", ("_", "value")),
-    ("tag='this is a value'", ("tag", "'this is a value'")),
-    ("tag==value", ("tag", "=value"))  # This is a strange case which we may not actually want to support
-)
 
-
-def test_parse_tag():
-    for tag in INVALID_TAGS:
-        with pytest.raises(ValueError):
-            _parse_tag(tag)
-    for tag in VALID_TAGS:
-        assert tag[1] == _parse_tag(tag[0])
 
 
 @patch(

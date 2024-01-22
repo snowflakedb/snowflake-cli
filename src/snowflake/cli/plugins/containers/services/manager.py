@@ -6,6 +6,8 @@ from snowflake.connector.cursor import SnowflakeCursor
 
 from snowflake.cli.api.project.util import to_string_literal
 
+from snowflake.cli.plugins.object.common import Tag
+
 class ServiceManager(SqlExecutionMixin):
 
     def create(
@@ -17,7 +19,7 @@ class ServiceManager(SqlExecutionMixin):
             auto_resume: bool,
             external_access_integrations: Optional[List[str]],
             query_warehouse: Optional[str],
-            tags: Optional[List[Tuple[str, str]]],
+            tags: Optional[List[Tag]],
             comment: Optional[str]
     ) -> SnowflakeCursor:
         spec = self._read_yaml(spec_path)
@@ -45,12 +47,12 @@ class ServiceManager(SqlExecutionMixin):
 
         if tags:
             tag_list = ",".join(
-                f"{tag_name}={to_string_literal(tag_value)}" for tag_name, tag_value in tags
+                f"{t.name}={t.value}" for t in tags
             )
             query.append(f"TAG ({tag_list})")
 
         if comment:
-            query.append(f"COMMENT = {to_string_literal(comment)}")
+            query.append(f"COMMENT = {comment}")
         return self._execute_schema_query("\n".join(query))
 
     def _read_yaml(self, path: Path) -> str:
