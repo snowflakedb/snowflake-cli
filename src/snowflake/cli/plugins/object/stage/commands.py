@@ -93,7 +93,7 @@ def copy(
             overwrite=overwrite,
             parallel=parallel,
         )
-    return SingleQueryResult(cursor)
+    return QueryResult(cursor)
 
 
 @app.command("create")

@@ -23,3 +23,34 @@
   
   '''
 # ---
+# name: test_stage_print_result_for_get_all_files_from_stage
+  '''
+  SELECT A MOCK QUERY
+  +-----------------------------------------+
+  | file      | size | status     | message |
+  |-----------+------+------------+---------|
+  | file1.txt | 10   | DOWNLOADED |         |
+  | file2.txt | 10   | DOWNLOADED |         |
+  | file3.txt | 10   | DOWNLOADED |         |
+  +-----------------------------------------+
+  
+  '''
+# ---
+# name: test_stage_print_result_for_put_directory
+  '''
+  SELECT A MOCK QUERY
+  +------------------------------------------------------------------------------+
+  |         |         |         |         | source_ | target_ |         |        |
+  |         |         | source_ | target_ | compres | compres |         | messag |
+  | source  | target  | size    | size    | sion    | sion    | status  | e      |
+  |---------+---------+---------+---------+---------+---------+---------+--------|
+  | file1.t | file1.t | 10      | 8       | NONE    | NONE    | UPLOADE |        |
+  | xt      | xt      |         |         |         |         | D       |        |
+  | file2.t | file2.t | 10      | 8       | NONE    | NONE    | UPLOADE |        |
+  | xt      | xt      |         |         |         |         | D       |        |
+  | file3.t | file3.t | 10      | 8       | NONE    | NONE    | UPLOADE |        |
+  | xt      | xt      |         |         |         |         | D       |        |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
