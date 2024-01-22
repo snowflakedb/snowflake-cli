@@ -16,19 +16,27 @@ class TestComputePoolManager(unittest.TestCase):
         pool_name = "test_pool"
         num_instances = 2
         instance_family = "test_family"
+        auto_resume = True
+        initially_suspended = False
+        auto_suspend_secs = 7200
+        comment = "'test comment'"
         cursor = Mock(spec=SnowflakeCursor)
         mock_execute_query.return_value = cursor
         result = self.compute_pool_manager.create(
-            pool_name, num_instances, instance_family
+            pool_name, num_instances, instance_family, auto_resume, initially_suspended, auto_suspend_secs, comment
         )
-        expected_query = (
-            "CREATE COMPUTE POOL test_pool "
-            "MIN_NODES = 2 "
-            "MAX_NODES = 2 "
-            "INSTANCE_FAMILY = test_family;"
-        )
+        expected_query = " ".join([
+            "CREATE COMPUTE POOL test_pool",
+            "MIN_NODES = 2",
+            "MAX_NODES = 2",
+            "INSTANCE_FAMILY = test_family",
+            "AUTO_RESUME = True",
+            "INITIALLY_SUSPENDED = False",
+            "AUTO_SUSPEND_SECS = 7200",
+            "COMMENT = 'test comment'"
+        ])
         actual_query = " ".join(
-            mock_execute_query.mock_calls[0].args[0].replace("\n", "").split()
+            mock_execute_query.mock_calls[0].args[0].split()
         )
         self.assertEqual(expected_query, actual_query)
         self.assertEqual(result, cursor)
