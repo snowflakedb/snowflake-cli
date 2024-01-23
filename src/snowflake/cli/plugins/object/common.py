@@ -1,5 +1,7 @@
 from dataclasses import dataclass
-from snowflake.cli.api.project.util import QUOTED_IDENTIFIER_REGEX, UNQUOTED_IDENTIFIER_REGEX, to_string_literal
+from typing import Optional
+
+from snowflake.cli.api.project.util import QUOTED_IDENTIFIER_REGEX, UNQUOTED_IDENTIFIER_REGEX, to_string_literal, is_valid_identifier, is_valid_string_literal
 
 from click import ClickException
 
@@ -11,6 +13,13 @@ class Tag:
     name: str
     value: str
 
+    def __post_init__(self):
+        if not is_valid_identifier(self.name):
+            raise ValueError("name of a tag must be a valid snowflake identifier")
+
+    def value_string_literal(self):
+        return to_string_literal(self.value)
+
 
 def _parse_tag(tag: str) -> Tag:
     import re
@@ -18,23 +27,33 @@ def _parse_tag(tag: str) -> Tag:
     value_pattern = re.compile(f"(?P<tag_value>.+)")
     match = re.fullmatch(f"{identifier_pattern.pattern}={value_pattern.pattern}", tag)
     if match is not None:
-        return Tag(match.group('tag_name'), to_string_literal(match.group('tag_value')))
+        try:
+            return Tag(match.group('tag_name'), match.group('tag_value'))
+        except ValueError:
+            raise ClickException(
+                "tag must be in the format <name>=<value> where 'name' is a valid identifier and value is a string")
     else:
         raise ClickException(
-            "tag must be in the format <tag_name>=<tag_value> where tag_name is a valid unquoted identifier and tag_value is a string")
+            "tag must be in the format <name>=<value> where 'name' is a valid identifier and value is a string")
 
+def tag_option(object_type: str):
+    """
+    Provides a common interface for all commands that accept a tag option (e.g. when altering the tag of an object).
+    Parses the input string in the format "name=value" into a Tag object with 'name' and 'value' properties.
+    """
+    return typer.Option(None, "--tag", help=f"Tag for the {object_type}", parser=_parse_tag, metavar="NAME=VALUE")
+
+def _comment_callback(comment: Optional[str]):
+    if comment is None:
+        return comment
+    return to_string_literal(comment)
 
 def comment_option(object_type: str):
     """
     Provides a common interface for all commands that accept a comment option (e.g. when creating a new object).
     Parses the input string into a string literal.
     """
-    return typer.Option(None, "--comment", help=f"Comment for the {object_type}", callback=to_string_literal)
+    return typer.Option(None, "--comment", help=f"Comment for the {object_type}", callback=_comment_callback)
 
 
-def tag_option(object_type: str):
-    """
-    Provides a common interface for all commands that accept a tag option (e.g. when altering the tag of an object).
-    Parses the input string in the format "tag_name=tag_value" into a Tag object with 'name' and 'value' properties.
-    """
-    return typer.Option(None, "--tag", help=f"Tag for the {object_type}", parser=_parse_tag)
+
