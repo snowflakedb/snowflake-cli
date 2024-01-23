@@ -3,8 +3,8 @@
 schema = "public"
 
 
-[snowcli.plugins.snowpark-hello]
+[cli.plugins.snowpark-hello]
 enabled = true
 
-[snowcli.plugins.snowpark-hello.config]
+[cli.plugins.snowpark-hello.config]
 greeting = "Hello"
