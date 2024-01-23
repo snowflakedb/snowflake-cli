@@ -4,8 +4,6 @@ from typing import List, Optional, Tuple
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
-from snowflake.cli.api.project.util import to_string_literal
-
 from snowflake.cli.plugins.object.common import Tag
 
 class ServiceManager(SqlExecutionMixin):
@@ -47,7 +45,7 @@ class ServiceManager(SqlExecutionMixin):
 
         if tags:
             tag_list = ",".join(
-                f"{t.name}={t.value}" for t in tags
+                f"{t.name}={t.value_string_literal()}" for t in tags
             )
             query.append(f"TAG ({tag_list})")
 
