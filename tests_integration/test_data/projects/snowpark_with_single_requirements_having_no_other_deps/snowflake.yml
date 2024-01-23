@@ -1,0 +1,12 @@
+definition_version: 1
+snowpark:
+  project_name: "my_snowpark_project"
+  stage_name: "TEST"
+  src: "app/"
+  functions:
+    - name: test_func
+      handler: "functions.hello_function"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
