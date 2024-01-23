@@ -15,6 +15,7 @@ from snowflake.cli.plugins.connection.util import (
 )
 from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.errors import ProgrammingError
 
 log = logging.getLogger(__name__)
 
@@ -112,7 +113,13 @@ class StreamlitManager(SqlExecutionMixin):
                 query_warehouse=query_warehouse,
                 experimental=True,
             )
-            self._execute_query(f"ALTER streamlit {streamlit_name} CHECKOUT")
+            try:
+                self._execute_query(f"ALTER streamlit {streamlit_name} CHECKOUT")
+            except ProgrammingError as e:
+                # Handle case that CHECKOUT has already been created
+                if "Checkout already exists" not in str(e):
+                    raise
+                log.info("Checkout already exists, continuing")
             stage_path = stage_manager.to_fully_qualified_name(streamlit_name)
             embedded_stage_name = f"snow://streamlit/{stage_path}"
             root_location = f"{embedded_stage_name}/default_checkout"
