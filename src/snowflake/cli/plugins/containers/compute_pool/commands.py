@@ -32,7 +32,7 @@ def create(
     ),
     auto_resume: bool = typer.Option(True, "--auto-resume/--no-auto-resume", help="The compute pool will automatically resume when a service or job is submitted to it."),
     initially_suspended: bool = typer.Option(False, "--init-suspend", help="The compute pool will start in a suspended state."),
-    auto_suspend_secs: int = typer.Option(3600, "--auto-suspend", help="Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool."),
+    auto_suspend_secs: int = typer.Option(3600, "--auto-suspend-secs", help="Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool."),
     comment: Optional[str] = comment_option("compute pool"),
     **options,
 ) -> CommandResult:
