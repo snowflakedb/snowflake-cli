@@ -12,7 +12,7 @@ INVALID_TAGS = (
     "tag",  # no equals sign
     "=value",  # empty identifier
     "a" * 257 + "=value",  # identifier is over 256 characters
-    '"tag"name"=value'  # undoubled quote in tag name
+    '"tag"name"=value',  # undoubled quote in tag name
 )
 VALID_TAGS = (
     ("tag=value", ("tag", "value")),
@@ -22,8 +22,14 @@ VALID_TAGS = (
     ("mixedCase=value", ("mixedCase", "value")),
     ("_=value", ("_", "value")),
     ("tag='this is a value'", ("tag", "'this is a value'")),
-    ("\"tag name!@#\"=value", ("\"tag name!@#\"", "value")),  # quoted identifier allows for spaces and special characters
-    ("tag==value", ("tag", "=value"))  # This is a strange case which we may not actually want to support
+    (
+        '"tag name!@#"=value',
+        ('"tag name!@#"', "value"),
+    ),  # quoted identifier allows for spaces and special characters
+    (
+        "tag==value",
+        ("tag", "=value"),
+    ),  # This is a strange case which we may not actually want to support
 )
 
 

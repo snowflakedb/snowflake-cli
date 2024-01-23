@@ -6,7 +6,14 @@ from snowflake.connector.cursor import SnowflakeCursor
 
 class ComputePoolManager(SqlExecutionMixin):
     def create(
-        self, pool_name: str, num_instances: int, instance_family: str, auto_resume: bool, initially_suspended: bool, auto_suspend_secs: int, comment: Optional[str]
+        self,
+        pool_name: str,
+        num_instances: int,
+        instance_family: str,
+        auto_resume: bool,
+        initially_suspended: bool,
+        auto_suspend_secs: int,
+        comment: Optional[str],
     ) -> SnowflakeCursor:
         query = f"""\
             CREATE COMPUTE POOL {pool_name}
@@ -16,13 +23,13 @@ class ComputePoolManager(SqlExecutionMixin):
             AUTO_RESUME = {auto_resume}
             INITIALLY_SUSPENDED = {initially_suspended}
             AUTO_SUSPEND_SECS = {auto_suspend_secs}
-            """.split("\n")
+            """.split(
+            "\n"
+        )
         if comment:
             query.append(f"COMMENT = {comment}")
-        query = "\n".join([q.strip() for q in query if q.strip()])
-        return self._execute_query(
-            query
-        )
+        query_string = "\n".join([q.strip() for q in query if q.strip()])
+        return self._execute_query(query_string)
 
     def stop(self, pool_name: str) -> SnowflakeCursor:
         return self._execute_query(f"alter compute pool {pool_name} stop all;")

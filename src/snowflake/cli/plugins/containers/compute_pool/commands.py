@@ -30,9 +30,21 @@ def create(
         "--family",
         help="Name of the instance family. For more information about instance families, refer to the SQL CREATE COMPUTE POOL command.",
     ),
-    auto_resume: bool = typer.Option(True, "--auto-resume/--no-auto-resume", help="The compute pool will automatically resume when a service or job is submitted to it."),
-    initially_suspended: bool = typer.Option(False, "--init-suspend", help="The compute pool will start in a suspended state."),
-    auto_suspend_secs: int = typer.Option(3600, "--auto-suspend-secs", help="Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool."),
+    auto_resume: bool = typer.Option(
+        True,
+        "--auto-resume/--no-auto-resume",
+        help="The compute pool will automatically resume when a service or job is submitted to it.",
+    ),
+    initially_suspended: bool = typer.Option(
+        False,
+        "--init-suspend",
+        help="The compute pool will start in a suspended state.",
+    ),
+    auto_suspend_secs: int = typer.Option(
+        3600,
+        "--auto-suspend-secs",
+        help="Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool.",
+    ),
     comment: Optional[str] = comment_option("compute pool"),
     **options,
 ) -> CommandResult:
@@ -40,7 +52,13 @@ def create(
     Creates a compute pool with a specified number of instances.
     """
     cursor = ComputePoolManager().create(
-        pool_name=name, num_instances=num_instances, instance_family=instance_family, auto_resume=auto_resume, initially_suspended=initially_suspended, auto_suspend_secs=auto_suspend_secs, comment=comment
+        pool_name=name,
+        num_instances=num_instances,
+        instance_family=instance_family,
+        auto_resume=auto_resume,
+        initially_suspended=initially_suspended,
+        auto_suspend_secs=auto_suspend_secs,
+        comment=comment,
     )
     return SingleQueryResult(cursor)
 

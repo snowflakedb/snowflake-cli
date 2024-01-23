@@ -1,9 +1,8 @@
 import sys
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import typer
-
 from snowflake.cli.api.commands.decorators import (
     global_options_with_connection,
     with_output,
@@ -16,7 +15,7 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.plugins.containers.common import print_log_lines
 from snowflake.cli.plugins.containers.services.manager import ServiceManager
-from snowflake.cli.plugins.object.common import tag_option, comment_option, Tag
+from snowflake.cli.plugins.object.common import Tag, comment_option, tag_option
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -29,26 +28,35 @@ app = typer.Typer(
 @with_output
 @global_options_with_connection
 def create(
-        name: str = typer.Option(..., "--name", help="Job Name"),
-        compute_pool: str = typer.Option(..., "--compute-pool", help="Compute Pool"),
-        spec_path: Path = typer.Option(
-            ...,
-            "--spec-path",
-            help="Spec Path",
-            file_okay=True,
-            dir_okay=False,
-            exists=True,
-        ),
-        num_instances: int = typer.Option(1, "--num-instances", help="Number of instances"),
-        auto_resume: bool = typer.Option(True, "--auto-resume/--no-auto-resume",
-                                         help="The service will automatically resume when a service function or ingress is called."),
-        external_access_integrations: Optional[List[str]] = typer.Option(None, "--eai-name",
-                                                                         help="Identifies External Access Integrations(EAI) that the service can access. This option may be specified multiple times for multiple EAIs."),
-        query_warehouse: Optional[str] = typer.Option(None, "--query-warehouse",
-                                                      help="Warehouse to use if a service container connects to Snowflake to execute a query but does not explicitly specify a warehouse to use."),
-        tags: Optional[List[Tag]] = tag_option("service"),
-        comment: Optional[str] = comment_option("service"),
-        **options,
+    name: str = typer.Option(..., "--name", help="Job Name"),
+    compute_pool: str = typer.Option(..., "--compute-pool", help="Compute Pool"),
+    spec_path: Path = typer.Option(
+        ...,
+        "--spec-path",
+        help="Spec Path",
+        file_okay=True,
+        dir_okay=False,
+        exists=True,
+    ),
+    num_instances: int = typer.Option(1, "--num-instances", help="Number of instances"),
+    auto_resume: bool = typer.Option(
+        True,
+        "--auto-resume/--no-auto-resume",
+        help="The service will automatically resume when a service function or ingress is called.",
+    ),
+    external_access_integrations: Optional[List[str]] = typer.Option(
+        None,
+        "--eai-name",
+        help="Identifies External Access Integrations(EAI) that the service can access. This option may be specified multiple times for multiple EAIs.",
+    ),
+    query_warehouse: Optional[str] = typer.Option(
+        None,
+        "--query-warehouse",
+        help="Warehouse to use if a service container connects to Snowflake to execute a query without explicitly specifying a warehouse to use.",
+    ),
+    tags: Optional[List[Tag]] = tag_option("service"),
+    comment: Optional[str] = comment_option("service"),
+    **options,
 ) -> CommandResult:
     """
     Creates a new Snowpark Container Services service in the current schema.
@@ -63,7 +71,7 @@ def create(
         auto_resume=auto_resume,
         query_warehouse=query_warehouse,
         tags=tags,
-        comment=comment
+        comment=comment,
     )
     return SingleQueryResult(cursor)
 
