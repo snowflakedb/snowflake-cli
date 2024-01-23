@@ -29,6 +29,7 @@
   * `services` commands were renamed to `service`
   * `pool`, `job` and `service` commands were moved from `snowpark` group to a new `containers` group.
   * `snow snowpark registry` was replaced with `snow registry` command.
+  * `snow services pool create` and `snow containers service create` have been updated with all options available through SQL interface.
 
 * Streamlit changes
   * `snow streamlit deploy` is requiring `snowflake.yml` project file with a Streamlit definition.
