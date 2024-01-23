@@ -118,9 +118,9 @@ def get_connection(connection_name: str) -> dict:
 
 def get_config_section(*path) -> dict:
     section = _find_section(*path)
-    if type(section) is Container:
+    if isinstance(section, Container):
         return {s: _merge_section_with_env(section[s], *path, s) for s in section}
-    elif type(section) is Table:
+    if isinstance(section, dict):
         return _merge_section_with_env(section, *path)
     raise UnsupportedConfigSectionTypeError(type(section))
 
