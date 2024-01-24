@@ -147,17 +147,10 @@ class SnowparkTestSteps:
         )
         assert result.json is not None
 
-    def snowpark_build_should_zip_files(self) -> None:
+    def snowpark_build_should_zip_files(self, *args) -> None:
         current_files = set(Path(".").glob("**/*"))
         result = self._setup.runner.invoke_json(
-            [
-                "snowpark",
-                "build",
-                "--pypi-download",
-                "yes",
-                "--format",
-                "JSON",
-            ]
+            ["snowpark", "build", "--pypi-download", "yes", "--format", "JSON", *args]
         )
 
         assert result.exit_code == 0, result.output

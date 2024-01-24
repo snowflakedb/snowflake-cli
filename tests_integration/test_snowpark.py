@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from tests_integration.testing_utils import (
@@ -190,7 +192,7 @@ def test_snowpark_with_separately_created_package(
 
     _test_steps.artifacts_left_after_package_creation_should_be_deleted("PyRTF3.zip")
 
-    with project_directory("snowpark_with_package") as proj_dir:
+    with project_directory("snowpark_with_package"):
         _test_steps.snowpark_build_should_zip_files()
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
@@ -206,6 +208,85 @@ def test_snowpark_with_separately_created_package(
             object_type="function",
             identifier="test_func('foo')",
             expected_value="<slot wrapper '__str__' of 'object' objects> foo",
+        )
+
+
+@pytest.mark.integration
+def test_snowpark_with_single_dependency_having_no_other_deps(
+    runner, _test_steps, project_directory, alter_snowflake_yml
+):
+
+    with project_directory("snowpark_with_single_requirements_having_no_other_deps"):
+        result = runner.invoke_json(
+            [
+                "snowpark",
+                "build",
+                "--pypi-download",
+                "yes",
+                "--check-anaconda-for-pypi-deps",
+            ]
+        )
+        assert result.exit_code == 0
+
+        packages_dir = Path(".packages")
+
+        assert packages_dir.exists()
+        assert (packages_dir / "dummy_pkg_for_tests").exists()
+
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            [
+                {
+                    "object": "test_func(name string)",
+                    "type": "function",
+                    "status": "created",
+                }
+            ]
+        )
+
+        _test_steps.snowpark_execute_should_return_expected_value(
+            object_type="function",
+            identifier="test_func('foo')",
+            expected_value="We want... a shrubbery!",
+        )
+
+
+@pytest.mark.integration
+def test_snowpark_with_single_requirement_having_transient_deps(
+    runner, _test_steps, project_directory, alter_snowflake_yml
+):
+
+    with project_directory("snowpark_with_single_requirements_having_transient_deps"):
+        result = runner.invoke_json(
+            [
+                "snowpark",
+                "build",
+                "--pypi-download",
+                "yes",
+                "--check-anaconda-for-pypi-deps",
+            ]
+        )
+        assert result.exit_code == 0
+
+        packages_dir = Path(".packages")
+
+        assert packages_dir.exists()
+        assert (packages_dir / "dummy_pkg_for_tests_with_deps").exists()
+        assert (packages_dir / "dummy_pkg_for_tests").exists()  # as transient dep
+
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            [
+                {
+                    "object": "test_func(name string)",
+                    "type": "function",
+                    "status": "created",
+                }
+            ]
+        )
+
+        _test_steps.snowpark_execute_should_return_expected_value(
+            object_type="function",
+            identifier="test_func('foo')",
+            expected_value="['We want... a shrubbery!', 'fishy, fishy, fish!']",
         )
 
 

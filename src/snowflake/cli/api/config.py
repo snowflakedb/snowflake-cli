@@ -24,15 +24,18 @@ class Empty:
     pass
 
 
+CONNECTIONS_SECTION = "connections"
+CLI_SECTION = "cli"
+LOGS_SECTION = "logs"
+PLUGINS_SECTION = "plugins"
+
+LOGS_SECTION_PATH = [CLI_SECTION, LOGS_SECTION]
+PLUGINS_SECTION_PATH = [CLI_SECTION, PLUGINS_SECTION]
+
+
 CONFIG_MANAGER.add_option(
-    name="snowcli",
+    name=CLI_SECTION,
     parse_str=tomlkit.parse,
-    default=dict(),
-)
-CONFIG_MANAGER.add_option(
-    name="logs",
-    parse_str=tomlkit.parse,
-    env_name=False,
     default=dict(),
 )
 
@@ -51,9 +54,9 @@ def config_init(config_file: Optional[Path]):
 
 def add_connection(name: str, parameters: dict):
     conf_file_cache = CONFIG_MANAGER.conf_file_cache
-    if conf_file_cache.get("connections") is None:
-        conf_file_cache["connections"] = {}
-    conf_file_cache["connections"][name] = parameters
+    if conf_file_cache.get(CONNECTIONS_SECTION) is None:
+        conf_file_cache[CONNECTIONS_SECTION] = {}
+    conf_file_cache[CONNECTIONS_SECTION][name] = parameters
     _dump_config(conf_file_cache)
 
 
@@ -63,19 +66,31 @@ _DEFAULT_LOGS_CONFIG = {
     "level": "info",
 }
 
+_DEFAULT_CLI_CONFIG = {LOGS_SECTION: _DEFAULT_LOGS_CONFIG}
+
 
 def _initialise_logs_section():
     CONFIG_MANAGER.read_config()
     conf_file_cache = CONFIG_MANAGER.conf_file_cache
-    if conf_file_cache.get("logs") is None:
-        conf_file_cache["logs"] = _DEFAULT_LOGS_CONFIG
+    if conf_file_cache.get(CLI_SECTION) is None:
+        conf_file_cache[CLI_SECTION] = _DEFAULT_CLI_CONFIG
+    if conf_file_cache[CLI_SECTION].get(LOGS_SECTION) is None:
+        conf_file_cache[CLI_SECTION][LOGS_SECTION] = _DEFAULT_LOGS_CONFIG
     _dump_config(conf_file_cache)
 
 
 def get_logs_config() -> dict:
     logs_config = _DEFAULT_LOGS_CONFIG.copy()
-    logs_config.update(**CONFIG_MANAGER["logs"])
+    if config_section_exists(*LOGS_SECTION_PATH):
+        logs_config.update(**get_config_section(*LOGS_SECTION_PATH))
     return logs_config
+
+
+def get_plugins_config() -> dict:
+    if config_section_exists(*PLUGINS_SECTION_PATH):
+        return get_config_section(*PLUGINS_SECTION_PATH)
+    else:
+        return {}
 
 
 def is_default_logs_path(path: Path) -> bool:
@@ -83,7 +98,7 @@ def is_default_logs_path(path: Path) -> bool:
 
 
 def connection_exists(connection_name: str) -> bool:
-    return config_section_exists("connections", connection_name)
+    return config_section_exists(CONNECTIONS_SECTION, connection_name)
 
 
 def config_section_exists(*path) -> bool:
@@ -96,16 +111,16 @@ def config_section_exists(*path) -> bool:
 
 def get_connection(connection_name: str) -> dict:
     try:
-        return get_config_section("connections", connection_name)
+        return get_config_section(CONNECTIONS_SECTION, connection_name)
     except KeyError:
         raise MissingConfiguration(f"Connection {connection_name} is not configured")
 
 
 def get_config_section(*path) -> dict:
     section = _find_section(*path)
-    if type(section) is Container:
+    if isinstance(section, Container):
         return {s: _merge_section_with_env(section[s], *path, s) for s in section}
-    elif type(section) is Table:
+    if isinstance(section, dict):
         return _merge_section_with_env(section, *path)
     raise UnsupportedConfigSectionTypeError(type(section))
 

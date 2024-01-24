@@ -26,7 +26,7 @@ ConnectionOption = typer.Option(
     "--connection",
     "-c",
     "--environment",
-    help=f"Name of the connection, as defined in your `config.toml`. Default: `dev`.",
+    help=f"Name of the connection, as defined in your `config.toml`. Default: `default`.",
     callback=_callback(
         lambda: cli_context_manager.connection_context.set_connection_name
     ),
