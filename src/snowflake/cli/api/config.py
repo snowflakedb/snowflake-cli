@@ -116,6 +116,11 @@ def get_connection(connection_name: str) -> dict:
         raise MissingConfiguration(f"Connection {connection_name} is not configured")
 
 
+def get_default_connection() -> dict:
+    def_connection_name = CONFIG_MANAGER["default_connection_name"]
+    return get_connection(def_connection_name)
+
+
 def get_config_section(*path) -> dict:
     section = _find_section(*path)
     if isinstance(section, Container):
