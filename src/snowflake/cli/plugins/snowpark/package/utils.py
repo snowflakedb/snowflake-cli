@@ -69,4 +69,4 @@ def prepare_app_zip(file_path: Path, temp_dir: str) -> str:
 
 
 def get_readable_list_of_requirements(reqs: List[Requirement]):
-    return "\n".join(list(map(lambda x: x.line, reqs)))
+    return "\n".join((req.line for req in reqs))
