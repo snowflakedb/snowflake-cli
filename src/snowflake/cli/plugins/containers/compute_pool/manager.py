@@ -23,9 +23,7 @@ class ComputePoolManager(SqlExecutionMixin):
             AUTO_RESUME = {auto_resume}
             INITIALLY_SUSPENDED = {initially_suspended}
             AUTO_SUSPEND_SECS = {auto_suspend_secs}
-            """.split(
-            "\n"
-        )
+            """.splitlines()
         if comment:
             query.append(f"COMMENT = {comment}")
         query_string = "\n".join([q.strip() for q in query if q.strip()])

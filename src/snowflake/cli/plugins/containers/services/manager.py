@@ -31,9 +31,7 @@ class ServiceManager(SqlExecutionMixin):
             MIN_INSTANCES = {num_instances}
             MAX_INSTANCES = {num_instances}
             AUTO_RESUME = {auto_resume}
-            """.split(
-            "\n"
-        )
+            """.splitlines()
 
         if external_access_integrations:
             external_access_integration_list = ",".join(

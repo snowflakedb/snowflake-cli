@@ -31,10 +31,10 @@ def _parse_tag(tag: str) -> Tag:
         f"(?P<tag_name>{UNQUOTED_IDENTIFIER_REGEX}|{QUOTED_IDENTIFIER_REGEX})"
     )
     value_pattern = re.compile(f"(?P<tag_value>.+)")
-    match = re.fullmatch(f"{identifier_pattern.pattern}={value_pattern.pattern}", tag)
-    if match is not None:
+    result = re.fullmatch(f"{identifier_pattern.pattern}={value_pattern.pattern}", tag)
+    if result is not None:
         try:
-            return Tag(match.group("tag_name"), match.group("tag_value"))
+            return Tag(result.group("tag_name"), result.group("tag_value"))
         except ValueError:
             raise ClickException(
                 "tag must be in the format <name>=<value> where 'name' is a valid identifier and value is a string"
