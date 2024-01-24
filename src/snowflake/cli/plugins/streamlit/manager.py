@@ -118,9 +118,10 @@ class StreamlitManager(SqlExecutionMixin):
             except ProgrammingError as e:
                 # If an error is raised because a CHECKOUT has already occured,
                 # simply skip it and continue
-                if "Checkout already exists" not in str(e):
+                if "Checkout already exists" in str(e):
+                    log.info("Checkout already exists, continuing")
+                else:
                     raise
-                log.info("Checkout already exists, continuing")
             stage_path = stage_manager.to_fully_qualified_name(streamlit_name)
             embedded_stage_name = f"snow://streamlit/{stage_path}"
             root_location = f"{embedded_stage_name}/default_checkout"
