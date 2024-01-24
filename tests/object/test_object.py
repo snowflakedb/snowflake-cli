@@ -1,7 +1,11 @@
 from unittest import mock
-
+from tests.testing_utils.fixtures import *
 import pytest
 from snowflake.cli.api.constants import SUPPORTED_OBJECTS
+
+
+def test_min_example(runner):
+    runner.invoke(["object", "test", "min_example", "--name", "hi"])
 
 
 @mock.patch("snowflake.connector.connect")

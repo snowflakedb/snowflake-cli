@@ -35,6 +35,13 @@ LikeOption = typer.Option(
 SUPPORTED_TYPES_MSG = "\n\nSupported types: " + ", ".join(SUPPORTED_OBJECTS)
 
 
+@app.command()
+@with_output
+@global_options_with_connection
+def min_example(name: str = typer.Option(..., "--name", help="Test Input"), **options):
+    return QueryResult(ObjectManager().test())
+
+
 @app.command(
     "list",
     help=f"Lists all available Snowflake objects of given type.{SUPPORTED_TYPES_MSG}",

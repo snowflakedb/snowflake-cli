@@ -14,6 +14,9 @@ def _get_object_names(object_type: str) -> ObjectNames:
 
 
 class ObjectManager(SqlExecutionMixin):
+    def test(self):
+        return self._execute_query("SELECT 1")
+
     def show(
         self, *, object_type: str, like: str | None = None, **kwargs
     ) -> SnowflakeCursor:
