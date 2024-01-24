@@ -12,6 +12,7 @@ import pytest
 import strictyaml
 from snowflake.cli.api.project.definition import merge_left
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.errors import ProgrammingError
 from strictyaml import as_document
 from typer import Typer
 from typer.testing import CliRunner
@@ -82,6 +83,7 @@ class MockConnectionCtx(mock.MagicMock):
         super().__init__(*args, **kwargs)
         self.queries: List[str] = []
         self.cs = cursor
+        self._checkout_count = 0
 
     def get_query(self):
         return "\n".join(self.queries)
@@ -114,6 +116,12 @@ class MockConnectionCtx(mock.MagicMock):
         return "account"
 
     def execute_string(self, query: str, **kwargs):
+        if query.lower().startswith("alter streamlit") and query.lower().endswith(
+            " checkout"
+        ):
+            self._checkout_count += 1
+            if self._checkout_count > 1:
+                raise ProgrammingError("Checkout already exists")
         self.queries.append(query)
         return (self.cs,)
 
