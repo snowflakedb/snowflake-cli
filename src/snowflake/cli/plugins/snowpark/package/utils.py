@@ -3,7 +3,9 @@ from __future__ import annotations
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from typing import List
 
+from requirements.requirement import Requirement
 from snowflake.cli.plugins.snowpark.models import SplitRequirements
 
 
@@ -28,7 +30,8 @@ class RequiresPackages(LookupResult):
     def message(self):
         return f"""The package {self.name} is supported, but does depend on the
                 following Snowflake supported native libraries. You should
-                include the following in your packages: {self.requirements.snowflake}"""
+                include the following in your packages:
+                {get_readable_list_of_requirements(self.requirements.snowflake)}"""
 
 
 class NotInAnaconda(LookupResult):
@@ -63,3 +66,7 @@ def prepare_app_zip(file_path: Path, temp_dir: str) -> str:
     temp_path = temp_dir + "/" + file_name
     shutil.copy(file_path, temp_path)
     return temp_path
+
+
+def get_readable_list_of_requirements(reqs: List[Requirement]):
+    return "\n".join(list(map(lambda x: x.line, reqs)))

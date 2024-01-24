@@ -285,7 +285,7 @@ def test_deduplicate_and_sort_reqs():
     assert sorted_packages[0].specs == [("==", "0.9.5")]
 
 
-@mock.patch("platform.system")
+@patch("platform.system")
 @pytest.mark.parametrize(
     "argument, expected",
     [
@@ -302,9 +302,9 @@ def test_path_resolver(mock_system, argument, expected):
     assert path_utils.path_resolver(argument) == expected
 
 
-@mock.patch("snowflake.cli.plugins.snowpark.package_utils._run_pip_install")
-def test_pip_fail_message(mock_pip, correct_requirements_txt, caplog):
-    mock_pip.return_value = 42
+@patch("snowflake.cli.plugins.snowpark.package_utils.PackageInstaller")
+def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
+    mock_installer.return_value.run_pip_install.return_value = 42
 
     with caplog.at_level(logging.INFO, "snowflake.cli.plugins.snowpark.package_utils"):
         result = package_utils.install_packages(

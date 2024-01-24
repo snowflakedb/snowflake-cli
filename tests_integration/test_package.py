@@ -68,6 +68,21 @@ class TestPackage:
         }
         assert not os.path.exists("PyRTF3.zip")
 
+    @pytest.mark.integration
+    def test_create_package_with_deps(self, directory_for_test, runner):
+        result = runner.invoke_with_connection_json(
+            ["snowpark", "package", "create", "dummy_pkg_for_tests_with_deps", "-y"]
+        )
+
+        assert result.exit_code == 0
+        assert (
+            "Package dummy_pkg_for_tests_with_deps.zip created. You can now upload it to a stage"
+            in result.json["message"]
+        )
+
+        files = self._get_filenames_from_zip("dummy_pkg_for_tests_with_deps.zip")
+        assert "dummy_pkg_for_tests/shrubbery.py" in files
+
     @pytest.fixture(scope="function")
     def directory_for_test(self):
         init_dir = os.getcwd()
