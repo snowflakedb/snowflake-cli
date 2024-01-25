@@ -120,7 +120,7 @@ If you want to display some additional information to stdout during command exec
 `cli_console` provides three methods:
 - `phase` for displaying unindented messages
 - `step` for displaying 2 spaces indented messages
-- `error` for displaying unindented messages
+- `warn` for displaying unindented messages
 
 All messaged are displayed with theirs own predefined styles. Styling is provided by rich.
 
@@ -133,7 +133,7 @@ cli_console.step("bar")
 cli_console.phase("foo")
 cli_console.phase("foo")
 cli_console.step("bar")
-cli_console.error("Ops")
+cli_console.warn("Ops")
 
 foo
   bar

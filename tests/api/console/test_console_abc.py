@@ -10,7 +10,7 @@ def test_console_base_class(capsys):
         def step(self, message: str):
             print(message)
 
-        def error(self, message: str):
+        def warning(self, message: str):
             print(message)
 
     console = TConsole(cli_context=cli_context)
@@ -18,7 +18,7 @@ def test_console_base_class(capsys):
 
     console.phase("a")
     console.step("b")
-    console.error("c")
+    console.warning("c")
 
     out, _ = capsys.readouterr()
     assert out == "a\nb\nc\n"

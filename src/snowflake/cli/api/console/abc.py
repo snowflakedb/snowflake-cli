@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from typing import Callable
 
 from snowflake.cli.api.cli_global_context import _CliGlobalContextAccess
-from snowflake.cli.api.console.context import CliConsoleContext
 
 
 class AbstractConsole(ABC):
@@ -13,13 +12,11 @@ class AbstractConsole(ABC):
     - `step` for more detailed informations on step
     """
 
-    _context: CliConsoleContext
     _print_fn: Callable
     _cli_context: _CliGlobalContextAccess
 
     def __init__(self, cli_context: _CliGlobalContextAccess):
         super().__init__()
-        self._context = CliConsoleContext()
         self._cli_context = cli_context
 
     @property
@@ -38,8 +35,8 @@ class AbstractConsole(ABC):
         ...
 
     @abstractmethod
-    def error(self, message: str):
+    def warning(self, message: str):
         """Displays message with distinct style.
 
-        Intended for diplaying messeges related to failures."""
+        Intended for diplaying messeges related to unsuccessful events."""
         ...

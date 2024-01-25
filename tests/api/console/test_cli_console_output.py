@@ -51,6 +51,6 @@ def test_phase_after_step_not_indented(cli_console, capsys):
 def test_error_messages(cli_console, capsys):
     cli_console.phase("42")
     cli_console.step("73")
-    cli_console.error("ops")
+    cli_console.warning("ops")
 
     assert_output_matches("42\n  73\nops\n", capsys)

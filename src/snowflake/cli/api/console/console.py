@@ -48,7 +48,7 @@ class CliConsole(AbstractConsole):
         text = self._format_message(message, Output.STEP)
         self._print(text)
 
-    def error(self, message: str):
+    def warning(self, message: str):
         """Displays unindented message formated with ERROR style."""
         text = self._format_message(message, Output.ERROR)
         self._print(text)
