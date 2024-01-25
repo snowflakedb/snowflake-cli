@@ -18,7 +18,7 @@ from snowflake.cli.plugins.snowpark.models import (
     RequirementWithFiles,
     SplitRequirements,
 )
-from snowflake.cli.plugins.snowpark.package_installer import PackageInstaller
+from snowflake.cli.plugins.snowpark.venv import Venv
 
 log = logging.getLogger(__name__)
 
@@ -195,15 +195,13 @@ def install_packages(
     been deleted from the local packages folder.
     """
     second_chance_results = None
-    package_installer = PackageInstaller()
 
-    if file_name is not None:
-        pip_install_result = package_installer.run_pip_install(file_name, "file")
+    with Venv() as v:
+        if file_name is not None:
+            pip_install_result = v.pip_install(file_name, "file")
 
-    if package_name is not None:
-        pip_install_result = package_installer.run_pip_install(package_name, "package")
-
-    package_installer.cleanup()
+        if package_name is not None:
+            pip_install_result = v.pip_install(package_name, "package")
 
     if pip_install_result != 0:
         log.info(pip_failed_msg.format(pip_install_result))

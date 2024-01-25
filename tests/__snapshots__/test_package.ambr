@@ -1,11 +1,11 @@
 # serializer version: 1
-# name: TestPackage.test_package_lookup[argument0]
+# name: TestPackage.test_package_lookup[snowflake-connector-python]
   '''
   Package snowflake-connector-python is available on the Snowflake anaconda channel.
   
   '''
 # ---
-# name: TestPackage.test_package_lookup[argument1]
+# name: TestPackage.test_package_lookup[some-weird-package-we-dont-know]
   '''
   Lookup for package some-weird-package-we-dont-know resulted in some error. Please check the package name or try again with -y option
   
