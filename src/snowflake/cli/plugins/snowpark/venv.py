@@ -35,6 +35,7 @@ class Venv(object):
                 [self.python_path, *args],
                 capture_output=self._capture_output_value(),
                 text=True,
+                shell=True
             )
         except subprocess.CalledProcessError as e:
             log.error(self.ERROR_MESSAGE, "python" + " ".join(args), e.stderr)
