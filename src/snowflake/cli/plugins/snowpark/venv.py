@@ -4,9 +4,8 @@ import sys
 import venv
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Tuple
 
-if (is_windows:=sys.platform == "win32"):
+if is_windows := sys.platform == "win32":
     import _winapi  # noqa type: ignore
 
 log = logging.getLogger(__name__)
@@ -53,5 +52,3 @@ class Venv(object):
         print(Path(directory).absolute())
 
         return process.returncode
-
-
