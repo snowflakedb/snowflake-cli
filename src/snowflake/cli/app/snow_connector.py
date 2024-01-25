@@ -8,13 +8,12 @@ from typing import Dict, Optional
 import click
 import snowflake.connector
 from click.exceptions import ClickException
-from snowflake.cli.api.config import get_connection
+from snowflake.cli.api.config import get_connection, get_default_connection
 from snowflake.cli.api.exceptions import (
     InvalidConnectionConfiguration,
     SnowflakeConnectionError,
 )
 from snowflake.connector import SnowflakeConnection
-from snowflake.connector.config_manager import _get_default_connection_params
 from snowflake.connector.errors import DatabaseError, ForbiddenError
 
 log = logging.getLogger(__name__)
@@ -26,11 +25,10 @@ UNENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN PRIVATE KEY-----"
 def connect_to_snowflake(temporary_connection: bool = False, connection_name: Optional[str] = None, **overrides) -> SnowflakeConnection:  # type: ignore
 
     if not temporary_connection:
-        connection_parameters = (
-            get_connection(connection_name)
-            if connection_name is not None
-            else _get_default_connection_params()
-        )
+        if connection_name is not None:
+            connection_parameters = get_connection(connection_name)
+        else:
+            connection_parameters = get_default_connection()
     else:
         connection_parameters = {}
 
