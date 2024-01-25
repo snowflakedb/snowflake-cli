@@ -4,6 +4,7 @@ import sys
 import venv
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Tuple
 
 if sys.platform == "win32":
     import _winapi  # noqa type: ignore
@@ -36,7 +37,7 @@ class Venv(object):
                 [self.python_path, *args],
                 capture_output=capture_output,
                 text=True,
-                shell=shell
+                shell=shell,
             )
         except subprocess.CalledProcessError as e:
             log.error(self.ERROR_MESSAGE, "python" + " ".join(args), e.stderr)
@@ -52,7 +53,7 @@ class Venv(object):
         return process.returncode
 
     @staticmethod
-    def _get_windows_specific_values() -> bool:
+    def _get_windows_specific_values() -> Tuple[bool, bool]:
         if sys.platform == "win32":
             return False, True
         return True, False
