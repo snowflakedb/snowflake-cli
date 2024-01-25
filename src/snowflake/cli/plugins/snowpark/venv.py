@@ -5,7 +5,8 @@ import venv
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-import _winapi  # noqa type: ignore
+if sys.platform == "win32":
+    import _winapi  # noqa type: ignore
 
 log = logging.getLogger(__name__)
 
