@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional, Tuple
+
 from click import ClickException
 from snowflake.cli.api.constants import OBJECT_TO_NAMES, ObjectNames
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -15,12 +17,21 @@ def _get_object_names(object_type: str) -> ObjectNames:
 
 class ObjectManager(SqlExecutionMixin):
     def show(
-        self, *, object_type: str, like: str | None = None, **kwargs
+        self,
+        *,
+        object_type: str,
+        like: Optional[str] = None,
+        scope: Tuple[str, str],
+        **kwargs,
     ) -> SnowflakeCursor:
         object_name = _get_object_names(object_type).sf_plural_name
         query = f"show {object_name}"
         if like:
             query += f" like '{like}'"
+        if scope[0]:
+            query += f" in {scope[0]}"
+            if scope[1]:
+                query += f" {scope[1]}"
         return self._execute_query(query, **kwargs)
 
     def drop(self, *, object_type, name: str) -> SnowflakeCursor:
