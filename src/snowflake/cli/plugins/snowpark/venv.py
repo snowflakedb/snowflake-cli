@@ -30,12 +30,13 @@ class Venv(object):
         venv.create(self.directory.name, self.with_pip)
 
     def run_python(self, args):
+        capture_output, shell = self._get_windows_specific_values()
         try:
             process = subprocess.run(
                 [self.python_path, *args],
-                capture_output=self._capture_output_value(),
+                capture_output=capture_output,
                 text=True,
-                shell=True
+                shell=shell
             )
         except subprocess.CalledProcessError as e:
             log.error(self.ERROR_MESSAGE, "python" + " ".join(args), e.stderr)
@@ -51,7 +52,7 @@ class Venv(object):
         return process.returncode
 
     @staticmethod
-    def _capture_output_value() -> bool:
+    def _get_windows_specific_values() -> bool:
         if sys.platform == "win32":
-            return False
-        return True
+            return False, True
+        return True, False
