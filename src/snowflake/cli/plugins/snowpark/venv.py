@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Tuple
 
-if sys.platform == "win32":
+if (is_windows:=sys.platform == "win32"):
     import _winapi  # noqa type: ignore
 
 log = logging.getLogger(__name__)
@@ -31,13 +31,13 @@ class Venv(object):
         venv.create(self.directory.name, self.with_pip)
 
     def run_python(self, args):
-        capture_output, shell = self._get_windows_specific_values()
+
         try:
             process = subprocess.run(
                 [self.python_path, *args],
-                capture_output=capture_output,
+                capture_output=(not is_windows),
                 text=True,
-                shell=shell,
+                shell=is_windows,
             )
         except subprocess.CalledProcessError as e:
             log.error(self.ERROR_MESSAGE, "python" + " ".join(args), e.stderr)
@@ -50,10 +50,8 @@ class Venv(object):
         arguments += ["-r", name] if req_type == "file" else [name]
         process = self.run_python(arguments)
 
+        print(Path(directory).absolute())
+
         return process.returncode
 
-    @staticmethod
-    def _get_windows_specific_values() -> Tuple[bool, bool]:
-        if sys.platform == "win32":
-            return False, True
-        return True, False
+
