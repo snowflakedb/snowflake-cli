@@ -5,6 +5,8 @@ import venv
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import _winapi  # noqa type: ignore
+
 log = logging.getLogger(__name__)
 
 
@@ -29,7 +31,9 @@ class Venv(object):
     def run_python(self, args):
         try:
             process = subprocess.run(
-                [self.python_path, *args], capture_output=self._capture_output_value(), text=True
+                [self.python_path, *args],
+                capture_output=self._capture_output_value(),
+                text=True,
             )
         except subprocess.CalledProcessError as e:
             log.error(self.ERROR_MESSAGE, "python" + " ".join(args), e.stderr)
