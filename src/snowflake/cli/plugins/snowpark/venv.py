@@ -1,5 +1,6 @@
 import logging
 import subprocess
+import sys
 import venv
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -28,7 +29,7 @@ class Venv(object):
     def run_python(self, args):
         try:
             process = subprocess.run(
-                [self.python_path, *args], capture_output=True, text=True
+                [self.python_path, *args], capture_output=self._capture_output_value(), text=True
             )
         except subprocess.CalledProcessError as e:
             log.error(self.ERROR_MESSAGE, "python" + " ".join(args), e.stderr)
@@ -42,3 +43,9 @@ class Venv(object):
         process = self.run_python(arguments)
 
         return process.returncode
+
+    @staticmethod
+    def _capture_output_value() -> bool:
+        if sys.platform == "win32":
+            return False
+        return True

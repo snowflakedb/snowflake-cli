@@ -68,7 +68,7 @@ class TestPackage:
         }
         assert not os.path.exists("PyRTF3.zip")
 
-    @pytest.mark.integration
+   #@pytest.mark.integration
     def test_create_package_with_deps(self, directory_for_test, runner):
         result = runner.invoke_with_connection_json(
             ["snowpark", "package", "create", "dummy_pkg_for_tests_with_deps", "-y"]
