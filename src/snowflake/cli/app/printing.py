@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 import sys
 from datetime import datetime
 from json import JSONEncoder
 from pathlib import Path
 
-from rich import box, get_console, print
+from rich import box, get_console
+from rich import print as rich_print
 from rich.live import Live
 from rich.table import Table
 from snowflake.cli.api.cli_global_context import cli_context
@@ -53,13 +55,13 @@ def _get_table():
 
 def _print_multiple_table_results(obj: CollectionResult):
     if isinstance(obj, QueryResult):
-        print(obj.query)
+        rich_print(obj.query)
     items = obj.result
     try:
         first_item = next(items)
     except StopIteration:
-        print(NO_ITEMS_FOUND)
-        print()
+        rich_print(NO_ITEMS_FOUND)
+        rich_print()
         return
     table = _get_table()
     for column in first_item.keys():
@@ -69,7 +71,7 @@ def _print_multiple_table_results(obj: CollectionResult):
         for item in items:
             table.add_row(*[str(i) for i in item.values()])
     # Add separator between tables
-    print()
+    rich_print()
 
 
 def is_structured_format(output_format):
@@ -78,19 +80,32 @@ def is_structured_format(output_format):
 
 def print_structured(result: CommandResult):
     """Handles outputs like json, yml and other structured and parsable formats."""
-    import json
+    if isinstance(result, MultipleResults):
+        _stream_json(result)
+    else:
+        return json.dump(result, sys.stdout, cls=CustomJSONEncoder, indent=4)
 
-    return json.dump(result, sys.stdout, cls=CustomJSONEncoder, indent=4)
+
+def _stream_json(result):
+    """Simple helper for streaming multiple results as a JSON."""
+    print("[")
+    results = result.result
+    res = next(results, None)
+    while res:
+        json.dump(res, sys.stdout, cls=CustomJSONEncoder, indent=4)
+        if res := next(results, None):
+            print(",")
+    print("\n]")
 
 
 def print_unstructured(obj: CommandResult | None):
     """Handles outputs like table, plain text and other unstructured types."""
     if not obj:
-        print("Done")
+        rich_print("Done")
     elif not obj.result:
-        print("No data")
+        rich_print("No data")
     elif isinstance(obj, MessageResult):
-        print(obj.message)
+        rich_print(obj.message)
     else:
         if isinstance(obj, ObjectResult):
             _print_single_table(obj)
@@ -106,7 +121,7 @@ def _print_single_table(obj):
     table.add_column("value", overflow="fold")
     for key, value in obj.result.items():
         table.add_row(str(key), str(value))
-    print(table)
+    rich_print(table)
 
 
 def print_result(cmd_result: CommandResult, output_format: OutputFormat | None = None):

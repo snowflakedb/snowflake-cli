@@ -31,6 +31,18 @@ def test_multi_queries_from_file(runner, snowflake_session, test_root_path):
 
 
 @pytest.mark.integration
+def test_multi_queries_where_one_of_them_is_failing(
+    runner, snowflake_session, test_root_path, snapshot
+):
+    result = runner.invoke_with_connection_json(
+        ["sql", "-q", f"select 1; select 2; select foo; select 4", "--format", "json"],
+        catch_exceptions=True,
+    )
+
+    assert result.output == snapshot
+
+
+@pytest.mark.integration
 def test_multi_input_from_stdin(runner, snowflake_session, test_root_path):
     result = runner.invoke_with_connection_json(
         [
