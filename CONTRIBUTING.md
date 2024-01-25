@@ -115,10 +115,14 @@ git rebase sfcli/main
 ```
 
 ## Displaying intermediate progress to stdout
-If you want to display some additional informtion to stdout during command execution you should use methods provided by `cli_console`.
+If you want to display some additional information to stdout during command execution you should use methods provided by `cli_console`.
 
-- `phase` is the method designed to display main action points in your command
-- `step` is the method, that provides automatic indentation. If `phase` was used than all subsequent `step` outputs will be indented.
+`cli_console` provides three methods:
+- `phase` for displaying unindented messages
+- `step` for displaying 2 spaces indented messages
+- `error` for displaying unindented messages
+
+All messaged are displayed with theirs own predefined styles. Styling is provided by rich.
 
 ```python
 from snowflake.cli.api.console import cli_console
@@ -129,6 +133,7 @@ cli_console.step("bar")
 cli_console.phase("foo")
 cli_console.phase("foo")
 cli_console.step("bar")
+cli_console.error("Ops")
 
 foo
   bar
@@ -136,6 +141,7 @@ foo
 foo
 foo
   bar
+Ops
 ```
 ## Known issues
 
