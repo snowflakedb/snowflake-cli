@@ -3,7 +3,6 @@ from typing import Callable
 
 from snowflake.cli.api.cli_global_context import _CliGlobalContextAccess
 from snowflake.cli.api.console.context import CliConsoleContext
-from snowflake.cli.api.console.enum import Output
 
 
 class AbstractConsole(ABC):
@@ -28,20 +27,19 @@ class AbstractConsole(ABC):
         """Returns information whether intermediate output is muted."""
         return self._cli_context.silent
 
-    @property
-    def should_indent_output(self) -> bool:
-        """Informs if intermediate output is intended or not."""
-        return self._context.is_in_phase
-
     @abstractmethod
     def phase(self, message: str):
-        """Prints not indented output."""
+        """Displays not indented message."""
         ...
 
     @abstractmethod
     def step(self, message: str):
-        """Prints message according to _should_indent_output flag."""
+        """Displays indented message."""
         ...
 
-    def register_output(self, output: Output, /, **kwargs):
-        self._context.push(output)
+    @abstractmethod
+    def error(self, message: str):
+        """Displays message with distinct style.
+
+        Intended for diplaying messeges related to failures."""
+        ...

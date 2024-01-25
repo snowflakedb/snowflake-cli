@@ -1,37 +1,56 @@
 from __future__ import annotations
 
+from rich.style import Style
+from rich.text import Text
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.console.enum import Output
 
+PHASE_STYLE: Style = Style(color="grey93", bold=True)
+STEP_STYLE: Style = Style(color="grey89", italic=True)
+ERROR_STYLE: Style = Style(color="red", bold=True, italic=True)
+INDENTATION_LEVEL: int = 2
+
 
 class CliConsole(AbstractConsole):
-    def format_message(self, message: str) -> str:
-        """Toolbox for displaying intermediate information in commands.
+    """An utility for displayinf intermediate output."""
 
-        It provides autmatic indentation based on previously used output."""
-        if self.should_indent_output:
-            return f"  {message}"
-        return f"{message}"
+    _indentation_level: int = INDENTATION_LEVEL
+    _styles: dict = {
+        "default": "",
+        Output.PHASE: PHASE_STYLE,
+        Output.STEP: STEP_STYLE,
+        Output.ERROR: ERROR_STYLE,
+    }
 
-    def _print(self, message: str):
+    def _format_message(self, message: str, output: Output) -> Text:
+        """Wraps message in rich Text object and applys formatting."""
+        style = self._styles.get(output, "default")
+        text = Text(message, style=style)
+
+        if output == Output.STEP:
+            text.pad_left(self._indentation_level)
+
+        return text
+
+    def _print(self, text: Text):
         if self.is_silent:
             return
-        print(message)
+        print(text)
 
     def phase(self, message: str):
-        """Utility for displaying high level steps in commands.
-
-        Messages are never indented. Subsequent step messages will be indented."""
-        self.register_output(Output.PHASE)
-        self._print(message)
+        """Displays unindented message formatted with PHASE style."""
+        text = self._format_message(message, Output.PHASE)
+        self._print(text)
 
     def step(self, message: str):
-        """Prints indented message.
+        """Displays 2 spaces indented message with STEP style."""
+        text = self._format_message(message, Output.STEP)
+        self._print(text)
 
-        Indentation is based on previous usage of `phase` method."""
-        self.register_output(Output.STEP)
-        text = self.format_message(message)
+    def error(self, message: str):
+        """Displays unindented message formated with ERROR style."""
+        text = self._format_message(message, Output.ERROR)
         self._print(text)
 
 

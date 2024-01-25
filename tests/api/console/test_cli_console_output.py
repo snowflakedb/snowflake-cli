@@ -25,7 +25,7 @@ def test_only_phase_no_indent(cli_console, capsys):
 
 def test_only_step_no_indent(cli_console, capsys):
     cli_console.step("73")
-    assert_output_matches("73\n", capsys)
+    assert_output_matches("  73\n", capsys)
 
 
 def test_step_indented_in_phase(cli_console, capsys):
