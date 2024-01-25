@@ -32,6 +32,13 @@ LikeOption = typer.Option(
     "all functions that begin with “my”.",
 )
 
+
+InOption = typer.Option(
+    None,
+    "--in",
+    help="Specifies the scope of this command using '<scope>=<name>' (e.g. list tables --in database=my_db). Some object types have specialized scopes (e.g. services in compute pool)",
+)
+
 SUPPORTED_TYPES_MSG = "\n\nSupported types: " + ", ".join(SUPPORTED_OBJECTS)
 
 
@@ -44,6 +51,7 @@ SUPPORTED_TYPES_MSG = "\n\nSupported types: " + ", ".join(SUPPORTED_OBJECTS)
 def list_(
     object_type: str = ObjectArgument,
     like: str = LikeOption,
+    scope: str = InOption,
     **options,
 ):
     return QueryResult(ObjectManager().show(object_type=object_type, like=like))
