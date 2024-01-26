@@ -44,11 +44,10 @@ class SnowparkServicesTestSteps:
                 "--schema",
                 self.schema,
             ],
-            connection="spcs",
         )
         assert result.json == {
             "status": f"Service {service_name.upper()} successfully created."
-        }
+        }, result.output
 
     def status_should_return_service(self, service_name: str) -> None:
         result = self._execute_status(service_name)
@@ -73,10 +72,11 @@ class SnowparkServicesTestSteps:
                 "--schema",
                 self.schema,
             ],
-            connection="spcs",
         )
         assert result.output
-        assert result.output.strip() == f"{service_name}/0 Hello World!"
+        # Assert this instead of full payload due to log coloring
+        assert service_name in result.output
+        assert "Hello World!" in result.output
 
     def list_should_return_service(self, service_name: str) -> None:
         result = self._execute_list()
@@ -89,33 +89,23 @@ class SnowparkServicesTestSteps:
     def describe_should_return_service(self, service_name: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
             [
-                "containers",
+                "object",
+                "describe",
                 "service",
-                "desc",
-                service_name,
-                "--database",
-                self.database,
-                "--schema",
-                self.schema,
+                f"{self.database}.{self.schema}.{service_name}",
             ],
-            connection="spcs",
         )
-        assert isinstance(result.json, dict)
-        assert result.json["name"] == service_name.upper()
+        assert result.json
+        assert result.json["name"] == service_name.upper()  # type: ignore
 
     def drop_service(self, service_name: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
             [
-                "containers",
-                "service",
+                "object",
                 "drop",
-                service_name,
-                "--database",
-                self.database,
-                "--schema",
-                self.schema,
+                "service",
+                f"{self.database}.{self.schema}.{service_name}",
             ],
-            connection="spcs",
         )
         assert result.json == {
             "status": f"{service_name.upper()} successfully dropped."
@@ -151,19 +141,13 @@ class SnowparkServicesTestSteps:
                 "--schema",
                 self.schema,
             ],
-            connection="spcs",
         )
 
     def _execute_list(self):
         return self._setup.runner.invoke_with_connection_json(
             [
-                "containers",
-                "service",
+                "object",
                 "list",
-                "--database",
-                self.database,
-                "--schema",
-                self.schema,
+                "service",
             ],
-            connection="spcs",
         )

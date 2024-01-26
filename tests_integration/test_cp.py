@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from tests_integration.test_utils import (
@@ -9,12 +11,12 @@ from tests_integration.test_utils import (
 
 @pytest.mark.integration
 def test_cp(runner, snowflake_session):
-    cp_name = "test_compute_pool_snowcli"
+    cp_name = f"test_compute_pool_snowcli_{int(time.time())}"
 
     result = runner.invoke_with_connection_json(
         [
-            "snowpark",
-            "compute-pool",
+            "containers",
+            "pool",
             "create",
             "--name",
             cp_name,
@@ -24,24 +26,27 @@ def test_cp(runner, snowflake_session):
             "STANDARD_1",
         ]
     )
-    assert contains_row_with(
-        result.json,
-        {"status": f"Compute Pool {cp_name.upper()} successfully created."},
+    assert result.json, result.output
+    assert "status" in result.json
+    assert (
+        f"Compute Pool {cp_name.upper()} successfully created." in result.json["status"]
     )
 
-    result = runner.invoke_with_connection_json(["snowpark", "cp", "list"])
     expect = snowflake_session.execute_string(f"show compute pools like '{cp_name}'")
+    result = runner.invoke_with_connection_json(["object", "list", "compute-pool"])
+
+    assert result.json, result.output
     assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
 
-    result = runner.invoke_with_connection_json(
-        ["snowpark", "compute-pool", "stop", cp_name]
-    )
+    result = runner.invoke_with_connection_json(["containers", "pool", "stop", cp_name])
     assert contains_row_with(
         result.json,
         {"status": "Statement executed successfully."},
     )
 
-    result = runner.invoke_with_connection_json(["snowpark", "cp", "drop", cp_name])
+    result = runner.invoke_with_connection_json(
+        ["object", "drop", "compute-pool", cp_name]
+    )
     assert contains_row_with(
         result.json,
         {"status": f"{cp_name.upper()} successfully dropped."},

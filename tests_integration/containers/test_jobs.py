@@ -6,6 +6,7 @@ from tests_integration.testing_utils.snowpark_jobs_utils import (
 )
 
 
+@pytest.mark.skip("Snowpark Container Services Job not supported.")
 @pytest.mark.integration
 def test_jobs(_test_steps: SnowparkJobsTestSteps):
 

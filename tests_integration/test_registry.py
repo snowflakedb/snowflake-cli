@@ -3,7 +3,7 @@ import pytest
 
 @pytest.mark.integration
 def test_token(runner):
-    result = runner.invoke_with_connection_json(["snowpark", "registry", "token"])
+    result = runner.invoke_with_connection_json(["registry", "token"])
 
     assert result.exit_code == 0
     assert result.json
