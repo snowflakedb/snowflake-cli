@@ -23,9 +23,6 @@ class Venv:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.directory.cleanup()
 
-    def _create_venv(self):
-        venv.create(self.directory.name, self.with_pip)
-
     def run_python(self, args):
 
         try:
@@ -47,7 +44,11 @@ class Venv:
 
         return process.returncode
 
-    def _get_python_path(self, venv_dir: Path):
+    def _create_venv(self):
+        venv.create(self.directory.name, self.with_pip)
+
+    @staticmethod
+    def _get_python_path(venv_dir: Path):
         if sys.platform == "win32":
             return venv_dir / "scripts" / "python"
         return venv_dir / "bin" / "python"
