@@ -5,6 +5,8 @@ import sys
 from datetime import datetime
 from json import JSONEncoder
 from pathlib import Path
+from textwrap import indent
+from typing import TextIO
 
 from rich import box, get_console
 from rich import print as rich_print
@@ -60,8 +62,7 @@ def _print_multiple_table_results(obj: CollectionResult):
     try:
         first_item = next(items)
     except StopIteration:
-        rich_print(NO_ITEMS_FOUND)
-        rich_print()
+        rich_print(NO_ITEMS_FOUND, end="\n\n")
         return
     table = _get_table()
     for column in first_item.keys():
@@ -88,11 +89,20 @@ def print_structured(result: CommandResult):
 
 def _stream_json(result):
     """Simple helper for streaming multiple results as a JSON."""
+    indent_size = 2
+
+    class _Indented:
+        def __init__(self, stream: TextIO):
+            self._stream = stream
+
+        def write(self, text: str):
+            return self._stream.write(indent(text, " " * indent_size))
+
     print("[")
     results = result.result
     res = next(results, None)
     while res:
-        json.dump(res, sys.stdout, cls=CustomJSONEncoder, indent=4)
+        json.dump(res, _Indented(sys.stdout), cls=CustomJSONEncoder, indent=indent_size)  # type: ignore
         if res := next(results, None):
             print(",")
     print("\n]")
