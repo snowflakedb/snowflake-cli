@@ -10,7 +10,7 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowflake.cli.api.output.types import CollectionResult, ObjectResult
-from snowflake.cli.plugins.registry.manager import RegistryManager
+from snowflake.cli.plugins.spcs.registry.manager import RegistryManager
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
