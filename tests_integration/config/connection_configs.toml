@@ -1,4 +1,4 @@
 [connections.default]
-[connections.spcs]
 [connections.integration]
 schema = "public"
+role = "INTEGRATION_TESTS"

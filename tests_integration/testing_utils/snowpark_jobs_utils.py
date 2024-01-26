@@ -41,9 +41,8 @@ class SnowparkJobsTestSteps:
                 "--schema",
                 self.schema,
             ],
-            connection="spcs",
         )
-        assert isinstance(result.json, dict)
+        assert isinstance(result.json, dict), result.output
         status = result.json["status"]
         assert status.__contains__("completed successfully")
         return status.replace("Job ", "").replace(
@@ -69,14 +68,13 @@ class SnowparkJobsTestSteps:
     def logs_should_return_job_logs(self, job_id: str) -> None:
         result = self._setup.runner.invoke_with_connection(
             ["spcs", "job", "logs", job_id, "--container-name", "hello-world"],
-            connection="spcs",
         )
         assert result.output
         assert result.output.strip() == f"{job_id}/0 Hello World!"
 
     def drop_job(self, job_id: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
-            ["spcs", "job", "drop", job_id], connection="spcs"
+            ["spcs", "job", "drop", job_id],
         )
         assert result.json == {
             "SYSTEM$CANCEL_JOB": f"Job {job_id} successfully terminated"
