@@ -260,6 +260,17 @@
   
   '''
 # ---
+# name: test_drop[image-repository-image-repository-example]
+  '''
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | i      |
+  +--------+
+  
+  '''
+# ---
 # name: test_drop[integration-integration]
   '''
   SELECT A MOCK QUERY
