@@ -1,7 +1,6 @@
 import pytest
 
 
-@pytest.mark.skip(reason="Not yet enabled on our account")
 @pytest.mark.integration
 def test_token(runner):
     result = runner.invoke_with_connection_json(["snowpark", "registry", "token"])

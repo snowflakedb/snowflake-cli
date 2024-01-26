@@ -7,7 +7,6 @@ from tests_integration.test_utils import (
 )
 
 
-@pytest.mark.skip(reason="Not yet enabled on our account")
 @pytest.mark.integration
 def test_cp(runner, snowflake_session):
     cp_name = "test_compute_pool_snowcli"
