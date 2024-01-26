@@ -302,7 +302,7 @@ def build(
         check_anaconda_for_pypi_deps=check_anaconda_for_pypi_deps,
         package_native_libraries=package_native_libraries,  # type: ignore[arg-type]
     )
-    return MessageResult(f"Build done. Artifact path: {artifact_file}")
+    return MessageResult(f"Build done. Artefact path: {artifact_file}")
 
 
 class _SnowparkObject(Enum):
