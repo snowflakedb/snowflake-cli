@@ -21,14 +21,14 @@ class ObjectManager(SqlExecutionMixin):
         *,
         object_type: str,
         like: Optional[str] = None,
-        scope: Tuple[str, str],
+        scope: Optional[Tuple[str, str]] = None,
         **kwargs,
     ) -> SnowflakeCursor:
         object_name = _get_object_names(object_type).sf_plural_name
         query = f"show {object_name}"
         if like:
             query += f" like '{like}'"
-        if scope[0] and scope[1]:
+        if scope is not None:
             query += f" in {scope[0].replace('-', ' ')} {scope[1]}"
         return self._execute_query(query, **kwargs)
 

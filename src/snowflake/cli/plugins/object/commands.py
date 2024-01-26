@@ -44,6 +44,8 @@ def _scope_callback(scope: Tuple[str, str]):
         raise ClickException(
             f'scope must be one of the following: {", ".join(VALID_SCOPES)}'
         )
+    if scope[0] is None or scope[1] is None:
+        return None
     return scope
 
 
@@ -65,7 +67,7 @@ SUPPORTED_TYPES_MSG = "\n\nSupported types: " + ", ".join(SUPPORTED_OBJECTS)
 @global_options_with_connection
 def list_(
     object_type: str = ObjectArgument,
-    like: Optional[str] = LikeOption,
+    like: str = LikeOption,
     scope: Optional[Tuple[str, str]] = ScopeOption,
     **options,
 ):
