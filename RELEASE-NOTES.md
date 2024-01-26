@@ -19,7 +19,7 @@
   * Removed `snow snowpark procedure create` and `snow snowpark procedure update`. Procedures can be deployed using `snow snowpark deploy`.
   * Procedures and functions use single zip artifact for all functions and procedures in project.
   * Changed path to coverage reports on stage, previously created procedures with coverage will not work, have to be recreated.
-  * Previously created procedures or functions won't work with `deploy` command due to change in stage path of artefact. Previous code will remain under old path on stage.
+  * Previously created procedures or functions won't work with `deploy` command due to change in stage path of artifact. Previous code will remain under old path on stage.
   * Package commands are now under `snow snowpark package`.
   * Coverage commands were removed. To measure coverage of your procedures or functions use coverage locally.
 

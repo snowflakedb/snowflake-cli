@@ -309,6 +309,12 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     self._execute_query(
                         f"alter application {self.app_name} upgrade {using_clause}"
                     )
+
+                    # ensure debug_mode is up-to-date
+                    if using_clause:
+                        self._execute_query(
+                            f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
+                        )
                     return
 
                 except ProgrammingError as err:
@@ -341,6 +347,12 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     """
                     )
                 )
+
+                # ensure debug_mode is up-to-date
+                if using_clause:
+                    self._execute_query(
+                        f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
+                    )
             except ProgrammingError as err:
                 generic_sql_error_handler(err)
 

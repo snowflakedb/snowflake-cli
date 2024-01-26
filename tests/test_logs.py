@@ -33,7 +33,7 @@ def setup_config_and_logs(temp_dir):
                 for x in [
                     "[connections]",
                     "",
-                    "[logs]",
+                    "[cli.logs]",
                     f'path = "{logs_path}"',
                     f"save_logs = {str(save_logs).lower()}" if save_logs else None,
                     f'level = "{level}"' if level else None,
@@ -100,7 +100,7 @@ def test_logs_section_appears_in_fresh_config_file(temp_dir):
     assert config_file.exists() is False
     config_init(config_file)
     assert config_file.exists() is True
-    assert '[logs]\nsave_logs = false\npath = "' in config_file.read_text()
+    assert '[cli.logs]\nsave_logs = false\npath = "' in config_file.read_text()
     assert '/logs"\nlevel = "info"' in config_file.read_text()
 
 
