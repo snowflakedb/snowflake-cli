@@ -5,13 +5,10 @@ import venv
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-if is_windows := sys.platform == "win32":
-    import _winapi  # noqa type: ignore
-
 log = logging.getLogger(__name__)
 
 
-class Venv(object):
+class Venv:
     ERROR_MESSAGE = "Running command {0} caused error {1}"
 
     def __init__(self, directory: str = "", with_pip: bool = True):
@@ -20,7 +17,7 @@ class Venv(object):
 
     def __enter__(self):
         self._create_venv()
-        self.python_path = Path(self.directory.name) / "bin" / "python"
+        self.python_path = self._get_python_path(Path(self.directory.name))
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -34,9 +31,8 @@ class Venv(object):
         try:
             process = subprocess.run(
                 [self.python_path, *args],
-                capture_output=(not is_windows),
+                capture_output=True,
                 text=True,
-                shell=is_windows,
             )
         except subprocess.CalledProcessError as e:
             log.error(self.ERROR_MESSAGE, "python" + " ".join(args), e.stderr)
@@ -49,6 +45,9 @@ class Venv(object):
         arguments += ["-r", name] if req_type == "file" else [name]
         process = self.run_python(arguments)
 
-        print(Path(directory).absolute())
-
         return process.returncode
+
+    def _get_python_path(self, venv_dir: Path):
+        if sys.platform == "win32":
+            return venv_dir / "scripts" / "python"
+        return venv_dir / "bin" / "python"
