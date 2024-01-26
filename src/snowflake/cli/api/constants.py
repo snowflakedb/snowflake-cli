@@ -50,4 +50,7 @@ class ObjectType(Enum):
 OBJECT_TO_NAMES = {o.value.cli_name: o.value for o in ObjectType}
 SUPPORTED_OBJECTS = sorted(OBJECT_TO_NAMES.keys())
 
+# Scope names here must replace spaces with '-'. For example 'compute pool' is 'compute-pool'.
+VALID_SCOPES = ["database", "schema", "compute-pool"]
+
 PACKAGES_DIR = Path(".packages")

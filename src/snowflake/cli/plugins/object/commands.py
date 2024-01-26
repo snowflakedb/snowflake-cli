@@ -9,7 +9,7 @@ from snowflake.cli.api.commands.decorators import (
     with_output,
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
-from snowflake.cli.api.constants import SUPPORTED_OBJECTS
+from snowflake.cli.api.constants import SUPPORTED_OBJECTS, VALID_SCOPES
 from snowflake.cli.api.output.types import QueryResult
 from snowflake.cli.api.project.util import is_valid_identifier
 from snowflake.cli.plugins.object.manager import ObjectManager
@@ -36,18 +36,15 @@ LikeOption = typer.Option(
     "all functions that begin with “my”.",
 )
 
-# Scope names here must replace spaces with '-'. For example 'compute pool' is 'compute-pool'.
-VALID_SCOPES = ["database", "schema", "compute-pool", "account"]
-
 
 def _scope_callback(scope: Tuple[str, str]):
     if scope[1] is not None and not is_valid_identifier(scope[1]):
         raise ClickException("scope name must be a valid identifier")
     if scope[0] is not None and scope[0].lower() not in VALID_SCOPES:
         raise ClickException(
-            f'scope must be one of the following {", ".join(VALID_SCOPES)}'
+            f'scope must be one of the following: {", ".join(VALID_SCOPES)}'
         )
-    return (scope[0].replace("-", " "), scope[1])
+    return scope
 
 
 ScopeOption = typer.Option(

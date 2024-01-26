@@ -28,10 +28,8 @@ class ObjectManager(SqlExecutionMixin):
         query = f"show {object_name}"
         if like:
             query += f" like '{like}'"
-        if scope[0]:
-            query += f" in {scope[0]}"
-            if scope[1]:
-                query += f" {scope[1]}"
+        if scope[0] and scope[1]:
+            query += f" in {scope[0].replace('-', ' ')} {scope[1]}"
         return self._execute_query(query, **kwargs)
 
     def drop(self, *, object_type, name: str) -> SnowflakeCursor:
