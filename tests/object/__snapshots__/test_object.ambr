@@ -1,419 +1,438 @@
 # serializer version: 1
 # name: test_describe[compute-pool-compute-pool-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[database-database-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[function-function-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[integration-integration]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[network-rule-network rule]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[network-rule-network-rule-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[procedure-procedure-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[role-role-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[schema-schema-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[secret-secret-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[service-service-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[stage-stage-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[stream-stream-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[streamlit-streamlit-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[table-table-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[task-task-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[user-user-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[view-view-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_describe[warehouse-warehouse-example]
   '''
-  +--------------------+
-  | key  | value       |
-  |------+-------------|
-  | name | ID          |
-  | type | NUMBER(38,0 |
-  | kind | COLUMN      |
-  +--------------------+
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
   
   '''
 # ---
 # name: test_drop[compute-pool-compute-pool-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | c     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | c      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[database-database-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | d     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | d      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[function-function-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | f     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | f      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[integration-integration]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | i     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | i      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[network-rule-network rule]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | n     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | n      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[network-rule-network-rule-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | n     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | n      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[procedure-procedure-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | p     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | p      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[role-role-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | r     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | r      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[schema-schema-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | s     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | s      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[secret-secret-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | s     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | s      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[service-service-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | s     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | s      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[stage-stage-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | s     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | s      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[stream-stream-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | s     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | s      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[streamlit-streamlit-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | s     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | s      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[table-table-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | t     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | t      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[task-task-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | t     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | t      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[user-user-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | u     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | u      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[view-view-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | v     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | v      |
+  +--------+
   
   '''
 # ---
 # name: test_drop[warehouse-warehouse-example]
   '''
-  +----------------+
-  | key    | value |
-  |--------+-------|
-  | status | w     |
-  +----------------+
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | w      |
+  +--------+
   
   '''
 # ---
