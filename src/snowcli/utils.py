@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-import platform
 import threading
 from dataclasses import dataclass
 
@@ -14,7 +13,6 @@ import shutil
 import subprocess
 import sys
 import warnings
-import git
 
 from typing import Dict, List, Literal, Optional, Generic, TypeVar, Callable
 from pathlib import Path
