@@ -10,7 +10,7 @@ from snowflake.cli.plugins.spcs.services.commands import app as services_app
 app = typer.Typer(
     name="spcs",
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    help="Manages Snowpark services, pools and jobs.",
+    help="Manages Snowpark services, pools, jobs, image registries, and image repositories.",
 )
 
 app.add_typer(compute_pools_app)  # type: ignore
