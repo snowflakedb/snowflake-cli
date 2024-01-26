@@ -150,7 +150,6 @@ class SnowparkObjectManager(SqlExecutionMixin):
         runtime: Optional[str] = None,
         execute_as_caller: bool = False,
     ) -> str:
-
         imports.append(artifact_file)
         imports = [f"'{x}'" for x in imports]
         packages_list = ",".join(f"'{p}'" for p in packages)
@@ -180,11 +179,28 @@ class SnowparkObjectManager(SqlExecutionMixin):
         if execute_as_caller:
             query.append("execute as caller")
 
+        print("\n".join(query))
+
         return "\n".join(query)
 
 
 def build_udf_sproc_identifier(udf_sproc_dict):
-    arguments = ", ".join(
-        (f"{arg['name']} {arg['type']}" for arg in udf_sproc_dict["signature"])
-    )
+    def format_arg(arg):
+        result = f"{arg['name']} {arg['type']}"
+        if "default" in arg:
+            result += f" DEFAULT {arg['default']}"
+        return result
+
+    arguments = ", ".join(format_arg(arg) for arg in udf_sproc_dict["signature"])
+
+    print(">>>> arguments: ", arguments)
+    # import sys
+
+    # sys.exit(0)
     return f"{udf_sproc_dict['name']}({arguments})"
+
+
+# TODO pczajka: type escapes, ask Jan what they know about types
+# TODO pczajka: test what works on browser snowflake
+# TODO pczajka: which version of snowflake we support in tests
+# TODO pczajka: remove debug

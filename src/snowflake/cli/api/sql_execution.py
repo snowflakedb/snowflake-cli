@@ -46,6 +46,8 @@ class SqlExecutionMixin:
         return stream_generator if return_cursors else list()
 
     def _execute_query(self, query: str, **kwargs):
+        print("SQL EXECUTION")
+        print(query)
         *_, last_result = self._execute_queries(query, **kwargs)
         return last_result
 
