@@ -10,7 +10,7 @@ def test_create_job(mock_connector, runner, mock_ctx):
 
     test_spec = """
 spec:
-  spcs:
+  containers:
   - name: main
     image: public.ecr.aws/myrepo:latest
     """
@@ -35,7 +35,7 @@ spec:
         "EXECUTE SERVICE\n"
         "IN COMPUTE POOL testPool\n"
         "FROM SPECIFICATION $$\n"
-        '{"spec": {"spcs": [{"name": "main", "image": "public.ecr.aws/myrepo:latest"}]}}\n'
+        '{"spec": {"containers": [{"name": "main", "image": "public.ecr.aws/myrepo:latest"}]}}\n'
         "$$\n"
     )
 
