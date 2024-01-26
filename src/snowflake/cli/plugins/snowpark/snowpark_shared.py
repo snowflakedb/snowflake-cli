@@ -49,7 +49,7 @@ REQUIREMENTS_OTHER = "requirements.other.txt"
 
 def snowpark_package(
     source: Path,
-    artefact_file: Path,
+    artifact_file: Path,
     pypi_download: PypiOption,
     check_anaconda_for_pypi_deps: bool,
     package_native_libraries: PypiOption,
@@ -91,11 +91,11 @@ def snowpark_package(
                 package_utils.deduplicate_and_sort_reqs(split_requirements.snowflake),
             )
 
-    zip_dir(source=source, dest_zip=artefact_file)
+    zip_dir(source=source, dest_zip=artifact_file)
 
     if Path(".packages").exists():
-        zip_dir(source=Path(".packages"), dest_zip=artefact_file, mode="a")
-    log.info("Deployment package now ready: %s", artefact_file)
+        zip_dir(source=Path(".packages"), dest_zip=artifact_file, mode="a")
+    log.info("Deployment package now ready: %s", artifact_file)
 
 
 def _write_requirements_file(file_name: str, requirements: List[Requirement]):
