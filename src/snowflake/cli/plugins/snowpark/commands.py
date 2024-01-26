@@ -92,7 +92,7 @@ def deploy(
             "No procedures or functions were specified in the project definition."
         )
 
-    build_artifact_path = _get_snowpark_artefact_path(snowpark)
+    build_artifact_path = _get_snowpark_artifact_path(snowpark)
 
     if not build_artifact_path.exists():
         raise ClickException(
@@ -270,10 +270,10 @@ def _deploy_single_object(
     return {"object": identifier, "type": str(object_type), "status": status}
 
 
-def _get_snowpark_artefact_path(snowpark_definition: Dict):
+def _get_snowpark_artifact_path(snowpark_definition: Dict):
     source = Path(snowpark_definition["src"])
-    artefact_file = Path.cwd() / (source.name + ".zip")
-    return artefact_file
+    artifact_file = Path.cwd() / (source.name + ".zip")
+    return artifact_file
 
 
 @app.command("build")
@@ -292,17 +292,17 @@ def build(
     """
     snowpark = cli_context.project_definition
     source = Path(snowpark.get("src"))
-    artefact_file = _get_snowpark_artefact_path(snowpark)
+    artifact_file = _get_snowpark_artifact_path(snowpark)
     log.info("Building package using sources from: %s", source.resolve())
 
     snowpark_package(
         source=source,
-        artefact_file=artefact_file,
+        artifact_file=artifact_file,
         pypi_download=pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps=check_anaconda_for_pypi_deps,
         package_native_libraries=package_native_libraries,  # type: ignore[arg-type]
     )
-    return MessageResult(f"Build done. Artefact path: {artefact_file}")
+    return MessageResult(f"Build done. Artifact path: {artifact_file}")
 
 
 class _SnowparkObject(Enum):
