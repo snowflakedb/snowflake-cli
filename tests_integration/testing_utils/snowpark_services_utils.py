@@ -96,7 +96,7 @@ class SnowparkServicesTestSteps:
             ],
         )
         assert result.json
-        assert result.json["name"] == service_name.upper()  # type: ignore
+        assert result.json[0]["name"] == service_name.upper()  # type: ignore
 
     def drop_service(self, service_name: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
@@ -107,7 +107,7 @@ class SnowparkServicesTestSteps:
                 f"{self.database}.{self.schema}.{service_name}",
             ],
         )
-        assert result.json == {
+        assert result.json[0] == {  # type: ignore
             "status": f"{service_name.upper()} successfully dropped."
         }
 

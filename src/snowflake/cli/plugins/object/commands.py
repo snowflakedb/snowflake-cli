@@ -7,7 +7,7 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowflake.cli.api.constants import SUPPORTED_OBJECTS
-from snowflake.cli.api.output.types import QueryResult, SingleQueryResult
+from snowflake.cli.api.output.types import QueryResult
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.object.stage.commands import app as stage_app
 
@@ -55,9 +55,7 @@ def list_(
 @with_output
 @global_options_with_connection
 def drop(object_type: str = ObjectArgument, object_name: str = NameArgument, **options):
-    return SingleQueryResult(
-        ObjectManager().drop(object_type=object_type, name=object_name)
-    )
+    return QueryResult(ObjectManager().drop(object_type=object_type, name=object_name))
 
 
 @app.command(
@@ -68,6 +66,6 @@ def drop(object_type: str = ObjectArgument, object_name: str = NameArgument, **o
 def describe(
     object_type: str = ObjectArgument, object_name: str = NameArgument, **options
 ):
-    return SingleQueryResult(
+    return QueryResult(
         ObjectManager().describe(object_type=object_type, name=object_name)
     )
