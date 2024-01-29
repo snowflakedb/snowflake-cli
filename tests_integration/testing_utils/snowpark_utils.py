@@ -220,14 +220,14 @@ class SnowparkTestSteps:
         )
         assert_that_result_is_successful(result)
 
-    def package_should_build_proper_artifact(self, package_name: str):
+    def package_should_build_proper_artifact(self, package_name: str, file_name: str):
         result = self._setup.runner.invoke_with_connection_json(
             ["snowpark", "package", "create", package_name, "-y"]
         )
 
         assert result.exit_code == 0
-        assert os.path.isfile("PyRTF3.zip")
-        assert "pyparsing/results.py" in ZipFile("PyRTF3.zip").namelist()
+        assert os.path.isfile(f"{package_name}.zip")
+        assert file_name in ZipFile(f"{package_name}.zip").namelist()
 
     def package_should_upload_artifact_to_stage(self, file_name, stage_name):
         result = self._setup.runner.invoke_with_connection_json(
