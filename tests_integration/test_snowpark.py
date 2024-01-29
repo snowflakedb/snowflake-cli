@@ -297,10 +297,17 @@ def test_snowpark_default_arguments(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": "whole_new_word(base string default 'word', mult int default 2, suffix string default '!')",
+                    "object": "whole_new_word_procedure(base varchar default 'word', "
+                    "mult number default 2, suffix varchar default ', but a procedure')",
+                    "type": "procedure",
+                    "status": "created",
+                },
+                {
+                    "object": "whole_new_word(base string default 'word', "
+                    "mult int default 2, suffix string default '!')",
                     "type": "function",
                     "status": "created",
-                }
+                },
             ]
         )
 
@@ -308,6 +315,13 @@ def test_snowpark_default_arguments(
             object_type="function",
             identifier=(
                 "WHOLE_NEW_WORD",
+                "( [VARCHAR] [, NUMBER] [, VARCHAR]) RETURN VARCHAR",
+            ),
+        )
+        _test_steps.object_show_includes_given_identifiers(
+            object_type="procedure",
+            identifier=(
+                "WHOLE_NEW_WORD_PROCEDURE",
                 "( [VARCHAR] [, NUMBER] [, VARCHAR]) RETURN VARCHAR",
             ),
         )
@@ -319,6 +333,12 @@ def test_snowpark_default_arguments(
             signature="(BASE VARCHAR, MULT NUMBER, SUFFIX VARCHAR)",
             returns="VARCHAR(16777216)",
         )
+        _test_steps.object_describe_should_return_entity_description(
+            object_type="procedure",
+            identifier="WHOLE_NEW_WORD_PROCEDURE(VARCHAR, NUMBER, VARCHAR)",
+            signature="(BASE VARCHAR, MULT NUMBER, SUFFIX VARCHAR)",
+            returns="VARCHAR(16777216)",
+        )
 
         # execute with default arguments
         _test_steps.snowpark_execute_should_return_expected_value(
@@ -326,12 +346,22 @@ def test_snowpark_default_arguments(
             identifier="whole_new_word()",
             expected_value="wordword!",
         )
+        _test_steps.snowpark_execute_should_return_expected_value(
+            object_type="procedure",
+            identifier="whole_new_word_procedure()",
+            expected_value="wordword, but a procedure",
+        )
 
         # execute naming arguments
         _test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="whole_new_word(mult => 4, base => 'nii')",
             expected_value="niiniiniinii!",
+        )
+        _test_steps.snowpark_execute_should_return_expected_value(
+            object_type="procedure",
+            identifier="whole_new_word_procedure(mult => 4, base => 'nii')",
+            expected_value="niiniiniinii, but a procedure",
         )
 
 

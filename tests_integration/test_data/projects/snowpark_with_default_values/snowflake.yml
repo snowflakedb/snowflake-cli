@@ -17,3 +17,17 @@ snowpark:
           type: "string"
           default: "!"
       returns: string
+  procedures:
+    - name: whole_new_word_procedure
+      handler: "app.whole_new_word_procedure"
+      signature:
+        - name: "base"
+          type: "varchar"
+          default: "word"
+        - name: "mult"
+          type: "number"
+          default: "2"
+        - name: "suffix"
+          type: "varchar"
+          default: ", but a procedure"
+      returns: string
