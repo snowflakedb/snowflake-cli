@@ -184,23 +184,23 @@ class SnowparkObjectManager(SqlExecutionMixin):
         return "\n".join(query)
 
 
+def _is_signature_type_a_string(sig_type: str) -> bool:
+    return sig_type.lower() in ["string", "varchar"]
+
+
 def build_udf_sproc_identifier(udf_sproc_dict):
     def format_arg(arg):
         result = f"{arg['name']} {arg['type']}"
         if "default" in arg:
-            result += f" DEFAULT {arg['default']}"
+            val = f"{arg['default']}"
+            if _is_signature_type_a_string(arg["type"]):
+                val = f"'{val}'"
+            result += f" DEFAULT {val}"
         return result
 
     arguments = ", ".join(format_arg(arg) for arg in udf_sproc_dict["signature"])
 
-    print(">>>> arguments: ", arguments)
-    # import sys
-
-    # sys.exit(0)
     return f"{udf_sproc_dict['name']}({arguments})"
 
 
-# TODO pczajka: type escapes, ask Jan what they know about types
-# TODO pczajka: test what works on browser snowflake
-# TODO pczajka: which version of snowflake we support in tests
 # TODO pczajka: remove debug
