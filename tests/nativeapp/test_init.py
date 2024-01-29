@@ -190,7 +190,7 @@ def test_init_with_url_and_no_template_fail_on_validation(temp_dir):
     assert not Path.exists(Path.cwd() / "new_project")
 
 
-@mock.patch("snowcli.cli.nativeapp.init.Repo.clone_from", side_effect=None)
+@mock.patch("git.Repo.clone_from", side_effect=None)
 def test_init_with_url_and_no_template_w_native_app_url(mock_clone_from, temp_dir):
     # Prepare fake repository
     fake_repo = "fake_repo"
@@ -232,7 +232,7 @@ def test_init_with_url_and_no_template_w_native_app_url(mock_clone_from, temp_di
         assert not Path.exists(dest / ".git")
 
 
-@mock.patch("snowcli.cli.nativeapp.init.Repo.clone_from", side_effect=None)
+@mock.patch("git.Repo.clone_from", side_effect=None)
 def test_init_with_url_and_no_template_w_random_url(mock_clone_from, temp_dir):
 
     # Prepare fake repository
@@ -292,7 +292,7 @@ def test_init_with_url_and_no_template_w_random_url(mock_clone_from, temp_dir):
 # ---------------------------------------------------
 
 
-@mock.patch("snowcli.cli.nativeapp.init.Repo.clone_from", side_effect=None)
+@mock.patch("git.Repo.clone_from", side_effect=None)
 @mock.patch("snowcli.cli.nativeapp.init.move", side_effect=None)
 @mock.patch("os.getenv", return_value="pytest_user")
 def test_init_with_url_and_template_w_native_app_url_and_template(
@@ -358,7 +358,7 @@ def test_init_with_url_and_template_w_native_app_url_and_template(
     assert fake_repo_path.joinpath("app", "README.md").read_text() == expected_readme
 
 
-@mock.patch("snowcli.cli.nativeapp.init.Repo.clone_from", side_effect=None)
+@mock.patch("git.Repo.clone_from", side_effect=None)
 @mock.patch("snowcli.cli.nativeapp.init.move", side_effect=None)
 @mock.patch("os.getenv", return_value="pytest_user")
 def test_init_with_url_and_template_w_random_url_and_template(

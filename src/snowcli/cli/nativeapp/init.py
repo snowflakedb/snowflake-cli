@@ -7,7 +7,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from click.exceptions import ClickException
 from shutil import move, rmtree
-from git import Repo
 from strictyaml import load, as_document
 
 
@@ -210,6 +209,8 @@ def _init_with_url_and_no_template(
         target_directory.mkdir(parents=True, exist_ok=False)
 
         # Clone the repository with options.
+        from git import Repo
+
         Repo.clone_from(
             url=git_url,
             to_path=target_directory,
@@ -258,6 +259,8 @@ def _init_with_url_and_template(
     try:
         with TemporaryDirectory(dir=current_working_directory) as temp_dir:
             # Clone the repository in the temporary directory with options.
+            from git import Repo
+
             Repo.clone_from(
                 url=git_url,
                 to_path=temp_dir,
