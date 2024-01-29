@@ -5,7 +5,6 @@ import logging
 import os
 import re
 import shutil
-import subprocess
 from typing import Dict, List
 
 import click
@@ -19,6 +18,7 @@ from snowflake.cli.plugins.snowpark.models import (
     RequirementWithFiles,
     SplitRequirements,
 )
+from snowflake.cli.plugins.snowpark.venv import Venv
 
 log = logging.getLogger(__name__)
 
@@ -195,11 +195,13 @@ def install_packages(
     been deleted from the local packages folder.
     """
     second_chance_results = None
-    if file_name is not None:
-        pip_install_result = _run_pip_install(file_name, "file")
 
-    if package_name is not None:
-        pip_install_result = _run_pip_install(package_name, "package")
+    with Venv() as v:
+        if file_name is not None:
+            pip_install_result = v.pip_install(file_name, "file")
+
+        if package_name is not None:
+            pip_install_result = v.pip_install(package_name, "package")
 
     if pip_install_result != 0:
         log.info(pip_failed_msg.format(pip_install_result))
@@ -252,26 +254,6 @@ def install_packages(
     else:
         log.info("No non-supported native libraries found in packages (Good news!)...")
     return True, second_chance_results
-
-
-def _run_pip_install(name: str, type_: str):
-    arguments = ["-r", name] if type_ == "file" else [name]
-
-    try:
-        process = subprocess.Popen(
-            [PIP_PATH, "install", "-t", ".packages/"] + arguments,
-            stdout=subprocess.PIPE,
-            universal_newlines=True,
-        )
-        for line in process.stdout:  # type: ignore
-            log.info(line.strip())
-        process.wait()
-    except FileNotFoundError:
-        log.error(
-            "pip not found. Please install pip and try again. "
-            "HINT: you can also set the environment variable 'SNOWCLI_PIP_PATH' to the path of pip.",
-        )
-    return process.returncode
 
 
 def _delete_packages(to_be_deleted: Dict) -> None:

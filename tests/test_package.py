@@ -15,18 +15,7 @@ from tests.test_data import test_data
 class TestPackage:
     @pytest.mark.parametrize(
         "argument",
-        [
-            (
-                "snowflake-connector-python",
-                "Package snowflake-connector-python is available on the Snowflake anaconda channel.",
-                "snowflake.cli.plugins.snowpark.package.commands",
-            ),
-            (
-                "some-weird-package-we-dont-know",
-                "Lookup for package some-weird-package-we-dont-know resulted in some error. Please check the package name or try again with -y option",
-                "snowflake.cli.plugins.snowpark.package.commands",
-            ),
-        ],
+        ["snowflake-connector-python", "some-weird-package-we-dont-know"],
     )
     @patch("snowflake.cli.plugins.snowpark.package_utils.requests")
     def test_package_lookup(
@@ -36,7 +25,7 @@ class TestPackage:
             test_data.anaconda_response
         )
 
-        result = runner.invoke(["snowpark", "package", "lookup", argument[0], "--yes"])
+        result = runner.invoke(["snowpark", "package", "lookup", argument, "--yes"])
 
         assert result.exit_code == 0
         assert result.output == snapshot
