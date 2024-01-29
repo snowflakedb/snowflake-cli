@@ -193,7 +193,7 @@ def build_udf_sproc_identifier(udf_sproc_dict):
             val = f"{arg['default']}"
             if _is_signature_type_a_string(arg["type"]):
                 val = f"'{val}'"
-            result += f" DEFAULT {val}"
+            result += f" default {val}"
         return result
 
     arguments = ", ".join(format_arg(arg) for arg in udf_sproc_dict["signature"])
