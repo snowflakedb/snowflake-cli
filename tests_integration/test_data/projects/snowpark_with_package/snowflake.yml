@@ -11,4 +11,4 @@ snowpark:
           type: "string"
       returns: string
       imports: 
-        - "@dev_deployment/PyRTF3.zip"
+        - "@dev_deployment/dummy_pkg_for_tests.zip"
