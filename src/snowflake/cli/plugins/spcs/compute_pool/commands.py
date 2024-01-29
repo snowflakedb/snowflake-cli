@@ -5,7 +5,7 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
-from snowflake.cli.plugins.containers.compute_pool.manager import ComputePoolManager
+from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,

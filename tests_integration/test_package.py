@@ -47,26 +47,47 @@ class TestPackage:
     @pytest.mark.integration
     def test_package_create_with_non_anaconda_package(self, directory_for_test, runner):
         result = runner.invoke_with_connection_json(
-            ["snowpark", "package", "create", "PyRTF3", "-y"]
+            ["snowpark", "package", "create", "dummy_pkg_for_tests_with_deps", "-y"]
         )
 
         assert result.exit_code == 0
-        assert os.path.isfile("PyRTF3.zip")
-        assert "PyRTF/utils.py" in self._get_filenames_from_zip("PyRTF3.zip")
+        assert os.path.isfile("dummy_pkg_for_tests_with_deps.zip")
+        assert "dummy_pkg_for_tests/shrubbery.py" in self._get_filenames_from_zip(
+            "dummy_pkg_for_tests_with_deps.zip"
+        )
+        assert (
+            "dummy_pkg_for_tests_with_deps/shrubbery.py"
+            in self._get_filenames_from_zip("dummy_pkg_for_tests_with_deps.zip")
+        )
 
     @pytest.mark.integration
     def test_package_create_with_non_anaconda_package_without_install(
         self, directory_for_test, runner
     ):
         result = runner.invoke_with_connection_json(
-            ["snowpark", "package", "create", "PyRTF3"]
+            ["snowpark", "package", "create", "dummy_pkg_for_tests_with_deps"]
         )
 
         assert_that_result_is_successful(result)
         assert result.json == {
-            "message": "Lookup for package PyRTF3 resulted in some error. Please check the package name or try again with -y option"
+            "message": "Lookup for package dummy_pkg_for_tests_with_deps resulted in some error. Please check the package name or try again with -y option"
         }
-        assert not os.path.exists("PyRTF3.zip")
+        assert not os.path.exists("dummy_pkg_for_tests_with_deps.zip")
+
+    @pytest.mark.integration
+    def test_create_package_with_deps(self, directory_for_test, runner):
+        result = runner.invoke_with_connection_json(
+            ["snowpark", "package", "create", "dummy_pkg_for_tests_with_deps", "-y"]
+        )
+
+        assert result.exit_code == 0
+        assert (
+            "Package dummy_pkg_for_tests_with_deps.zip created. You can now upload it to a stage"
+            in result.json["message"]
+        )
+
+        files = self._get_filenames_from_zip("dummy_pkg_for_tests_with_deps.zip")
+        assert "dummy_pkg_for_tests/shrubbery.py" in files
 
     @pytest.fixture(scope="function")
     def directory_for_test(self):

@@ -186,10 +186,16 @@ def test_snowpark_flow(_test_steps, project_directory, alter_snowflake_yml):
 def test_snowpark_with_separately_created_package(
     _test_steps, project_directory, alter_snowflake_yml
 ):
-    _test_steps.package_should_build_proper_artifact("PyRTF3")
-    _test_steps.package_should_upload_artifact_to_stage("PyRTF3.zip", STAGE_NAME)
+    _test_steps.package_should_build_proper_artifact(
+        "dummy_pkg_for_tests", "dummy_pkg_for_tests/shrubbery.py"
+    )
+    _test_steps.package_should_upload_artifact_to_stage(
+        "dummy_pkg_for_tests.zip", STAGE_NAME
+    )
 
-    _test_steps.artifacts_left_after_package_creation_should_be_deleted("PyRTF3.zip")
+    _test_steps.artifacts_left_after_package_creation_should_be_deleted(
+        "dummy_pkg_for_tests.zip"
+    )
 
     with project_directory("snowpark_with_package"):
         _test_steps.snowpark_build_should_zip_files()
@@ -206,7 +212,7 @@ def test_snowpark_with_separately_created_package(
         _test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="test_func('foo')",
-            expected_value="<slot wrapper '__str__' of 'object' objects> foo",
+            expected_value="We want... a shrubbery!",
         )
 
 
