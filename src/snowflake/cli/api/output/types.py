@@ -39,7 +39,7 @@ class MultipleResults(CommandResult):
 
     @property
     def result(self):
-        return self._elements
+        return (element for element in self._elements)
 
 
 class QueryResult(CollectionResult):

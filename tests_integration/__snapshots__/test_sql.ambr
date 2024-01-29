@@ -1,0 +1,16 @@
+# serializer version: 1
+# name: test_multi_queries_where_one_of_them_is_failing
+  '''
+  [
+    [
+      {
+        "1"  :   1
+      }
+    ],
+    [
+      {
+        "2"  :   2
+      }
+    ]
+  '''
+# ---
