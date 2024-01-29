@@ -8,8 +8,8 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
-from snowflake.cli.plugins.containers.common import print_log_lines
-from snowflake.cli.plugins.containers.jobs.manager import JobManager
+from snowflake.cli.plugins.spcs.common import print_log_lines
+from snowflake.cli.plugins.spcs.jobs.manager import JobManager
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS, name="job", help="Manage Snowpark jobs."

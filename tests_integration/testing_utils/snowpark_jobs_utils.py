@@ -29,13 +29,13 @@ class SnowparkJobsTestSteps:
     def create_job(self) -> str:
         result = self._setup.runner.invoke_with_connection_json(
             [
-                "containers",
+                "spcs",
                 "job",
                 "create",
                 "--compute-pool",
                 self.compute_pool,
                 "--spec-path",
-                f"{self._setup.test_root_path}/containers/spec/spec.yml",
+                f"{self._setup.test_root_path}/spcs/spec/spec.yml",
                 "--database",
                 self.database,
                 "--schema",
@@ -52,7 +52,7 @@ class SnowparkJobsTestSteps:
 
     def status_should_return_job(self, job_id: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
-            ["containers", "job", "status", job_id], connection="spcs"
+            ["spcs", "job", "status", job_id], connection="spcs"
         )
         assert isinstance(result.json, dict)
         status_json = result.json["SYSTEM$GET_JOB_STATUS"]
@@ -68,7 +68,7 @@ class SnowparkJobsTestSteps:
 
     def logs_should_return_job_logs(self, job_id: str) -> None:
         result = self._setup.runner.invoke_with_connection(
-            ["containers", "job", "logs", job_id, "--container-name", "hello-world"],
+            ["spcs", "job", "logs", job_id, "--container-name", "hello-world"],
             connection="spcs",
         )
         assert result.output
@@ -76,7 +76,7 @@ class SnowparkJobsTestSteps:
 
     def drop_job(self, job_id: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
-            ["containers", "job", "drop", job_id], connection="spcs"
+            ["spcs", "job", "drop", job_id], connection="spcs"
         )
         assert result.json == {
             "SYSTEM$CANCEL_JOB": f"Job {job_id} successfully terminated"

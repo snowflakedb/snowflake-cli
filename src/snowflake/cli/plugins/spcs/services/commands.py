@@ -12,8 +12,8 @@ from snowflake.cli.api.output.types import (
     QueryJsonValueResult,
     SingleQueryResult,
 )
-from snowflake.cli.plugins.containers.common import print_log_lines
-from snowflake.cli.plugins.containers.services.manager import ServiceManager
+from snowflake.cli.plugins.spcs.common import print_log_lines
+from snowflake.cli.plugins.spcs.services.manager import ServiceManager
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,

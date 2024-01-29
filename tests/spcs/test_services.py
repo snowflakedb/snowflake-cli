@@ -4,13 +4,13 @@ from unittest.mock import Mock, patch
 
 import pytest
 import strictyaml
-from snowflake.cli.plugins.containers.services.manager import ServiceManager
+from snowflake.cli.plugins.spcs.services.manager import ServiceManager
 
 from tests.testing_utils.fixtures import *
 
 
 @patch(
-    "snowflake.cli.plugins.containers.services.manager.ServiceManager._execute_schema_query"
+    "snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_schema_query"
 )
 def test_create_service(mock_execute_schema_query, other_directory):
     service_name = "test_service"
@@ -55,7 +55,7 @@ def test_create_service(mock_execute_schema_query, other_directory):
     assert result == cursor
 
 
-@patch("snowflake.cli.plugins.containers.services.manager.ServiceManager._read_yaml")
+@patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager._read_yaml")
 def test_create_service_with_invalid_spec(mock_read_yaml):
     service_name = "test_service"
     compute_pool = "test_pool"
@@ -69,7 +69,7 @@ def test_create_service_with_invalid_spec(mock_read_yaml):
 
 
 @patch(
-    "snowflake.cli.plugins.containers.services.manager.ServiceManager._execute_schema_query"
+    "snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_schema_query"
 )
 def test_status(mock_execute_schema_query):
     service_name = "test_service"
@@ -82,7 +82,7 @@ def test_status(mock_execute_schema_query):
 
 
 @patch(
-    "snowflake.cli.plugins.containers.services.manager.ServiceManager._execute_schema_query"
+    "snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_schema_query"
 )
 def test_logs(mock_execute_schema_query):
     service_name = "test_service"
