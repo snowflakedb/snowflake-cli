@@ -8,7 +8,7 @@ from tests_integration.testing_utils.snowpark_services_utils import (
 )
 
 
-@pytest.mark.spcs
+@pytest.mark.integration
 def test_services(_test_steps: SnowparkServicesTestSteps):
     service_name = f"snowpark_service_{uuid.uuid4().hex}"
 
