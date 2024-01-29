@@ -1,4 +1,3 @@
-import unittest
 from unittest.mock import Mock, patch
 
 from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
@@ -11,7 +10,8 @@ from snowflake.cli.api.project.util import to_string_literal
 )
 def test_create(mock_execute_query):
     pool_name = "test_pool"
-    num_instances = 2
+    min_nodes = 2
+    max_nodes = 3
     instance_family = "test_family"
     auto_resume = True
     initially_suspended = False
@@ -20,19 +20,20 @@ def test_create(mock_execute_query):
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
     result = ComputePoolManager().create(
-        pool_name,
-        num_instances,
-        instance_family,
-        auto_resume,
-        initially_suspended,
-        auto_suspend_secs,
-        comment,
+        pool_name=pool_name,
+        min_nodes=min_nodes,
+        max_nodes=max_nodes,
+        instance_family=instance_family,
+        auto_resume=auto_resume,
+        initially_suspended=initially_suspended,
+        auto_suspend_secs=auto_suspend_secs,
+        comment=comment,
     )
     expected_query = " ".join(
         [
             "CREATE COMPUTE POOL test_pool",
             "MIN_NODES = 2",
-            "MAX_NODES = 2",
+            "MAX_NODES = 3",
             "INSTANCE_FAMILY = test_family",
             "AUTO_RESUME = True",
             "INITIALLY_SUSPENDED = False",
@@ -45,9 +46,7 @@ def test_create(mock_execute_query):
     assert result == cursor
 
 
-@patch(
-    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.create"
-)
+@patch("snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.create")
 def test_create_pool_cli_defaults(mock_create, runner):
     result = runner.invoke(
         [
@@ -56,8 +55,6 @@ def test_create_pool_cli_defaults(mock_create, runner):
             "create",
             "--name",
             "test_pool",
-            "--num-instances",
-            "42",
             "--family",
             "test_family",
         ]
@@ -65,7 +62,8 @@ def test_create_pool_cli_defaults(mock_create, runner):
     assert result.exit_code == 0, result.output
     mock_create.assert_called_once_with(
         pool_name="test_pool",
-        num_instances=42,
+        min_nodes=1,
+        max_nodes=1,
         instance_family="test_family",
         auto_resume=True,
         initially_suspended=False,
@@ -74,9 +72,7 @@ def test_create_pool_cli_defaults(mock_create, runner):
     )
 
 
-@patch(
-    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.create"
-)
+@patch("snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.create")
 def test_create_pool_cli(mock_create, runner):
     result = runner.invoke(
         [
@@ -85,8 +81,10 @@ def test_create_pool_cli(mock_create, runner):
             "create",
             "--name",
             "test_pool",
-            "--num-instances",
-            "42",
+            "--min-nodes",
+            "2",
+            "--max-nodes",
+            "3",
             "--family",
             "test_family",
             "--no-auto-resume",
@@ -100,7 +98,8 @@ def test_create_pool_cli(mock_create, runner):
     assert result.exit_code == 0, result.output
     mock_create.assert_called_once_with(
         pool_name="test_pool",
-        num_instances=42,
+        min_nodes=2,
+        max_nodes=3,
         instance_family="test_family",
         auto_resume=False,
         initially_suspended=True,

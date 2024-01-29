@@ -17,7 +17,8 @@ from snowflake.cli.plugins.object.common import Tag
 def test_create_service(mock_execute_schema_query, other_directory):
     service_name = "test_service"
     compute_pool = "test_pool"
-    num_instances = 42
+    min_instances = 42
+    max_instances = 43
     tmp_dir = Path(other_directory)
     spec_path = tmp_dir / "spec.yml"
     spec_path.write_text(
@@ -48,15 +49,16 @@ def test_create_service(mock_execute_schema_query, other_directory):
     mock_execute_schema_query.return_value = cursor
 
     result = ServiceManager().create(
-        service_name,
-        compute_pool,
-        Path(spec_path),
-        num_instances,
-        auto_resume,
-        external_access_integrations,
-        query_warehouse,
-        tags,
-        comment,
+        service_name=service_name,
+        compute_pool=compute_pool,
+        spec_path=Path(spec_path),
+        min_instances=min_instances,
+        max_instances=max_instances,
+        auto_resume=auto_resume,
+        external_access_integrations=external_access_integrations,
+        query_warehouse=query_warehouse,
+        tags=tags,
+        comment=comment,
     )
     expected_query = " ".join(
         [
@@ -65,7 +67,7 @@ def test_create_service(mock_execute_schema_query, other_directory):
             'FROM SPECIFICATION $$ {"spec": {"containers": [{"name": "cloudbeaver", "image":',
             '"/spcs_demos_db/cloudbeaver:23.2.1"}], "endpoints": [{"name": "cloudbeaver",',
             '"port": 80, "public": true}]}} $$',
-            "WITH MIN_INSTANCES = 42 MAX_INSTANCES = 42",
+            "WITH MIN_INSTANCES = 42 MAX_INSTANCES = 43",
             "AUTO_RESUME = True",
             "EXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration,salesforce_api_access_integration)",
             "QUERY_WAREHOUSE = test_warehouse",
@@ -115,7 +117,8 @@ def test_create_service_cli_defaults(mock_create, other_directory, runner):
         service_name="test_service",
         compute_pool="test_pool",
         spec_path=spec_path,
-        num_instances=1,
+        min_instances=1,
+        max_instances=1,
         auto_resume=True,
         external_access_integrations=[],
         query_warehouse=None,
@@ -154,8 +157,10 @@ def test_create_service_cli(mock_create, other_directory, runner):
             "test_pool",
             "--spec-path",
             f"{spec_path}",
-            "--num-instances",
+            "--min-instances",
             "42",
+            "--max-instances",
+            "43",
             "--no-auto-resume",
             "--eai-name",
             "google_api",
@@ -177,7 +182,8 @@ def test_create_service_cli(mock_create, other_directory, runner):
         service_name="test_service",
         compute_pool="test_pool",
         spec_path=spec_path,
-        num_instances=42,
+        min_instances=42,
+        max_instances=43,
         auto_resume=False,
         external_access_integrations=["google_api", "salesforce_api"],
         query_warehouse="test_warehouse",
@@ -191,22 +197,24 @@ def test_create_service_with_invalid_spec(mock_read_yaml):
     service_name = "test_service"
     compute_pool = "test_pool"
     spec_path = "/path/to/spec.yaml"
-    num_instances = 42
+    min_instances = 42
+    max_instances = 42
     external_access_integrations = query_warehouse = tags = comment = None
     auto_resume = False
     mock_read_yaml.side_effect = strictyaml.YAMLError("Invalid YAML")
 
     with pytest.raises(strictyaml.YAMLError):
         ServiceManager().create(
-            service_name,
-            compute_pool,
-            Path(spec_path),
-            num_instances,
-            auto_resume,
-            external_access_integrations,
-            query_warehouse,
-            tags,
-            comment,
+            service_name=service_name,
+            compute_pool=compute_pool,
+            spec_path=Path(spec_path),
+            min_instances=min_instances,
+            max_instances=max_instances,
+            auto_resume=auto_resume,
+            external_access_integrations=external_access_integrations,
+            query_warehouse=query_warehouse,
+            tags=tags,
+            comment=comment,
         )
 
 

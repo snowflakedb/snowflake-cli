@@ -7,8 +7,9 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
-from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
 from snowflake.cli.plugins.object.common import comment_option
+from snowflake.cli.plugins.spcs.common import validate_and_set_instances
+from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -22,8 +23,11 @@ app = typer.Typer(
 @global_options_with_connection
 def create(
     name: str = typer.Option(..., "--name", help="Name of the compute pool."),
-    num_instances: int = typer.Option(
-        ..., "--num-instances", help="Number of compute pool instances."
+    min_nodes: int = typer.Option(
+        1, "--min-nodes", help="Minimum number of nodes for the compute pool"
+    ),
+    max_nodes: Optional[int] = typer.Option(
+        None, "--max-nodes", help="Maximum number of nodes for the compute pool"
     ),
     instance_family: str = typer.Option(
         ...,
@@ -49,11 +53,13 @@ def create(
     **options,
 ) -> CommandResult:
     """
-    Creates a compute pool with a specified number of instances.
+    Creates a compute pool with a specified number of nodes.
     """
+    max_nodes = validate_and_set_instances(min_nodes, max_nodes, "nodes")
     cursor = ComputePoolManager().create(
         pool_name=name,
-        num_instances=num_instances,
+        min_nodes=min_nodes,
+        max_nodes=max_nodes,
         instance_family=instance_family,
         auto_resume=auto_resume,
         initially_suspended=initially_suspended,

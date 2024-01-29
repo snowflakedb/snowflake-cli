@@ -13,9 +13,12 @@ from snowflake.cli.api.output.types import (
     QueryJsonValueResult,
     SingleQueryResult,
 )
-from snowflake.cli.plugins.spcs.common import print_log_lines
+from snowflake.cli.plugins.object.common import Tag, comment_option, tag_option
+from snowflake.cli.plugins.spcs.common import (
+    print_log_lines,
+    validate_and_set_instances,
+)
 from snowflake.cli.plugins.spcs.services.manager import ServiceManager
-from snowflake.cli.plugins.object.common import tag_option, comment_option, Tag
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -38,7 +41,12 @@ def create(
         dir_okay=False,
         exists=True,
     ),
-    num_instances: int = typer.Option(1, "--num-instances", help="Number of instances"),
+    min_instances: int = typer.Option(
+        1, "--min-instances", help="Minimum number of service instances to run"
+    ),
+    max_instances: Optional[int] = typer.Option(
+        None, "--max-instances", help="Maximum number of service instances to run"
+    ),
     auto_resume: bool = typer.Option(
         True,
         "--auto-resume/--no-auto-resume",
@@ -61,17 +69,20 @@ def create(
     """
     Creates a new Snowpark Container Services service in the current schema.
     """
-
+    max_instances = validate_and_set_instances(
+        min_instances, max_instances, "instances"
+    )
     cursor = ServiceManager().create(
         service_name=name,
-        num_instances=num_instances,
+        min_instances=min_instances,
+        max_instances=max_instances,
         compute_pool=compute_pool,
         spec_path=spec_path,
         external_access_integrations=external_access_integrations,
         auto_resume=auto_resume,
         query_warehouse=query_warehouse,
         tags=tags,
-        comment=comment
+        comment=comment,
     )
     return SingleQueryResult(cursor)
 

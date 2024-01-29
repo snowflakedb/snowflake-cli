@@ -20,7 +20,7 @@ def test_cp(runner, snowflake_session):
             "create",
             "--name",
             cp_name,
-            "--num-instances",
+            "--min-instances",
             1,
             "--family",
             "STANDARD_1",

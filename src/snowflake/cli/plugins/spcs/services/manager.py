@@ -2,8 +2,8 @@ from pathlib import Path
 from typing import List, Optional
 
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
-from snowflake.cli.plugins.spcs.common import strip_empty_lines
 from snowflake.cli.plugins.object.common import Tag
+from snowflake.cli.plugins.spcs.common import strip_empty_lines
 from snowflake.connector.cursor import SnowflakeCursor
 
 
@@ -13,7 +13,8 @@ class ServiceManager(SqlExecutionMixin):
         service_name: str,
         compute_pool: str,
         spec_path: Path,
-        num_instances: int,
+        min_instances: int,
+        max_instances: int,
         auto_resume: bool,
         external_access_integrations: Optional[List[str]],
         query_warehouse: Optional[str],
@@ -29,8 +30,8 @@ class ServiceManager(SqlExecutionMixin):
             {spec}
             $$
             WITH
-            MIN_INSTANCES = {num_instances}
-            MAX_INSTANCES = {num_instances}
+            MIN_INSTANCES = {min_instances}
+            MAX_INSTANCES = {max_instances}
             AUTO_RESUME = {auto_resume}
             """.splitlines()
 

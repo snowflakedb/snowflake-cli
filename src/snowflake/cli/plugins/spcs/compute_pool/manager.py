@@ -9,7 +9,8 @@ class ComputePoolManager(SqlExecutionMixin):
     def create(
         self,
         pool_name: str,
-        num_instances: int,
+        min_nodes: int,
+        max_nodes: int,
         instance_family: str,
         auto_resume: bool,
         initially_suspended: bool,
@@ -18,8 +19,8 @@ class ComputePoolManager(SqlExecutionMixin):
     ) -> SnowflakeCursor:
         query = f"""\
             CREATE COMPUTE POOL {pool_name}
-            MIN_NODES = {num_instances}
-            MAX_NODES = {num_instances}
+            MIN_NODES = {min_nodes}
+            MAX_NODES = {max_nodes}
             INSTANCE_FAMILY = {instance_family}
             AUTO_RESUME = {auto_resume}
             INITIALLY_SUSPENDED = {initially_suspended}
