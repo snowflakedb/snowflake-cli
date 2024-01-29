@@ -80,9 +80,10 @@ select = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-m 'not integration and not performance and not e2e and not spcs'"
+addopts = "-m 'not integration and not performance and not e2e and not spcs and not loaded_modules'"
 markers = [
   "integration: mark test as integration test",
   "performance: mark test as performance test",
   "e2e: mark test to execute on SnowCLI installed in fresh virtual environment",
+  "loaded_modules: checks loaded modules",
 ]
