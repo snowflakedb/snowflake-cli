@@ -3,8 +3,8 @@ from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowflake.cli.plugins.spcs.compute_pool.commands import (
     app as compute_pools_app,
 )
+from snowflake.cli.plugins.spcs.image_registry.commands import app as registry_app
 from snowflake.cli.plugins.spcs.jobs.commands import app as jobs_app
-from snowflake.cli.plugins.spcs.registry.commands import app as registry_app
 from snowflake.cli.plugins.spcs.services.commands import app as services_app
 
 app = typer.Typer(

@@ -4,7 +4,7 @@ from snowflake.cli.api.plugins.command import (
     CommandType,
     plugin_hook_impl,
 )
-from snowflake.cli.plugins.spcs.registry import commands
+from snowflake.cli.plugins.spcs.image_registry import commands
 
 
 @plugin_hook_impl
