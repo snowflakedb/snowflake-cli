@@ -5,8 +5,6 @@ from typing import Dict, List, Optional
 
 import typer
 from click import BadOptionUsage, ClickException
-from git import Repo
-from git.exc import InvalidGitRepositoryError
 from rich import print
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.util import unquote_identifier
@@ -39,6 +37,9 @@ def check_index_changes_in_git_repo(
     Checks if the project root, i.e. the native apps project is a git repository. If it is a git repository,
     it also checks if there any local changes to the directory that may not be on the app package stage.
     """
+    from git import Repo
+    from git.exc import InvalidGitRepositoryError
+
     try:
         repo = Repo(project_root, search_parent_directories=True)
         assert repo.git_dir is not None
