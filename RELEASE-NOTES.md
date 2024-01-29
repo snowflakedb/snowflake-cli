@@ -54,6 +54,11 @@
 * Allow the use of quoted identifiers in stages
 
 
+# v1.2.5
+## Fixes and improvements
+* Import git module only when is needed
+
+
 # v1.2.4
 ## Fixes and improvements
 * Fixed look up for all folders in downloaded package.
