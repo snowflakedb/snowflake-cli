@@ -179,8 +179,6 @@ class SnowparkObjectManager(SqlExecutionMixin):
         if execute_as_caller:
             query.append("execute as caller")
 
-        print("\n".join(query))
-
         return "\n".join(query)
 
 
@@ -199,8 +197,4 @@ def build_udf_sproc_identifier(udf_sproc_dict):
         return result
 
     arguments = ", ".join(format_arg(arg) for arg in udf_sproc_dict["signature"])
-
     return f"{udf_sproc_dict['name']}({arguments})"
-
-
-# TODO pczajka: remove debug
