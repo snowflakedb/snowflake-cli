@@ -20,7 +20,7 @@ spec:
             fh.write(test_spec)
         runner.invoke(
             [
-                "containers",
+                "spcs",
                 "job",
                 "create",
                 "--compute-pool",
@@ -45,7 +45,7 @@ def test_job_status(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["containers", "job", "status", "jobName"])
+    result = runner.invoke(["spcs", "job", "status", "jobName"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "CALL SYSTEM$GET_JOB_STATUS('jobName')"
@@ -57,7 +57,7 @@ def test_job_logs(mock_connector, runner, mock_ctx):
     mock_connector.return_value = ctx
 
     result = runner.invoke(
-        ["containers", "job", "logs", "--container-name", "containerName", "jobName"]
+        ["spcs", "job", "logs", "--container-name", "containerName", "jobName"]
     )
 
     assert result.exit_code == 0, result.output

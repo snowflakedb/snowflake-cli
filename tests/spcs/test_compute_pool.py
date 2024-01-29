@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from snowflake.cli.plugins.containers.compute_pool.manager import ComputePoolManager
+from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
 from snowflake.connector.cursor import SnowflakeCursor
 
 
@@ -10,7 +10,7 @@ class TestComputePoolManager(unittest.TestCase):
         self.compute_pool_manager = ComputePoolManager()
 
     @patch(
-        "snowflake.cli.plugins.containers.compute_pool.manager.ComputePoolManager._execute_query"
+        "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
     )
     def test_create(self, mock_execute_query):
         pool_name = "test_pool"
@@ -34,7 +34,7 @@ class TestComputePoolManager(unittest.TestCase):
         self.assertEqual(result, cursor)
 
     @patch(
-        "snowflake.cli.plugins.containers.compute_pool.manager.ComputePoolManager._execute_query"
+        "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
     )
     def test_stop(self, mock_execute_query):
         pool_name = "test_pool"

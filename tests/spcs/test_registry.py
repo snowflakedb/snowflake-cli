@@ -4,8 +4,10 @@ from unittest import mock
 from tests.testing_utils.fixtures import *
 
 
-@mock.patch("snowflake.cli.plugins.registry.manager.RegistryManager._conn")
-@mock.patch("snowflake.cli.plugins.registry.manager.RegistryManager._execute_query")
+@mock.patch("snowflake.cli.plugins.spcs.registry.manager.RegistryManager._conn")
+@mock.patch(
+    "snowflake.cli.plugins.spcs.registry.manager.RegistryManager._execute_query"
+)
 def test_registry_get_token_2(mock_execute, mock_conn, mock_cursor, runner):
     mock_execute.return_value = mock_cursor(
         ["row"], ["Statement executed successfully"]
@@ -16,15 +18,19 @@ def test_registry_get_token_2(mock_execute, mock_conn, mock_cursor, runner):
             "validityInSecondsST": 42,
         }
     }
-    result = runner.invoke(["registry", "token", "--format", "JSON"])
+    result = runner.invoke(["spcs", "registry", "token", "--format", "JSON"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout) == {"token": "token1234", "expires_in": 42}
 
 
-@mock.patch("snowflake.cli.plugins.registry.commands.requests.get")
-@mock.patch("snowflake.cli.plugins.registry.commands.RegistryManager._execute_query")
-@mock.patch("snowflake.cli.plugins.registry.commands.RegistryManager._conn")
-@mock.patch("snowflake.cli.plugins.registry.commands.RegistryManager.login_to_registry")
+@mock.patch("snowflake.cli.plugins.spcs.registry.commands.requests.get")
+@mock.patch(
+    "snowflake.cli.plugins.spcs.registry.commands.RegistryManager._execute_query"
+)
+@mock.patch("snowflake.cli.plugins.spcs.registry.commands.RegistryManager._conn")
+@mock.patch(
+    "snowflake.cli.plugins.spcs.registry.commands.RegistryManager.login_to_registry"
+)
 def test_list_images(
     mock_login,
     mock_conn,
@@ -67,17 +73,21 @@ def test_list_images(
     mock_get_images.return_value.text = '{"repositories":["baserepo/super-cool-repo"]}'
 
     result = runner.invoke(
-        ["registry", "list-images", "-r", "IMAGES", "--format", "JSON"]
+        ["spcs", "registry", "list-images", "-r", "IMAGES", "--format", "JSON"]
     )
 
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == [{"image": "DB/SCHEMA/IMAGES/super-cool-repo"}]
 
 
-@mock.patch("snowflake.cli.plugins.registry.commands.requests.get")
-@mock.patch("snowflake.cli.plugins.registry.manager.RegistryManager._execute_query")
-@mock.patch("snowflake.cli.plugins.registry.commands.RegistryManager._conn")
-@mock.patch("snowflake.cli.plugins.registry.manager.RegistryManager.login_to_registry")
+@mock.patch("snowflake.cli.plugins.spcs.registry.commands.requests.get")
+@mock.patch(
+    "snowflake.cli.plugins.spcs.registry.manager.RegistryManager._execute_query"
+)
+@mock.patch("snowflake.cli.plugins.spcs.registry.commands.RegistryManager._conn")
+@mock.patch(
+    "snowflake.cli.plugins.spcs.registry.manager.RegistryManager.login_to_registry"
+)
 def test_list_tags(
     mock_login,
     mock_conn,
@@ -123,6 +133,7 @@ def test_list_tags(
 
     result = runner.invoke(
         [
+            "spcs",
             "registry",
             "list-tags",
             "--repository_name",
