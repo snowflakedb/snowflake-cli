@@ -17,6 +17,28 @@ snowpark:
           type: "string"
           default: "!"
       returns: string
+    - name: check_all_types
+      handler: "app.check_all_types"
+      signature:
+        - name: "s"
+          type: "string"
+          default: "<str>"
+        - name: "i"
+          type: "int"
+          default: "7"
+        - name: "b1"
+          type: "boolean"
+          default: "true"
+        - name: "b2"
+          type: "boolean"
+          default: "True"
+        - name: "f"
+          type: "float"
+          default: "1.5"
+        - name: "l"
+          type: "array"
+          default: "[]"
+      returns: string
   procedures:
     - name: whole_new_word_procedure
       handler: "app.whole_new_word_procedure"

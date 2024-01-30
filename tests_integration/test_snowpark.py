@@ -314,6 +314,17 @@ def test_snowpark_default_arguments(
                     "type": "function",
                     "status": "created",
                 },
+                {
+                    "object": "check_all_types("
+                    "s string default '<str>', "
+                    "i int default 7, "
+                    "b1 boolean default true, "
+                    "b2 boolean default True, "
+                    "f float default 1.5, "
+                    "l array default [])",
+                    "status": "created",
+                    "type": "function",
+                },
             ]
         )
 
@@ -368,6 +379,13 @@ def test_snowpark_default_arguments(
             object_type="procedure",
             identifier="whole_new_word_procedure(mult => 4, base => 'nii')",
             expected_value="niiniiniinii, but a procedure",
+        )
+
+        # check default values for all types
+        _test_steps.snowpark_execute_should_return_expected_value(
+            object_type="function",
+            identifier="check_all_types()",
+            expected_value="s:<str>, i:7, b1:True, b2:True, f:1.5, l:[]",
         )
 
 
