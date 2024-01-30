@@ -15,7 +15,7 @@ For complete installation and usage instructions, refer to the
 Requires Python >= 3.8
 
 ```bash
-pip install snowflake-cli-labs
+pip install snowflake-cli
 snow --help
 ```
 
