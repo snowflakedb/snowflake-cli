@@ -25,10 +25,7 @@ app = typer.Typer(
 @with_output
 @global_options_with_connection
 def list_images(
-    repo_name: str = typer.Option(
-        ...,
-        "--repository_name",
-        "-r",
+    repo_name: str = typer.Argument(
         help="Name of the image repository shown by the `SHOW IMAGE REPOSITORIES` SQL command.",
     ),
     **options,
@@ -75,10 +72,7 @@ def list_images(
 @with_output
 @global_options_with_connection
 def list_tags(
-    repo_name: str = typer.Option(
-        ...,
-        "--repository_name",
-        "-r",
+    repo_name: str = typer.Argument(
         help="Name of the image repository shown by the `SHOW IMAGE REPOSITORIES` SQL command.",
     ),
     image_name: str = typer.Option(

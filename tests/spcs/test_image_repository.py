@@ -54,7 +54,7 @@ def test_list_images(
     mock_get_images.return_value.text = '{"repositories":["baserepo/super-cool-repo"]}'
 
     result = runner.invoke(
-        ["spcs", "image-repository", "list-images", "-r", "IMAGES", "--format", "JSON"]
+        ["spcs", "image-repository", "list-images", "IMAGES", "--format", "JSON"]
     )
 
     assert result.exit_code == 0, result.output
@@ -119,7 +119,6 @@ def test_list_tags(
             "spcs",
             "image-repository",
             "list-tags",
-            "--repository_name",
             "IMAGES",
             "--image_name",
             "DB/SCHEMA/IMAGES/super-cool-repo",
