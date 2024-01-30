@@ -2,6 +2,8 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.constants import SUPPORTED_OBJECTS, OBJECT_TO_NAMES
+from snowflake.cli.plugins.object.commands import _scope_callback
+from click import ClickException
 
 
 @mock.patch("snowflake.connector.connect")
@@ -115,6 +117,32 @@ def test_show_with_invalid_scope(
         ["object", "list", object_type, "--in", input_scope, input_name]
     )
     assert expected in result.output
+
+
+@pytest.mark.parametrize(
+    "input_scope, input_name",
+    [
+        (None, None),
+        ("database", "test_db"),
+        ("schema", "test_schema"),
+        ("compute-pool", "test_pool"),
+    ],
+)
+def test_scope_callback(input_scope, input_name):
+    assert (input_scope, input_name) == _scope_callback((input_scope, input_name))
+
+
+@pytest.mark.parametrize(
+    "input_scope, input_name",
+    [
+        ("database", "invalid identifier"),
+        ("invalid_scope", "identifier"),
+        ("invalid_scope", "invalid identifier"),
+    ],
+)
+def test_invalid_scope_callback(input_scope, input_name):
+    with pytest.raises(ClickException):
+        _scope_callback((input_scope, input_name))
 
 
 @mock.patch("snowflake.connector")

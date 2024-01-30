@@ -185,12 +185,7 @@ def _check_if_all_defined_integrations_exists(
 ):
     existing_integrations = {
         i["name"].lower()
-        for i in om.show(
-            object_type="integration",
-            cursor_class=DictCursor,
-            like=None,
-            scope=(None, None),
-        )
+        for i in om.show(object_type="integration", cursor_class=DictCursor, like=None)
         if i["type"] == "EXTERNAL_ACCESS"
     }
     declared_integration: Set[str] = set()
