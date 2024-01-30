@@ -11,6 +11,8 @@
 * Switched to Python Connector default connection https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect#setting-a-default-connection
   * Default connection name changed from `dev` to `default`
   * Environment variable for default connection name changed from `SNOWFLAKE_OPTIONS_DEFAULT_CONNECTION` to `SNOWFLAKE_DEFAULT_CONNECTION_NAME`
+* `--num` option for `snow spcs pool create` has been split into `--min-nodes` and `--max-nodes`
+* `--num-instances` option for `snow spcs service create` has been split into `--min-instances` and `--max-instances`
 
 * Snowpark changes
   * Removed `procedure` and `function` subgroups.
@@ -28,6 +30,7 @@
   * `jobs` commands were renamed to `job`.
   * `services` commands were renamed to `service`
   * `pool`, `job`, `service`, and `registry` commands were moved from `snowpark` group to a new `spcs` group (`registry` was renamed to `image-registry`).
+  * `snow spcs pool create` and `snow spcs service create` have been updated with all options available through SQL interface.
 
 * Streamlit changes
   * `snow streamlit deploy` is requiring `snowflake.yml` project file with a Streamlit definition.
