@@ -81,6 +81,13 @@ def test_describe(
     assert result.output == snapshot
 
 
+@mock.patch("snowflake.connector")
+def test_describe_fails_image_repository(mock_cursor, runner, snapshot):
+    result = runner.invoke(["object", "describe", "image_repository", "test_repo"])
+    assert result.exit_code == 1, result.output
+    assert result.output == snapshot
+
+
 DROP_TEST_OBJECTS = [
     *DESCRIBE_TEST_OBJECTS,
     ("image-repository", "image-repository-example"),
@@ -108,7 +115,7 @@ def test_that_objects_list_is_in_help(command, runner):
     result = runner.invoke(["object", command, "--help"])
     for obj in SUPPORTED_OBJECTS:
         if command == "describe" and obj == "image-repository":
-            continue
+            assert obj not in result.output, f"{obj} should not be in help message"
         assert obj in result.output, f"{obj} in help message"
 
 

@@ -227,6 +227,14 @@
   
   '''
 # ---
+# name: test_describe_fails_image_repository
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Object of type image_repository is not supported.                            │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
 # name: test_drop[compute-pool-compute-pool-example]
   '''
   SELECT A MOCK QUERY

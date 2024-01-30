@@ -59,9 +59,7 @@ def drop(object_type: str = ObjectArgument, object_name: str = NameArgument, **o
 
 
 # Image repository is only supported object that does not have a DESCRIBE command.
-DESCRIBE_SUPPORTED_TYPES_MSG = "\n\nSupported types: " + ", ".join(
-    obj for obj in SUPPORTED_OBJECTS if obj != "image-repository"
-)
+DESCRIBE_SUPPORTED_TYPES_MSG = f"\n\nSupported types: {', '.join(obj for obj in SUPPORTED_OBJECTS if obj != 'image-repository')}"
 
 
 @app.command(
