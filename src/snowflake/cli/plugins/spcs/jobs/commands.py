@@ -12,7 +12,10 @@ from snowflake.cli.plugins.spcs.common import print_log_lines
 from snowflake.cli.plugins.spcs.jobs.manager import JobManager
 
 app = typer.Typer(
-    context_settings=DEFAULT_CONTEXT_SETTINGS, name="job", help="Manage Snowpark jobs."
+    context_settings=DEFAULT_CONTEXT_SETTINGS,
+    name="job",
+    help="Manage Snowpark jobs.",
+    hidden=True,
 )
 
 
