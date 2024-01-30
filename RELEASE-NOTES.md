@@ -27,7 +27,7 @@
   * `compute-pool` commands and its alias `cp` were renamed to `pool` commands.
   * `jobs` commands were renamed to `job`.
   * `services` commands were renamed to `service`
-  * `pool`, `job`, `service`, and `registry` commands were moved from `snowpark` group to a new `spcs` group.
+  * `pool`, `job`, `service`, and `registry` commands were moved from `snowpark` group to a new `spcs` group (`registry` was renamed to `image-registry`).
 
 * Streamlit changes
   * `snow streamlit deploy` is requiring `snowflake.yml` project file with a Streamlit definition.
