@@ -27,7 +27,9 @@
   * `compute-pool` commands and its alias `cp` were renamed to `pool` commands.
   * `jobs` commands were renamed to `job`.
   * `services` commands were renamed to `service`
-  * `pool`, `job`, `service`, and `registry` commands were moved from `snowpark` group to a new `spcs` group.
+  * `pool`, `job`, `service`, and `image-registry` commands were moved from `snowpark` group to a new `spcs` group (`registry` was renamed to `image-registry`).
+  * `snow spcs pool create` and `snow spcs service create` have been updated with new options to match SQL interface
+  * Added new `image-repository` command group under `spcs`. Moved `list-images` and `list-tags` from `registry` to `image-repository`.
 
 * Streamlit changes
   * `snow streamlit deploy` is requiring `snowflake.yml` project file with a Streamlit definition.
@@ -52,6 +54,11 @@
 
 ## Fixes and improvements
 * Allow the use of quoted identifiers in stages
+
+
+# v1.2.5
+## Fixes and improvements
+* Import git module only when is needed
 
 
 # v1.2.4

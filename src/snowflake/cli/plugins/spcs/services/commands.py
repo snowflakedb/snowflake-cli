@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from typing import List, Optional
 
 import typer
 from snowflake.cli.api.commands.decorators import (
@@ -12,7 +13,11 @@ from snowflake.cli.api.output.types import (
     QueryJsonValueResult,
     SingleQueryResult,
 )
-from snowflake.cli.plugins.spcs.common import print_log_lines
+from snowflake.cli.plugins.object.common import Tag, comment_option, tag_option
+from snowflake.cli.plugins.spcs.common import (
+    print_log_lines,
+    validate_and_set_instances,
+)
 from snowflake.cli.plugins.spcs.services.manager import ServiceManager
 
 app = typer.Typer(
@@ -36,18 +41,48 @@ def create(
         dir_okay=False,
         exists=True,
     ),
-    num_instances: int = typer.Option(1, "--num-instances", help="Number of instances"),
+    min_instances: int = typer.Option(
+        1, "--min-instances", help="Minimum number of service instances to run"
+    ),
+    max_instances: Optional[int] = typer.Option(
+        None, "--max-instances", help="Maximum number of service instances to run"
+    ),
+    auto_resume: bool = typer.Option(
+        True,
+        "--auto-resume/--no-auto-resume",
+        help="The service will automatically resume when a service function or ingress is called.",
+    ),
+    external_access_integrations: Optional[List[str]] = typer.Option(
+        None,
+        "--eai-name",
+        help="Identifies External Access Integrations(EAI) that the service can access. This option may be specified multiple times for multiple EAIs.",
+    ),
+    query_warehouse: Optional[str] = typer.Option(
+        None,
+        "--query-warehouse",
+        help="Warehouse to use if a service container connects to Snowflake to execute a query without explicitly specifying a warehouse to use.",
+    ),
+    tags: Optional[List[Tag]] = tag_option("service"),
+    comment: Optional[str] = comment_option("service"),
     **options,
 ) -> CommandResult:
     """
     Creates a new Snowpark Container Services service in the current schema.
     """
-
+    max_instances = validate_and_set_instances(
+        min_instances, max_instances, "instances"
+    )
     cursor = ServiceManager().create(
         service_name=name,
-        num_instances=num_instances,
+        min_instances=min_instances,
+        max_instances=max_instances,
         compute_pool=compute_pool,
         spec_path=spec_path,
+        external_access_integrations=external_access_integrations,
+        auto_resume=auto_resume,
+        query_warehouse=query_warehouse,
+        tags=tags,
+        comment=comment,
     )
     return SingleQueryResult(cursor)
 
