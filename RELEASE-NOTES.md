@@ -51,6 +51,14 @@
 * Added support for runtime version in snowpark procedures ad functions.
 * You can include previously uploaded packages in your functions, by listing them under `imports` in `snowflake.yml`
 * Added more options to `snow connection add` - now you can also specify authenticator and path to private key
+* Added support for native applications by introducing new commands.
+  * `snow app init` command that creates a new Native App project from a git repository as a template.
+  * `snow app version create` command that creates or upgrades an application package and creates a version or patch for that package.
+  * `snow app version drop` command that drops a version associated with an application package.
+  * `snow app version list` command that lists all versions associated with an application package.
+  * `snow app run` command that creates or upgrades an application in development mode or through release directives.
+  * `snow app open` command that opens the application inside of your browser on Snowsight, once it has been installed in your account.
+  * `snow app teardown` command that attempts to drop both the application and package as defined in the project definition file.
 
 ## Fixes and improvements
 * Allow the use of quoted identifiers in stages
