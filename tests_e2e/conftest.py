@@ -67,7 +67,7 @@ def _install_snowcli_with_external_plugin(
             "-m",
             "pip",
             "install",
-            test_root_path / f"../dist/snowflake_cli_labs-{version}-py3-none-any.whl",
+            test_root_path / f"../dist/snowflake_cli-{version}-py3-none-any.whl",
         ]
     )
     subprocess.check_call(
