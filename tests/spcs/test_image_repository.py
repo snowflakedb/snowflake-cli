@@ -10,7 +10,7 @@ import json
     "snowflake.cli.plugins.spcs.image_repository.commands.ImageRepositoryManager._conn"
 )
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.commands.ImageRepositoryManager.login_to_registry"
+    "snowflake.cli.plugins.spcs.image_registry.commands.RegistryManager.login_to_registry"
 )
 def test_list_images(
     mock_login,
@@ -69,7 +69,7 @@ def test_list_images(
     "snowflake.cli.plugins.spcs.image_repository.commands.ImageRepositoryManager._conn"
 )
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.login_to_registry"
+    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.login_to_registry"
 )
 def test_list_tags(
     mock_login,
