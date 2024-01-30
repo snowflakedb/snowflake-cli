@@ -247,7 +247,7 @@ def _deploy_single_object(
 
     if object_exists and not replace_object:
         return {
-            "object": identifier,
+            "object": identifier_with_default_values,
             "type": str(object_type),
             "status": "packages updated",
         }
