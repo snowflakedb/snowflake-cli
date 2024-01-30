@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -25,7 +26,9 @@ class DefinitionManager:
     _project_config_paths: List[Path]
 
     def __init__(self, project_arg: Optional[str] = None) -> None:
-        project_root = Path(project_arg).absolute() if project_arg else Path.cwd()
+        project_root = Path(
+            os.path.abspath(project_arg) if project_arg else os.getcwd()
+        )
         if not self._base_definition_file_if_available(project_root):
             raise MissingConfiguration(
                 f"Cannot find project definition (snowflake.yml). Please provide a path to the project or run this command in a valid project directory."
