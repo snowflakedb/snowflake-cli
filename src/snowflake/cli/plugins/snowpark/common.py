@@ -11,23 +11,6 @@ from snowflake.connector.cursor import SnowflakeCursor
 DEFAULT_RUNTIME = "3.8"
 
 
-def remove_parameter_names(identifier: str):
-    """
-    Removes parameter names from identifier.
-    Deploy commands for function and procedure requires identifier
-    with parameter names (e.g. `hello(number int, name string)`),
-    but describe command requires only parameter types (e.g. `hello(int, string)`)
-    :param identifier: `hello(number int, name string)`
-    :return: `hello(int, string)`
-    """
-    open_parenthesis_index = identifier.index("(")
-    parameters = identifier[open_parenthesis_index + 1 : -1]
-    if not parameters:
-        return identifier
-    types = [t.strip().split(" ")[1] for t in parameters.split(",")]
-    return f"{identifier[0:open_parenthesis_index]}({', '.join(types)})"
-
-
 def check_if_replace_is_required(
     object_type: ObjectType,
     current_state,
@@ -186,9 +169,13 @@ def _is_signature_type_a_string(sig_type: str) -> bool:
     return sig_type.lower() in ["string", "varchar"]
 
 
-def build_udf_sproc_identifier(udf_sproc_dict, include_default_values=False):
+def build_udf_sproc_identifier(
+    udf_sproc_dict, include_parameter_names, include_default_values=False
+):
     def format_arg(arg):
-        result = f"{arg['name']} {arg['type']}"
+        result = f"{arg['type']}"
+        if include_parameter_names:
+            result = f"{arg['name']} {result}"
         if include_default_values and "default" in arg:
             val = f"{arg['default']}"
             if _is_signature_type_a_string(arg["type"]):

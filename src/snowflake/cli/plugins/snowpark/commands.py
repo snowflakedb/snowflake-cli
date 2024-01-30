@@ -34,7 +34,6 @@ from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.cli.plugins.snowpark.common import (
     build_udf_sproc_identifier,
     check_if_replace_is_required,
-    remove_parameter_names,
 )
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
 from snowflake.cli.plugins.snowpark.models import PypiOption
@@ -167,11 +166,13 @@ def _find_existing_objects(
 ):
     existing_objects = {}
     for object_definition in objects:
-        identifier = build_udf_sproc_identifier(object_definition)
+        identifier = build_udf_sproc_identifier(
+            object_definition, include_parameter_names=False
+        )
         try:
             current_state = om.describe(
                 object_type=object_type.value.sf_name,
-                name=remove_parameter_names(identifier),
+                name=identifier,
             )
             existing_objects[identifier] = current_state
         except ProgrammingError:
@@ -223,11 +224,13 @@ def _deploy_single_object(
     packages: List[str],
     stage_artifact_path: str,
 ):
-    identifier = build_udf_sproc_identifier(object_definition)
-    identifier_with_default_values = build_udf_sproc_identifier(
-        object_definition, include_default_values=True
+    identifier = build_udf_sproc_identifier(
+        object_definition, include_parameter_names=False
     )
-    log.info("Deploying %s: %s", object_type, identifier)
+    identifier_with_default_values = build_udf_sproc_identifier(
+        object_definition, include_parameter_names=True, include_default_values=True
+    )
+    log.info("Deploying %s: %s", object_type, identifier_with_default_values)
 
     handler = object_definition["handler"]
     returns = object_definition["returns"]
