@@ -116,7 +116,8 @@ def test_that_objects_list_is_in_help(command, runner):
     for obj in SUPPORTED_OBJECTS:
         if command == "describe" and obj == "image-repository":
             assert obj not in result.output, f"{obj} should not be in help message"
-        assert obj in result.output, f"{obj} in help message"
+        else:
+            assert obj in result.output, f"{obj} in help message"
 
 
 @pytest.mark.parametrize(

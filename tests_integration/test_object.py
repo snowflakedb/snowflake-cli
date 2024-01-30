@@ -53,3 +53,31 @@ def test_object_table(runner, test_database, snowflake_session):
     assert (
         len(row_from_cursor(snowflake_session.execute_string(f"show tables")[-1])) == 0
     )
+
+
+@pytest.mark.integration
+def test_show_drop_image_repository(runner, test_database, snowflake_session):
+    repo_name = "TEST_REPO"
+
+    result_create = runner.invoke_with_connection(
+        ["sql", "-q", f"create image repository {repo_name}"]
+    )
+    assert result_create.exit_code == 0, result_create.output
+    assert f"Image Repository {repo_name} successfully created" in result_create.output
+
+    result_show = runner.invoke_with_connection(
+        ["object", "list", "image-repository", "--format", "json"]
+    )
+    curr = snowflake_session.execute_string(f"show image repositories")
+    expected = row_from_cursor(curr[-1])
+    actual = result_show.json
+
+    assert len(actual) == len(expected)
+    assert actual[0].keys() == expected[0].keys()
+    assert actual[0]["name"] == expected[0]["name"]
+
+    result_drop = runner.invoke_with_connection(
+        ["object", "drop", "image-repository", repo_name]
+    )
+    assert result_drop.exit_code == 0, result_drop.output
+    assert f"{repo_name} successfully dropped" in result_drop.output
