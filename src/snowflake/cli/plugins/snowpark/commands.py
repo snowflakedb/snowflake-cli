@@ -224,6 +224,9 @@ def _deploy_single_object(
     stage_artifact_path: str,
 ):
     identifier = build_udf_sproc_identifier(object_definition)
+    identifier_with_default_values = build_udf_sproc_identifier(
+        object_definition, include_default_values=True
+    )
     log.info("Deploying %s: %s", object_type, identifier)
 
     handler = object_definition["handler"]
@@ -247,7 +250,7 @@ def _deploy_single_object(
         }
 
     create_or_replace_kwargs = {
-        "identifier": identifier,
+        "identifier": identifier_with_default_values,
         "handler": handler,
         "return_type": returns,
         "artifact_file": stage_artifact_path,
@@ -267,7 +270,11 @@ def _deploy_single_object(
     manager.create_or_replace(**create_or_replace_kwargs)
 
     status = "created" if not object_exists else "definition updated"
-    return {"object": identifier, "type": str(object_type), "status": status}
+    return {
+        "object": identifier_with_default_values,
+        "type": str(object_type),
+        "status": status,
+    }
 
 
 def _get_snowpark_artifact_path(snowpark_definition: Dict):

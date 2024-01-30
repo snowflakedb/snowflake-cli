@@ -321,7 +321,7 @@ def test_snowpark_default_arguments(
                     "b1 boolean default true, "
                     "b2 boolean default True, "
                     "f float default 1.5, "
-                    "l array default [])",
+                    "l array default [1, 2, 3])",
                     "status": "created",
                     "type": "function",
                 },
@@ -385,7 +385,7 @@ def test_snowpark_default_arguments(
         _test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="check_all_types()",
-            expected_value="s:<str>, i:7, b1:True, b2:True, f:1.5, l:[]",
+            expected_value="s:<str>, i:7, b1:True, b2:True, f:1.5, l:[1, 2, 3]",
         )
 
 

@@ -186,10 +186,10 @@ def _is_signature_type_a_string(sig_type: str) -> bool:
     return sig_type.lower() in ["string", "varchar"]
 
 
-def build_udf_sproc_identifier(udf_sproc_dict):
+def build_udf_sproc_identifier(udf_sproc_dict, include_default_values=False):
     def format_arg(arg):
         result = f"{arg['name']} {arg['type']}"
-        if "default" in arg:
+        if include_default_values and "default" in arg:
             val = f"{arg['default']}"
             if _is_signature_type_a_string(arg["type"]):
                 val = f"'{val}'"

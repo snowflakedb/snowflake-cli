@@ -37,7 +37,7 @@ snowpark:
           default: "1.5"
         - name: "l"
           type: "array"
-          default: "[]"
+          default: "[1, 2, 3]"
       returns: string
   procedures:
     - name: whole_new_word_procedure
