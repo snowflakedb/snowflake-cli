@@ -58,7 +58,7 @@ def drop(object_type: str = ObjectArgument, object_name: str = NameArgument, **o
     return QueryResult(ObjectManager().drop(object_type=object_type, name=object_name))
 
 
-# Image repository is only supported object that does not have a DESCRIBE command.
+# Image repository is the only supported object that does not have a DESCRIBE command.
 DESCRIBE_SUPPORTED_TYPES_MSG = f"\n\nSupported types: {', '.join(obj for obj in SUPPORTED_OBJECTS if obj != 'image-repository')}"
 
 

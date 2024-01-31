@@ -230,7 +230,7 @@
 # name: test_describe_fails_image_repository
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ Object of type image_repository is not supported.                            │
+  │ Describe is currently not supported for object of type image-repository      │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   '''

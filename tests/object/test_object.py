@@ -83,7 +83,7 @@ def test_describe(
 
 @mock.patch("snowflake.connector")
 def test_describe_fails_image_repository(mock_cursor, runner, snapshot):
-    result = runner.invoke(["object", "describe", "image_repository", "test_repo"])
+    result = runner.invoke(["object", "describe", "image-repository", "test_repo"])
     assert result.exit_code == 1, result.output
     assert result.output == snapshot
 
