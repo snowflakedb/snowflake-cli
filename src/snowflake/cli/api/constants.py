@@ -38,6 +38,9 @@ class ObjectType(Enum):
     USER = ObjectNames("user", "user", "users")
     WAREHOUSE = ObjectNames("warehouse", "warehouse", "warehouses")
     VIEW = ObjectNames("view", "view", "views")
+    IMAGE_REPOSITORY = ObjectNames(
+        "image-repository", "image repository", "image repositories"
+    )
 
     def __str__(self):
         """This makes using this Enum easier in formatted string"""
