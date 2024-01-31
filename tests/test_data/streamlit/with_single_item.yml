@@ -1,0 +1,6 @@
+definition_version: 1
+streamlit:
+  name: knights_who_say_ni
+  query_warehouse: my_streamlit_warehouse
+  additional_source_files:
+    - a_tree_cut_down_with_a_herring

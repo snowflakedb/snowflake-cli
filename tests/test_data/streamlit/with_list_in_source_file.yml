@@ -1,0 +1,12 @@
+definition_version: 1
+streamlit:
+  name: streamlit_app
+  stage: my_streamlit_stage
+  query_warehouse: my_streamlit_warehouse
+  main_file: streamlit_app.py
+  env_file: environment.yml
+  pages_dir: pages/
+  additional_source_files:
+    - a_shrubbery.py
+    - looking_nice.py
+    - not_too_expensive.py
