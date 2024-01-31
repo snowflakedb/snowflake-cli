@@ -1,7 +1,6 @@
-name: Upload Python Package
+name: Upload Old Python Package
 
-on:
-  on: workflow_dispatch
+on: workflow_dispatch
 
 permissions:
   contents: read
