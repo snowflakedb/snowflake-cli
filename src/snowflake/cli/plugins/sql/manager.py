@@ -28,5 +28,10 @@ class SqlManager(SqlExecutionMixin):
         elif file:
             query = file.read_text()
 
-        single_statement = len(list(split_statements(StringIO(query)))) == 1
-        return single_statement, self._execute_string(query)
+        statements = tuple(
+            statement
+            for statement, _ in split_statements(StringIO(query), remove_comments=True)
+        )
+        single_statement = len(statements) == 1
+
+        return single_statement, self._execute_string("\n".join(statements))
