@@ -140,9 +140,6 @@ def test_list_tags(
     "snowflake.cli.plugins.spcs.image_repository.commands.ImageRepositoryManager._conn"
 )
 def test_get_repository_url_cli(mock_conn, mock_execute_query, runner, mock_cursor):
-    mock_conn.database = "DB"
-    mock_conn.schema = "SCHEMA"
-    mock_conn.role = "MY_ROLE"
     repo_url = "orgname-alias.registry.snowflakecomputing.com/DB/SCHEMA/IMAGES"
     mock_execute_query.return_value = mock_cursor(
         rows=[
