@@ -1,6 +1,8 @@
 import pytest
+from snowflake.cli.api.project.util import escape_like_pattern
 
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
+from tests_integration.testing_utils.naming_utils import ObjectNameProvider
 
 INTEGRATION_DATABASE = "SNOWCLI_DB"
 INTEGRATION_SCHEMA = "PUBLIC"
@@ -61,15 +63,20 @@ def _list_tags(runner):
 
 
 @pytest.mark.integration
-def test_get_repo_url(runner, snowflake_session):
-    # requires at least one repository to exist in the schema of snowflake_session
-    expect = snowflake_session.execute_string(f"show image repositories")
-    expect_row = row_from_snowflake_session(expect)[0]
-    expect_name = expect_row["name"]
-    expect_url = expect_row["repository_url"]
+def test_get_repo_url(runner, snowflake_session, test_database):
+    repo_name = ObjectNameProvider("Test_Repo").create_and_get_next_object_name()
+    snowflake_session.execute_string(f"create image repository {repo_name}")
 
+    created_repo = snowflake_session.execute_string(
+        f"show image repositories like '{escape_like_pattern(repo_name)}'"
+    )
+    created_row = row_from_snowflake_session(created_repo)[0]
+    created_name = created_row["name"]
+    assert created_name.lower() == repo_name.lower()
+
+    expect_url = created_row["repository_url"]
     result = runner.invoke_with_connection(
-        ["spcs", "image-repository", "url", expect_name]
+        ["spcs", "image-repository", "url", created_name]
     )
     assert isinstance(result.output, str), result.output
     assert result.output.strip() == expect_url

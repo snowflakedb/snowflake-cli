@@ -1,6 +1,7 @@
 from urllib.parse import urlparse
 
 from click import ClickException
+from snowflake.cli.api.project.util import escape_like_pattern
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -16,18 +17,10 @@ class ImageRepositoryManager(SqlExecutionMixin):
         return self._conn.role
 
     def get_repository_url_list(self, repo_name: str) -> SnowflakeCursor:
-        role = self.get_role()
-        database = self.get_database()
-        schema = self.get_schema()
-
-        registry_query = f"""
-            use role {role};
-            use database {database};
-            use schema {schema};
-            show image repositories like '{repo_name}';
-            """
-
-        return self._execute_query(registry_query)
+        repository_query = (
+            f"show image repositories like '{escape_like_pattern(repo_name)}'"
+        )
+        return self._execute_query(repository_query)
 
     def get_repository_url(self, repo_name):
         database = self.get_database()

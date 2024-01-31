@@ -143,3 +143,8 @@ def validate_version(version: str):
         raise ValueError(
             f"Project definition version {version} is not supported by this version of Snowflake CLI. Supported versions: {SUPPORTED_VERSIONS}"
         )
+
+
+def escape_like_pattern(pattern: str) -> str:
+    pattern = pattern.replace("%", r"\\}%").replace("_", r"\\_")
+    return pattern
