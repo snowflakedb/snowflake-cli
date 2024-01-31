@@ -1,0 +1,6 @@
+definition_version: 1
+streamlit:
+  name: knights_who_say_ni
+  query_warehouse: my_streamlit_warehouse
+  additional_source_files:
+    - another_shrubbery_but_a_bit_higher
