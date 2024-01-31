@@ -108,5 +108,7 @@ def test_trailing_comments_queries(runner, snowflake_session, test_root_path):
     result = runner.invoke_with_connection_json(["sql", "-q", trailin_comment_query])
     assert result.exit_code == 0
     assert result.json == [
-        {"1": 1},
+        [
+            {"1": 1},
+        ],
     ]
