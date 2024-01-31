@@ -131,3 +131,43 @@ def test_list_tags(
     assert json.loads(result.output) == [
         {"tag": "/DB/SCHEMA/IMAGES/super-cool-repo:1.2.0"}
     ]
+
+
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_repository.commands.ImageRepositoryManager._execute_query"
+)
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_repository.commands.ImageRepositoryManager._conn"
+)
+def test_get_repository_url_cli(mock_conn, mock_execute_query, runner, mock_cursor):
+    mock_conn.database = "DB"
+    mock_conn.schema = "SCHEMA"
+    mock_conn.role = "MY_ROLE"
+    repo_url = "orgname-alias.registry.snowflakecomputing.com/DB/SCHEMA/IMAGES"
+    mock_execute_query.return_value = mock_cursor(
+        rows=[
+            [
+                "2023-01-01 00:00:00",
+                "IMAGES",
+                "DB",
+                "SCHEMA",
+                repo_url,
+                "ROLE",
+                "ROLE",
+                "",
+            ]
+        ],
+        columns=[
+            "date",
+            "name",
+            "db",
+            "schema",
+            "registry",
+            "role",
+            "unknown",
+            "unkown2",
+        ],
+    )
+    result = runner.invoke(["spcs", "image-repository", "url", "IMAGES"])
+    assert result.exit_code == 0, result.output
+    assert result.output.strip() == repo_url

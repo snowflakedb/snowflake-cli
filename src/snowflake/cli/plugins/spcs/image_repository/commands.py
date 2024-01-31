@@ -9,7 +9,7 @@ from snowflake.cli.api.commands.decorators import (
     with_output,
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
-from snowflake.cli.api.output.types import CollectionResult
+from snowflake.cli.api.output.types import CollectionResult, MessageResult
 from snowflake.cli.plugins.spcs.image_registry.manager import RegistryManager
 from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
 
@@ -119,3 +119,20 @@ def list_tags(
         tags_list.append({"tag": image_tag})
 
     return CollectionResult(tags_list)
+
+
+@app.command()
+@with_output
+@global_options_with_connection
+def url(
+    repo_name: str = typer.Argument(
+        help="Name of the image repository.",
+    ),
+    **options,
+):
+    """Returns the URL for the given repository."""
+    return MessageResult(
+        ImageRepositoryManager()
+        .get_repository_url(repo_name=repo_name)
+        .replace("https://", "")
+    )
