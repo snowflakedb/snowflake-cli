@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 
@@ -408,5 +409,5 @@ def test_connection_test_diag_report(mock_connect, runner):
     mock_connect.assert_called_once_with(
         connection_name="full",
         enable_connection_diag="true",
-        connection_diag_log_path="/tmp",
+        connection_diag_log_path=Path("/tmp"),
     )
