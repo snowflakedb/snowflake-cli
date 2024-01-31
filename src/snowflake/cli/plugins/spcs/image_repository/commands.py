@@ -9,45 +9,34 @@ from snowflake.cli.api.commands.decorators import (
     with_output,
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
-from snowflake.cli.api.output.types import CollectionResult, ObjectResult
-from snowflake.cli.plugins.spcs.registry.manager import RegistryManager
+from snowflake.cli.api.output.types import CollectionResult
+from snowflake.cli.plugins.spcs.image_registry.manager import RegistryManager
+from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    name="registry",
-    help="Manages Snowpark registries.",
+    name="image-repository",
+    help="Manages Snowpark Container Services image repositories.",
     rich_markup_mode="markdown",
 )
-
-
-@app.command("token")
-@with_output
-@global_options_with_connection
-def token(**options) -> ObjectResult:
-    """Gets the token from environment to use for authenticating with the registry."""
-    return ObjectResult(RegistryManager().get_token())
 
 
 @app.command("list-images")
 @with_output
 @global_options_with_connection
 def list_images(
-    repo_name: str = typer.Option(
-        ...,
-        "--repository_name",
-        "-r",
+    repo_name: str = typer.Argument(
         help="Name of the image repository shown by the `SHOW IMAGE REPOSITORIES` SQL command.",
     ),
     **options,
 ) -> CollectionResult:
     """Lists images in given repository."""
-    registry_manager = RegistryManager()
-    database = registry_manager.get_database()
-    schema = registry_manager.get_schema()
-    url = registry_manager.get_repository_url(repo_name)
-    api_url = registry_manager.get_repository_api_url(url)
-    bearer_login = registry_manager.login_to_registry(api_url)
-
+    repository_manager = ImageRepositoryManager()
+    database = repository_manager.get_database()
+    schema = repository_manager.get_schema()
+    url = repository_manager.get_repository_url(repo_name)
+    api_url = repository_manager.get_repository_api_url(url)
+    bearer_login = RegistryManager().login_to_registry(api_url)
     repos = []
     query: Optional[str] = f"{api_url}/_catalog?n=10"
 
@@ -83,10 +72,7 @@ def list_images(
 @with_output
 @global_options_with_connection
 def list_tags(
-    repo_name: str = typer.Option(
-        ...,
-        "--repository_name",
-        "-r",
+    repo_name: str = typer.Argument(
         help="Name of the image repository shown by the `SHOW IMAGE REPOSITORIES` SQL command.",
     ),
     image_name: str = typer.Option(
@@ -99,12 +85,11 @@ def list_tags(
 ) -> CollectionResult:
     """Lists tags for given image in a repository."""
 
-    registry_manager = RegistryManager()
-    url = registry_manager.get_repository_url(repo_name)
-    api_url = registry_manager.get_repository_api_url(url)
-    bearer_login = registry_manager.login_to_registry(api_url)
+    repository_manager = ImageRepositoryManager()
+    url = repository_manager.get_repository_url(repo_name)
+    api_url = repository_manager.get_repository_api_url(url)
+    bearer_login = RegistryManager().login_to_registry(api_url)
 
-    repo_name = image_name.split("/")[2]
     image_realname = "/".join(image_name.split("/")[3:])
 
     tags = []

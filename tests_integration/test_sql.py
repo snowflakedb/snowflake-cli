@@ -100,3 +100,15 @@ def test_queries_are_streamed_to_output(
     assert query_0 == "13"
     assert time_1 - time_0 >= 10.0
     assert "waited 10 seconds" in query_1
+
+
+@pytest.mark.integration
+def test_trailing_comments_queries(runner, snowflake_session, test_root_path):
+    trailin_comment_query = "select 1;\n\n-- trailing comment\n"
+    result = runner.invoke_with_connection_json(["sql", "-q", trailin_comment_query])
+    assert result.exit_code == 0
+    assert result.json == [
+        [
+            {"1": 1},
+        ],
+    ]
