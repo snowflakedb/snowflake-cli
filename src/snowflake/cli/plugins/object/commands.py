@@ -37,20 +37,20 @@ LikeOption = typer.Option(
 )
 
 
-def _scope_callback(scope: Tuple[str, str]):
+def _scope_validate(object_type: str, scope: Tuple[str, str]):
     if scope[1] is not None and not is_valid_identifier(scope[1]):
         raise ClickException("scope name must be a valid identifier")
     if scope[0] is not None and scope[0].lower() not in VALID_SCOPES:
         raise ClickException(
-            f'scope must be one of the following: {", ".join(VALID_SCOPES)}'
+            f"scope must be one of the following: {', '.join(VALID_SCOPES)}"
         )
-    return scope
+    if scope[0] == "compute-pool" and object_type != "service":
+        raise ClickException("compute-pool scope is only supported for listing service")
 
 
 ScopeOption = typer.Option(
     (None, None),
     "--in",
-    callback=_scope_callback,
     help="Specifies the scope of this command using '--in <scope> <name>' (e.g. list tables --in database my_db). Some object types have specialized scopes (e.g. list service --in compute-pool my_pool)",
 )
 
@@ -69,6 +69,7 @@ def list_(
     scope: Tuple[str, str] = ScopeOption,
     **options,
 ):
+    _scope_validate(object_type, scope)
     return QueryResult(
         ObjectManager().show(object_type=object_type, like=like, scope=scope)
     )

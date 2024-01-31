@@ -2,7 +2,7 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.constants import SUPPORTED_OBJECTS, OBJECT_TO_NAMES
-from snowflake.cli.plugins.object.commands import _scope_callback
+from snowflake.cli.plugins.object.commands import _scope_validate
 from click import ClickException
 
 
@@ -120,29 +120,34 @@ def test_show_with_invalid_scope(
 
 
 @pytest.mark.parametrize(
-    "input_scope, input_name",
+    "object_type, input_scope, input_name",
     [
-        (None, None),
-        ("database", "test_db"),
-        ("schema", "test_schema"),
-        ("compute-pool", "test_pool"),
+        ("user", None, None),
+        ("schema", "database", "test_db"),
+        ("table", "schema", "test_schema"),
+        ("service", "compute-pool", "test_pool"),
     ],
 )
-def test_scope_callback(input_scope, input_name):
-    assert (input_scope, input_name) == _scope_callback((input_scope, input_name))
+def test_scope_validate(object_type, input_scope, input_name):
+    _scope_validate(object_type, (input_scope, input_name))
 
 
 @pytest.mark.parametrize(
-    "input_scope, input_name",
+    "object_type, input_scope, input_name",
     [
-        ("database", "invalid identifier"),
-        ("invalid_scope", "identifier"),
-        ("invalid_scope", "invalid identifier"),
+        ("table", "database", "invalid identifier"),
+        ("table", "invalid-scope", "identifier"),
+        ("table", "invalid-scope", "invalid identifier"),
+        (
+            "table",
+            "compute-pool",
+            "test_pool",
+        ),  # 'compute-pool' scope can only be used with 'service'
     ],
 )
-def test_invalid_scope_callback(input_scope, input_name):
+def test_invalid_scope_validate(object_type, input_scope, input_name):
     with pytest.raises(ClickException):
-        _scope_callback((input_scope, input_name))
+        _scope_validate(object_type, (input_scope, input_name))
 
 
 @mock.patch("snowflake.connector")
