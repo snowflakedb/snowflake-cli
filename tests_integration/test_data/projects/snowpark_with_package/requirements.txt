@@ -1,4 +1,4 @@
 snowflake-snowpark-python
 # Package below should not be in snowflake anaconda
-fonts
+PyRTF3
 #snowcli  # for local development

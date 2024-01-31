@@ -33,6 +33,7 @@ class CommandResult:
     exit_code: int
     json: Optional[List[Dict[str, Any]] | Dict[str, Any]] = None
     output: Optional[str] = None
+    stderr: Optional[str] = None
 
 
 class TestConfigProvider:

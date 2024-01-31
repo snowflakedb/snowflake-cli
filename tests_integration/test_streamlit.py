@@ -38,7 +38,7 @@ def test_streamlit_deploy(
         expect = snowflake_session.execute_string(
             f"describe streamlit {streamlit_name}"
         )
-        assert contains_row_with(result.json[0], row_from_snowflake_session(expect)[0])
+        assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
 
         result = runner.invoke_with_connection_json(
             ["streamlit", "get-url", streamlit_name]
@@ -106,7 +106,7 @@ def test_streamlit_deploy_experimental_twice(
         expect = snowflake_session.execute_string(
             f"show streamlits like '{streamlit_name}'"
         )
-        assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
+        assert result.json == row_from_snowflake_session(expect)[0]
 
         result = runner.invoke_with_connection_json(
             ["object", "describe", "streamlit", streamlit_name]
@@ -114,7 +114,7 @@ def test_streamlit_deploy_experimental_twice(
         expect = snowflake_session.execute_string(
             f"describe streamlit {streamlit_name}"
         )
-        assert contains_row_with(result.json[0], row_from_snowflake_session(expect)[0])
+        assert result.json == row_from_snowflake_session(expect)[0]
 
         result = runner.invoke_with_connection_json(
             ["streamlit", "get-url", streamlit_name]
@@ -141,10 +141,7 @@ def test_streamlit_deploy_experimental_twice(
     result = runner.invoke_with_connection_json(
         ["object", "drop", "streamlit", streamlit_name]
     )
-    assert contains_row_with(
-        result.json,
-        {"status": f"{streamlit_name.upper()} successfully dropped."},
-    )
+    assert result.json == {"status": f"{streamlit_name.upper()} successfully dropped."}
     expect = snowflake_session.execute_string(
         f"show streamlits like '{streamlit_name}'"
     )
