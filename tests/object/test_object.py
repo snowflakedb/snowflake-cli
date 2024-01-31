@@ -26,6 +26,7 @@ from snowflake.cli.api.constants import SUPPORTED_OBJECTS
         ("user", "users"),
         ("warehouse", "warehouses"),
         ("view", "views"),
+        ("image-repository", "image repositories"),
     ],
 )
 def test_show(
@@ -39,7 +40,7 @@ def test_show(
     assert ctx.get_queries() == [f"show {expected} like '%%'"]
 
 
-TEST_OBJECTS = [
+DESCRIBE_TEST_OBJECTS = [
     ("compute-pool", "compute-pool-example"),
     ("network-rule", "network-rule-example"),
     ("integration", "integration"),
@@ -64,7 +65,7 @@ TEST_OBJECTS = [
 
 
 @mock.patch("snowflake.connector")
-@pytest.mark.parametrize("object_type, object_name", TEST_OBJECTS)
+@pytest.mark.parametrize("object_type, object_name", DESCRIBE_TEST_OBJECTS)
 def test_describe(
     mock_connector, object_type, object_name, mock_cursor, runner, snapshot
 ):
@@ -81,9 +82,22 @@ def test_describe(
 
 
 @mock.patch("snowflake.connector")
+def test_describe_fails_image_repository(mock_cursor, runner, snapshot):
+    result = runner.invoke(["object", "describe", "image-repository", "test_repo"])
+    assert result.exit_code == 1, result.output
+    assert result.output == snapshot
+
+
+DROP_TEST_OBJECTS = [
+    *DESCRIBE_TEST_OBJECTS,
+    ("image-repository", "image-repository-example"),
+]
+
+
+@mock.patch("snowflake.connector")
 @pytest.mark.parametrize(
     "object_type, object_name",
-    TEST_OBJECTS,
+    DROP_TEST_OBJECTS,
 )
 def test_drop(mock_connector, object_type, object_name, mock_cursor, runner, snapshot):
     mock_connector.connect.return_value.execute_stream.return_value = (
@@ -100,7 +114,10 @@ def test_drop(mock_connector, object_type, object_name, mock_cursor, runner, sna
 def test_that_objects_list_is_in_help(command, runner):
     result = runner.invoke(["object", command, "--help"])
     for obj in SUPPORTED_OBJECTS:
-        assert obj in result.output, f"{obj} in help message"
+        if command == "describe" and obj == "image-repository":
+            assert obj not in result.output, f"{obj} should not be in help message"
+        else:
+            assert obj in result.output, f"{obj} in help message"
 
 
 @pytest.mark.parametrize(
