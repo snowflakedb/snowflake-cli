@@ -61,7 +61,7 @@ def list_images(
 
     images = []
     for repo in repos:
-        prefix = f"{database}/{schema}/{repo_name}/"
+        prefix = f"/{database}/{schema}/{repo_name}/"
         repo = repo.replace("baserepo/", prefix)
         images.append({"image": repo})
 
@@ -79,7 +79,7 @@ def list_tags(
         ...,
         "--image_name",
         "-i",
-        help="Name of the image as shown in the output of list-images",
+        help="Fully qualified name of the image as shown in the output of list-images",
     ),
     **options,
 ) -> CollectionResult:
@@ -90,7 +90,7 @@ def list_tags(
     api_url = repository_manager.get_repository_api_url(url)
     bearer_login = RegistryManager().login_to_registry(api_url)
 
-    image_realname = "/".join(image_name.split("/")[3:])
+    image_realname = "/".join(image_name.split("/")[4:])
 
     tags = []
     query: Optional[str] = f"{api_url}/{image_realname}/tags/list?n=10"

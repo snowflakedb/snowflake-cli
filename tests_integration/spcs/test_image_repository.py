@@ -31,7 +31,7 @@ def _list_images(runner):
     assert contains_row_with(
         result.json,
         {
-            "image": f"{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test"
+            "image": f"/{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test"
         },
     )
 
@@ -45,7 +45,7 @@ def _list_tags(runner):
             "list-tags",
             "snowcli_repository",
             "--image_name",
-            f"{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test",
+            f"/{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test",
             "--database",
             INTEGRATION_DATABASE,
             "--schema",
@@ -56,6 +56,6 @@ def _list_tags(runner):
     assert contains_row_with(
         result.json,
         {
-            "tag": f"{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test:1"
+            "tag": f"/{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test:1"
         },
     )
