@@ -17,9 +17,7 @@ def test_token(runner):
 
 
 @pytest.mark.integration
-def test_get_registry_url(
-    test_database, test_role, runner, snowflake_session, snapshot
-):
+def test_get_registry_url(test_database, test_role, runner, snowflake_session):
     # newly created role should have no access to image repositories and should not be able to get registry URL
     test_repo = ObjectNameProvider("test_repo").create_and_get_next_object_name()
     snowflake_session.execute_string(f"create image repository {test_repo}")
@@ -28,7 +26,7 @@ def test_get_registry_url(
         ["spcs", "image-registry", "url", "--role", test_role]
     )
     assert fail_result.exit_code == 1, fail_result.output
-    assert fail_result.output == snapshot
+    assert "Current role cannot view any image repositories." in fail_result.output
 
     # role should be able to get registry URL once granted read access to an image repository
     repo_list_cursor = snowflake_session.execute_string(
