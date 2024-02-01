@@ -146,5 +146,5 @@ def validate_version(version: str):
 
 
 def escape_like_pattern(pattern: str) -> str:
-    pattern = pattern.replace("%", r"\\}%").replace("_", r"\\_")
+    pattern = pattern.replace("%", r"\\%").replace("_", r"\\_")
     return pattern
