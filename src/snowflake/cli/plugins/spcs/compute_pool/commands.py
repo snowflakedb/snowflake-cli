@@ -7,7 +7,7 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
-from snowflake.cli.plugins.object.common import comment_option
+from snowflake.cli.plugins.object.common import comment_option, identifier_callback
 from snowflake.cli.plugins.spcs.common import validate_and_set_instances
 from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
 
@@ -18,11 +18,16 @@ app = typer.Typer(
 )
 
 
+ComputePoolNameOption = typer.Option(
+    ..., "--name", help="Name of the compute pool.", callback=identifier_callback
+)
+
+
 @app.command()
 @with_output
 @global_options_with_connection
 def create(
-    name: str = typer.Argument(..., help="Name of the compute pool."),
+    name: str = ComputePoolNameOption,
     min_nodes: int = typer.Option(
         1, "--min-nodes", help="Minimum number of nodes for the compute pool."
     ),
@@ -72,11 +77,23 @@ def create(
 @app.command("stop-all")
 @with_output
 @global_options_with_connection
-def stop_all(
-    name: str = typer.Argument(..., help="Name of the compute pool."), **options
-) -> CommandResult:
+def stop_all(name: str = ComputePoolNameOption, **options) -> CommandResult:
     """
     Stops a compute pool and deletes all services running on the pool.
     """
     cursor = ComputePoolManager().stop(pool_name=name)
     return SingleQueryResult(cursor)
+
+
+@app.command()
+@with_output
+@global_options_with_connection
+def suspend(name: str = ComputePoolNameOption, **options) -> CommandResult:
+    pass
+
+
+@app.command()
+@with_output
+@global_options_with_connection
+def resume(name: str = ComputePoolNameOption, **options) -> CommandResult:
+    pass
