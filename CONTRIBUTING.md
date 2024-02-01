@@ -27,48 +27,35 @@ Random order of test execution is provided by pytest-randomly, so more details a
 
 ## Integration tests
 
-Every integration test should have `integration` mark. By default, integration tests are not execute when running `pytest`.
+Integration tests are running against real Snowflake instance. Before running them you need to configure the connection to Snowflake.
 
-To execute only integration tests run `pytest -m integration`.
+To run integration tests run `pytest -m integration`.
 
-### Connection parameters in `config.toml`
+Integration tests live in `tests_integration` directory. Every integration test should have `integration` mark.
+By default, integration tests are not execute when running `pytest` command.
 
-Add the following connection to your `config.toml`
+### Configuring integration tests connection
+For running integration tests you will need to prepare your account. To do so you can execute the sql script
+located in `test_integration/scripts/integration_account_setup.sql`. It will create required users, roles,
+warehouses and other components. Before running it we highly recommend reviewing the script.
 
+Integration tests are by default using `integration` connection. You can define one in your `config.toml` as follows:
 ```toml
 [connections.integration]
-host = <host>
 account = <account_name>
 user = <user>
 password = <password>
 ```
 
-### Connection parameters in environment parameters
+If you don't want to alter your config file you take advantage of snowcli environment variables for
+overriding the connection parameters. Before running integration tests export the following variables:
 
-Parameters must use the following format:
-
-``SNOWFLAKE_CONNECTIONS_INTEGRATION_<key>=<value>``
-
-where ``<key>`` is the name of the key
-
-For example: SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT="my-account"
-
-List of required parameter keys:
-- host
-- account
-- user
-- password
-
-### User requirements
-
-The user requires a default role with the following grants
-
-```snowflake
-grant create database on account to role <role_name>;
-grant create role on account to role <role_name>;
-grant usage on warehouse xsmall to role <role_name>;
-grant operate on warehouse xsmall to role <role_name>;
+```bash
+export SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT="<account_name>"
+export SNOWFLAKE_CONNECTIONS_INTEGRATION_USER="<user>"
+export SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD="<password>"
 ```
+
 
 ## Remote debugging with PyCharm or IntelliJ
 
