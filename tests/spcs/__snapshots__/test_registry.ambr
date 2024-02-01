@@ -1,0 +1,11 @@
+# serializer version: 1
+# name: test_get_registry_url_no_repositories_cli
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Current role cannot view any image repositories. Please ensure that at least │
+  │ one repository exists in your image registry and use a role with read access │
+  │ to at least one image repository before retrieving registry URL.             │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---

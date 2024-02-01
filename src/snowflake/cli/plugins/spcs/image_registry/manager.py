@@ -5,6 +5,14 @@ from urllib.parse import urlparse
 import requests
 from click import ClickException
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.connector.cursor import DictCursor
+
+
+class NoRepositoriesViewableError(ClickException):
+    def __init__(
+        self, msg: str = "Current role does not have view access to any repositories"
+    ):
+        super().__init__(msg)
 
 
 class RegistryManager(SqlExecutionMixin):
@@ -45,3 +53,13 @@ class RegistryManager(SqlExecutionMixin):
         if resp.status_code != 200:
             raise ClickException(f"Failed to login to the repository {resp.text}")
         return json.loads(resp.text)["token"]
+
+    def get_registry_url(self):
+        repositories_query = "show image repositories in account"
+        result_set = self._execute_query(repositories_query, cursor_class=DictCursor)
+        results = result_set.fetchall()
+        if len(results) == 0:
+            raise NoRepositoriesViewableError()
+        sample_repository_url = results[0]["repository_url"]
+
+        return "/".join(sample_repository_url.split("/")[:-3])
