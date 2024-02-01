@@ -116,7 +116,6 @@ def test_get_all_connections(test_snowcli_config):
 
 @mock.patch("snowflake.cli.api.config.CONFIG_MANAGER")
 def test_create_default_config_if_not_exists(mock_config_manager):
-
     with TemporaryDirectory() as tmp_dir:
         config_path = Path(f"{tmp_dir}/snowflake/config.toml")
         mock_config_manager.file_path = config_path
@@ -168,3 +167,22 @@ def test_not_found_default_connection_from_evn_variable(test_root_path):
         get_default_connection()
 
     assert ex.value.message == "Connection not_existed_connection is not configured"
+
+
+def test_connections_toml_override_config_toml(test_snowcli_config, temp_dir):
+    from tests.test_utils import change_connections_toml_path_in_config_manager
+    from snowflake.connector.config_manager import CONFIG_MANAGER
+
+    connections_toml = Path(temp_dir) / "connections.toml"
+    connections_toml.write_text(
+        """[default]
+    database = "overridden_database"
+    """
+    )
+    change_connections_toml_path_in_config_manager(connections_toml)
+    config_init(test_snowcli_config)
+
+    assert get_default_connection() == {"database": "overridden_database"}
+    assert CONFIG_MANAGER["connections"] == {
+        "default": {"database": "overridden_database"}
+    }
