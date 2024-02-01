@@ -4,10 +4,10 @@ import logging
 
 import pytest
 from snowflake.cli.api.cli_global_context import cli_context_manager
-from snowflake.cli.api.config import config_init, CONFIG_MANAGER, CONNECTIONS_SECTION
+from snowflake.cli.api.config import config_init
 from snowflake.cli.app import loggers
 
-from snowflake.connector.config_manager import ConfigSlice
+from tests.test_utils import change_connections_toml_path_in_config_manager
 from pathlib import Path
 
 pytest_plugins = ["tests.testing_utils.fixtures", "tests.project.fixtures"]
@@ -46,16 +46,7 @@ def clean_logging_handlers_fixture(request):
 # section in config.toml, which causes tests to fail.
 @pytest.fixture(autouse=True)
 def remove_connections_toml_from_config():
-    # HACK: as ConfigManager does not provide explicit way to
-    # modify submanagers, we need to explicitly override variable
-    # in which they're stored.
-    for i, slice in enumerate(CONFIG_MANAGER._slices):
-        if slice.section == CONNECTIONS_SECTION:
-            CONFIG_MANAGER._slices[i] = ConfigSlice(
-                path=Path("/this/file/does/not/exist"),
-                section=slice.section,
-                options=slice.options,
-            )
+    change_connections_toml_path_in_config_manager(Path("this/path/does/not/exist"))
     yield
 
 
