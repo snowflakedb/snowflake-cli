@@ -1,3 +1,8 @@
+# v2.0.1
+
+  * Snowpark: add `default` field to procedure and function arguments definition in `snowflake.yml` to support [named and optional
+  arguments](https://docs.snowflake.com/en/developer-guide/udf/udf-calling-sql#calling-a-udf-that-has-optional-arguments)
+
 # v2.0.0
 
 ## Backward incompatibility
@@ -22,8 +27,6 @@
   * Previously created procedures or functions won't work with `deploy` command due to change in stage path of artifact. Previous code will remain under old path on stage.
   * Package commands are now under `snow snowpark package`.
   * Coverage commands were removed. To measure coverage of your procedures or functions use coverage locally.
-  * Add `default` field to procedure and function arguments definition in `snowflake.yml` to support [named and optional
-  arguments](https://docs.snowflake.com/en/developer-guide/udf/udf-calling-sql#calling-a-udf-that-has-optional-arguments)
 
 * Snowpark Containers services commands
   * `compute-pool` commands and its alias `cp` were renamed to `pool` commands.
