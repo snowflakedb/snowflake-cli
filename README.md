@@ -5,9 +5,6 @@
 Services through Snowflake CLI, you must register for its PrPr. For more information, you can contact a
 Snowflake sales representative.
 
-For complete installation and usage instructions, refer to the
-**[Snowflake CLI Guide](https://docs.snowflake.com/LIMITEDACCESS/snowcli/snowcli-guide)**.
-
 ## Install Snowflake CLI
 
 ### Install with pip (PyPi)
@@ -15,7 +12,7 @@ For complete installation and usage instructions, refer to the
 Requires Python >= 3.8
 
 ```bash
-pip install snowflake-cli
+pip install snowflake-cli-labs
 snow --help
 ```
 
