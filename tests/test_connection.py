@@ -395,3 +395,21 @@ def test_key_pair_authentication_from_config(mock_load, mock_conn, temp_dir, run
         authenticator="SNOWFLAKE_JWT",
         private_key="secret value",
     )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_mfa_passcode(mock_connect, runner):
+    result = runner.invoke(["sql", "-q", "select 1", "--mfa-passcode", "123"])
+
+    assert result.exit_code == 0, result.output
+    args, kwargs = mock_connect.call_args
+    assert kwargs["passcode"] == "123"
+
+
+@mock.patch("snowflake.connector.connect")
+def test_no_mfa_passcode(mock_connect, runner):
+    result = runner.invoke(["sql", "-q", "select 1"])
+
+    assert result.exit_code == 0, result.output
+    args, kwargs = mock_connect.call_args
+    assert kwargs.get("passcode") == None
