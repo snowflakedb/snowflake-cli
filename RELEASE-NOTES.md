@@ -30,6 +30,7 @@
   * `snow spcs pool create` and `snow spcs service create` have been updated with new options to match SQL interface
   * Added new `image-repository` command group under `spcs`. Moved `list-images` and `list-tags` from `registry` to `image-repository`.
   * Removed `snow snowpark jobs` command.
+  * `list-images` and `list-tags` now outputs image names with a slash at the beginning (e.g. /db/schema/repo/image). Image name input to `list-tags` requires new format.
 
 * Streamlit changes
   * `snow streamlit deploy` is requiring `snowflake.yml` project file with a Streamlit definition.

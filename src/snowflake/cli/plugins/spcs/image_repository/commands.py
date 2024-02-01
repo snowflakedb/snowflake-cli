@@ -91,7 +91,6 @@ def list_tags(
     bearer_login = RegistryManager().login_to_registry(api_url)
 
     image_realname = "/".join(image_name.split("/")[4:])
-
     tags = []
     query: Optional[str] = f"{api_url}/{image_realname}/tags/list?n=10"
 
