@@ -13,8 +13,10 @@ from typing import Any, Dict, List, Optional
 import pytest
 import strictyaml
 from snowflake.cli.api.cli_global_context import cli_context_manager
+from snowflake.cli.api.config import CONFIG_MANAGER, CONNECTIONS_SECTION
 from snowflake.cli.api.project.definition import merge_left
 from snowflake.cli.app.cli_app import app
+from snowflake.connector.config_manager import ConfigSlice
 from strictyaml import as_document
 from typer import Typer
 from typer.testing import CliRunner
@@ -165,4 +167,24 @@ def project_directory(temporary_working_directory, test_root_path):
 @pytest.fixture(autouse=True)
 def reset_global_context_after_each_test(request):
     cli_context_manager.reset()
+    yield
+
+
+# This automatically used fixture changes location in which
+# ConfigManager looks up connections.toml file to non-existing location.
+# This causes it to behave as the file was not provided
+# Reason: if connections.toml is found, it automatically overrides "connections"
+# section in config.toml, which causes tests to fail.
+@pytest.fixture(autouse=True)
+def remove_connections_toml_from_config():
+    # HACK: as ConfigManager does not provide explicit way to
+    # modify submanagers, we need to explicitly override variable
+    # in which they're stored.
+    for i, sl in enumerate(CONFIG_MANAGER._slices):  # noqa SLF001
+        if sl.section == CONNECTIONS_SECTION:
+            CONFIG_MANAGER._slices[i] = ConfigSlice(  # noqa SLF001
+                path=Path("/this/file/does/not/exist"),
+                section=sl.section,
+                options=sl.options,
+            )
     yield
