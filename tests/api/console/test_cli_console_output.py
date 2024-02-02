@@ -3,7 +3,10 @@ from __future__ import annotations
 from typing import Generator
 
 import pytest
-from snowflake.cli.api.console.console import CliConsole
+from snowflake.cli.api.console.console import (
+    CliConsole,
+    CliConsoleNestingProhibitedError,
+)
 
 
 @pytest.fixture(name="cli_console")
@@ -54,3 +57,10 @@ def test_error_messages(cli_console, capsys):
     cli_console.warning("OPS")
 
     assert_output_matches("42\n  73\n  ops\nOPS\n", capsys)
+
+
+def test_phase_nesting_not_allowed(cli_console):
+    with cli_console.phase("Enter 1"):
+        with pytest.raises(CliConsoleNestingProhibitedError):
+            with cli_console.phase("Enter 2"):
+                pass

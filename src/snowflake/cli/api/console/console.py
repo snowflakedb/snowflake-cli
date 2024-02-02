@@ -14,6 +14,10 @@ IMPORTANT_STYLE: Style = Style(color="red", bold=True, italic=True)
 INDENTATION_LEVEL: int = 2
 
 
+class CliConsoleNestingProhibitedError(RuntimeError):
+    """CliConsole phase nesting not allowed."""
+
+
 class CliConsole(AbstractConsole):
     """An utility for displayinf intermediate output."""
 
@@ -38,6 +42,8 @@ class CliConsole(AbstractConsole):
     @contextmanager
     def phase(self, enter_message: str, exit_message: Optional[str] = None):
         """Displays unindented message formatted with PHASE style."""
+        if self.in_phase:
+            raise CliConsoleNestingProhibitedError("Only one phase allowed at a time.")
         self._print(self._format_message(enter_message, Output.PHASE))
         self._in_phase = True
 
