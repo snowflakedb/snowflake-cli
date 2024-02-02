@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Callable, Iterator
+from typing import Callable, Iterator, Optional
 
 from rich import print as rich_print
 from rich.text import Text
@@ -42,7 +42,9 @@ class AbstractConsole(ABC):
     @contextmanager
     @abstractmethod
     def phase(
-        self, enter_message: str, exit_message: str
+        self,
+        enter_message: str,
+        exit_message: Optional[str] = None,
     ) -> Iterator[Callable[[str], None]]:
         """Displays not indented message."""
 
