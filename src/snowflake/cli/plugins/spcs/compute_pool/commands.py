@@ -22,7 +22,7 @@ app = typer.Typer(
 @with_output
 @global_options_with_connection
 def create(
-    name: str = typer.Option(..., "--name", help="Name of the compute pool."),
+    name: str = typer.Argument(..., help="Name of the compute pool."),
     min_nodes: int = typer.Option(
         1, "--min-nodes", help="Minimum number of nodes for the compute pool"
     ),

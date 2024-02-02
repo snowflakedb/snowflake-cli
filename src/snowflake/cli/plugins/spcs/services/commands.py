@@ -31,7 +31,7 @@ app = typer.Typer(
 @with_output
 @global_options_with_connection
 def create(
-    name: str = typer.Option(..., "--name", help="Job Name"),
+    name: str = typer.Argument(..., help="Job Name"),
     compute_pool: str = typer.Option(..., "--compute-pool", help="Compute Pool"),
     spec_path: Path = typer.Option(
         ...,
