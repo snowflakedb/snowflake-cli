@@ -24,11 +24,12 @@
   * Coverage commands were removed. To measure coverage of your procedures or functions use coverage locally.
 
 * Snowpark Containers services commands
-  * `compute-pool` commands and its alias `cp` were renamed to `pool` commands.
+  * `cp` alias for `compute-pool` commands was removed.
   * `services` commands were renamed to `service`
-  * `pool`, `service`, and `image-registry` commands were moved from `snowpark` group to a new `spcs` group (`registry` was renamed to `image-registry`).
-  * `snow spcs pool create` and `snow spcs service create` have been updated with new options to match SQL interface
-  * Added new `image-repository` command group under `spcs`. Moved `list-images` and `list-tags` from `registry` to `image-repository`.
+  * `registry` commands were renamed to `image-registry`
+  * `compute-pool`, `service`, and `image-registry` commands were moved from `snowpark` group to a new `spcs` group.
+  * `snow spcs compute-pool create` and `snow spcs service create` have been updated with new options to match SQL interface
+  * Added new `image-repository` command group under `spcs`. Moved `list-images` and `list-tags` from `image-registry` to `image-repository`.
   * Removed `snow snowpark jobs` command.
 
 * Streamlit changes
