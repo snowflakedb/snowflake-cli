@@ -124,7 +124,6 @@ def test_generate_streamlit_file(correct_requirements_snowflake_txt: str, temp_d
 def test_generate_streamlit_environment_file_with_excluded_dependencies(
     correct_requirements_snowflake_txt: str, temp_dir
 ):
-
     result = streamlit_utils.generate_streamlit_environment_file(
         test_data.excluded_anaconda_deps, correct_requirements_snowflake_txt
     )

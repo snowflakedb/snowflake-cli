@@ -2,6 +2,8 @@ import functools
 import os
 import shutil
 import tempfile
+import sys
+import importlib
 from contextlib import contextmanager
 from io import StringIO
 from pathlib import Path
@@ -237,3 +239,22 @@ def project_directory(temp_dir, test_root_path):
         yield Path(temp_dir)
 
     return _temporary_project_directory
+
+
+@pytest.fixture
+def snowflake_home(monkeypatch, temp_dir):
+    """
+    Set up the default location of config files to [temp_dir]/.snowflake
+    """
+    snowflake_home = Path(temp_dir) / ".snowflake"
+    snowflake_home.mkdir()
+    monkeypatch.setenv("SNOWFLAKE_HOME", str(snowflake_home))
+
+    for module in [
+        sys.modules["snowflake.connector.constants"],
+        sys.modules["snowflake.connector.config_manager"],
+        sys.modules["snowflake.cli.api.config"],
+    ]:
+        importlib.reload(module)
+
+    yield snowflake_home

@@ -44,6 +44,11 @@ def snowcli(test_root_path):
         yield tmp_dir_path / "bin" / "snow"
 
 
+@pytest.fixture(autouse=True)
+def isolate_default_config_location(monkeypatch, temp_dir):
+    monkeypatch.setenv("SNOWFLAKE_HOME", temp_dir)
+
+
 def _create_venv(tmp_dir: Path) -> None:
     subprocess.check_call(["python", "-m", "venv", tmp_dir])
 

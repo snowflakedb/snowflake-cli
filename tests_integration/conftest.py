@@ -19,6 +19,8 @@ from strictyaml import as_document
 from typer import Typer
 from typer.testing import CliRunner
 
+from tests.testing_utils.fixtures import snowflake_home, temp_dir
+
 pytest_plugins = [
     "tests_integration.testing_utils",
     "tests_integration.snowflake_connector",
@@ -166,3 +168,13 @@ def project_directory(temporary_working_directory, test_root_path):
 def reset_global_context_after_each_test(request):
     cli_context_manager.reset()
     yield
+
+
+# This automatically used fixture isolates default location
+# of config files from user's system.
+@pytest.fixture(autouse=True)
+def isolate_snowflake_home(snowflake_home):
+    yield snowflake_home
+
+
+__all__ = ["snowflake_home", "temp_dir"]
