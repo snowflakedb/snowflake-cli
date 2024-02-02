@@ -7,8 +7,6 @@ from snowflake.cli.api.cli_global_context import cli_context_manager
 from snowflake.cli.api.config import config_init
 from snowflake.cli.app import loggers
 
-from tests.test_utils import change_connections_toml_path_in_config_manager
-from pathlib import Path
 
 pytest_plugins = ["tests.testing_utils.fixtures", "tests.project.fixtures"]
 
@@ -39,15 +37,11 @@ def clean_logging_handlers_fixture(request):
     clean_logging_handlers()
 
 
-# This automatically used fixture changes location in which
-# ConfigManager looks up connections.toml file to non-existing location.
-# This causes it to behave as the file was not provided
-# Reason: if connections.toml is found, it automatically overrides "connections"
-# section in config.toml, which causes tests to fail.
+# This automatically used fixture isolates default location
+# of config files from user's system.
 @pytest.fixture(autouse=True)
-def remove_connections_toml_from_config():
-    change_connections_toml_path_in_config_manager(Path("this/path/does/not/exist"))
-    yield
+def isolate_snowflake_home(snowflake_home):
+    yield snowflake_home
 
 
 def clean_logging_handlers():

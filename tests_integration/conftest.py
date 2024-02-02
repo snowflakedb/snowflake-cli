@@ -19,7 +19,7 @@ from strictyaml import as_document
 from typer import Typer
 from typer.testing import CliRunner
 
-from tests.test_utils import change_connections_toml_path_in_config_manager
+from tests.testing_utils.fixtures import snowflake_home, temp_dir
 
 pytest_plugins = [
     "tests_integration.testing_utils",
@@ -170,12 +170,11 @@ def reset_global_context_after_each_test(request):
     yield
 
 
-# This automatically used fixture changes location in which
-# ConfigManager looks up connections.toml file to non-existing location.
-# This causes it to behave as the file was not provided
-# Reason: if connections.toml is found, it automatically overrides "connections"
-# section in config.toml, which causes tests to fail.
+# This automatically used fixture isolates default location
+# of config files from user's system.
 @pytest.fixture(autouse=True)
-def remove_connections_toml_from_config():
-    change_connections_toml_path_in_config_manager(Path("this/path/does/not/exist"))
-    yield
+def isolate_snowflake_home(snowflake_home):
+    yield snowflake_home
+
+
+__all__ = ["snowflake_home", "temp_dir"]

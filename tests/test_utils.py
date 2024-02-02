@@ -16,10 +16,6 @@ from snowflake.cli.plugins.streamlit import streamlit_utils
 from tests.testing_utils.fixtures import *
 
 
-from snowflake.cli.api.config import CONFIG_MANAGER, CONNECTIONS_SECTION
-from snowflake.connector.config_manager import ConfigSlice
-
-
 def test_prepare_app_zip(
     temp_dir,
     app_zip: str,
@@ -335,16 +331,3 @@ def test_check_if_package_is_avaiable_in_conda(argument, expected):
         )
         == expected
     )
-
-
-def change_connections_toml_path_in_config_manager(path: Path):
-    # HACK: as ConfigManager does not provide explicit way to
-    # modify submanagers, we need to explicitly override variable
-    # in which they're stored.
-    for i, sl in enumerate(CONFIG_MANAGER._slices):  # noqa SLF001
-        if sl.section == CONNECTIONS_SECTION:
-            CONFIG_MANAGER._slices[i] = ConfigSlice(  # noqa SLF001
-                path=path,
-                section=sl.section,
-                options=sl.options,
-            )
