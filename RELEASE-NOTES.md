@@ -1,9 +1,8 @@
 # v2.0.1
 
 ## New additions
-
-  * Snowpark: add `default` field to procedure and function arguments definition in `snowflake.yml` to support [named and optional
-  arguments](https://docs.snowflake.com/en/developer-guide/udf/udf-calling-sql#calling-a-udf-that-has-optional-arguments)
+* Snowpark: add `default` field to procedure and function arguments definition in `snowflake.yml` to support [named and optional
+arguments](https://docs.snowflake.com/en/developer-guide/udf/udf-calling-sql#calling-a-udf-that-has-optional-arguments)
 
 # v2.0.0
 
