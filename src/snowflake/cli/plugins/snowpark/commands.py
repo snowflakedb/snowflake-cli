@@ -34,7 +34,6 @@ from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.cli.plugins.snowpark.common import (
     build_udf_sproc_identifier,
     check_if_replace_is_required,
-    remove_parameter_names,
 )
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
 from snowflake.cli.plugins.snowpark.models import PypiOption
@@ -167,11 +166,13 @@ def _find_existing_objects(
 ):
     existing_objects = {}
     for object_definition in objects:
-        identifier = build_udf_sproc_identifier(object_definition)
+        identifier = build_udf_sproc_identifier(
+            object_definition, include_parameter_names=False
+        )
         try:
             current_state = om.describe(
                 object_type=object_type.value.sf_name,
-                name=remove_parameter_names(identifier),
+                name=identifier,
             )
             existing_objects[identifier] = current_state
         except ProgrammingError:
@@ -223,8 +224,13 @@ def _deploy_single_object(
     packages: List[str],
     stage_artifact_path: str,
 ):
-    identifier = build_udf_sproc_identifier(object_definition)
-    log.info("Deploying %s: %s", object_type, identifier)
+    identifier = build_udf_sproc_identifier(
+        object_definition, include_parameter_names=False
+    )
+    identifier_with_default_values = build_udf_sproc_identifier(
+        object_definition, include_parameter_names=True, include_default_values=True
+    )
+    log.info("Deploying %s: %s", object_type, identifier_with_default_values)
 
     handler = object_definition["handler"]
     returns = object_definition["returns"]
@@ -241,13 +247,13 @@ def _deploy_single_object(
 
     if object_exists and not replace_object:
         return {
-            "object": identifier,
+            "object": identifier_with_default_values,
             "type": str(object_type),
             "status": "packages updated",
         }
 
     create_or_replace_kwargs = {
-        "identifier": identifier,
+        "identifier": identifier_with_default_values,
         "handler": handler,
         "return_type": returns,
         "artifact_file": stage_artifact_path,
@@ -267,7 +273,11 @@ def _deploy_single_object(
     manager.create_or_replace(**create_or_replace_kwargs)
 
     status = "created" if not object_exists else "definition updated"
-    return {"object": identifier, "type": str(object_type), "status": status}
+    return {
+        "object": identifier_with_default_values,
+        "type": str(object_type),
+        "status": status,
+    }
 
 
 def _get_snowpark_artifact_path(snowpark_definition: Dict):

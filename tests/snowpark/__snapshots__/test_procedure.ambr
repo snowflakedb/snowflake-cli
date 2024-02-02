@@ -12,7 +12,7 @@
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
   │ Following objects already exists. Consider using --replace.                  │
-  │ procedure: procedureName(name string)                                        │
+  │ procedure: procedureName(string)                                             │
   │ procedure: test()                                                            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
