@@ -13,7 +13,7 @@ from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    name="pool",
+    name="compute-pool",
     help="Manages compute pools.",
 )
 

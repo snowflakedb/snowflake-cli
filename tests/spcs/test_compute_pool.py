@@ -51,7 +51,7 @@ def test_create_pool_cli_defaults(mock_create, runner):
     result = runner.invoke(
         [
             "spcs",
-            "pool",
+            "compute-pool",
             "create",
             "--name",
             "test_pool",
@@ -77,7 +77,7 @@ def test_create_pool_cli(mock_create, runner):
     result = runner.invoke(
         [
             "spcs",
-            "pool",
+            "compute-pool",
             "create",
             "--name",
             "test_pool",
