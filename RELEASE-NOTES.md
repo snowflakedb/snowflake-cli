@@ -38,6 +38,7 @@ arguments](https://docs.snowflake.com/en/developer-guide/udf/udf-calling-sql#cal
   * Added new `image-repository` command group under `spcs`. Moved `list-images` and `list-tags` from `image-registry` to `image-repository`.
   * Removed `snow snowpark jobs` command.
   * `list-images` and `list-tags` now outputs image names with a slash at the beginning (e.g. /db/schema/repo/image). Image name input to `list-tags` requires new format.
+  * `snow spcs compute-pool stop` has been removed in favor of `snow spcs compute-pool stop-all`.
 
 * Streamlit changes
   * `snow streamlit deploy` is requiring `snowflake.yml` project file with a Streamlit definition.

@@ -69,10 +69,10 @@ def create(
     return SingleQueryResult(cursor)
 
 
-@app.command()
+@app.command("stop-all")
 @with_output
 @global_options_with_connection
-def stop(
+def stop_all(
     name: str = typer.Argument(..., help="Name of the compute pool."), **options
 ) -> CommandResult:
     """
