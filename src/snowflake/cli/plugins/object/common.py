@@ -56,7 +56,7 @@ def tag_option(object_type: str):
     return typer.Option(
         None,
         "--tag",
-        help=f"Tag for the {object_type}",
+        help=f"Tag for the {object_type}.",
         parser=_parse_tag,
         metavar="NAME=VALUE",
     )
@@ -76,6 +76,6 @@ def comment_option(object_type: str):
     return typer.Option(
         None,
         "--comment",
-        help=f"Comment for the {object_type}",
+        help=f"Comment for the {object_type}.",
         callback=_comment_callback,
     )

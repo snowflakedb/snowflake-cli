@@ -24,10 +24,10 @@ app = typer.Typer(
 def create(
     name: str = typer.Argument(..., help="Name of the compute pool."),
     min_nodes: int = typer.Option(
-        1, "--min-nodes", help="Minimum number of nodes for the compute pool"
+        1, "--min-nodes", help="Minimum number of nodes for the compute pool."
     ),
     max_nodes: Optional[int] = typer.Option(
-        None, "--max-nodes", help="Maximum number of nodes for the compute pool"
+        None, "--max-nodes", help="Maximum number of nodes for the compute pool."
     ),
     instance_family: str = typer.Option(
         ...,
