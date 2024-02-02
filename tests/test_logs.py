@@ -13,7 +13,7 @@ from tests.conftest import clean_logging_handlers
 
 
 @pytest.fixture
-def setup_config_and_logs(temp_dir):
+def setup_config_and_logs(snowflake_home):
     @contextmanager
     def _setup_config_and_logs(
         *,
@@ -21,12 +21,16 @@ def setup_config_and_logs(temp_dir):
         level: Optional[str] = None,
         verbose: bool = False,
         debug: bool = False,
-        do_not_create_directory: bool = False,
+        do_not_create_directory: bool = True,
+        use_custom_logs_path=False,
     ):
-        logs_path = Path(temp_dir) / "logs"
-        config_path = Path(temp_dir) / "config.toml"
+        logs_path = snowflake_home / "logs"
+        if use_custom_logs_path:
+            logs_path = snowflake_home / "custom" / "logs"
+
+        config_path = snowflake_home / "config.toml"
         if not do_not_create_directory:
-            logs_path.mkdir()
+            logs_path.mkdir(parents=True)
         config_path.write_text(
             "\n".join(
                 x
@@ -34,7 +38,7 @@ def setup_config_and_logs(temp_dir):
                     "[connections]",
                     "",
                     "[cli.logs]",
-                    f'path = "{logs_path}"',
+                    f'path = "{logs_path}"' if use_custom_logs_path else None,
                     f"save_logs = {str(save_logs).lower()}" if save_logs else None,
                     f'level = "{level}"' if level else None,
                 ]
@@ -105,15 +109,33 @@ def test_logs_section_appears_in_fresh_config_file(temp_dir):
 
 
 def test_logs_not_saved_by_default(setup_config_and_logs):
-    with setup_config_and_logs() as logs_path:
+    with setup_config_and_logs(do_not_create_directory=False) as logs_path:
         print_log_messages()
         assert_log_dir_is_empty(logs_path)
+
+
+def test_default_logs_location_is_created_automatically(setup_config_and_logs):
+    with setup_config_and_logs(
+        save_logs=True, do_not_create_directory=True
+    ) as logs_path:
+        print_log_messages()
+        assert logs_path.exists()
 
 
 def test_logs_can_be_turned_off_by_config(setup_config_and_logs):
-    with setup_config_and_logs(save_logs=False) as logs_path:
+    with setup_config_and_logs(
+        save_logs=False, do_not_create_directory=False
+    ) as logs_path:
         print_log_messages()
         assert_log_dir_is_empty(logs_path)
+
+
+def test_logs_path_is_configurable(setup_config_and_logs):
+    with setup_config_and_logs(
+        save_logs=True, do_not_create_directory=False, use_custom_logs_path=True
+    ) as logs_path:
+        print_log_messages()
+        assert_file_log_level(logs_path, expected_level="info")
 
 
 def test_logs_default_level_is_info(setup_config_and_logs):
@@ -157,9 +179,11 @@ def test_stdout_log_level_remains_error(capsys, setup_config_and_logs):
         assert_log_level(captured.out + captured.err, expected_level="error")
 
 
-def test_log_directory_does_not_exist(setup_config_and_logs):
+def test_custom_log_directory_does_not_exist(setup_config_and_logs):
     try:
-        with setup_config_and_logs(save_logs=True, do_not_create_directory=True):
+        with setup_config_and_logs(
+            save_logs=True, do_not_create_directory=True, use_custom_logs_path=True
+        ):
             assert False, "Bug: below error should be thrown"
     except InvalidLogsConfiguration as e:
         assert e.message.startswith("Directory '")

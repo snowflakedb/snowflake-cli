@@ -7,6 +7,7 @@ from snowflake.cli.api.cli_global_context import cli_context_manager
 from snowflake.cli.api.config import config_init
 from snowflake.cli.app import loggers
 
+
 pytest_plugins = ["tests.testing_utils.fixtures", "tests.project.fixtures"]
 
 
@@ -34,6 +35,13 @@ def reset_global_context_and_setup_config_and_logging_levels(
 def clean_logging_handlers_fixture(request):
     yield
     clean_logging_handlers()
+
+
+# This automatically used fixture isolates default location
+# of config files from user's system.
+@pytest.fixture(autouse=True)
+def isolate_snowflake_home(snowflake_home):
+    yield snowflake_home
 
 
 def clean_logging_handlers():
