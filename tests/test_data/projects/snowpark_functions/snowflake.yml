@@ -9,6 +9,7 @@ snowpark:
       signature:
         - name: "a"
           type: "string"
+          default: "default value"
         - name: "b"
           type: "variant"
       returns: string

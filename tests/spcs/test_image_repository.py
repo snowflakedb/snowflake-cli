@@ -58,7 +58,7 @@ def test_list_images(
     )
 
     assert result.exit_code == 0, result.output
-    assert json.loads(result.output) == [{"image": "DB/SCHEMA/IMAGES/super-cool-repo"}]
+    assert json.loads(result.output) == [{"image": "/DB/SCHEMA/IMAGES/super-cool-repo"}]
 
 
 @mock.patch("snowflake.cli.plugins.spcs.image_repository.commands.requests.get")
@@ -121,7 +121,7 @@ def test_list_tags(
             "list-tags",
             "IMAGES",
             "--image_name",
-            "DB/SCHEMA/IMAGES/super-cool-repo",
+            "/DB/SCHEMA/IMAGES/super-cool-repo",
             "--format",
             "JSON",
         ]
@@ -129,5 +129,5 @@ def test_list_tags(
 
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == [
-        {"tag": "DB/SCHEMA/IMAGES/super-cool-repo:1.2.0"}
+        {"tag": "/DB/SCHEMA/IMAGES/super-cool-repo:1.2.0"}
     ]

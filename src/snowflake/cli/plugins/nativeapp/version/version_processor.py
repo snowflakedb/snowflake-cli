@@ -215,7 +215,8 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
             )
 
             user_prompt = (
-                f"Are you sure you want to create a new patch for version {version} of application package {self.package_name}? Once added, this operation cannot be undone.",
+                f"Are you sure you want to create a new patch for version {version} of application "
+                f"package {self.package_name}? Once added, this operation cannot be undone."
             )
             if not policy.should_proceed(user_prompt):
                 if is_interactive:

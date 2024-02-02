@@ -13,7 +13,7 @@ from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
 
 app = typer.Typer(
     context_settings=DEFAULT_CONTEXT_SETTINGS,
-    name="pool",
+    name="compute-pool",
     help="Manages compute pools.",
 )
 
@@ -69,10 +69,10 @@ def create(
     return SingleQueryResult(cursor)
 
 
-@app.command()
+@app.command("stop-all")
 @with_output
 @global_options_with_connection
-def stop(
+def stop_all(
     name: str = typer.Argument(..., help="Name of the compute pool."), **options
 ) -> CommandResult:
     """

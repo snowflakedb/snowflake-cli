@@ -16,7 +16,7 @@ def test_cp(runner, snowflake_session):
     result = runner.invoke_with_connection_json(
         [
             "spcs",
-            "pool",
+            "compute-pool",
             "create",
             "--name",
             cp_name,
@@ -38,7 +38,9 @@ def test_cp(runner, snowflake_session):
     assert result.json, result.output
     assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
 
-    result = runner.invoke_with_connection_json(["spcs", "pool", "stop", cp_name])
+    result = runner.invoke_with_connection_json(
+        ["spcs", "compute-pool", "stop-all", cp_name]
+    )
     assert contains_row_with(
         result.json,
         {"status": "Statement executed successfully."},

@@ -12,7 +12,7 @@ from strictyaml import (
     Str,
 )
 
-Argument = RelaxedMap({"name": Str(), "type": Str()})
+Argument = RelaxedMap({"name": Str(), "type": Str(), Optional("default"): Str()})
 
 _callable_mapping = {
     "name": Regex(IDENTIFIER),
