@@ -1,9 +1,3 @@
-# v2.0.1
-
-## New additions
-* Snowpark: add `default` field to procedure and function arguments definition in `snowflake.yml` to support [named and optional
-arguments](https://docs.snowflake.com/en/developer-guide/udf/udf-calling-sql#calling-a-udf-that-has-optional-arguments)
-
 # v2.0.0
 
 ## Backward incompatibility
@@ -68,6 +62,8 @@ arguments](https://docs.snowflake.com/en/developer-guide/udf/udf-calling-sql#cal
   * `snow app run` command that creates or upgrades an application in development mode or through release directives.
   * `snow app open` command that opens the application inside of your browser on Snowsight, once it has been installed in your account.
   * `snow app teardown` command that attempts to drop both the application and package as defined in the project definition file.
+* Snowpark: add `default` field to procedure and function arguments definition in `snowflake.yml` to support [named and optional
+  arguments](https://docs.snowflake.com/en/developer-guide/udf/udf-calling-sql#calling-a-udf-that-has-optional-arguments)
 
 ## Fixes and improvements
 * Allow the use of quoted identifiers in stages
