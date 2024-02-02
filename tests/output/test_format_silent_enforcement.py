@@ -25,8 +25,9 @@ def test_table_result_with_silent_enabled(runner):
 def test_table_result_with_silent_disabled(runner):
     expected_output = dedent(
         """\
-        Faker. Phase UNO.
+        Enter
           Faker. Teeny Tiny step: UNO UNO
+        Exit
         SELECT A MOCK QUERY
         +---------------------------------------------------------------------+
         | string | number | array     | object          | date                |

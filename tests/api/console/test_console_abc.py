@@ -1,11 +1,15 @@
-from snowflake.cli.api.cli_global_context import cli_context
+from contextlib import contextmanager
+
 from snowflake.cli.api.console.abc import AbstractConsole
 
 
 def test_console_base_class(capsys):
     class TConsole(AbstractConsole):
-        def phase(self, message: str):
-            print(message)
+        @contextmanager
+        def phase(self, enter_message: str, exit_message: str):
+            print(enter_message)
+            yield self.step
+            print(exit_message)
 
         def step(self, message: str):
             print(message)
@@ -13,12 +17,12 @@ def test_console_base_class(capsys):
         def warning(self, message: str):
             print(message)
 
-    console = TConsole(cli_context=cli_context)
+    console = TConsole()
     assert not console.is_silent
 
-    console.phase("a")
-    console.step("b")
-    console.warning("c")
+    with console.phase("Enter", "Exit"):
+        console.step("b")
+        console.warning("c")
 
     out, _ = capsys.readouterr()
-    assert out == "a\nb\nc\n"
+    assert out == "Enter\nb\nc\nExit\n"

@@ -76,8 +76,8 @@ def make_faker_app(_create_mock_cursor):
     @global_options
     def faker_app(**options):
         """Faker app"""
-        cli_console.phase("Faker. Phase UNO.")
-        cli_console.step("Faker. Teeny Tiny step: UNO UNO")
+        with cli_console.phase("Enter", "Exit") as step:
+            step("Faker. Teeny Tiny step: UNO UNO")
 
         return QueryResult(_create_mock_cursor())
 
