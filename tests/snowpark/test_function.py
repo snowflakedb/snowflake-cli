@@ -36,7 +36,7 @@ def test_deploy_function(
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace function func1(a string, b variant)
+            create or replace function func1(a string default 'default value', b variant)
             returns string
             language python
             runtime_version=3.10
@@ -153,7 +153,7 @@ def test_deploy_function_no_changes(
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == [
         {
-            "object": "func1(a string, b variant)",
+            "object": "func1(a string default 'default value', b variant)",
             "status": "packages updated",
             "type": "function",
         }
@@ -191,7 +191,7 @@ def test_deploy_function_needs_update_because_packages_changes(
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == [
         {
-            "object": "func1(a string, b variant)",
+            "object": "func1(a string default 'default value', b variant)",
             "status": "definition updated",
             "type": "function",
         }
@@ -201,7 +201,7 @@ def test_deploy_function_needs_update_because_packages_changes(
         f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace function func1(a string, b variant)
+            create or replace function func1(a string default 'default value', b variant)
             returns string
             language python
             runtime_version=3.10
@@ -240,7 +240,7 @@ def test_deploy_function_needs_update_because_handler_changes(
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == [
         {
-            "object": "func1(a string, b variant)",
+            "object": "func1(a string default 'default value', b variant)",
             "status": "definition updated",
             "type": "function",
         }
@@ -251,7 +251,7 @@ def test_deploy_function_needs_update_because_handler_changes(
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace function func1(a string, b variant)
+            create or replace function func1(a string default 'default value', b variant)
             returns string
             language python
             runtime_version=3.10
@@ -292,7 +292,6 @@ def _deploy_function(
     ctx = mock_ctx(mock_cursor(rows=rows, columns=[]))
     mock_connector.return_value = ctx
     with mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager") as om:
-
         om.return_value.describe.return_value = rows
 
         with project_directory("snowpark_functions") as temp_dir:

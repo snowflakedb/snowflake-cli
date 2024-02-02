@@ -11,23 +11,6 @@ from snowflake.connector.cursor import SnowflakeCursor
 DEFAULT_RUNTIME = "3.8"
 
 
-def remove_parameter_names(identifier: str):
-    """
-    Removes parameter names from identifier.
-    Deploy commands for function and procedure requires identifier
-    with parameter names (e.g. `hello(number int, name string)`),
-    but describe command requires only parameter types (e.g. `hello(int, string)`)
-    :param identifier: `hello(number int, name string)`
-    :return: `hello(int, string)`
-    """
-    open_parenthesis_index = identifier.index("(")
-    parameters = identifier[open_parenthesis_index + 1 : -1]
-    if not parameters:
-        return identifier
-    types = [t.strip().split(" ")[1] for t in parameters.split(",")]
-    return f"{identifier[0:open_parenthesis_index]}({', '.join(types)})"
-
-
 def check_if_replace_is_required(
     object_type: ObjectType,
     current_state,
@@ -150,7 +133,6 @@ class SnowparkObjectManager(SqlExecutionMixin):
         runtime: Optional[str] = None,
         execute_as_caller: bool = False,
     ) -> str:
-
         imports.append(artifact_file)
         imports = [f"'{x}'" for x in imports]
         packages_list = ",".join(f"'{p}'" for p in packages)
@@ -183,8 +165,23 @@ class SnowparkObjectManager(SqlExecutionMixin):
         return "\n".join(query)
 
 
-def build_udf_sproc_identifier(udf_sproc_dict):
-    arguments = ", ".join(
-        (f"{arg['name']} {arg['type']}" for arg in udf_sproc_dict["signature"])
-    )
+def _is_signature_type_a_string(sig_type: str) -> bool:
+    return sig_type.lower() in ["string", "varchar"]
+
+
+def build_udf_sproc_identifier(
+    udf_sproc_dict, include_parameter_names, include_default_values=False
+):
+    def format_arg(arg):
+        result = f"{arg['type']}"
+        if include_parameter_names:
+            result = f"{arg['name']} {result}"
+        if include_default_values and "default" in arg:
+            val = f"{arg['default']}"
+            if _is_signature_type_a_string(arg["type"]):
+                val = f"'{val}'"
+            result += f" default {val}"
+        return result
+
+    arguments = ", ".join(format_arg(arg) for arg in udf_sproc_dict["signature"])
     return f"{udf_sproc_dict['name']}({arguments})"

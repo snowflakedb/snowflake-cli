@@ -1,0 +1,55 @@
+definition_version: 1
+snowpark:
+  project_name: "my_snowpark_project"
+  stage_name: "dev_deployment"
+  src: "app/"
+  functions:
+    - name: whole_new_word
+      handler: "app.whole_new_word"
+      signature:
+        - name: "base"
+          type: "string"
+          default: "word"
+        - name: "mult"
+          type: "int"
+          default: "2"
+        - name: "suffix"
+          type: "string"
+          default: "!"
+      returns: string
+    - name: check_all_types
+      handler: "app.check_all_types"
+      signature:
+        - name: "s"
+          type: "string"
+          default: "<str>"
+        - name: "i"
+          type: "int"
+          default: "7"
+        - name: "b1"
+          type: "boolean"
+          default: "true"
+        - name: "b2"
+          type: "boolean"
+          default: "True"
+        - name: "f"
+          type: "float"
+          default: "1.5"
+        - name: "l"
+          type: "array"
+          default: "[1, 2, 3]"
+      returns: string
+  procedures:
+    - name: whole_new_word_procedure
+      handler: "app.whole_new_word_procedure"
+      signature:
+        - name: "base"
+          type: "varchar"
+          default: "word"
+        - name: "mult"
+          type: "number"
+          default: "2"
+        - name: "suffix"
+          type: "varchar"
+          default: ", but a procedure"
+      returns: string
