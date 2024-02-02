@@ -169,17 +169,15 @@ def test_not_found_default_connection_from_evn_variable(test_root_path):
     assert ex.value.message == "Connection not_existed_connection is not configured"
 
 
-def test_connections_toml_override_config_toml(test_snowcli_config, temp_dir):
-    from tests.test_utils import change_connections_toml_path_in_config_manager
-    from snowflake.connector.config_manager import CONFIG_MANAGER
+def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_home):
+    from snowflake.cli.api.config import CONFIG_MANAGER
 
-    connections_toml = Path(temp_dir) / "connections.toml"
+    connections_toml = snowflake_home / "connections.toml"
     connections_toml.write_text(
         """[default]
     database = "overridden_database"
     """
     )
-    change_connections_toml_path_in_config_manager(connections_toml)
     config_init(test_snowcli_config)
 
     assert get_default_connection() == {"database": "overridden_database"}
