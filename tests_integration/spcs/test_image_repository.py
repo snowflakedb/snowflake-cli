@@ -65,7 +65,7 @@ def _list_tags(runner):
 
 @pytest.mark.integration
 def test_get_repo_url(runner, snowflake_session, test_database):
-    repo_name = ObjectNameProvider("Test_Repo").create_and_get_next_object_name()
+    repo_name = ObjectNameProvider("TEST_REPO").create_and_get_next_object_name()
     snowflake_session.execute_string(f"create image repository {repo_name}")
 
     created_repo = snowflake_session.execute_string(
@@ -73,7 +73,7 @@ def test_get_repo_url(runner, snowflake_session, test_database):
     )
     created_row = row_from_snowflake_session(created_repo)[0]
     created_name = created_row["name"]
-    assert created_name.lower() == repo_name.lower()
+    assert created_name == repo_name.upper()
 
     expect_url = created_row["repository_url"]
     result = runner.invoke_with_connection(
