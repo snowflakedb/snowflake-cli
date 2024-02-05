@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pytest
-from snowflake.cli.api.exceptions import InvalidPluginConfiguration
 
 from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_is_successful,
@@ -100,21 +99,19 @@ def test_loading_of_installed_plugins_if_only_one_plugin_is_enabled(
 
 
 @pytest.mark.integration
-def test_enabled_value_must_be_boolean(runner, snowflake_home, install_plugins):
-    def use_config_with_enabled_set_to(value):
-        config = Path(snowflake_home) / "config.toml"
-        config.write_text(
-            f"""
+def test_enabled_value_must_be_boolean(runner, snowflake_home):
+    config = Path(snowflake_home) / "config.toml"
+    config.write_text(
+        f"""
 [cli.plugins.multilingual-hello]
-enabled = {value}"""
-        )
-        runner.use_config(config)
-
-    for value in ["5"]:
-        use_config_with_enabled_set_to(value)
-        runner.invoke_with_config("--help")
-        with pytest.raises(InvalidPluginConfiguration) as err:
-            print(err)
+enabled = 1"""
+    )
+    runner.use_config(config)
+    result = runner.invoke_with_config(["--help"])
+    assert (
+        'Invalid plugin configuration. [multilingual-hello]: "enabled" must be a boolean'
+        in result.output
+    )
 
 
 def _assert_that_no_error_logs(caplog):
