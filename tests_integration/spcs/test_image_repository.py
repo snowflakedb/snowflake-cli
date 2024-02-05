@@ -29,7 +29,6 @@ def _list_images(runner):
             INTEGRATION_SCHEMA,
         ]
     )
-    # breakpoint()
     assert isinstance(result.json, list), result.output
     assert contains_row_with(
         result.json,

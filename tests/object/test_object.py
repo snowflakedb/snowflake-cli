@@ -43,26 +43,25 @@ def test_show(
 
 
 DESCRIBE_TEST_OBJECTS = [
-    ("compute-pool", "compute-pool-example"),
-    ("network-rule", "network-rule-example"),
-    ("integration", "integration"),
-    ("network-rule", "network rule"),
-    ("database", "database-example"),
-    ("function", "function-example"),
-    # ("job", "job-example"),
-    ("procedure", "procedure-example"),
-    ("role", "role-example"),
-    ("schema", "schema-example"),
-    ("service", "service-example"),
-    ("secret", "secret-example"),
-    ("stage", "stage-example"),
-    ("stream", "stream-example"),
-    ("streamlit", "streamlit-example"),
-    ("table", "table-example"),
-    ("task", "task-example"),
-    ("user", "user-example"),
-    ("warehouse", "warehouse-example"),
-    ("view", "view-example"),
+    ("compute-pool", "compute_pool_example"),
+    ("network-rule", "network_rule_example"),
+    ("integration", "integration_example"),
+    ("database", "database_example"),
+    ("function", "function_example"),
+    # ("job", "job_example"),
+    ("procedure", "procedure_example"),
+    ("role", "role_example"),
+    ("schema", "schema_example"),
+    ("service", "service_example"),
+    ("secret", "secret_example"),
+    ("stage", "stage_example"),
+    ("stream", "stream_example"),
+    ("streamlit", "streamlit_example"),
+    ("table", "table_example"),
+    ("task", "task_example"),
+    ("user", "user_example"),
+    ("warehouse", "warehouse_example"),
+    ("view", "view_example"),
 ]
 
 
@@ -182,7 +181,7 @@ def test_describe_fails_image_repository(mock_cursor, runner, snapshot):
 
 DROP_TEST_OBJECTS = [
     *DESCRIBE_TEST_OBJECTS,
-    ("image-repository", "image-repository-example"),
+    ("image-repository", "image_repository_example"),
 ]
 
 

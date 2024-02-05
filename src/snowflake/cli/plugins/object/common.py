@@ -7,6 +7,7 @@ from snowflake.cli.api.project.util import (
     QUOTED_IDENTIFIER_REGEX,
     UNQUOTED_IDENTIFIER_REGEX,
     is_valid_identifier,
+    is_valid_object_name,
     to_string_literal,
 )
 
@@ -79,3 +80,13 @@ def comment_option(object_type: str):
         help=f"Comment for the {object_type}.",
         callback=_comment_callback,
     )
+
+
+def object_name_callback(name: str) -> str:
+    """
+    Callback for arguments that should be an object name (e.g. 'id' or 'db.schema.id').
+    Currently does not support object names with arguments such as UDFs or procedures.
+    """
+    if not is_valid_object_name(name):
+        raise ClickException(f"{name} is not a valid object name.")
+    return name
