@@ -6,6 +6,7 @@ import typer
 from click import ClickException
 from click.types import StringParamType
 from snowflake.cli.api.commands.flags import ConnectionOption
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.config import (
     add_connection,
     connection_exists,
@@ -17,7 +18,6 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     ObjectResult,
 )
-from snowflake.cli.app.main_typer import SnowTyper
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
 app = SnowTyper(

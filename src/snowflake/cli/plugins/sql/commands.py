@@ -2,8 +2,8 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MultipleResults, QueryResult
-from snowflake.cli.app.main_typer import SnowTyper
 from snowflake.cli.plugins.sql.manager import SqlManager
 
 # simple Typer with defaults because it won't become a command group as it contains only one command

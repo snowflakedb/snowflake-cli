@@ -6,7 +6,6 @@ from enum import Enum, unique
 from typing import Any, Dict, Union
 
 import click
-from rich import print_json
 from snowflake.cli.__about__ import VERSION
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.output.formats import OutputFormat
@@ -99,7 +98,6 @@ class CLITelemetryClient:
             telemetry_data = TelemetryData.from_telemetry_data_dict(
                 from_dict=message, timestamp=get_time_millis()
             )
-            print_json(data=telemetry_data.to_dict())
             self._telemetry.try_add_log_to_batch(telemetry_data)
 
     def flush(self):
