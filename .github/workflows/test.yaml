@@ -26,7 +26,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install hatch
-        run: pip install -U hatch
+        run: |
+          pip install -U hatch
+          hatch env default build
       - name: Test with hatch
         run: hatch run default:test_cov
       - uses: codecov/codecov-action@4fe8c5f003fae66aa5ebb77cfd3e7bfbbda0b6b0
