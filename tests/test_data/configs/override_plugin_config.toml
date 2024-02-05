@@ -1,0 +1,2 @@
+[cli.plugins.override]
+enabled = true
