@@ -26,12 +26,24 @@ def test_registry_get_token_2(mock_execute, mock_conn, mock_cursor, runner):
     assert json.loads(result.stdout) == {"token": "token1234", "expires_in": 42}
 
 
+MOCK_REPO_COLUMNS = [
+    "created_on",
+    "name",
+    "database_name",
+    "schema_name",
+    "repository_url",
+    "owner",
+    "owner_role_type",
+    "comment",
+]
+
+
 @mock.patch("snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager._conn")
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager._execute_query"
 )
 def test_get_registry_url(mock_execute, mock_conn, mock_cursor):
-    mock_rows = [
+    mock_row = [
         "2023-01-01 00:00:00",
         "IMAGES",
         "DB",
@@ -41,19 +53,10 @@ def test_get_registry_url(mock_execute, mock_conn, mock_cursor):
         "ROLE",
         "",
     ]
-    mock_columns = [
-        "created_on",
-        "name",
-        "database_name",
-        "schema_name",
-        "repository_url",
-        "owner",
-        "owner_role_type",
-        "comment",
-    ]
+
     mock_execute.return_value = mock_cursor(
-        rows=[{col: row for col, row in zip(mock_columns, mock_rows)}],
-        columns=mock_columns,
+        rows=[{col: row for col, row in zip(MOCK_REPO_COLUMNS, mock_row)}],
+        columns=MOCK_REPO_COLUMNS,
     )
     result = RegistryManager().get_registry_url()
     expected_query = "show image repositories in account"
@@ -68,16 +71,7 @@ def test_get_registry_url(mock_execute, mock_conn, mock_cursor):
 def test_get_registry_url_no_repositories(mock_execute, mock_conn, mock_cursor):
     mock_execute.return_value = mock_cursor(
         rows=[],
-        columns=[
-            "created_on",
-            "name",
-            "database_name",
-            "schema_name",
-            "repository_url",
-            "owner",
-            "owner_role_type",
-            "comment",
-        ],
+        columns=MOCK_REPO_COLUMNS,
     )
     with pytest.raises(NoRepositoriesViewableError):
         RegistryManager().get_registry_url()

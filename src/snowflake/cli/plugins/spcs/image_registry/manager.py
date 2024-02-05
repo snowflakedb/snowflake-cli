@@ -9,9 +9,7 @@ from snowflake.connector.cursor import DictCursor
 
 
 class NoRepositoriesViewableError(ClickException):
-    def __init__(
-        self, msg: str = "Current role does not have view access to any repositories"
-    ):
+    def __init__(self, msg: str = "No image repository found."):
         super().__init__(msg)
 
 

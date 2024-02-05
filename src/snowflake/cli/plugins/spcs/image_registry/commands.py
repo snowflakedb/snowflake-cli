@@ -37,5 +37,5 @@ def url(**options) -> MessageResult:
         return MessageResult(RegistryManager().get_registry_url())
     except NoRepositoriesViewableError:
         raise ClickException(
-            "Current role cannot view any image repositories. Please ensure that at least one repository exists in your image registry and use a role with read access to at least one image repository before retrieving registry URL."
+            "No image repository found. To get the registry url, please switch to a role with read access to at least one image repository or create a new image repository first."
         )
