@@ -30,5 +30,7 @@ jobs:
           pip install -U hatch
           hatch env create default
       - name: Test with hatch
+        env:
+         NO_COLOR: 1
         run: hatch run default:test_cov
       - uses: codecov/codecov-action@4fe8c5f003fae66aa5ebb77cfd3e7bfbbda0b6b0
