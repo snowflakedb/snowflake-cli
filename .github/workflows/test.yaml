@@ -25,8 +25,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Test with tox
-        run: |
-          python -m pip install tox-gh-actions
-          tox
-      - uses: codecov/codecov-action@e0b68c6749509c5f83f984dd99a76a1c1a231044
+      - name: Install hatch
+        run: pip install -U hatch
+      - name: Test with hatch
+        run: hatch run default:test_cov
+      - uses: codecov/codecov-action@4fe8c5f003fae66aa5ebb77cfd3e7bfbbda0b6b0
