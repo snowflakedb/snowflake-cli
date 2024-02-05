@@ -74,6 +74,14 @@ test_cov = [
   "coverage report",
 ]
 
+[tool.hatch.envs.e2e]
+template = "e2e"
+python-version = "3.11"
+features = ["development"]
+
+[tool.hatch.envs.e2e.scripts]
+test = ["pytest -m e2e --snapshot-warn-unused --durations=0"]
+
 [tool.hatch.envs.performance]
 template = "performance"
 python-version = "3.11"
