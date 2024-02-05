@@ -31,21 +31,23 @@ app = typer.Typer(
 @with_output
 @global_options_with_connection
 def create(
-    name: str = typer.Option(..., "--name", help="Job Name"),
-    compute_pool: str = typer.Option(..., "--compute-pool", help="Compute Pool"),
+    name: str = typer.Argument(..., help="Name of the service."),
+    compute_pool: str = typer.Option(
+        ..., "--compute-pool", help="Compute pool to run the service on."
+    ),
     spec_path: Path = typer.Option(
         ...,
         "--spec-path",
-        help="Spec Path",
+        help="Path to service specification file.",
         file_okay=True,
         dir_okay=False,
         exists=True,
     ),
     min_instances: int = typer.Option(
-        1, "--min-instances", help="Minimum number of service instances to run"
+        1, "--min-instances", help="Minimum number of service instances to run."
     ),
     max_instances: Optional[int] = typer.Option(
-        None, "--max-instances", help="Maximum number of service instances to run"
+        None, "--max-instances", help="Maximum number of service instances to run."
     ),
     auto_resume: bool = typer.Option(
         True,

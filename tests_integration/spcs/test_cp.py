@@ -18,7 +18,6 @@ def test_cp(runner, snowflake_session):
             "spcs",
             "compute-pool",
             "create",
-            "--name",
             cp_name,
             "--min-nodes",
             1,

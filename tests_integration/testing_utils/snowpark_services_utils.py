@@ -33,7 +33,6 @@ class SnowparkServicesTestSteps:
                 "spcs",
                 "service",
                 "create",
-                "--name",
                 service_name,
                 "--compute-pool",
                 self.compute_pool,
