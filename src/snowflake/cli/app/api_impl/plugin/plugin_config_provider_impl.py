@@ -8,14 +8,21 @@ from snowflake.cli.api.config import (
     get_config_value,
     get_plugins_config,
 )
+from snowflake.cli.api.exceptions import InvalidPluginConfiguration
 from snowflake.cli.api.plugins.plugin_config import PluginConfig
 
 
 class PluginConfigProviderImpl(PluginConfigProvider):
     def get_enabled_plugin_names(self) -> List[str]:
         enabled_plugins = []
-        for (plugin_name, plugin_config_section) in get_plugins_config().items():
-            if plugin_config_section.get("enabled", False):
+        for plugin_name, plugin_config_section in get_plugins_config().items():
+            print("scanning plugins...", plugin_name)
+            enabled = plugin_config_section.get("enabled", False)
+            if type(enabled) is not bool:
+                raise InvalidPluginConfiguration(
+                    f'[{plugin_name}]: "enabled" must be a boolean'
+                )
+            if enabled:
                 enabled_plugins.append(plugin_name)
         return enabled_plugins
 
