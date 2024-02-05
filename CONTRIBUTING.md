@@ -155,7 +155,6 @@ def my_command():
 Some work...
 Next work...
 ```
---
 
 #### Grouped output
 
