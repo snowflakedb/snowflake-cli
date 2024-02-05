@@ -7,7 +7,7 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
-from snowflake.cli.plugins.object.common import comment_option, identifier_callback
+from snowflake.cli.plugins.object.common import comment_option, object_name_callback
 from snowflake.cli.plugins.spcs.common import validate_and_set_instances
 from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
 
@@ -18,8 +18,8 @@ app = typer.Typer(
 )
 
 
-ComputePoolNameOption = typer.Option(
-    ..., "--name", help="Name of the compute pool.", callback=identifier_callback
+ComputePoolNameArgument = typer.Argument(
+    ..., help="Name of the compute pool.", callback=object_name_callback
 )
 
 
@@ -27,7 +27,7 @@ ComputePoolNameOption = typer.Option(
 @with_output
 @global_options_with_connection
 def create(
-    name: str = ComputePoolNameOption,
+    name: str = ComputePoolNameArgument,
     min_nodes: int = typer.Option(
         1, "--min-nodes", help="Minimum number of nodes for the compute pool."
     ),
@@ -77,7 +77,7 @@ def create(
 @app.command("stop-all")
 @with_output
 @global_options_with_connection
-def stop_all(name: str = ComputePoolNameOption, **options) -> CommandResult:
+def stop_all(name: str = ComputePoolNameArgument, **options) -> CommandResult:
     """
     Stops a compute pool and deletes all services running on the pool.
     """
@@ -88,12 +88,12 @@ def stop_all(name: str = ComputePoolNameOption, **options) -> CommandResult:
 @app.command()
 @with_output
 @global_options_with_connection
-def suspend(name: str = ComputePoolNameOption, **options) -> CommandResult:
-    pass
+def suspend(name: str = ComputePoolNameArgument, **options) -> CommandResult:
+    return SingleQueryResult(ComputePoolManager().suspend(name))
 
 
 @app.command()
 @with_output
 @global_options_with_connection
-def resume(name: str = ComputePoolNameOption, **options) -> CommandResult:
-    pass
+def resume(name: str = ComputePoolNameArgument, **options) -> CommandResult:
+    return SingleQueryResult(ComputePoolManager().resume(name))

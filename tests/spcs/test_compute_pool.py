@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.cli.api.project.util import to_string_literal
+import json
 
 
 @patch(
@@ -114,6 +115,80 @@ def test_stop(mock_execute_query):
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
     result = ComputePoolManager().stop(pool_name)
-    expected_query = "alter compute pool test_pool stop all;"
+    expected_query = f"alter compute pool test_pool stop all"
     mock_execute_query.assert_called_once_with(expected_query)
     assert result == cursor
+
+
+@patch(
+    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+)
+def test_suspend(mock_execute_query):
+    pool_name = "test_pool"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ComputePoolManager().suspend(pool_name)
+    expected_query = f"alter compute pool test_pool suspend"
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch("snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.suspend")
+def test_suspend_cli(mock_suspend, mock_cursor, runner):
+    pool_name = "test_pool"
+    cursor = mock_cursor(
+        rows=[["Statement executed successfully."]], columns=["status"]
+    )
+    mock_suspend.return_value = cursor
+    result = runner.invoke(["spcs", "compute-pool", "suspend", pool_name])
+    mock_suspend.assert_called_once_with(pool_name)
+    assert result.exit_code == 0, result.output
+    assert "Statement executed successfully" in result.output
+
+    cursor_copy = mock_cursor(
+        rows=[["Statement executed successfully."]], columns=["status"]
+    )
+    mock_suspend.return_value = cursor_copy
+    result_json = runner.invoke(
+        ["spcs", "compute-pool", "suspend", pool_name, "--format", "json"]
+    )
+    result_json_parsed = json.loads(result_json.output)
+    assert isinstance(result_json_parsed, dict)
+    assert result_json_parsed == {"status": "Statement executed successfully."}
+
+
+@patch(
+    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+)
+def test_resume(mock_execute_query):
+    pool_name = "test_pool"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ComputePoolManager().resume(pool_name)
+    expected_query = f"alter compute pool test_pool resume"
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch("snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.resume")
+def test_resume_cli(mock_resume, mock_cursor, runner):
+    pool_name = "test_pool"
+    cursor = mock_cursor(
+        rows=[["Statement executed successfully."]], columns=["status"]
+    )
+    mock_resume.return_value = cursor
+    result = runner.invoke(["spcs", "compute-pool", "resume", pool_name])
+    mock_resume.assert_called_once_with(pool_name)
+    assert result.exit_code == 0, result.output
+    assert "Statement executed successfully" in result.output
+
+    cursor_copy = mock_cursor(
+        rows=[["Statement executed successfully."]], columns=["status"]
+    )
+    mock_resume.return_value = cursor_copy
+    result_json = runner.invoke(
+        ["spcs", "compute-pool", "resume", pool_name, "--format", "json"]
+    )
+    result_json_parsed = json.loads(result_json.output)
+    assert isinstance(result_json_parsed, dict)
+    assert result_json_parsed == {"status": "Statement executed successfully."}

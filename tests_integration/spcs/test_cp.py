@@ -1,56 +1,45 @@
-import time
+import uuid
+from typing import Tuple
 
 import pytest
 
-from tests_integration.test_utils import (
-    contains_row_with,
-    not_contains_row_with,
-    row_from_snowflake_session,
+from tests_integration.testing_utils.compute_pool_utils import (
+    ComputePoolTestSetup,
+    ComputePoolTestSteps,
 )
 
 
 @pytest.mark.integration
-def test_cp(runner, snowflake_session):
-    cp_name = f"test_compute_pool_snowcli_{int(time.time())}"
+def test_cp(_test_steps: Tuple[ComputePoolTestSteps, str]):
 
-    result = runner.invoke_with_connection_json(
-        [
-            "spcs",
-            "compute-pool",
-            "create",
-            cp_name,
-            "--min-nodes",
-            1,
-            "--family",
-            "STANDARD_1",
-        ]
-    )
-    assert result.json, result.output
-    assert "status" in result.json
-    assert (
-        f"Compute Pool {cp_name.upper()} successfully created." in result.json["status"]
-    )
+    test_steps, compute_pool_name = _test_steps
 
-    expect = snowflake_session.execute_string(f"show compute pools like '{cp_name}'")
-    result = runner.invoke_with_connection_json(["object", "list", "compute-pool"])
+    test_steps.create_compute_pool(compute_pool_name)
+    test_steps.list_should_return_compute_pool(compute_pool_name)
+    test_steps.stop_all_on_compute_pool(compute_pool_name)
+    test_steps.suspend_compute_pool(compute_pool_name)
+    test_steps.wait_until_compute_pool_is_suspended(compute_pool_name)
+    test_steps.resume_compute_pool(compute_pool_name)
+    test_steps.wait_until_compute_pool_is_idle(compute_pool_name)
+    test_steps.drop_compute_pool(compute_pool_name)
+    test_steps.list_should_not_return_compute_pool(compute_pool_name)
 
-    assert result.json, result.output
-    assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
 
-    result = runner.invoke_with_connection_json(
-        ["spcs", "compute-pool", "stop-all", cp_name]
+@pytest.fixture
+def _test_setup(runner, snowflake_session):
+    compute_pool_test_setup = ComputePoolTestSetup(
+        runner=runner, snowflake_session=snowflake_session
     )
-    assert contains_row_with(
-        result.json,
-        {"status": "Statement executed successfully."},
-    )
+    yield compute_pool_test_setup
 
-    result = runner.invoke_with_connection_json(
-        ["object", "drop", "compute-pool", cp_name]
+
+@pytest.fixture
+def _test_steps(_test_setup):
+    compute_pool_name = f"compute_pool_{uuid.uuid4().hex}"
+    test_steps = ComputePoolTestSteps(_test_setup)
+
+    yield test_steps, compute_pool_name
+
+    _test_setup.snowflake_session.execute_string(
+        f"drop compute pool if exists {compute_pool_name}"
     )
-    assert contains_row_with(
-        result.json,
-        {"status": f"{cp_name.upper()} successfully dropped."},
-    )
-    expect = snowflake_session.execute_string(f"show compute pools like '{cp_name}'")
-    assert not_contains_row_with(row_from_snowflake_session(expect), {"name": cp_name})
