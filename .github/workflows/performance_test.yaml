@@ -21,11 +21,11 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: |
-          pip install --upgrade pip hatch
-          hatch env create performance
+          python -m pip install --upgrade pip hatch
+          python -m hatch env create performance
       - name: Run performance tests
         env:
           TERM: unknown
           HATCH_ENV: performance
         run:
-          hatch run test
+          python -m hatch run test
