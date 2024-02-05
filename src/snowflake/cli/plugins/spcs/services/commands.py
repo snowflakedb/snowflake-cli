@@ -151,3 +151,19 @@ def list_endpoints(name: str = ServiceNameArgument, **options):
     Lists the endpoints in a Snowpark Container Services service.
     """
     return QueryResult(ServiceManager().list_endpoints(service_name=name))
+
+
+@app.command(requires_connection=True)
+def suspend(name: str = ServiceNameArgument, **options) -> CommandResult:
+    """
+    Suspends the service, shutting down and deleting all its containers.
+    """
+    return SingleQueryResult(ServiceManager().suspend(name))
+
+
+@app.command(requires_connection=True)
+def resume(name: str = ServiceNameArgument, **options) -> CommandResult:
+    """
+    Resumes the service from SUSPENDED state.
+    """
+    return SingleQueryResult(ServiceManager().resume(name))

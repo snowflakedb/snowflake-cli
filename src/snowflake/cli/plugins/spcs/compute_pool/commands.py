@@ -26,7 +26,7 @@ def _compute_pool_name_callback(name: str) -> str:
     Verifies that compute pool name is a single valid identifier.
     """
     if not is_valid_object_name(name, 0):
-        raise ClickException(f"{name} is not a valid compute pool name.")
+        raise ClickException(f"'{name}' is not a valid compute pool name.")
     return name
 
 

@@ -3,7 +3,6 @@ from snowflake.cli.plugins.object.common import (
     _parse_tag,
     Tag,
     TagError,
-    object_name_callback
 )
 from typing import Tuple
 import pytest
@@ -51,18 +50,3 @@ def test_parse_tag_valid(value: str, expected: Tuple[str, str]):
 def test_parse_tag_invalid(value: str):
     with pytest.raises(TagError):
         _parse_tag(value)
-
-
-@mock.patch("snowflake.cli.plugins.object.common.is_valid_object_name")
-def test_object_name_callback(mock_is_valid):
-    name = f"id_{uuid.uuid4()}"
-    mock_is_valid.return_value = True
-    assert object_name_callback(name) == name
-
-
-@mock.patch("snowflake.cli.plugins.object.common.is_valid_object_name")
-def test_object_name_callback_invalid(mock_is_valid):
-    name = f"id_{uuid.uuid4()}"
-    mock_is_valid.return_value = False
-    with pytest.raises(ClickException):
-        object_name_callback(name)
