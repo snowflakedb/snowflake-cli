@@ -5,8 +5,7 @@ import logging
 import typer
 from click import ClickException
 from click.types import StringParamType
-from snowflake.cli.api.commands.decorators import global_options, with_output
-from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS, ConnectionOption
+from snowflake.cli.api.commands.flags import ConnectionOption
 from snowflake.cli.api.config import (
     add_connection,
     connection_exists,
@@ -18,10 +17,10 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     ObjectResult,
 )
+from snowflake.cli.app.main_typer import SnowTyper
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
-app = typer.Typer(
-    context_settings=DEFAULT_CONTEXT_SETTINGS,
+app = SnowTyper(
     name="connection",
     help="Manages connections to Snowflake.",
 )
@@ -45,8 +44,6 @@ def _mask_password(connection_params: dict):
 
 
 @app.command(name="list")
-@with_output
-@global_options
 def list_connections(**options) -> CommandResult:
     """
     Lists configured connections.
@@ -71,8 +68,6 @@ def require_integer(field_name: str):
 
 
 @app.command()
-@global_options
-@with_output
 def add(
     connection_name: str = typer.Option(
         None,
@@ -210,9 +205,7 @@ def add(
     )
 
 
-@app.command()
-@global_options
-@with_output
+@app.command(requires_connection=False)
 def test(connection: str = ConnectionOption, **options) -> CommandResult:
     """
     Tests the connection to Snowflake.

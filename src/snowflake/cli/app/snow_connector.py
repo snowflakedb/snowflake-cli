@@ -5,7 +5,6 @@ import logging
 import os
 from typing import Dict, Optional
 
-import click
 import snowflake.connector
 from click.exceptions import ClickException
 from snowflake.cli.api.config import get_connection, get_default_connection
@@ -13,6 +12,7 @@ from snowflake.cli.api.exceptions import (
     InvalidConnectionConfiguration,
     SnowflakeConnectionError,
 )
+from snowflake.cli.app.telemetry import command_info
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.errors import DatabaseError, ForbiddenError
 
@@ -47,7 +47,7 @@ def connect_to_snowflake(temporary_connection: bool = False, connection_name: Op
         # for cases when external browser and json format are used.
         with contextlib.redirect_stdout(None):
             return snowflake.connector.connect(
-                application=_find_command_path(),
+                application=command_info(),
                 **connection_parameters,
             )
     except ForbiddenError as err:
@@ -67,14 +67,6 @@ def _update_connection_details_with_private_key(connection_parameters: Dict):
                 "Private Key authentication requires authenticator set to SNOWFLAKE_JWT"
             )
     return connection_parameters
-
-
-def _find_command_path():
-    ctx = click.get_current_context(silent=True)
-    if ctx:
-        # Example: SNOWCLI.WAREHOUSE.STATUS
-        return ".".join(["SNOWCLI", *ctx.command_path.split(" ")[1:]]).upper()
-    return "SNOWCLI"
 
 
 def _load_pem_to_der(private_key_path: str) -> bytes:
