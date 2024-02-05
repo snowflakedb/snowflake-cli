@@ -83,3 +83,9 @@ class ServiceManager(SqlExecutionMixin):
         return self._execute_schema_query(
             f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines});"
         )
+
+    def suspend(self, service_name: str):
+        return self._execute_schema_query(f"alter service {service_name} suspend")
+
+    def resume(self, service_name: str):
+        return self._execute_schema_query(f"alter service {service_name} resume")

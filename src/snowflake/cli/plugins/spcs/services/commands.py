@@ -3,13 +3,15 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
+from click import ClickException
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import (
     CommandResult,
     QueryJsonValueResult,
     SingleQueryResult,
 )
-from snowflake.cli.plugins.object.common import CommentOption, TagOption
+from snowflake.cli.api.project.util import is_valid_object_name
+from snowflake.cli.plugins.object.common import CommentOption, Tag, TagOption
 from snowflake.cli.plugins.spcs.common import (
     print_log_lines,
     validate_and_set_instances,
@@ -23,8 +25,20 @@ app = SnowTyper(
 
 
 @app.command(requires_connection=True)
+def _service_name_callback(name: str) -> str:
+    if not is_valid_object_name(name, 2):
+        raise ClickException(f"'{name}' is not a valid service name.")
+    return name
+
+
+ServiceNameArgument = typer.Argument(
+    ..., help="Name of the service.", callback=_service_name_callback
+)
+
+
+@app.command()
 def create(
-    name: str = typer.Argument(..., help="Name of the service."),
+    name: str = ServiceNameArgument,
     compute_pool: str = typer.Option(
         ..., "--compute-pool", help="Compute pool to run the service on."
     ),
@@ -57,7 +71,7 @@ def create(
         "--query-warehouse",
         help="Warehouse to use if a service container connects to Snowflake to execute a query without explicitly specifying a warehouse to use.",
     ),
-    tags: Optional[List[str]] = TagOption(help="Tag for the service."),
+    tags: Optional[List[Tag]] = TagOption(help="Tag for the service."),
     comment: Optional[str] = CommentOption(help="Comment for the service."),
     **options,
 ) -> CommandResult:
@@ -83,9 +97,7 @@ def create(
 
 
 @app.command(requires_connection=True)
-def status(
-    name: str = typer.Argument(..., help="Name of the service."), **options
-) -> CommandResult:
+def status(name: str = ServiceNameArgument, **options) -> CommandResult:
     """
     Retrieves status of a Snowpark Container Services service.
     """
@@ -95,12 +107,12 @@ def status(
 
 @app.command(requires_connection=True)
 def logs(
-    name: str = typer.Argument(..., help="Name of the service."),
+    name: str = ServiceNameArgument,
     container_name: str = typer.Option(
         ..., "--container-name", help="Name of the container."
     ),
-    instance_id: str = typer.Option(..., "--instance-id", help="Instance Id."),
-    num_lines: int = typer.Option(500, "--num-lines", help="Num Lines"),
+    instance_id: str = typer.Option(..., "--instance-id", help="Instance Id"),
+    num_lines: int = typer.Option(500, "--num-lines", help="Number of lines"),
     **options,
 ):
     """
@@ -115,3 +127,19 @@ def logs(
     cursor = results.fetchone()
     logs = next(iter(cursor)).split("\n")
     print_log_lines(sys.stdout, name, "0", logs)
+
+
+@app.command(requires_connection=True)
+def suspend(name: str = ServiceNameArgument, **options) -> CommandResult:
+    """
+    Suspends the service, shutting down and deleting all its containers.
+    """
+    return SingleQueryResult(ServiceManager().suspend(name))
+
+
+@app.command(requires_connection=True)
+def resume(name: str = ServiceNameArgument, **options) -> CommandResult:
+    """
+    Resumes the service from SUSPENDED state.
+    """
+    return SingleQueryResult(ServiceManager().resume(name))
