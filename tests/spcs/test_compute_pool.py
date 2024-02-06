@@ -115,7 +115,7 @@ def test_stop(mock_execute_query):
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
     result = ComputePoolManager().stop(pool_name)
-    expected_query = f"alter compute pool test_pool stop all"
+    expected_query = "alter compute pool test_pool stop all"
     mock_execute_query.assert_called_once_with(expected_query)
     assert result == cursor
 
@@ -128,7 +128,7 @@ def test_suspend(mock_execute_query):
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
     result = ComputePoolManager().suspend(pool_name)
-    expected_query = f"alter compute pool test_pool suspend"
+    expected_query = "alter compute pool test_pool suspend"
     mock_execute_query.assert_called_once_with(expected_query)
     assert result == cursor
 
@@ -165,7 +165,7 @@ def test_resume(mock_execute_query):
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
     result = ComputePoolManager().resume(pool_name)
-    expected_query = f"alter compute pool test_pool resume"
+    expected_query = "alter compute pool test_pool resume"
     mock_execute_query.assert_called_once_with(expected_query)
     assert result == cursor
 

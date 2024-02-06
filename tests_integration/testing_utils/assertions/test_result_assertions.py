@@ -43,19 +43,20 @@ def assert_that_result_is_successful_and_done_is_on_output(
 
 
 def assert_that_result_is_successful_and_executed_successfully(
-    result: CommandResult,
+    result: CommandResult, is_json: bool = False
 ) -> None:
     """
-    Checks that the command result is in the form {"status": "Statement executed successfully"}
+    Checks that the command result is {"status": "Statement executed successfully"} as either json or text output.
     """
-    complete_success = {"status": "Statement executed successfully."}
     assert_that_result_is_successful(result)
-    if result.json is not None:
+    if is_json:
+        success_message = {"status": "Statement executed successfully."}
+        assert result.json is not None
         if isinstance(result.json, dict):
-            assert result.json == complete_success
+            assert result.json == success_message
         else:
             assert len(result.json) == 1
-            assert result.json[0] == complete_success
+            assert result.json[0] == success_message
     else:
         assert result.output is not None
         assert "status" in result.output
