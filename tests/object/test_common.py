@@ -1,5 +1,10 @@
 import uuid
-from snowflake.cli.plugins.object.common import _parse_tag, Tag, object_name_callback, TagError
+from snowflake.cli.plugins.object.common import (
+    _parse_tag,
+    Tag,
+    object_name_callback,
+    TagError,
+)
 from typing import Tuple
 import pytest
 from unittest import mock
