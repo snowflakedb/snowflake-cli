@@ -15,6 +15,7 @@ from snowflake.cli.api.project.definition import (
 )
 from snowflake.cli.api.project.util import (
     extract_schema,
+    identifier_to_show_like_pattern,
     to_identifier,
     unquote_identifier,
 )
@@ -98,7 +99,30 @@ class NativeAppCommandProcessor(ABC):
         pass
 
 
-class NativeAppManager(SqlExecutionMixin):
+class FindObjectRowMixin:
+    def __init__(self):
+        if not isinstance(self, SqlExecutionMixin):
+            raise TypeError(
+                "FindObjectRowMixin can only be used with classes that also mix in SqlExecutionMixin."
+            )
+
+    def find_row_by_object_name(
+        self, object_type_plural: str, object_name: str, name_col: str = "name"
+    ) -> Optional[dict]:
+        show_obj_query = f"show {object_type_plural} like {identifier_to_show_like_pattern(object_name)}"
+        show_obj_cursor = self._execute_query(  # type: ignore
+            show_obj_query, cursor_class=DictCursor
+        )
+        if show_obj_cursor.rowcount is None:
+            raise SnowflakeSQLExecutionError(show_obj_query)
+        show_obj_row = find_first_row(
+            show_obj_cursor,
+            lambda row: row[name_col] == unquote_identifier(object_name),
+        )
+        return show_obj_row
+
+
+class NativeAppManager(SqlExecutionMixin, FindObjectRowMixin):
     """
     Base class with frequently used functionality already implemented and ready to be used by related subclasses.
     """
@@ -304,23 +328,7 @@ class NativeAppManager(SqlExecutionMixin):
         It executes a 'show applications like' query and returns the result as single row, if one exists.
         """
         with self.use_role(self.app_role):
-            show_obj_query = (
-                f"show applications like '{unquote_identifier(self.app_name)}'"
-            )
-            show_obj_cursor = self._execute_query(
-                show_obj_query,
-                cursor_class=DictCursor,
-            )
-
-            if show_obj_cursor.rowcount is None:
-                raise SnowflakeSQLExecutionError(show_obj_query)
-
-            show_obj_row = find_first_row(
-                show_obj_cursor,
-                lambda row: row[NAME_COL] == unquote_identifier(self.app_name),
-            )
-
-            return show_obj_row
+            return self.find_row_by_object_name("applications", self.app_name, NAME_COL)
 
     def get_existing_app_pkg_info(self) -> Optional[dict]:
         """
@@ -329,20 +337,9 @@ class NativeAppManager(SqlExecutionMixin):
         """
 
         with self.use_role(self.package_role):
-            show_obj_query = f"show application packages like '{unquote_identifier(self.package_name)}'"
-            show_obj_cursor = self._execute_query(
-                show_obj_query, cursor_class=DictCursor
+            return self.find_row_by_object_name(
+                "application packages", self.package_name, NAME_COL
             )
-
-            if show_obj_cursor.rowcount is None:
-                raise SnowflakeSQLExecutionError(show_obj_query)
-
-            show_obj_row = find_first_row(
-                show_obj_cursor,
-                lambda row: row[NAME_COL] == unquote_identifier(self.package_name),
-            )
-
-            return show_obj_row  # Can be None or a dict
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
