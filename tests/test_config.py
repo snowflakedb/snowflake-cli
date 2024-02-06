@@ -1,6 +1,12 @@
 from tempfile import TemporaryDirectory
 
-from snowcli.api.config import config_init, get_config_section, get_connection
+from snowflake.cli.api.config import (
+    config_init,
+    get_config_section,
+    get_connection,
+    get_default_connection,
+)
+from snowflake.cli.api.exceptions import MissingConfiguration
 
 from tests.testing_utils.fixtures import *
 
@@ -105,4 +111,76 @@ def test_get_all_connections(test_snowcli_config):
             "user": "dev_user",
             "warehouse": "dev_warehouse",
         },
+    }
+
+
+@mock.patch("snowflake.cli.api.config.CONFIG_MANAGER")
+def test_create_default_config_if_not_exists(mock_config_manager):
+    with TemporaryDirectory() as tmp_dir:
+        config_path = Path(f"{tmp_dir}/snowflake/config.toml")
+        mock_config_manager.file_path = config_path
+        mock_config_manager.conf_file_cache = {}
+
+        config_init(None)
+
+        assert config_path.exists()
+
+
+@mock.patch.dict(
+    os.environ,
+    {
+        "SNOWFLAKE_CONNECTIONS_DEFAULT_ACCOUNT": "default_account",
+    },
+    clear=True,
+)
+def test_default_connection_with_overwritten_values(test_snowcli_config):
+    config_init(test_snowcli_config)
+
+    assert get_default_connection() == {
+        "database": "db_for_test",
+        "role": "test_role",
+        "schema": "test_public",
+        "warehouse": "xs",
+        "password": "dummy_password",
+        "account": "default_account",
+    }
+
+
+def test_not_found_default_connection(test_root_path):
+    config_init(Path(test_root_path / "empty_config.toml"))
+    with pytest.raises(MissingConfiguration) as ex:
+        get_default_connection()
+
+    assert ex.value.message == "Connection default is not configured"
+
+
+@mock.patch.dict(
+    os.environ,
+    {
+        "SNOWFLAKE_DEFAULT_CONNECTION_NAME": "not_existed_connection",
+    },
+    clear=True,
+)
+def test_not_found_default_connection_from_evn_variable(test_root_path):
+    config_init(Path(test_root_path / "empty_config.toml"))
+    with pytest.raises(MissingConfiguration) as ex:
+        get_default_connection()
+
+    assert ex.value.message == "Connection not_existed_connection is not configured"
+
+
+def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_home):
+    from snowflake.cli.api.config import CONFIG_MANAGER
+
+    connections_toml = snowflake_home / "connections.toml"
+    connections_toml.write_text(
+        """[default]
+    database = "overridden_database"
+    """
+    )
+    config_init(test_snowcli_config)
+
+    assert get_default_connection() == {"database": "overridden_database"}
+    assert CONFIG_MANAGER["connections"] == {
+        "default": {"database": "overridden_database"}
     }

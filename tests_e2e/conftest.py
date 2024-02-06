@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
-from snowcli import __about__
+from snowflake.cli import __about__
 
 TEST_DIR = Path(__file__).parent
 
@@ -42,6 +42,11 @@ def snowcli(test_root_path):
         _build_snowcli(tmp_dir_path, test_root_path)
         _install_snowcli_with_external_plugin(tmp_dir_path, test_root_path)
         yield tmp_dir_path / "bin" / "snow"
+
+
+@pytest.fixture(autouse=True)
+def isolate_default_config_location(monkeypatch, temp_dir):
+    monkeypatch.setenv("SNOWFLAKE_HOME", temp_dir)
 
 
 def _create_venv(tmp_dir: Path) -> None:

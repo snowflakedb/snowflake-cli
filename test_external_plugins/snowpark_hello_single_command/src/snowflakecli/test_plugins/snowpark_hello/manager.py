@@ -1,5 +1,5 @@
-from snowcli.api import api_provider
-from snowcli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api import api_provider
+from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
 

@@ -2,6 +2,8 @@ import functools
 import os
 import shutil
 import tempfile
+import sys
+import importlib
 from contextlib import contextmanager
 from io import StringIO
 from pathlib import Path
@@ -10,8 +12,9 @@ from unittest import mock
 
 import pytest
 import strictyaml
-from snowcli.api.project.definition import merge_left
+from snowflake.cli.api.project.definition import merge_left
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.errors import ProgrammingError
 from strictyaml import as_document
 from typer import Typer
 from typer.testing import CliRunner
@@ -82,6 +85,7 @@ class MockConnectionCtx(mock.MagicMock):
         super().__init__(*args, **kwargs)
         self.queries: List[str] = []
         self.cs = cursor
+        self._checkout_count = 0
 
     def get_query(self):
         return "\n".join(self.queries)
@@ -114,6 +118,12 @@ class MockConnectionCtx(mock.MagicMock):
         return "account"
 
     def execute_string(self, query: str, **kwargs):
+        if query.lower().startswith("alter streamlit") and query.lower().endswith(
+            " checkout"
+        ):
+            self._checkout_count += 1
+            if self._checkout_count > 1:
+                raise ProgrammingError("Checkout already exists")
         self.queries.append(query)
         return (self.cs,)
 
@@ -171,7 +181,7 @@ def package_file():
 
 @pytest.fixture(scope="function")
 def runner(test_snowcli_config):
-    from snowcli.app.cli_app import app
+    from snowflake.cli.app.cli_app import app
 
     return SnowCLIRunner(app, test_snowcli_config)
 
@@ -229,3 +239,22 @@ def project_directory(temp_dir, test_root_path):
         yield Path(temp_dir)
 
     return _temporary_project_directory
+
+
+@pytest.fixture
+def snowflake_home(monkeypatch, temp_dir):
+    """
+    Set up the default location of config files to [temp_dir]/.snowflake
+    """
+    snowflake_home = Path(temp_dir) / ".snowflake"
+    snowflake_home.mkdir()
+    monkeypatch.setenv("SNOWFLAKE_HOME", str(snowflake_home))
+
+    for module in [
+        sys.modules["snowflake.connector.constants"],
+        sys.modules["snowflake.connector.config_manager"],
+        sys.modules["snowflake.cli.api.config"],
+    ]:
+        importlib.reload(module)
+
+    yield snowflake_home

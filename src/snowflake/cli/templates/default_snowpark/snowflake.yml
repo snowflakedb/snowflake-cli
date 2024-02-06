@@ -1,0 +1,27 @@
+definition_version: 1
+snowpark:
+  project_name: "my_snowpark_project"
+  stage_name: "dev_deployment"
+  src: "app/"
+  functions:
+    - name: hello_function
+      handler: "functions.hello_function"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+  procedures:
+    - name: hello_procedure
+      handler: "procedures.hello_procedure"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+    - name: test_procedure
+      handler: "procedures.test_procedure"
+      signature: ""
+      returns: string
+      external_access_integrations:
+        - my_external_access
+      secrets:
+        cred: my_cred_name

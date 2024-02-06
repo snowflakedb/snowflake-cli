@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import json
+import platform
+import sys
 import typing as t
 
 from click import Command
-from snowcli.__about__ import VERSION
-from snowcli.app.cli_app import app_context_holder
+from snowflake.cli.__about__ import VERSION
+from snowflake.cli.app.cli_app import app_context_holder
 from snowflake.connector.config_manager import CONFIG_MANAGER
 from typer.core import TyperArgument, TyperOption
 
@@ -54,6 +56,8 @@ def test_info_callback(runner):
     assert payload == [
         {"key": "version", "value": VERSION},
         {"key": "default_config_file_path", "value": str(CONFIG_MANAGER.file_path)},
+        {"key": "python_version", "value": sys.version},
+        {"key": "system_info", "value": platform.platform()},
     ]
 
 

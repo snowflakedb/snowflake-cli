@@ -6,8 +6,8 @@ from zipfile import ZipFile
 
 import pytest
 from requirements.requirement import Requirement
-from snowcli.plugins.snowpark.models import SplitRequirements
-from snowcli.plugins.snowpark.package.utils import NotInAnaconda
+from snowflake.cli.plugins.snowpark.models import SplitRequirements
+from snowflake.cli.plugins.snowpark.package.utils import NotInAnaconda
 
 from tests.test_data import test_data
 
@@ -15,20 +15,9 @@ from tests.test_data import test_data
 class TestPackage:
     @pytest.mark.parametrize(
         "argument",
-        [
-            (
-                "snowflake-connector-python",
-                "Package snowflake-connector-python is available on the Snowflake anaconda channel.",
-                "snowcli.plugins.snowpark.package.commands",
-            ),
-            (
-                "some-weird-package-we-dont-know",
-                "Lookup for package some-weird-package-we-dont-know resulted in some error. Please check the package name or try again with -y option",
-                "snowcli.plugins.snowpark.package.commands",
-            ),
-        ],
+        ["snowflake-connector-python", "some-weird-package-we-dont-know"],
     )
-    @patch("snowcli.plugins.snowpark.package_utils.requests")
+    @patch("snowflake.cli.plugins.snowpark.package_utils.requests")
     def test_package_lookup(
         self, mock_requests, argument, monkeypatch, runner, snapshot
     ) -> None:
@@ -36,13 +25,13 @@ class TestPackage:
             test_data.anaconda_response
         )
 
-        result = runner.invoke(["snowpark", "package", "lookup", argument[0], "--yes"])
+        result = runner.invoke(["snowpark", "package", "lookup", argument, "--yes"])
 
         assert result.exit_code == 0
         assert result.output == snapshot
 
-    @patch("snowcli.plugins.snowpark.package_utils.install_packages")
-    @patch("snowcli.plugins.snowpark.package_utils.parse_anaconda_packages")
+    @patch("snowflake.cli.plugins.snowpark.package_utils.install_packages")
+    @patch("snowflake.cli.plugins.snowpark.package_utils.parse_anaconda_packages")
     def test_package_lookup_with_install_packages(
         self, mock_package, mock_install, runner, capfd, snapshot
     ) -> None:
@@ -64,7 +53,7 @@ class TestPackage:
         assert result.exit_code == 0
         assert result.output == snapshot
 
-    @patch("snowcli.plugins.snowpark.package.commands.lookup")
+    @patch("snowflake.cli.plugins.snowpark.package.commands.lookup")
     def test_package_create(
         self, mock_lookup, caplog, temp_dir, dot_packages_directory, runner
     ) -> None:
@@ -73,7 +62,9 @@ class TestPackage:
             SplitRequirements([], ["some-other-package"]), "totally-awesome-package"
         )
 
-        with caplog.at_level(logging.DEBUG, logger="snowcli.plugins.snowpark.package"):
+        with caplog.at_level(
+            logging.DEBUG, logger="snowflake.cli.plugins.snowpark.package"
+        ):
             result = runner.invoke(
                 ["snowpark", "package", "create", "totally-awesome-package", "--yes"]
             )
@@ -88,7 +79,7 @@ class TestPackage:
         )
         os.remove("totally-awesome-package.zip")
 
-    @mock.patch("snowcli.plugins.snowpark.package.manager.StageManager")
+    @mock.patch("snowflake.cli.plugins.snowpark.package.manager.StageManager")
     @mock.patch("snowflake.connector.connect")
     def test_package_upload(
         self,

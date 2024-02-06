@@ -34,6 +34,18 @@ def test_multi_queries_from_file(runner, snowflake_session, test_root_path):
 
 
 @pytest.mark.integration
+def test_multi_queries_where_one_of_them_is_failing(
+    runner, snowflake_session, test_root_path, snapshot
+):
+    result = runner.invoke_with_connection_json(
+        ["sql", "-q", f"select 1; select 2; select foo; select 4", "--format", "json"],
+        catch_exceptions=True,
+    )
+
+    assert result.output == snapshot
+
+
+@pytest.mark.integration
 def test_multi_input_from_stdin(runner, snowflake_session, test_root_path):
     result = runner.invoke_with_connection_json(
         [
@@ -61,8 +73,8 @@ def _round_values_for_multi_queries(results):
 
 
 @pytest.mark.integration
-@mock.patch("snowcli.app.printing._get_table")
-@mock.patch("snowcli.app.printing.Live")
+@mock.patch("snowflake.cli.app.printing._get_table")
+@mock.patch("snowflake.cli.app.printing.Live")
 def test_queries_are_streamed_to_output(
     _, mock_get_table, runner, capsys, test_root_path
 ):
@@ -107,3 +119,15 @@ def test_if_comments_are_not_shown(runner, snapshot):
 
     assert result.exit_code == 0, result.output
     assert result.output == snapshot
+
+
+@pytest.mark.integration
+def test_trailing_comments_queries(runner, snowflake_session, test_root_path):
+    trailin_comment_query = "select 1;\n\n-- trailing comment\n"
+    result = runner.invoke_with_connection_json(["sql", "-q", trailin_comment_query])
+    assert result.exit_code == 0
+    assert result.json == [
+        [
+            {"1": 1},
+        ],
+    ]

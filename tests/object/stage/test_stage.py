@@ -3,10 +3,10 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 import pytest
-from snowcli.plugins.object.stage.manager import StageManager
+from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.connector.cursor import DictCursor
 
-STAGE_MANAGER = "snowcli.plugins.object.stage.manager.StageManager"
+STAGE_MANAGER = "snowflake.cli.plugins.object.stage.manager.StageManager"
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -230,7 +230,7 @@ def test_stage_create_quoted(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with('create stage if not exists "stage name"')
 
 
-@mock.patch("snowcli.plugins.object.commands.ObjectManager._execute_query")
+@mock.patch("snowflake.cli.plugins.object.commands.ObjectManager._execute_query")
 def test_stage_drop(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "drop", "stage", "stageName", "-c", "empty"])
@@ -238,7 +238,7 @@ def test_stage_drop(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with("drop stage stageName")
 
 
-@mock.patch("snowcli.plugins.object.commands.ObjectManager._execute_query")
+@mock.patch("snowflake.cli.plugins.object.commands.ObjectManager._execute_query")
 def test_stage_drop_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "drop", "stage", '"stage name"', "-c", "empty"])
@@ -264,6 +264,64 @@ def test_stage_remove_quoted(mock_execute, runner, mock_cursor):
     )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with("remove '@\"stage name\"/my/file/foo.csv'")
+
+
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_stage_print_result_for_put_directory(
+    mock_execute, mock_cursor, runner, snapshot
+):
+    mock_execute.return_value = mock_cursor(
+        rows=[
+            ["file1.txt", "file1.txt", 10, 8, "NONE", "NONE", "UPLOADED", ""],
+            ["file2.txt", "file2.txt", 10, 8, "NONE", "NONE", "UPLOADED", ""],
+            ["file3.txt", "file3.txt", 10, 8, "NONE", "NONE", "UPLOADED", ""],
+        ],
+        columns=[
+            "source",
+            "target",
+            "source_size",
+            "target_size",
+            "source_compression",
+            "target_compression",
+            "status",
+            "message",
+        ],
+    )
+
+    with TemporaryDirectory() as tmp_dir:
+        tmp_dir_path = Path(tmp_dir)
+        (tmp_dir_path / "file1.txt").touch()
+        (tmp_dir_path / "file2.txt").touch()
+        (tmp_dir_path / "file3.txt").touch()
+        result = runner.invoke(["object", "stage", "copy", tmp_dir, "@stageName"])
+
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot
+
+
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_stage_print_result_for_get_all_files_from_stage(
+    mock_execute, mock_cursor, runner, snapshot
+):
+    mock_execute.return_value = mock_cursor(
+        rows=[
+            ["file1.txt", 10, "DOWNLOADED", ""],
+            ["file2.txt", 10, "DOWNLOADED", ""],
+            ["file3.txt", 10, "DOWNLOADED", ""],
+        ],
+        columns=[
+            "file",
+            "size",
+            "status",
+            "message",
+        ],
+    )
+
+    with TemporaryDirectory() as tmp_dir:
+        result = runner.invoke(["object", "stage", "copy", "@stageName", tmp_dir])
+
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")

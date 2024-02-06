@@ -1,5 +1,5 @@
 import typer
-from snowcli.api.commands.decorators import (
+from snowflake.cli.api.commands.decorators import (
     global_options,
     global_options_with_connection,
     with_experimental_behaviour,
@@ -20,9 +20,10 @@ _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "format",
     "verbose",
     "debug",
+    "silent",
 ]
 
-_KNOWN_SIG_GLOBAL_PARAMETERS = ["format", "verbose", "debug"]
+_KNOWN_SIG_GLOBAL_PARAMETERS = ["format", "verbose", "debug", "silent"]
 
 
 def _extract_arguments(func):

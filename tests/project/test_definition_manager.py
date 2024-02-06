@@ -2,7 +2,8 @@ from pathlib import Path
 from unittest import TestCase, mock
 from unittest.mock import patch
 
-from snowcli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.api.exceptions import MissingConfiguration
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 
 from tests.project.fixtures import *
 from tests.testing_utils.fixtures import *
@@ -40,29 +41,22 @@ class DefinitionManagerTest(TestCase):
     @mock.patch("os.path.abspath", return_value="/hello/world/test")
     def test_double_dash_project_parameter_provided(self, mock_abs):
         with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
-            definition_manager = DefinitionManager("/hello/world/test")
-            assert definition_manager._project_config_paths == [
-                Path("/hello/world/snowflake.yml")
-            ]
+            with pytest.raises(MissingConfiguration):
+                DefinitionManager("/hello/world/test")
 
     @mock.patch("os.path.abspath", return_value="/hello/world/test/again")
     def test_dash_p_parameter_provided(self, mock_abs):
         with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
-            definition_manager = DefinitionManager("/hello/world/test/again")
-            assert definition_manager._project_config_paths == [
-                Path("/hello/world/snowflake.yml")
-            ]
+            with pytest.raises(MissingConfiguration):
+                DefinitionManager("/hello/world/test/again")
 
     @mock.patch("os.getcwd", return_value="/hello/world")
     @mock.patch("os.path.abspath", return_value="/hello/world/relative")
     def test_dash_p_with_relative_parameter_provided(self, mock_abs, mock_getcwd):
         with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
             mock_getcwd.return_value = "/hello/world"
-            definition_manager = DefinitionManager("./relative")
-            mock_abs.assert_called_with("./relative")
-            assert definition_manager._project_config_paths == [
-                Path("/hello/world/snowflake.yml")
-            ]
+            with pytest.raises(MissingConfiguration):
+                DefinitionManager("./relative")
 
     @mock.patch("os.path.abspath", return_value="/tmp")
     def test_find_definition_files_reached_root(self, mock_abs):

@@ -1,19 +1,19 @@
 import unittest
 from textwrap import dedent
 
-from snowcli.plugins.nativeapp.constants import (
+from snowflake.cli.plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     NAME_COL,
     SPECIAL_COMMENT,
 )
-from snowcli.plugins.nativeapp.exceptions import UnexpectedOwnerError
-from snowcli.plugins.nativeapp.manager import (
+from snowflake.cli.plugins.nativeapp.exceptions import UnexpectedOwnerError
+from snowflake.cli.plugins.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
     ensure_correct_owner,
 )
-from snowcli.plugins.object.stage.diff import DiffResult
-from snowcli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.plugins.object.stage.diff import DiffResult
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -79,7 +79,8 @@ def test_sync_deploy_root_with_stage(
         mock.call(
             f"""
                     create stage if not exists app_pkg.app_src.stage
-                    encryption = (TYPE = 'SNOWFLAKE_SSE')"""
+                    encryption = (TYPE = 'SNOWFLAKE_SSE')
+                    DIRECTORY = (ENABLE = TRUE)"""
         ),
         mock.call("use role old_role"),
     ]
@@ -471,9 +472,9 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch("snowcli.plugins.connection.util.get_context")
-@mock.patch("snowcli.plugins.connection.util.get_account")
-@mock.patch("snowcli.plugins.connection.util.get_snowsight_host")
+@mock.patch("snowflake.cli.plugins.connection.util.get_context")
+@mock.patch("snowflake.cli.plugins.connection.util.get_account")
+@mock.patch("snowflake.cli.plugins.connection.util.get_snowsight_host")
 @mock_connection()
 def test_get_snowsight_url(
     mock_conn, mock_snowsight_host, mock_account, mock_context, temp_dir

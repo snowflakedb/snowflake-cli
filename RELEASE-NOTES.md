@@ -1,3 +1,6 @@
+## New additions
+* Added `--comments` flag to `snow sql` command, that shows comments. Comments, now are not shown by default
+
 # v2.0.0
 
 ## Backward incompatibility
@@ -19,16 +22,20 @@
   * Removed `snow snowpark procedure create` and `snow snowpark procedure update`. Procedures can be deployed using `snow snowpark deploy`.
   * Procedures and functions use single zip artifact for all functions and procedures in project.
   * Changed path to coverage reports on stage, previously created procedures with coverage will not work, have to be recreated.
-  * Previously created procedures or functions won't work with `deploy` command due to change in stage path of artefact. Previous code will remain under old path on stage.
-  * Coverage commands are now under `snow snowpark coverage`.
+  * Previously created procedures or functions won't work with `deploy` command due to change in stage path of artifact. Previous code will remain under old path on stage.
   * Package commands are now under `snow snowpark package`.
+  * Coverage commands were removed. To measure coverage of your procedures or functions use coverage locally.
 
 * Snowpark Containers services commands
-  * `compute-pool` commands and its alias `cp` were renamed to `pool` commands.
-  * `jobs` commands were renamed to `job`.
+  * `cp` alias for `compute-pool` commands was removed.
   * `services` commands were renamed to `service`
-  * `pool`, `job` and `service` commands were moved from `snowpark` group to a new `containers` group.
-  * `snow snowpark registry` was replaced with `snow registry` command.
+  * `registry` commands were renamed to `image-registry`
+  * `compute-pool`, `service`, and `image-registry` commands were moved from `snowpark` group to a new `spcs` group.
+  * `snow spcs compute-pool create` and `snow spcs service create` have been updated with new options to match SQL interface.
+  * Added new `image-repository` command group under `spcs`. Moved `list-images` and `list-tags` from `image-registry` to `image-repository`.
+  * Removed `snow snowpark jobs` command.
+  * `list-images` and `list-tags` now outputs image names with a slash at the beginning (e.g. /db/schema/repo/image). Image name input to `list-tags` requires new format.
+  * `snow spcs compute-pool stop` has been removed in favor of `snow spcs compute-pool stop-all`.
 
 * Streamlit changes
   * `snow streamlit deploy` is requiring `snowflake.yml` project file with a Streamlit definition.
@@ -50,10 +57,24 @@
 * Added support for runtime version in snowpark procedures ad functions.
 * You can include previously uploaded packages in your functions, by listing them under `imports` in `snowflake.yml`
 * Added more options to `snow connection add` - now you can also specify authenticator and path to private key
-* Added `--comments` flag to `snow sql` command, that shows comments. Comments, now are not shown by default
+* Added support for native applications by introducing new commands.
+  * `snow app init` command that creates a new Native App project from a git repository as a template.
+  * `snow app version create` command that creates or upgrades an application package and creates a version or patch for that package.
+  * `snow app version drop` command that drops a version associated with an application package.
+  * `snow app version list` command that lists all versions associated with an application package.
+  * `snow app run` command that creates or upgrades an application in development mode or through release directives.
+  * `snow app open` command that opens the application inside of your browser on Snowsight, once it has been installed in your account.
+  * `snow app teardown` command that attempts to drop both the application and package as defined in the project definition file.
+* Snowpark: add `default` field to procedure and function arguments definition in `snowflake.yml` to support [named and optional
+  arguments](https://docs.snowflake.com/en/developer-guide/udf/udf-calling-sql#calling-a-udf-that-has-optional-arguments)
 
 ## Fixes and improvements
 * Allow the use of quoted identifiers in stages
+
+
+# v1.2.5
+## Fixes and improvements
+* Import git module only when is needed
 
 
 # v1.2.4

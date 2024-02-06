@@ -7,12 +7,11 @@ from unittest.mock import MagicMock, mock_open, patch
 import typer
 from requirements.requirement import Requirement
 
-import snowcli.plugins.snowpark.package.utils
-from snowcli.api.utils import path_utils
-from snowcli.plugins.snowpark.package import utils as file_utils
-from snowcli.plugins.snowpark import package_utils
-from snowcli.plugins.snowpark.models import PypiOption
-from snowcli.plugins.streamlit import streamlit_utils
+import snowflake.cli.plugins.snowpark.package.utils
+from snowflake.cli.api.utils import path_utils
+from snowflake.cli.plugins.snowpark import package_utils
+from snowflake.cli.plugins.snowpark.models import PypiOption
+from snowflake.cli.plugins.streamlit import streamlit_utils
 
 from tests.testing_utils.fixtures import *
 
@@ -22,7 +21,7 @@ def test_prepare_app_zip(
     app_zip: str,
     temp_directory_for_app_zip: str,
 ):
-    result = snowcli.plugins.snowpark.package.utils.prepare_app_zip(
+    result = snowflake.cli.plugins.snowpark.package.utils.prepare_app_zip(
         Path(app_zip), temp_directory_for_app_zip
     )
     assert result == os.path.join(temp_directory_for_app_zip, Path(app_zip).name)
@@ -32,7 +31,7 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_source(
     temp_directory_for_app_zip,
 ):
     with pytest.raises(FileNotFoundError) as expected_error:
-        snowcli.plugins.snowpark.package.utils.prepare_app_zip(
+        snowflake.cli.plugins.snowpark.package.utils.prepare_app_zip(
             Path("/non/existent/path"), temp_directory_for_app_zip
         )
 
@@ -42,7 +41,7 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_source(
 
 def test_prepare_app_zip_if_exception_is_raised_if_no_dst(app_zip):
     with pytest.raises(FileNotFoundError) as expected_error:
-        snowcli.plugins.snowpark.package.utils.prepare_app_zip(
+        snowflake.cli.plugins.snowpark.package.utils.prepare_app_zip(
             Path(app_zip), "/non/existent/path"
         )
 
@@ -65,7 +64,7 @@ def test_parse_requirements_with_nonexistent_file(temp_dir):
     assert result == []
 
 
-@patch("snowcli.plugins.snowpark.package_utils.requests")
+@patch("snowflake.cli.plugins.snowpark.package_utils.requests")
 def test_anaconda_packages(mock_requests):
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -82,7 +81,7 @@ def test_anaconda_packages(mock_requests):
     )
 
 
-@patch("snowcli.plugins.snowpark.package_utils.requests")
+@patch("snowflake.cli.plugins.snowpark.package_utils.requests")
 def test_anaconda_packages_streamlit(mock_requests):
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -95,7 +94,7 @@ def test_anaconda_packages_streamlit(mock_requests):
     assert Requirement.parse_line("streamlit") not in anaconda_packages.other
 
 
-@patch("snowcli.plugins.snowpark.package_utils.requests")
+@patch("snowflake.cli.plugins.snowpark.package_utils.requests")
 def test_anaconda_packages_with_incorrect_response(mock_requests):
     mock_response = MagicMock()
     mock_response.status_code = 404
@@ -125,7 +124,6 @@ def test_generate_streamlit_file(correct_requirements_snowflake_txt: str, temp_d
 def test_generate_streamlit_environment_file_with_excluded_dependencies(
     correct_requirements_snowflake_txt: str, temp_dir
 ):
-
     result = streamlit_utils.generate_streamlit_environment_file(
         test_data.excluded_anaconda_deps, correct_requirements_snowflake_txt
     )
@@ -154,25 +152,6 @@ def test_get_package_name_from_metadata_using_correct_data(
 ):
     result = package_utils.get_package_name_from_metadata(correct_metadata_file)
     assert result == Requirement.parse_line("my-awesome-package==0.0.1")
-
-
-def test_generate_snowpark_coverage_wrapper(temp_dir):
-    path = os.path.join(temp_dir, "coverage.py")
-    snowcli.plugins.snowpark.package.utils.generate_snowpark_coverage_wrapper(
-        target_file=path,
-        proc_name="process",
-        proc_signature="signature",
-        handler_module="awesomeModule",
-        handler_function="even_better_function",
-        coverage_reports_stage_path="@example_stage/nyan-cat.jpg",
-    )
-
-    assert os.path.isfile(path)
-    with open(path) as coverage_file:
-        assert (
-            "return awesomeModule.even_better_function(*args,**kwargs)"
-            in coverage_file.read()
-        )
 
 
 @pytest.mark.parametrize(
@@ -305,7 +284,7 @@ def test_deduplicate_and_sort_reqs():
     assert sorted_packages[0].specs == [("==", "0.9.5")]
 
 
-@mock.patch("platform.system")
+@patch("platform.system")
 @pytest.mark.parametrize(
     "argument, expected",
     [
@@ -322,11 +301,11 @@ def test_path_resolver(mock_system, argument, expected):
     assert path_utils.path_resolver(argument) == expected
 
 
-@mock.patch("snowcli.plugins.snowpark.package_utils._run_pip_install")
-def test_pip_fail_message(mock_pip, correct_requirements_txt, caplog):
-    mock_pip.return_value = 42
+@patch("snowflake.cli.plugins.snowpark.package_utils.Venv")
+def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
+    mock_installer.return_value.__enter__.return_value.pip_install.return_value = 42
 
-    with caplog.at_level(logging.INFO, "snowcli.plugins.snowpark.package_utils"):
+    with caplog.at_level(logging.INFO, "snowflake.cli.plugins.snowpark.package_utils"):
         result = package_utils.install_packages(
             correct_requirements_txt, True, PypiOption.YES
         )

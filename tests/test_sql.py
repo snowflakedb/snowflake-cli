@@ -7,7 +7,7 @@ import pytest
 from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
 
 
-@mock.patch("snowcli.plugins.sql.manager.SqlExecutionMixin._execute_string")
+@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_execute_query(mock_execute, runner, mock_cursor):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
 
@@ -17,7 +17,7 @@ def test_sql_execute_query(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with("query", remove_comments=True)
 
 
-@mock.patch("snowcli.plugins.sql.manager.SqlExecutionMixin._execute_string")
+@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_execute_file(mock_execute, runner, mock_cursor):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
     query = "query from file"
@@ -30,7 +30,7 @@ def test_sql_execute_file(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with(query, remove_comments=True)
 
 
-@mock.patch("snowcli.plugins.sql.manager.SqlExecutionMixin._execute_string")
+@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_execute_from_stdin(mock_execute, runner, mock_cursor):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
     query = "query from input"
@@ -65,7 +65,7 @@ def test_sql_fails_if_query_and_stdin_provided(runner):
     )
 
 
-@mock.patch("snowcli.app.snow_connector.connect_to_snowflake")
+@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
 def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
     mock_conn.return_value.execute_string.return_value = [mock_cursor(["row"], [])]
 

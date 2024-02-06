@@ -1,14 +1,16 @@
 import json
 
 import typer
-from snowcli.api.commands.decorators import (
+from snowflake.cli.api.commands.decorators import (
     global_options,
     with_experimental_behaviour,
     with_output,
 )
-from snowcli.api.commands.experimental_behaviour import experimental_behaviour_enabled
-from snowcli.api.output.types import MessageResult
-from snowcli.api.plugins.command import (
+from snowflake.cli.api.commands.experimental_behaviour import (
+    experimental_behaviour_enabled,
+)
+from snowflake.cli.api.output.types import MessageResult
+from snowflake.cli.api.plugins.command import (
     SNOWCLI_ROOT_COMMAND_PATH,
     CommandSpec,
     CommandType,
@@ -44,7 +46,7 @@ def _mock_test_plugin():
     from . import test_experimental_behaviour as plugin_spec
 
     return mock.patch(
-        "snowcli.app.commands_registration.command_plugins_loader.builtin_plugin_name_to_plugin_spec",
+        "snowflake.cli.app.commands_registration.command_plugins_loader.builtin_plugin_name_to_plugin_spec",
         {"test-plugin": plugin_spec},
     )
 

@@ -2,7 +2,7 @@ import json
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 
-from snowcli.api.exceptions import SnowflakeConnectionError
+from snowflake.cli.api.exceptions import SnowflakeConnectionError
 
 from tests.testing_utils.fixtures import *
 
@@ -228,7 +228,7 @@ def test_second_connection_not_update_default_connection(runner, snapshot):
         assert content == snapshot
 
 
-@mock.patch("snowcli.app.snow_connector.connect_to_snowflake")
+@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
 def test_connection_test(mock_connect, runner):
     result = runner.invoke(["connection", "test", "-c", "full"])
     assert result.exit_code == 0, result.output
@@ -362,7 +362,7 @@ def test_key_pair_authentication(mock_conn, runner):
     clear=True,
 )
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowcli.app.snow_connector._load_pem_to_der")
+@mock.patch("snowflake.cli.app.snow_connector._load_pem_to_der")
 def test_key_pair_authentication_from_config(mock_load, mock_conn, temp_dir, runner):
     mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
     mock_load.return_value = "secret value"

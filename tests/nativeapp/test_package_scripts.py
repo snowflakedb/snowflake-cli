@@ -2,12 +2,12 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from snowcli.plugins.nativeapp.exceptions import (
+from snowflake.cli.plugins.nativeapp.exceptions import (
     InvalidPackageScriptError,
     MissingPackageScriptError,
 )
-from snowcli.plugins.nativeapp.run_processor import NativeAppRunProcessor
-from snowcli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 
 from tests.nativeapp.patch_utils import mock_connection

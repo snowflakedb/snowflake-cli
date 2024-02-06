@@ -11,20 +11,20 @@ requires-python = ">=3.8"
 description = "Snowflake CLI"
 readme = "README.md"
 dependencies = [
-  "coverage==7.4.0",
-  "jinja2==3.1.2",
-  "pluggy==1.3.0",
+  "coverage==7.4.1",
+  "jinja2==3.1.3",
+  "pluggy==1.4.0",
   "PyYAML==6.0.1",
   "rich==13.7.0",
   "requests==2.31.0",
   "requirements-parser==0.5.0",
   "setuptools==69.0.3",
-  "snowflake-connector-python[secure-local-storage]==3.6.0",
+  "snowflake-connector-python[secure-local-storage]==3.7.0",
   "strictyaml==1.7.3",
   "tomlkit==0.12.3",
   "typer==0.9.0",
   "urllib3>=1.21.1,<2.2",
-  "GitPython==3.1.40",
+  "GitPython==3.1.41",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -40,7 +40,7 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = [
-  "coverage==7.4.0",
+  "coverage==7.4.1",
   "pre-commit>=3.5.0",
   "pytest==7.4.4",
   "pytest-randomly==3.15.0",
@@ -53,34 +53,37 @@ dev = [
 "Bug Tracker" = "https://github.com/Snowflake-Labs/snowcli/issues"
 
 [project.scripts]
-snow = "snowcli.app.__main__:main"
+snow = "snowflake.cli.app.__main__:main"
 
 [tool.hatch.version]
-path = "src/snowcli/__about__.py"
+path = "src/snowflake/cli/__about__.py"
 
 [tool.hatch.build.targets.sdist]
 exclude = ["/.github"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/snowcli", "src/templates"]
+packages = ["src/snowflake"]
 
 [tool.ruff]
 line-length = 88
+
+[tool.ruff.lint]
 select = [
-    "N",
-    "I",  # isort
-    "G",  # flake8-logging-format
-    "N",  # pep8 naming
-    "A",  # flake 8 builtins
-    "TID252",  # relative imports
-    "SLF",  # Accessing private methods
-    "F401", # unused imports
+  "N",
+  "I",      # isort
+  "G",      # flake8-logging-format
+  "N",      # pep8 naming
+  "A",      # flake 8 builtins
+  "TID252", # relative imports
+  "SLF",    # Accessing private methods
+  "F401",   # unused imports
 ]
 
 [tool.pytest.ini_options]
-addopts = "-m 'not integration and not performance and not e2e and not spcs'"
+addopts = "-m 'not integration and not performance and not e2e and not spcs and not loaded_modules'"
 markers = [
   "integration: mark test as integration test",
   "performance: mark test as performance test",
   "e2e: mark test to execute on SnowCLI installed in fresh virtual environment",
+  "loaded_modules: checks loaded modules",
 ]

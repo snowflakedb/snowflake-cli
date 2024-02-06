@@ -1,4 +1,4 @@
-from snowcli.api.plugins.command import (
+from snowflake.cli.api.plugins.command import (
     CommandPath,
     CommandSpec,
     CommandType,

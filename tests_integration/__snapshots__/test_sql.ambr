@@ -1,4 +1,5 @@
 # serializer version: 1
+<<<<<<< HEAD
 # name: test_if_comments_are_not_shown
   '''
   SELECT 1;
@@ -20,5 +21,20 @@
   | 1 |
   +---+
   
+=======
+# name: test_multi_queries_where_one_of_them_is_failing
+  '''
+  [
+    [
+      {
+        "1"  :   1
+      }
+    ],
+    [
+      {
+        "2"  :   2
+      }
+    ]
+>>>>>>> main
   '''
 # ---
