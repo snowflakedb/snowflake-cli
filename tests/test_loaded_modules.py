@@ -1,8 +1,6 @@
 import pytest
 import sys
 
-from tests.testing_utils.fixtures import *
-
 
 @pytest.mark.loaded_modules
 def test_loaded_modules(runner):
