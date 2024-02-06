@@ -139,7 +139,5 @@ def repo_url(
 ):
     """Returns the URL for the given repository."""
     return MessageResult(
-        ImageRepositoryManager()
-        .get_repository_url(repo_name=repo_name)
-        .replace("https://", "")
+        (ImageRepositoryManager().get_repository_url_strip_scheme(repo_name=repo_name))
     )

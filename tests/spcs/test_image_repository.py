@@ -1,5 +1,8 @@
 from tests.testing_utils.fixtures import *
 import json
+from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
+from typing import Dict
+from click import ClickException
 
 
 MOCK_ROWS = [
@@ -120,17 +123,127 @@ def test_list_tags(
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.commands.ImageRepositoryManager._execute_query"
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.get_repository_url_strip_scheme"
 )
+def test_get_repository_url_cli(mock_url, runner):
+    repo_url = "repotest.registry.snowflakecomputing.com/db/schema/IMAGES"
+    mock_url.return_value = repo_url
+    result = runner.invoke(["spcs", "image-repository", "url", "IMAGES"])
+    assert result.exit_code == 0, result.output
+    assert result.output.strip() == repo_url
+
+
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.commands.ImageRepositoryManager._conn"
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
 )
-def test_get_repository_url_cli(mock_conn, mock_execute_query, runner, mock_cursor):
-    mock_execute_query.return_value = mock_cursor(
+def test_get_repository_row_quoted_identifier(mock_execute, mock_cursor):
+    mock_row_quoted = [
+        "2023-01-01 00:00:00",
+        "ImAgEs",
+        "DB",
+        "SCHEMA",
+        "orgname-alias.registry.snowflakecomputing.com/DB/SCHEMA/IMAGES",
+        "ROLE",
+        "ROLE",
+        "",
+    ]
+    mock_row_dict_quoted = MOCK_ROWS_DICT + [
+        {col_name: col_val for col_name, col_val in zip(MOCK_COLUMNS, mock_row_quoted)}
+    ]
+
+    # sanity check
+    assert len(mock_row_dict_quoted) == 2
+    assert mock_row_dict_quoted[0]["name"] == "IMAGES"
+    assert mock_row_dict_quoted[1]["name"] == "ImAgEs"
+    assert mock_row_dict_quoted[0] != mock_row_dict_quoted[1]
+
+    mock_execute.return_value = mock_cursor(
+        rows=mock_row_dict_quoted, columns=MOCK_COLUMNS
+    )
+    result = ImageRepositoryManager().get_repository_row("IMAGES")
+    assert result == mock_row_dict_quoted[0]
+    mock_execute.return_value = mock_cursor(
+        rows=mock_row_dict_quoted, columns=MOCK_COLUMNS
+    )
+
+    # note the double quotes around ImAgEs
+    result = ImageRepositoryManager().get_repository_row('"ImAgEs"')
+    assert result == mock_row_dict_quoted[1]
+
+
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
+)
+def test_get_repository_row(mock_execute, mock_cursor):
+    mock_execute.return_value = mock_cursor(
         rows=MOCK_ROWS_DICT,
         columns=MOCK_COLUMNS,
     )
+    result = ImageRepositoryManager().get_repository_row(MOCK_ROWS_DICT[0]["name"])
+    assert result == MOCK_ROWS_DICT[0]
 
-    result = runner.invoke(["spcs", "image-repository", "url", "IMAGES"])
-    assert result.exit_code == 0, result.output
-    assert result.output.strip() == MOCK_ROWS_DICT[0]["repository_url"]
+
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
+)
+def test_get_repository_row_no_repo_found(mock_execute, mock_cursor):
+    mock_execute.return_value = mock_cursor(
+        rows=[],
+        columns=MOCK_COLUMNS,
+    )
+
+    with pytest.raises(ClickException) as expected_error:
+        ImageRepositoryManager().get_repository_row("IMAGES")
+    assert "does not exist or not authorized" in expected_error.value.message
+
+
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
+)
+def test_get_repository_row_more_than_one_repo(mock_execute, mock_cursor):
+    mock_execute.return_value = mock_cursor(
+        rows=MOCK_ROWS_DICT + MOCK_ROWS_DICT,
+        columns=MOCK_COLUMNS,
+    )
+    with pytest.raises(ClickException) as expected_error:
+        ImageRepositoryManager().get_repository_row("IMAGES")
+    assert "Found more than one image repository" in expected_error.value.message
+
+
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.get_repository_row"
+)
+def test_get_repository_url(mock_get_row, mock_cursor):
+    expected_row = MOCK_ROWS_DICT[0]
+    mock_get_row.return_value = expected_row
+    result = ImageRepositoryManager().get_repository_url(repo_name="IMAGES")
+    mock_get_row.assert_called_once_with("IMAGES")
+    assert isinstance(expected_row, Dict)
+    assert "repository_url" in expected_row
+    assert result == f"https://{expected_row['repository_url']}"
+
+
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.get_repository_url"
+)
+@pytest.mark.parametrize(
+    "input_url, expected_url",
+    [
+        ("https://www.example.com", "www.example.com"),
+        ("www.example.com", "www.example.com"),
+        (
+            "http://qa.registry.sfc.com/db/schema/repo",
+            "qa.registry.sfc.com/db/schema/repo",
+        ),
+        ("//qa.registry.sfc.com/db/schema/repo", "qa.registry.sfc.com/db/schema/repo"),
+        ("qa.registry.sfc.com/db/schema/repo", "qa.registry.sfc.com/db/schema/repo"),
+    ],
+)
+def test_get_repository_url_strip_scheme(mock_url, input_url, expected_url):
+    repo_name = "test_repo"
+    mock_url.return_value = input_url
+    assert (
+        ImageRepositoryManager().get_repository_url_strip_scheme(repo_name)
+        == expected_url
+    )
+    mock_url.assert_called_once_with(repo_name)

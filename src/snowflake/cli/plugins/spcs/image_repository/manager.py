@@ -1,10 +1,12 @@
 from typing import Dict
 from urllib.parse import urlparse
 
+import click
+from click import ClickException
 from snowflake.cli.api.project.util import (
     escape_like_pattern,
     is_valid_identifier,
-    is_valid_quoted_identifier,
+    unquote_identifier,
 )
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
@@ -25,31 +27,29 @@ class ImageRepositoryManager(SqlExecutionMixin):
             raise ValueError(
                 f"repo_name '{repo_name}' is not a valid Snowflake identifier"
             )
-        database = self.get_database()
-        schema = self.get_schema()
 
         # Unquoted identifiers are resolved as all upper case in Snowflake while quoted identifiers are case-sensitive
-        repo_name_raw = (
-            repo_name[1:-1]
-            if is_valid_quoted_identifier(repo_name)
-            else repo_name.upper()
-        )
+        repo_name = unquote_identifier(repo_name)
+
         repository_list_query = (
-            f"show image repositories like '{escape_like_pattern(repo_name_raw)}'"
+            f"show image repositories like '{escape_like_pattern(repo_name)}'"
         )
-        result_set = self._execute_query(repository_list_query, cursor_class=DictCursor)
+        result_set = self._execute_schema_query(
+            repository_list_query, cursor_class=DictCursor
+        )
         results = result_set.fetchall()
 
         # because SHOW LIKE uses case-insensitive matching, results may return multiple rows
-        results = [r for r in results if r["name"] == repo_name_raw]
+        results = [r for r in results if r["name"] == repo_name]
 
+        colored_repo_name = click.style(f"'{repo_name}'", fg="green")
         if len(results) == 0:
-            raise ValueError(
-                f"Specified repository name {repo_name} not found in database {database} and schema {schema}"
+            raise ClickException(
+                f"Image repository {colored_repo_name} does not exist or not authorized."
             )
         elif len(results) > 1:
-            raise ValueError(
-                f"Found more than one repositories with name {repo_name}. This is unexpected."
+            raise ClickException(
+                f"Found more than one image repository with name matching {colored_repo_name}. This is unexpected."
             )
         return results[0]
 
@@ -73,3 +73,12 @@ class ImageRepositoryManager(SqlExecutionMixin):
         path = parsed_url.path
 
         return f"{scheme}://{host}/v2{path}"
+
+    def _remove_scheme(self, url: str) -> str:
+        if not urlparse(url).scheme and not url.startswith("//"):
+            url = f"//{url}"
+        parsed_url = urlparse(url)
+        return f"{parsed_url.netloc}{parsed_url.path}"
+
+    def get_repository_url_strip_scheme(self, repo_name):
+        return self._remove_scheme(self.get_repository_url(repo_name))
