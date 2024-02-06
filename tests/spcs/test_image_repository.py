@@ -136,44 +136,6 @@ def test_get_repository_url_cli(mock_url, runner):
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
 )
-def test_get_repository_row_quoted_identifier(mock_execute, mock_cursor):
-    mock_row_quoted = [
-        "2023-01-01 00:00:00",
-        "ImAgEs",
-        "DB",
-        "SCHEMA",
-        "orgname-alias.registry.snowflakecomputing.com/DB/SCHEMA/IMAGES",
-        "ROLE",
-        "ROLE",
-        "",
-    ]
-    mock_row_dict_quoted = MOCK_ROWS_DICT + [
-        {col_name: col_val for col_name, col_val in zip(MOCK_COLUMNS, mock_row_quoted)}
-    ]
-
-    # sanity check
-    assert len(mock_row_dict_quoted) == 2
-    assert mock_row_dict_quoted[0]["name"] == "IMAGES"
-    assert mock_row_dict_quoted[1]["name"] == "ImAgEs"
-    assert mock_row_dict_quoted[0] != mock_row_dict_quoted[1]
-
-    mock_execute.return_value = mock_cursor(
-        rows=mock_row_dict_quoted, columns=MOCK_COLUMNS
-    )
-    result = ImageRepositoryManager().get_repository_row("IMAGES")
-    assert result == mock_row_dict_quoted[0]
-    mock_execute.return_value = mock_cursor(
-        rows=mock_row_dict_quoted, columns=MOCK_COLUMNS
-    )
-
-    # note the double quotes around ImAgEs
-    result = ImageRepositoryManager().get_repository_row('"ImAgEs"')
-    assert result == mock_row_dict_quoted[1]
-
-
-@mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
-)
 def test_get_repository_row(mock_execute, mock_cursor):
     mock_execute.return_value = mock_cursor(
         rows=MOCK_ROWS_DICT,

@@ -5,8 +5,7 @@ import click
 from click import ClickException
 from snowflake.cli.api.project.util import (
     escape_like_pattern,
-    is_valid_identifier,
-    unquote_identifier,
+    is_valid_unquoted_identifier,
 )
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
@@ -23,24 +22,22 @@ class ImageRepositoryManager(SqlExecutionMixin):
         return self._conn.role
 
     def get_repository_row(self, repo_name: str) -> Dict:
-        if not is_valid_identifier(repo_name):
+        if not is_valid_unquoted_identifier(repo_name):
             raise ValueError(
-                f"repo_name '{repo_name}' is not a valid Snowflake identifier"
+                f"repo_name '{repo_name}' is not a valid unquoted Snowflake identifier"
             )
 
-        # Unquoted identifiers are resolved as all upper case in Snowflake while quoted identifiers are case-sensitive
-        repo_name = unquote_identifier(repo_name)
+        repo_name = repo_name.upper()
 
+        # because image repositories only support unquoted identifiers, SHOW LIKE should only return one or zero rows
         repository_list_query = (
             f"show image repositories like '{escape_like_pattern(repo_name)}'"
         )
+
         result_set = self._execute_schema_query(
             repository_list_query, cursor_class=DictCursor
         )
         results = result_set.fetchall()
-
-        # because SHOW LIKE uses case-insensitive matching, results may return multiple rows
-        results = [r for r in results if r["name"] == repo_name]
 
         colored_repo_name = click.style(f"'{repo_name}'", fg="green")
         if len(results) == 0:
@@ -54,9 +51,9 @@ class ImageRepositoryManager(SqlExecutionMixin):
         return results[0]
 
     def get_repository_url(self, repo_name: str):
-        if not is_valid_identifier(repo_name):
+        if not is_valid_unquoted_identifier(repo_name):
             raise ValueError(
-                f"repo_name '{repo_name}' is not a valid Snowflake identifier"
+                f"repo_name '{repo_name}' is not a valid unquoted Snowflake identifier"
             )
         repo_row = self.get_repository_row(repo_name)
         return f"https://{repo_row['repository_url']}"

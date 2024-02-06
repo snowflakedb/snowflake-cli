@@ -10,7 +10,7 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowflake.cli.api.output.types import CollectionResult, MessageResult
-from snowflake.cli.api.project.util import is_valid_identifier
+from snowflake.cli.api.project.util import is_valid_unquoted_identifier
 from snowflake.cli.plugins.spcs.image_registry.manager import RegistryManager
 from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
 
@@ -23,13 +23,15 @@ app = typer.Typer(
 
 
 def _repo_name_callback(name: str):
-    if not is_valid_identifier(name):
-        raise ClickException("Repository name must be a valid identifier.")
+    if not is_valid_unquoted_identifier(name):
+        raise ClickException(
+            "Repository name must be a valid unquoted identifier. Quoted names for special characters or case-sensitive names are not supported for image repositories."
+        )
     return name
 
 
 REPO_NAME_ARGUMENT = typer.Argument(
-    help="Name of the image repository shown by the `SHOW IMAGE REPOSITORIES` SQL command. Must be run with a specified database and schema.",
+    help="Name of the image repository. Only unquoted identifiers are supported for image repositories.",
     callback=_repo_name_callback,
 )
 
