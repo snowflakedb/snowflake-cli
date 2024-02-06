@@ -50,15 +50,15 @@ class SnowTyper(typer.Typer):
             @wraps(command_callable)
             def command_callable_decorator(*args, **kw):
                 """Wrapper around command callable. This is what happens at "runtime"."""
-                self.pre_execute_callback()
+                self.pre_execute()
                 try:
                     result = command_callable(*args, **kw)
                     return self.process_result(result)
                 except Exception as err:
-                    self.exception_execute_callback(err)
+                    self.exception_handler(err)
                     raise
                 finally:
-                    self.post_execute_callback()
+                    self.post_execute()
 
             return super(SnowTyper, self).command(name=name, **kwargs)(
                 command_callable_decorator
@@ -67,7 +67,7 @@ class SnowTyper(typer.Typer):
         return custom_command
 
     @staticmethod
-    def pre_execute_callback():
+    def pre_execute():
         """
         Callback executed before running any command callable (after context execution).
         Pay attention to make this method safe to use if performed operations are not necessary
@@ -84,14 +84,14 @@ class SnowTyper(typer.Typer):
         print_result(result)
 
     @staticmethod
-    def exception_execute_callback(exception: Exception):
+    def exception_handler(exception: Exception):
         """
         Callback executed on command execution error.
         """
         log.debug("Executing command exception callback")
 
     @staticmethod
-    def post_execute_callback():
+    def post_execute():
         """
         Callback executed after running any command callable. Pay attention to make this method safe to
         use if performed operations are not necessary for executing the command in proper way.

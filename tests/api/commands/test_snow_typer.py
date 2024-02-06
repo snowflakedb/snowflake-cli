@@ -19,12 +19,12 @@ def class_factory(
 ):
     class _CustomTyper(SnowTyper):
         @staticmethod
-        def pre_execute_callback():
+        def pre_execute():
             if pre_execute:
                 pre_execute()
 
         @staticmethod
-        def post_execute_callback():
+        def post_execute():
             if post_execute:
                 post_execute()
 
@@ -34,7 +34,7 @@ def class_factory(
                 result_handler(result)
 
         @staticmethod
-        def exception_execute_callback(err):
+        def exception_handler(err):
             if exception_handler:
                 exception_handler(err)
 
