@@ -108,9 +108,14 @@ enabled = 1"""
     )
     runner.use_config(config)
     result = runner.invoke_with_config(["--help"])
+    print(result.__dict__)
     assert (
-        'Invalid plugin configuration. [multilingual-hello]: "enabled" must be a boolean'
-        in result.output
+        result.output
+        == """╭─ Error ──────────────────────────────────────────────────────────────────────╮
+│ Invalid plugin configuration. [multilingual-hello]: "enabled" must be a      │
+│ boolean                                                                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+"""
     )
 
 
