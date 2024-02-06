@@ -123,7 +123,7 @@ def test_list_tags(
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.get_repository_url_strip_scheme"
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.get_repository_url"
 )
 def test_get_repository_url_cli(mock_url, runner):
     repo_url = "repotest.registry.snowflakecomputing.com/db/schema/IMAGES"
