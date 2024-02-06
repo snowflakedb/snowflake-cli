@@ -1,10 +1,10 @@
-import snowflake.cli.plugins.spcs.image_repository.manager
 from tests.testing_utils.fixtures import *
 import json
 from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
 from typing import Dict
 from click import ClickException
-
+from unittest.mock import Mock
+from snowflake.connector.cursor import SnowflakeCursor
 
 MOCK_ROWS = [
     [
@@ -33,6 +33,39 @@ MOCK_ROWS_DICT = [
     {col_name: col_val for col_name, col_val in zip(MOCK_COLUMNS, row)}
     for row in MOCK_ROWS
 ]
+
+
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_query"
+)
+def test_create(
+    mock_execute,
+):
+    repo_name = "test_repo"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute.return_value = cursor
+    result = ImageRepositoryManager().create(name=repo_name)
+    expected_query = "create image repository test_repo"
+    mock_execute.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.create"
+)
+def test_create_cli(mock_create, mock_cursor, runner):
+    repo_name = "test_repo"
+    cursor = mock_cursor(
+        rows=[[f"Image Repository {repo_name.upper()} successfully created."]],
+        columns=["status"],
+    )
+    mock_create.return_value = cursor
+    result = runner.invoke(["spcs", "image-repository", "create", repo_name])
+    mock_create.assert_called_once_with(name=repo_name)
+    assert result.exit_code == 0, result.output
+    assert (
+        f"Image Repository {repo_name.upper()} successfully created." in result.output
+    )
 
 
 @mock.patch("snowflake.cli.plugins.spcs.image_repository.commands.requests.get")

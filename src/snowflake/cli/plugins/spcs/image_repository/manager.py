@@ -71,3 +71,6 @@ class ImageRepositoryManager(SqlExecutionMixin):
         path = parsed_url.path
 
         return f"{scheme}://{host}/v2{path}"
+
+    def create(self, name: str):
+        return self._execute_query(f"create image repository {name}")

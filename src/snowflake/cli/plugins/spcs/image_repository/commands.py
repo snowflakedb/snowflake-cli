@@ -9,7 +9,7 @@ from snowflake.cli.api.commands.decorators import (
     with_output,
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
-from snowflake.cli.api.output.types import CollectionResult, MessageResult
+from snowflake.cli.api.output.types import CollectionResult, SingleQueryResult, MessageResult
 from snowflake.cli.api.project.util import is_valid_unquoted_identifier
 from snowflake.cli.plugins.spcs.image_registry.manager import RegistryManager
 from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
@@ -34,6 +34,19 @@ REPO_NAME_ARGUMENT = typer.Argument(
     help="Name of the image repository. Only unquoted identifiers are supported for image repositories.",
     callback=_repo_name_callback,
 )
+
+
+@app.command()
+@with_output
+@global_options_with_connection
+def create(
+    name: str = REPO_NAME_ARGUMENT,
+    **options,
+):
+    """
+    Creates a new image repository in the current schema.
+    """
+    return SingleQueryResult(ImageRepositoryManager().create(name=name))
 
 
 @app.command("list-images")
