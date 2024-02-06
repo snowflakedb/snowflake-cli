@@ -1,5 +1,6 @@
 import base64
 import json
+import re
 from urllib.parse import urlparse
 
 import requests
@@ -8,7 +9,7 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
 
 
-class NoRepositoriesViewableError(ClickException):
+class NoImageRepositoriesFoundError(ClickException):
     def __init__(self, msg: str = "No image repository found."):
         super().__init__(msg)
 
@@ -52,12 +53,16 @@ class RegistryManager(SqlExecutionMixin):
             raise ClickException(f"Failed to login to the repository {resp.text}")
         return json.loads(resp.text)["token"]
 
+    def _has_url_scheme(self, url: str):
+        return re.fullmatch(r"^.*//.+", url) is not None
+
     def get_registry_url(self):
         repositories_query = "show image repositories in account"
         result_set = self._execute_query(repositories_query, cursor_class=DictCursor)
         results = result_set.fetchall()
         if len(results) == 0:
-            raise NoRepositoriesViewableError()
+            raise NoImageRepositoriesFoundError()
         sample_repository_url = results[0]["repository_url"]
-
-        return "/".join(sample_repository_url.split("/")[:-3])
+        if not self._has_url_scheme(sample_repository_url):
+            sample_repository_url = f"//{sample_repository_url}"
+        return urlparse(sample_repository_url).netloc

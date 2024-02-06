@@ -7,7 +7,7 @@ from snowflake.cli.api.commands.decorators import (
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowflake.cli.api.output.types import MessageResult, ObjectResult
 from snowflake.cli.plugins.spcs.image_registry.manager import (
-    NoRepositoriesViewableError,
+    NoImageRepositoriesFoundError,
     RegistryManager,
 )
 
@@ -35,7 +35,7 @@ def url(**options) -> MessageResult:
     """Gets the image registry URL for the current account. Must be called from a role that can view at least one image repository in the image registry."""
     try:
         return MessageResult(RegistryManager().get_registry_url())
-    except NoRepositoriesViewableError:
+    except NoImageRepositoriesFoundError:
         raise ClickException(
             "No image repository found. To get the registry url, please switch to a role with read access to at least one image repository or create a new image repository first."
         )

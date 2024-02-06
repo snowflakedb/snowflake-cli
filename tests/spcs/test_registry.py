@@ -2,7 +2,7 @@ import json
 from tests.testing_utils.fixtures import *
 from snowflake.cli.plugins.spcs.image_registry.manager import (
     RegistryManager,
-    NoRepositoriesViewableError,
+    NoImageRepositoriesFoundError,
 )
 from snowflake.connector.cursor import DictCursor
 
@@ -11,7 +11,7 @@ from snowflake.connector.cursor import DictCursor
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager._execute_query"
 )
-def test_registry_get_token_2(mock_execute, mock_conn, mock_cursor, runner):
+def test_registry_get_token(mock_execute, mock_conn, mock_cursor, runner):
     mock_execute.return_value = mock_cursor(
         ["row"], ["Statement executed successfully"]
     )
@@ -73,7 +73,7 @@ def test_get_registry_url_no_repositories(mock_execute, mock_conn, mock_cursor):
         rows=[],
         columns=MOCK_REPO_COLUMNS,
     )
-    with pytest.raises(NoRepositoriesViewableError):
+    with pytest.raises(NoImageRepositoriesFoundError):
         RegistryManager().get_registry_url()
 
     expected_query = "show image repositories in account"
@@ -84,7 +84,24 @@ def test_get_registry_url_no_repositories(mock_execute, mock_conn, mock_cursor):
     "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
 )
 def test_get_registry_url_no_repositories_cli(mock_get_registry_url, runner, snapshot):
-    mock_get_registry_url.side_effect = NoRepositoriesViewableError()
+    mock_get_registry_url.side_effect = NoImageRepositoriesFoundError()
     result = runner.invoke(["spcs", "image-registry", "url"])
     assert result.exit_code == 1, result.output
     assert result.output == snapshot
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("www.google.com", False),
+        ("https://www.google.com", True),
+        ("//www.google.com", True),
+        ("snowservices.registry.snowflakecomputing.com/db/schema/tutorial_repo", False),
+        (
+            "http://snowservices.registry.snowflakecomputing.com/db/schema/tutorial_repo",
+            True,
+        ),
+    ],
+)
+def test_has_url_scheme(url: str, expected: bool):
+    assert RegistryManager()._has_url_scheme(url) == expected
