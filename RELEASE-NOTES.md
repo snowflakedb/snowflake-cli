@@ -9,6 +9,7 @@
 * Added convenience function `spcs image-repository url <repo_name>`.
 * Added `suspend` and `resume` commands for `spcs compute-pool`.
 
+* Added `create` command to `spcs image-repository`.
 ## Fixes and improvements
 * Restricted permissions of automatically created files
 
