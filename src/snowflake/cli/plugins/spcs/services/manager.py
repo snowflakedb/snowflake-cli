@@ -62,7 +62,7 @@ class ServiceManager(SqlExecutionMixin):
         except ProgrammingError as e:
             if e.errno == 2002:
                 raise ObjectAlreadyExistsError(
-                    object_type=ObjectType.IMAGE_REPOSITORY,
+                    object_type=ObjectType.SERVICE,
                     name=unquote_identifier(service_name),
                 )
             else:
