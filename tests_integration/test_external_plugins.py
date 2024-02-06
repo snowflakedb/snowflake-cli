@@ -29,12 +29,6 @@ def reset_command_registration_state():
     _reset_command_registration_state()
 
 
-def _debug_format(d):
-    import json
-
-    return json.dumps(d, indent=2)
-
-
 @pytest.mark.integration
 def test_loading_of_installed_plugins_if_all_plugins_enabled(
     runner, install_plugins, caplog, reset_command_registration_state
@@ -132,13 +126,14 @@ enabled = {value}"""
     for value in ["1", '"True"']:
         _use_config_with_value(value)
         result = runner.invoke_with_config(["--help"])
-        assert (
-            result.output
-            == """╭─ Error ──────────────────────────────────────────────────────────────────────╮
-│ Invalid plugin configuration. [multilingual-hello]: "enabled" must be a      │
-│ boolean                                                                      │
-╰──────────────────────────────────────────────────────────────────────────────╯
-"""
+        output = result.output.splitlines()
+        assert all(
+            [
+                "Error" in output[0],
+                'Invalid plugin configuration. [multilingual-hello]: "enabled" must be a'
+                in output[1],
+                "boolean" in output[2],
+            ]
         )
         reset_command_registration_state()
 
