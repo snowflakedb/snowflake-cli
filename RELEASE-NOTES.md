@@ -5,7 +5,7 @@
 ## New additions
 
 ## Fixes and improvements
-
+* "Bad owner or permissions" warning no longer appears when `config.toml` file is created
 
 # v2.0.0
 
