@@ -1,4 +1,4 @@
-from snowflake.cli.plugins.object.common import _parse_tag, Tag
+from snowflake.cli.plugins.object.common import _parse_tag, Tag, TagError
 from typing import Tuple
 import pytest
 
@@ -42,5 +42,5 @@ def test_parse_tag_valid(value: str, expected: Tuple[str, str]):
     ],
 )
 def test_parse_tag_invalid(value: str):
-    with pytest.raises(ClickException):
+    with pytest.raises(TagError):
         _parse_tag(value)
