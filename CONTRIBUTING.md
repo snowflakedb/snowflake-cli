@@ -3,34 +3,56 @@
 There are two ways to contribute code to the repository: directly or by use of forks. For best practices for the second approach, refer to the section on forks below. Right now, there is limited access to contributing to the repository directly, and hence using forks is the recommended approach.
 
 ## Setup a development environment
-If you are interested in contributing, you will need to instantiate the pre-commit logic to help with formatting and linting of commits.
-To do this, run the following in the `snowcli` cloned folder on your development machine:
+If you are interested in contributing, you will need to instantiate dev virtual environments and the pre-commit logic to help with formatting and linting of commits.
 
+We use [hatch](https://hatch.pypa.io/latest/) to manage and created development environments.
+Default environment will use the python version in your shell.
 ```bash
-pip install pre-commit
-pre-commit
+pip install -U hatch
+hatch run pre-commit
 ```
+This will spawn new shell with environment and all required packages installed.
+This will also install snowflake cli package in editable mode.
+
+To enter environment use following command.
+```bash
+hatch shell
+```
+This will spawn new shell with virtual environment enables. To leave just press ^D.
+
 
 Currently, the required Python version for development is Python 3.8+. For local development we recommend to use
 a wrapper for virtual environments like [pyenv](https://github.com/pyenv/pyenv).
 
-Once you created a dedicated virtual environment you can install SnowCLI in editable mode with all required dependencies:
+If you wish to setup environment with specific version ie. 3.8 you can use following command:
 
 ```bash
-pip install -e ".[dev]"
+hatch env create local.py3.8```
+
+You can see all locally supported environments with
+
+```bash
+hatch env show
 ```
+
+Please keep in mind that you need these python versions available in your `$PATH`. You can install them using `hatch` or other tool like [pyenv](https://github.com/pyenv/pyenv)
 
 ## Unit tests
 
 Unit tests are executed in random order. If tests fail after your change, you can re-execute them in the same order using `pytest --randomly-seed=<number>`, where number is a seed printed at the beginning of the test execution output.
 Random order of test execution is provided by pytest-randomly, so more details are available in [pytest-randomly docs](https://pypi.org/project/pytest-randomly/).
 
+```bash
+hatch run test
+```
+or by running `pytest` inside activated environment.
+
+
 ## Integration tests
 
 Every integration test should have `integration` mark. By default, integration tests are not execute when running `pytest`.
 
-To execute only integration tests run `pytest -m integration`.
-
+To execute only integration tests run `hatch run integration:test` or `pytest -m integration` inside environment.
 ### Connection parameters in `config.toml`
 
 Add the following connection to your `config.toml`
