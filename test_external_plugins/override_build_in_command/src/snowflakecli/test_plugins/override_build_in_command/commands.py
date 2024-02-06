@@ -7,7 +7,7 @@ from snowflake.cli.api.output.types import CommandResult, MessageResult
 app = typer.Typer()
 
 
-@app.command("add")
+@app.command("list")
 @with_output
-def add() -> CommandResult:
-    return MessageResult("This message should not be printed")
+def connection_list() -> CommandResult:
+    return MessageResult("Overriden command")
