@@ -79,7 +79,7 @@ def create(
 @global_options_with_connection
 def stop_all(name: str = ComputePoolNameArgument, **options) -> CommandResult:
     """
-    Stops a compute pool and deletes all services running on the pool.
+    Deletes all services running on the compute pool.
     """
     cursor = ComputePoolManager().stop(pool_name=name)
     return SingleQueryResult(cursor)
@@ -89,6 +89,9 @@ def stop_all(name: str = ComputePoolNameArgument, **options) -> CommandResult:
 @with_output
 @global_options_with_connection
 def suspend(name: str = ComputePoolNameArgument, **options) -> CommandResult:
+    """
+    Stops the compute pool by suspending all currently running services and then releasing compute pool nodes.
+    """
     return SingleQueryResult(ComputePoolManager().suspend(name))
 
 
@@ -96,4 +99,7 @@ def suspend(name: str = ComputePoolNameArgument, **options) -> CommandResult:
 @with_output
 @global_options_with_connection
 def resume(name: str = ComputePoolNameArgument, **options) -> CommandResult:
+    """
+    Resumes the service from SUSPENDED state.
+    """
     return SingleQueryResult(ComputePoolManager().resume(name))
