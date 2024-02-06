@@ -9,16 +9,13 @@ import typer
 from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.decorators import (
-    global_options,
-    global_options_with_connection,
-    with_output,
     with_project_definition,
 )
 from snowflake.cli.api.commands.flags import (
-    DEFAULT_CONTEXT_SETTINGS,
     execution_identifier_argument,
 )
 from snowflake.cli.api.commands.project_initialisation import add_init_command
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.constants import DEPLOYMENT_STAGE, ObjectType
 from snowflake.cli.api.exceptions import (
     SecretsWithoutExternalAccessIntegrationError,
@@ -48,9 +45,8 @@ from snowflake.connector import DictCursor, ProgrammingError
 
 log = logging.getLogger(__name__)
 
-app = typer.Typer(
+app = SnowTyper(
     name="snowpark",
-    context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage procedures and functions.",
 )
 
@@ -68,10 +64,8 @@ ObjectTypeArgument = typer.Argument(
 add_init_command(app, project_type="snowpark", template="default_snowpark")
 
 
-@app.command("deploy")
-@with_output
+@app.command("deploy", requires_connection=True)
 @with_project_definition("snowpark")
-@global_options_with_connection
 def deploy(
     replace: bool = ReplaceOption,
     **options,
@@ -287,8 +281,6 @@ def _get_snowpark_artifact_path(snowpark_definition: Dict):
 
 
 @app.command("build")
-@global_options
-@with_output
 @with_project_definition("snowpark")
 def build(
     pypi_download: PypiOption = PyPiDownloadOption,
@@ -337,9 +329,7 @@ def _execute_object_method(
     return getattr(manager, method_name)(**kwargs)
 
 
-@app.command("execute")
-@with_output
-@global_options_with_connection
+@app.command("execute", requires_connection=True)
 def execute(
     object_type: _SnowparkObject = ObjectTypeArgument,
     execution_identifier: str = execution_identifier_argument(

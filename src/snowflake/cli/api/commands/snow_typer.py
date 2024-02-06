@@ -79,6 +79,8 @@ class SnowTyper(typer.Typer):
     @staticmethod
     def process_result(result):
         """Command result processor"""
+        if not result:
+            return
         if not isinstance(result, CommandResult):
             raise CommandReturnTypeError(type(result))
         print_result(result)

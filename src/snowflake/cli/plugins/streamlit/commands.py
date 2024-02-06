@@ -7,13 +7,11 @@ import typer
 from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.decorators import (
-    global_options_with_connection,
     with_experimental_behaviour,
-    with_output,
     with_project_definition,
 )
-from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowflake.cli.api.commands.project_initialisation import add_init_command
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
@@ -21,8 +19,7 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.plugins.streamlit.manager import StreamlitManager
 
-app = typer.Typer(
-    context_settings=DEFAULT_CONTEXT_SETTINGS,
+app = SnowTyper(
     name="streamlit",
     help="Manages Streamlit in Snowflake.",
 )
@@ -39,9 +36,7 @@ StageNameOption: str = typer.Option(
 add_init_command(app, project_type="Streamlit", template="default_streamlit")
 
 
-@app.command("share")
-@with_output
-@global_options_with_connection
+@app.command("share", requires_connection=True)
 def streamlit_share(
     name: str = typer.Argument(..., help="Name of streamlit to share."),
     to_role: str = typer.Argument(
@@ -71,11 +66,9 @@ def _default_file_callback(param_name: str):
     return _check_file_exists_if_not_default
 
 
-@app.command("deploy")
-@with_output
+@app.command("deploy", requires_connection=True)
 @with_project_definition("streamlit")
 @with_experimental_behaviour()
-@global_options_with_connection
 def streamlit_deploy(
     replace: Optional[bool] = typer.Option(
         False,
@@ -129,9 +122,7 @@ def streamlit_deploy(
     return MessageResult(f"Streamlit successfully deployed and available under {url}")
 
 
-@app.command("get-url")
-@with_output
-@global_options_with_connection
+@app.command("get-url", requires_connection=True)
 def get_url(
     name: str = typer.Argument(..., help="Name of the Streamlit app."),
     open_: bool = typer.Option(
