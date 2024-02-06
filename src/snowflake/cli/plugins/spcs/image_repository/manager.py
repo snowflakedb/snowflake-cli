@@ -10,8 +10,9 @@ from snowflake.cli.api.project.util import (
     unquote_identifier
 )
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.plugins.spcs.common import handle_object_already_exists
+from snowflake.connector.cursor import SnowflakeCursor, DictCursor
 from snowflake.connector.errors import ProgrammingError
-from snowflake.connector.cursor import DictCursor
 
 
 class ImageRepositoryManager(SqlExecutionMixin):
@@ -80,10 +81,4 @@ class ImageRepositoryManager(SqlExecutionMixin):
         try:
             return self._execute_query(f"create image repository {name}")
         except ProgrammingError as e:
-            if e.errno == 2002:
-                raise ObjectAlreadyExistsError(
-                    object_type=ObjectType.IMAGE_REPOSITORY,
-                    name=unquote_identifier(name),
-                )
-            else:
-                raise
+            handle_object_already_exists(e, ObjectType.IMAGE_REPOSITORY, name)

@@ -4,6 +4,10 @@ import sys
 from typing import TextIO
 
 from click import ClickException
+from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.exceptions import ObjectAlreadyExistsError
+from snowflake.cli.api.project.util import unquote_identifier
+from snowflake.connector.errors import ProgrammingError
 
 if not sys.stdout.closed and sys.stdout.isatty():
     GREEN = "\033[32m"
@@ -59,3 +63,15 @@ def validate_and_set_instances(min_instances, max_instances, instance_name):
             f"max_{instance_name} must be greater or equal to min_{instance_name}"
         )
     return max_instances
+
+
+def handle_object_already_exists(
+    error: ProgrammingError, object_type: ObjectType, object_name: str
+):
+    if error.errno == 2002:
+        raise ObjectAlreadyExistsError(
+            object_type=object_type,
+            name=unquote_identifier(object_name),
+        )
+    else:
+        raise

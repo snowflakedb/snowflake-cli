@@ -2,11 +2,12 @@ from pathlib import Path
 from typing import List, Optional
 
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.exceptions import ObjectAlreadyExistsError
-from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.object.common import Tag
-from snowflake.cli.plugins.spcs.common import strip_empty_lines
+from snowflake.cli.plugins.spcs.common import (
+    handle_object_already_exists,
+    strip_empty_lines,
+)
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -60,13 +61,7 @@ class ServiceManager(SqlExecutionMixin):
         try:
             return self._execute_schema_query(strip_empty_lines(query))
         except ProgrammingError as e:
-            if e.errno == 2002:
-                raise ObjectAlreadyExistsError(
-                    object_type=ObjectType.SERVICE,
-                    name=unquote_identifier(service_name),
-                )
-            else:
-                raise
+            handle_object_already_exists(e, ObjectType.SERVICE, service_name)
 
     def _read_yaml(self, path: Path) -> str:
         # TODO(aivanou): Add validation towards schema

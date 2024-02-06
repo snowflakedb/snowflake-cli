@@ -1,10 +1,11 @@
 from typing import Optional
 
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.exceptions import ObjectAlreadyExistsError
-from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
-from snowflake.cli.plugins.spcs.common import strip_empty_lines
+from snowflake.cli.plugins.spcs.common import (
+    handle_object_already_exists,
+    strip_empty_lines,
+)
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -36,13 +37,7 @@ class ComputePoolManager(SqlExecutionMixin):
         try:
             return self._execute_query(strip_empty_lines(query))
         except ProgrammingError as e:
-            if e.errno == 2002:
-                raise ObjectAlreadyExistsError(
-                    object_type=ObjectType.COMPUTE_POOL,
-                    name=unquote_identifier(pool_name),
-                )
-            else:
-                raise
+            handle_object_already_exists(e, ObjectType.COMPUTE_POOL, pool_name)
 
     def stop(self, pool_name: str) -> SnowflakeCursor:
         return self._execute_query(f"alter compute pool {pool_name} stop all")
