@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from typing import Tuple
+
 import typer
+from click import ClickException
 from snowflake.cli.api.commands.decorators import (
     global_options_with_connection,
     with_output,
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
-from snowflake.cli.api.constants import SUPPORTED_OBJECTS
+from snowflake.cli.api.constants import SUPPORTED_OBJECTS, VALID_SCOPES
 from snowflake.cli.api.output.types import QueryResult
+from snowflake.cli.api.project.util import is_valid_identifier
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.object.stage.commands import app as stage_app
 
@@ -32,6 +36,24 @@ LikeOption = typer.Option(
     "all functions that begin with “my”.",
 )
 
+
+def _scope_validate(object_type: str, scope: Tuple[str, str]):
+    if scope[1] is not None and not is_valid_identifier(scope[1]):
+        raise ClickException("scope name must be a valid identifier")
+    if scope[0] is not None and scope[0].lower() not in VALID_SCOPES:
+        raise ClickException(
+            f"scope must be one of the following: {', '.join(VALID_SCOPES)}"
+        )
+    if scope[0] == "compute-pool" and object_type != "service":
+        raise ClickException("compute-pool scope is only supported for listing service")
+
+
+ScopeOption = typer.Option(
+    (None, None),
+    "--in",
+    help="Specifies the scope of this command using '--in <scope> <name>' (e.g. list tables --in database my_db). Some object types have specialized scopes (e.g. list service --in compute-pool my_pool)",
+)
+
 SUPPORTED_TYPES_MSG = "\n\nSupported types: " + ", ".join(SUPPORTED_OBJECTS)
 
 
@@ -44,9 +66,13 @@ SUPPORTED_TYPES_MSG = "\n\nSupported types: " + ", ".join(SUPPORTED_OBJECTS)
 def list_(
     object_type: str = ObjectArgument,
     like: str = LikeOption,
+    scope: Tuple[str, str] = ScopeOption,
     **options,
 ):
-    return QueryResult(ObjectManager().show(object_type=object_type, like=like))
+    _scope_validate(object_type, scope)
+    return QueryResult(
+        ObjectManager().show(object_type=object_type, like=like, scope=scope)
+    )
 
 
 @app.command(

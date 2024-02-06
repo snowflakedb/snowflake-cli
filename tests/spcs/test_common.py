@@ -21,13 +21,18 @@ def test_validate_and_set_instances(min_instances, max_instances, expected_max):
 
 
 @pytest.mark.parametrize(
-    "min_instances, max_instances",
+    "min_instances, max_instances, expected_msg",
     [
-        (0, 1),  # non-positive min_instances
-        (-1, 1),  # negative min_instances
-        (2, 1),  # min_instances > max_instances
+        (0, 1, "min_name must be positive"),  # non-positive min_instances
+        (-1, 1, "min_name must be positive"),  # negative min_instances
+        (
+            2,
+            1,
+            "max_name must be greater or equal to min_name",
+        ),  # min_instances > max_instances
     ],
 )
-def test_validate_and_set_instances_invalid(min_instances, max_instances):
-    with pytest.raises(ClickException):
+def test_validate_and_set_instances_invalid(min_instances, max_instances, expected_msg):
+    with pytest.raises(ClickException) as exc:
         validate_and_set_instances(min_instances, max_instances, "name")
+    assert expected_msg in exc.value.message

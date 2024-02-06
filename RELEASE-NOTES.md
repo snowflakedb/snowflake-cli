@@ -3,7 +3,7 @@
 ## Backward incompatibility
 
 ## New additions
-
+* Added ability to specify scope of the `object list` command with the `--in <scope_type> <scope_name>` option.
 ## Fixes and improvements
 
 
