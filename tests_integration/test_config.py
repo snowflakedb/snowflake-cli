@@ -1,8 +1,12 @@
+import platform
 import warnings
 
 import pytest
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="Permission setting does not work on Windows"
+)
 @pytest.mark.integration
 def test_created_config_file_does_not_trigger_permission_warning(
     runner, snowflake_home
