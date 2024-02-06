@@ -1,6 +1,5 @@
-import unittest
 from textwrap import dedent
-
+from unittest.mock import Mock
 from snowflake.cli.plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     NAME_COL,
@@ -11,10 +10,11 @@ from snowflake.cli.plugins.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
     ensure_correct_owner,
+    FindObjectRowMixin,
 )
 from snowflake.cli.plugins.object.stage.diff import DiffResult
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.connector import ProgrammingError
+from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.patch_utils import (
@@ -415,7 +415,8 @@ def test_get_existing_app_pkg_info_app_pkg_exists(mock_execute, temp_dir, mock_c
                     [],
                 ),
                 mock.call(
-                    "show application packages like 'APP_PKG'", cursor_class=DictCursor
+                    r"show application packages like 'APP\\_PKG'",
+                    cursor_class=DictCursor,
                 ),
             ),
             (None, mock.call("use role old_role")),
@@ -451,7 +452,8 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
             (
                 mock_cursor([], []),
                 mock.call(
-                    "show application packages like 'APP_PKG'", cursor_class=DictCursor
+                    r"show application packages like 'APP\\_PKG'",
+                    cursor_class=DictCursor,
                 ),
             ),
             (None, mock.call("use role old_role")),
@@ -510,3 +512,79 @@ def test_is_correct_owner_bad_owner():
     test_row = {"name": "some_name", "owner": "wrong_role", "comment": "some_comment"}
     with pytest.raises(UnexpectedOwnerError):
         ensure_correct_owner(row=test_row, role="right_role", obj_name="some_name")
+
+
+def test_find_object_row_mixin_needs_sql_execution_mixin_correct():
+    class CorrectUsage(SqlExecutionMixin, FindObjectRowMixin):
+        pass
+
+    assert isinstance(CorrectUsage(), FindObjectRowMixin)
+
+
+def test_find_object_row_mixin_needs_sql_execution_mixin_incorrect():
+    with pytest.raises(TypeError) as expected_error:
+
+        class IncorrectUsage(FindObjectRowMixin):
+            pass
+
+        IncorrectUsage()
+    assert (
+        "FindObjectRowMixin can only be used with classes that also mix in SqlExecutionMixin"
+        in str(expected_error.value)
+    )
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_find_row_by_object_name(mock_execute, temp_dir, mock_cursor):
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+    mock_columns = ["id", "created_on"]
+    mock_row_dict = {c: r for c, r in zip(mock_columns, ["EXAMPLE_ID", "dummy"])}
+    cursor = mock_cursor(rows=[mock_row_dict], columns=mock_columns)
+    mock_execute.return_value = cursor
+    result = _get_na_manager().find_row_by_object_name("objects", "example_id", "id")
+    mock_execute.assert_called_once_with(
+        r"show objects like 'EXAMPLE\\_ID'", cursor_class=DictCursor
+    )
+    assert result == mock_row_dict
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_find_row_by_object_name_no_match(mock_execute, temp_dir, mock_cursor):
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+    mock_columns = ["id", "created_on"]
+    mock_row_dict = {c: r for c, r in zip(mock_columns, ["OTHER_ID", "dummy"])}
+    cursor = mock_cursor(rows=[mock_row_dict], columns=mock_columns)
+    mock_execute.return_value = cursor
+    result = _get_na_manager().find_row_by_object_name("objects", "example_id", "id")
+    mock_execute.assert_called_once_with(
+        r"show objects like 'EXAMPLE\\_ID'", cursor_class=DictCursor
+    )
+    assert result == None
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_find_row_by_object_name_sql_execution_error(mock_execute, temp_dir):
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+    cursor = Mock(spec=DictCursor)
+    cursor.rowcount = None
+    mock_execute.return_value = cursor
+    with pytest.raises(SnowflakeSQLExecutionError):
+        _get_na_manager().find_row_by_object_name("objects", "example_id", "id")
+    mock_execute.assert_called_once_with(
+        r"show objects like 'EXAMPLE\\_ID'", cursor_class=DictCursor
+    )
