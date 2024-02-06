@@ -78,19 +78,19 @@ class ComputePoolTestSteps:
         result = self._setup.runner.invoke_with_connection_json(
             ["spcs", "compute-pool", "stop-all", compute_pool_name]
         )
-        assert_that_result_is_successful_and_executed_successfully(result)
+        assert_that_result_is_successful_and_executed_successfully(result, is_json=True)
 
     def suspend_compute_pool(self, compute_pool_name: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
             ["spcs", "compute-pool", "suspend", compute_pool_name]
         )
-        assert_that_result_is_successful_and_executed_successfully(result)
+        assert_that_result_is_successful_and_executed_successfully(result, is_json=True)
 
     def resume_compute_pool(self, compute_pool_name: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
             ["spcs", "compute-pool", "resume", compute_pool_name]
         )
-        assert_that_result_is_successful_and_executed_successfully(result)
+        assert_that_result_is_successful_and_executed_successfully(result, is_json=True)
 
     def wait_until_compute_pool_is_idle(self, compute_pool_name: str) -> None:
         self._wait_until_compute_pool_reaches_state(compute_pool_name, "IDLE", 300)
