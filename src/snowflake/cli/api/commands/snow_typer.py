@@ -39,7 +39,6 @@ class SnowTyper(typer.Typer):
         logic before and after execution as well as process the result and act on possible
         errors.
         """
-        cls_super = super()
 
         def custom_command(command_callable):
             """Custom command wrapper similar to Typer.command."""
@@ -61,7 +60,9 @@ class SnowTyper(typer.Typer):
                 finally:
                     self.post_execute_callback()
 
-            return cls_super.command(name=name, **kwargs)(command_callable_decorator)
+            return super(SnowTyper, self).command(name=name, **kwargs)(
+                command_callable_decorator
+            )
 
         return custom_command
 

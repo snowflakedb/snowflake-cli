@@ -9,7 +9,7 @@ import click
 from snowflake.cli.__about__ import VERSION
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.output.formats import OutputFormat
-from snowflake.cli.api.utils.error_handling import safe
+from snowflake.cli.api.utils.error_handling import ignore_exceptions
 from snowflake.connector.telemetry import (
     TelemetryData,
     TelemetryField,
@@ -107,11 +107,11 @@ class CLITelemetryClient:
 _telemetry = CLITelemetryClient(ctx=cli_context)
 
 
-@safe()
+@ignore_exceptions()
 def log_command_usage():
     _telemetry.send({TelemetryField.KEY_TYPE: TelemetryEvent.CMD_EXECUTION.value})
 
 
-@safe()
+@ignore_exceptions()
 def flush_telemetry():
     _telemetry.flush()

@@ -2,7 +2,7 @@ from contextlib import contextmanager
 
 
 @contextmanager
-def safe():
+def ignore_exceptions():
     try:
         yield
     except:

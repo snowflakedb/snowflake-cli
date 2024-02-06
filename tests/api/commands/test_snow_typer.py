@@ -1,4 +1,5 @@
 from functools import partial
+from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,7 +11,7 @@ from snowflake.cli.api.output.types import MessageResult
 from typer.testing import CliRunner
 
 
-def app_factory(
+def class_factory(
     pre_execute=None,
     result_handler=None,
     exception_handler=None,
@@ -37,7 +38,11 @@ def app_factory(
             if exception_handler:
                 exception_handler(err)
 
-    app = _CustomTyper(name="snow")
+    return _CustomTyper
+
+
+def app_factory(typer_cls):
+    app = typer_cls(name="snow")
 
     @app.command("simple_cmd", requires_global_options=False, requires_connection=False)
     def simple_cmd(name: str = typer.Argument()):
@@ -71,13 +76,13 @@ def cli():
 
 
 def test_no_callbacks(cli):
-    result = cli(app_factory())(["simple_cmd", "Norman"])
+    result = cli(app_factory(class_factory()))(["simple_cmd", "Norman"])
     assert result.exit_code == 0, result.output
     assert result.output == ""
 
 
 def test_result_callbacks(cli):
-    result = cli(app_factory(result_handler=lambda x: print(x.message)))(
+    result = cli(app_factory(class_factory(result_handler=lambda x: print(x.message))))(
         ["simple_cmd", "Norman"]
     )
     assert result.exit_code == 0, result.output
@@ -90,9 +95,11 @@ def test_pre_callback_green_path(cli):
     exception_callback = MagicMock()
     result = cli(
         app_factory(
-            pre_execute=pre_execute,
-            post_execute=post_execute,
-            exception_handler=exception_callback,
+            class_factory(
+                pre_execute=pre_execute,
+                post_execute=post_execute,
+                exception_handler=exception_callback,
+            )
         )
     )(["simple_cmd", "Norman"])
     assert result.exit_code == 0, result.output
@@ -110,10 +117,12 @@ def test_pre_callback_error_path(cli):
 
     result = cli(
         app_factory(
-            pre_execute=pre_execute,
-            post_execute=post_execute,
-            exception_handler=exception_callback,
-            result_handler=result_handler,
+            class_factory(
+                pre_execute=pre_execute,
+                post_execute=post_execute,
+                exception_handler=exception_callback,
+                result_handler=result_handler,
+            )
         )
     )(["fail_cmd", "Norman"])
     assert result.exit_code == 1, result.output
@@ -126,15 +135,37 @@ def test_pre_callback_error_path(cli):
 
 
 def test_command_without_any_options(cli, snapshot):
-    result = cli(app_factory())(["simple_cmd", "--help"])
+    result = cli(app_factory(SnowTyper))(["simple_cmd", "--help"])
     assert result.output == snapshot
 
 
 def test_command_with_global_options(cli, snapshot):
-    result = cli(app_factory())(["cmd_with_global_options", "--help"])
+    result = cli(app_factory(SnowTyper))(["cmd_with_global_options", "--help"])
     assert result.output == snapshot
 
 
 def test_command_with_connection_options(cli, snapshot):
-    result = cli(app_factory())(["cmd_with_connection_options", "--help"])
+    result = cli(app_factory(SnowTyper))(["cmd_with_connection_options", "--help"])
     assert result.output == snapshot
+
+
+@mock.patch("snowflake.cli.api.commands.snow_typer.log_command_usage")
+def test_snow_typer_pre_execute_sends_telemetry(mock_log_command_usage, cli):
+    result = cli(app_factory(SnowTyper))(["simple_cmd", "Norma"])
+    assert result.exit_code == 0
+    mock_log_command_usage.assert_called_once_with()
+
+
+@mock.patch("snowflake.cli.api.commands.snow_typer.flush_telemetry")
+def test_snow_typer_post_execute_sends_telemetry(mock_flush_telemetry, cli):
+    result = cli(app_factory(SnowTyper))(["simple_cmd", "Norma"])
+    assert result.exit_code == 0
+    mock_flush_telemetry.assert_called_once_with()
+
+
+@mock.patch("snowflake.cli.api.commands.snow_typer.print_result")
+def test_snow_typer_result_callback_sends_telemetry(mock_print_result, cli):
+    result = cli(app_factory(SnowTyper))(["simple_cmd", "Norma"])
+    assert result.exit_code == 0
+    assert mock_print_result.call_count == 1
+    assert mock_print_result.call_args.args[0].message == "hello Norma"

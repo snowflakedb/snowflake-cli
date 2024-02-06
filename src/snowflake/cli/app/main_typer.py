@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import logging
 import sys
 
 import typer
 from rich import print as rich_print
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS, DebugOption
-
-log = logging.getLogger(__name__)
 
 
 def _handle_exception(exception: Exception):
