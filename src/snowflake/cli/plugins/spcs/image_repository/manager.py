@@ -50,13 +50,16 @@ class ImageRepositoryManager(SqlExecutionMixin):
             )
         return results[0]
 
-    def get_repository_url(self, repo_name: str):
+    def get_repository_url(self, repo_name: str, with_scheme: bool = True):
         if not is_valid_unquoted_identifier(repo_name):
             raise ValueError(
                 f"repo_name '{repo_name}' is not a valid unquoted Snowflake identifier"
             )
         repo_row = self.get_repository_row(repo_name)
-        return f"https://{repo_row['repository_url']}"
+        if with_scheme:
+            return f"https://{repo_row['repository_url']}"
+        else:
+            return repo_row["repository_url"]
 
     def get_repository_api_url(self, repo_url):
         """
@@ -70,12 +73,3 @@ class ImageRepositoryManager(SqlExecutionMixin):
         path = parsed_url.path
 
         return f"{scheme}://{host}/v2{path}"
-
-    def _remove_scheme(self, url: str) -> str:
-        if not urlparse(url).scheme and not url.startswith("//"):
-            url = f"//{url}"
-        parsed_url = urlparse(url)
-        return f"{parsed_url.netloc}{parsed_url.path}"
-
-    def get_repository_url_strip_scheme(self, repo_name):
-        return self._remove_scheme(self.get_repository_url(repo_name))

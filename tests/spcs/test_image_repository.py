@@ -186,26 +186,15 @@ def test_get_repository_url(mock_get_row, mock_cursor):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.get_repository_url"
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.get_repository_row"
 )
-@pytest.mark.parametrize(
-    "input_url, expected_url",
-    [
-        ("https://www.example.com", "www.example.com"),
-        ("www.example.com", "www.example.com"),
-        (
-            "http://qa.registry.sfc.com/db/schema/repo",
-            "qa.registry.sfc.com/db/schema/repo",
-        ),
-        ("//qa.registry.sfc.com/db/schema/repo", "qa.registry.sfc.com/db/schema/repo"),
-        ("qa.registry.sfc.com/db/schema/repo", "qa.registry.sfc.com/db/schema/repo"),
-    ],
-)
-def test_get_repository_url_strip_scheme(mock_url, input_url, expected_url):
-    repo_name = "test_repo"
-    mock_url.return_value = input_url
-    assert (
-        ImageRepositoryManager().get_repository_url_strip_scheme(repo_name)
-        == expected_url
+def test_get_repository_url_no_scheme(mock_get_row, mock_cursor):
+    expected_row = MOCK_ROWS_DICT[0]
+    mock_get_row.return_value = expected_row
+    result = ImageRepositoryManager().get_repository_url(
+        repo_name="IMAGES", with_scheme=False
     )
-    mock_url.assert_called_once_with(repo_name)
+    mock_get_row.assert_called_once_with("IMAGES")
+    assert isinstance(expected_row, Dict)
+    assert "repository_url" in expected_row
+    assert result == expected_row["repository_url"]
