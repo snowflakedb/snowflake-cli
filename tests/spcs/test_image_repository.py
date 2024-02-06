@@ -36,7 +36,7 @@ MOCK_ROWS_DICT = [
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_query"
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
 )
 def test_create(
     mock_execute,

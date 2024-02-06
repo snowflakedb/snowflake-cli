@@ -79,6 +79,6 @@ class ImageRepositoryManager(SqlExecutionMixin):
 
     def create(self, name: str):
         try:
-            return self._execute_query(f"create image repository {name}")
+            return self._execute_schema_query(f"create image repository {name}")
         except ProgrammingError as e:
             handle_object_already_exists(e, ObjectType.IMAGE_REPOSITORY, name)
