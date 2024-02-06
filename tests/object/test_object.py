@@ -133,21 +133,27 @@ def test_scope_validate(object_type, input_scope, input_name):
 
 
 @pytest.mark.parametrize(
-    "object_type, input_scope, input_name",
+    "object_type, input_scope, input_name, expected_msg",
     [
-        ("table", "database", "invalid identifier"),
-        ("table", "invalid-scope", "identifier"),
-        ("table", "invalid-scope", "invalid identifier"),
+        (
+            "table",
+            "database",
+            "invalid identifier",
+            "scope name must be a valid identifier",
+        ),
+        ("table", "invalid-scope", "identifier", "scope must be one of the following"),
         (
             "table",
             "compute-pool",
             "test_pool",
+            "compute-pool scope is only supported for listing service",
         ),  # 'compute-pool' scope can only be used with 'service'
     ],
 )
-def test_invalid_scope_validate(object_type, input_scope, input_name):
-    with pytest.raises(ClickException):
+def test_invalid_scope_validate(object_type, input_scope, input_name, expected_msg):
+    with pytest.raises(ClickException) as exc:
         _scope_validate(object_type, (input_scope, input_name))
+    assert expected_msg in exc.value.message
 
 
 @mock.patch("snowflake.connector")
