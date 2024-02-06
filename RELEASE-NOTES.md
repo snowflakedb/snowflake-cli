@@ -3,6 +3,7 @@
 ## Backward incompatibility
 
 ## New additions
+* Introduced `snowflake.cli.api.console.cli_console` object with helper methods for intermediate output.
 
 ## Fixes and improvements
 
