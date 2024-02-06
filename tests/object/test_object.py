@@ -1,7 +1,9 @@
 from unittest import mock
 
 import pytest
-from snowflake.cli.api.constants import SUPPORTED_OBJECTS
+from snowflake.cli.api.constants import SUPPORTED_OBJECTS, OBJECT_TO_NAMES
+from snowflake.cli.plugins.object.commands import _scope_validate
+from click import ClickException
 
 
 @mock.patch("snowflake.connector.connect")
@@ -62,6 +64,96 @@ DESCRIBE_TEST_OBJECTS = [
     ("warehouse", "warehouse-example"),
     ("view", "view-example"),
 ]
+
+
+@mock.patch("snowflake.connector.connect")
+@pytest.mark.parametrize(
+    "object_type, input_scope, input_name",
+    [
+        ("schema", "database", "test_db"),
+        ("table", "schema", "test_schema"),
+        ("service", "compute-pool", "test_pool"),
+    ],
+)
+def test_show_with_scope(
+    mock_connector, object_type, input_scope, input_name, runner, mock_ctx
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(
+        ["object", "list", object_type, "--in", input_scope, input_name]
+    )
+    obj = OBJECT_TO_NAMES[object_type]
+    scope_obj = OBJECT_TO_NAMES[input_scope]
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == [
+        f"show {obj.sf_plural_name} like '%%' in {scope_obj.sf_name} {input_name}"
+    ]
+
+
+@mock.patch("snowflake.connector.connect")
+@pytest.mark.parametrize(
+    "object_type, input_scope, input_name, expected",
+    [
+        (
+            "table",
+            "invalid_scope",
+            "name",
+            "scope must be one of the following",
+        ),  # invalid scope label
+        (
+            "table",
+            "database",
+            "invalid name",
+            "scope name must be a valid identifier",
+        ),  # invalid scope identifier
+    ],
+)
+def test_show_with_invalid_scope(
+    mock_connector, object_type, input_scope, input_name, expected, runner
+):
+
+    result = runner.invoke(
+        ["object", "list", object_type, "--in", input_scope, input_name]
+    )
+    assert expected in result.output
+
+
+@pytest.mark.parametrize(
+    "object_type, input_scope, input_name",
+    [
+        ("user", None, None),
+        ("schema", "database", "test_db"),
+        ("table", "schema", "test_schema"),
+        ("service", "compute-pool", "test_pool"),
+    ],
+)
+def test_scope_validate(object_type, input_scope, input_name):
+    _scope_validate(object_type, (input_scope, input_name))
+
+
+@pytest.mark.parametrize(
+    "object_type, input_scope, input_name, expected_msg",
+    [
+        (
+            "table",
+            "database",
+            "invalid identifier",
+            "scope name must be a valid identifier",
+        ),
+        ("table", "invalid-scope", "identifier", "scope must be one of the following"),
+        (
+            "table",
+            "compute-pool",
+            "test_pool",
+            "compute-pool scope is only supported for listing service",
+        ),  # 'compute-pool' scope can only be used with 'service'
+    ],
+)
+def test_invalid_scope_validate(object_type, input_scope, input_name, expected_msg):
+    with pytest.raises(ClickException) as exc:
+        _scope_validate(object_type, (input_scope, input_name))
+    assert expected_msg in exc.value.message
 
 
 @mock.patch("snowflake.connector")

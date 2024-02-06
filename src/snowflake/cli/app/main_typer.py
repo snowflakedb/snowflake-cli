@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import sys
 
+import typer
 from rich import print as rich_print
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS, DebugOption
-from typer import Typer
 
 
 def _handle_exception(exception: Exception):
@@ -17,7 +19,7 @@ def _handle_exception(exception: Exception):
         raise SystemExit(1)
 
 
-class SnowCliMainTyper(Typer):
+class SnowCliMainTyper(typer.Typer):
     """
     Top-level SnowCLI Typer.
     It contains global exception handling.

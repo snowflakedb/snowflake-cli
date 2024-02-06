@@ -56,6 +56,34 @@ def test_object_table(runner, test_database, snowflake_session):
 
 
 @pytest.mark.integration
+def test_list_with_scope(runner, test_database, snowflake_session):
+    # create a table in a schema other than schema of the current connection
+    other_schema = "other_schema"
+
+    public_table = ObjectNameProvider("Public_Table").create_and_get_next_object_name()
+
+    other_table = ObjectNameProvider("Other_Table").create_and_get_next_object_name()
+
+    snowflake_session.execute_string(
+        f"use schema public; create table {public_table} (some_number NUMBER);"
+    )
+    snowflake_session.execute_string(
+        f"create schema {other_schema}; create table {other_table} (some_number NUMBER);"
+    )
+    result_list_public = runner.invoke_with_connection_json(
+        ["object", "list", "table", "--in", "schema", "public"]
+    )
+    assert result_list_public.exit_code == 0, result_list_public.output
+    assert result_list_public.json[0]["name"].lower() == public_table.lower()
+
+    result_list_other = runner.invoke_with_connection_json(
+        ["object", "list", "table", "--in", "schema", "other_schema"]
+    )
+    assert result_list_other.exit_code == 0, result_list_other.output
+    assert result_list_other.json[0]["name"].lower() == other_table.lower()
+
+
+@pytest.mark.integration
 def test_show_drop_image_repository(runner, test_database, snowflake_session):
     repo_name = "TEST_REPO"
 
