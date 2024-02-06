@@ -1,11 +1,20 @@
+# v2.0.1
+
+## Backward incompatibility
+
+## New additions
+
+## Fixes and improvements
+
+
 # v2.0.0
 
 ## Backward incompatibility
-* Introduced `snow object` group with `show`, `describe` and `drop` commands which replaces corresponding
+* Introduced `snow object` group with `list`, `describe` and `drop` commands which replaces corresponding
   functionalities of procedure/function/streamlit specific commands.
 * `snow stage` is now `snow object stage`
 * `snow stage get` and `snow stage put` are replaced by `snow object stage copy [FROM] [TO]`
-* `snow warehouse status` is now `snow object show warehouse`
+* `snow warehouse status` is now `snow object list warehouse`
 * `snow connection test` now outputs all connection details (except for the password), along with connection status
 * `snow sql` requires explicit `-i` flag to read input from stdin: `cat my.sql | snow sql -i`
 * Switched to Python Connector default connection https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect#setting-a-default-connection
@@ -37,7 +46,7 @@
 * Streamlit changes
   * `snow streamlit deploy` is requiring `snowflake.yml` project file with a Streamlit definition.
   * `snow streamlit describe` is now `snow object describe streamlit`
-  * `snow streamlit list` is now `snow object show streamlit`
+  * `snow streamlit list` is now `snow object list streamlit`
   * `snow streamlit drop` is now `snow object drop streamlit`
 
 
