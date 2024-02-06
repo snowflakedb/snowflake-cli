@@ -1,7 +1,6 @@
 from typing import Dict
 from urllib.parse import urlparse
 
-from click import ClickException
 from snowflake.cli.api.project.util import (
     escape_like_pattern,
     is_valid_identifier,
@@ -28,10 +27,13 @@ class ImageRepositoryManager(SqlExecutionMixin):
             )
         database = self.get_database()
         schema = self.get_schema()
-        name_is_quoted = is_valid_quoted_identifier(repo_name)
 
-        # if repo_name is a quoted identifier, strip quotes before using as pattern
-        repo_name_raw = repo_name[1:-1] if name_is_quoted else repo_name.upper()
+        # Unquoted identifiers are resolved as all upper case in Snowflake while quoted identifiers are case-sensitive
+        repo_name_raw = (
+            repo_name[1:-1]
+            if is_valid_quoted_identifier(repo_name)
+            else repo_name.upper()
+        )
         repository_list_query = (
             f"show image repositories like '{escape_like_pattern(repo_name_raw)}'"
         )
@@ -42,11 +44,11 @@ class ImageRepositoryManager(SqlExecutionMixin):
         results = [r for r in results if r["name"] == repo_name_raw]
 
         if len(results) == 0:
-            raise ClickException(
+            raise ValueError(
                 f"Specified repository name {repo_name} not found in database {database} and schema {schema}"
             )
         elif len(results) > 1:
-            raise Exception(
+            raise ValueError(
                 f"Found more than one repositories with name {repo_name}. This is unexpected."
             )
         return results[0]
