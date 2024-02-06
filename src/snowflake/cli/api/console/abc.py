@@ -10,9 +10,11 @@ from snowflake.cli.api.cli_global_context import _CliGlobalContextAccess, cli_co
 class AbstractConsole(ABC):
     """Interface for cli console implementation.
 
-    Each console should have two methods implemented:
-    - `phase` for major informations on command actions
-    - `step` for more detailed informations on step
+    Each console should have three methods implemented:
+    - `step` - for more detailed informations on steps
+    - `warning` - for displaying messages in a style that makes it
+      visually stand out from other output
+    - `phase` a context manager for organising steps into logical group
     """
 
     _print_fn: Callable[[str], None]
@@ -46,14 +48,14 @@ class AbstractConsole(ABC):
         enter_message: str,
         exit_message: Optional[str] = None,
     ) -> Iterator[Callable[[str], None]]:
-        """Displays not indented message."""
+        """A context manager for organising steps into logical group."""
 
     @abstractmethod
     def step(self, message: str):
-        """Displays indented message."""
+        """Displays message to output."""
 
     @abstractmethod
     def warning(self, message: str):
-        """Displays message with distinct style.
+        """Displays message in a style that makes it visually stand out from other output.
 
         Intended for diplaying messeges related to important messages."""

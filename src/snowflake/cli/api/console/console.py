@@ -19,7 +19,14 @@ class CliConsoleNestingProhibitedError(RuntimeError):
 
 
 class CliConsole(AbstractConsole):
-    """An utility for displayinf intermediate output."""
+    """An utility for displaying intermediate output.
+
+    Provides following methods for handling displying messages:
+    - `step` - for more detailed informations on steps
+    - `warning` - for displaying messages in a style that makes it
+      visually stand out from other output
+    - `phase` a context manager for organising steps into logical group
+    """
 
     _indentation_level: int = INDENTATION_LEVEL
     _styles: dict = {
@@ -41,9 +48,10 @@ class CliConsole(AbstractConsole):
 
     @contextmanager
     def phase(self, enter_message: str, exit_message: Optional[str] = None):
-        """Displays unindented message formatted with PHASE style."""
+        """A context manager for organising steps into logical group."""
         if self.in_phase:
             raise CliConsoleNestingProhibitedError("Only one phase allowed at a time.")
+
         self._print(self._format_message(enter_message, Output.PHASE))
         self._in_phase = True
 
@@ -54,12 +62,17 @@ class CliConsole(AbstractConsole):
             self._print(self._format_message(exit_message, Output.PHASE))
 
     def step(self, message: str):
-        """Displays 2 spaces indented message with STEP style."""
+        """Displays messge to output.
+
+        If called within a phase, the output will be indented.
+        """
         text = self._format_message(message, Output.STEP)
         self._print(text)
 
     def warning(self, message: str):
-        """Displays unindented message formated with IMPORTANT style."""
+        """Displays message in a style that makes it visually stand out from other output.
+
+        Intended for diplaying messeges related to important messages."""
         text = self._format_message(message, Output.IMPORTANT)
         self._print(text)
 
