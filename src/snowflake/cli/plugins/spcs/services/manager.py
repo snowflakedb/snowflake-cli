@@ -1,10 +1,14 @@
 from pathlib import Path
 from typing import List, Optional
 
+from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.exceptions import ObjectAlreadyExistsError
+from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.object.common import Tag
 from snowflake.cli.plugins.spcs.common import strip_empty_lines
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.errors import ProgrammingError
 
 
 class ServiceManager(SqlExecutionMixin):
@@ -24,7 +28,7 @@ class ServiceManager(SqlExecutionMixin):
         spec = self._read_yaml(spec_path)
 
         query = f"""\
-            CREATE SERVICE IF NOT EXISTS {service_name}
+            CREATE SERVICE {service_name}
             IN COMPUTE POOL {compute_pool}
             FROM SPECIFICATION $$
             {spec}
@@ -53,7 +57,16 @@ class ServiceManager(SqlExecutionMixin):
         if comment:
             query.append(f"COMMENT = {comment}")
 
-        return self._execute_schema_query(strip_empty_lines(query))
+        try:
+            return self._execute_schema_query(strip_empty_lines(query))
+        except ProgrammingError as e:
+            if e.errno == 2002:
+                raise ObjectAlreadyExistsError(
+                    object_type=ObjectType.IMAGE_REPOSITORY,
+                    name=unquote_identifier(service_name),
+                )
+            else:
+                raise
 
     def _read_yaml(self, path: Path) -> str:
         # TODO(aivanou): Add validation towards schema
