@@ -214,7 +214,7 @@ def test(connection: str = ConnectionOption, **options) -> CommandResult:
 
     conn = cli_context.connection
     result = {
-        "Connection name": cli_context.connection,
+        "Connection name": connection,
         "Status": "OK",
         "Host": conn.host,
         "Account": conn.account,
