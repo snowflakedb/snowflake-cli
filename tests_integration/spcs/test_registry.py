@@ -1,6 +1,6 @@
 import pytest
-from snowflake.connector.cursor import DictCursor
 
+from tests_integration.test_utils import row_from_snowflake_session
 from tests_integration.testing_utils.naming_utils import ObjectNameProvider
 
 
@@ -29,10 +29,10 @@ def test_get_registry_url(test_database, test_role, runner, snowflake_session):
     assert "No image repository found." in fail_result.output
 
     # role should be able to get registry URL once granted read access to an image repository
-    repo_list_cursor = snowflake_session.execute_string(
-        "show image repositories", cursor_class=DictCursor
-    )
-    expected_repo_url = repo_list_cursor[0].fetchone()["repository_url"]
+    repo_list_cursor = snowflake_session.execute_string("show image repositories")
+    expected_repo_url = row_from_snowflake_session(repo_list_cursor)[0][
+        "repository_url"
+    ]
     expected_registry_url = "/".join(expected_repo_url.split("/")[:-3])
     snowflake_session.execute_string(
         f"grant usage on database {snowflake_session.database} to role {test_role};"
