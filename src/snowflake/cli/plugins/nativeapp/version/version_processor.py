@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 from textwrap import dedent
 from typing import Dict, List, Optional
@@ -26,8 +25,6 @@ from snowflake.cli.plugins.nativeapp.utils import (
 )
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
-
-log = logging.getLogger(__name__)
 
 
 def check_index_changes_in_git_repo(
