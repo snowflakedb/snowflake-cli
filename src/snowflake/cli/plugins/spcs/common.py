@@ -74,4 +74,4 @@ def handle_object_already_exists(
             name=unquote_identifier(object_name),
         )
     else:
-        raise
+        raise error

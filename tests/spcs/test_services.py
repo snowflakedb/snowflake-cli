@@ -1,10 +1,8 @@
-from pathlib import Path
 from textwrap import dedent
 from unittest.mock import Mock, patch
 
-from click import ClickException
-import pytest
-import strictyaml
+from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.plugins.spcs.services.manager import ServiceManager
 from tests.testing_utils.fixtures import *
 from snowflake.cli.api.project.util import to_string_literal
@@ -214,6 +212,37 @@ def test_create_service_with_invalid_spec(mock_read_yaml):
             tags=tags,
             comment=comment,
         )
+
+
+@patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager._read_yaml")
+@patch(
+    "snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_schema_query"
+)
+@patch("snowflake.cli.plugins.spcs.services.manager.handle_object_already_exists")
+def test_create_repository_already_exists(mock_handle, mock_execute, mock_read_yaml):
+    service_name = "test_object"
+    compute_pool = "test_pool"
+    spec_path = "/path/to/spec.yaml"
+    min_instances = 42
+    max_instances = 42
+    external_access_integrations = query_warehouse = tags = comment = None
+    auto_resume = False
+    mock_execute.side_effect = SPCS_OBJECT_EXISTS_ERROR
+    ServiceManager().create(
+        service_name=service_name,
+        compute_pool=compute_pool,
+        spec_path=Path(spec_path),
+        min_instances=min_instances,
+        max_instances=max_instances,
+        auto_resume=auto_resume,
+        external_access_integrations=external_access_integrations,
+        query_warehouse=query_warehouse,
+        tags=tags,
+        comment=comment,
+    )
+    mock_handle.assert_called_once_with(
+        SPCS_OBJECT_EXISTS_ERROR, ObjectType.SERVICE, service_name
+    )
 
 
 @patch(

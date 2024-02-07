@@ -7,6 +7,7 @@ from unittest.mock import Mock
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 from snowflake.cli.api.constants import ObjectType
+from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
 
 MOCK_ROWS = [
     [
@@ -74,17 +75,14 @@ def test_create_cli(mock_create, mock_cursor, runner):
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
 )
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.common.handle_object_already_exists"
+    "snowflake.cli.plugins.spcs.image_repository.manager.handle_object_already_exists"
 )
-def test_create_repository_exists(mock_execute, mock_handle):
-    repo_name = "test_repo"
-    object_exists_error = ProgrammingError(
-        msg="Object 'TEST_REPO' already exists.", errno=2002
-    )
-    mock_execute.side_effect = object_exists_error
+def test_create_repository_already_exists(mock_handle, mock_execute):
+    repo_name = "test_object"
+    mock_execute.side_effect = SPCS_OBJECT_EXISTS_ERROR
     ImageRepositoryManager().create(repo_name)
     mock_handle.assert_called_once_with(
-        object_exists_error, ObjectType.IMAGE_REPOSITORY, repo_name
+        SPCS_OBJECT_EXISTS_ERROR, ObjectType.IMAGE_REPOSITORY, repo_name
     )
 
 
