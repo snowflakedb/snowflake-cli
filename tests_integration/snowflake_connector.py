@@ -24,6 +24,16 @@ def test_database(snowflake_session):
     del os.environ[f"{_ENV_PARAMETER_PREFIX}_DATABASE"]
 
 
+@pytest.fixture(scope="function")
+def test_role(snowflake_session):
+    role_name = f"role_{uuid.uuid4().hex}"
+    snowflake_session.execute_string(
+        f"create role {role_name}; grant role {role_name} to user {snowflake_session.user};"
+    )
+    yield role_name
+    snowflake_session.execute_string(f"drop role {role_name}")
+
+
 @pytest.fixture(scope="session")
 def snowflake_session():
     config = {
