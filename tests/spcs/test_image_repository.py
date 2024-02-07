@@ -5,6 +5,8 @@ from typing import Dict
 from click import ClickException
 from unittest.mock import Mock
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.errors import ProgrammingError
+from snowflake.cli.api.constants import ObjectType
 
 MOCK_ROWS = [
     [
@@ -65,6 +67,24 @@ def test_create_cli(mock_create, mock_cursor, runner):
     assert result.exit_code == 0, result.output
     assert (
         f"Image Repository {repo_name.upper()} successfully created." in result.output
+    )
+
+
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
+)
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_repository.common.handle_object_already_exists"
+)
+def test_create_repository_exists(mock_execute, mock_handle):
+    repo_name = "test_repo"
+    object_exists_error = ProgrammingError(
+        msg="Object 'TEST_REPO' already exists.", errno=2002
+    )
+    mock_execute.side_effect = object_exists_error
+    ImageRepositoryManager().create(repo_name)
+    mock_handle.assert_called_once_with(
+        object_exists_error, ObjectType.IMAGE_REPOSITORY, repo_name
     )
 
 
