@@ -3,15 +3,13 @@ from urllib.parse import urlparse
 
 from click import ClickException
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.exceptions import ObjectAlreadyExistsError
 from snowflake.cli.api.project.util import (
     escape_like_pattern,
     is_valid_unquoted_identifier,
-    unquote_identifier
 )
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.spcs.common import handle_object_already_exists
-from snowflake.connector.cursor import SnowflakeCursor, DictCursor
+from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
 
 

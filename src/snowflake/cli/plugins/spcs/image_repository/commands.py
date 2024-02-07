@@ -9,7 +9,11 @@ from snowflake.cli.api.commands.decorators import (
     with_output,
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
-from snowflake.cli.api.output.types import CollectionResult, SingleQueryResult, MessageResult
+from snowflake.cli.api.output.types import (
+    CollectionResult,
+    MessageResult,
+    SingleQueryResult,
+)
 from snowflake.cli.api.project.util import is_valid_unquoted_identifier
 from snowflake.cli.plugins.spcs.image_registry.manager import RegistryManager
 from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
