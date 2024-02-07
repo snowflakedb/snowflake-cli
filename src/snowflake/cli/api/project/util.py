@@ -170,3 +170,11 @@ def escape_like_pattern(pattern: str, escape_sequence: str = r"\\") -> str:
         "_", rf"{escape_sequence}_"
     )
     return pattern
+
+
+def identifier_to_show_like_pattern(identifier: str) -> str:
+    """
+    Takes an identifier and converts it into a pattern to be used with SHOW ... LIKE ... to get all rows with name
+    matching this identifier
+    """
+    return f"'{escape_like_pattern(unquote_identifier(identifier))}'"
