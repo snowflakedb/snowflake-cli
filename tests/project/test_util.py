@@ -103,6 +103,8 @@ def test_is_valid_object_name():
         names = [".".join(p) for p in list(permutations(valid_identifiers, num))]
         for name in names:
             assert is_valid_object_name(name)
+            if num > 1:
+                assert not is_valid_object_name(name, 0)
 
     # any combination with at least one invalid identifier is invalid
     for num in [1, 2, 3]:

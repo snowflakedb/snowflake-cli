@@ -1,13 +1,15 @@
 from typing import Optional
 
 import typer
+from click import ClickException
 from snowflake.cli.api.commands.decorators import (
     global_options_with_connection,
     with_output,
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
-from snowflake.cli.plugins.object.common import comment_option, object_name_callback
+from snowflake.cli.api.project.util import is_valid_object_name
+from snowflake.cli.plugins.object.common import comment_option
 from snowflake.cli.plugins.spcs.common import validate_and_set_instances
 from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
 
@@ -18,8 +20,17 @@ app = typer.Typer(
 )
 
 
+def _compute_pool_name_callback(name: str) -> str:
+    """
+    Verifies that compute pool name is a single valid identifier.
+    """
+    if not is_valid_object_name(name, 0):
+        raise ClickException(f"{name} is not a valid compute pool name.")
+    return name
+
+
 ComputePoolNameArgument = typer.Argument(
-    ..., help="Name of the compute pool.", callback=object_name_callback
+    ..., help="Name of the compute pool.", callback=_compute_pool_name_callback
 )
 
 

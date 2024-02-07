@@ -1,9 +1,13 @@
 from unittest.mock import Mock, patch
 
 from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
+from snowflake.cli.plugins.spcs.compute_pool.commands import _compute_pool_name_callback
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.cli.api.project.util import to_string_literal
 import json
+import pytest
+
+from click import ClickException
 
 
 @patch(
@@ -192,3 +196,19 @@ def test_resume_cli(mock_resume, mock_cursor, runner):
     result_json_parsed = json.loads(result_json.output)
     assert isinstance(result_json_parsed, dict)
     assert result_json_parsed == {"status": "Statement executed successfully."}
+
+
+@patch("snowflake.cli.plugins.spcs.compute_pool.commands.is_valid_object_name")
+def test_compute_pool_name_callback(mock_is_valid):
+    name = "test_pool"
+    mock_is_valid.return_value = True
+    assert _compute_pool_name_callback(name) == name
+
+
+@patch("snowflake.cli.plugins.spcs.compute_pool.commands.is_valid_object_name")
+def test_compute_pool_name_callback_invalid(mock_is_valid):
+    name = "test_pool"
+    mock_is_valid.return_value = False
+    with pytest.raises(ClickException) as e:
+        _compute_pool_name_callback(name)
+    assert "is not a valid compute pool name." in e.value.message

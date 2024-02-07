@@ -48,11 +48,17 @@ def is_valid_identifier(identifier: str) -> bool:
     )
 
 
-def is_valid_object_name(name: str) -> bool:
+def is_valid_object_name(name: str, max_depth=2) -> bool:
     """
-    Determines whether the given identifier is a valid object name in the form <name>, <schema>.<name>, or <database>.<schema>.<name>
+    Determines whether the given identifier is a valid object name in the form <name>, <schema>.<name>, or <database>.<schema>.<name>.
+    Max_depth determines how many valid identifiers are allowed. For example, account level objects would have a max depth of 0
+    because they cannot be qualified by a database or schema, just the single identifier.
     """
-    pattern = rf"{VALID_IDENTIFIER_REGEX}(?:\.{VALID_IDENTIFIER_REGEX}){{0,2}}"
+    if max_depth < 0:
+        raise ValueError("max_depth must be non-negative")
+    pattern = (
+        rf"{VALID_IDENTIFIER_REGEX}(?:\.{VALID_IDENTIFIER_REGEX}){{0,{max_depth}}}"
+    )
     return re.fullmatch(pattern, name) is not None
 
 
