@@ -10,6 +10,7 @@ from snowflake.cli.api.config import config_init
 from snowflake.cli.api.exceptions import InvalidLogsConfiguration
 
 from tests.conftest import clean_logging_handlers
+from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
 
 
 @pytest.fixture
@@ -199,3 +200,9 @@ def test_incorrect_log_level_in_config(setup_config_and_logs):
             e.message == "Invalid 'level' value set in [logs] section: funny_level."
             " 'level' should be one of: DEBUG / INFO / WARNING / ERROR / CRITICAL"
         )
+
+
+def test_log_files_permissions(setup_config_and_logs):
+    with setup_config_and_logs(save_logs=True) as logs_path:
+        print_log_messages()
+        assert_file_permissions_are_strict(_get_logs_file(logs_path))
