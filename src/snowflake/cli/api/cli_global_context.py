@@ -256,7 +256,14 @@ class _CliGlobalContextAccess:
 
     @property
     def silent(self) -> bool:
+        if self._should_force_mute_intermediate_output:
+            return True
         return self._manager.silent
+
+    @property
+    def _should_force_mute_intermediate_output(self) -> bool:
+        """Computes whether cli_console output should be muted."""
+        return self._manager.output_format == OutputFormat.JSON
 
 
 cli_context_manager: _CliGlobalContextManager = _CliGlobalContextManager()

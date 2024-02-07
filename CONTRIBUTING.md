@@ -136,6 +136,76 @@ git checkout <your-branch>
 git rebase sfcli/main
 ```
 
+## Presenting intermediate output to users
+
+Snowflake CLI enables users to interact with the Snowflake ecosystem using command line. Some commands provide immediate results, while others require some amount of operations to be executed before the result can be presented to the user.
+
+Presenting intermediate output to the user during execution of complex commands can improve users' experience.
+
+Since snowflake-cli is preparing to support additional commands via plugins, it is the right time to introduce a unified mechanism for displaying intermediate output. This will help keep consistent output among cli and plugins. There is no way to restrain usage of any kind of output in plugins developed in external repositories, but providing api may discourage others from introducing custom output.
+
+The proposal is to introduce cli_console object that will provide following helper methods to interact with the output:
+step - a method for printing regular output
+warning - a method for printing messages that should be
+phase - a context manager that will group all output within its scope as distinct unit
+
+Implemented CliConsole class must respect parameter `–silent` and disable any output when requested.
+
+Context manager must allow only one grouping level at a time. All subsequent invocations will result in raising `CliConsoleNestingProhibitedError` derived from `RuntimeError`.
+
+Logging support
+All messages handled by CliConsole may be logged regardless of is_silent property.
+
+### Example usage
+
+#### Simple output
+
+```python
+from snowflake.cli.api.console import cli_console as cc
+
+def my_command():
+    cc.step("Some work...")
+    ...
+    cc.step("Next work...")
+```
+
+#### Output
+
+```bash
+> snow my_command
+
+Some work...
+Next work...
+```
+
+#### Grouped output
+
+```python
+from snowflake.cli.api.console import cli_console as cc
+
+def my_command():
+    cc.step("First step...")
+    with cc.phase("Long sequence of actions"):
+        cc.step("Phased step 1")
+        cc.step("Phased step 2")
+        if something_important:
+            cc.warning("It's important")
+    cc.step("Final step")
+```
+
+#### Output
+
+```bash
+> snow my_command
+
+First step...
+Long sequence of actions
+  Phased step 1
+  Phased step 2
+  __It's important__
+Final step
+```
+
 ## Known issues
 
 ### `permission denied` during integration tests on Windows

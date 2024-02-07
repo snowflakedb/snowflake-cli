@@ -54,6 +54,9 @@ development = [
 [project.scripts]
 snow = "snowflake.cli.app.__main__:main"
 
+[tool.coverage.report]
+exclude_also = ["@(abc\\.)?abstractmethod", "@(abc\\.)?abstractproperty"]
+
 [tool.hatch.version]
 path = "src/snowflake/cli/__about__.py"
 
