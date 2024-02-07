@@ -1,7 +1,6 @@
 from typing import Dict
 from urllib.parse import urlparse
 
-import click
 from click import ClickException
 from snowflake.cli.api.project.util import (
     escape_like_pattern,
@@ -39,14 +38,13 @@ class ImageRepositoryManager(SqlExecutionMixin):
         )
         results = result_set.fetchall()
 
-        colored_repo_name = click.style(f"'{repo_name}'", fg="green")
         if len(results) == 0:
             raise ClickException(
-                f"Image repository {colored_repo_name} does not exist in database {self.get_database()} and schema {self.get_schema()} or not authorized."
+                f"Image repository '{repo_name}' does not exist in database '{self.get_database()}' and schema '{self.get_schema()}' or not authorized."
             )
         elif len(results) > 1:
             raise ClickException(
-                f"Found more than one image repository with name matching {colored_repo_name}. This is unexpected."
+                f"Found more than one image repository with name matching '{repo_name}'. This is unexpected."
             )
         return results[0]
 

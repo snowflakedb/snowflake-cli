@@ -152,15 +152,19 @@ def test_get_repository_row(mock_execute, mock_cursor):
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
 )
-def test_get_repository_row_no_repo_found(mock_execute, mock_connection, mock_cursor):
+def test_get_repository_row_no_repo_found(mock_conn, mock_execute, mock_cursor):
     mock_execute.return_value = mock_cursor(
         rows=[],
         columns=MOCK_COLUMNS,
     )
-
+    mock_conn.database = "DB"
+    mock_conn.schema = "SCHEMA"
     with pytest.raises(ClickException) as expected_error:
         ImageRepositoryManager().get_repository_row("IMAGES")
-    assert "does not exist in database" in expected_error.value.message
+    assert (
+        "Image repository 'IMAGES' does not exist in database 'DB' and schema 'SCHEMA' or not authorized."
+        == expected_error.value.message
+    )
 
 
 @mock.patch(
@@ -173,7 +177,10 @@ def test_get_repository_row_more_than_one_repo(mock_execute, mock_cursor):
     )
     with pytest.raises(ClickException) as expected_error:
         ImageRepositoryManager().get_repository_row("IMAGES")
-    assert "Found more than one image repository" in expected_error.value.message
+    assert (
+        "Found more than one image repository with name matching 'IMAGES'. This is unexpected."
+        == expected_error.value.message
+    )
 
 
 @mock.patch(
