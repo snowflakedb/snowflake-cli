@@ -1,12 +1,14 @@
 from typing import Optional
 
 import typer
+from click import ClickException
 from snowflake.cli.api.commands.decorators import (
     global_options_with_connection,
     with_output,
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
+from snowflake.cli.api.project.util import is_valid_object_name
 from snowflake.cli.plugins.object.common import comment_option
 from snowflake.cli.plugins.spcs.common import validate_and_set_instances
 from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
@@ -18,11 +20,25 @@ app = typer.Typer(
 )
 
 
+def _compute_pool_name_callback(name: str) -> str:
+    """
+    Verifies that compute pool name is a single valid identifier.
+    """
+    if not is_valid_object_name(name, 0):
+        raise ClickException(f"{name} is not a valid compute pool name.")
+    return name
+
+
+ComputePoolNameArgument = typer.Argument(
+    ..., help="Name of the compute pool.", callback=_compute_pool_name_callback
+)
+
+
 @app.command()
 @with_output
 @global_options_with_connection
 def create(
-    name: str = typer.Argument(..., help="Name of the compute pool."),
+    name: str = ComputePoolNameArgument,
     min_nodes: int = typer.Option(
         1, "--min-nodes", help="Minimum number of nodes for the compute pool."
     ),
@@ -72,11 +88,29 @@ def create(
 @app.command("stop-all")
 @with_output
 @global_options_with_connection
-def stop_all(
-    name: str = typer.Argument(..., help="Name of the compute pool."), **options
-) -> CommandResult:
+def stop_all(name: str = ComputePoolNameArgument, **options) -> CommandResult:
     """
-    Stops a compute pool and deletes all services running on the pool.
+    Deletes all services running on the compute pool.
     """
     cursor = ComputePoolManager().stop(pool_name=name)
     return SingleQueryResult(cursor)
+
+
+@app.command()
+@with_output
+@global_options_with_connection
+def suspend(name: str = ComputePoolNameArgument, **options) -> CommandResult:
+    """
+    Suspends the compute pool by suspending all currently running services and then releasing compute pool nodes.
+    """
+    return SingleQueryResult(ComputePoolManager().suspend(name))
+
+
+@app.command()
+@with_output
+@global_options_with_connection
+def resume(name: str = ComputePoolNameArgument, **options) -> CommandResult:
+    """
+    Resumes the compute pool from SUSPENDED state.
+    """
+    return SingleQueryResult(ComputePoolManager().resume(name))

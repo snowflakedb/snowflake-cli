@@ -12,8 +12,9 @@ RELATIVE_PATH = r"^[^/][\p{L}\p{N}_\-.][^/]*$"
 SINGLE_QUOTED_STRING_LITERAL_REGEX = r"'((?:\\.|''|[^'\n])+?)'"
 
 # See https://docs.snowflake.com/en/sql-reference/identifiers-syntax for identifier syntax
-UNQUOTED_IDENTIFIER_REGEX = r"(^[a-zA-Z_])([a-zA-Z0-9_$]{0,254})"
+UNQUOTED_IDENTIFIER_REGEX = r"([a-zA-Z_])([a-zA-Z0-9_$]{0,254})"
 QUOTED_IDENTIFIER_REGEX = r'"((""|[^"]){0,255})"'
+VALID_IDENTIFIER_REGEX = f"(?:{UNQUOTED_IDENTIFIER_REGEX}|{QUOTED_IDENTIFIER_REGEX})"
 
 
 def clean_identifier(input_: str):
@@ -45,6 +46,20 @@ def is_valid_identifier(identifier: str) -> bool:
     return is_valid_unquoted_identifier(identifier) or is_valid_quoted_identifier(
         identifier
     )
+
+
+def is_valid_object_name(name: str, max_depth=2) -> bool:
+    """
+    Determines whether the given identifier is a valid object name in the form <name>, <schema>.<name>, or <database>.<schema>.<name>.
+    Max_depth determines how many valid identifiers are allowed. For example, account level objects would have a max depth of 0
+    because they cannot be qualified by a database or schema, just the single identifier.
+    """
+    if max_depth < 0:
+        raise ValueError("max_depth must be non-negative")
+    pattern = (
+        rf"{VALID_IDENTIFIER_REGEX}(?:\.{VALID_IDENTIFIER_REGEX}){{0,{max_depth}}}"
+    )
+    return re.fullmatch(pattern, name) is not None
 
 
 def to_identifier(name: str) -> str:

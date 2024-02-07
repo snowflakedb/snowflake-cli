@@ -7,8 +7,11 @@ from snowflake.cli.api.project.util import (
     is_valid_unquoted_identifier,
     to_identifier,
     to_string_literal,
+    is_valid_object_name,
     escape_like_pattern,
 )
+
+from itertools import permutations
 
 VALID_UNQUOTED_IDENTIFIERS = (
     "_",
@@ -45,7 +48,7 @@ VALID_QUOTED_IDENTIFIERS = (
 INVALID_QUOTED_IDENTIFIERS = (
     '"abc',  # unterminated quote
     'abc"',  # missing leading quote
-    '"abc"def"',  # improprely escaped inner quote
+    '"abc"def"',  # improperly escaped inner quote
 )
 
 
@@ -89,6 +92,29 @@ def test_is_valid_identifier():
 
     for id in INVALID_QUOTED_IDENTIFIERS:
         assert not is_valid_identifier(id)
+
+
+def test_is_valid_object_name():
+    valid_identifiers = VALID_QUOTED_IDENTIFIERS + VALID_UNQUOTED_IDENTIFIERS
+    invalid_identifiers = INVALID_QUOTED_IDENTIFIERS + INVALID_QUOTED_IDENTIFIERS
+
+    # any combination of 1, 2, or 3 valid identifiers separated by a '.' is valid
+    for num in [1, 2, 3]:
+        names = [".".join(p) for p in list(permutations(valid_identifiers, num))]
+        for name in names:
+            assert is_valid_object_name(name)
+            if num > 1:
+                assert not is_valid_object_name(name, 0)
+
+    # any combination with at least one invalid identifier is invalid
+    for num in [1, 2, 3]:
+        valid_permutations = list(permutations(valid_identifiers, num - 1))
+        for invalid_identifier in invalid_identifiers:
+            for valid_perm in valid_permutations:
+                combined_set = (invalid_identifier, *valid_perm)
+                names = [".".join(p) for p in list(permutations(combined_set, num))]
+                for name in names:
+                    assert not is_valid_object_name(name)
 
 
 def test_to_identifier():

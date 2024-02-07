@@ -31,4 +31,10 @@ class ComputePoolManager(SqlExecutionMixin):
         return self._execute_query(strip_empty_lines(query))
 
     def stop(self, pool_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"alter compute pool {pool_name} stop all;")
+        return self._execute_query(f"alter compute pool {pool_name} stop all")
+
+    def suspend(self, pool_name: str) -> SnowflakeCursor:
+        return self._execute_query(f"alter compute pool {pool_name} suspend")
+
+    def resume(self, pool_name: str) -> SnowflakeCursor:
+        return self._execute_query(f"alter compute pool {pool_name} resume")
