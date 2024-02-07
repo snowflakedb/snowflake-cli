@@ -1,6 +1,10 @@
 from snowflake.cli.plugins.spcs.common import validate_and_set_instances
 from tests.testing_utils.fixtures import *
 from click import ClickException
+from snowflake.connector.errors import ProgrammingError
+from snowflake.cli.plugins.spcs.common import handle_object_already_exists
+from snowflake.cli.api.exceptions import ObjectAlreadyExistsError, ObjectType
+from unittest.mock import Mock
 
 
 @pytest.mark.parametrize(
@@ -36,3 +40,23 @@ def test_validate_and_set_instances_invalid(min_instances, max_instances, expect
     with pytest.raises(ClickException) as exc:
         validate_and_set_instances(min_instances, max_instances, "name")
     assert expected_msg in exc.value.message
+
+
+SPCS_OBJECT_EXISTS_ERROR = ProgrammingError(
+    msg="Object 'TEST_OBJECT' already exists.", errno=2002
+)
+
+
+def test_handle_object_exists_error():
+    mock_type = Mock(spec=ObjectType)
+    test_name = "TEST_OBJECT"
+    with pytest.raises(ObjectAlreadyExistsError):
+        handle_object_already_exists(SPCS_OBJECT_EXISTS_ERROR, mock_type, test_name)
+
+
+def test_handle_object_exists_error_other_error():
+    # For any errors other than 'Object 'XYZ' already exists.', simply pass the error through
+    other_error = ProgrammingError(msg="Object does not already exist.", errno=0)
+    with pytest.raises(ProgrammingError) as e:
+        handle_object_already_exists(other_error, Mock(spec=ObjectType), "TEST_OBJECT")
+    assert other_error == e.value

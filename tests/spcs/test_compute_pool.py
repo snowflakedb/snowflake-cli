@@ -8,6 +8,8 @@ import json
 import pytest
 
 from click import ClickException
+from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
+from snowflake.cli.api.constants import ObjectType
 
 
 @patch(
@@ -108,6 +110,28 @@ def test_create_pool_cli(mock_create, runner):
         initially_suspended=True,
         auto_suspend_secs=7200,
         comment=to_string_literal("this is a test"),
+    )
+
+
+@patch(
+    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+)
+@patch("snowflake.cli.plugins.spcs.compute_pool.manager.handle_object_already_exists")
+def test_create_repository_already_exists(mock_handle, mock_execute):
+    pool_name = "test_object"
+    mock_execute.side_effect = SPCS_OBJECT_EXISTS_ERROR
+    ComputePoolManager().create(
+        pool_name=pool_name,
+        min_nodes=1,
+        max_nodes=1,
+        instance_family="test_family",
+        auto_resume=False,
+        initially_suspended=True,
+        auto_suspend_secs=7200,
+        comment=to_string_literal("this is a test"),
+    )
+    mock_handle.assert_called_once_with(
+        SPCS_OBJECT_EXISTS_ERROR, ObjectType.COMPUTE_POOL, pool_name
     )
 
 
