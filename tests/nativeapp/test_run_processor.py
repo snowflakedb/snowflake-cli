@@ -126,13 +126,13 @@ def test_create_app_pkg_incorrect_owner(mock_get_existing_app_pkg_info, temp_dir
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
-@mock.patch(f"{RUN_MODULE}.print")
+@mock.patch(f"{RUN_MODULE}.cc.step")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
     [False, True],
 )
 def test_create_app_pkg_external_distribution(
-    mock_warning,
+    mock_step,
     mock_is_distribution_same,
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
@@ -158,7 +158,7 @@ def test_create_app_pkg_external_distribution(
     run_processor = _get_na_run_processor()
     run_processor.create_app_package()
     if not is_pkg_distribution_same:
-        mock_warning.assert_called_once_with(
+        mock_step.assert_called_once_with(
             "Continuing to execute `snow app run` on app pkg app_pkg with distribution 'external'."
         )
 
@@ -167,13 +167,13 @@ def test_create_app_pkg_external_distribution(
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
-@mock.patch(f"{RUN_MODULE}.print")
+@mock.patch(f"{RUN_MODULE}.cc.step")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
     [False, True],
 )
 def test_create_app_pkg_internal_distribution_special_comment(
-    mock_warning,
+    mock_step,
     mock_is_distribution_same,
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
@@ -199,7 +199,7 @@ def test_create_app_pkg_internal_distribution_special_comment(
     run_processor = _get_na_run_processor()
     run_processor.create_app_package()
     if not is_pkg_distribution_same:
-        mock_warning.assert_called_once_with(
+        mock_step.assert_called_once_with(
             "Continuing to execute `snow app run` on app pkg app_pkg with distribution 'internal'."
         )
 
@@ -208,13 +208,13 @@ def test_create_app_pkg_internal_distribution_special_comment(
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
-@mock.patch(f"{RUN_MODULE}.print")
+@mock.patch(f"{RUN_MODULE}.cc.step")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
     [False, True],
 )
 def test_create_app_pkg_internal_distribution_no_special_comment(
-    mock_warning,
+    mock_step,
     mock_is_distribution_same,
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
@@ -242,7 +242,7 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
         run_processor.create_app_package()
 
     if not is_pkg_distribution_same:
-        mock_warning.assert_called_once_with(
+        mock_step.assert_called_once_with(
             "Continuing to execute `snow app run` on app pkg app_pkg with distribution 'internal'."
         )
 

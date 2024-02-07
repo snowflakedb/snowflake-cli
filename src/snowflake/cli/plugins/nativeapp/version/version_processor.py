@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 
 import typer
 from click import BadOptionUsage, ClickException
-from rich import print
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.plugins.nativeapp.artifacts import find_version_info_in_manifest_file
@@ -46,7 +46,7 @@ def check_index_changes_in_git_repo(
 
         # Check if the repo has any changes, including untracked files
         if repo.is_dirty(untracked_files=True):
-            print("Changes detected in your git repository!")
+            cc.warning("Changes detected in your git repository!")
             repo.git.execute(["git", "status"])
 
             user_prompt = (
@@ -54,10 +54,10 @@ def check_index_changes_in_git_repo(
             )
             if not policy.should_proceed(user_prompt):
                 if is_interactive:
-                    print("Not creating a new version.")
+                    cc.step("Not creating a new version.")
                     raise typer.Exit(0)
                 else:
-                    print(
+                    cc.step(
                         "Cannot create a new version non-interactively without --force."
                     )
                     raise typer.Exit(1)
@@ -108,7 +108,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 """
             )
             self._execute_query(add_version_query, cursor_class=DictCursor)
-            print(
+            cc.step(
                 f"Version {version} created for application package {self.package_name}."
             )
 
@@ -134,7 +134,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
             )
 
             new_patch = show_row["patch"]
-            print(
+            cc.step(
                 f"Patch {new_patch} created for version {version} for application package {self.package_name}."
             )
 
@@ -155,13 +155,10 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         # Make sure version is not None before proceeding any further.
         # This will raise an exception if version information is not found. Patch can be None.
         if not version:
-            log.info(
-                dedent(
-                    f"""\
-                        Version was not provided through the CLI. Checking version in the manifest.yml instead.
-                    """
-                )
+            cc.step(
+                "Version was not provided through the CLI. Checking version in the manifest.yml instead."
             )
+
             version, patch = find_version_info_in_manifest_file(self.deploy_root)
             if not version:
                 raise ClickException(
@@ -206,7 +203,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
             release_directive_names = ", ".join(
                 row["name"] for row in existing_release_directives
             )
-            print(
+            cc.warning(
                 dedent(
                     f"""\
                     Version {version} already exists for application package {self.package_name} and in release directive(s): {release_directive_names}.
@@ -220,10 +217,10 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
             )
             if not policy.should_proceed(user_prompt):
                 if is_interactive:
-                    print("Not creating a new patch.")
+                    cc.step("Not creating a new patch.")
                     raise typer.Exit(0)
                 else:
-                    print(
+                    cc.step(
                         "Cannot create a new patch non-interactively without --force."
                     )
                     raise typer.Exit(1)
@@ -266,13 +263,13 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
         # 2. Check distribution of the existing app package
         actual_distribution = self.get_app_pkg_distribution_in_snowflake
         if not self.verify_project_distribution(actual_distribution):
-            print(
+            cc.step(
                 f"Continuing to execute `snow app version drop` on app pkg {self.package_name} with distribution '{actual_distribution}'."
             )
 
         # 3. If the user did not pass in a version string, determine from manifest.yml
         if not version:
-            log.info(
+            cc.step(
                 dedent(
                     f"""\
                         Version was not provided through the CLI. Checking version in the manifest.yml instead.
@@ -287,7 +284,7 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
                     "Manifest.yml file does not contain a value for the version field."
                 )
 
-        print(
+        cc.step(
             dedent(
                 f"""\
                     About to drop version {version} of application package {self.package_name}.
@@ -301,10 +298,10 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
         )
         if not policy.should_proceed(user_prompt):
             if is_interactive:
-                print("Not dropping version.")
+                cc.step("Not dropping version.")
                 raise typer.Exit(0)
             else:
-                print("Cannot drop version non-interactively without --force.")
+                cc.step("Cannot drop version non-interactively without --force.")
                 raise typer.Exit(1)
 
         # Drop the version
@@ -316,6 +313,6 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
             except ProgrammingError as err:
                 raise err  # e.g. version is referenced in a release directive(s)
 
-        print(
+        cc.step(
             f"Version {version} of application package {self.package_name} dropped successfully."
         )

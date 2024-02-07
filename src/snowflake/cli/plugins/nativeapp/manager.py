@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import logging
 from abc import ABC, abstractmethod
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
 from typing import Dict, List, Optional
 
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.definition import (
     default_app_package,
@@ -40,8 +40,6 @@ from snowflake.cli.plugins.object.stage.diff import (
 )
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
-
-log = logging.getLogger(__name__)
 
 
 def generic_sql_error_handler(
@@ -233,7 +231,7 @@ class NativeAppManager(SqlExecutionMixin):
         )
         project_def_distribution = self.package_distribution.lower()
         if actual_distribution != project_def_distribution:
-            log.warning(
+            cc.warning(
                 dedent(
                     f"""\
                     App pkg {self.package_name} in your Snowflake account has distribution property {actual_distribution},
@@ -258,7 +256,7 @@ class NativeAppManager(SqlExecutionMixin):
 
         # Does a stage already exist within the app pkg, or we need to create one?
         # Using "if not exists" should take care of either case.
-        log.info("Checking if stage exists, or creating a new one if none exists.")
+        cc.step("Checking if stage exists, or creating a new one if none exists.")
         with self.use_role(role):
             self._execute_query(
                 f"create schema if not exists {self.package_name}.{self.stage_schema}"
@@ -271,24 +269,27 @@ class NativeAppManager(SqlExecutionMixin):
             )
 
         # Perform a diff operation and display results to the user for informational purposes
-        log.info(
-            'Performing a diff between the Snowflake stage and your local deploy_root ("%s") directory.',
-            self.deploy_root,
+        cc.step(
+            "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
+            % self.deploy_root
         )
         diff: DiffResult = stage_diff(self.deploy_root, self.stage_fqn)
-        log.info("Listing results of diff:")
-        log.info("New files only on your local: %s", ",".join(diff.only_local))
-        log.info("New files only on the stage: %s", ",".join(diff.only_on_stage))
-        log.info(
-            "Existing files modified or status unknown: %s", ",".join(diff.different)
-        )
-        log.info("Existing files identical to the stage: %s", ",".join(diff.identical))
+        with cc.phase("Listing results of diff:"):
+            cc.step("New files only on your local: %s" % ",".join(diff.only_local))
+            cc.step("New files only on the stage: %s" % ",".join(diff.only_on_stage))
+            cc.step(
+                "Existing files modified or status unknown: %s"
+                % ",".join(diff.different),
+            )
+            cc.step(
+                "Existing files identical to the stage: %s" % ",".join(diff.identical)
+            )
 
         # Upload diff-ed files to app pkg stage
         if diff.has_changes():
-            log.info(
-                "Uploading diff-ed files from your local %s directory to the Snowflake stage.",
-                self.deploy_root,
+            cc.step(
+                "Uploading diff-ed files from your local %s directory to the Snowflake stage."
+                % self.deploy_root,
             )
             sync_local_diff_with_stage(
                 role=role,
