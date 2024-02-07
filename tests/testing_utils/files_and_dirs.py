@@ -27,12 +27,13 @@ def _write_to_file(path: str, contents: List[str]) -> None:
 
 def assert_file_permissions_are_strict(file_path: Path) -> None:
     ACCESSIBLE_BY_OTHERS = (
-        stat.S_IRGRP
-        | stat.S_IROTH
-        | stat.S_IWGRP
-        | stat.S_IWOTH
-        | stat.S_IXGRP
-        | stat.S_IXOTH
+        # https://docs.python.org/3/library/stat.html
+        stat.S_IRGRP  # readable by group
+        | stat.S_IROTH  # readable by others
+        | stat.S_IWGRP  # writeable by group
+        | stat.S_IWOTH  # writeable by others
+        | stat.S_IXGRP  # executable by group
+        | stat.S_IXOTH  # executable by group
     )
     assert (file_path.stat().st_mode & ACCESSIBLE_BY_OTHERS) == 0
 
