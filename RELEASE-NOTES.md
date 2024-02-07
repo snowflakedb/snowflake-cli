@@ -9,8 +9,10 @@
 * Added convenience function `spcs image-repository url <repo_name>`.
 * Added `suspend` and `resume` commands for `spcs compute-pool`.
 
+* Added `create` command to `spcs image-repository`.
 ## Fixes and improvements
 * Restricted permissions of automatically created files
+* Fixed bug where `spcs service create` would not throw error if service with specified name already exists.
 
 
 # v2.0.0

@@ -2,7 +2,7 @@ import pytest
 from snowflake.cli.api.project.util import escape_like_pattern
 
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
-from tests_integration.testing_utils.naming_utils import ObjectNameProvider
+from tests_integration.testing_utils import ObjectNameProvider
 
 INTEGRATION_DATABASE = "SNOWCLI_DB"
 INTEGRATION_SCHEMA = "PUBLIC"
@@ -80,3 +80,15 @@ def test_get_repo_url(runner, snowflake_session, test_database):
     )
     assert isinstance(result.output, str), result.output
     assert result.output.strip() == expect_url
+
+
+@pytest.mark.integration
+def test_create_image_repository(runner, test_database):
+    repo_name = ObjectNameProvider("test_repo").create_and_get_next_object_name()
+    result = runner.invoke_with_connection_json(
+        ["spcs", "image-repository", "create", repo_name]
+    )
+    assert isinstance(result.json, dict), result.output
+    assert result.json == {
+        "status": f"Image Repository {repo_name.upper()} successfully created."
+    }

@@ -2,12 +2,15 @@ from typing import Dict
 from urllib.parse import urlparse
 
 from click import ClickException
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.project.util import (
     escape_like_pattern,
     is_valid_unquoted_identifier,
 )
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.plugins.spcs.common import handle_object_already_exists
 from snowflake.connector.cursor import DictCursor
+from snowflake.connector.errors import ProgrammingError
 
 
 class ImageRepositoryManager(SqlExecutionMixin):
@@ -71,3 +74,9 @@ class ImageRepositoryManager(SqlExecutionMixin):
         path = parsed_url.path
 
         return f"{scheme}://{host}/v2{path}"
+
+    def create(self, name: str):
+        try:
+            return self._execute_schema_query(f"create image repository {name}")
+        except ProgrammingError as e:
+            handle_object_already_exists(e, ObjectType.IMAGE_REPOSITORY, name)
