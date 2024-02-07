@@ -9,6 +9,7 @@ from snowflake.cli.api.config import (
 from snowflake.cli.api.exceptions import MissingConfiguration
 
 from tests.testing_utils.fixtures import *
+from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
 
 
 def test_empty_config_file_is_created_if_not_present():
@@ -18,6 +19,8 @@ def test_empty_config_file_is_created_if_not_present():
 
         config_init(config_file)
         assert config_file.exists() is True
+
+        assert_file_permissions_are_strict(config_file)
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
