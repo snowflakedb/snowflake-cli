@@ -7,6 +7,7 @@
 * Introduced `snowflake.cli.api.console.cli_console` object with helper methods for intermediate output.
 
 ## Fixes and improvements
+* Restricted permissions of automatically created files
 
 
 # v2.0.0

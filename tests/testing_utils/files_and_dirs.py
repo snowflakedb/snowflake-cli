@@ -4,6 +4,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, Generator, List, Union
 
+import stat
+
 
 def create_temp_file(suffix: str, dir: str, contents: List[str]) -> str:
     with tempfile.NamedTemporaryFile(suffix=suffix, dir=dir, delete=False) as tmp:
@@ -21,6 +23,19 @@ def _write_to_file(path: str, contents: List[str]) -> None:
     with open(path, "w") as new_file:
         for line in contents:
             new_file.write(line + "\n")
+
+
+def assert_file_permissions_are_strict(file_path: Path) -> None:
+    ACCESSIBLE_BY_OTHERS = (
+        # https://docs.python.org/3/library/stat.html
+        stat.S_IRGRP  # readable by group
+        | stat.S_IROTH  # readable by others
+        | stat.S_IWGRP  # writeable by group
+        | stat.S_IWOTH  # writeable by others
+        | stat.S_IXGRP  # executable by group
+        | stat.S_IXOTH  # executable by group
+    )
+    assert (file_path.stat().st_mode & ACCESSIBLE_BY_OTHERS) == 0
 
 
 @contextmanager
