@@ -72,9 +72,9 @@ class SqlExecutionMixin:
             if is_different_role:
                 self._execute_query(f"use role {prev_role}")
 
-    def _execute_schema_query(self, query: str):
+    def _execute_schema_query(self, query: str, **kwargs):
         self.check_database_and_schema()
-        return self._execute_query(query)
+        return self._execute_query(query, **kwargs)
 
     def check_database_and_schema(self) -> None:
         database = self._conn.database

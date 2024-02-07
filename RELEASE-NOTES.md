@@ -5,6 +5,7 @@
 ## New additions
 * Added ability to specify scope of the `object list` command with the `--in <scope_type> <scope_name>` option.
 * Introduced `snowflake.cli.api.console.cli_console` object with helper methods for intermediate output.
+* Added convenience function `spcs image-repository url <repo_name>`.
 
 ## Fixes and improvements
 * Restricted permissions of automatically created files
