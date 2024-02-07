@@ -93,7 +93,7 @@ def status(
     return QueryJsonValueResult(cursor)
 
 
-@app.command()
+@app.command(requires_connection=True)
 def logs(
     name: str = typer.Argument(..., help="Name of the service."),
     container_name: str = typer.Option(
