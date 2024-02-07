@@ -42,7 +42,7 @@ class ImageRepositoryManager(SqlExecutionMixin):
         colored_repo_name = click.style(f"'{repo_name}'", fg="green")
         if len(results) == 0:
             raise ClickException(
-                f"Image repository {colored_repo_name} does not exist or not authorized."
+                f"Image repository {colored_repo_name} does not exist in database {self.get_database()} and schema {self.get_schema()} or not authorized."
             )
         elif len(results) > 1:
             raise ClickException(

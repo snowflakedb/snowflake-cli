@@ -1,3 +1,4 @@
+import snowflake.cli.plugins.spcs.image_repository.manager
 from tests.testing_utils.fixtures import *
 import json
 from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
@@ -148,7 +149,10 @@ def test_get_repository_row(mock_execute, mock_cursor):
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
 )
-def test_get_repository_row_no_repo_found(mock_execute, mock_cursor):
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
+)
+def test_get_repository_row_no_repo_found(mock_execute, mock_connection, mock_cursor):
     mock_execute.return_value = mock_cursor(
         rows=[],
         columns=MOCK_COLUMNS,
@@ -156,7 +160,7 @@ def test_get_repository_row_no_repo_found(mock_execute, mock_cursor):
 
     with pytest.raises(ClickException) as expected_error:
         ImageRepositoryManager().get_repository_row("IMAGES")
-    assert "does not exist or not authorized" in expected_error.value.message
+    assert "does not exist in database" in expected_error.value.message
 
 
 @mock.patch(
