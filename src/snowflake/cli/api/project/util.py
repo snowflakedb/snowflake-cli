@@ -143,3 +143,15 @@ def validate_version(version: str):
         raise ValueError(
             f"Project definition version {version} is not supported by this version of Snowflake CLI. Supported versions: {SUPPORTED_VERSIONS}"
         )
+
+
+def escape_like_pattern(pattern: str, escape_sequence: str = r"\\") -> str:
+    """
+    When used with LIKE in Snowflake, '%' and '_' are wildcard characters and must be escaped to be used literally.
+    The escape character is '\\' when used in SHOW LIKE and must be specified when used with string matching using the
+    following syntax: <subject> LIKE <pattern> [ ESCAPE <escape> ].
+    """
+    pattern = pattern.replace("%", rf"{escape_sequence}%").replace(
+        "_", rf"{escape_sequence}_"
+    )
+    return pattern

@@ -9,7 +9,8 @@ from snowflake.cli.api.commands.decorators import (
     with_output,
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
-from snowflake.cli.api.output.types import CollectionResult
+from snowflake.cli.api.output.types import CollectionResult, MessageResult
+from snowflake.cli.api.project.util import is_valid_unquoted_identifier
 from snowflake.cli.plugins.spcs.image_registry.manager import RegistryManager
 from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
 
@@ -21,13 +22,25 @@ app = typer.Typer(
 )
 
 
+def _repo_name_callback(name: str):
+    if not is_valid_unquoted_identifier(name):
+        raise ClickException(
+            "Repository name must be a valid unquoted identifier. Quoted names for special characters or case-sensitive names are not supported for image repositories."
+        )
+    return name
+
+
+REPO_NAME_ARGUMENT = typer.Argument(
+    help="Name of the image repository. Only unquoted identifiers are supported for image repositories.",
+    callback=_repo_name_callback,
+)
+
+
 @app.command("list-images")
 @with_output
 @global_options_with_connection
 def list_images(
-    repo_name: str = typer.Argument(
-        help="Name of the image repository shown by the `SHOW IMAGE REPOSITORIES` SQL command.",
-    ),
+    repo_name: str = REPO_NAME_ARGUMENT,
     **options,
 ) -> CollectionResult:
     """Lists images in given repository."""
@@ -72,9 +85,7 @@ def list_images(
 @with_output
 @global_options_with_connection
 def list_tags(
-    repo_name: str = typer.Argument(
-        help="Name of the image repository shown by the `SHOW IMAGE REPOSITORIES` SQL command.",
-    ),
+    repo_name: str = REPO_NAME_ARGUMENT,
     image_name: str = typer.Option(
         ...,
         "--image_name",
@@ -119,3 +130,20 @@ def list_tags(
         tags_list.append({"tag": image_tag})
 
     return CollectionResult(tags_list)
+
+
+@app.command("url")
+@with_output
+@global_options_with_connection
+def repo_url(
+    repo_name: str = REPO_NAME_ARGUMENT,
+    **options,
+):
+    """Returns the URL for the given repository."""
+    return MessageResult(
+        (
+            ImageRepositoryManager().get_repository_url(
+                repo_name=repo_name, with_scheme=False
+            )
+        )
+    )

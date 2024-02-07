@@ -7,6 +7,7 @@ from snowflake.cli.api.project.util import (
     is_valid_unquoted_identifier,
     to_identifier,
     to_string_literal,
+    escape_like_pattern,
 )
 
 VALID_UNQUOTED_IDENTIFIERS = (
@@ -162,3 +163,17 @@ def test_is_valid_string_literal(literal, valid):
 )
 def test_to_string_literal(raw_string, literal):
     assert to_string_literal(raw_string) == literal
+
+
+@pytest.mark.parametrize(
+    "raw_string, escaped",
+    [
+        (r"underscore_table", r"underscore\\_table"),
+        (r"percent%%table", r"percent\\%\\%table"),
+        (r"__many__under__scores__", r"\\_\\_many\\_\\_under\\_\\_scores\\_\\_"),
+        (r"mixed_underscore%percent", r"mixed\\_underscore\\%percent"),
+        (r"regular$table", r"regular$table"),
+    ],
+)
+def test_escape_like_pattern(raw_string, escaped):
+    assert escape_like_pattern(raw_string) == escaped
