@@ -127,6 +127,21 @@ def test_show_specific_object(mock_execute, mock_cursor):
 
 
 @mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
+def test_show_specific_object_in_clause(mock_execute, mock_cursor):
+    mock_columns = ["name", "created_on"]
+    mock_row_dict = {c: r for c, r in zip(mock_columns, ["AbcDef", "dummy"])}
+    cursor = mock_cursor(rows=[mock_row_dict], columns=mock_columns)
+    mock_execute.return_value = cursor
+    result = SqlExecutionMixin().show_specific_object(
+        "objects", '"AbcDef"', in_clause="in database mydb"
+    )
+    mock_execute.assert_called_once_with(
+        r"show objects like 'AbcDef' in database mydb", cursor_class=DictCursor
+    )
+    assert result == mock_row_dict
+
+
+@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
 def test_show_specific_object_no_match(mock_execute, mock_cursor):
     mock_columns = ["id", "created_on"]
     mock_row_dict = {c: r for c, r in zip(mock_columns, ["OTHER_ID", "dummy"])}
