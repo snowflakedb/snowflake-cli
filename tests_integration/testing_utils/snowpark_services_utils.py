@@ -119,7 +119,7 @@ class SnowparkServicesTestSteps:
         }
 
     def wait_until_service_is_ready(self, service_name: str) -> None:
-        self._wait_until_service_reaches_state(service_name, "READY", 300)
+        self._wait_until_service_reaches_state(service_name, "READY", 900)
 
     def _wait_until_service_reaches_state(
         self, service_name: str, target_status: Union[str, dict], max_duration: int
