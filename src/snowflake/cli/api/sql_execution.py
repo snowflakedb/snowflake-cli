@@ -147,12 +147,16 @@ class SqlExecutionMixin:
     def show_specific_object(
         self,
         object_type_plural: str,
-        object_name: str,
+        unqualified_name: str,
         name_col: str = "name",
         in_clause: str = "",
     ) -> Optional[dict]:
-        # TODO: deal with fully-qualified names
-        show_obj_query = f"show {object_type_plural} like {identifier_to_show_like_pattern(object_name)} {in_clause}".strip()
+        """
+        Executes a "show <objects> like" query for a particular entity with a
+        given (unqualified) name. This command is useful when the corresponding
+        "describe <object>" query does not provide the information you seek.
+        """
+        show_obj_query = f"show {object_type_plural} like {identifier_to_show_like_pattern(unqualified_name)} {in_clause}".strip()
         show_obj_cursor = self._execute_query(  # type: ignore
             show_obj_query, cursor_class=DictCursor
         )
@@ -160,6 +164,6 @@ class SqlExecutionMixin:
             raise SnowflakeSQLExecutionError(show_obj_query)
         show_obj_row = find_first_row(
             show_obj_cursor,
-            lambda row: row[name_col] == unquote_identifier(object_name),
+            lambda row: row[name_col] == unquote_identifier(unqualified_name),
         )
         return show_obj_row
