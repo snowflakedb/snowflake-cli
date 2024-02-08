@@ -1,4 +1,5 @@
 import logging
+import shutil
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional, Union
@@ -94,6 +95,31 @@ class SecurePath:
         ) as fd:
             yield fd
         log.info("Closing file %s", self._path)
+
+    def copy(self, destination: Union[Path, str]) -> "SecurePath":
+        destination = Path(destination)
+        if destination.exists():
+            if destination.is_dir():
+                destination = destination / self._path.name
+            if destination.exists():
+                raise FileExistsError(destination)
+
+        self._assert_exists()
+        if self._path.is_file():
+            log.info("Copying file %s into %s", self._path, destination)
+            shutil.copyfile(str(self._path), str(destination))
+        elif self._path.is_dir():
+            log.info("Copying directory %s into %s", self._path, destination)
+            shutil.copytree(
+                str(self._path),
+                str(destination),
+                dirs_exist_ok=False,
+                copy_function=shutil.copy,
+            )
+        else:
+            raise NotImplementedError
+
+        return SecurePath(destination)
 
     def _assert_exists_and_is_file(self) -> None:
         self._assert_exists()

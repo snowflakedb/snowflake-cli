@@ -136,3 +136,37 @@ def test_permissions(temp_dir, save_logs):
     )
     assert "file2.txt to 0o660" in logs
     assert logs.count("file1.txt") == 1 and logs.count("file2.txt") == 2
+
+
+def test_copy_file(temp_dir, save_logs):
+    file = SecurePath(temp_dir) / "file.txt"
+    file.touch()
+    file.chmod(permissions_mask=0o660)
+
+    # copy into file
+    dest = Path(temp_dir) / "file.copy.txt"
+    file.copy(dest)
+    assert dest.exists()
+    # copying should restrict permissions
+    assert_file_permissions_are_strict(dest)
+
+    # copy into directory
+    dest = Path(temp_dir) / "a_directory"
+    dest.mkdir()
+    dest.chmod(0o771)
+    copied_file = file.copy(dest)
+    assert copied_file.path.exists()
+    assert_file_permissions_are_strict(copied_file.path)
+
+    logs = _read_logs(save_logs)
+    assert logs.count("INFO [snowflake.cli.api.secure_path] Copying file") == 2
+
+
+def test_copy_directory(temp_dir, save_logs):
+    # create src directory
+    src = Path(temp_dir) / "src"
+    subdir = src / "subdir"
+    subsubdir = subdir / "subsubdir"
+    subsubdir.mkdir(parents=True)
+    src.chmod(0o770)
+    # TODO: this test
