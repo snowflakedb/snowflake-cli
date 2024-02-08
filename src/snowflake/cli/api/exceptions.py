@@ -94,3 +94,10 @@ class SecretsWithoutExternalAccessIntegrationError(ClickException):
         super().__init__(
             f"{object_name} defined with secrets but without external integration."
         )
+
+
+class FileTooLargeError(ClickException):
+    def __init__(self, path, size_limit_in_kb):
+        super().__init__(
+            f"File {path} is too large (size limit: {size_limit_in_kb} KB)"
+        )
