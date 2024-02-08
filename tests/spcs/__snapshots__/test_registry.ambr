@@ -1,4 +1,28 @@
 # serializer version: 1
+# name: test_docker_registry_login_cli
+  '''
+  Login Succeeded
+  
+  '''
+# ---
+# name: test_docker_registry_login_cli_no_repositories
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ No image repository found. To login to your image registry, please switch to │
+  │ a role with read access to at least one image repository or create a new     │
+  │ image repository first.                                                      │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_docker_registry_login_cli_subprocess_error
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Login Failed: Docker Failed                                                  │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
 # name: test_get_registry_url_no_repositories_cli
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
