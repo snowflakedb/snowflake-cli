@@ -1,5 +1,4 @@
 from textwrap import dedent
-from unittest.mock import Mock
 from snowflake.cli.plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     NAME_COL,
@@ -13,7 +12,6 @@ from snowflake.cli.plugins.nativeapp.manager import (
 )
 from snowflake.cli.plugins.object.stage.diff import DiffResult
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.patch_utils import (
