@@ -184,13 +184,24 @@ Next work...
 from snowflake.cli.api.console import cli_console as cc
 
 def my_command():
-    cc.step("First step...")
-    with cc.phase("Long sequence of actions"):
-        cc.step("Phased step 1")
-        cc.step("Phased step 2")
-        if something_important:
-            cc.warning("It's important")
-    cc.step("Final step")
+    cc.step("Building and publishing the application")
+    prepare_data_for_processing()
+
+    with cc.phase(
+      enter_message="Building app bundle...",
+      exit_message="Application bundle created.",
+    ):
+        try:
+          cc.step("Building package artifact")
+          make_archive_bundle()
+        except BundleSizeWarning:
+          cc.warning("Bundle size is large. It may take some time to upload.")
+
+        cc.step("Uploading bundle")
+        upload_bundle()
+
+    cc.step("Publishing application")
+    publish_application()
 ```
 
 #### Output
@@ -198,12 +209,13 @@ def my_command():
 ```bash
 > snow my_command
 
-First step...
-Long sequence of actions
-  Phased step 1
-  Phased step 2
-  __It's important__
-Final step
+Building and publishing the application
+Building app bundle...
+  Building package artifact
+  __Bundle size is large. It may take some time to upload.__
+  Uploading bundle
+Application bundle created.
+Publishing application
 ```
 
 ## Known issues
