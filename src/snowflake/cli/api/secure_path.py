@@ -1,5 +1,4 @@
 import logging
-import os
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional, Union
@@ -15,24 +14,36 @@ class SecurePath:
     def __init__(self, path: Union[Path, str]):
         self._path = Path(path)
 
+    def __repr__(self):
+        return f'SecurePath("{self._path}")'
+
     def __truediv__(self, key):
         return SecurePath(self._path / key)
 
     @property
-    def path(self):
+    def parent(self):
+        return SecurePath(self._path.parent)
+
+    @property
+    def path(self) -> Path:
         return self._path
 
+    def exists(self) -> bool:
+        return self._path.exists()
+
     def chmod(self, permissions_mask: int) -> None:
+        log.info(
+            "Update permissions of file %s to %s", self._path, oct(permissions_mask)
+        )
         # TODO: windows
         self._path.chmod(permissions_mask)
-
-    def chown(self, user_id: int, group_id: int) -> None:
-        os.chown(self._path, user_id, group_id)
 
     def touch(self, permissions_mask: int = 0o600, exist_ok: bool = True) -> None:
         """
         Create a file at this given path. For details, check pathlib.Path.touch()
         """
+        if not self.exists():
+            log.info("Creating file %s", str(self._path))
         self._path.touch(mode=permissions_mask, exist_ok=exist_ok)
 
     def read_text(self, file_size_limit_kb: int, encoding=None, errors=None) -> str:

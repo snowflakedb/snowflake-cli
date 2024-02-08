@@ -1,3 +1,5 @@
+import stat
+
 import pytest
 
 from snowflake.cli.api import secure_path
@@ -95,3 +97,41 @@ def test_open_read(temp_dir, save_logs):
     with pytest.raises(IsADirectoryError):
         with SecurePath(save_logs).open("r", read_file_limit_kb=100):
             pass
+
+
+def test_navigation():
+    p = SecurePath("a/b/c")
+    assert str(p / "b" / "c" / "d" / "e") == 'SecurePath("a/b/c/b/c/d/e")'
+    assert str(p.parent.parent) == 'SecurePath("a")'
+
+
+def test_permissions(temp_dir, save_logs):
+    s_temp_dir = SecurePath(temp_dir)
+    # test default permissions
+    file1 = s_temp_dir / "file1.txt"
+    file1.touch()
+    assert_file_permissions_are_strict(file1.path)
+
+    # permissions cannot be widened by touch() due to os.umask
+    file2 = s_temp_dir / "file2.txt"
+    file2.touch(permissions_mask=0o600)
+    assert_file_permissions_are_strict(file2.path)
+    # but can be widened using chmod
+    file2.chmod(permissions_mask=0o660)
+    writable_and_readable_by_group = stat.S_IRGRP | stat.S_IWGRP
+    assert (
+        file2.path.stat().st_mode & writable_and_readable_by_group
+        == writable_and_readable_by_group
+    )
+
+    with pytest.raises(FileExistsError):
+        file1.touch(exist_ok=False)
+
+    logs = _read_logs(save_logs)
+    assert logs.count("INFO [snowflake.cli.api.secure_path] Creating file") == 2
+    assert (
+        logs.count("INFO [snowflake.cli.api.secure_path] Update permissions of file")
+        == 1
+    )
+    assert "file2.txt to 0o660" in logs
+    assert logs.count("file1.txt") == 1 and logs.count("file2.txt") == 2
