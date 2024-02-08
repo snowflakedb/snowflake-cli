@@ -1,6 +1,9 @@
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from unittest import mock
+from snowflake.connector.cursor import DictCursor
+from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 
 import pytest
 
@@ -105,4 +108,46 @@ def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
         schema="schemanameValue",
         role="rolenameValue",
         password="passFromTest",
+    )
+
+
+@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
+def test_show_specific_object(mock_execute, mock_cursor):
+    mock_columns = ["id", "created_on"]
+    mock_row_dict = {c: r for c, r in zip(mock_columns, ["EXAMPLE_ID", "dummy"])}
+    cursor = mock_cursor(rows=[mock_row_dict], columns=mock_columns)
+    mock_execute.return_value = cursor
+    result = SqlExecutionMixin().show_specific_object(
+        "objects", "example_id", name_col="id"
+    )
+    mock_execute.assert_called_once_with(
+        r"show objects like 'EXAMPLE\\_ID'", cursor_class=DictCursor
+    )
+    assert result == mock_row_dict
+
+
+@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
+def test_show_specific_object_no_match(mock_execute, mock_cursor):
+    mock_columns = ["id", "created_on"]
+    mock_row_dict = {c: r for c, r in zip(mock_columns, ["OTHER_ID", "dummy"])}
+    cursor = mock_cursor(rows=[mock_row_dict], columns=mock_columns)
+    mock_execute.return_value = cursor
+    result = SqlExecutionMixin().show_specific_object(
+        "objects", "example_id", name_col="id"
+    )
+    mock_execute.assert_called_once_with(
+        r"show objects like 'EXAMPLE\\_ID'", cursor_class=DictCursor
+    )
+    assert result == None
+
+
+@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
+def test_show_specific_object_sql_execution_error(mock_execute):
+    cursor = mock.Mock(spec=DictCursor)
+    cursor.rowcount = None
+    mock_execute.return_value = cursor
+    with pytest.raises(SnowflakeSQLExecutionError):
+        SqlExecutionMixin().show_specific_object("objects", "example_id", name_col="id")
+    mock_execute.assert_called_once_with(
+        r"show objects like 'EXAMPLE\\_ID'", cursor_class=DictCursor
     )

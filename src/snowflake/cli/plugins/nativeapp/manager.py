@@ -15,7 +15,6 @@ from snowflake.cli.api.project.definition import (
 )
 from snowflake.cli.api.project.util import (
     extract_schema,
-    identifier_to_show_like_pattern,
     to_identifier,
     unquote_identifier,
 )
@@ -33,14 +32,12 @@ from snowflake.cli.plugins.nativeapp.constants import (
     OWNER_COL,
 )
 from snowflake.cli.plugins.nativeapp.exceptions import UnexpectedOwnerError
-from snowflake.cli.plugins.nativeapp.utils import find_first_row
 from snowflake.cli.plugins.object.stage.diff import (
     DiffResult,
     stage_diff,
     sync_local_diff_with_stage,
 )
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import DictCursor
 
 log = logging.getLogger(__name__)
 
@@ -99,30 +96,7 @@ class NativeAppCommandProcessor(ABC):
         pass
 
 
-class FindObjectRowMixin:
-    def __init__(self):
-        if not isinstance(self, SqlExecutionMixin):
-            raise TypeError(
-                "FindObjectRowMixin can only be used with classes that also mix in SqlExecutionMixin."
-            )
-
-    def find_row_by_object_name(
-        self, object_type_plural: str, object_name: str, name_col: str = "name"
-    ) -> Optional[dict]:
-        show_obj_query = f"show {object_type_plural} like {identifier_to_show_like_pattern(object_name)}"
-        show_obj_cursor = self._execute_query(  # type: ignore
-            show_obj_query, cursor_class=DictCursor
-        )
-        if show_obj_cursor.rowcount is None:
-            raise SnowflakeSQLExecutionError(show_obj_query)
-        show_obj_row = find_first_row(
-            show_obj_cursor,
-            lambda row: row[name_col] == unquote_identifier(object_name),
-        )
-        return show_obj_row
-
-
-class NativeAppManager(SqlExecutionMixin, FindObjectRowMixin):
+class NativeAppManager(SqlExecutionMixin):
     """
     Base class with frequently used functionality already implemented and ready to be used by related subclasses.
     """
@@ -328,7 +302,9 @@ class NativeAppManager(SqlExecutionMixin, FindObjectRowMixin):
         It executes a 'show applications like' query and returns the result as single row, if one exists.
         """
         with self.use_role(self.app_role):
-            return self.find_row_by_object_name("applications", self.app_name, NAME_COL)
+            return self.show_specific_object(
+                "applications", self.app_name, name_col=NAME_COL
+            )
 
     def get_existing_app_pkg_info(self) -> Optional[dict]:
         """
@@ -337,8 +313,8 @@ class NativeAppManager(SqlExecutionMixin, FindObjectRowMixin):
         """
 
         with self.use_role(self.package_role):
-            return self.find_row_by_object_name(
-                "application packages", self.package_name, NAME_COL
+            return self.show_specific_object(
+                "application packages", self.package_name, name_col=NAME_COL
             )
 
     def get_snowsight_url(self) -> str:

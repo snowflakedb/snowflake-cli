@@ -7,7 +7,6 @@ import typer
 from click import UsageError
 from rich import print
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
-from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.plugins.nativeapp.constants import (
     COMMENT_COL,
     INTERNAL_DISTRIBUTION,
@@ -29,11 +28,10 @@ from snowflake.cli.plugins.nativeapp.manager import (
     generic_sql_error_handler,
 )
 from snowflake.cli.plugins.nativeapp.policy import PolicyBase
-from snowflake.cli.plugins.nativeapp.utils import find_first_row
 from snowflake.cli.plugins.object.stage.diff import DiffResult
 from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import DictCursor, SnowflakeCursor
+from snowflake.connector.cursor import SnowflakeCursor
 
 UPGRADE_RESTRICTION_CODES = {93044, 93055, 93045, 93046}
 
@@ -227,11 +225,12 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         It executes a 'show versions like ... in application package' query and returns the result as single row, if one exists.
         """
         with self.use_role(self.package_role):
-            show_obj_query = f"show versions like '{unquote_identifier(version)}' in application package {self.package_name}"
-
             try:
-                show_obj_cursor = self._execute_query(
-                    show_obj_query, cursor_class=DictCursor
+                version_obj = self.show_specific_object(
+                    "versions",
+                    version,
+                    name_col=VERSION_COL,
+                    in_clause=f"in application package {self.package_name}",
                 )
             except ProgrammingError as err:
                 if err.msg.__contains__("does not exist or not authorized"):
@@ -239,15 +238,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 else:
                     generic_sql_error_handler(err=err, role=self.package_role)
 
-            if show_obj_cursor.rowcount is None:
-                raise SnowflakeSQLExecutionError(show_obj_query)
-
-            show_obj_row = find_first_row(
-                show_obj_cursor,
-                lambda row: row[VERSION_COL] == unquote_identifier(version),
-            )
-
-            return show_obj_row
+            return version_obj
 
     def drop_application_before_upgrade(self, policy: PolicyBase, is_interactive: bool):
         """
