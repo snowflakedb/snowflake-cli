@@ -4,10 +4,9 @@ from distutils.dir_util import copy_tree
 from pathlib import PosixPath
 from unittest.mock import MagicMock, mock_open, patch
 
+import snowflake.cli.plugins.snowpark.package.utils
 import typer
 from requirements.requirement import Requirement
-
-import snowflake.cli.plugins.snowpark.package.utils
 from snowflake.cli.api.utils import path_utils
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.models import PypiOption
@@ -288,7 +287,7 @@ def test_deduplicate_and_sort_reqs():
 @pytest.mark.parametrize(
     "argument, expected",
     [
-        ("C:\Something\Something Else", "C:\Something\Something Else"),
+        ("C:\\Something\\Something Else", "C:\\Something\\Something Else"),
         (
             "/var/folders/k8/3sdqh3nn4gg7lpr5fz0fjlqw0000gn/T/tmpja15jymq",
             "/var/folders/k8/3sdqh3nn4gg7lpr5fz0fjlqw0000gn/T/tmpja15jymq",

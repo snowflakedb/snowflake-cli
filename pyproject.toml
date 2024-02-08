@@ -42,9 +42,9 @@ classifiers = [
 development = [
   "coverage==7.4.1",
   "pre-commit>=3.5.0",
-  "pytest==7.4.4",
+  "pytest==8.0.0",
   "pytest-randomly==3.15.0",
-  "syrupy==4.6.0",
+  "syrupy==4.6.1",
 ]
 
 [project.urls]
