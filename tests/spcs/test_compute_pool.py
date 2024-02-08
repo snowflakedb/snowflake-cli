@@ -245,7 +245,7 @@ def test_compute_pool_name_callback_invalid(mock_is_valid):
 @patch(
     "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
 )
-def test_set(mock_execute_query):
+def test_set_property(mock_execute_query):
     pool_name = "test_pool"
     min_nodes = 2
     max_nodes = 3
@@ -271,7 +271,7 @@ def test_set(mock_execute_query):
     assert result == cursor
 
 
-def test_set_no_options():
+def test_set_property_no_properties():
     pool_name = "test_pool"
     with pytest.raises(NoPropertiesProvidedError):
         ComputePoolManager().set_property(pool_name, None, None, None, None, None)
@@ -280,7 +280,7 @@ def test_set_no_options():
 @patch(
     "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.set_property"
 )
-def test_set_cli(mock_set, mock_statement_success, runner):
+def test_set_property_cli(mock_set, mock_statement_success, runner):
     cursor = mock_statement_success()
     mock_set.return_value = cursor
     pool_name = "test_pool"
@@ -321,7 +321,7 @@ def test_set_cli(mock_set, mock_statement_success, runner):
 @patch(
     "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.set_property"
 )
-def test_set_no_options_cli(mock_set, runner):
+def test_set_property_no_properties_cli(mock_set, runner):
     pool_name = "test_pool"
     mock_set.side_effect = NoPropertiesProvidedError()
     result = runner.invoke(["spcs", "compute-pool", "set", pool_name])
@@ -340,7 +340,7 @@ def test_set_no_options_cli(mock_set, runner):
 @patch(
     "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
 )
-def test_unset(mock_execute_query):
+def test_unset_property(mock_execute_query):
     pool_name = "test_pool"
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
@@ -352,7 +352,7 @@ def test_unset(mock_execute_query):
     assert result == cursor
 
 
-def test_unset_no_options():
+def test_unset_property_no_properties():
     pool_name = "test_pool"
     with pytest.raises(NoPropertiesProvidedError):
         ComputePoolManager().unset_property(pool_name, False, False, False)
@@ -361,7 +361,7 @@ def test_unset_no_options():
 @patch(
     "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.unset_property"
 )
-def test_unset_cli(mock_unset, mock_statement_success, runner):
+def test_unset_property_cli(mock_unset, mock_statement_success, runner):
     cursor = mock_statement_success()
     mock_unset.return_value = cursor
     pool_name = "test_pool"
@@ -386,7 +386,7 @@ def test_unset_cli(mock_unset, mock_statement_success, runner):
 @patch(
     "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.unset_property"
 )
-def test_unset_no_options_cli(mock_unset, runner):
+def test_unset_property_no_properties_cli(mock_unset, runner):
     pool_name = "test_pool"
     mock_unset.side_effect = NoPropertiesProvidedError()
     result = runner.invoke(["spcs", "compute-pool", "unset", pool_name])
