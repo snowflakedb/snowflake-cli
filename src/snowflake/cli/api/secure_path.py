@@ -1,7 +1,8 @@
 import logging
 import os
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 from snowflake.cli.api.exceptions import FileTooLargeError
 
@@ -14,12 +15,25 @@ class SecurePath:
     def __init__(self, path: Union[Path, str]):
         self._path = Path(path)
 
-    def chmod(self, mask: int) -> None:
+    def __truediv__(self, key):
+        return SecurePath(self._path / key)
+
+    @property
+    def path(self):
+        return self._path
+
+    def chmod(self, permissions_mask: int) -> None:
         # TODO: windows
-        self._path.chmod(mask)
+        self._path.chmod(permissions_mask)
 
     def chown(self, user_id: int, group_id: int) -> None:
         os.chown(self._path, user_id, group_id)
+
+    def touch(self, permissions_mask: int = 0o600, exist_ok: bool = True) -> None:
+        """
+        Create a file at this given path. For details, check pathlib.Path.touch()
+        """
+        self._path.touch(mode=permissions_mask, exist_ok=exist_ok)
 
     def read_text(self, file_size_limit_kb: int, encoding=None, errors=None) -> str:
         """
@@ -29,6 +43,46 @@ class SecurePath:
         self._assert_file_size_limit(file_size_limit_kb)
         log.info("Reading file %s", self._path)
         return self._path.read_text(encoding=encoding, errors=errors)
+
+    @contextmanager
+    def open(  # noqa: A003
+        self,
+        mode="r",
+        read_file_limit_kb: Optional[int] = None,
+        buffering=-1,
+        encoding=None,
+        errors=None,
+        newline=None,
+    ):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        If the file is opened for reading, provide [read_file_limit_kb] parameter.
+        The function check whether the file exists and its size is within the limit.
+        """
+        opened_for_reading = "r" in mode
+        if opened_for_reading:
+            assert (
+                read_file_limit_kb is not None
+            ), "For reading mode ('r') read_file_limit_kb must be provided"
+            self._assert_exists_and_is_file()
+            self._assert_file_size_limit(read_file_limit_kb)
+
+        if self._path.exists():
+            self._assert_is_file()
+        else:
+            self.touch()  # makes sure permissions of freshly-created file are strict
+
+        log.info("Opening file %s in mode '%s'", self._path, mode)
+        with self._path.open(
+            mode=mode,
+            buffering=buffering,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+        ) as fd:
+            yield fd
+        log.info("Closing file %s", self._path)
 
     def _assert_exists_and_is_file(self) -> None:
         self._assert_exists()
