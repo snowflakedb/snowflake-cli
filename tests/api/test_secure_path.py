@@ -42,10 +42,8 @@ def test_read_text(temp_dir, save_logs):
     assert spath.read_text(file_size_limit_kb=secure_path.UNLIMITED) == expected_result
     assert spath.read_text(file_size_limit_kb=100) == expected_result
 
-    assert (
-        _read_logs(save_logs).count("INFO [snowflake.cli.api.secure_path] Reading file")
-        == 2
-    )
+    logs = _read_logs(save_logs)
+    assert logs.count("INFO [snowflake.cli.api.secure_path] Reading file") == 2
 
     # too large file causes an error
     with pytest.raises(FileTooLargeError):
@@ -63,6 +61,8 @@ def test_read_text(temp_dir, save_logs):
 def test_open_write(temp_dir, save_logs):
     path = SecurePath(temp_dir) / "file.txt"
     with path.open("w") as fd:
+        # permissions are limited on freshly-created file
+        assert_file_permissions_are_strict(path.path)
         fd.write("Merlin")
     assert_file_permissions_are_strict(path.path)
     logs = _read_logs(save_logs)
@@ -73,6 +73,7 @@ def test_open_write(temp_dir, save_logs):
 def test_open_read(temp_dir, save_logs):
     path = Path(temp_dir) / "file.txt"
     path.write_text("You play dirty noble knight.")
+
     with SecurePath(path).open("r", read_file_limit_kb=100) as fd:
         assert fd.read() == "You play dirty noble knight."
     with SecurePath(path).open("r", read_file_limit_kb=secure_path.UNLIMITED) as fd:
