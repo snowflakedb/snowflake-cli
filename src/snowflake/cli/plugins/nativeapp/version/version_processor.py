@@ -8,6 +8,10 @@ from click import BadOptionUsage, ClickException
 from rich import print
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.util import unquote_identifier
+from snowflake.cli.api.utils.cursor import (
+    find_all_rows,
+    find_first_row,
+)
 from snowflake.cli.plugins.nativeapp.artifacts import find_version_info_in_manifest_file
 from snowflake.cli.plugins.nativeapp.constants import VERSION_COL
 from snowflake.cli.plugins.nativeapp.exceptions import (
@@ -20,10 +24,6 @@ from snowflake.cli.plugins.nativeapp.manager import (
 )
 from snowflake.cli.plugins.nativeapp.policy import PolicyBase
 from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
-from snowflake.cli.plugins.nativeapp.utils import (
-    find_all_rows,
-    find_first_row,
-)
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 

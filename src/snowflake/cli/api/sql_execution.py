@@ -5,10 +5,16 @@ from contextlib import contextmanager
 from functools import cached_property
 from io import StringIO
 from textwrap import dedent
-from typing import Iterable
+from typing import Iterable, Optional
 
 from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.project.util import (
+    identifier_to_show_like_pattern,
+    unquote_identifier,
+)
+from snowflake.cli.api.utils.cursor import find_first_row
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -137,3 +143,23 @@ class SqlExecutionMixin:
 
         schema = self._conn.schema or "public"
         return f"{self._conn.database}.{schema}.{name}".upper()
+
+    def show_specific_object(
+        self,
+        object_type_plural: str,
+        object_name: str,
+        name_col: str = "name",
+        in_clause: str = "",
+    ) -> Optional[dict]:
+        # TODO: deal with fully-qualified names
+        show_obj_query = f"show {object_type_plural} like {identifier_to_show_like_pattern(object_name)} {in_clause}".strip()
+        show_obj_cursor = self._execute_query(  # type: ignore
+            show_obj_query, cursor_class=DictCursor
+        )
+        if show_obj_cursor.rowcount is None:
+            raise SnowflakeSQLExecutionError(show_obj_query)
+        show_obj_row = find_first_row(
+            show_obj_cursor,
+            lambda row: row[name_col] == unquote_identifier(object_name),
+        )
+        return show_obj_row
