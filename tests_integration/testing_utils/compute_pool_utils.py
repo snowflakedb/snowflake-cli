@@ -92,6 +92,26 @@ class ComputePoolTestSteps:
         )
         assert_that_result_is_successful_and_executed_successfully(result, is_json=True)
 
+    def set_unset_compute_pool_property(self, compute_pool_name: str) -> None:
+        comment = "test comment"
+        set_result = self._setup.runner.invoke_with_connection_json(
+            ["spcs", "compute-pool", "set", compute_pool_name, "--comment", comment]
+        )
+        assert_that_result_is_successful_and_executed_successfully(
+            set_result, is_json=True
+        )
+
+        description = self._execute_describe(compute_pool_name)
+        assert contains_row_with(description.json, {"comment": comment})
+        unset_result = self._setup.runner.invoke_with_connection_json(
+            ["spcs", "compute-pool", "unset", compute_pool_name, "--comment"]
+        )
+        assert_that_result_is_successful_and_executed_successfully(
+            unset_result, is_json=True
+        )
+        description = self._execute_describe(compute_pool_name)
+        assert contains_row_with(description.json, {"comment": None})
+
     def wait_until_compute_pool_is_idle(self, compute_pool_name: str) -> None:
         self._wait_until_compute_pool_reaches_state(compute_pool_name, "IDLE", 300)
 

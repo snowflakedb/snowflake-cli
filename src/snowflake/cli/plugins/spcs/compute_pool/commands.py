@@ -182,20 +182,23 @@ def set_property(
 @global_options_with_connection
 def unset_property(
     name: str = ComputePoolNameArgument,
-    auto_resume: Optional[bool] = typer.Option(  # type: ignore
-        None,
+    auto_resume: bool = typer.Option(  # type: ignore
+        False,
         "--auto-resume",
         help="Reset the AUTO_RESUME property - The compute pool will automatically resume when a service or job is submitted to it.",
+        show_default=False,
     ),
-    auto_suspend_secs: Optional[bool] = typer.Option(
-        None,
+    auto_suspend_secs: bool = typer.Option(
+        False,
         "--auto-suspend-secs",
         help="Reset the AUTO_SUSPEND_SECS property - Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool.",
+        show_default=False,
     ),
-    comment: Optional[bool] = typer.Option(
-        None,
+    comment: bool = typer.Option(
+        False,
         "--comment",
         help="Reset the COMMENT property - Comment for the compute pool.",
+        show_default=False,
     ),
     **options,
 ) -> CommandResult:
