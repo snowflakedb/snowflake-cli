@@ -78,4 +78,5 @@ def comment_option(object_type: str):
         "--comment",
         help=f"Comment for the {object_type}.",
         callback=_comment_callback,
+        show_default=False,
     )
