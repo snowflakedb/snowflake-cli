@@ -1,8 +1,15 @@
 from unittest.mock import Mock, patch
 
 from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
+from snowflake.cli.plugins.spcs.compute_pool.commands import _compute_pool_name_callback
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.cli.api.project.util import to_string_literal
+import json
+import pytest
+
+from click import ClickException
+from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
+from snowflake.cli.api.constants import ObjectType
 
 
 @patch(
@@ -109,11 +116,123 @@ def test_create_pool_cli(mock_create, runner):
 @patch(
     "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
 )
+@patch("snowflake.cli.plugins.spcs.compute_pool.manager.handle_object_already_exists")
+def test_create_repository_already_exists(mock_handle, mock_execute):
+    pool_name = "test_object"
+    mock_execute.side_effect = SPCS_OBJECT_EXISTS_ERROR
+    ComputePoolManager().create(
+        pool_name=pool_name,
+        min_nodes=1,
+        max_nodes=1,
+        instance_family="test_family",
+        auto_resume=False,
+        initially_suspended=True,
+        auto_suspend_secs=7200,
+        comment=to_string_literal("this is a test"),
+    )
+    mock_handle.assert_called_once_with(
+        SPCS_OBJECT_EXISTS_ERROR, ObjectType.COMPUTE_POOL, pool_name
+    )
+
+
+@patch(
+    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+)
 def test_stop(mock_execute_query):
     pool_name = "test_pool"
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
     result = ComputePoolManager().stop(pool_name)
-    expected_query = "alter compute pool test_pool stop all;"
+    expected_query = "alter compute pool test_pool stop all"
     mock_execute_query.assert_called_once_with(expected_query)
     assert result == cursor
+
+
+@patch(
+    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+)
+def test_suspend(mock_execute_query):
+    pool_name = "test_pool"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ComputePoolManager().suspend(pool_name)
+    expected_query = "alter compute pool test_pool suspend"
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch("snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.suspend")
+def test_suspend_cli(mock_suspend, mock_cursor, runner):
+    pool_name = "test_pool"
+    cursor = mock_cursor(
+        rows=[["Statement executed successfully."]], columns=["status"]
+    )
+    mock_suspend.return_value = cursor
+    result = runner.invoke(["spcs", "compute-pool", "suspend", pool_name])
+    mock_suspend.assert_called_once_with(pool_name)
+    assert result.exit_code == 0, result.output
+    assert "Statement executed successfully" in result.output
+
+    cursor_copy = mock_cursor(
+        rows=[["Statement executed successfully."]], columns=["status"]
+    )
+    mock_suspend.return_value = cursor_copy
+    result_json = runner.invoke(
+        ["spcs", "compute-pool", "suspend", pool_name, "--format", "json"]
+    )
+    result_json_parsed = json.loads(result_json.output)
+    assert isinstance(result_json_parsed, dict)
+    assert result_json_parsed == {"status": "Statement executed successfully."}
+
+
+@patch(
+    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+)
+def test_resume(mock_execute_query):
+    pool_name = "test_pool"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ComputePoolManager().resume(pool_name)
+    expected_query = "alter compute pool test_pool resume"
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch("snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.resume")
+def test_resume_cli(mock_resume, mock_cursor, runner):
+    pool_name = "test_pool"
+    cursor = mock_cursor(
+        rows=[["Statement executed successfully."]], columns=["status"]
+    )
+    mock_resume.return_value = cursor
+    result = runner.invoke(["spcs", "compute-pool", "resume", pool_name])
+    mock_resume.assert_called_once_with(pool_name)
+    assert result.exit_code == 0, result.output
+    assert "Statement executed successfully" in result.output
+
+    cursor_copy = mock_cursor(
+        rows=[["Statement executed successfully."]], columns=["status"]
+    )
+    mock_resume.return_value = cursor_copy
+    result_json = runner.invoke(
+        ["spcs", "compute-pool", "resume", pool_name, "--format", "json"]
+    )
+    result_json_parsed = json.loads(result_json.output)
+    assert isinstance(result_json_parsed, dict)
+    assert result_json_parsed == {"status": "Statement executed successfully."}
+
+
+@patch("snowflake.cli.plugins.spcs.compute_pool.commands.is_valid_object_name")
+def test_compute_pool_name_callback(mock_is_valid):
+    name = "test_pool"
+    mock_is_valid.return_value = True
+    assert _compute_pool_name_callback(name) == name
+
+
+@patch("snowflake.cli.plugins.spcs.compute_pool.commands.is_valid_object_name")
+def test_compute_pool_name_callback_invalid(mock_is_valid):
+    name = "test_pool"
+    mock_is_valid.return_value = False
+    with pytest.raises(ClickException) as e:
+        _compute_pool_name_callback(name)
+    assert "is not a valid compute pool name." in e.value.message

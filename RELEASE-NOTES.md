@@ -5,9 +5,14 @@
 ## New additions
 * Added ability to specify scope of the `object list` command with the `--in <scope_type> <scope_name>` option.
 * Introduced `snowflake.cli.api.console.cli_console` object with helper methods for intermediate output.
+* Added new convenience command `spcs image-registry url` to get the URL for your account image registry.
+* Added convenience function `spcs image-repository url <repo_name>`.
+* Added `suspend` and `resume` commands for `spcs compute-pool`.
 
+* Added `create` command to `spcs image-repository`.
 ## Fixes and improvements
 * Restricted permissions of automatically created files
+* Fixed bug where `spcs service create` would not throw error if service with specified name already exists.
 
 
 # v2.0.0

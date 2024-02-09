@@ -1,8 +1,10 @@
-from snowflake.cli.plugins.object.common import _parse_tag, Tag, TagError
+from snowflake.cli.plugins.object.common import (
+    _parse_tag,
+    Tag,
+    TagError,
+)
 from typing import Tuple
 import pytest
-
-from click import ClickException
 
 
 @pytest.mark.parametrize(
