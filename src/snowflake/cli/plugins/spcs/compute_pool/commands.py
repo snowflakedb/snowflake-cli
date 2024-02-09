@@ -6,11 +6,17 @@ from snowflake.cli.api.commands.decorators import (
     global_options_with_connection,
     with_output,
 )
-from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
+from snowflake.cli.api.commands.flags import (
+    DEFAULT_CONTEXT_SETTINGS,
+    OverrideableOption,
+)
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
 from snowflake.cli.api.project.util import is_valid_object_name
-from snowflake.cli.plugins.object.common import comment_option
-from snowflake.cli.plugins.spcs.common import validate_and_set_instances
+from snowflake.cli.plugins.object.common import CommentOption
+from snowflake.cli.plugins.spcs.common import (
+    NoPropertiesProvidedError,
+    validate_and_set_instances,
+)
 from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
 
 app = typer.Typer(
@@ -30,7 +36,35 @@ def _compute_pool_name_callback(name: str) -> str:
 
 
 ComputePoolNameArgument = typer.Argument(
-    ..., help="Name of the compute pool.", callback=_compute_pool_name_callback
+    ...,
+    help="Name of the compute pool.",
+    callback=_compute_pool_name_callback,
+    show_default=False,
+)
+
+
+MinNodesOption = OverrideableOption(
+    1,
+    "--min-nodes",
+    help="Minimum number of nodes for the compute pool.",
+    min=1,
+)
+MaxNodesOption = OverrideableOption(
+    None,
+    "--max-nodes",
+    help="Maximum number of nodes for the compute pool.",
+    min=1,
+)
+AutoResumeOption = OverrideableOption(
+    True,
+    "--auto-resume/--no-auto-resume",
+    help="The compute pool will automatically resume when a service or job is submitted to it.",
+)
+AutoSuspendSecsOption = OverrideableOption(
+    3600,
+    "--auto-suspend-secs",
+    help="Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool.",
+    min=1,
 )
 
 
@@ -39,33 +73,21 @@ ComputePoolNameArgument = typer.Argument(
 @global_options_with_connection
 def create(
     name: str = ComputePoolNameArgument,
-    min_nodes: int = typer.Option(
-        1, "--min-nodes", help="Minimum number of nodes for the compute pool."
-    ),
-    max_nodes: Optional[int] = typer.Option(
-        None, "--max-nodes", help="Maximum number of nodes for the compute pool."
-    ),
+    min_nodes: int = MinNodesOption(),
+    max_nodes: Optional[int] = MaxNodesOption(),
     instance_family: str = typer.Option(
         ...,
         "--family",
         help="Name of the instance family. For more information about instance families, refer to the SQL CREATE COMPUTE POOL command.",
     ),
-    auto_resume: bool = typer.Option(
-        True,
-        "--auto-resume/--no-auto-resume",
-        help="The compute pool will automatically resume when a service or job is submitted to it.",
-    ),
+    auto_resume: bool = AutoResumeOption(),
     initially_suspended: bool = typer.Option(
         False,
         "--init-suspend",
         help="The compute pool will start in a suspended state.",
     ),
-    auto_suspend_secs: int = typer.Option(
-        3600,
-        "--auto-suspend-secs",
-        help="Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool.",
-    ),
-    comment: Optional[str] = comment_option("compute pool"),
+    auto_suspend_secs: int = AutoSuspendSecsOption(),
+    comment: Optional[str] = CommentOption(help="Comment for the compute pool."),
     **options,
 ) -> CommandResult:
     """
@@ -114,3 +136,78 @@ def resume(name: str = ComputePoolNameArgument, **options) -> CommandResult:
     Resumes the compute pool from SUSPENDED state.
     """
     return SingleQueryResult(ComputePoolManager().resume(name))
+
+
+@app.command("set")
+@with_output
+@global_options_with_connection
+def set_property(
+    name: str = ComputePoolNameArgument,
+    min_nodes: Optional[int] = MinNodesOption(default=None, show_default=False),
+    max_nodes: Optional[int] = MaxNodesOption(show_default=False),
+    auto_resume: Optional[bool] = AutoResumeOption(default=None, show_default=False),
+    auto_suspend_secs: Optional[int] = AutoSuspendSecsOption(
+        default=None, show_default=False
+    ),
+    comment: Optional[str] = CommentOption(
+        help="Comment for the compute pool.", show_default=False
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Sets one or more properties or parameters for the compute pool.
+    """
+    try:
+        cursor = ComputePoolManager().set_property(
+            pool_name=name,
+            min_nodes=min_nodes,
+            max_nodes=max_nodes,
+            auto_resume=auto_resume,
+            auto_suspend_secs=auto_suspend_secs,
+            comment=comment,
+        )
+        return SingleQueryResult(cursor)
+    except NoPropertiesProvidedError:
+        raise ClickException(
+            f"No properties specified for compute pool '{name}'. Please provide at least one property to set."
+        )
+
+
+@app.command("unset")
+@with_output
+@global_options_with_connection
+def unset_property(
+    name: str = ComputePoolNameArgument,
+    auto_resume: bool = AutoResumeOption(
+        default=False,
+        help="Reset the AUTO_RESUME property - The compute pool will automatically resume when a service or job is submitted to it.",
+        show_default=False,
+    ),
+    auto_suspend_secs: bool = AutoSuspendSecsOption(
+        default=False,
+        help="Reset the AUTO_SUSPEND_SECS property - Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool.",
+        show_default=False,
+    ),
+    comment: bool = CommentOption(
+        default=False,
+        help="Reset the COMMENT property - Comment for the compute pool.",
+        callback=None,
+        show_default=False,
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Resets one or more properties or parameters for the compute pool to their default value(s).
+    """
+    try:
+        cursor = ComputePoolManager().unset_property(
+            pool_name=name,
+            auto_resume=auto_resume,
+            auto_suspend_secs=auto_suspend_secs,
+            comment=comment,
+        )
+        return SingleQueryResult(cursor)
+    except NoPropertiesProvidedError:
+        raise ClickException(
+            f"No properties specified for compute pool '{name}'. Please provide at least one property to reset to its default value."
+        )
