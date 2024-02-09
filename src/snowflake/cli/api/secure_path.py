@@ -23,20 +23,31 @@ class SecurePath:
 
     @property
     def parent(self):
+        """
+        The logical parent of the path. For details, check pathlib.Path.parent
+        """
         return SecurePath(self._path.parent)
 
     @property
     def path(self) -> Path:
+        """
+        Returns itself in pathlib.Path format
+        """
         return self._path
 
     def exists(self) -> bool:
+        """
+        Return True if the path points to an existing file or directory.
+        """
         return self._path.exists()
 
     def chmod(self, permissions_mask: int) -> None:
+        """
+        Change the file mode and permissions, like os.chmod().
+        """
         log.info(
             "Update permissions of file %s to %s", self._path, oct(permissions_mask)
         )
-        # TODO: windows
         self._path.chmod(permissions_mask)
 
     def touch(self, permissions_mask: int = 0o600, exist_ok: bool = True) -> None:
@@ -49,7 +60,9 @@ class SecurePath:
 
     def read_text(self, file_size_limit_kb: int, encoding=None, errors=None) -> str:
         """
-        Return the decoded contents of the file as a string, performing additional checks.
+        Return the decoded contents of the file as a string.
+        Raises an error of the file exceeds the specified size limit.
+        For details, check pathlib.Path.read_text()
         """
         self._assert_exists_and_is_file()
         self._assert_file_size_limit(file_size_limit_kb)
@@ -69,8 +82,8 @@ class SecurePath:
         """
         Open the file pointed by this path and return a file object, as
         the built-in open() function does.
-        If the file is opened for reading, provide [read_file_limit_kb] parameter.
-        The function check whether the file exists and its size is within the limit.
+        If the file is opened for reading, [read_file_limit_kb] parameter must be provided.
+        Raises error if the read file exceeds the specified size limit.
         """
         opened_for_reading = "r" in mode
         if opened_for_reading:
@@ -97,6 +110,15 @@ class SecurePath:
         log.info("Closing file %s", self._path)
 
     def copy(self, destination: Union[Path, str]) -> "SecurePath":
+        """
+        Copy the file/directory into the destination.
+        If source is a directory, its whole content is copied recursively.
+        Permissions of the copy are limited only to the owner.
+
+        If destination is an existing directory, the copy will be created inside it.
+        Otherwise, the copied file/base directory will be renamed to match destination.
+        If the destination file/directory already exists, FileExistsError will be raised.
+        """
         self._assert_exists()
 
         destination = Path(destination)
