@@ -75,3 +75,7 @@ def handle_object_already_exists(
         )
     else:
         raise error
+
+
+class NoPropertiesProvidedError(ValueError):
+    pass

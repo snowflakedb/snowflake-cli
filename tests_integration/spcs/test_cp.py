@@ -21,6 +21,7 @@ def test_cp(_test_steps: Tuple[ComputePoolTestSteps, str]):
     test_steps.wait_until_compute_pool_is_suspended(compute_pool_name)
     test_steps.resume_compute_pool(compute_pool_name)
     test_steps.wait_until_compute_pool_is_idle(compute_pool_name)
+    test_steps.set_unset_compute_pool_property(compute_pool_name)
     test_steps.drop_compute_pool(compute_pool_name)
     test_steps.list_should_not_return_compute_pool(compute_pool_name)
 
