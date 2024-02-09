@@ -138,6 +138,7 @@ def upgrade(
         dir_okay=False,
         exists=True,
     ),
+    **options,
 ):
     """
     Updates an existing service with a new specification file.
