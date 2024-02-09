@@ -142,3 +142,23 @@ def resume(name: str = ServiceNameArgument, **options) -> CommandResult:
     Resumes the service from SUSPENDED state.
     """
     return SingleQueryResult(ServiceManager().resume(name))
+
+
+@app.command(requires_connection=True)
+def upgrade(
+    name: str = ServiceNameArgument,
+    spec_path: Path = typer.Option(
+        ...,
+        "--spec-path",
+        help="Path to service specification file.",
+        file_okay=True,
+        dir_okay=False,
+        exists=True,
+    ),
+):
+    """
+    Updates an existing service with a new specification file.
+    """
+    return SingleQueryResult(
+        ServiceManager().upgrade_spec(service_name=name, spec_path=spec_path)
+    )

@@ -89,3 +89,13 @@ class ServiceManager(SqlExecutionMixin):
 
     def resume(self, service_name: str):
         return self._execute_schema_query(f"alter service {service_name} resume")
+
+    def upgrade_spec(self, service_name: str, spec_path: Path):
+        spec = self._read_yaml(spec_path)
+        query = f"""
+        alter service {service_name}
+        from specification $$
+        {spec}
+        $$
+        """.splitlines()
+        return self._execute_schema_query(strip_empty_lines(query))
