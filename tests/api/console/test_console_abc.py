@@ -17,7 +17,7 @@ def test_console_base_class(capsys):
         def warning(self, message: str):
             print(message)
 
-        def info(self, message: str):
+        def message(self, message: str):
             print(message)
 
     console = TConsole()
@@ -26,7 +26,7 @@ def test_console_base_class(capsys):
     with console.phase("Enter", "Exit"):
         console.step("b")
         console.warning("c")
-        console.info("d")
+        console.message("d")
 
     out, _ = capsys.readouterr()
     assert out == "Enter\nb\nc\nd\nExit\n"

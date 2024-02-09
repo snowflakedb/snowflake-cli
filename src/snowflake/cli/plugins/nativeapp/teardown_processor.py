@@ -40,7 +40,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             except:
                 raise SnowflakeSQLExecutionError(drop_query)
 
-            cc.info(f"Dropped {object_type} {object_name} successfully.")
+            cc.message(f"Dropped {object_type} {object_name} successfully.")
 
     def drop_application(self, auto_yes: bool):
         """
@@ -86,7 +86,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                     )
                 )
                 if not should_drop_object:
-                    cc.info(f"Did not drop application {self.app_name}.")
+                    cc.message(f"Did not drop application {self.app_name}.")
                     return  # The user desires to keep the app, therefore exit gracefully
 
         # 4. All validations have passed, drop object
@@ -165,7 +165,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                 )
             )
             if not should_drop_object:
-                cc.info(f"Did not drop application package {self.package_name}.")
+                cc.message(f"Did not drop application package {self.package_name}.")
                 return  # The user desires to keep the app pkg, therefore exit gracefully
 
         # All validations have passed, drop object

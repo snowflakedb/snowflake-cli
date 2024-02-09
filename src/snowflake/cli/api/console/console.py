@@ -64,18 +64,18 @@ class CliConsole(AbstractConsole):
             self._print(self._format_message(exit_message, Output.PHASE))
 
     def step(self, message: str):
-        """Displays message to output.
+        """Displays a message to output.
 
         If called within a phase, the output will be indented.
         """
         text = self._format_message(message, Output.STEP)
         self._print(text)
 
-    def info(self, message: str):
+    def message(self, _message: str):
         """Displays an informational message to output.
 
         If called within a phase, the output will be indented."""
-        text = self._format_message(message, Output.INFO)
+        text = self._format_message(_message, Output.INFO)
         self._print(text)
 
     def warning(self, message: str):

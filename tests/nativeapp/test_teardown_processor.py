@@ -254,9 +254,9 @@ def test_drop_application_has_special_comment_and_quoted_name(
 @mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
 @mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=False)
-@mock.patch(f"{TEARDOWN_MODULE}.cc.info")
+@mock.patch(f"{TEARDOWN_MODULE}.cc.message")
 def test_drop_application_user_prohibits_drop(
-    mock_info,
+    mock_message,
     mock_confirm,
     mock_drop_generic_object,
     mock_is_correct_owner,
@@ -285,7 +285,7 @@ def test_drop_application_user_prohibits_drop(
     mock_get_existing_app_info.assert_called_once()
     mock_is_correct_owner.assert_called_once()
     mock_drop_generic_object.assert_not_called()
-    mock_info.assert_called_once_with("Did not drop application myapp.")
+    mock_message.assert_called_once_with("Did not drop application myapp.")
 
 
 # Test drop_application() without special comment AND auto_yes is False AND should_drop is True

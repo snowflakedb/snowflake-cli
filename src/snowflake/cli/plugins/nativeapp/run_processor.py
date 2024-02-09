@@ -258,10 +258,10 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         )
         if not policy.should_proceed(user_prompt):
             if is_interactive:
-                cc.info("Not upgrading the application.")
+                cc.message("Not upgrading the application.")
                 raise typer.Exit(0)
             else:
-                cc.info(
+                cc.message(
                     "Cannot upgrade the application non-interactively without --force."
                 )
                 raise typer.Exit(1)

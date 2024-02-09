@@ -53,10 +53,10 @@ def check_index_changes_in_git_repo(
             )
             if not policy.should_proceed(user_prompt):
                 if is_interactive:
-                    cc.info("Not creating a new version.")
+                    cc.message("Not creating a new version.")
                     raise typer.Exit(0)
                 else:
-                    cc.info(
+                    cc.message(
                         "Cannot create a new version non-interactively without --force."
                     )
                     raise typer.Exit(1)
@@ -110,7 +110,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 """
             )
             self._execute_query(add_version_query, cursor_class=DictCursor)
-            cc.info(
+            cc.message(
                 f"Version {version} created for application package {self.package_name}."
             )
 
@@ -139,7 +139,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
             )
 
             new_patch = show_row["patch"]
-            cc.info(
+            cc.message(
                 f"Patch {new_patch} created for version {version} of application package {self.package_name}."
             )
 
@@ -160,7 +160,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         # Make sure version is not None before proceeding any further.
         # This will raise an exception if version information is not found. Patch can be None.
         if not version:
-            cc.info(
+            cc.message(
                 "Version was not provided through the CLI. Checking version in the manifest.yml instead."
             )
 
@@ -222,10 +222,10 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
             )
             if not policy.should_proceed(user_prompt):
                 if is_interactive:
-                    cc.info("Not creating a new patch.")
+                    cc.message("Not creating a new patch.")
                     raise typer.Exit(0)
                 else:
-                    cc.info(
+                    cc.message(
                         "Cannot create a new patch non-interactively without --force."
                     )
                     raise typer.Exit(1)
@@ -274,7 +274,7 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
 
         # 3. If the user did not pass in a version string, determine from manifest.yml
         if not version:
-            cc.info(
+            cc.message(
                 dedent(
                     f"""\
                         Version was not provided through the CLI. Checking version in the manifest.yml instead.
@@ -303,10 +303,10 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
         )
         if not policy.should_proceed(user_prompt):
             if is_interactive:
-                cc.info("Not dropping version.")
+                cc.message("Not dropping version.")
                 raise typer.Exit(0)
             else:
-                cc.info("Cannot drop version non-interactively without --force.")
+                cc.message("Cannot drop version non-interactively without --force.")
                 raise typer.Exit(1)
 
         # Drop the version
@@ -318,6 +318,6 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
             except ProgrammingError as err:
                 raise err  # e.g. version is referenced in a release directive(s)
 
-        cc.info(
+        cc.message(
             f"Version {version} of application package {self.package_name} dropped successfully."
         )
