@@ -159,14 +159,53 @@ def test_copy_file(temp_dir, save_logs):
     assert_file_permissions_are_strict(copied_file.path)
 
     logs = _read_logs(save_logs)
-    assert logs.count("INFO [snowflake.cli.api.secure_path] Copying file") == 2
+    assert logs.count("INFO [snowflake.cli.api.secure_path] Copying ") == 2
 
 
 def test_copy_directory(temp_dir, save_logs):
-    # create src directory
-    src = Path(temp_dir) / "src"
-    subdir = src / "subdir"
-    subsubdir = subdir / "subsubdir"
-    subsubdir.mkdir(parents=True)
-    src.chmod(0o770)
-    # TODO: this test
+    files = [
+        "dir/",
+        "dir/file1.txt",
+        "dir/file2.txt",
+        "dir/subdir/",
+        "dir/subdir/subfile1.txt",
+        "dir/subdir/subfile2.txt",
+        "dir/subdir/subsubdir/",
+        "dir/subdir/subsubdir/deep.file.txt",
+        "dir/emptydir/",
+    ]
+
+    def _is_dummy_file(filename):
+        return filename.endswith(".txt")
+
+    for file in files:
+        path = Path(temp_dir) / file
+        if _is_dummy_file(file):
+            path.write_text("Quite a content")
+            path.chmod(0o666)
+        else:
+            path.mkdir()
+            path.chmod(0o771)
+
+    src = SecurePath(temp_dir) / "dir"
+
+    # argument is non-existing directory
+    dest = Path(temp_dir) / "copydir"
+    src.copy(dest)
+    for newfile in ["copy" + f for f in files]:
+        path = Path(temp_dir) / newfile
+        assert path.exists()
+        # restricted permissions of files and directory structure
+        assert_file_permissions_are_strict(path)
+
+    # argument is existing directory
+    dest.chmod(0o771)
+    src.copy(dest)
+    for file in files:
+        path = dest / file
+        assert path.exists()
+        # restricted permissions of files and directory structure
+        assert_file_permissions_are_strict(path)
+
+    logs = _read_logs(save_logs)
+    assert logs.count("INFO [snowflake.cli.api.secure_path] Copying ") == 2

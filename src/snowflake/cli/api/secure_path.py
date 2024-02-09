@@ -97,6 +97,8 @@ class SecurePath:
         log.info("Closing file %s", self._path)
 
     def copy(self, destination: Union[Path, str]) -> "SecurePath":
+        self._assert_exists()
+
         destination = Path(destination)
         if destination.exists():
             if destination.is_dir():
@@ -104,20 +106,16 @@ class SecurePath:
             if destination.exists():
                 raise FileExistsError(destination)
 
-        self._assert_exists()
-        if self._path.is_file():
-            log.info("Copying file %s into %s", self._path, destination)
-            shutil.copyfile(str(self._path), str(destination))
-        elif self._path.is_dir():
-            log.info("Copying directory %s into %s", self._path, destination)
-            shutil.copytree(
-                str(self._path),
-                str(destination),
-                dirs_exist_ok=False,
-                copy_function=shutil.copy,
-            )
-        else:
-            raise NotImplementedError
+        def _recursive_copy(src: Path, dest: Path):
+            if src.is_file():
+                shutil.copyfile(src, dest)
+            if src.is_dir():
+                dest.mkdir(mode=0o700)
+                for child in src.iterdir():
+                    _recursive_copy(child, dest / child.name)
+
+        log.info("Copying %s into %s", self._path, destination)
+        _recursive_copy(self._path, destination)
 
         return SecurePath(destination)
 
