@@ -3,7 +3,7 @@ import stat
 import pytest
 
 from snowflake.cli.api import secure_path
-from snowflake.cli.api.exceptions import FileTooLargeError
+from snowflake.cli.api.exceptions import FileTooLargeError, DirectoryIsNotEmptyError
 from snowflake.cli.api.secure_path import SecurePath
 from pathlib import Path
 from snowflake.cli.api.config import config_init
@@ -32,6 +32,11 @@ def save_logs(snowflake_home):
 
 def _read_logs(logs_path: Path) -> str:
     return next(logs_path.iterdir()).read_text()
+
+
+def _assert_count_current_logs(save_logs, pattern, expected):
+    logs = _read_logs(save_logs)
+    assert logs.count(pattern) == expected
 
 
 def test_read_text(temp_dir, save_logs):
@@ -106,6 +111,16 @@ def test_navigation():
     assert str(p.parent.parent) == 'SecurePath("a")'
 
 
+def test_iterdir(temp_dir):
+    for d in "abcde":
+        (Path(temp_dir) / "dir" / d).mkdir(parents=True)
+    counter = 0
+    for file in (SecurePath(temp_dir) / "dir").iterdir():
+        assert type(file) is SecurePath
+        counter += 1
+    assert counter == 5
+
+
 def test_permissions(temp_dir, save_logs):
     s_temp_dir = SecurePath(temp_dir)
     # test default permissions
@@ -136,6 +151,39 @@ def test_permissions(temp_dir, save_logs):
     )
     assert "file2.txt to 0o660" in logs
     assert logs.count("file1.txt") == 1 and logs.count("file2.txt") == 2
+
+
+def test_mkdir(temp_dir, save_logs):
+    dir1 = SecurePath(temp_dir) / "dir1"
+    dir2 = SecurePath(temp_dir) / "dir2" / "a" / "b" / "c" / "d"
+
+    dir1.mkdir()
+    _assert_count_current_logs(
+        save_logs, "INFO [snowflake.cli.api.secure_path] Creating directory", 1
+    )
+    assert_file_permissions_are_strict(dir1.path)
+
+    with pytest.raises(FileExistsError):
+        dir1.mkdir()
+
+    dir1.mkdir(exist_ok=True)
+    _assert_count_current_logs(
+        save_logs, "INFO [snowflake.cli.api.secure_path] Creating directory", 1
+    )
+
+    with pytest.raises(FileNotFoundError):
+        dir2.mkdir()
+    _assert_count_current_logs(
+        save_logs, "INFO [snowflake.cli.api.secure_path] Creating directory", 2
+    )
+
+    dir2.mkdir(parents=True)
+    _assert_count_current_logs(
+        save_logs, "INFO [snowflake.cli.api.secure_path] Creating directory", 3
+    )
+    while dir2.path != Path(temp_dir):
+        assert_file_permissions_are_strict(dir2.path)
+        dir2 = dir2.parent
 
 
 def test_copy_file(temp_dir, save_logs):
@@ -209,3 +257,53 @@ def test_copy_directory(temp_dir, save_logs):
 
     logs = _read_logs(save_logs)
     assert logs.count("INFO [snowflake.cli.api.secure_path] Copying ") == 2
+
+
+def test_rm(temp_dir, save_logs):
+    temp_dir = Path(temp_dir)
+
+    # removing file
+    file = Path(temp_dir) / "file.txt"
+    file.touch()
+    with pytest.raises(NotADirectoryError):
+        SecurePath(file).rmdir()
+
+    SecurePath(file).unlink()
+    _assert_count_current_logs(
+        save_logs, "INFO [snowflake.cli.api.secure_path] Removing file", 1
+    )
+
+    with pytest.raises(FileNotFoundError):
+        SecurePath(file).unlink()
+
+    SecurePath(file).unlink(missing_ok=True)
+    _assert_count_current_logs(
+        save_logs, "INFO [snowflake.cli.api.secure_path] Removing file", 1
+    )
+
+    # removing a directory
+    base_dir = Path(temp_dir) / "base"
+    full_dir = base_dir / "full"
+    empty_dir = full_dir / "empty"
+    empty_dir.mkdir(parents=True)
+
+    with pytest.raises(DirectoryIsNotEmptyError):
+        SecurePath(full_dir).rmdir()
+    SecurePath(full_dir).rmdir(recursive=True)
+    _assert_count_current_logs(
+        save_logs, "INFO [snowflake.cli.api.secure_path] Removing directory", 1
+    )
+    with pytest.raises(FileNotFoundError):
+        SecurePath(full_dir).rmdir(recursive=True)
+
+    with pytest.raises(IsADirectoryError):
+        SecurePath(base_dir).unlink()
+
+    SecurePath(base_dir).rmdir()
+    _assert_count_current_logs(
+        save_logs, "INFO [snowflake.cli.api.secure_path] Removing directory", 2
+    )
+    SecurePath(base_dir).rmdir(missing_ok=True)
+    _assert_count_current_logs(
+        save_logs, "INFO [snowflake.cli.api.secure_path] Removing directory", 2
+    )

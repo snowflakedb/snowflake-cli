@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 from click.exceptions import ClickException
@@ -97,7 +98,12 @@ class SecretsWithoutExternalAccessIntegrationError(ClickException):
 
 
 class FileTooLargeError(ClickException):
-    def __init__(self, path, size_limit_in_kb):
+    def __init__(self, path: Path, size_limit_in_kb: int):
         super().__init__(
             f"File {path} is too large (size limit: {size_limit_in_kb} KB)"
         )
+
+
+class DirectoryIsNotEmptyError(ClickException):
+    def __init__(self, path: Path):
+        super().__init__(f"Directory '{path}' is empty")

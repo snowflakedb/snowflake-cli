@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional, Union
 
-from snowflake.cli.api.exceptions import FileTooLargeError
+from snowflake.cli.api.exceptions import DirectoryIsNotEmptyError, FileTooLargeError
 
 log = logging.getLogger(__name__)
 
@@ -22,18 +22,30 @@ class SecurePath:
         return SecurePath(self._path / key)
 
     @property
+    def path(self) -> Path:
+        """
+        Returns itself in pathlib.Path format
+        """
+        return self._path
+
+    @property
     def parent(self):
         """
         The logical parent of the path. For details, check pathlib.Path.parent
         """
         return SecurePath(self._path.parent)
 
-    @property
-    def path(self) -> Path:
+    def iterdir(self):
         """
-        Returns itself in pathlib.Path format
+        When the path points to a directory, yield path objects of the directory contents.
+        Otherwise, NotADirectoryError is raised.
+        If the locartion does not exists, FileNotFoundError is raised.
+
+        For details, check pathlib.Path.iterdir()
         """
-        return self._path
+        self._assert_exists()
+        self._assert_is_directory()
+        return (SecurePath(p) for p in self._path.iterdir())
 
     def exists(self) -> bool:
         """
@@ -57,6 +69,19 @@ class SecurePath:
         if not self.exists():
             log.info("Creating file %s", str(self._path))
         self._path.touch(mode=permissions_mask, exist_ok=exist_ok)
+
+    def mkdir(
+        self,
+        permissions_mask: int = 0o700,
+        parents: bool = False,
+        exist_ok: bool = False,
+    ) -> None:
+        """
+        Create a directory at this given path. For details, check pathlib.Path.mkdir()
+        """
+        if not self.exists():
+            log.info("Creating directory %s", str(self._path))
+        self._path.mkdir(mode=permissions_mask, parents=parents, exist_ok=exist_ok)
 
     def read_text(self, file_size_limit_kb: int, encoding=None, errors=None) -> str:
         """
@@ -93,7 +118,7 @@ class SecurePath:
             self._assert_exists_and_is_file()
             self._assert_file_size_limit(read_file_limit_kb)
 
-        if self._path.exists():
+        if self.exists():
             self._assert_is_file()
         else:
             self.touch()  # makes sure permissions of freshly-created file are strict
@@ -141,17 +166,59 @@ class SecurePath:
 
         return SecurePath(destination)
 
+    def unlink(self, missing_ok=False):
+        """
+        Remove this file or symbolic link.
+        If the path points to a directory, use SecurePath.rmdir() instead.
+
+        Check pathlib.Path.unlink() for details.
+        """
+        if not self.exists():
+            if not missing_ok:
+                raise FileNotFoundError(self._path.resolve())
+            return
+
+        self._assert_is_file()
+        log.info("Removing file %s", self._path)
+        self._path.unlink()
+
+    def rmdir(self, recursive=False, missing_ok=False):
+        """
+        Remove this directory.
+        If the path points to a file, use SecurePath.unlink() instead.
+
+        If path points to a file, NotADirectoryError will be raised.
+        If directory does not exist, FileNotFoundError will be raised unless [missing_ok] is True.
+        If the directory is not empty, DirectoryNotEmpty will be raised unless [recursive] is True.
+        """
+        if not self.exists():
+            if not missing_ok:
+                raise FileNotFoundError(self._path.resolve())
+            return
+
+        self._assert_is_directory()
+
+        if not recursive and any(self._path.iterdir()):
+            raise DirectoryIsNotEmptyError(self._path.resolve())
+
+        log.info("Removing directory %s", self._path)
+        shutil.rmtree(str(self._path))
+
     def _assert_exists_and_is_file(self) -> None:
         self._assert_exists()
         self._assert_is_file()
 
     def _assert_exists(self) -> None:
-        if not self._path.exists():
+        if not self.exists():
             raise FileNotFoundError(self._path.resolve())
 
     def _assert_is_file(self) -> None:
         if not self._path.is_file():
             raise IsADirectoryError(self._path.resolve())
+
+    def _assert_is_directory(self) -> None:
+        if not self._path.is_dir():
+            raise NotADirectoryError(self._path.resolve())
 
     def _assert_file_size_limit(self, size_limit_in_kb):
         if (
