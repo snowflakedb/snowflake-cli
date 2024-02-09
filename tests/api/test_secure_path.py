@@ -307,3 +307,20 @@ def test_rm(temp_dir, save_logs):
     _assert_count_current_logs(
         save_logs, "INFO [snowflake.cli.api.secure_path] Removing directory", 2
     )
+
+
+def test_temporary_directory(save_logs):
+    with SecurePath.temporary_directory() as sdir:
+        assert type(sdir) is SecurePath
+        assert_file_permissions_are_strict(sdir.path)
+
+        file = sdir / "file.txt"
+        file.touch()
+        assert_file_permissions_are_strict(file.path)
+
+        directory = sdir / "directory"
+        directory.mkdir()
+        assert_file_permissions_are_strict(directory.path)
+
+        temp_path = sdir
+    assert not temp_path.exists()

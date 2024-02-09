@@ -1,5 +1,6 @@
 import logging
 import shutil
+import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional, Union
@@ -203,6 +204,23 @@ class SecurePath:
 
         log.info("Removing directory %s", self._path)
         shutil.rmtree(str(self._path))
+
+    @classmethod
+    @contextmanager
+    def temporary_directory(cls):
+        """
+        Creates a temporary directory in the most secure manner possible.
+        The directory is readable, writable, and searchable only by the creating user ID.
+        Yields SecurePath pointing to the absolute location of created directory.
+
+        Works similarly to tempfile.TemporaryDirectory
+        """
+        with tempfile.TemporaryDirectory() as system_temp_dir:
+            spath = cls(tempfile.mkdtemp(prefix="snowcli", dir=system_temp_dir))
+            log.info("Created temporary directory %s", spath.path)
+            yield spath
+            log.info("Removing temporary directory %s", spath.path)
+            spath.rmdir(recursive=True)
 
     def _assert_exists_and_is_file(self) -> None:
         self._assert_exists()
