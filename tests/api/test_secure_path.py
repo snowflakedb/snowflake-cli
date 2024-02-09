@@ -130,7 +130,7 @@ def test_permissions(temp_dir, save_logs):
 
     # permissions cannot be widened by touch() due to os.umask
     file2 = s_temp_dir / "file2.txt"
-    file2.touch(permissions_mask=0o600)
+    file2.touch(permissions_mask=0o660)
     assert_file_permissions_are_strict(file2.path)
     # but can be widened using chmod
     file2.chmod(permissions_mask=0o660)

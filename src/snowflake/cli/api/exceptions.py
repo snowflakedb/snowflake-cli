@@ -106,4 +106,4 @@ class FileTooLargeError(ClickException):
 
 class DirectoryIsNotEmptyError(ClickException):
     def __init__(self, path: Path):
-        super().__init__(f"Directory '{path}' is empty")
+        super().__init__(f"Directory '{path}' is not empty")
