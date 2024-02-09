@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "override-build-in-commands"
+requires-python = ">=3.8"
+dependencies = [
+    "snowflake-cli-labs>=2.0.0"
+]
+version = "0.0.1"
+
+[project.entry-points."snowflake.cli.plugin.command"]
+failing_plugin = "snowflakecli.test_plugins.failing_plugin.plugin_spec"
