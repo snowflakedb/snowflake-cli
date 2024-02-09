@@ -52,7 +52,7 @@ class AbstractConsole(ABC):
 
     @abstractmethod
     def step(self, message: str):
-        """Displays message to output."""
+        """Displays a message to output."""
 
     @abstractmethod
     def message(self, _message: str):
