@@ -10,4 +10,4 @@ app = typer.Typer()
 @app.command("run")
 @with_output
 def run() -> CommandResult:
-    raise RuntimeError("Some exception")
+    pass

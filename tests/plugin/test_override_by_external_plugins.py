@@ -15,7 +15,8 @@ def test_override_build_in_commands(runner, test_root_path, _install_plugin, cap
         == "Cannot register plugin [override]: Cannot add command [snow connection list] because it already exists."
     )
     assert result.output == dedent(
-        """+---------------------------------------+
+        """Outside command code
++---------------------------------------+
 | connection_name | parameters          |
 |-----------------+---------------------|
 | test            | {'account': 'test'} |

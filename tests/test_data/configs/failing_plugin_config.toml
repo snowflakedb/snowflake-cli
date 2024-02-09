@@ -1,0 +1,5 @@
+[cli.plugins.failing_plugin]
+enabled = true
+
+[connections.test]
+account = "test"

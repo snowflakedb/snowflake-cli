@@ -6,6 +6,8 @@ from snowflake.cli.api.output.types import CommandResult, MessageResult
 
 app = typer.Typer()
 
+print("Outside command code")
+
 
 @app.command("list")
 @with_output
