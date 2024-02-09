@@ -1,6 +1,7 @@
 import json
 import math
 import time
+from textwrap import dedent
 from typing import Union
 
 import pytest
@@ -133,8 +134,20 @@ class SnowparkServicesTestSteps:
             if contains_row_with(status.json, target_status):
                 return
             elif contains_row_with(status.json, {"status": "FAILED"}):
+                describe = self._setup.runner.invoke_with_connection_json(
+                    ["object", "describe", "service", service_name]
+                )
                 pytest.fail(
-                    f"{service_name} service failed before reaching target state:\n{json.dumps(target_status)}"
+                    dedent(
+                        f"""
+                    {service_name} service failed before reaching target state:
+                    {json.dumps(target_status)}
+                    current state:
+                    {json.dumps(status)}
+                    current describe:
+                    {json.dumps(describe)}
+                    """
+                    )
                 )
             time.sleep(10)
         status = self._execute_status(service_name)
