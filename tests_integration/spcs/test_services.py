@@ -24,6 +24,7 @@ def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
     test_steps.resume_service(service_name)
     test_steps.wait_until_service_is_ready(service_name)
     test_steps.describe_should_return_service(service_name)
+    test_steps.upgrade_service(service_name)
     test_steps.drop_service(service_name)
     test_steps.list_should_not_return_service(service_name)
 
