@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import Optional
 
-import typer
 from click import ClickException
+from snowflake.cli.api.commands.flags import OverrideableOption
 from snowflake.cli.api.project.util import (
     QUOTED_IDENTIFIER_REGEX,
     UNQUOTED_IDENTIFIER_REGEX,
@@ -48,18 +48,13 @@ def _parse_tag(tag: str) -> Tag:
         raise TagError()
 
 
-def tag_option(object_type: str):
-    """
-    Provides a common interface for all commands that accept a tag option (e.g. when altering the tag of an object).
-    Parses the input string in the format "name=value" into a Tag object with 'name' and 'value' properties.
-    """
-    return typer.Option(
-        None,
-        "--tag",
-        help=f"Tag for the {object_type}.",
-        parser=_parse_tag,
-        metavar="NAME=VALUE",
-    )
+"""
+Provides a common interface for all commands that accept a tag option (e.g. when altering the tag of an object).
+Parses the input string in the format "name=value" into a Tag object with 'name' and 'value' properties.
+"""
+TagOption = OverrideableOption(
+    None, "--tag", help=f"Tag for the object.", parser=_parse_tag, metavar="NAME=VALUE"
+)
 
 
 def _comment_callback(comment: Optional[str]):
@@ -68,15 +63,10 @@ def _comment_callback(comment: Optional[str]):
     return to_string_literal(comment)
 
 
-def comment_option(object_type: str):
-    """
-    Provides a common interface for all commands that accept a comment option (e.g. when creating a new object).
-    Parses the input string into a string literal.
-    """
-    return typer.Option(
-        None,
-        "--comment",
-        help=f"Comment for the {object_type}.",
-        callback=_comment_callback,
-        show_default=False,
-    )
+"""
+Provides a common interface for all commands that accept a comment option (e.g. when creating a new object).
+Parses the input string into a string literal.
+"""
+CommentOption = OverrideableOption(
+    None, "--comment", help="Comment for the object.", callback=_comment_callback
+)

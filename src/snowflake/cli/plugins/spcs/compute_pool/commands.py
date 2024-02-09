@@ -6,10 +6,13 @@ from snowflake.cli.api.commands.decorators import (
     global_options_with_connection,
     with_output,
 )
-from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
+from snowflake.cli.api.commands.flags import (
+    DEFAULT_CONTEXT_SETTINGS,
+    OverrideableOption,
+)
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
 from snowflake.cli.api.project.util import is_valid_object_name
-from snowflake.cli.plugins.object.common import comment_option
+from snowflake.cli.plugins.object.common import CommentOption
 from snowflake.cli.plugins.spcs.common import (
     NoPropertiesProvidedError,
     validate_and_set_instances,
@@ -40,39 +43,51 @@ ComputePoolNameArgument = typer.Argument(
 )
 
 
+MinNodesOption = OverrideableOption(
+    1,
+    "--min-nodes",
+    help="Minimum number of nodes for the compute pool.",
+    min=1,
+)
+MaxNodesOption = OverrideableOption(
+    None,
+    "--max-nodes",
+    help="Maximum number of nodes for the compute pool.",
+    min=1,
+)
+AutoResumeOption = OverrideableOption(
+    True,
+    "--auto-resume/--no-auto-resume",
+    help="The compute pool will automatically resume when a service or job is submitted to it.",
+)
+AutoSuspendSecsOption = OverrideableOption(
+    3600,
+    "--auto-suspend-secs",
+    help="Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool.",
+    min=1,
+)
+
+
 @app.command()
 @with_output
 @global_options_with_connection
 def create(
     name: str = ComputePoolNameArgument,
-    min_nodes: int = typer.Option(
-        1, "--min-nodes", help="Minimum number of nodes for the compute pool.", min=1
-    ),
-    max_nodes: Optional[int] = typer.Option(
-        None, "--max-nodes", help="Maximum number of nodes for the compute pool.", min=1
-    ),
+    min_nodes: int = MinNodesOption(),
+    max_nodes: Optional[int] = MaxNodesOption(),
     instance_family: str = typer.Option(
         ...,
         "--family",
         help="Name of the instance family. For more information about instance families, refer to the SQL CREATE COMPUTE POOL command.",
     ),
-    auto_resume: bool = typer.Option(
-        True,
-        "--auto-resume/--no-auto-resume",
-        help="The compute pool will automatically resume when a service or job is submitted to it.",
-    ),
+    auto_resume: bool = AutoResumeOption(),
     initially_suspended: bool = typer.Option(
         False,
         "--init-suspend",
         help="The compute pool will start in a suspended state.",
     ),
-    auto_suspend_secs: int = typer.Option(
-        3600,
-        "--auto-suspend-secs",
-        help="Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool.",
-        min=1,
-    ),
-    comment: Optional[str] = comment_option("compute pool"),
+    auto_suspend_secs: int = AutoSuspendSecsOption(),
+    comment: Optional[str] = CommentOption(help="Comment for the compute pool."),
     **options,
 ) -> CommandResult:
     """
@@ -128,34 +143,15 @@ def resume(name: str = ComputePoolNameArgument, **options) -> CommandResult:
 @global_options_with_connection
 def set_property(
     name: str = ComputePoolNameArgument,
-    min_nodes: Optional[int] = typer.Option(
-        None,
-        "--min-nodes",
-        help="Minimum number of nodes for the compute pool.",
-        min=1,
-        show_default=False,
+    min_nodes: Optional[int] = MinNodesOption(default=None, show_default=False),
+    max_nodes: Optional[int] = MaxNodesOption(show_default=False),
+    auto_resume: Optional[bool] = AutoResumeOption(default=None, show_default=False),
+    auto_suspend_secs: Optional[int] = AutoSuspendSecsOption(
+        default=None, show_default=False
     ),
-    max_nodes: Optional[int] = typer.Option(
-        None,
-        "--max-nodes",
-        help="Maximum number of nodes for the compute pool.",
-        min=1,
-        show_default=False,
+    comment: Optional[str] = CommentOption(
+        help="Comment for the compute pool.", show_default=False
     ),
-    auto_resume: Optional[bool] = typer.Option(  # type: ignore
-        None,
-        "--auto-resume/--no-auto-resume",
-        help="The compute pool will automatically resume when a service or job is submitted to it.",
-        show_default=False,
-    ),
-    auto_suspend_secs: Optional[int] = typer.Option(
-        None,
-        "--auto-suspend-secs",
-        help="Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool.",
-        min=1,
-        show_default=False,
-    ),
-    comment: Optional[str] = comment_option("compute pool"),
     **options,
 ) -> CommandResult:
     """
@@ -182,22 +178,20 @@ def set_property(
 @global_options_with_connection
 def unset_property(
     name: str = ComputePoolNameArgument,
-    auto_resume: bool = typer.Option(  # type: ignore
-        False,
-        "--auto-resume",
+    auto_resume: bool = AutoResumeOption(
+        default=False,
         help="Reset the AUTO_RESUME property - The compute pool will automatically resume when a service or job is submitted to it.",
         show_default=False,
     ),
-    auto_suspend_secs: bool = typer.Option(
-        False,
-        "--auto-suspend-secs",
+    auto_suspend_secs: bool = AutoSuspendSecsOption(
+        default=False,
         help="Reset the AUTO_SUSPEND_SECS property - Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool.",
         show_default=False,
     ),
-    comment: bool = typer.Option(
-        False,
-        "--comment",
+    comment: bool = CommentOption(
+        default=False,
         help="Reset the COMMENT property - Comment for the compute pool.",
+        callback=None,
         show_default=False,
     ),
     **options,
