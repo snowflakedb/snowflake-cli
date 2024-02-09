@@ -65,22 +65,7 @@ class SnowparkServicesTestSteps:
         )
 
     def logs_should_return_service_logs(self, service_name: str) -> None:
-        result = self._setup.runner.invoke_with_connection(
-            [
-                "spcs",
-                "service",
-                "logs",
-                service_name,
-                "--container-name",
-                self.container_name,
-                "--instance-id",
-                "0",
-                "--database",
-                self.database,
-                "--schema",
-                self.schema,
-            ],
-        )
+        result = self._execute_logs(service_name)
         assert result.output
         # Assert this instead of full payload due to log coloring
         assert service_name in result.output
@@ -134,31 +119,28 @@ class SnowparkServicesTestSteps:
             if contains_row_with(status.json, target_status):
                 return
             elif contains_row_with(status.json, {"status": "FAILED"}):
-                describe = self._setup.runner.invoke_with_connection_json(
-                    ["object", "describe", "service", service_name]
-                )
+                logs = self._execute_logs(service_name, 20)
                 pytest.fail(
                     dedent(
                         f"""
-                    {service_name} service failed before reaching target state:
-                    {json.dumps(target_status)}
-                    current state:
-                    {json.dumps(status)}
-                    current describe:
-                    {json.dumps(describe)}
-                    """
-                    )
+                        {service_name} service failed before reaching target state.
+                        target:
+                        {json.dumps(target_status)}
+                        {self._current_state_and_describe_str(service_name)}
+                        logs (last 20 lines):
+                        {logs.output}
+                        """
+                    ).strip()
                 )
             time.sleep(10)
-        status = self._execute_status(service_name)
-
-        error_message = f"""
-{service_name} service didn't reach target state in {max_duration} seconds.
-target:
-{json.dumps(target_status)}
-current:
-{json.dumps(status.json)}
-"""
+        error_message = dedent(
+            f"""
+            {service_name} service didn't reach target state in {max_duration} seconds.
+            target:
+            {json.dumps(target_status)}
+            {self._current_state_and_describe_str(service_name)}
+            """
+        ).strip()
         pytest.fail(error_message)
 
     def _execute_status(self, service_name: str):
@@ -183,6 +165,48 @@ current:
                 "service",
             ],
         )
+
+    def _execute_describe(self, service_name: str):
+        return self._setup.runner.invoke_with_connection_json(
+            [
+                "object",
+                "describe",
+                "service",
+                f"{self.database}.{self.schema}.{service_name}",
+            ],
+        )
+
+    def _execute_logs(self, service_name: str, num_lines: int = 500):
+        return self._setup.runner.invoke_with_connection(
+            [
+                "spcs",
+                "service",
+                "logs",
+                service_name,
+                "--container-name",
+                self.container_name,
+                "--instance-id",
+                "0",
+                "--num-lines",
+                str(num_lines),
+                "--database",
+                self.database,
+                "--schema",
+                self.schema,
+            ],
+        )
+
+    def _current_state_and_describe_str(self, service_name: str) -> str:
+        status = self._execute_status(service_name)
+        describe = self._execute_describe(service_name)
+        return dedent(
+            f"""
+            current state:
+            {json.dumps(status.json)}
+            current describe:
+            {json.dumps(describe.json)}
+            """
+        ).strip()
 
     def _get_spec_path(self):
         return f"{self._setup.test_root_path}/spcs/spec/spec.yml"

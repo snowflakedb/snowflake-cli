@@ -11,7 +11,7 @@ INTEGRATION_REPOSITORY = "snowcli_repository"
 
 @pytest.mark.integration
 def test_list_images_tags(runner):
-    # test assumes the testing environment has been set up with /SNOWCLI_DB/PUBLIC/snowcli_repository/snowpark_test:1
+    # test assumes the testing environment has been set up with /SNOWCLI_DB/PUBLIC/snowcli_repository/snowpark_test_echo:1
     _list_images(runner)
     _list_tags(runner)
 
