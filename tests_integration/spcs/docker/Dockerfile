@@ -1,4 +1,4 @@
-FROM python:3.10-slim-buster
+FROM --platform=linux/amd64 python:3.10-slim-buster as build
 COPY echo_service.py ./
 RUN pip install --upgrade pip && \
     pip install flask
