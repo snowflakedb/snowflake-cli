@@ -73,7 +73,7 @@ def test_create_service(mock_execute_schema_query, other_directory):
             "CREATE SERVICE test_service",
             "IN COMPUTE POOL test_pool",
             f"FROM SPECIFICATION $$ {json.dumps(SPEC_DICT)} $$",
-            "WITH MIN_INSTANCES = 42 MAX_INSTANCES = 43",
+            "MIN_INSTANCES = 42 MAX_INSTANCES = 43",
             "AUTO_RESUME = True",
             "EXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration,salesforce_api_access_integration)",
             "QUERY_WAREHOUSE = test_warehouse",
