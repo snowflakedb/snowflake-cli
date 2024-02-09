@@ -10,6 +10,7 @@ from snowflake.cli.api.console.enum import Output
 
 PHASE_STYLE: Style = Style(color="grey93", bold=True)
 STEP_STYLE: Style = Style(color="grey89", italic=True)
+INFO_STYLE: Style = Style(color="black")
 IMPORTANT_STYLE: Style = Style(color="red", bold=True, italic=True)
 INDENTATION_LEVEL: int = 2
 
@@ -33,6 +34,7 @@ class CliConsole(AbstractConsole):
         "default": "",
         Output.PHASE: PHASE_STYLE,
         Output.STEP: STEP_STYLE,
+        Output.INFO: INFO_STYLE,
         Output.IMPORTANT: IMPORTANT_STYLE,
     }
 
@@ -67,6 +69,11 @@ class CliConsole(AbstractConsole):
         If called within a phase, the output will be indented.
         """
         text = self._format_message(message, Output.STEP)
+        self._print(text)
+
+    def info(self, message: str):
+        """Displays an informational messge to output."""
+        text = self._format_message(message, Output.INFO)
         self._print(text)
 
     def warning(self, message: str):

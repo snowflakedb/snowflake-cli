@@ -254,9 +254,9 @@ def test_drop_application_has_special_comment_and_quoted_name(
 @mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
 @mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=False)
-@mock.patch(f"{TEARDOWN_MODULE}.cc.step")
+@mock.patch(f"{TEARDOWN_MODULE}.cc.info")
 def test_drop_application_user_prohibits_drop(
-    mock_step,
+    mock_info,
     mock_confirm,
     mock_drop_generic_object,
     mock_is_correct_owner,
@@ -285,7 +285,7 @@ def test_drop_application_user_prohibits_drop(
     mock_get_existing_app_info.assert_called_once()
     mock_is_correct_owner.assert_called_once()
     mock_drop_generic_object.assert_not_called()
-    mock_step.assert_called_once_with("Did not drop application myapp.")
+    mock_info.assert_called_once_with("Did not drop application myapp.")
 
 
 # Test drop_application() without special comment AND auto_yes is False AND should_drop is True
@@ -616,7 +616,7 @@ def test_drop_package_variable_mismatch_allowed_user_allows_drop(
         )
     if not auto_yes_param:
         mock_warning.assert_any_call(
-            "Application package app_pkg in your Snowflake account has distribution property 'external'"
+            "Application package app_pkg in your Snowflake account has distribution property 'external' and could be associated with one or more of your listings on Snowflake Marketplace."
         )
     mock_drop_generic_object.assert_called_once()
 

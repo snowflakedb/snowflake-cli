@@ -40,7 +40,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             except:
                 raise SnowflakeSQLExecutionError(drop_query)
 
-            cc.step(f"Dropped {object_type} {object_name} successfully.")
+            cc.info(f"Dropped {object_type} {object_name} successfully.")
 
     def drop_application(self, auto_yes: bool):
         """
@@ -72,7 +72,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                 should_drop_object = typer.confirm(
                     dedent(
                         f"""\
-                            Application {self.app_name} was not created by SnowCLI!
+                            Application {self.app_name} was not created by SnowCLI.
                             Application details:
                             Name: {self.app_name}
                             Created on: {show_obj_row["created_on"]}
@@ -86,7 +86,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                     )
                 )
                 if not should_drop_object:
-                    cc.step(f"Did not drop application {self.app_name}.")
+                    cc.info(f"Did not drop application {self.app_name}.")
                     return  # The user desires to keep the app, therefore exit gracefully
 
         # 4. All validations have passed, drop object
@@ -142,30 +142,30 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             else:
                 if needs_confirmation(needs_confirm, auto_yes):
                     cc.warning(
-                        f"Application package {self.package_name} was not created by SnowCLI!"
+                        f"Application package {self.package_name} was not created by SnowCLI."
                     )
         else:
             if needs_confirmation(needs_confirm, auto_yes):
                 cc.warning(
-                    f"Application package {self.package_name} in your Snowflake account has distribution property '{EXTERNAL_DISTRIBUTION}'"
+                    f"Application package {self.package_name} in your Snowflake account has distribution property '{EXTERNAL_DISTRIBUTION}' and could be associated with one or more of your listings on Snowflake Marketplace."
                 )
 
         if needs_confirmation(needs_confirm, auto_yes):
-            cc.step(
+            should_drop_object = typer.confirm(
                 dedent(
                     f"""\
-                    Application package details:
-                    Name: {self.app_name}
-                    Created on: {show_obj_row["created_on"]}
-                    Distribution: {actual_distribution}
-                    Owner: {show_obj_row[OWNER_COL]}
-                    Comment: {show_obj_row[COMMENT_COL]}
-                """
+                        Application package details:
+                        Name: {self.app_name}
+                        Created on: {show_obj_row["created_on"]}
+                        Distribution: {actual_distribution}
+                        Owner: {show_obj_row[OWNER_COL]}
+                        Comment: {show_obj_row[COMMENT_COL]}
+                        Are you sure you want to drop it?
+                    """
                 )
             )
-            should_drop_object = typer.confirm("Are you sure you want to drop it?")
             if not should_drop_object:
-                cc.step(f"Did not drop application package {self.package_name}.")
+                cc.info(f"Did not drop application package {self.package_name}.")
                 return  # The user desires to keep the app pkg, therefore exit gracefully
 
         # All validations have passed, drop object

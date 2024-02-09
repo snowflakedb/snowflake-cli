@@ -274,16 +274,21 @@ class NativeAppManager(SqlExecutionMixin):
             % self.deploy_root
         )
         diff: DiffResult = stage_diff(self.deploy_root, self.stage_fqn)
-        with cc.phase("Listing results of diff:"):
-            cc.step("New files only on your local: %s" % ",".join(diff.only_local))
-            cc.step("New files only on the stage: %s" % ",".join(diff.only_on_stage))
-            cc.step(
-                "Existing files modified or status unknown: %s"
-                % ",".join(diff.different),
+        diff_results_info = dedent(
+            f"""\
+                New files only on your local: %s
+                New files only on the stage: %s
+                Existing files modified or status unknown: %s
+                Existing files identical to the stage: %s
+            """
+            % (
+                ",".join(diff.only_local),
+                ",".join(diff.only_on_stage),
+                ",".join(diff.different),
+                ",".join(diff.identical),
             )
-            cc.step(
-                "Existing files identical to the stage: %s" % ",".join(diff.identical)
-            )
+        )
+        cc.info(diff_results_info)
 
         # Upload diff-ed files to app pkg stage
         if diff.has_changes():

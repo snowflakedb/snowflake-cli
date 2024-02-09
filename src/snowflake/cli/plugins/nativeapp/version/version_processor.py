@@ -43,7 +43,9 @@ def check_index_changes_in_git_repo(
 
         # Check if the repo has any changes, including untracked files
         if repo.is_dirty(untracked_files=True):
-            cc.warning("Changes detected in your git repository!")
+            cc.warning(
+                "Changes detected in the git repository. (Rerun your command with --skip-git-check flag to ignore this check)"
+            )
             repo.git.execute(["git", "status"])
 
             user_prompt = (
@@ -51,10 +53,10 @@ def check_index_changes_in_git_repo(
             )
             if not policy.should_proceed(user_prompt):
                 if is_interactive:
-                    cc.step("Not creating a new version.")
+                    cc.info("Not creating a new version.")
                     raise typer.Exit(0)
                 else:
-                    cc.step(
+                    cc.info(
                         "Cannot create a new version non-interactively without --force."
                     )
                     raise typer.Exit(1)
@@ -97,6 +99,9 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         Add a new version to an existing application package.
         """
         with self.use_role(self.package_role):
+            cc.step(
+                f"Adding new version {version} to application package {self.package_name}"
+            )
             add_version_query = dedent(
                 f"""\
                     alter application package {self.package_name}
@@ -105,7 +110,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 """
             )
             self._execute_query(add_version_query, cursor_class=DictCursor)
-            cc.step(
+            cc.info(
                 f"Version {version} created for application package {self.package_name}."
             )
 
@@ -114,6 +119,9 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         Add a new patch, optionally a custom one, to an existing version of an application package.
         """
         with self.use_role(self.package_role):
+            cc.step(
+                f"Adding new patch to version {version} of application package {self.package_name}"
+            )
             add_version_query = dedent(
                 f"""\
                     alter application package {self.package_name}
@@ -131,8 +139,8 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
             )
 
             new_patch = show_row["patch"]
-            cc.step(
-                f"Patch {new_patch} created for version {version} for application package {self.package_name}."
+            cc.info(
+                f"Patch {new_patch} created for version {version} of application package {self.package_name}."
             )
 
     def process(
@@ -152,7 +160,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         # Make sure version is not None before proceeding any further.
         # This will raise an exception if version information is not found. Patch can be None.
         if not version:
-            cc.step(
+            cc.info(
                 "Version was not provided through the CLI. Checking version in the manifest.yml instead."
             )
 
@@ -204,7 +212,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 dedent(
                     f"""\
                     Version {version} already exists for application package {self.package_name} and in release directive(s): {release_directive_names}.
-                """
+                    """
                 )
             )
 
@@ -214,10 +222,10 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
             )
             if not policy.should_proceed(user_prompt):
                 if is_interactive:
-                    cc.step("Not creating a new patch.")
+                    cc.info("Not creating a new patch.")
                     raise typer.Exit(0)
                 else:
-                    cc.step(
+                    cc.info(
                         "Cannot create a new patch non-interactively without --force."
                     )
                     raise typer.Exit(1)
@@ -260,13 +268,13 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
         # 2. Check distribution of the existing app package
         actual_distribution = self.get_app_pkg_distribution_in_snowflake
         if not self.verify_project_distribution(actual_distribution):
-            cc.step(
+            cc.warning(
                 f"Continuing to execute `snow app version drop` on app pkg {self.package_name} with distribution '{actual_distribution}'."
             )
 
         # 3. If the user did not pass in a version string, determine from manifest.yml
         if not version:
-            cc.step(
+            cc.info(
                 dedent(
                     f"""\
                         Version was not provided through the CLI. Checking version in the manifest.yml instead.
@@ -295,10 +303,10 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
         )
         if not policy.should_proceed(user_prompt):
             if is_interactive:
-                cc.step("Not dropping version.")
+                cc.info("Not dropping version.")
                 raise typer.Exit(0)
             else:
-                cc.step("Cannot drop version non-interactively without --force.")
+                cc.info("Cannot drop version non-interactively without --force.")
                 raise typer.Exit(1)
 
         # Drop the version
@@ -310,6 +318,6 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
             except ProgrammingError as err:
                 raise err  # e.g. version is referenced in a release directive(s)
 
-        cc.step(
+        cc.info(
             f"Version {version} of application package {self.package_name} dropped successfully."
         )

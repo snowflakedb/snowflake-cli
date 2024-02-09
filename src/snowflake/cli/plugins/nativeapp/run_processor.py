@@ -59,7 +59,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             # 2. Check distribution of the existing app package
             actual_distribution = self.get_app_pkg_distribution_in_snowflake
             if not self.verify_project_distribution(actual_distribution):
-                cc.step(
+                cc.warning(
                     f"Continuing to execute `snow app run` on app pkg {self.package_name} with distribution '{actual_distribution}'."
                 )
 
@@ -258,10 +258,10 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         )
         if not policy.should_proceed(user_prompt):
             if is_interactive:
-                cc.step("Not upgrading the application.")
+                cc.info("Not upgrading the application.")
                 raise typer.Exit(0)
             else:
-                cc.step(
+                cc.info(
                     "Cannot upgrade the application non-interactively without --force."
                 )
                 raise typer.Exit(1)
@@ -321,7 +321,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     if err.errno not in UPGRADE_RESTRICTION_CODES:
                         generic_sql_error_handler(err=err)
                     else:  # The existing app was created from a different process.
-                        cc.step(err.msg)
+                        cc.warning(err.msg)
                         self.drop_application_before_upgrade(policy, is_interactive)
 
             # 4. With no (more) existing applications, create an app using the release directives

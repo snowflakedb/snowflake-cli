@@ -55,6 +55,10 @@ class AbstractConsole(ABC):
         """Displays message to output."""
 
     @abstractmethod
+    def info(self, message: str):
+        """Displays an informational message to output."""
+
+    @abstractmethod
     def warning(self, message: str):
         """Displays message in a style that makes it visually stand out from other output.
 
