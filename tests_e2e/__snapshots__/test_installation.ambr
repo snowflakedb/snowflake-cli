@@ -17,28 +17,16 @@
    SnowCLI - A CLI for Snowflake                                                  
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --version                                              Shows version of the  │
-  │                                                        snowcli               │
-  │ --info                                                 Shows information     │
-  │                                                        about the snowcli     │
-  │ --config-file                   FILE                   Specifies snowcli     │
-  │                                                        configuration file    │
-  │                                                        that should be used   │
-  │                                                        [default: None]       │
-  │ --disable-external-co…                                 Disable external      │
-  │                                                        command plugins       │
-  │ --install-completion            [bash|zsh|fish|powers  Install completion    │
-  │                                 hell|pwsh]             for the specified     │
-  │                                                        shell.                │
-  │                                                        [default: None]       │
-  │ --show-completion               [bash|zsh|fish|powers  Show completion for   │
-  │                                 hell|pwsh]             the specified shell,  │
-  │                                                        to copy it or         │
-  │                                                        customize the         │
-  │                                                        installation.         │
-  │                                                        [default: None]       │
-  │ --help                  -h                             Show this message and │
-  │                                                        exit.                 │
+  │ --version                                     Shows version of the snowcli   │
+  │ --info                                        Shows information about the    │
+  │                                               snowcli                        │
+  │ --config-file                           FILE  Specifies snowcli              │
+  │                                               configuration file that should │
+  │                                               be used                        │
+  │                                               [default: None]                │
+  │ --disable-external-command-pl…                Disable external command       │
+  │                                               plugins                        │
+  │ --help                          -h            Show this message and exit.    │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
   │ app         Manage Native Apps in Snowflake                                  │
