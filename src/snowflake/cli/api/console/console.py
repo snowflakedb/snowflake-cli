@@ -43,7 +43,7 @@ class CliConsole(AbstractConsole):
         style = self._styles.get(output, "default")
         text = Text(message, style=style)
 
-        if self.in_phase and output in {Output.STEP, Output.IMPORTANT}:
+        if self.in_phase and output in {Output.STEP, Output.INFO, Output.IMPORTANT}:
             text.pad_left(self._indentation_level)
 
         return text
@@ -64,7 +64,7 @@ class CliConsole(AbstractConsole):
             self._print(self._format_message(exit_message, Output.PHASE))
 
     def step(self, message: str):
-        """Displays messge to output.
+        """Displays message to output.
 
         If called within a phase, the output will be indented.
         """
@@ -72,14 +72,16 @@ class CliConsole(AbstractConsole):
         self._print(text)
 
     def info(self, message: str):
-        """Displays an informational messge to output."""
+        """Displays an informational message to output.
+
+        If called within a phase, the output will be indented."""
         text = self._format_message(message, Output.INFO)
         self._print(text)
 
     def warning(self, message: str):
         """Displays message in a style that makes it visually stand out from other output.
 
-        Intended for diplaying messeges related to important messages."""
+        Intended for diplaying messages related to important messages."""
         text = self._format_message(message, Output.IMPORTANT)
         self._print(text)
 

@@ -17,12 +17,16 @@ def test_console_base_class(capsys):
         def warning(self, message: str):
             print(message)
 
+        def info(self, message: str):
+            print(message)
+
     console = TConsole()
     assert not console.is_silent
 
     with console.phase("Enter", "Exit"):
         console.step("b")
         console.warning("c")
+        console.info("d")
 
     out, _ = capsys.readouterr()
-    assert out == "Enter\nb\nc\nExit\n"
+    assert out == "Enter\nb\nc\nd\nExit\n"
