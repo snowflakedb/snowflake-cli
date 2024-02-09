@@ -1,4 +1,4 @@
-[cli.plugins.override]
+[cli.plugins.broken_plugin]
 enabled = true
 
 [connections.test]
