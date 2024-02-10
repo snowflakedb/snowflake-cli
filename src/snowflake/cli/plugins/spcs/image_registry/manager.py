@@ -10,9 +10,8 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
 
 
-class NoImageRepositoriesFoundError(ClickException):
-    def __init__(self, msg: str = "No image repository found."):
-        super().__init__(msg)
+class NoImageRepositoriesFoundError(Exception):
+    pass
 
 
 class RegistryManager(SqlExecutionMixin):
