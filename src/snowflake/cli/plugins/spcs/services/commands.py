@@ -34,6 +34,15 @@ ServiceNameArgument = typer.Argument(
     ..., help="Name of the service.", callback=_service_name_callback
 )
 
+SpecPathOption = typer.Option(
+    ...,
+    "--spec-path",
+    help="Path to service specification file.",
+    file_okay=True,
+    dir_okay=False,
+    exists=True,
+)
+
 
 @app.command(requires_connection=True)
 def create(
@@ -41,14 +50,7 @@ def create(
     compute_pool: str = typer.Option(
         ..., "--compute-pool", help="Compute pool to run the service on."
     ),
-    spec_path: Path = typer.Option(
-        ...,
-        "--spec-path",
-        help="Path to service specification file.",
-        file_okay=True,
-        dir_okay=False,
-        exists=True,
-    ),
+    spec_path: Path = SpecPathOption,
     min_instances: int = typer.Option(
         1, "--min-instances", help="Minimum number of service instances to run."
     ),
@@ -130,14 +132,7 @@ def logs(
 @app.command(requires_connection=True)
 def upgrade(
     name: str = ServiceNameArgument,
-    spec_path: Path = typer.Option(
-        ...,
-        "--spec-path",
-        help="Path to service specification file.",
-        file_okay=True,
-        dir_okay=False,
-        exists=True,
-    ),
+    spec_path: Path = SpecPathOption,
     **options,
 ):
     """
