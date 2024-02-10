@@ -11,16 +11,16 @@ from snowflake.cli.plugins.object.common import Tag
 
 SPEC_CONTENT = dedent(
     """
-spec:
-    containers:
-    - name: cloudbeaver
-      image: /spcs_demos_db/cloudbeaver:23.2.1
-    endpoints:
-    - name: cloudbeaver
-      port: 80
-      public: true
+    spec:
+        containers:
+        - name: cloudbeaver
+          image: /spcs_demos_db/cloudbeaver:23.2.1
+        endpoints:
+        - name: cloudbeaver
+          port: 80
+          public: true
 
-"""
+    """
 )
 
 SPEC_DICT = {
