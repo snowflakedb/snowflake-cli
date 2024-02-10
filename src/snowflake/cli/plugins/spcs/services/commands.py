@@ -195,6 +195,7 @@ def set_property(
     query_warehouse: Optional[str] = QueryWarehouseOption(show_default=False),
     auto_resume: Optional[bool] = AutoResumeOption(default=None, show_default=False),
     comment: Optional[str] = CommentOption(help=_COMMENT_HELP, show_default=False),
+    **options,
 ):
     try:
         cursor = ServiceManager().set_property(
@@ -239,8 +240,10 @@ def unset_property(
     comment: bool = CommentOption(
         default=False,
         help=f"Reset the COMMENT property - {_COMMENT_HELP}",
+        callback=None,
         show_default=False,
     ),
+    **options,
 ):
     try:
         cursor = ServiceManager().unset_property(

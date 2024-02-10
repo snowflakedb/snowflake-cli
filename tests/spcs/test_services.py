@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 import json
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
+from snowflake.cli.plugins.spcs.common import NoPropertiesProvidedError
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.plugins.spcs.services.manager import ServiceManager
 from tests.testing_utils.fixtures import *
@@ -377,3 +378,165 @@ def test_resume_cli(mock_resume, mock_cursor, runner):
     result = runner.invoke(["spcs", "service", "resume", service_name])
     assert result.exit_code == 0, result.output
     assert "Statement executed successfully" in result.output
+
+
+@patch(
+    "snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_schema_query"
+)
+def test_set_property(mock_execute_schema_query):
+    service_name = "test_service"
+    min_instances = 2
+    max_instances = 3
+    query_warehouse = "test_warehouse"
+    auto_resume = False
+    comment = to_string_literal("this is a test")
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_schema_query.return_value = cursor
+    result = ServiceManager().set_property(
+        service_name=service_name,
+        min_instances=min_instances,
+        max_instances=max_instances,
+        query_warehouse=query_warehouse,
+        auto_resume=auto_resume,
+        comment=comment,
+    )
+    expected_query = "\n".join(
+        [
+            f"alter service {service_name} set",
+            f"min_instances = {min_instances}",
+            f"max_instances = {max_instances}",
+            f"query_warehouse = {query_warehouse}",
+            f"auto_resume = {auto_resume}",
+            f"comment = {comment}",
+        ]
+    )
+    mock_execute_schema_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+def test_set_property_no_properties():
+    service_name = "test_service"
+    with pytest.raises(NoPropertiesProvidedError):
+        ServiceManager().set_property(service_name, None, None, None, None, None)
+
+
+@patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.set_property")
+def test_set_property_cli(mock_set, mock_statement_success, runner):
+    cursor = mock_statement_success()
+    mock_set.return_value = cursor
+    service_name = "test_service"
+    min_instances = 2
+    max_instances = 3
+    query_warehouse = "test_warehouse"
+    auto_resume = False
+    comment = "this is a test"
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "set",
+            service_name,
+            "--min-instances",
+            str(min_instances),
+            "--max-instances",
+            str(max_instances),
+            "--query-warehouse",
+            query_warehouse,
+            "--no-auto-resume",
+            "--comment",
+            comment,
+        ]
+    )
+    mock_set.assert_called_once_with(
+        service_name=service_name,
+        min_instances=min_instances,
+        max_instances=max_instances,
+        query_warehouse=query_warehouse,
+        auto_resume=auto_resume,
+        comment=to_string_literal(comment),
+    )
+    assert result.exit_code == 0, result.output
+    assert "Statement executed successfully" in result.output
+
+
+@patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.set_property")
+def test_set_property_no_properties_cli(mock_set, runner):
+    service_name = "test_service"
+    mock_set.side_effect = NoPropertiesProvidedError()
+    result = runner.invoke(["spcs", "service", "set", service_name])
+    assert result.exit_code == 1, result.output
+    assert "No properties specified" in result.output
+    mock_set.assert_called_once_with(
+        service_name=service_name,
+        min_instances=None,
+        max_instances=None,
+        query_warehouse=None,
+        auto_resume=None,
+        comment=None,
+    )
+
+
+@patch(
+    "snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_schema_query"
+)
+def test_unset_property(mock_execute_query):
+    service_name = "test_service"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ServiceManager().unset_property(service_name, True, True, True, True, True)
+    expected_query = "alter service test_service unset min_instances,max_instances,query_warehouse,auto_resume,comment"
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+def test_unset_property_no_properties():
+    service_name = "test_service"
+    with pytest.raises(NoPropertiesProvidedError):
+        ServiceManager().unset_property(service_name, False, False, False, False, False)
+
+
+@patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.unset_property")
+def test_unset_property_cli(mock_unset, mock_statement_success, runner):
+    cursor = mock_statement_success()
+    mock_unset.return_value = cursor
+    service_name = "test_service"
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "unset",
+            service_name,
+            "--min-instances",
+            "--max-instances",
+            "--query-warehouse",
+            "--auto-resume",
+            "--comment",
+        ]
+    )
+    mock_unset.assert_called_once_with(
+        service_name=service_name,
+        min_instances=True,
+        max_instances=True,
+        query_warehouse=True,
+        auto_resume=True,
+        comment=True,
+    )
+    assert result.exit_code == 0, result.output
+    assert "Statement executed successfully" in result.output
+
+
+@patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.unset_property")
+def test_unset_property_no_properties_cli(mock_unset, runner):
+    service_name = "test_service"
+    mock_unset.side_effect = NoPropertiesProvidedError()
+    result = runner.invoke(["spcs", "service", "unset", service_name])
+    assert result.exit_code == 1, result.output
+    assert "No properties specified" in result.output
+    mock_unset.assert_called_once_with(
+        service_name=service_name,
+        min_instances=False,
+        max_instances=False,
+        query_warehouse=False,
+        auto_resume=False,
+        comment=False,
+    )

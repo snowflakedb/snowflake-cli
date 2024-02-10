@@ -26,6 +26,7 @@ def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
     test_steps.describe_should_return_service(service_name)
     test_steps.list_endpoints_should_show_endpoint(service_name)
     test_steps.upgrade_service_should_change_spec(service_name)
+    test_steps.set_unset_service_property(service_name)
     test_steps.drop_service(service_name)
     test_steps.list_should_not_return_service(service_name)
 

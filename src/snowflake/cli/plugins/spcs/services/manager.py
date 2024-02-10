@@ -123,7 +123,7 @@ class ServiceManager(SqlExecutionMixin):
         for property_name, value in property_pairs:
             if value is not None:
                 query.append(f"{property_name} = {value}")
-        return self._execute_query(strip_empty_lines(query))
+        return self._execute_schema_query(strip_empty_lines(query))
 
     def unset_property(
         self,
@@ -147,4 +147,4 @@ class ServiceManager(SqlExecutionMixin):
             )
         unset_list = [property_name for property_name, value in property_pairs if value]
         query = f"alter service {service_name} unset {','.join(unset_list)}"
-        return self._execute_query(query)
+        return self._execute_schema_query(query)
