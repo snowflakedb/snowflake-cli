@@ -197,6 +197,9 @@ def set_property(
     comment: Optional[str] = CommentOption(help=_COMMENT_HELP, show_default=False),
     **options,
 ):
+    """
+    Sets one or more properties or parameters for the service.
+    """
     try:
         cursor = ServiceManager().set_property(
             service_name=name,
@@ -245,6 +248,9 @@ def unset_property(
     ),
     **options,
 ):
+    """
+    Resets one or more properties or parameters for the service to their default value(s).
+    """
     try:
         cursor = ServiceManager().unset_property(
             service_name=name,
