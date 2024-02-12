@@ -12,6 +12,7 @@ from snowflake.cli.api.commands.flags import (
     ConnectionOption,
     DatabaseOption,
     DebugOption,
+    MfaPasscodeOption,
     OutputFormatOption,
     PasswordOption,
     PrivateKeyPathOption,
@@ -234,6 +235,12 @@ GLOBAL_CONNECTION_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[bool],
         default=TemporaryConnectionOption,
+    ),
+    inspect.Parameter(
+        "mfa_passcode",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=MfaPasscodeOption,
     ),
 ]
 

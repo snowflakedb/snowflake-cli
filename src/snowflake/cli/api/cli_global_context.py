@@ -23,6 +23,7 @@ class _ConnectionContext:
         self._authenticator: Optional[str] = None
         self._private_key_path: Optional[str] = None
         self._warehouse: Optional[str] = None
+        self._mfa_passcode: Optional[str] = None
         self._temporary_connection: bool = False
 
     def __setattr__(self, key, value):
@@ -111,6 +112,13 @@ class _ConnectionContext:
         self._warehouse = value
 
     @property
+    def mfa_passcode(self) -> Optional[str]:
+        return self._mfa_passcode
+
+    def set_mfa_passcode(self, value: Optional[str]):
+        self._mfa_passcode = value
+
+    @property
     def temporary_connection(self) -> bool:
         return self._temporary_connection
 
@@ -145,6 +153,7 @@ class _ConnectionContext:
 
         return connect_to_snowflake(
             temporary_connection=self.temporary_connection,
+            mfa_passcode=self._mfa_passcode,
             connection_name=self.connection_name,
             **self._collect_not_empty_connection_attributes(),
         )
