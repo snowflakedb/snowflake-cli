@@ -44,23 +44,23 @@ def test_read_text(temp_dir, save_logs):
     expected_result = "Noble Knight\n" * 1024
     path.write_text(expected_result)
     spath = SecurePath(path)
-    assert spath.read_text(file_size_limit_kb=secure_path.UNLIMITED) == expected_result
-    assert spath.read_text(file_size_limit_kb=100) == expected_result
+    assert spath.read_text(file_size_limit_mb=secure_path.UNLIMITED) == expected_result
+    assert spath.read_text(file_size_limit_mb=100) == expected_result
 
     logs = _read_logs(save_logs)
     assert logs.count("INFO [snowflake.cli.api.secure_path] Reading file") == 2
 
     # too large file causes an error
     with pytest.raises(FileTooLargeError):
-        spath.read_text(file_size_limit_kb=10)
+        spath.read_text(file_size_limit_mb=0)
 
     # not existing file causes an error
     with pytest.raises(FileNotFoundError):
-        (SecurePath(temp_dir) / "not_a_file.txt").read_text(file_size_limit_kb=100)
+        (SecurePath(temp_dir) / "not_a_file.txt").read_text(file_size_limit_mb=100)
 
     # "opening" directory causes an error
     with pytest.raises(IsADirectoryError):
-        SecurePath(save_logs).read_text(file_size_limit_kb=100)
+        SecurePath(save_logs).read_text(file_size_limit_mb=100)
 
 
 def test_open_write(temp_dir, save_logs):
@@ -79,9 +79,9 @@ def test_open_read(temp_dir, save_logs):
     path = Path(temp_dir) / "file.txt"
     path.write_text("You play dirty noble knight.")
 
-    with SecurePath(path).open("r", read_file_limit_kb=100) as fd:
+    with SecurePath(path).open("r", read_file_limit_mb=10) as fd:
         assert fd.read() == "You play dirty noble knight."
-    with SecurePath(path).open("r", read_file_limit_kb=secure_path.UNLIMITED) as fd:
+    with SecurePath(path).open("r", read_file_limit_mb=secure_path.UNLIMITED) as fd:
         assert fd.read() == "You play dirty noble knight."
 
     logs = _read_logs(save_logs)
@@ -90,18 +90,18 @@ def test_open_read(temp_dir, save_logs):
 
     # too large file causes an error
     with pytest.raises(FileTooLargeError):
-        with SecurePath(path).open("r", read_file_limit_kb=0):
+        with SecurePath(path).open("r", read_file_limit_mb=0):
             pass
 
     # not existing file causes an error
     with pytest.raises(FileNotFoundError):
         not_existing_path = SecurePath(temp_dir) / "not_a_file.txt"
-        with not_existing_path.open("r", read_file_limit_kb=100):
+        with not_existing_path.open("r", read_file_limit_mb=100):
             pass
 
     # "opening" directory causes an error
     with pytest.raises(IsADirectoryError):
-        with SecurePath(save_logs).open("r", read_file_limit_kb=100):
+        with SecurePath(save_logs).open("r", read_file_limit_mb=100):
             pass
 
 

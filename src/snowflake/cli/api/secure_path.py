@@ -84,14 +84,14 @@ class SecurePath:
             log.info("Creating directory %s", str(self._path))
         self._path.mkdir(mode=permissions_mask, parents=parents, exist_ok=exist_ok)
 
-    def read_text(self, file_size_limit_kb: int, encoding=None, errors=None) -> str:
+    def read_text(self, file_size_limit_mb: int, encoding=None, errors=None) -> str:
         """
         Return the decoded contents of the file as a string.
         Raises an error of the file exceeds the specified size limit.
         For details, check pathlib.Path.read_text()
         """
         self._assert_exists_and_is_file()
-        self._assert_file_size_limit(file_size_limit_kb)
+        self._assert_file_size_limit(file_size_limit_mb)
         log.info("Reading file %s", self._path)
         return self._path.read_text(encoding=encoding, errors=errors)
 
@@ -99,7 +99,7 @@ class SecurePath:
     def open(  # noqa: A003
         self,
         mode="r",
-        read_file_limit_kb: Optional[int] = None,
+        read_file_limit_mb: Optional[int] = None,
         buffering=-1,
         encoding=None,
         errors=None,
@@ -114,10 +114,10 @@ class SecurePath:
         opened_for_reading = "r" in mode
         if opened_for_reading:
             assert (
-                read_file_limit_kb is not None
-            ), "For reading mode ('r') read_file_limit_kb must be provided"
+                read_file_limit_mb is not None
+            ), "For reading mode ('r') read_file_limit_mb must be provided"
             self._assert_exists_and_is_file()
-            self._assert_file_size_limit(read_file_limit_kb)
+            self._assert_file_size_limit(read_file_limit_mb)
 
         if self.exists():
             self._assert_is_file()
@@ -238,9 +238,9 @@ class SecurePath:
         if not self._path.is_dir():
             raise NotADirectoryError(self._path.resolve())
 
-    def _assert_file_size_limit(self, size_limit_in_kb):
+    def _assert_file_size_limit(self, size_limit_in_mb):
         if (
-            size_limit_in_kb != UNLIMITED
-            and self._path.stat().st_size > size_limit_in_kb * 1024
+            size_limit_in_mb != UNLIMITED
+            and self._path.stat().st_size > size_limit_in_mb * 1024 * 1024
         ):
-            raise FileTooLargeError(self._path.resolve(), size_limit_in_kb)
+            raise FileTooLargeError(self._path.resolve(), size_limit_in_mb)
