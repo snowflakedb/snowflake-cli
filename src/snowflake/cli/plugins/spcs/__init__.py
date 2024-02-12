@@ -11,7 +11,7 @@ from snowflake.cli.plugins.spcs.services.commands import app as services_app
 
 app = SnowTyper(
     name="spcs",
-    help="Manages Snowpark services, pools, jobs, image registries, and image repositories.",
+    help="Manages Snowpark services, pools, image registries, and image repositories.",
 )
 
 app.add_typer(compute_pools_app)  # type: ignore
