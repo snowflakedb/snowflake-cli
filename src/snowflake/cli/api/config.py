@@ -10,6 +10,7 @@ from snowflake.cli.api.exceptions import (
     MissingConfiguration,
     UnsupportedConfigSectionTypeError,
 )
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.config_manager import CONFIG_MANAGER
 from snowflake.connector.errors import MissingConfigOptionError
 from tomlkit import TOMLDocument, dump
@@ -144,7 +145,8 @@ def get_config_value(*path, key: str, default: Optional[Any] = Empty) -> Any:
 
 
 def _initialise_config(config_file: Path) -> None:
-    os.makedirs(os.path.dirname(config_file), exist_ok=True)
+    config_file = SecurePath(config_file)
+    config_file.parent.mkdir(parents=True, exist_ok=True)
     config_file.touch()
     _initialise_logs_section()
     log.info("Created Snowflake configuration file at %s", CONFIG_MANAGER.file_path)
