@@ -167,6 +167,22 @@ def mock_cursor():
 
 
 @pytest.fixture
+def mock_statement_success(mock_cursor):
+    def generate_mock_success(is_dict: bool = False) -> SnowflakeCursor:
+        if is_dict:
+            return mock_cursor(
+                rows=[{"status": "Statement executed successfully."}],
+                columns=["status"],
+            )
+        else:
+            return mock_cursor(
+                rows=[("Statement executed successfully.",)], columns=["status"]
+            )
+
+    return generate_mock_success
+
+
+@pytest.fixture
 def other_directory():
     tmp_dir = tempfile.TemporaryDirectory()
     yield tmp_dir.name

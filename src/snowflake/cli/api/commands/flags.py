@@ -245,3 +245,33 @@ def project_definition_option(project_name: str):
         callback=_callback,
         show_default=False,
     )
+
+
+class OverrideableOption:
+    """
+    Class that allows you to generate instances of typer.models.OptionInfo with some default properties while allowing specific values to be overriden.
+    """
+
+    def __init__(self, default: Any, *param_decls: str, **kwargs):
+        self.default = default
+        self.param_decls = param_decls
+        self.kwargs = kwargs
+
+    def __call__(self, **kwargs) -> typer.models.OptionInfo:
+        """
+        Returns a typer.models.OptionInfo instance initialized with the specified default values along with any overrides
+        from kwargs.Note that if you are overriding param_decls,
+        you must pass an iterable of strings, you cannot use positional arguments like you can with typer.Option.
+        Does not modify the original instance.
+        """
+        default = kwargs.get("default", self.default)
+        param_decls = kwargs.get("param_decls", self.param_decls)
+        try:
+            iter(param_decls)
+        except TypeError:
+            raise TypeError("param_decls must be an iterable")
+        passed_kwargs = self.kwargs.copy()
+        passed_kwargs.update(kwargs)
+        passed_kwargs.pop("default", None)
+        passed_kwargs.pop("param_decls", None)
+        return typer.Option(default, *param_decls, **passed_kwargs)

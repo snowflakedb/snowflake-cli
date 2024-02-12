@@ -34,7 +34,6 @@ class ServiceManager(SqlExecutionMixin):
             FROM SPECIFICATION $$
             {spec}
             $$
-            WITH
             MIN_INSTANCES = {min_instances}
             MAX_INSTANCES = {max_instances}
             AUTO_RESUME = {auto_resume}
@@ -51,12 +50,12 @@ class ServiceManager(SqlExecutionMixin):
         if query_warehouse:
             query.append(f"QUERY_WAREHOUSE = {query_warehouse}")
 
-        if tags:
-            tag_list = ",".join(f"{t.name}={t.value_string_literal()}" for t in tags)
-            query.append(f"TAG ({tag_list})")
-
         if comment:
             query.append(f"COMMENT = {comment}")
+
+        if tags:
+            tag_list = ",".join(f"{t.name}={t.value_string_literal()}" for t in tags)
+            query.append(f"WITH TAG ({tag_list})")
 
         try:
             return self._execute_schema_query(strip_empty_lines(query))

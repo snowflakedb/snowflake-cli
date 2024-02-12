@@ -13,7 +13,7 @@ from snowflake.cli.api.output.types import (
     QueryJsonValueResult,
     SingleQueryResult,
 )
-from snowflake.cli.plugins.object.common import Tag, comment_option, tag_option
+from snowflake.cli.plugins.object.common import CommentOption, TagOption
 from snowflake.cli.plugins.spcs.common import (
     print_log_lines,
     validate_and_set_instances,
@@ -64,8 +64,8 @@ def create(
         "--query-warehouse",
         help="Warehouse to use if a service container connects to Snowflake to execute a query without explicitly specifying a warehouse to use.",
     ),
-    tags: Optional[List[Tag]] = tag_option("service"),
-    comment: Optional[str] = comment_option("service"),
+    tags: Optional[List[str]] = TagOption(help="Tag for the service."),
+    comment: Optional[str] = CommentOption(help="Comment for the service."),
     **options,
 ) -> CommandResult:
     """
