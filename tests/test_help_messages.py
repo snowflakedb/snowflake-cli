@@ -6,7 +6,8 @@ import pytest
 
 def iter_through_all_commands_paths():
     """
-    Generator itering through all commands, yielding Tuple[]
+    Generator iterating through all commands.
+    Paths are yielded as List[str]
     """
     IGNORE_PLUGINS = ["render"]
 
@@ -33,9 +34,8 @@ def iter_through_all_commands_paths():
 )
 def test_help_messages(runner, snapshot, command):
     """
-    Iterate through all commands and check all their help messages against the snapshot
+    Check help messages against the snapshot
     """
-
     result = runner.invoke(command + ["--help"])
     assert result.exit_code == 0
     assert result.output == snapshot(name=".".join(command))
