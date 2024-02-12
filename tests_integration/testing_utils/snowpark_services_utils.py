@@ -85,7 +85,7 @@ class SnowparkServicesTestSteps:
                 "object",
                 "describe",
                 "service",
-                f"{self.database}.{self.schema}.{service_name}",
+                self._get_fqn(service_name),
             ],
         )
         assert result.json
@@ -97,7 +97,7 @@ class SnowparkServicesTestSteps:
                 "object",
                 "drop",
                 "service",
-                f"{self.database}.{self.schema}.{service_name}",
+                self._get_fqn(service_name),
             ],
         )
         assert result.json[0] == {  # type: ignore
@@ -208,5 +208,8 @@ class SnowparkServicesTestSteps:
             """
         ).strip()
 
-    def _get_spec_path(self):
+    def _get_spec_path(self) -> str:
         return f"{self._setup.test_root_path}/spcs/spec/spec.yml"
+
+    def _get_fqn(self, service_name) -> str:
+        return f"{self.database}.{self.schema}.{service_name}"
