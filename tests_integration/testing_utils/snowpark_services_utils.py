@@ -47,10 +47,7 @@ class SnowparkServicesTestSteps:
                 self.compute_pool,
                 "--spec-path",
                 self._get_spec_path(),
-                "--database",
-                self.database,
-                "--schema",
-                self.schema,
+                *self._database_schema_args(),
             ],
         )
         assert_that_result_is_successful_and_output_json_equals(
@@ -109,12 +106,7 @@ class SnowparkServicesTestSteps:
 
     def suspend_service(self, service_name: str):
         result = self._setup.runner.invoke_with_connection_json(
-            [
-                "spcs",
-                "service",
-                "suspend",
-                f"{self.database}.{self.schema}.{service_name}",
-            ]
+            ["spcs", "service", "suspend", service_name, *self._database_schema_args()]
         )
         assert_that_result_is_successful_and_output_json_equals(
             result, {"status": "Statement executed successfully"}
@@ -125,12 +117,7 @@ class SnowparkServicesTestSteps:
 
     def resume_service(self, service_name: str):
         result = self._setup.runner.invoke_with_connection_json(
-            [
-                "spcs",
-                "service",
-                "resume",
-                f"{self.database}.{self.schema}.{service_name}",
-            ]
+            ["spcs", "service", "resume", service_name, *self._database_schema_args()]
         )
         assert_that_result_is_successful_and_output_json_equals(
             result, {"status": "Statement executed successfully"}
@@ -161,16 +148,7 @@ class SnowparkServicesTestSteps:
 
     def _execute_status(self, service_name: str):
         return self._setup.runner.invoke_with_connection_json(
-            [
-                "spcs",
-                "service",
-                "status",
-                service_name,
-                "--database",
-                self.database,
-                "--schema",
-                self.schema,
-            ],
+            ["spcs", "service", "status", service_name, *self._database_schema_args()],
         )
 
     def _execute_list(self):
@@ -205,10 +183,7 @@ class SnowparkServicesTestSteps:
                 "0",
                 "--num-lines",
                 str(num_lines),
-                "--database",
-                self.database,
-                "--schema",
-                self.schema,
+                *self._database_schema_args(),
             ],
         )
 
@@ -232,3 +207,11 @@ class SnowparkServicesTestSteps:
 
     def _get_fqn(self, service_name) -> str:
         return f"{self.database}.{self.schema}.{service_name}"
+
+    def _database_schema_args(self):
+        return (
+            "--database",
+            self.database,
+            "--schema",
+            self.schema,
+        )
