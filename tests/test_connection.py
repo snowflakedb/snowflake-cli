@@ -236,7 +236,9 @@ def test_connection_test(mock_connect, runner):
     assert "Host" in result.output
     assert "Password" not in result.output
     assert "password" not in result.output
-    mock_connect.assert_called_with(connection_name="full", temporary_connection=False)
+    mock_connect.assert_called_with(
+        connection_name="full", temporary_connection=False, mfa_passcode=None
+    )
 
 
 @mock.patch("snowflake.connector.connect")
