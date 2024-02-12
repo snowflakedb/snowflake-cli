@@ -94,8 +94,8 @@ def get_plugins_config() -> dict:
         return {}
 
 
-def is_default_logs_path(path: Path) -> bool:
-    return path.resolve() == Path(str(_DEFAULT_LOGS_CONFIG["path"])).resolve()
+def is_default_logs_path(path: SecurePath) -> bool:
+    return path.path.resolve() == Path(str(_DEFAULT_LOGS_CONFIG["path"])).resolve()
 
 
 def connection_exists(connection_name: str) -> bool:

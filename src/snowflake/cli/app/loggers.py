@@ -1,7 +1,6 @@
 import logging
 import logging.config
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
 from typing import Any, Dict, List
 
 import typer
@@ -10,6 +9,7 @@ from snowflake.cli.api.config import (
     is_default_logs_path,
 )
 from snowflake.cli.api.exceptions import InvalidLogsConfiguration
+from snowflake.cli.api.secure_path import SecurePath
 
 _DEFAULT_LOG_FILENAME = "snowcli.log"
 
@@ -78,7 +78,7 @@ class FileLogsConfig:
     def __init__(self, debug: bool) -> None:
         config = get_logs_config()
 
-        self.path: Path = Path(config["path"])
+        self.path: SecurePath = SecurePath(config["path"])
         self.save_logs: bool = config["save_logs"]
         self.level: int = logging.getLevelName(config["level"].upper())
         if debug:
@@ -113,7 +113,7 @@ class FileLogsConfig:
 
     @property
     def filename(self):
-        return self.path / _DEFAULT_LOG_FILENAME
+        return self.path.path / _DEFAULT_LOG_FILENAME
 
 
 def create_loggers(verbose: bool, debug: bool):

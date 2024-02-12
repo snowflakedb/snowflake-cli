@@ -6,6 +6,7 @@ from typing import List, Optional
 
 from click import Command
 from jinja2 import Environment, FileSystemLoader
+from snowflake.cli.api.secure_path import SecurePath
 from typer.core import TyperArgument
 
 log = logging.getLogger(__name__)
@@ -14,7 +15,7 @@ CMD_USAGE_TMPL = "usage.rst.jinja2"
 OVERVIEW_TMPL = "overview.rst.jinja2"
 
 
-def generate_docs(root: Path, command: Command, cmd_parts: Optional[List] = None):
+def generate_docs(root: SecurePath, command: Command, cmd_parts: Optional[List] = None):
     """
     Iterates recursively through commands info. Creates a file structure resembling
     commands structure. For each terminal command creates a "usage" rst file.
@@ -47,7 +48,7 @@ def get_main_option(options: List[str]) -> str:
 
 def _render_usage(
     command: Command,
-    root: Path,
+    root: SecurePath,
     path: Optional[List] = None,
     template_name: str = CMD_USAGE_TMPL,
 ):
