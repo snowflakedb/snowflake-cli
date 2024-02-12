@@ -116,6 +116,6 @@ def generic_render_template(
     loaded_template = env.get_template(template_path.name)
     rendered_result = loaded_template.render(**data)
     if output_file_path:
-        output_file_path.write_text(rendered_result)
+        SecurePath(output_file_path).write_text(rendered_result)
     else:
         print(rendered_result)
