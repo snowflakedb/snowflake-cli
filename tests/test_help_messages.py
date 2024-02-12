@@ -1,28 +1,41 @@
 from snowflake.cli.app.commands_registration.command_plugins_loader import (
     load_only_builtin_command_plugins,
 )
+import pytest
 
 
-def test_help_messages(runner, snapshot):
+def iter_through_all_commands_paths():
     """
-    Iterate through all commands and check all their help messages against the snapshot
+    Generator itering through all commands, yielding Tuple[]
     """
     IGNORE_PLUGINS = ["render"]
 
-    def _check_command(command):
-        result = runner.invoke(command + ["--help"])
-        assert result.exit_code == 0
-        assert result.output == snapshot(name=".".join(command))
-
-    def _check_all_commands(command, path):
-        _check_command(path)
+    def _iter_through_commands(command, path):
+        yield list(path)
         for subpath, subcommand in getattr(command, "commands", {}).items():
             path.append(subpath)
-            _check_all_commands(subcommand, path)
+            yield from _iter_through_commands(subcommand, path)
             path.pop()
 
     builtin_plugins = load_only_builtin_command_plugins()
     for plugin in builtin_plugins:
         spec = plugin.command_spec
         if not plugin.plugin_name in IGNORE_PLUGINS:
-            _check_all_commands(spec.command, spec.full_command_path.path_segments)
+            yield from _iter_through_commands(
+                spec.command, spec.full_command_path.path_segments
+            )
+
+
+@pytest.mark.parametrize(
+    "command",
+    iter_through_all_commands_paths(),
+    ids=(".".join(cmd) for cmd in iter_through_all_commands_paths()),
+)
+def test_help_messages(runner, snapshot, command):
+    """
+    Iterate through all commands and check all their help messages against the snapshot
+    """
+
+    result = runner.invoke(command + ["--help"])
+    assert result.exit_code == 0
+    assert result.output == snapshot(name=".".join(command))
