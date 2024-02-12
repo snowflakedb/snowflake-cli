@@ -86,10 +86,5 @@ class ServiceManager(SqlExecutionMixin):
 
     def upgrade_spec(self, service_name: str, spec_path: Path):
         spec = self._read_yaml(spec_path)
-        query = f"""
-        alter service {service_name}
-        from specification $$
-        {spec}
-        $$
-        """.splitlines()
-        return self._execute_schema_query(strip_empty_lines(query))
+        query = f"alter service {service_name} from specification $$ {spec} $$"
+        return self._execute_schema_query(query)
