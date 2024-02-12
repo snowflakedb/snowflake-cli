@@ -81,7 +81,7 @@ class CliConsole(AbstractConsole):
     def warning(self, message: str):
         """Displays message in a style that makes it visually stand out from other output.
 
-        Intended for diplaying messages related to important messages."""
+        This should be used to display important messages to the console."""
         text = self._format_message(message, Output.IMPORTANT)
         self._print(text)
 
