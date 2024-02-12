@@ -38,4 +38,4 @@ def test_help_messages(runner, snapshot, command):
     """
     result = runner.invoke(command + ["--help"])
     assert result.exit_code == 0
-    assert result.output == snapshot(name=".".join(command))
+    assert result.output == snapshot
