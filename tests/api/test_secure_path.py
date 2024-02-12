@@ -115,6 +115,7 @@ def test_navigation():
     p = SecurePath("a/b/c")
     assert str(p / "b" / "c" / "d" / "e") == 'SecurePath("a/b/c/b/c/d/e")'
     assert str(p.parent.parent) == 'SecurePath("a")'
+    assert type(p.absolute()) is SecurePath
 
 
 def test_iterdir(temp_dir):

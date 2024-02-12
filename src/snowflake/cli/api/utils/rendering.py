@@ -6,10 +6,11 @@ from textwrap import dedent
 from typing import Optional
 
 import jinja2
+from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 
 
 def read_file_content(file_name: str):
-    return Path(file_name).read_text()
+    return SecurePath(file_name).read_text(file_size_limit_mb=UNLIMITED)
 
 
 @jinja2.pass_environment  # type: ignore
@@ -27,7 +28,9 @@ def procedure_from_js_file(env: jinja2.Environment, file_name: str):
             """
         )
     )
-    return template.render(code=Path(file_name).read_text())
+    return template.render(
+        code=SecurePath(file_name).read_text(file_size_limit_mb=UNLIMITED)
+    )
 
 
 PROCEDURE_TEMPLATE = dedent(
@@ -71,7 +74,9 @@ PROCEDURE_TEMPLATE = dedent(
 
 @jinja2.pass_environment  # type: ignore
 def render_metadata(env: jinja2.Environment, file_name: str):
-    metadata = json.loads(Path(file_name).absolute().read_text())
+    metadata = json.loads(
+        SecurePath(file_name).absolute().read_text(file_size_limit_mb=UNLIMITED)
+    )
     template = env.from_string(PROCEDURE_TEMPLATE)
 
     rendered = []

@@ -36,6 +36,12 @@ class SecurePath:
         """
         return SecurePath(self._path.parent)
 
+    def absolute(self):
+        """
+        Make the path absolute, without normalization or resolving symlinks.
+        """
+        return SecurePath(self._path.absolute())
+
     def iterdir(self):
         """
         When the path points to a directory, yield path objects of the directory contents.
