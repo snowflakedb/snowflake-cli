@@ -65,12 +65,12 @@ def test_create_service(mock_execute_schema_query, other_directory):
             'FROM SPECIFICATION $$ {"spec": {"containers": [{"name": "cloudbeaver", "image":',
             '"/spcs_demos_db/cloudbeaver:23.2.1"}], "endpoints": [{"name": "cloudbeaver",',
             '"port": 80, "public": true}]}} $$',
-            "WITH MIN_INSTANCES = 42 MAX_INSTANCES = 43",
+            "MIN_INSTANCES = 42 MAX_INSTANCES = 43",
             "AUTO_RESUME = True",
             "EXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration,salesforce_api_access_integration)",
             "QUERY_WAREHOUSE = test_warehouse",
-            "TAG (test_tag='test value',key='value')",
             "COMMENT = 'user\\'s comment'",
+            "WITH TAG (test_tag='test value',key='value')",
         ]
     )
     actual_query = " ".join(mock_execute_schema_query.mock_calls[0].args[0].split())

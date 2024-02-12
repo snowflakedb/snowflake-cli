@@ -3,6 +3,7 @@ from typing import Optional
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.spcs.common import (
+    NoPropertiesProvidedError,
     handle_object_already_exists,
     strip_empty_lines,
 )
@@ -47,3 +48,45 @@ class ComputePoolManager(SqlExecutionMixin):
 
     def resume(self, pool_name: str) -> SnowflakeCursor:
         return self._execute_query(f"alter compute pool {pool_name} resume")
+
+    def set_property(
+        self,
+        pool_name: str,
+        min_nodes: Optional[int],
+        max_nodes: Optional[int],
+        auto_resume: Optional[bool],
+        auto_suspend_secs: Optional[int],
+        comment: Optional[str],
+    ) -> SnowflakeCursor:
+        property_pairs = [
+            ("min_nodes", min_nodes),
+            ("max_nodes", max_nodes),
+            ("auto_resume", auto_resume),
+            ("auto_suspend_secs", auto_suspend_secs),
+            ("comment", comment),
+        ]
+        if all([value is None for property_name, value in property_pairs]):
+            raise NoPropertiesProvidedError(
+                "at least one of the properties passed to 'set_property' must not be None"
+            )
+        query: list[str] = [f"alter compute pool {pool_name} set"]
+        for property_name, value in property_pairs:
+            if value is not None:
+                query.append(f"{property_name} = {value}")
+        return self._execute_query(strip_empty_lines(query))
+
+    def unset_property(
+        self, pool_name: str, auto_resume: bool, auto_suspend_secs: bool, comment: bool
+    ):
+        property_pairs = [
+            ("auto_resume", auto_resume),
+            ("auto_suspend_secs", auto_suspend_secs),
+            ("comment", comment),
+        ]
+        if not any([value for property_name, value in property_pairs]):
+            raise NoPropertiesProvidedError(
+                "at least one of the properties passed to 'unset_property' must be True"
+            )
+        unset_list = [property_name for property_name, value in property_pairs if value]
+        query = f"alter compute pool {pool_name} unset {','.join(unset_list)}"
+        return self._execute_query(query)
