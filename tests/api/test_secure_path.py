@@ -324,3 +324,15 @@ def test_temporary_directory(save_logs):
 
         temp_path = sdir
     assert not temp_path.exists()
+
+
+def test_file_size_limit_calculation(temp_dir):
+    a_file = Path(temp_dir) / "a_file.txt"
+
+    # should work
+    a_file.write_bytes(b"x" * 1024 * 900)  # ~900 KB
+    SecurePath(a_file).read_text(file_size_limit_mb=1)
+    # should rise
+    a_file.write_bytes(b"x" * 1024 * 1200)  # ~1.2 MB
+    with pytest.raises(FileTooLargeError):
+        SecurePath(a_file).read_text(file_size_limit_mb=1)
