@@ -108,6 +108,7 @@ def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
         schema="schemanameValue",
         role="rolenameValue",
         password="passFromTest",
+        mfa_passcode=None,
     )
 
 

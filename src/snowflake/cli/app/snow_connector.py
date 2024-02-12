@@ -22,7 +22,7 @@ ENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN ENCRYPTED PRIVATE KEY-----"
 UNENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN PRIVATE KEY-----"
 
 
-def connect_to_snowflake(temporary_connection: bool = False, connection_name: Optional[str] = None, **overrides) -> SnowflakeConnection:  # type: ignore
+def connect_to_snowflake(temporary_connection: bool = False, mfa_passcode: Optional[str] = None, connection_name: Optional[str] = None, **overrides) -> SnowflakeConnection:  # type: ignore
 
     if not temporary_connection:
         if connection_name is not None:
@@ -40,6 +40,9 @@ def connect_to_snowflake(temporary_connection: bool = False, connection_name: Op
     connection_parameters = _update_connection_details_with_private_key(
         connection_parameters
     )
+
+    if mfa_passcode:
+        connection_parameters["passcode"] = mfa_passcode
 
     try:
         # Whatever output is generated when creating connection,

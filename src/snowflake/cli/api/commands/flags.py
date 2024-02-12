@@ -142,6 +142,15 @@ WarehouseOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+MfaPasscodeOption = typer.Option(
+    None,
+    "--mfa-passcode",
+    help="Token to use for multi-factor authentication (MFA)",
+    callback=_callback(lambda: cli_context_manager.connection_context.set_mfa_passcode),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
 OutputFormatOption = typer.Option(
     OutputFormat.TABLE.value,
     "--format",
