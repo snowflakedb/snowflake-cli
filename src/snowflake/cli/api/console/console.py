@@ -10,6 +10,7 @@ from snowflake.cli.api.console.enum import Output
 
 PHASE_STYLE: Style = Style(color="grey93", bold=True)
 STEP_STYLE: Style = Style(color="grey89", italic=True)
+INFO_STYLE: Style = Style(color="black")
 IMPORTANT_STYLE: Style = Style(color="red", bold=True, italic=True)
 INDENTATION_LEVEL: int = 2
 
@@ -33,6 +34,7 @@ class CliConsole(AbstractConsole):
         "default": "",
         Output.PHASE: PHASE_STYLE,
         Output.STEP: STEP_STYLE,
+        Output.INFO: INFO_STYLE,
         Output.IMPORTANT: IMPORTANT_STYLE,
     }
 
@@ -41,7 +43,7 @@ class CliConsole(AbstractConsole):
         style = self._styles.get(output, "default")
         text = Text(message, style=style)
 
-        if self.in_phase and output in {Output.STEP, Output.IMPORTANT}:
+        if self.in_phase and output in {Output.STEP, Output.INFO, Output.IMPORTANT}:
             text.pad_left(self._indentation_level)
 
         return text
@@ -62,17 +64,24 @@ class CliConsole(AbstractConsole):
             self._print(self._format_message(exit_message, Output.PHASE))
 
     def step(self, message: str):
-        """Displays messge to output.
+        """Displays a message to output.
 
         If called within a phase, the output will be indented.
         """
         text = self._format_message(message, Output.STEP)
         self._print(text)
 
+    def message(self, _message: str):
+        """Displays an informational message to output.
+
+        If called within a phase, the output will be indented."""
+        text = self._format_message(_message, Output.INFO)
+        self._print(text)
+
     def warning(self, message: str):
         """Displays message in a style that makes it visually stand out from other output.
 
-        Intended for diplaying messeges related to important messages."""
+        This should be used to display important messages to the console."""
         text = self._format_message(message, Output.IMPORTANT)
         self._print(text)
 
