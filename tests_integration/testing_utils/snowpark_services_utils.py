@@ -13,7 +13,6 @@ from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_is_successful_and_executed_successfully,
     assert_that_result_is_successful_and_output_json_contains,
     assert_that_result_is_successful_and_output_json_equals,
-assert_that_result_is_successful_and_executed_successfully
 )
 
 
