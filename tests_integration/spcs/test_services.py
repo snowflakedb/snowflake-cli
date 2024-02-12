@@ -1,8 +1,8 @@
+import uuid
 from typing import Tuple
 
 import pytest
 
-from tests_integration.testing_utils.naming_utils import ObjectNameProvider
 from tests_integration.testing_utils.snowpark_services_utils import (
     SnowparkServicesTestSetup,
     SnowparkServicesTestSteps,
@@ -40,7 +40,7 @@ def _test_setup(
 
 @pytest.fixture
 def _test_steps(_test_setup):
-    service_name = ObjectNameProvider("spcs_service").create_and_get_next_object_name()
+    service_name = f"spcs_service_{uuid.uuid4().hex}"
     test_steps = SnowparkServicesTestSteps(_test_setup)
 
     yield test_steps, service_name
