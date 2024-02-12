@@ -297,7 +297,7 @@ def test_is_app_pkg_distribution_same_in_sf_no_mismatch(mock_mismatch, temp_dir)
 
 
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(f"{NATIVEAPP_MODULE}.log.warning")
+@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
     mock_warning, mock_mismatch, temp_dir
 ):

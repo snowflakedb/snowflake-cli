@@ -1,3 +1,3 @@
 from enum import Enum
 
-Output = Enum("Output", ("PHASE", "STEP", "IMPORTANT"))
+Output = Enum("Output", ("PHASE", "STEP", "INFO", "IMPORTANT"))

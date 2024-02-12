@@ -126,7 +126,7 @@ def test_create_app_pkg_incorrect_owner(mock_get_existing_app_pkg_info, temp_dir
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
-@mock.patch(f"{RUN_MODULE}.print")
+@mock.patch(f"{RUN_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
     [False, True],
@@ -167,7 +167,7 @@ def test_create_app_pkg_external_distribution(
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
-@mock.patch(f"{RUN_MODULE}.print")
+@mock.patch(f"{RUN_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
     [False, True],
@@ -208,7 +208,7 @@ def test_create_app_pkg_internal_distribution_special_comment(
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
-@mock.patch(f"{RUN_MODULE}.print")
+@mock.patch(f"{RUN_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
     [False, True],
