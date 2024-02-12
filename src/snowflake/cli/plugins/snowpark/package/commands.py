@@ -4,11 +4,7 @@ import logging
 from pathlib import Path
 
 import typer
-from snowflake.cli.api.commands.decorators import (
-    global_options_with_connection,
-    with_output,
-)
-from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.plugins.snowpark.package.manager import (
     cleanup_after_install,
@@ -22,17 +18,14 @@ from snowflake.cli.plugins.snowpark.package.utils import (
     RequiresPackages,
 )
 
-app = typer.Typer(
+app = SnowTyper(
     name="package",
-    context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manage custom Python packages for Snowpark",
 )
 log = logging.getLogger(__name__)
 
 
-@app.command("lookup")
-@global_options_with_connection
-@with_output
+@app.command("lookup", requires_connection=True)
 def package_lookup(
     name: str = typer.Argument(..., help="Name of the package."),
     install_packages: bool = typer.Option(
@@ -53,9 +46,7 @@ def package_lookup(
     return MessageResult(lookup_result.message)
 
 
-@app.command("upload")
-@global_options_with_connection
-@with_output
+@app.command("upload", requires_connection=True)
 def package_upload(
     file: Path = typer.Option(
         ...,
@@ -84,9 +75,7 @@ def package_upload(
     return MessageResult(upload(file=file, stage=stage, overwrite=overwrite))
 
 
-@app.command("create")
-@global_options_with_connection
-@with_output
+@app.command("create", requires_connection=True)
 def package_create(
     name: str = typer.Argument(
         ...,

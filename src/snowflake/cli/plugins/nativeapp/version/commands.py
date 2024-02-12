@@ -5,11 +5,9 @@ import typer
 from click import MissingParameter
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.decorators import (
-    global_options_with_connection,
-    with_output,
     with_project_definition,
 )
-from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MessageResult, QueryResult
 from snowflake.cli.plugins.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowflake.cli.plugins.nativeapp.policy import (
@@ -24,8 +22,7 @@ from snowflake.cli.plugins.nativeapp.version.version_processor import (
     NativeAppVersionDropProcessor,
 )
 
-app = typer.Typer(
-    context_settings=DEFAULT_CONTEXT_SETTINGS,
+app = SnowTyper(
     name="version",
     help="Manage Native Application Package versions in Snowflake",
 )
@@ -33,10 +30,8 @@ app = typer.Typer(
 log = logging.getLogger(__name__)
 
 
-@app.command()
-@with_output
+@app.command(requires_connection=True)
 @with_project_definition("native_app")
-@global_options_with_connection
 def create(
     version: Optional[str] = typer.Argument(
         None,
@@ -95,10 +90,8 @@ def create(
     return MessageResult(f"Version create is now complete.")
 
 
-@app.command("list")
-@with_output
+@app.command("list", requires_connection=True)
 @with_project_definition("native_app")
-@global_options_with_connection
 def version_list(
     **options,
 ) -> CommandResult:
@@ -113,10 +106,8 @@ def version_list(
     return QueryResult(cursor)
 
 
-@app.command()
-@with_output
+@app.command(requires_connection=True)
 @with_project_definition("native_app")
-@global_options_with_connection
 def drop(
     version: Optional[str] = typer.Argument(
         None,

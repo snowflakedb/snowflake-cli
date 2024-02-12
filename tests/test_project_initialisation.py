@@ -6,10 +6,12 @@ from snowflake.cli.api.commands.project_initialisation import add_init_command
 from typer import Typer
 from typer.testing import CliRunner
 
+from snowflake.cli.api.commands.snow_typer import SnowTyper
+
 
 @mock.patch("shutil.copytree")
 def test_adds_init_command(mock_copy):
-    app = Typer()
+    app = SnowTyper()
     runner = CliRunner()
 
     with TemporaryDirectory() as tmp_templates:
