@@ -3,11 +3,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
-from snowflake.cli.api.commands.decorators import (
-    global_options_with_connection,
-    with_output,
-)
-from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import (
     CommandResult,
     QueryJsonValueResult,
@@ -20,16 +16,13 @@ from snowflake.cli.plugins.spcs.common import (
 )
 from snowflake.cli.plugins.spcs.services.manager import ServiceManager
 
-app = typer.Typer(
-    context_settings=DEFAULT_CONTEXT_SETTINGS,
+app = SnowTyper(
     name="service",
     help="Manages Snowpark services.",
 )
 
 
-@app.command()
-@with_output
-@global_options_with_connection
+@app.command(requires_connection=True)
 def create(
     name: str = typer.Argument(..., help="Name of the service."),
     compute_pool: str = typer.Option(
@@ -89,9 +82,7 @@ def create(
     return SingleQueryResult(cursor)
 
 
-@app.command()
-@with_output
-@global_options_with_connection
+@app.command(requires_connection=True)
 def status(
     name: str = typer.Argument(..., help="Name of the service."), **options
 ) -> CommandResult:
@@ -102,8 +93,7 @@ def status(
     return QueryJsonValueResult(cursor)
 
 
-@app.command()
-@global_options_with_connection
+@app.command(requires_connection=True)
 def logs(
     name: str = typer.Argument(..., help="Name of the service."),
     container_name: str = typer.Option(

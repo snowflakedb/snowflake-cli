@@ -2,26 +2,19 @@ import sys
 from pathlib import Path
 
 import typer
-from snowflake.cli.api.commands.decorators import (
-    global_options_with_connection,
-    with_output,
-)
-from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
 from snowflake.cli.plugins.spcs.common import print_log_lines
 from snowflake.cli.plugins.spcs.jobs.manager import JobManager
 
-app = typer.Typer(
-    context_settings=DEFAULT_CONTEXT_SETTINGS,
+app = SnowTyper(
     name="job",
     help="Manage Snowpark jobs.",
     hidden=True,
 )
 
 
-@app.command()
-@with_output
-@global_options_with_connection
+@app.command(requires_connection=True)
 def create(
     compute_pool: str = typer.Option(
         ..., "--compute-pool", help="Name of the pool in which to run the job."
@@ -43,8 +36,7 @@ def create(
     return SingleQueryResult(cursor)
 
 
-@app.command()
-@global_options_with_connection
+@app.command(requires_connection=True)
 def logs(
     identifier: str = typer.Argument(..., help="Job id"),
     container_name: str = typer.Option(
@@ -61,9 +53,7 @@ def logs(
     print_log_lines(sys.stdout, identifier, "0", logs)
 
 
-@app.command()
-@with_output
-@global_options_with_connection
+@app.command(requires_connection=True)
 def status(
     identifier: str = typer.Argument(..., help="ID of the job."), **options
 ) -> CommandResult:

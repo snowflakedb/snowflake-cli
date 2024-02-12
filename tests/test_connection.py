@@ -1,6 +1,7 @@
 import json
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
+from unittest.mock import MagicMock
 
 from snowflake.cli.api.exceptions import SnowflakeConnectionError
 
@@ -235,14 +236,16 @@ def test_connection_test(mock_connect, runner):
     assert "Host" in result.output
     assert "Password" not in result.output
     assert "password" not in result.output
-    mock_connect.assert_called_with(connection_name="full")
+    mock_connect.assert_called_with(
+        connection_name="full", temporary_connection=False, mfa_passcode=None
+    )
 
 
 @mock.patch("snowflake.connector.connect")
 @pytest.mark.parametrize("option", ["--temporary-connection", "-x"])
-def test_temporary_connection(mock_conn, option, runner):
-
-    mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
+def test_temporary_connection(mock_connector, mock_ctx, option, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
     result = runner.invoke(
         [
             "object",
@@ -261,11 +264,11 @@ def test_temporary_connection(mock_conn, option, runner):
             "test_dv",
             "--schema",
             "PUBLIC",
-        ]
+        ],
     )
 
-    assert result.exit_code == 1
-    mock_conn.assert_called_once_with(
+    assert result.exit_code == 0
+    mock_connector.assert_called_once_with(
         application="SNOWCLI.OBJECT.LIST",
         account="test_account",
         user="snowcli_test",
@@ -284,10 +287,13 @@ def test_temporary_connection(mock_conn, option, runner):
     clear=True,
 )
 @mock.patch("snowflake.connector.connect")
-def test_key_pair_authentication(mock_conn, runner):
+def test_key_pair_authentication(mock_connector, mock_ctx, runner):
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
+
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
 
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
@@ -316,8 +322,6 @@ def test_key_pair_authentication(mock_conn, runner):
             dedent("\n".join(encrypted_pem_private_key.decode().splitlines()))
         )
         tmp_file.flush()
-
-        mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
         result = runner.invoke(
             [
                 "object",
@@ -341,8 +345,8 @@ def test_key_pair_authentication(mock_conn, runner):
             ]
         )
 
-    assert result.exit_code == 1
-    mock_conn.assert_called_once_with(
+    assert result.exit_code == 0
+    mock_connector.assert_called_once_with(
         application="SNOWCLI.OBJECT.LIST",
         private_key=private_key,
         account="test_account",
@@ -363,8 +367,11 @@ def test_key_pair_authentication(mock_conn, runner):
 )
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.app.snow_connector._load_pem_to_der")
-def test_key_pair_authentication_from_config(mock_load, mock_conn, temp_dir, runner):
-    mock_conn.side_effect = SnowflakeConnectionError("HTTP 403: Forbidden")
+def test_key_pair_authentication_from_config(
+    mock_load, mock_connector, mock_ctx, temp_dir, runner
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
     mock_load.return_value = "secret value"
 
     with NamedTemporaryFile("w+", suffix="toml") as tmp_file:
@@ -386,9 +393,9 @@ def test_key_pair_authentication_from_config(mock_load, mock_conn, temp_dir, run
             ["object", "list", "warehouse", "-c", "jwt"],
         )
 
-    assert result.exit_code == 1, result.output
+    assert result.exit_code == 0, result.output
     mock_load.assert_called_once_with("~/sf_private_key.p8")
-    mock_conn.assert_called_once_with(
+    mock_connector.assert_called_once_with(
         application="SNOWCLI.OBJECT.LIST",
         account="my_account",
         user="jdoe",
