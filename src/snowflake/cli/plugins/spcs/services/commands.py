@@ -24,7 +24,6 @@ app = SnowTyper(
 )
 
 
-@app.command(requires_connection=True)
 def _service_name_callback(name: str) -> str:
     if not is_valid_object_name(name, 2):
         raise ClickException(f"'{name}' is not a valid service name.")
@@ -36,7 +35,7 @@ ServiceNameArgument = typer.Argument(
 )
 
 
-@app.command()
+@app.command(requires_connection=True)
 def create(
     name: str = ServiceNameArgument,
     compute_pool: str = typer.Option(
