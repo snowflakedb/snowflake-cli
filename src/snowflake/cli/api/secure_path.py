@@ -156,13 +156,13 @@ class SecurePath:
 
         def _recursive_copy(src: Path, dest: Path):
             if src.is_file():
+                log.info("Copying file %s into %s", src, dest)
                 shutil.copyfile(src, dest)
             if src.is_dir():
-                dest.mkdir(mode=0o700)
+                self.__class__(dest).mkdir()
                 for child in src.iterdir():
                     _recursive_copy(child, dest / child.name)
 
-        log.info("Copying %s into %s", self._path, destination)
         _recursive_copy(self._path, destination)
 
         return SecurePath(destination)

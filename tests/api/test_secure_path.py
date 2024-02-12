@@ -12,6 +12,7 @@ from snowflake.cli.app import loggers
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
 
 import shutil
+import re
 
 
 @pytest.fixture()
@@ -34,9 +35,13 @@ def _read_logs(logs_path: Path) -> str:
     return next(logs_path.iterdir()).read_text()
 
 
-def _assert_count_current_logs(save_logs, pattern, expected):
-    logs = _read_logs(save_logs)
-    assert logs.count(pattern) == expected
+def _assert_count_matching_logs(
+    save_logs, expected_count, log_prefix, filename, log_suffix=""
+):
+    regex = f"INFO \[snowflake\.cli\.api\.secure_path\] {log_prefix} \S+{filename}{log_suffix}"
+    logs = _read_logs(save_logs).splitlines()
+    count = sum(1 for line in logs if re.search(regex, line) is not None)
+    assert count == expected_count
 
 
 def test_read_text(temp_dir, save_logs):
@@ -47,8 +52,7 @@ def test_read_text(temp_dir, save_logs):
     assert spath.read_text(file_size_limit_mb=secure_path.UNLIMITED) == expected_result
     assert spath.read_text(file_size_limit_mb=100) == expected_result
 
-    logs = _read_logs(save_logs)
-    assert logs.count("INFO [snowflake.cli.api.secure_path] Reading file") == 2
+    _assert_count_matching_logs(save_logs, 2, "Reading file", "file.txt")
 
     # too large file causes an error
     with pytest.raises(FileTooLargeError):
@@ -70,9 +74,10 @@ def test_open_write(temp_dir, save_logs):
         assert_file_permissions_are_strict(path.path)
         fd.write("Merlin")
     assert_file_permissions_are_strict(path.path)
-    logs = _read_logs(save_logs)
-    assert "INFO [snowflake.cli.api.secure_path] Opening file" in logs
-    assert "INFO [snowflake.cli.api.secure_path] Closing file" in logs
+    _assert_count_matching_logs(
+        save_logs, 1, "Opening file", "file.txt", " in mode 'w'"
+    )
+    _assert_count_matching_logs(save_logs, 1, "Closing file", "file.txt")
 
 
 def test_open_read(temp_dir, save_logs):
@@ -84,9 +89,10 @@ def test_open_read(temp_dir, save_logs):
     with SecurePath(path).open("r", read_file_limit_mb=secure_path.UNLIMITED) as fd:
         assert fd.read() == "You play dirty noble knight."
 
-    logs = _read_logs(save_logs)
-    assert logs.count("INFO [snowflake.cli.api.secure_path] Opening file") == 2
-    assert logs.count("INFO [snowflake.cli.api.secure_path] Closing file") == 2
+    _assert_count_matching_logs(
+        save_logs, 2, "Opening file", "file.txt", " in mode 'r'"
+    )
+    _assert_count_matching_logs(save_logs, 2, "Closing file", "file.txt")
 
     # too large file causes an error
     with pytest.raises(FileTooLargeError):
@@ -143,44 +149,34 @@ def test_permissions(temp_dir, save_logs):
     with pytest.raises(FileExistsError):
         file1.touch(exist_ok=False)
 
-    logs = _read_logs(save_logs)
-    assert logs.count("INFO [snowflake.cli.api.secure_path] Creating file") == 2
-    assert (
-        logs.count("INFO [snowflake.cli.api.secure_path] Update permissions of file")
-        == 1
+    _assert_count_matching_logs(save_logs, 1, "Creating file", "file1.txt")
+    _assert_count_matching_logs(save_logs, 1, "Creating file", "file2.txt")
+    _assert_count_matching_logs(
+        save_logs, 1, "Update permissions of file", "file2.txt", " to 0o660"
     )
-    assert "file2.txt to 0o660" in logs
-    assert logs.count("file1.txt") == 1 and logs.count("file2.txt") == 2
 
 
 def test_mkdir(temp_dir, save_logs):
     dir1 = SecurePath(temp_dir) / "dir1"
     dir2 = SecurePath(temp_dir) / "dir2" / "a" / "b" / "c" / "d"
+    dir2_regex = "[\/]".join(["dir2", "a", "b", "c", "d"])
 
     dir1.mkdir()
-    _assert_count_current_logs(
-        save_logs, "INFO [snowflake.cli.api.secure_path] Creating directory", 1
-    )
+    _assert_count_matching_logs(save_logs, 1, "Creating directory", "dir1")
     assert_file_permissions_are_strict(dir1.path)
 
     with pytest.raises(FileExistsError):
         dir1.mkdir()
 
     dir1.mkdir(exist_ok=True)
-    _assert_count_current_logs(
-        save_logs, "INFO [snowflake.cli.api.secure_path] Creating directory", 1
-    )
+    _assert_count_matching_logs(save_logs, 1, "Creating directory", "dir1")
 
     with pytest.raises(FileNotFoundError):
         dir2.mkdir()
-    _assert_count_current_logs(
-        save_logs, "INFO [snowflake.cli.api.secure_path] Creating directory", 2
-    )
+    _assert_count_matching_logs(save_logs, 1, "Creating directory", dir2_regex)
 
     dir2.mkdir(parents=True)
-    _assert_count_current_logs(
-        save_logs, "INFO [snowflake.cli.api.secure_path] Creating directory", 3
-    )
+    _assert_count_matching_logs(save_logs, 2, "Creating directory", dir2_regex)
     while dir2.path != Path(temp_dir):
         assert_file_permissions_are_strict(dir2.path)
         dir2 = dir2.parent
@@ -206,8 +202,12 @@ def test_copy_file(temp_dir, save_logs):
     assert copied_file.path.exists()
     assert_file_permissions_are_strict(copied_file.path)
 
-    logs = _read_logs(save_logs)
-    assert logs.count("INFO [snowflake.cli.api.secure_path] Copying ") == 2
+    _assert_count_matching_logs(
+        save_logs, 1, "Copying file", "file.txt", " into \S+file.copy.txt"
+    )
+    _assert_count_matching_logs(
+        save_logs, 1, "Copying file", "file.txt", " into \S+a_directory[\/]file.txt"
+    )
 
 
 def test_copy_directory(temp_dir, save_logs):
@@ -246,6 +246,9 @@ def test_copy_directory(temp_dir, save_logs):
         # restricted permissions of files and directory structure
         assert_file_permissions_are_strict(path)
 
+    _assert_count_matching_logs(save_logs, 5, "Copying file", ".txt")
+    _assert_count_matching_logs(save_logs, 4, "Creating directory", "")
+
     # argument is existing directory
     dest.chmod(0o771)
     src.copy(dest)
@@ -255,8 +258,8 @@ def test_copy_directory(temp_dir, save_logs):
         # restricted permissions of files and directory structure
         assert_file_permissions_are_strict(path)
 
-    logs = _read_logs(save_logs)
-    assert logs.count("INFO [snowflake.cli.api.secure_path] Copying ") == 2
+    _assert_count_matching_logs(save_logs, 10, "Copying file", ".txt")
+    _assert_count_matching_logs(save_logs, 8, "Creating directory", "")
 
 
 def test_rm(temp_dir, save_logs):
@@ -269,17 +272,13 @@ def test_rm(temp_dir, save_logs):
         SecurePath(file).rmdir()
 
     SecurePath(file).unlink()
-    _assert_count_current_logs(
-        save_logs, "INFO [snowflake.cli.api.secure_path] Removing file", 1
-    )
+    _assert_count_matching_logs(save_logs, 1, "Removing file", "file.txt")
 
     with pytest.raises(FileNotFoundError):
         SecurePath(file).unlink()
 
     SecurePath(file).unlink(missing_ok=True)
-    _assert_count_current_logs(
-        save_logs, "INFO [snowflake.cli.api.secure_path] Removing file", 1
-    )
+    _assert_count_matching_logs(save_logs, 1, "Removing file", "file.txt")
 
     # removing a directory
     base_dir = Path(temp_dir) / "base"
@@ -290,9 +289,8 @@ def test_rm(temp_dir, save_logs):
     with pytest.raises(DirectoryIsNotEmptyError):
         SecurePath(full_dir).rmdir()
     SecurePath(full_dir).rmdir(recursive=True)
-    _assert_count_current_logs(
-        save_logs, "INFO [snowflake.cli.api.secure_path] Removing directory", 1
-    )
+    _assert_count_matching_logs(save_logs, 1, "Removing directory", "base[\/]full")
+
     with pytest.raises(FileNotFoundError):
         SecurePath(full_dir).rmdir(recursive=True)
 
@@ -300,17 +298,16 @@ def test_rm(temp_dir, save_logs):
         SecurePath(base_dir).unlink()
 
     SecurePath(base_dir).rmdir()
-    _assert_count_current_logs(
-        save_logs, "INFO [snowflake.cli.api.secure_path] Removing directory", 2
-    )
+    _assert_count_matching_logs(save_logs, 2, "Removing directory", "base")
+
     SecurePath(base_dir).rmdir(missing_ok=True)
-    _assert_count_current_logs(
-        save_logs, "INFO [snowflake.cli.api.secure_path] Removing directory", 2
-    )
+    _assert_count_matching_logs(save_logs, 2, "Removing directory", "base")
 
 
 def test_temporary_directory(save_logs):
     with SecurePath.temporary_directory() as sdir:
+        _assert_count_matching_logs(save_logs, 1, "Created temporary directory", "")
+
         assert type(sdir) is SecurePath
         assert_file_permissions_are_strict(sdir.path)
 
@@ -324,6 +321,7 @@ def test_temporary_directory(save_logs):
 
         temp_path = sdir
     assert not temp_path.exists()
+    _assert_count_matching_logs(save_logs, 1, "Removing temporary directory", "")
 
 
 def test_file_size_limit_calculation(temp_dir):
