@@ -10,8 +10,11 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
 
 
-class NoImageRepositoriesFoundError(Exception):
-    pass
+class NoImageRepositoriesFoundError(ClickException):
+    def __init__(self):
+        super().__init__(
+            f"No image repository found. To run this command, please switch to a role with read access to at least one image repository or create a new image repository first."
+        )
 
 
 class RegistryManager(SqlExecutionMixin):
@@ -78,8 +81,7 @@ class RegistryManager(SqlExecutionMixin):
             "--password-stdin",
             registry_url,
         ]
-        result = subprocess.run(
-            command, input=json.dumps(token), text=True, capture_output=True
-        )
-        result.check_returncode()
-        return result.stdout
+        try:
+            return subprocess.check_output(command, input=json.dumps(token), text=True)
+        except subprocess.CalledProcessError as e:
+            raise ClickException(f"Login Failed: {e.stderr}".strip())

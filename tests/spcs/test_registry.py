@@ -1,5 +1,5 @@
 import json
-import subprocess
+from subprocess import CalledProcessError
 
 from tests.testing_utils.fixtures import *
 from snowflake.cli.plugins.spcs.image_registry.manager import (
@@ -7,7 +7,7 @@ from snowflake.cli.plugins.spcs.image_registry.manager import (
     NoImageRepositoriesFoundError,
 )
 from snowflake.connector.cursor import DictCursor
-from unittest.mock import Mock
+from click import ClickException
 
 
 @mock.patch("snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager._conn")
@@ -116,12 +116,9 @@ def test_has_url_scheme(url: str, expected: bool):
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
 )
-@mock.patch("snowflake.cli.plugins.spcs.image_registry.manager.subprocess.run")
-def test_docker_registry_login(mock_run, mock_get_url, mock_get_token):
-    process_result = Mock(spec=subprocess.CompletedProcess)
-    process_result.return_code = 0
-    process_result.stdout = "Login Succeeded\n"
-    mock_run.return_value = process_result
+@mock.patch("snowflake.cli.plugins.spcs.image_registry.manager.subprocess.check_output")
+def test_docker_registry_login(mock_check_output, mock_get_url, mock_get_token):
+    test_output = mock_check_output.return_value = "Login Succeeded\n"
     test_url = (
         mock_get_url.return_value
     ) = "orgname-acctname.registry.snowflakecomputing.com"
@@ -129,8 +126,6 @@ def test_docker_registry_login(mock_run, mock_get_url, mock_get_token):
         "token": "ver:1-hint:abc",
         "expires_in": 3600,
     }
-
-    result = RegistryManager().docker_registry_login()
 
     expected_command = [
         "docker",
@@ -140,12 +135,14 @@ def test_docker_registry_login(mock_run, mock_get_url, mock_get_token):
         "--password-stdin",
         test_url,
     ]
-    mock_run.assert_called_once_with(
-        expected_command, input=json.dumps(test_token), text=True, capture_output=True
+
+    result = RegistryManager().docker_registry_login()
+    mock_check_output.assert_called_once_with(
+        expected_command, input=json.dumps(test_token), text=True
     )
     mock_get_url.assert_called_once_with()
     mock_get_token.assert_called_once_with()
-    assert result == process_result.stdout
+    assert result == test_output
 
 
 @mock.patch(
@@ -159,32 +156,48 @@ def test_docker_registry_login_cli(mock_docker_login, runner, snapshot):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.docker_registry_login"
+    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
 )
-def test_docker_registry_login_cli_no_repositories(mock_docker_login, runner, snapshot):
-    mock_docker_login.side_effect = NoImageRepositoriesFoundError()
+def test_docker_registry_login_cli_no_repositories(
+    mock_get_registry_url, runner, snapshot
+):
+    mock_get_registry_url.side_effect = NoImageRepositoriesFoundError()
     result = runner.invoke(["spcs", "image-registry", "login"])
     assert result.exit_code == 1, result.output
     assert result.output == snapshot
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.docker_registry_login"
+    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_token"
 )
-def test_docker_registry_login_cli_subprocess_error(
-    mock_docker_login, runner, snapshot
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
+)
+@mock.patch("snowflake.cli.plugins.spcs.image_registry.manager.subprocess.check_output")
+def test_docker_registry_login_subprocess_error(
+    mock_check_output, mock_get_url, mock_get_token, snapshot
 ):
+    test_url = (
+        mock_get_url.return_value
+    ) = "orgname-acctname.registry.snowflakecomputing.com"
+    mock_get_token.return_value = {
+        "token": "ver:1-hint:abc",
+        "expires_in": 3600,
+    }
+
     test_command = [
         "docker",
         "login",
         "--username",
         "0sessiontoken",
         "--password-stdin",
-        "url.com",
+        test_url,
     ]
-    mock_docker_login.side_effect = subprocess.CalledProcessError(
+
+    mock_check_output.side_effect = CalledProcessError(
         returncode=1, cmd=test_command, stderr="Docker Failed"
     )
-    result = runner.invoke(["spcs", "image-registry", "login"])
-    assert result.exit_code == 1, result.output
-    assert result.output == snapshot
+    with pytest.raises(ClickException) as e:
+        RegistryManager().docker_registry_login()
+
+    assert e.value.message == snapshot
