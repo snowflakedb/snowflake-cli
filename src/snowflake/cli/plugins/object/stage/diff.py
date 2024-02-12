@@ -42,6 +42,47 @@ class DiffResult:
             or len(self.only_on_stage) > 0
         )
 
+    def __str__(self) -> str:
+        """
+        Method override for the standard behavior of string representation for this class.
+        """
+        components: List[
+            str
+        ] = (
+            []
+        )  # py3.8 does not support subscriptions for builtin list, hence using List
+
+        # The specific order of conditionals is for an aesthetically pleasing output and ease of readability.
+        if not self.only_local:
+            components.append(
+                "There are no new files that exist only in your local directory."
+            )
+        if not self.only_on_stage:
+            components.append("There are no new files that exist only on the stage.")
+        if not self.different:
+            components.append(
+                "There are no existing files that have been modified, or their status is unknown."
+            )
+        if not self.identical:
+            components.append(
+                "There are no existing files that are identical to the ones on the stage."
+            )
+
+        if self.only_local:
+            components.extend(["New files only on your local:", *self.only_local])
+        if self.only_on_stage:
+            components.extend(["New files only on the stage:", *self.only_on_stage])
+        if self.different:
+            components.extend(
+                ["Existing files modified or status unknown:", *self.different]
+            )
+        if self.identical:
+            components.extend(
+                ["Existing files identical to the stage:", *self.identical]
+            )
+
+        return "\n".join(components)
+
 
 def is_valid_md5sum(checksum: str) -> bool:
     """

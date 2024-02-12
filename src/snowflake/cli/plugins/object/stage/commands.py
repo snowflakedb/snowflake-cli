@@ -135,11 +135,4 @@ def stage_diff(
     Diffs a stage with a local folder.
     """
     diff: DiffResult = stage_diff(Path(folder_name), stage_name)
-    return ObjectResult(
-        {
-            "only on local": diff.only_local,
-            "only on stage": diff.only_on_stage,
-            "modified/unknown": diff.different,
-            "identical": diff.identical,
-        }
-    )
+    return ObjectResult(str(diff))
