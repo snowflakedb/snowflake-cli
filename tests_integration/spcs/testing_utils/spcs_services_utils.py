@@ -100,32 +100,18 @@ class SnowparkServicesTestSteps:
 
     def suspend_service(self, service_name: str):
         result = self._setup.runner.invoke_with_connection_json(
-            [
-                "spcs",
-                "service",
-                "suspend",
-                f"{self.database}.{self.schema}.{service_name}",
-            ]
+            ["spcs", "service", "suspend", service_name, *self._database_schema_args()]
         )
-        assert_that_result_is_successful_and_output_json_equals(
-            result, {"status": "Statement executed successfully"}
-        )
+        assert_that_result_is_successful_and_executed_successfully(result, is_json=True)
 
     def wait_until_service_is_suspended(self, service_name: str) -> None:
         self._wait_until_service_reaches_state(service_name, "SUSPENDED", 30)
 
     def resume_service(self, service_name: str):
         result = self._setup.runner.invoke_with_connection_json(
-            [
-                "spcs",
-                "service",
-                "resume",
-                f"{self.database}.{self.schema}.{service_name}",
-            ]
+            ["spcs", "service", "resume", service_name, *self._database_schema_args()]
         )
-        assert_that_result_is_successful_and_output_json_equals(
-            result, {"status": "Statement executed successfully"}
-        )
+        assert_that_result_is_successful_and_executed_successfully(result, is_json=True)
 
     def _wait_until_service_reaches_state(
         self, service_name: str, target_status: Union[str, dict], max_duration: int
