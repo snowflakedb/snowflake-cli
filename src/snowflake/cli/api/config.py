@@ -50,7 +50,7 @@ def config_init(config_file: Optional[Path]):
     if config_file:
         CONFIG_MANAGER.file_path = config_file
     else:
-        _check_config_files_permissions()
+        _check_default_config_files_permissions()
     if not CONFIG_MANAGER.file_path.exists():
         _initialise_config(CONFIG_MANAGER.file_path)
     CONFIG_MANAGER.read_config()
@@ -194,7 +194,7 @@ def _dump_config(conf_file_cache: Dict):
         dump(conf_file_cache, fh)
 
 
-def _check_config_files_permissions() -> None:
+def _check_default_config_files_permissions() -> None:
     if CONNECTIONS_FILE.exists() and not file_permissions_are_strict(CONNECTIONS_FILE):
         raise ConfigFileTooWidePermissionsError(CONNECTIONS_FILE)
     if CONFIG_FILE.exists() and not file_permissions_are_strict(CONFIG_FILE):

@@ -10,6 +10,6 @@ def file_permissions_are_strict(file_path: Path) -> bool:
         | stat.S_IWGRP  # writeable by group
         | stat.S_IWOTH  # writeable by others
         | stat.S_IXGRP  # executable by group
-        | stat.S_IXOTH  # executable by group
+        | stat.S_IXOTH  # executable by others
     )
     return (file_path.stat().st_mode & accessible_by_others) == 0

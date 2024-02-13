@@ -190,22 +190,76 @@ def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_ho
     }
 
 
-def test_too_wide_permissions_on_config_file(snowflake_home: Path):
+@pytest.mark.parametrize(
+    "chmod",
+    [
+        0o777,
+        0o770,
+        0o744,
+        0o740,
+        0o704,
+        0o722,
+        0o720,
+        0o702,
+        0o711,
+        0o710,
+        0o701,
+        0o677,
+        0o670,
+        0o644,
+        0o640,
+        0o604,
+        0o622,
+        0o620,
+        0o602,
+        0o611,
+        0o610,
+        0o601,
+    ],
+)
+def test_too_wide_permissions_on_config_file(snowflake_home: Path, chmod):
     config_path = snowflake_home / "config.toml"
     config_path.touch()
-    config_path.chmod(0o777)
+    config_path.chmod(chmod)
 
     with pytest.raises(ConfigFileTooWidePermissionsError) as error:
         config_init(None)
     assert error.value.message.__contains__("config.toml")
 
 
-def test_too_wide_permissions_on_connections_file(snowflake_home: Path):
+@pytest.mark.parametrize(
+    "chmod",
+    [
+        0o777,
+        0o770,
+        0o744,
+        0o740,
+        0o704,
+        0o722,
+        0o720,
+        0o702,
+        0o711,
+        0o710,
+        0o701,
+        0o677,
+        0o670,
+        0o644,
+        0o640,
+        0o604,
+        0o622,
+        0o620,
+        0o602,
+        0o611,
+        0o610,
+        0o601,
+    ],
+)
+def test_too_wide_permissions_on_connections_file(snowflake_home: Path, chmod):
     config_path = snowflake_home / "config.toml"
     config_path.touch()
     connections_path = snowflake_home / "connections.toml"
     connections_path.touch()
-    connections_path.chmod(0o777)
+    connections_path.chmod(chmod)
 
     with pytest.raises(ConfigFileTooWidePermissionsError) as error:
         config_init(None)
