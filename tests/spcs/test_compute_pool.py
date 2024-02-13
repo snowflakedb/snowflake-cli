@@ -12,7 +12,6 @@ from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.plugins.spcs.common import (
     NoPropertiesProvidedError,
-    strip_empty_lines,
 )
 
 
