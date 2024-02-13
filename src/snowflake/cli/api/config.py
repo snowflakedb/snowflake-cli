@@ -37,6 +37,7 @@ PLUGINS_SECTION = "plugins"
 
 LOGS_SECTION_PATH = [CLI_SECTION, LOGS_SECTION]
 PLUGINS_SECTION_PATH = [CLI_SECTION, PLUGINS_SECTION]
+FEATURE_FLAGS_SECTION_PATH = [CLI_SECTION, "features"]
 
 CONFIG_MANAGER.add_option(
     name=CLI_SECTION,
@@ -156,6 +157,15 @@ def get_config_value(*path, key: str, default: Optional[Any] = Empty) -> Any:
         if default is not Empty:
             return default
         raise
+
+
+def get_config_bool_value(*path, key: str, default: Optional[Any] = Empty) -> bool:
+    value = get_config_value(*path, key=key, default=default)
+    if not isinstance(value, bool):
+        raise RuntimeError(
+            f"Expected boolean value for {'.'.join((*path, key))} option."
+        )
+    return value
 
 
 def _initialise_config(config_file: Path) -> None:
