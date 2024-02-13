@@ -186,77 +186,47 @@ def test_get_repository_url_cli(mock_url, runner):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.show_specific_object"
 )
-def test_get_repository_row(mock_execute, mock_cursor):
-    mock_execute.return_value = mock_cursor(
-        rows=MOCK_ROWS_DICT,
-        columns=MOCK_COLUMNS,
-    )
-    result = ImageRepositoryManager().get_repository_row(MOCK_ROWS_DICT[0]["name"])
-    assert result == MOCK_ROWS_DICT[0]
-
-
-@mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
-)
-@mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
-)
-def test_get_repository_row_no_repo_found(mock_conn, mock_execute, mock_cursor):
-    mock_execute.return_value = mock_cursor(
-        rows=[],
-        columns=MOCK_COLUMNS,
-    )
-    mock_conn.database = "DB"
-    mock_conn.schema = "SCHEMA"
-    with pytest.raises(ClickException) as expected_error:
-        ImageRepositoryManager().get_repository_row("IMAGES")
-    assert (
-        "Image repository 'IMAGES' does not exist in database 'DB' and schema 'SCHEMA' or not authorized."
-        == expected_error.value.message
-    )
-
-
-@mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
-)
-def test_get_repository_row_more_than_one_repo(mock_execute, mock_cursor):
-    mock_execute.return_value = mock_cursor(
-        rows=MOCK_ROWS_DICT + MOCK_ROWS_DICT,
-        columns=MOCK_COLUMNS,
-    )
-    with pytest.raises(ClickException) as expected_error:
-        ImageRepositoryManager().get_repository_row("IMAGES")
-    assert (
-        "Found more than one image repository with name matching 'IMAGES'. This is unexpected."
-        == expected_error.value.message
-    )
-
-
-@mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.get_repository_row"
-)
-def test_get_repository_url(mock_get_row, mock_cursor):
+def test_get_repository_url(mock_get_row):
     expected_row = MOCK_ROWS_DICT[0]
     mock_get_row.return_value = expected_row
     result = ImageRepositoryManager().get_repository_url(repo_name="IMAGES")
-    mock_get_row.assert_called_once_with("IMAGES")
+    mock_get_row.assert_called_once_with("image repositories", "IMAGES")
     assert isinstance(expected_row, Dict)
     assert "repository_url" in expected_row
     assert result == f"https://{expected_row['repository_url']}"
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.get_repository_row"
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.show_specific_object"
 )
-def test_get_repository_url_no_scheme(mock_get_row, mock_cursor):
+def test_get_repository_url_no_scheme(mock_get_row):
     expected_row = MOCK_ROWS_DICT[0]
     mock_get_row.return_value = expected_row
     result = ImageRepositoryManager().get_repository_url(
         repo_name="IMAGES", with_scheme=False
     )
-    mock_get_row.assert_called_once_with("IMAGES")
+    mock_get_row.assert_called_once_with("image repositories", "IMAGES")
     assert isinstance(expected_row, Dict)
     assert "repository_url" in expected_row
     assert result == expected_row["repository_url"]
+
+
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
+)
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.show_specific_object"
+)
+def test_get_repository_url_no_repo_found(mock_get_row, mock_conn):
+    mock_get_row.return_value = None
+    mock_conn.database = "DB"
+    mock_conn.schema = "SCHEMA"
+    with pytest.raises(ClickException) as e:
+        ImageRepositoryManager().get_repository_url(repo_name="IMAGES")
+    assert (
+        e.value.message
+        == "Image repository 'IMAGES' does not exist in database 'DB' and schema 'SCHEMA' or not authorized."
+    )
+    mock_get_row.assert_called_once_with("image repositories", "IMAGES")
