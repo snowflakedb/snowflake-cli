@@ -67,6 +67,29 @@ def test_read_text(temp_dir, save_logs):
         SecurePath(save_logs).read_text(file_size_limit_mb=100)
 
 
+def test_write_text(temp_dir, save_logs):
+    # not existing file
+    path = Path(temp_dir) / "file.txt"
+    text = "What say you, noble knight?"
+    SecurePath(path).write_text(text)
+    assert path.read_text() == text
+    assert_file_permissions_are_strict(path)
+    _assert_count_matching_logs(save_logs, 1, "Creating file", path.name)
+    _assert_count_matching_logs(save_logs, 1, "Writing to file", path.name)
+
+    # existing file permissions are not overwritten
+    path.chmod(0o777)
+    SecurePath(path).write_text(text * 2)
+    assert path.read_text() == text * 2
+    _assert_count_matching_logs(save_logs, 1, "Creating file", path.name)
+    _assert_count_matching_logs(save_logs, 2, "Writing to file", path.name)
+    writable_and_readable_by_group = stat.S_IRGRP | stat.S_IWGRP
+    assert (
+        path.stat().st_mode & writable_and_readable_by_group
+        == writable_and_readable_by_group
+    )
+
+
 def test_open_write(temp_dir, save_logs):
     path = SecurePath(temp_dir) / "file.txt"
     with path.open("w") as fd:

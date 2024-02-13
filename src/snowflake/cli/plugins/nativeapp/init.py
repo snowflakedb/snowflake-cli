@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import re
 import shutil
 from pathlib import Path
@@ -110,7 +109,7 @@ def _to_yaml_string(identifier: str):
         return dump(identifier).rstrip()
 
 
-def _render_snowflake_yml(parent_to_snowflake_yml: Path, project_identifier: str):
+def _render_snowflake_yml(parent_to_snowflake_yml: SecurePath, project_identifier: str):
     """
     Create a snowflake.yml file from a jinja template at a given path.
 
@@ -133,7 +132,7 @@ def _render_snowflake_yml(parent_to_snowflake_yml: Path, project_identifier: str
             },
             output_file_path=parent_to_snowflake_yml / "snowflake.yml",
         )
-        os.remove(parent_to_snowflake_yml / snowflake_yml_jinja)
+        (parent_to_snowflake_yml / snowflake_yml_jinja).unlink()
     except Exception as err:
         log.error(err)
         raise RenderingFromJinjaError(snowflake_yml_jinja)
@@ -247,7 +246,7 @@ def _init_from_template(
                 if not template_root.is_dir():
                     raise TemplateNotFoundError(template_name=template_name)
 
-            if Path.exists(template_root / "snowflake.yml.jinja"):
+            if (template_root / "snowflake.yml.jinja").exists():
                 # Render snowflake.yml file from its jinja template
                 _render_snowflake_yml(
                     parent_to_snowflake_yml=template_root,
@@ -265,7 +264,7 @@ def _init_from_template(
 
             # Move the template to the specified path
             shutil.move(
-                src=template_root,  # type: ignore
+                src=template_root.path,  # type: ignore
                 dst=project_path,
             )
 

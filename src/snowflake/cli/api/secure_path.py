@@ -101,6 +101,15 @@ class SecurePath:
         log.info("Reading file %s", self._path)
         return self._path.read_text(encoding=encoding, errors=errors)
 
+    def write_text(self, data: str, encoding=None, errors=None, newline=None):
+        """
+        Open the file pointed to in text mode, write data to it, and close the file.
+        """
+        if not self.exists():
+            self.touch()
+        log.info("Writing to file %s", self._path)
+        self.path.write_text(data, encoding=encoding, errors=errors, newline=newline)
+
     @contextmanager
     def open(  # noqa: A003
         self,
