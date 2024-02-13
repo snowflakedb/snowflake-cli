@@ -1,4 +1,6 @@
+import errno
 import logging
+import os
 import shutil
 import tempfile
 from contextlib import contextmanager
@@ -167,7 +169,9 @@ class SecurePath:
             if destination.is_dir():
                 destination = destination / self._path.name
             if destination.exists():
-                raise FileExistsError(destination)
+                raise FileExistsError(
+                    errno.EEXIST, os.strerror(errno.EEXIST), self._path.resolve()
+                )
 
         def _recursive_copy(src: Path, dest: Path):
             if src.is_file():
@@ -191,7 +195,7 @@ class SecurePath:
         """
         if not self.exists():
             if not missing_ok:
-                raise FileNotFoundError(self._path.resolve())
+                self._assert_exists()
             return
 
         self._assert_is_file()
@@ -209,7 +213,7 @@ class SecurePath:
         """
         if not self.exists():
             if not missing_ok:
-                raise FileNotFoundError(self._path.resolve())
+                self._assert_exists()
             return
 
         self._assert_is_directory()
@@ -235,7 +239,7 @@ class SecurePath:
             log.info("Created temporary directory %s", spath.path)
             yield spath
             log.info("Removing temporary directory %s", spath.path)
-            spath.rmdir(recursive=True)
+            spath.rmdir(recursive=True, missing_ok=True)
 
     def _assert_exists_and_is_file(self) -> None:
         self._assert_exists()
@@ -243,15 +247,21 @@ class SecurePath:
 
     def _assert_exists(self) -> None:
         if not self.exists():
-            raise FileNotFoundError(self._path.resolve())
+            raise FileNotFoundError(
+                errno.ENOENT, os.strerror(errno.ENOENT), self._path.resolve()
+            )
 
     def _assert_is_file(self) -> None:
         if not self._path.is_file():
-            raise IsADirectoryError(self._path.resolve())
+            raise IsADirectoryError(
+                errno.EISDIR, os.strerror(errno.EISDIR), self._path.resolve()
+            )
 
     def _assert_is_directory(self) -> None:
         if not self._path.is_dir():
-            raise NotADirectoryError(self._path.resolve())
+            raise NotADirectoryError(
+                errno.ENOTDIR, os.strerror(errno.ENOTDIR), self._path.resolve()
+            )
 
     def _assert_file_size_limit(self, size_limit_in_mb):
         if (
