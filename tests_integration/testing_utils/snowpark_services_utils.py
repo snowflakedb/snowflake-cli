@@ -156,7 +156,16 @@ class SnowparkServicesTestSteps:
 
     def list_endpoints_should_show_endpoint(self, service_name: str):
         result = self._setup.runner.invoke_with_connection_json(
-            ["spcs", "service", "list-endpoints", service_name]
+            [
+                "spcs",
+                "service",
+                "list-endpoints",
+                service_name,
+                "--database",
+                self.database,
+                "--schema",
+                self.schema,
+            ]
         )
         assert_that_result_is_successful_and_output_json_contains(
             result,
