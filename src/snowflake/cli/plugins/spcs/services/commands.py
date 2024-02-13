@@ -129,6 +129,7 @@ def logs(
     logs = next(iter(cursor)).split("\n")
     print_log_lines(sys.stdout, name, "0", logs)
 
+
 @app.command(requires_connection=True)
 def upgrade(
     name: str = ServiceNameArgument,

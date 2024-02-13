@@ -294,5 +294,8 @@ def test_upgrade_spec_cli(mock_upgrade_spec, mock_cursor, runner, other_director
         ["spcs", "service", "upgrade", service_name, "--spec-path", spec_path]
     )
 
+    mock_upgrade_spec.assert_called_once_with(
+        service_name=service_name, spec_path=spec_path
+    )
     assert result.exit_code == 0, result.output
     assert "Statement executed successfully" in result.output
