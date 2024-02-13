@@ -3,14 +3,14 @@ from typing import Tuple
 
 import pytest
 
-from tests_integration.testing_utils.compute_pool_utils import (
+from tests_integration.spcs.testing_utils.compute_pool_utils import (
     ComputePoolTestSetup,
     ComputePoolTestSteps,
 )
 
 
 @pytest.mark.integration
-def test_cp(_test_steps: Tuple[ComputePoolTestSteps, str]):
+def test_compute_pool(_test_steps: Tuple[ComputePoolTestSteps, str]):
 
     test_steps, compute_pool_name = _test_steps
 

@@ -3,7 +3,7 @@ from typing import Tuple
 
 import pytest
 
-from tests_integration.testing_utils.snowpark_services_utils import (
+from tests_integration.spcs.testing_utils.spcs_services_utils import (
     SnowparkServicesTestSetup,
     SnowparkServicesTestSteps,
 )
