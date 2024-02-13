@@ -8,6 +8,7 @@
 * Added new convenience command `spcs image-registry url` to get the URL for your account image registry.
 * Added convenience function `spcs image-repository url <repo_name>`.
 * Added `set (property)`, `unset (property)`, `suspend` and `resume` commands for `spcs compute-pool`.
+* Added `login` command for `spcs image-registry` to fetch authentication token and log in to image registry in one command.
 * Added `create` command to `spcs image-repository`.
 * Added new `--mfa-passcode` flag to support MFA.
 
