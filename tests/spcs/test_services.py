@@ -300,6 +300,7 @@ def test_upgrade_spec_cli(mock_upgrade_spec, mock_cursor, runner, other_director
     assert result.exit_code == 0, result.output
     assert "Statement executed successfully" in result.output
 
+
 @patch(
     "snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_schema_query"
 )

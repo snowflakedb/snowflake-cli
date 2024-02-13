@@ -1,6 +1,6 @@
 spec:
   containers:
-  - name: echo-test
+  - name: hello-world
     image: /snowcli_db/public/snowcli_repository/snowpark_test_echo:1
     env:
       SERVER_PORT: 8000

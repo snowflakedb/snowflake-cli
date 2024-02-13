@@ -144,10 +144,9 @@ def upgrade(
         ServiceManager().upgrade_spec(service_name=name, spec_path=spec_path)
     )
 
+
 @app.command("list-endpoints", requires_connection=True)
-def list_endpoints(
-    name: str = ServiceNameArgument, **options
-):
+def list_endpoints(name: str = ServiceNameArgument, **options):
     """
     Lists the endpoints in a Snowpark Container Services service.
     """

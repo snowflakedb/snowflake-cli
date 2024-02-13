@@ -32,7 +32,7 @@ class SnowparkServicesTestSteps:
     compute_pool = "snowcli_compute_pool"
     database = "snowcli_db"
     schema = "public"
-    container_name = "echo-test"
+    container_name = "hello-world"
 
     def __init__(self, setup: SnowparkServicesTestSetup):
         self._setup = setup
@@ -161,10 +161,7 @@ class SnowparkServicesTestSteps:
                 "service",
                 "list-endpoints",
                 service_name,
-                "--database",
-                self.database,
-                "--schema",
-                self.schema,
+                *self._database_schema_args(),
             ]
         )
         assert_that_result_is_successful_and_output_json_contains(
