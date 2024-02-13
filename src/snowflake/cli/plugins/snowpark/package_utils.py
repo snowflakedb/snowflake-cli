@@ -4,7 +4,6 @@ import glob
 import logging
 import os
 import re
-import shutil
 from typing import Dict, List
 
 import click
@@ -259,7 +258,7 @@ def install_packages(
             else True
         )
         if not continue_installation:
-            shutil.rmtree(".packages")
+            SecurePath(".packages").rmdir(recursive=True, missing_ok=True)
             return False, second_chance_results
     else:
         log.info("No non-supported native libraries found in packages (Good news!)...")
@@ -270,12 +269,12 @@ def _delete_packages(to_be_deleted: Dict) -> None:
     for package, items in to_be_deleted.items():
         log.info("Package %s: deleting %d files", package, len(items.files))
         for item in items.files:
-            item_path = os.path.join(".packages", item)
-            if os.path.exists(item_path):
-                if os.path.isdir(item_path):
-                    shutil.rmtree(item_path)
+            item_path = SecurePath(".packages") / item
+            if item_path.exists():
+                if item_path.path.is_dir():
+                    item_path.rmdir(recursive=True)
                 else:
-                    os.remove(item_path)
+                    item_path.unlink()
 
 
 def _check_for_native_libraries():

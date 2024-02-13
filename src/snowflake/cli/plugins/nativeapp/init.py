@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 import os
 import re
+import shutil
 from pathlib import Path
-from shutil import move, rmtree
 from tempfile import TemporaryDirectory
 from typing import Optional
 
@@ -237,9 +237,9 @@ def _init_from_template(
 
             if use_whole_repo_as_template:
                 # the template is the entire git repository
-                template_root = temp_path
+                template_root = SecurePath(temp_path)
                 # Remove all git history before we move the repo
-                rmtree(template_root.joinpath(".git").resolve())
+                (template_root / ".git").rmdir(recursive=True, missing_ok=True)
             else:
                 # The template is a subdirectory of the git repository
                 template_name = template if template else BASIC_TEMPLATE
@@ -264,7 +264,7 @@ def _init_from_template(
             project_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Move the template to the specified path
-            move(
+            shutil.move(
                 src=template_root,  # type: ignore
                 dst=project_path,
             )
@@ -275,7 +275,7 @@ def _init_from_template(
         # If there was any error, validation on Project Definition file or otherwise,
         # there should not be any Native Apps Project left after this.
         if project_path.exists():
-            rmtree(project_path.resolve())
+            SecurePath(project_path).rmdir(recursive=True)
 
         log.error(err)
         raise InitError()

@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os.path
 from pathlib import Path
-from shutil import rmtree
 
 from requirements.requirement import Requirement
 from snowflake.cli.api.constants import PACKAGES_DIR
@@ -73,4 +72,4 @@ def create(zip_name: str):
 
 def cleanup_after_install():
     if PACKAGES_DIR.exists():
-        rmtree(PACKAGES_DIR)
+        SecurePath(PACKAGES_DIR).rmdir(recursive=True)
