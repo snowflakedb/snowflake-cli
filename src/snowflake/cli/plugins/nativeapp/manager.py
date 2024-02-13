@@ -32,14 +32,12 @@ from snowflake.cli.plugins.nativeapp.constants import (
     OWNER_COL,
 )
 from snowflake.cli.plugins.nativeapp.exceptions import UnexpectedOwnerError
-from snowflake.cli.plugins.nativeapp.utils import find_first_row
 from snowflake.cli.plugins.object.stage.diff import (
     DiffResult,
     stage_diff,
     sync_local_diff_with_stage,
 )
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import DictCursor
 
 
 def generic_sql_error_handler(
@@ -296,23 +294,9 @@ class NativeAppManager(SqlExecutionMixin):
         It executes a 'show applications like' query and returns the result as single row, if one exists.
         """
         with self.use_role(self.app_role):
-            show_obj_query = (
-                f"show applications like '{unquote_identifier(self.app_name)}'"
+            return self.show_specific_object(
+                "applications", self.app_name, name_col=NAME_COL
             )
-            show_obj_cursor = self._execute_query(
-                show_obj_query,
-                cursor_class=DictCursor,
-            )
-
-            if show_obj_cursor.rowcount is None:
-                raise SnowflakeSQLExecutionError(show_obj_query)
-
-            show_obj_row = find_first_row(
-                show_obj_cursor,
-                lambda row: row[NAME_COL] == unquote_identifier(self.app_name),
-            )
-
-            return show_obj_row
 
     def get_existing_app_pkg_info(self) -> Optional[dict]:
         """
@@ -321,20 +305,9 @@ class NativeAppManager(SqlExecutionMixin):
         """
 
         with self.use_role(self.package_role):
-            show_obj_query = f"show application packages like '{unquote_identifier(self.package_name)}'"
-            show_obj_cursor = self._execute_query(
-                show_obj_query, cursor_class=DictCursor
+            return self.show_specific_object(
+                "application packages", self.package_name, name_col=NAME_COL
             )
-
-            if show_obj_cursor.rowcount is None:
-                raise SnowflakeSQLExecutionError(show_obj_query)
-
-            show_obj_row = find_first_row(
-                show_obj_cursor,
-                lambda row: row[NAME_COL] == unquote_identifier(self.package_name),
-            )
-
-            return show_obj_row  # Can be None or a dict
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
