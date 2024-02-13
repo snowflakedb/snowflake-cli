@@ -118,27 +118,14 @@ class SnowparkServicesTestSteps:
             status = self._execute_status(service_name)
             if contains_row_with(status.json, target_status):
                 return
-            elif contains_row_with(status.json, {"status": "FAILED"}):
-                logs = self._execute_logs(service_name, 20)
-                pytest.fail(
-                    dedent(
-                        f"""
-                        {service_name} service failed before reaching target state.
-                        target:
-                        {json.dumps(target_status)}
-                        {self._current_state_and_describe_str(service_name)}
-                        logs (last 20 lines):
-                        {logs.output}
-                        """
-                    ).strip()
-                )
             time.sleep(10)
         error_message = dedent(
             f"""
             {service_name} service didn't reach target state in {max_duration} seconds.
             target:
             {json.dumps(target_status)}
-            {self._current_state_and_describe_str(service_name)}
+            
+            {self._current_state_describe_logs_str(service_name)}
             """
         ).strip()
         pytest.fail(error_message)
@@ -196,15 +183,18 @@ class SnowparkServicesTestSteps:
             ],
         )
 
-    def _current_state_and_describe_str(self, service_name: str) -> str:
+    def _current_state_describe_logs_str(self, service_name: str) -> str:
         status = self._execute_status(service_name)
         describe = self._execute_describe(service_name)
+        logs = self._execute_logs(service_name, 20)
         return dedent(
             f"""
             current state:
             {json.dumps(status.json)}
             current describe:
             {json.dumps(describe.json)}
+            logs:
+            {logs.output if logs.exit_code == 0 else "No logs available."}
             """
         ).strip()
 
