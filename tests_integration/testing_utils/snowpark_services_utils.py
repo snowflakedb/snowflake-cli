@@ -48,10 +48,7 @@ class SnowparkServicesTestSteps:
                 self.compute_pool,
                 "--spec-path",
                 self._get_spec_path(),
-                "--database",
-                self.database,
-                "--schema",
-                self.schema,
+                *self._database_schema_args(),
             ],
         )
         assert_that_result_is_successful_and_output_json_equals(
@@ -157,18 +154,20 @@ class SnowparkServicesTestSteps:
                 new_container_name in describe_result.json[0]["spec"]
             ), f"Container name '{new_container_name}' from spec_upgrade.yml not found in output of DESCRIBE SERVICE."
 
+    def list_endpoints_should_show_endpoint(self, service_name: str):
+        result = self._setup.runner.invoke_with_connection_json(
+            ["spcs", "service", "list-endpoints", service_name]
+        )
+        assert_that_result_is_successful_and_output_json_contains(
+            result,
+            {
+                "name": "echoendpoint",
+            },
+        )
+
     def _execute_status(self, service_name: str):
         return self._setup.runner.invoke_with_connection_json(
-            [
-                "spcs",
-                "service",
-                "status",
-                service_name,
-                "--database",
-                self.database,
-                "--schema",
-                self.schema,
-            ],
+            ["spcs", "service", "status", service_name, *self._database_schema_args()],
         )
 
     def _execute_list(self):
@@ -203,10 +202,7 @@ class SnowparkServicesTestSteps:
                 "0",
                 "--num-lines",
                 str(num_lines),
-                "--database",
-                self.database,
-                "--schema",
-                self.schema,
+                *self._database_schema_args(),
             ],
         )
 

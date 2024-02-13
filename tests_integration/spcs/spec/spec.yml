@@ -7,3 +7,7 @@ spec:
     readinessProbe:
       port: 8000
       path: /healthcheck
+  endpoints:
+  - name: echoendpoint
+    port: 8000
+    public: true
