@@ -7,6 +7,7 @@ from typing import List, Optional
 from snowflake.cli.api.commands.experimental_behaviour import (
     experimental_behaviour_enabled,
 )
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.connection.util import (
@@ -106,7 +107,10 @@ class StreamlitManager(SqlExecutionMixin):
         )
         fully_qualified_name = stage_manager.to_fully_qualified_name(streamlit_name)
         streamlit_name = self.get_name_from_fully_qualified_name(fully_qualified_name)
-        if experimental_behaviour_enabled():
+        if (
+            experimental_behaviour_enabled()
+            or FeatureFlag.ENABLE_STREAMLIT_EMBED_STAGE.is_enabled()
+        ):
             """
             1. Create streamlit object
             2. Upload files to embedded stage

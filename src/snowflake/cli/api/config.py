@@ -148,7 +148,7 @@ def get_config_section(*path) -> dict:
 
 def get_config_value(*path, key: str, default: Optional[Any] = Empty) -> Any:
     """Looks for given key under nested path in toml file."""
-    env_variable = _get_env_value(*path, key=key)
+    env_variable = get_env_value(*path, key=key)
     if env_variable:
         return env_variable
     try:
@@ -176,7 +176,7 @@ def _initialise_config(config_file: Path) -> None:
     log.info("Created Snowflake configuration file at %s", CONFIG_MANAGER.file_path)
 
 
-def _get_env_value(*path, key: str) -> str | None:
+def get_env_value(*path, key: str) -> str | None:
     env_variable_name = (
         "SNOWFLAKE_" + "_".join(p.upper() for p in path) + f"_{key.upper()}"
     )
