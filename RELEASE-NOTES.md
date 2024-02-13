@@ -5,12 +5,14 @@
 ## New additions
 * Added ability to specify scope of the `object list` command with the `--in <scope_type> <scope_name>` option.
 * Introduced `snowflake.cli.api.console.cli_console` object with helper methods for intermediate output.
-* Added new convenience command `spcs image-registry url` to get the URL for your account image registry.
-* Added convenience function `spcs image-repository url <repo_name>`.
-* Added `set (property)`, `unset (property)`, `suspend` and `resume` commands for `spcs compute-pool`.
-* Added `login` command for `spcs image-registry` to fetch authentication token and log in to image registry in one command.
-* Added `create` command to `spcs image-repository`.
 * Added new `--mfa-passcode` flag to support MFA.
+* New commands for `spcs`
+  * Added `image-registry url` command to get the URL for your account image registry.
+  * Added `image-registry login` command to fetch authentication token and log in to image registry in one command.
+  * Added `image-repository url <repo_name>` command to get the URL for specified image repository.
+  * Added `create` command for `image-repository`.
+  * Added `set (property)`, `unset (property)`, `suspend` and `resume` commands for `compute-pool`.
+  * Added `upgrade` command for `service`.
 
 ## Fixes and improvements
 * Restricted permissions of automatically created files
