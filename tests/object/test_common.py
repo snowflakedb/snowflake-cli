@@ -1,4 +1,3 @@
-import uuid
 from snowflake.cli.plugins.object.common import (
     _parse_tag,
     Tag,
@@ -6,9 +5,6 @@ from snowflake.cli.plugins.object.common import (
 )
 from typing import Tuple
 import pytest
-
-from unittest import mock
-from click import ClickException
 
 
 @pytest.mark.parametrize(
