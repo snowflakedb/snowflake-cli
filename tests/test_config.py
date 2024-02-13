@@ -5,6 +5,7 @@ from snowflake.cli.api.config import (
     get_config_section,
     get_connection,
     get_default_connection,
+    ConfigFileTooWidePermissionsError,
 )
 from snowflake.cli.api.exceptions import MissingConfiguration
 
@@ -187,3 +188,38 @@ def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_ho
     assert CONFIG_MANAGER["connections"] == {
         "default": {"database": "overridden_database"}
     }
+
+
+def test_too_wide_permissions_on_config_file(snowflake_home: Path):
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(0o777)
+
+    with pytest.raises(ConfigFileTooWidePermissionsError) as error:
+        config_init(None)
+    assert error.value.message.__contains__("config.toml")
+
+
+def test_too_wide_permissions_on_connections_file(snowflake_home: Path):
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    connections_path = snowflake_home / "connections.toml"
+    connections_path.touch()
+    connections_path.chmod(0o777)
+
+    with pytest.raises(ConfigFileTooWidePermissionsError) as error:
+        config_init(None)
+    assert error.value.message.__contains__("connections.toml")
+
+
+def test_no_error_when_init_from_non_default_config(
+    snowflake_home: Path, test_snowcli_config: Path
+):
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(0o777)
+    connections_path = snowflake_home / "connections.toml"
+    connections_path.touch()
+    connections_path.chmod(0o777)
+
+    config_init(test_snowcli_config)
