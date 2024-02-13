@@ -6,7 +6,7 @@ from snowflake.cli.plugins.spcs.image_registry.manager import (
 
 app = SnowTyper(
     name="image-registry",
-    help="Manages Snowpark registries.",
+    help="Manages image registries.",
 )
 
 

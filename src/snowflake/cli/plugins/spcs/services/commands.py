@@ -21,7 +21,7 @@ from snowflake.cli.plugins.spcs.services.manager import ServiceManager
 
 app = SnowTyper(
     name="service",
-    help="Manages Snowpark services.",
+    help="Manages services.",
 )
 
 
