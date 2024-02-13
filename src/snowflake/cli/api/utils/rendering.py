@@ -92,7 +92,7 @@ def render_metadata(env: jinja2.Environment, file_name: str):
 
 
 def generic_render_template(
-    template_path: SecurePath, data: dict, output_file_path: Optional[Path] = None
+    template_path: Path, data: dict, output_file_path: Optional[Path] = None
 ):
     """
     Create a file from a jinja template.
@@ -106,14 +106,14 @@ def generic_render_template(
         None
     """
     env = jinja2.Environment(
-        loader=jinja2.loaders.FileSystemLoader(template_path.parent.path),
+        loader=jinja2.loaders.FileSystemLoader(template_path.parent),
         keep_trailing_newline=True,
         undefined=jinja2.StrictUndefined,
     )
     filters = [render_metadata, read_file_content, procedure_from_js_file]
     for custom_filter in filters:
         env.filters[custom_filter.__name__] = custom_filter
-    loaded_template = env.get_template(template_path.path.name)
+    loaded_template = env.get_template(template_path.name)
     rendered_result = loaded_template.render(**data)
     if output_file_path:
         SecurePath(output_file_path).write_text(rendered_result)

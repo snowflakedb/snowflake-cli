@@ -4,7 +4,6 @@ import logging
 import re
 import shutil
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Optional
 
 from click.exceptions import ClickException
@@ -109,7 +108,7 @@ def _to_yaml_string(identifier: str):
         return dump(identifier).rstrip()
 
 
-def _render_snowflake_yml(parent_to_snowflake_yml: SecurePath, project_identifier: str):
+def _render_snowflake_yml(parent_to_snowflake_yml: Path, project_identifier: str):
     """
     Create a snowflake.yml file from a jinja template at a given path.
 
@@ -221,42 +220,40 @@ def _init_from_template(
         git_url = git_url if git_url else OFFICIAL_TEMPLATES_GITHUB_URL
 
     try:
-        with TemporaryDirectory() as temp_dir:
+        with SecurePath.temporary_directory() as temp_path:
             from git import Repo
-
-            temp_path = Path(temp_dir)
 
             # Clone the repository in the temporary directory with options.
             Repo.clone_from(
                 url=git_url,
-                to_path=temp_dir,
+                to_path=temp_path.path,
                 filter=["tree:0"],
                 depth=1,
             )
 
             if use_whole_repo_as_template:
                 # the template is the entire git repository
-                template_root = SecurePath(temp_path)
+                template_root = temp_path
                 # Remove all git history before we move the repo
                 (template_root / ".git").rmdir(recursive=True, missing_ok=True)
             else:
                 # The template is a subdirectory of the git repository
                 template_name = template if template else BASIC_TEMPLATE
                 template_root = temp_path / template_name
-                if not template_root.is_dir():
+                if not template_root.path.is_dir():
                     raise TemplateNotFoundError(template_name=template_name)
 
             if (template_root / "snowflake.yml.jinja").exists():
                 # Render snowflake.yml file from its jinja template
                 _render_snowflake_yml(
-                    parent_to_snowflake_yml=template_root,
+                    parent_to_snowflake_yml=template_root.path,
                     project_identifier=project_identifier,
                 )
 
             # If not an official Snowflake Native App template
             if git_url != OFFICIAL_TEMPLATES_GITHUB_URL:
                 _validate_and_update_snowflake_yml(
-                    target_directory=template_root,
+                    target_directory=template_root.path,
                     project_identifier=project_identifier,
                 )
 

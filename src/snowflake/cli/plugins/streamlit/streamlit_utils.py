@@ -50,7 +50,7 @@ def generate_streamlit_environment_file(
 
 def generate_streamlit_package_wrapper(
     stage_name: str, main_module: str, extract_zip: bool
-) -> Path:
+) -> SecurePath:
     """Uses a jinja template to generate a streamlit wrapper.
     The wrapper will add app.zip to the path and import the app module.
     """
