@@ -286,6 +286,93 @@ def test_copy_directory(temp_dir, save_logs):
     _assert_count_matching_logs(save_logs, 8, "Creating directory", "")
 
 
+def test_copy_dir_onto_existing_dir(temp_dir, save_logs):
+    DIR, FILE = "DIR", "FILE"
+    original = [
+        (DIR, "dir"),
+        (FILE, "dir/subfile"),
+        (DIR, "dir/subdir"),
+        (FILE, "dir/subdir/subfile"),
+        (DIR, "dir/newdir/"),
+    ]
+    file_instead_of_dir = [
+        (DIR, "dir"),
+        (FILE, "dir/subfile"),
+        (FILE, "dir/subdir"),
+    ]
+    dir_instead_of_file = [
+        (DIR, "dir"),
+        (DIR, "dir/subfile"),
+        (DIR, "dir/subdir"),
+        (FILE, "dir/subdir/subfile"),
+    ]
+    proper_destination = [
+        (DIR, "dir"),
+        (FILE, "dir/subfile"),
+        (DIR, "dir/subdir"),
+        (FILE, "dir/subdir/subfile2"),
+    ]
+    expected_result = [
+        (DIR, "dir"),
+        (FILE, "dir/subfile"),
+        (DIR, "dir/subdir"),
+        (FILE, "dir/subdir/subfile"),
+        (FILE, "dir/subdir/subfile2"),
+        (DIR, "dir/newdir/"),
+    ]
+    should_be_overridden = [("dir/subfile"), ("dir/subdir/subfile"), ("dir/newdir/")]
+
+    def _check_result_tree(root):
+        readable_by_group = stat.S_IRGRP
+
+        for filetype, filename in expected_result:
+            file = root / filename
+            assert file.exists()
+            if filename in should_be_overridden:
+                assert_file_permissions_are_strict(root / filename)
+                if filetype == FILE:
+                    assert file.read_text() == "new"
+            else:
+                assert file.stat().st_mode & readable_by_group == readable_by_group
+                if filetype == FILE:
+                    assert file.read_text() == "old"
+
+    def _create_tree(root, tree, file_content):
+        for filetype, filename in tree:
+            if filetype == DIR:
+                (root / filename).mkdir(parents=True)
+                (root / filename).chmod(0o750)
+            else:
+                (root / filename).write_text(file_content)
+                (root / filename).chmod(0o660)
+
+    tmpdir = Path(temp_dir)
+    _create_tree(tmpdir / "original", original, file_content="new")
+    src = SecurePath(tmpdir / "original" / "dir")
+
+    _create_tree(
+        tmpdir / "file_instead_of_dir", file_instead_of_dir, file_content="old"
+    )
+    _create_tree(
+        tmpdir / "dir_instead_of_file", dir_instead_of_file, file_content="old"
+    )
+    _create_tree(tmpdir / "good1", proper_destination, file_content="old")
+    _create_tree(tmpdir / "good2", proper_destination, file_content="old")
+
+    with pytest.raises(NotADirectoryError):
+        src.copy(tmpdir / "file_instead_of_dir", dirs_exist_ok=True)
+    with pytest.raises(IsADirectoryError):
+        src.copy(tmpdir / "dir_instead_of_file", dirs_exist_ok=True)
+    with pytest.raises(FileExistsError):
+        src.copy(tmpdir / "good1")
+
+    src.copy(tmpdir / "good1", dirs_exist_ok=True)
+    src.copy(tmpdir / "good2" / "dir", dirs_exist_ok=True)
+
+    _check_result_tree(tmpdir / "good1")
+    _check_result_tree(tmpdir / "good2")
+
+
 def test_rm(temp_dir, save_logs):
     temp_dir = Path(temp_dir)
 
