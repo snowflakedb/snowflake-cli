@@ -66,7 +66,7 @@ def _render_usage(
             options.append(param)
     file_path = root / f"usage-{command_name}.rst"
     log.info("Creating %s", file_path)
-    with open(file_path, "w+") as fh:
+    with file_path.open("w+") as fh:
         fh.write(
             template.render(
                 {

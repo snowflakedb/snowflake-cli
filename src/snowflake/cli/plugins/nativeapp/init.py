@@ -9,12 +9,14 @@ from tempfile import TemporaryDirectory
 from typing import Optional
 
 from click.exceptions import ClickException
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.util import (
     is_valid_identifier,
     is_valid_unquoted_identifier,
     to_identifier,
 )
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.rendering import generic_render_template
 from strictyaml import as_document, load
 from yaml import dump
@@ -152,10 +154,10 @@ def _replace_snowflake_yml_name_with_project(
         None
     """
 
-    path_to_snowflake_yml = target_directory / "snowflake.yml"
+    path_to_snowflake_yml = SecurePath(target_directory) / "snowflake.yml"
     contents = None
 
-    with open(path_to_snowflake_yml) as f:
+    with path_to_snowflake_yml.open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as f:
         contents = load(f.read()).data
 
     if (
@@ -164,7 +166,7 @@ def _replace_snowflake_yml_name_with_project(
         and (contents["native_app"]["name"] != project_identifier)
     ):
         contents["native_app"]["name"] = project_identifier
-        with open(path_to_snowflake_yml, "w") as f:
+        with path_to_snowflake_yml.open("w") as f:
             f.write(as_document(contents).as_yaml())
 
 

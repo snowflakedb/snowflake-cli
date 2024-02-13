@@ -13,6 +13,8 @@ import requirements
 import typer
 from packaging.version import parse
 from requirements.requirement import Requirement
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
     PypiOption,
     RequirementWithFiles,
@@ -40,8 +42,11 @@ def parse_requirements(
         list[str]: A flat list of package names, without versions
     """
     reqs: List[Requirement] = []
-    if os.path.exists(requirements_file):
-        with open(requirements_file, encoding="utf-8") as f:
+    requirements_file_spath = SecurePath(requirements_file)
+    if requirements_file_spath.exists():
+        with requirements_file_spath.open(
+            "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
+        ) as f:
             for req in requirements.parse(f):
                 reqs.append(req)
     else:
@@ -118,12 +123,14 @@ def get_downloaded_packages() -> Dict[str, RequirementWithFiles]:
             # since we found a package name, we can now look at the RECORD
             # file (a sibling of METADATA) to determine which files and
             # folders that belong to it
-            record_file_path = os.path.join(parent_folder, "RECORD")
-            if os.path.exists(record_file_path):
+            record_file_path = SecurePath(parent_folder) / "RECORD"
+            if record_file_path.exists():
                 # the RECORD file contains a list of files included in the
                 # package, get the unique root folder names and delete them
                 # recursively
-                with open(record_file_path, encoding="utf-8") as record_file:
+                with record_file_path.open(
+                    "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
+                ) as record_file:
                     # we want the part up until the first '/'.
                     # Sometimes it's a file with a trailing ",sha256=abcd....",
                     # so we trim that off too
@@ -164,7 +171,10 @@ def get_package_name_from_metadata(metadata_file_path: str) -> Requirement | Non
     Returns:
         str: the name of the package.
     """
-    with open(metadata_file_path, encoding="utf-8") as metadata_file:
+    metadata_file_path_spath = SecurePath(metadata_file_path)
+    with metadata_file_path_spath.open(
+        "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
+    ) as metadata_file:
         contents = metadata_file.read()
         results = re.search("^Name: (.*)$", contents, flags=re.MULTILINE)
         if results is None:
@@ -277,8 +287,11 @@ def _check_for_native_libraries():
 
 
 def get_snowflake_packages() -> List[str]:
-    if os.path.exists("requirements.snowflake.txt"):
-        with open("requirements.snowflake.txt", encoding="utf-8") as f:
+    requirements_file = SecurePath("requirements.snowflake.txt")
+    if requirements_file.exists():
+        with requirements_file.open(
+            "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
+        ) as f:
             return [req for line in f if (req := line.split("#")[0].strip())]
     else:
         return []

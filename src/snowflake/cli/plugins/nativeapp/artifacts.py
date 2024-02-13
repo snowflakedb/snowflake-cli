@@ -6,6 +6,8 @@ from typing import List, Optional, Tuple, Union
 
 import strictyaml
 from click import ClickException
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.secure_path import SecurePath
 
 
 class DeployRootError(ClickException):
@@ -263,7 +265,9 @@ def find_version_info_in_manifest_file(
     patch_field = "patch"
 
     manifest_file = find_manifest_file(deploy_root)
-    with open(manifest_file, "r") as file:
+    with SecurePath(manifest_file).open(
+        "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
+    ) as file:
         manifest_content = strictyaml.load(file.read())
 
     version_name: Optional[str] = None

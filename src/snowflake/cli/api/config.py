@@ -188,5 +188,5 @@ def _get_envs_for_path(*path) -> dict:
 
 
 def _dump_config(conf_file_cache: Dict):
-    with open(CONFIG_MANAGER.file_path, "w+") as fh:
+    with SecurePath(CONFIG_MANAGER.file_path).open("w+") as fh:
         dump(conf_file_cache, fh)

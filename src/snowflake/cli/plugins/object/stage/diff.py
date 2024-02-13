@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector.cursor import SnowflakeCursor
 
 from .manager import StageManager
@@ -72,7 +73,7 @@ def compute_md5sum(file: Path) -> str:
     # large space of the md5sum (32 * 4 = 128 bits means 1-in-9-trillion chance)
     # combined with the fact that the file name + path must also match elsewhere.
 
-    with open(file, "rb") as f:
+    with SecurePath(file).open("rb", read_file_limit_mb=UNLIMITED) as f:
         file_hash = hashlib.md5()
         while chunk := f.read(CHUNK_SIZE_BYTES):
             file_hash.update(chunk)
