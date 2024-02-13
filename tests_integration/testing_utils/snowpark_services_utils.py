@@ -10,6 +10,7 @@ from snowflake.connector import SnowflakeConnection
 from tests_integration.conftest import SnowCLIRunner
 from tests_integration.test_utils import contains_row_with, not_contains_row_with
 from tests_integration.testing_utils.assertions.test_result_assertions import (
+    assert_that_result_is_successful_and_executed_successfully,
     assert_that_result_is_successful_and_output_json_contains,
     assert_that_result_is_successful_and_output_json_equals,
 )
@@ -80,14 +81,7 @@ class SnowparkServicesTestSteps:
         assert not_contains_row_with(result.json, {"name": service_name.upper()})
 
     def describe_should_return_service(self, service_name: str) -> None:
-        result = self._setup.runner.invoke_with_connection_json(
-            [
-                "object",
-                "describe",
-                "service",
-                self._get_fqn(service_name),
-            ],
-        )
+        result = self._execute_describe(service_name)
         assert result.json
         assert result.json[0]["name"] == service_name.upper()  # type: ignore
 
@@ -129,6 +123,39 @@ class SnowparkServicesTestSteps:
             """
         ).strip()
         pytest.fail(error_message)
+
+    def upgrade_service_should_change_spec(self, service_name: str):
+        new_container_name = "goodbye-world"
+
+        describe_result = self._execute_describe(service_name)
+        assert describe_result.exit_code == 0, describe_result.output
+        assert (
+            new_container_name not in describe_result.json[0]["spec"]
+        ), f"Container name '{new_container_name}' found in output of DESCRIBE SERVICE before spec has been updated. This is unexpected."
+
+        spec_path = f"{self._setup.test_root_path}/spcs/spec/spec_upgrade.yml"
+        upgrade_result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "service",
+                "upgrade",
+                service_name,
+                "--spec-path",
+                spec_path,
+                *self._database_schema_args(),
+            ]
+        )
+        assert_that_result_is_successful_and_executed_successfully(
+            upgrade_result, is_json=True
+        )
+
+        describe_result = self._execute_describe(service_name)
+        with open(spec_path, "r") as f:
+            assert describe_result.exit_code == 0, describe_result.output
+            # do not assert direct equality because the spec field in output of DESCRIBE SERVICE has some extra info
+            assert (
+                new_container_name in describe_result.json[0]["spec"]
+            ), f"Container name '{new_container_name}' from spec_upgrade.yml not found in output of DESCRIBE SERVICE."
 
     def _execute_status(self, service_name: str):
         return self._setup.runner.invoke_with_connection_json(
@@ -203,3 +230,11 @@ class SnowparkServicesTestSteps:
 
     def _get_fqn(self, service_name) -> str:
         return f"{self.database}.{self.schema}.{service_name}"
+
+    def _database_schema_args(self):
+        return (
+            "--database",
+            self.database,
+            "--schema",
+            self.schema,
+        )
