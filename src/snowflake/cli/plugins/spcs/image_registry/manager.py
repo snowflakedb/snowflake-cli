@@ -1,6 +1,7 @@
 import base64
 import json
 import re
+import subprocess
 from urllib.parse import urlparse
 
 import requests
@@ -10,8 +11,10 @@ from snowflake.connector.cursor import DictCursor
 
 
 class NoImageRepositoriesFoundError(ClickException):
-    def __init__(self, msg: str = "No image repository found."):
-        super().__init__(msg)
+    def __init__(self):
+        super().__init__(
+            f"No image repository found. To run this command, please switch to a role with read access to at least one image repository or create a new image repository first."
+        )
 
 
 class RegistryManager(SqlExecutionMixin):
@@ -56,7 +59,7 @@ class RegistryManager(SqlExecutionMixin):
     def _has_url_scheme(self, url: str):
         return re.fullmatch(r"^.*//.+", url) is not None
 
-    def get_registry_url(self):
+    def get_registry_url(self) -> str:
         repositories_query = "show image repositories in account"
         result_set = self._execute_query(repositories_query, cursor_class=DictCursor)
         results = result_set.fetchall()
@@ -66,3 +69,19 @@ class RegistryManager(SqlExecutionMixin):
         if not self._has_url_scheme(sample_repository_url):
             sample_repository_url = f"//{sample_repository_url}"
         return urlparse(sample_repository_url).netloc
+
+    def docker_registry_login(self) -> str:
+        registry_url = self.get_registry_url()
+        token = self.get_token()
+        command = [
+            "docker",
+            "login",
+            "--username",
+            "0sessiontoken",
+            "--password-stdin",
+            registry_url,
+        ]
+        try:
+            return subprocess.check_output(command, input=json.dumps(token), text=True)
+        except subprocess.CalledProcessError as e:
+            raise ClickException(f"Login Failed: {e.stderr}".strip())
