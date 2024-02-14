@@ -27,6 +27,6 @@ jobs:
           SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-        run: python -m hatch run integration:pytest tests_integration/test_nativeapp.py::test_nativeapp_init_run_without_modifications -vv -s
+        run: python -m hatch run integration:pytest -m integration tests_integration/test_nativeapp.py::test_nativeapp_init_run_without_modifications -vv -s
       - name: Run test 2
-        run: python -m hatch run integration:pytest tests_integration/test_nativeapp.py::test_nativeapp_init_run_without_modifications -vv -s
+        run: python -m hatch run integration:pytest -m integration tests_integration/test_nativeapp.py::test_nativeapp_init_run_without_modifications -vv -s
