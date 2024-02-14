@@ -41,6 +41,9 @@ class SnowCLIRunner(CliRunner):
         kw.update(catch_exceptions=False)
         return super().invoke(self.app, ["--config-file", config_file, *a[0]], **kw)
 
+    def super_invoke(self, *a, **kw):
+        return super().invoke(self.app, [*a[0]], **kw)
+
 
 @pytest.fixture
 def app_zip(temp_dir) -> Generator:
