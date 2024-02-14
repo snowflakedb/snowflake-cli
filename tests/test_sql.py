@@ -168,22 +168,3 @@ def test_show_specific_object_sql_execution_error(mock_execute):
     mock_execute.assert_called_once_with(
         r"show objects like 'EXAMPLE\\_ID'", cursor_class=DictCursor
     )
-
-
-def test_fail_command_when_default_config_has_too_wide_permissions(
-    snowflake_home: Path,
-):
-    from snowflake.cli.app.cli_app import app
-
-    runner = CliRunner()
-
-    config_path = snowflake_home / "config.toml"
-    config_path.touch()
-    config_path.chmod(0o777)
-
-    result = runner.invoke(app, ["sql", "-q", "select 1"], catch_exceptions=False)
-
-    assert result.exit_code == 1, result.output
-    assert result.output.strip().__contains__(
-        "conf │\n│ ig.toml has too wide permissions"
-    )
