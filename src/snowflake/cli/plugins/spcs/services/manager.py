@@ -83,3 +83,11 @@ class ServiceManager(SqlExecutionMixin):
         return self._execute_schema_query(
             f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines});"
         )
+
+    def upgrade_spec(self, service_name: str, spec_path: Path):
+        spec = self._read_yaml(spec_path)
+        query = f"alter service {service_name} from specification $$ {spec} $$"
+        return self._execute_schema_query(query)
+
+    def list_endpoints(self, service_name: str) -> SnowflakeCursor:
+        return self._execute_schema_query(f"show endpoints in service {service_name}")
