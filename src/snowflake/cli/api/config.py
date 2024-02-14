@@ -7,10 +7,13 @@ from typing import Any, Dict, Optional, Union
 
 import tomlkit
 from snowflake.cli.api.exceptions import (
+    ConfigFileTooWidePermissionsError,
     MissingConfiguration,
     UnsupportedConfigSectionTypeError,
 )
+from snowflake.cli.api.secure_utils import file_permissions_are_strict
 from snowflake.connector.config_manager import CONFIG_MANAGER
+from snowflake.connector.constants import CONFIG_FILE, CONNECTIONS_FILE
 from snowflake.connector.errors import MissingConfigOptionError
 from tomlkit import TOMLDocument, dump
 from tomlkit.container import Container
@@ -32,7 +35,6 @@ PLUGINS_SECTION = "plugins"
 LOGS_SECTION_PATH = [CLI_SECTION, LOGS_SECTION]
 PLUGINS_SECTION_PATH = [CLI_SECTION, PLUGINS_SECTION]
 
-
 CONFIG_MANAGER.add_option(
     name=CLI_SECTION,
     parse_str=tomlkit.parse,
@@ -47,6 +49,8 @@ def config_init(config_file: Optional[Path]):
     """
     if config_file:
         CONFIG_MANAGER.file_path = config_file
+    else:
+        _check_default_config_files_permissions()
     if not CONFIG_MANAGER.file_path.exists():
         _initialise_config(CONFIG_MANAGER.file_path)
     CONFIG_MANAGER.read_config()
@@ -188,3 +192,10 @@ def _get_envs_for_path(*path) -> dict:
 def _dump_config(conf_file_cache: Dict):
     with open(CONFIG_MANAGER.file_path, "w+") as fh:
         dump(conf_file_cache, fh)
+
+
+def _check_default_config_files_permissions() -> None:
+    if CONNECTIONS_FILE.exists() and not file_permissions_are_strict(CONNECTIONS_FILE):
+        raise ConfigFileTooWidePermissionsError(CONNECTIONS_FILE)
+    if CONFIG_FILE.exists() and not file_permissions_are_strict(CONFIG_FILE):
+        raise ConfigFileTooWidePermissionsError(CONFIG_FILE)
