@@ -11,11 +11,11 @@ from snowflake.cli.plugins.spcs.services.commands import app as services_app
 
 app = SnowTyper(
     name="spcs",
-    help="Manages Snowpark services, pools, image registries, and image repositories.",
+    help="Manages Snowpark Container Services compute pools, services, image registries, and image repositories.",
 )
 
-app.add_typer(compute_pools_app)  # type: ignore
-app.add_typer(services_app)  # type: ignore
-app.add_typer(jobs_app)  # type: ignore
-app.add_typer(registry_app)  # type: ignore
+app.add_typer(compute_pools_app)
+app.add_typer(services_app)
+app.add_typer(jobs_app)
+app.add_typer(registry_app)
 app.add_typer(image_repository_app)
