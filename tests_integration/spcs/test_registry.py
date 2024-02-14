@@ -1,6 +1,9 @@
 import pytest
 
 from tests_integration.test_utils import row_from_snowflake_session
+from tests_integration.testing_utils.assertions.test_result_assertions import (
+    assert_that_result_is_successful_and_output_json_equals,
+)
 from tests_integration.testing_utils.naming_utils import ObjectNameProvider
 
 
@@ -44,3 +47,11 @@ def test_get_registry_url(test_database, test_role, runner, snowflake_session):
     )
     assert success_result.exit_code == 0, success_result.output
     assert success_result.output.strip() == expected_registry_url
+
+
+@pytest.mark.integration
+def test_registry_login(runner):
+    result = runner.invoke_with_connection_json(["spcs", "image-registry", "login"])
+    assert_that_result_is_successful_and_output_json_equals(
+        result, {"message": "Login Succeeded"}
+    )

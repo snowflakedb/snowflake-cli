@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -69,7 +69,7 @@ class ComputePoolManager(SqlExecutionMixin):
             raise NoPropertiesProvidedError(
                 "at least one of the properties passed to 'set_property' must not be None"
             )
-        query: list[str] = [f"alter compute pool {pool_name} set"]
+        query: List[str] = [f"alter compute pool {pool_name} set"]
         for property_name, value in property_pairs:
             if value is not None:
                 query.append(f"{property_name} = {value}")

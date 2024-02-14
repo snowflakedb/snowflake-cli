@@ -4,11 +4,7 @@ from typing import Optional
 import requests
 import typer
 from click import ClickException
-from snowflake.cli.api.commands.decorators import (
-    global_options_with_connection,
-    with_output,
-)
-from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import (
     CollectionResult,
     MessageResult,
@@ -18,11 +14,9 @@ from snowflake.cli.api.project.util import is_valid_unquoted_identifier
 from snowflake.cli.plugins.spcs.image_registry.manager import RegistryManager
 from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
 
-app = typer.Typer(
-    context_settings=DEFAULT_CONTEXT_SETTINGS,
+app = SnowTyper(
     name="image-repository",
     help="Manages Snowpark Container Services image repositories.",
-    rich_markup_mode="markdown",
 )
 
 
@@ -40,9 +34,7 @@ REPO_NAME_ARGUMENT = typer.Argument(
 )
 
 
-@app.command()
-@with_output
-@global_options_with_connection
+@app.command(requires_connection=True)
 def create(
     name: str = REPO_NAME_ARGUMENT,
     **options,
@@ -53,9 +45,7 @@ def create(
     return SingleQueryResult(ImageRepositoryManager().create(name=name))
 
 
-@app.command("list-images")
-@with_output
-@global_options_with_connection
+@app.command("list-images", requires_connection=True)
 def list_images(
     repo_name: str = REPO_NAME_ARGUMENT,
     **options,
@@ -98,9 +88,7 @@ def list_images(
     return CollectionResult(images)
 
 
-@app.command("list-tags")
-@with_output
-@global_options_with_connection
+@app.command("list-tags", requires_connection=True)
 def list_tags(
     repo_name: str = REPO_NAME_ARGUMENT,
     image_name: str = typer.Option(
@@ -149,9 +137,7 @@ def list_tags(
     return CollectionResult(tags_list)
 
 
-@app.command("url")
-@with_output
-@global_options_with_connection
+@app.command("url", requires_connection=True)
 def repo_url(
     repo_name: str = REPO_NAME_ARGUMENT,
     **options,

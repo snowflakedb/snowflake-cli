@@ -21,7 +21,7 @@ snowpark:
       handler: "procedures.test_procedure"
       signature: ""
       returns: string
-      external_access_integrations:
-        - my_external_access
-      secrets:
-        cred: my_cred_name
+#      external_access_integrations:
+#        - my_external_access
+#      secrets:
+#        cred: my_cred_name

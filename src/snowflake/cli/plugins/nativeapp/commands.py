@@ -4,12 +4,9 @@ from typing import Optional
 import typer
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.decorators import (
-    global_options,
-    global_options_with_connection,
-    with_output,
     with_project_definition,
 )
-from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.plugins.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowflake.cli.plugins.nativeapp.init import nativeapp_init
@@ -26,8 +23,7 @@ from snowflake.cli.plugins.nativeapp.teardown_processor import (
 from snowflake.cli.plugins.nativeapp.utils import is_tty_interactive
 from snowflake.cli.plugins.nativeapp.version.commands import app as versions_app
 
-app = typer.Typer(
-    context_settings=DEFAULT_CONTEXT_SETTINGS,
+app = SnowTyper(
     name="app",
     help="Manage Native Apps in Snowflake",
 )
@@ -37,8 +33,6 @@ log = logging.getLogger(__name__)
 
 
 @app.command("init")
-@with_output
-@global_options
 def app_init(
     path: str = typer.Argument(
         ...,
@@ -76,9 +70,7 @@ def app_init(
 
 
 @app.command("bundle", hidden=True)
-@with_output
 @with_project_definition("native_app")
-@global_options
 def app_bundle(
     **options,
 ) -> CommandResult:
@@ -93,10 +85,8 @@ def app_bundle(
     return MessageResult(f"Bundle generated at {manager.deploy_root}")
 
 
-@app.command("run")
-@with_output
+@app.command("run", requires_connection=True)
 @with_project_definition("native_app")
-@global_options_with_connection
 def app_run(
     version: Optional[str] = typer.Option(
         None,
@@ -152,10 +142,8 @@ def app_run(
     )
 
 
-@app.command("open")
-@with_output
+@app.command("open", requires_connection=True)
 @with_project_definition("native_app")
-@global_options_with_connection
 def app_open(
     **options,
 ) -> CommandResult:
@@ -176,10 +164,8 @@ def app_open(
         )
 
 
-@app.command("teardown")
-@with_output
+@app.command("teardown", requires_connection=True)
 @with_project_definition("native_app")
-@global_options_with_connection
 def app_teardown(
     force: Optional[bool] = ForceOption,
     **options,

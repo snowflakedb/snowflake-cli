@@ -79,6 +79,10 @@ class SnowTyper(typer.Typer):
     @staticmethod
     def process_result(result):
         """Command result processor"""
+        # Because we still have commands like "logs" that do not return anything.
+        # We should improve it in future.
+        if not result:
+            return
         if not isinstance(result, CommandResult):
             raise CommandReturnTypeError(type(result))
         print_result(result)

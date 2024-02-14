@@ -5,9 +5,8 @@ from typing import Dict, Optional
 import jinja2
 import typer
 from click import UsageError
-from rich import print
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
-from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.plugins.nativeapp.constants import (
     COMMENT_COL,
     INTERNAL_DISTRIBUTION,
@@ -29,11 +28,10 @@ from snowflake.cli.plugins.nativeapp.manager import (
     generic_sql_error_handler,
 )
 from snowflake.cli.plugins.nativeapp.policy import PolicyBase
-from snowflake.cli.plugins.nativeapp.utils import find_first_row
 from snowflake.cli.plugins.object.stage.diff import DiffResult
 from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import DictCursor, SnowflakeCursor
+from snowflake.connector.cursor import SnowflakeCursor
 
 UPGRADE_RESTRICTION_CODES = {93044, 93055, 93045, 93046}
 
@@ -59,7 +57,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             # 2. Check distribution of the existing app package
             actual_distribution = self.get_app_pkg_distribution_in_snowflake
             if not self.verify_project_distribution(actual_distribution):
-                print(
+                cc.warning(
                     f"Continuing to execute `snow app run` on app pkg {self.package_name} with distribution '{actual_distribution}'."
                 )
 
@@ -74,7 +72,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
 
         # If no app pkg pre-exists, create an app pkg, with the specified distribution in the project definition file.
         with self.use_role(self.package_role):
-            print(f"Creating new application package {self.package_name} in account.")
+            cc.step(f"Creating new application package {self.package_name} in account.")
             self._execute_query(
                 dedent(
                     f"""\
@@ -118,7 +116,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 self._execute_query(f"use warehouse {self.package_warehouse}")
 
             for i, queries in enumerate(queued_queries):
-                print(f"Applying package script: {self.package_scripts[i]}")
+                cc.step(f"Applying package script: {self.package_scripts[i]}")
                 self._execute_queries(queries)
         except ProgrammingError as err:
             generic_sql_error_handler(
@@ -160,7 +158,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 # If all the above checks are in order, proceed to upgrade
                 try:
                     if diff.has_changes():
-                        print(f"Upgrading existing application {self.app_name}.")
+                        cc.step(f"Upgrading existing application {self.app_name}.")
                         self._execute_query(
                             f"alter application {self.app_name} upgrade using @{self.stage_fqn}"
                         )
@@ -176,7 +174,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     generic_sql_error_handler(err)
 
             # 4. If no existing application is found, create an app using "loose files" / stage dev mode.
-            print(f"Creating new application {self.app_name} in account.")
+            cc.step(f"Creating new application {self.app_name} in account.")
 
             if self.app_role != self.package_role:
                 with self.use_role(new_role=self.package_role):
@@ -227,11 +225,12 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         It executes a 'show versions like ... in application package' query and returns the result as single row, if one exists.
         """
         with self.use_role(self.package_role):
-            show_obj_query = f"show versions like '{unquote_identifier(version)}' in application package {self.package_name}"
-
             try:
-                show_obj_cursor = self._execute_query(
-                    show_obj_query, cursor_class=DictCursor
+                version_obj = self.show_specific_object(
+                    "versions",
+                    version,
+                    name_col=VERSION_COL,
+                    in_clause=f"in application package {self.package_name}",
                 )
             except ProgrammingError as err:
                 if err.msg.__contains__("does not exist or not authorized"):
@@ -239,15 +238,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 else:
                     generic_sql_error_handler(err=err, role=self.package_role)
 
-            if show_obj_cursor.rowcount is None:
-                raise SnowflakeSQLExecutionError(show_obj_query)
-
-            show_obj_row = find_first_row(
-                show_obj_cursor,
-                lambda row: row[VERSION_COL] == unquote_identifier(version),
-            )
-
-            return show_obj_row
+            return version_obj
 
     def drop_application_before_upgrade(self, policy: PolicyBase, is_interactive: bool):
         """
@@ -258,10 +249,10 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         )
         if not policy.should_proceed(user_prompt):
             if is_interactive:
-                print("Not upgrading the application.")
+                cc.message("Not upgrading the application.")
                 raise typer.Exit(0)
             else:
-                print(
+                cc.message(
                     "Cannot upgrade the application non-interactively without --force."
                 )
                 raise typer.Exit(1)
@@ -321,11 +312,11 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     if err.errno not in UPGRADE_RESTRICTION_CODES:
                         generic_sql_error_handler(err=err)
                     else:  # The existing app was created from a different process.
-                        print(err.msg)
+                        cc.warning(err.msg)
                         self.drop_application_before_upgrade(policy, is_interactive)
 
             # 4. With no (more) existing applications, create an app using the release directives
-            print(f"Creating new application {self.app_name} in account.")
+            cc.step(f"Creating new application {self.app_name} in account.")
 
             if self.app_role != self.package_role:
                 with self.use_role(new_role=self.package_role):
