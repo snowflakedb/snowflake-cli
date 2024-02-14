@@ -38,3 +38,12 @@ class RequirementWithFilesAndDeps(RequirementWithFiles):
 
     def to_requirement_with_files(self):
         return RequirementWithFiles(self.requirement, self.files)
+
+
+pip_failed_msg = """pip failed with return code {}.
+            If pip is installed correctly, this may mean you`re trying to install a package
+            that isn't compatible with the host architecture -
+            and generally means it has native libraries."""
+second_chance_msg = """Good news! The following package dependencies can be
+                imported directly from Anaconda, and will be excluded from
+                the zip: {}"""

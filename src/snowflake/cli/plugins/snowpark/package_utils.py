@@ -16,7 +16,7 @@ from requirements.requirement import Requirement
 from snowflake.cli.plugins.snowpark.models import (
     PypiOption,
     RequirementWithFiles,
-    SplitRequirements,
+    SplitRequirements, pip_failed_msg, second_chance_msg, RequirementWithFilesAndDeps,
 )
 from snowflake.cli.plugins.snowpark.venv import Venv
 
@@ -100,83 +100,6 @@ def _get_anaconda_channel_contents():
         log.error("Error reading Anaconda channel data: %s", response.status_code)
         raise typer.Abort()
 
-
-def get_downloaded_packages() -> Dict[str, RequirementWithFiles]:
-    """Returns a dict of official package names mapped to the files/folders
-    that belong to it under the .packages directory.
-
-    Returns:
-        dict[str:List[str]]: a dict of package folder names to package name
-    """
-    metadata_files = glob.glob(".packages/*dist-info/METADATA")
-    packages_full_path = os.path.abspath(".packages")
-    return_dict: Dict[str, RequirementWithFiles] = {}
-    for metadata_file in metadata_files:
-        parent_folder = os.path.dirname(metadata_file)
-        package = get_package_name_from_metadata(metadata_file)
-        if package is not None:
-            # since we found a package name, we can now look at the RECORD
-            # file (a sibling of METADATA) to determine which files and
-            # folders that belong to it
-            record_file_path = os.path.join(parent_folder, "RECORD")
-            if os.path.exists(record_file_path):
-                # the RECORD file contains a list of files included in the
-                # package, get the unique root folder names and delete them
-                # recursively
-                with open(record_file_path, encoding="utf-8") as record_file:
-                    # we want the part up until the first '/'.
-                    # Sometimes it's a file with a trailing ",sha256=abcd....",
-                    # so we trim that off too
-                    record_entries = list(
-                        {
-                            line.split(",")[0].rsplit("/", 1)[0]
-                            for line in record_file.readlines()
-                        },
-                    )
-                    included_record_entries = []
-                    for record_entry in record_entries:
-                        record_entry_full_path = os.path.abspath(
-                            os.path.join(".packages", record_entry),
-                        )
-                        # it's possible for the RECORD file to contain relative
-                        # paths to items outside of the packages folder.
-                        # We'll ignore those by asserting that the full
-                        # packages path exists in the full path of each item.
-                        if (
-                            os.path.exists(record_entry_full_path)
-                            and packages_full_path in record_entry_full_path
-                        ):
-                            included_record_entries.append(record_entry)
-                    return_dict[package.name] = RequirementWithFiles(
-                        requirement=package, files=included_record_entries
-                    )
-    return return_dict
-
-
-def get_package_name_from_metadata(metadata_file_path: str) -> Requirement | None:
-    """Loads a METADATA file from the dist-info directory of an installed
-    Python package, finds the name of the package.
-    This is found on a line containing "Name: my_package".
-
-    Args:
-        metadata_file_path (str): The path to the METADATA file
-
-    Returns:
-        str: the name of the package.
-    """
-    with open(metadata_file_path, encoding="utf-8") as metadata_file:
-        contents = metadata_file.read()
-        results = re.search("^Name: (.*)$", contents, flags=re.MULTILINE)
-        if results is None:
-            return None
-        requirement_line = results.group(1)
-        results = re.search("^Version: (.*)$", contents, flags=re.MULTILINE)
-        if results is not None:
-            version = results.group(1)
-            requirement_line += f"=={version}"
-        return Requirement.parse(requirement_line)
-
-
 def install_packages(
     file_name: str | None,
     perform_anaconda_check: bool = True,
@@ -205,70 +128,42 @@ def install_packages(
             pip_install_result = v.pip_install(package_name, "package")
             dependencies = v.get_package_dependencies(package_name, "package")
 
-    if pip_install_result != 0:
-        log.info(pip_failed_msg.format(pip_install_result))
-        return False, None
+        if pip_install_result != 0:
+            log.info(pip_failed_msg.format(pip_install_result))
+            return False, None
 
-    if perform_anaconda_check:
-        log.info("Checking for dependencies available in Anaconda...")
+        if perform_anaconda_check:
+            log.info("Checking for dependencies available in Anaconda...")
+            dependency_requirements = [dep.requirement.name for dep in dependencies]
+            log.info("Downloaded packages: %s", ",".join(dependency_requirements))
+            second_chance_results = parse_anaconda_packages(dependency_requirements)
 
-        # it's not over just yet. a non-Anaconda package may have brought in
-        # a package available on Anaconda.
-        # use each folder's METADATA file to determine its real name
-        downloaded_packages_dict = get_downloaded_packages()
-        log.info("Downloaded packages: %s", downloaded_packages_dict.keys())
-        # look for all the downloaded packages on the Anaconda channel
-        downloaded_package_requirements = [
-            r.requirement for r in downloaded_packages_dict.values()
-        ]
-        second_chance_results = parse_anaconda_packages(
-            downloaded_package_requirements,
-        )
-        second_chance_snowflake_packages = second_chance_results.snowflake
-        if len(second_chance_snowflake_packages) > 0:
-            log.info(second_chance_msg.format(second_chance_results))
-        else:
-            log.info("None of the package dependencies were found on Anaconda")
-        second_chance_snowflake_package_names = [
-            p.name for p in second_chance_snowflake_packages
-        ]
-        downloaded_packages_not_needed = {
-            k: v
-            for k, v in downloaded_packages_dict.items()
-            if k in second_chance_snowflake_package_names
-        }
-        _delete_packages(downloaded_packages_not_needed)
+            if len(second_chance_results.snowflake) > 0:
+                log.info(second_chance_msg.format(second_chance_results.snowflake))
+            else:
+                log.info("None of the package dependencies were found on Anaconda")
 
-    log.info("Checking to see if packages have native libraries...")
-    # use glob to see if any files in packages have a .so extension
-    if _check_for_native_libraries():
-        continue_installation = (
-            click.confirm(
-                "\n\nWARNING! Some packages appear to have native libraries!\n"
-                "Continue with package installation?",
-                default=False,
+        dependencies_to_be_packed = _get_dependencies_not_avaiable_in_conda(dependencies, second_chance_results.snowflake)
+
+        log.info("Checking to see if packages have native libraries...")
+
+        if _check_for_native_libraries(dependencies_to_be_packed):
+            continue_installation = (
+                click.confirm(
+                    "\n\nWARNING! Some packages appear to have native libraries!\n"
+                    "Continue with package installation?",
+                    default=False,
+                )
+                if package_native_libraries == PypiOption.ASK
+                else True
             )
-            if package_native_libraries == PypiOption.ASK
-            else True
-        )
-        if not continue_installation:
-            shutil.rmtree(".packages")
-            return False, second_chance_results
-    else:
-        log.info("No non-supported native libraries found in packages (Good news!)...")
+            print("hello")
+            if not continue_installation:
+                shutil.rmtree(".packages")
+                return False, second_chance_results
+        else:
+            log.info("No non-supported native libraries found in packages (Good news!)...")
     return True, second_chance_results
-
-
-def _delete_packages(to_be_deleted: Dict) -> None:
-    for package, items in to_be_deleted.items():
-        log.info("Package %s: deleting %d files", package, len(items.files))
-        for item in items.files:
-            item_path = os.path.join(".packages", item)
-            if os.path.exists(item_path):
-                if os.path.isdir(item_path):
-                    shutil.rmtree(item_path)
-                else:
-                    os.remove(item_path)
 
 
 def _check_for_native_libraries():
@@ -285,6 +180,9 @@ def get_snowflake_packages() -> List[str]:
             return [req for line in f if (req := line.split("#")[0].strip())]
     else:
         return []
+
+def _get_dependencies_not_avaiable_in_conda(dependencies: List[RequirementWithFilesAndDeps], avaiable_in_conda: List[Requirement]):
+    return [dep for dep in dependencies if dep.requirement.name not in [package.name for package in avaiable_in_conda]]
 
 
 def generate_deploy_stage_name(identifier: str) -> str:
@@ -319,11 +217,3 @@ def check_if_package_is_avaiable_in_conda(package: Requirement, packages: dict) 
     return True
 
 
-pip_failed_msg = """pip failed with return code {}.
-            If pip is installed correctly, this may mean you`re trying to install a package
-            that isn't compatible with the host architecture -
-            and generally means it has native libraries."""
-
-second_chance_msg = """Good news! The following package dependencies can be
-                imported directly from Anaconda, and will be excluded from
-                the zip: {}"""

@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 from typing import List
 
 from requirements.requirement import Requirement
-from snowflake.cli.plugins.snowpark.models import RequirementWithFilesAndDeps
+from snowflake.cli.plugins.snowpark.models import RequirementWithFiles
 
 log = logging.getLogger(__name__)
 
