@@ -2,12 +2,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.commands.project_initialisation import add_init_command
 from typer import Typer
 from typer.testing import CliRunner
 
 
-@mock.patch("shutil.copytree")
+@mock.patch.object(SecurePath, "copy")
 def test_adds_init_command(mock_copy):
     app = Typer()
     runner = CliRunner()
@@ -28,4 +29,4 @@ def test_adds_init_command(mock_copy):
         assert result.exit_code == 0
         assert result.output == "Initialized the new project in my_dir/\n"
 
-    mock_copy.assert_called_once_with(template_path, "my_dir", dirs_exist_ok=True)
+    mock_copy.assert_called_once_with("my_dir", dirs_exist_ok=True)
