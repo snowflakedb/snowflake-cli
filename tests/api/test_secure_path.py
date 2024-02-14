@@ -206,6 +206,78 @@ def test_mkdir(temp_dir, save_logs):
         dir2 = dir2.parent
 
 
+def test_move(temp_dir, save_logs):
+    def _get_new_file():
+        file = Path(temp_dir) / "file.txt"
+        file.touch()
+        return file
+
+    def _get_new_dir():
+        dir = Path(temp_dir) / "dir"
+        (dir / "subdir").mkdir(parents=True)
+        (dir / "empty").mkdir()
+        (dir / "file1.txt").touch()
+        (dir / "subdir" / "file2.txt").touch()
+        return dir
+
+    def _check_dir_moved(dst):
+        for filename in ["file1.txt", "empty", "subdir/file2.txt"]:
+            path = Path(dst) / filename
+            assert path.exists()
+            if filename.endswith(".txt"):
+                assert path.is_file()
+            else:
+                assert path.is_dir()
+
+    # move file
+    file = SecurePath(_get_new_file())
+    moved_file = file.move("moved_file.txt")
+    assert moved_file.path.exists() and not file.exists()
+    assert moved_file.path == Path("moved_file.txt")
+    _assert_count_matching_logs(
+        save_logs, 1, "Moving", "file.txt", " to \S+moved_file.txt"
+    )
+
+    file = SecurePath(_get_new_file())
+    with pytest.raises(FileExistsError):
+        file.move("moved_file.txt")
+    assert file.exists()
+
+    dir = _get_new_dir()
+    moved_file = file.move(dir)
+    assert moved_file.exists() and not file.exists()
+    assert moved_file.path.resolve() == (Path("dir") / "file.txt").resolve()
+    _assert_count_matching_logs(
+        save_logs, 1, "Moving", "file.txt", " to \S+dir[\/]file.txt"
+    )
+
+    file = SecurePath(_get_new_file())
+    with pytest.raises(FileExistsError):
+        file.move(dir)
+    assert file.exists()
+
+    # moving directory
+    dir = SecurePath(dir)
+    moved_dir = dir.move("moved_dir")
+    assert moved_dir.exists() and not dir.exists()
+    assert moved_dir.path == Path("moved_dir")
+    _check_dir_moved("moved_dir")
+    _assert_count_matching_logs(save_logs, 1, "Moving", "dir", " to \S+moved_dir")
+
+    dir = SecurePath(_get_new_dir())
+    moved_dir = dir.move("moved_dir")
+    assert moved_dir.exists() and not dir.exists()
+    assert moved_dir.path == Path("moved_dir") / "dir"
+    _check_dir_moved(Path("moved_dir") / "dir")
+    _assert_count_matching_logs(
+        save_logs, 1, "Moving", "dir", " to \S+moved_dir[\/]dir"
+    )
+
+    dir = SecurePath(_get_new_dir())
+    with pytest.raises(FileExistsError):
+        dir.move("moved_dir")
+
+
 def test_copy_file(temp_dir, save_logs):
     file = SecurePath(temp_dir) / "file.txt"
     file.touch()

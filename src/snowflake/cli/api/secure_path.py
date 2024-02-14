@@ -152,6 +152,20 @@ class SecurePath:
             yield fd
         log.info("Closing file %s", self._path)
 
+    def move(self, destination: Union[Path, str]) -> "SecurePath":
+        """Recursively move a file or directory (src) to another location and return the destination.
+
+        If dst is an existing directory or a symlink to a directory, then src is moved inside that directory.
+        The destination path in that directory must not already exist.
+        """
+        destination = Path(destination)
+        if destination.is_dir():
+            destination = destination / self._path.name
+        if destination.exists():
+            _raise_file_exists_error(destination)
+        log.info("Moving %s to %s", str(self._path), destination.resolve())
+        return SecurePath(shutil.move(self._path, destination))
+
     def copy(
         self, destination: Union[Path, str], dirs_exist_ok: bool = False
     ) -> "SecurePath":

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import re
-import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -260,10 +259,7 @@ def _init_from_template(
             project_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Move the template to the specified path
-            shutil.move(
-                src=template_root.path,  # type: ignore
-                dst=project_path,
-            )
+            template_root.move(project_path)
 
     except TemplateNotFoundError:
         raise
