@@ -1,4 +1,4 @@
-name: Integration testing
+name: Windows tests
 
 on:
   pull_request:
@@ -20,19 +20,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip hatch
           python -m hatch env create integration
-      - name: Run test1
+      - name: Run tests
         env:
           TERM: unknown
           SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-        run: python -m hatch run tests_integration/test_nativeapp.py::test_nativeapp_init_run_without_modifications -vv -s
-      - name: Run test2
-        env:
-          TERM: unknown
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-        run: tests_integration/test_nativeapp.py::test_nativeapp_init_run_handles_spaces -vv -s
+        run:
+          - python -m hatch run integration:"tests_integration/test_nativeapp.py::test_nativeapp_init_run_without_modifications -vv -s"
+          - python -m hatch run integration:"tests_integration/test_nativeapp.py::test_nativeapp_init_run_without_modifications -vv -s"
