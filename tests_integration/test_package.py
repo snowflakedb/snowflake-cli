@@ -89,6 +89,19 @@ class TestPackage:
         files = self._get_filenames_from_zip("dummy_pkg_for_tests_with_deps.zip")
         assert "dummy_pkg_for_tests/shrubbery.py" in files
 
+    def test_package_with_conda_dependencies(
+        self, directory_for_test, runner
+    ):  # TODO think how to make this test with packages controlled by us
+        result = runner.invoke_with_connection_json(
+            ["snowpark", "package", "create", "july", "-y"]
+        )
+
+        assert result.exit_code == 0
+        assert Path("july.zip").exists()
+
+        files = self._get_filenames_from_zip("july.zip")
+        assert False
+
     @pytest.fixture(scope="function")
     def directory_for_test(self):
         init_dir = os.getcwd()

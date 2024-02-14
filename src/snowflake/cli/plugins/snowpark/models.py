@@ -30,3 +30,11 @@ class RequirementWithFiles:
 
     requirement: Requirement
     files: List[str]
+
+
+@dataclass
+class RequirementWithFilesAndDeps(RequirementWithFiles):
+    dependencies: List[str]
+
+    def to_requirement_with_files(self):
+        return RequirementWithFiles(self.requirement, self.files)

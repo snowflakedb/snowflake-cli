@@ -199,9 +199,11 @@ def install_packages(
     with Venv() as v:
         if file_name is not None:
             pip_install_result = v.pip_install(file_name, "file")
+            dependencies = v.get_package_dependencies(file_name, "file")
 
         if package_name is not None:
             pip_install_result = v.pip_install(package_name, "package")
+            dependencies = v.get_package_dependencies(package_name, "package")
 
     if pip_install_result != 0:
         log.info(pip_failed_msg.format(pip_install_result))
@@ -209,6 +211,7 @@ def install_packages(
 
     if perform_anaconda_check:
         log.info("Checking for dependencies available in Anaconda...")
+
         # it's not over just yet. a non-Anaconda package may have brought in
         # a package available on Anaconda.
         # use each folder's METADATA file to determine its real name
