@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import glob
 import logging
 import os
-import re
 import shutil
-from typing import Dict, List
+from typing import List
 
 import click
 import requests
@@ -15,8 +13,10 @@ from packaging.version import parse
 from requirements.requirement import Requirement
 from snowflake.cli.plugins.snowpark.models import (
     PypiOption,
-    RequirementWithFiles,
-    SplitRequirements, pip_failed_msg, second_chance_msg, RequirementWithFilesAndDeps,
+    RequirementWithFilesAndDeps,
+    SplitRequirements,
+    pip_failed_msg,
+    second_chance_msg,
 )
 from snowflake.cli.plugins.snowpark.venv import Venv
 
@@ -100,6 +100,7 @@ def _get_anaconda_channel_contents():
         log.error("Error reading Anaconda channel data: %s", response.status_code)
         raise typer.Abort()
 
+
 def install_packages(
     file_name: str | None,
     perform_anaconda_check: bool = True,
@@ -143,7 +144,9 @@ def install_packages(
             else:
                 log.info("None of the package dependencies were found on Anaconda")
 
-        dependencies_to_be_packed = _get_dependencies_not_avaiable_in_conda(dependencies, second_chance_results.snowflake)
+        dependencies_to_be_packed = _get_dependencies_not_avaiable_in_conda(
+            dependencies, second_chance_results.snowflake
+        )
 
         log.info("Checking to see if packages have native libraries...")
 
@@ -162,16 +165,21 @@ def install_packages(
                 shutil.rmtree(".packages")
                 return False, second_chance_results
         else:
-            log.info("No non-supported native libraries found in packages (Good news!)...")
+            log.info(
+                "No non-supported native libraries found in packages (Good news!)..."
+            )
     return True, second_chance_results
 
 
-def _check_for_native_libraries():
-    if glob.glob(".packages/**/*.so"):
-        for path in glob.glob(".packages/**/*.so"):
-            log.info("Potential native library: %s", path)
-        return True
-    return False
+def _check_for_native_libraries(dependencies: List[RequirementWithFilesAndDeps]):
+    return any(
+        [
+            file
+            for dependency in dependencies
+            for file in dependency.files
+            if not file.endswith(".so")
+        ]
+    )
 
 
 def get_snowflake_packages() -> List[str]:
@@ -181,8 +189,16 @@ def get_snowflake_packages() -> List[str]:
     else:
         return []
 
-def _get_dependencies_not_avaiable_in_conda(dependencies: List[RequirementWithFilesAndDeps], avaiable_in_conda: List[Requirement]):
-    return [dep for dep in dependencies if dep.requirement.name not in [package.name for package in avaiable_in_conda]]
+
+def _get_dependencies_not_avaiable_in_conda(
+    dependencies: List[RequirementWithFilesAndDeps],
+    avaiable_in_conda: List[Requirement],
+):
+    return [
+        dep
+        for dep in dependencies
+        if dep.requirement.name not in [package.name for package in avaiable_in_conda]
+    ]
 
 
 def generate_deploy_stage_name(identifier: str) -> str:
@@ -215,5 +231,3 @@ def check_if_package_is_avaiable_in_conda(package: Requirement, packages: dict) 
         latest_ver = parse(packages[package_name]["version"])
         return all([parse(spec[1]) <= latest_ver for spec in package.specs])
     return True
-
-

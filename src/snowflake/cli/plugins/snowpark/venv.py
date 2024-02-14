@@ -9,7 +9,8 @@ from tempfile import TemporaryDirectory
 from typing import List
 
 from requirements.requirement import Requirement
-from snowflake.cli.plugins.snowpark.models import RequirementWithFiles
+
+from src.snowflake.cli.plugins.snowpark.models import RequirementWithFilesAndDeps
 
 log = logging.getLogger(__name__)
 
@@ -59,7 +60,9 @@ class Venv:
             return venv_dir / "scripts" / "python"
         return venv_dir / "bin" / "python"
 
-    def get_package_dependencies(self, name: str, req_type: str):
+    def get_package_dependencies(
+        self, name: str, req_type: str
+    ) -> List[RequirementWithFilesAndDeps]:
         if req_type == "package":
             dependencies = self._get_dependencies(Requirement.parse_line(name))
 

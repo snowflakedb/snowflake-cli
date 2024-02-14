@@ -5,8 +5,8 @@ from typing import Optional
 
 from rich.style import Style
 from rich.text import Text
-from snowflake.cli.api.console.abc import AbstractConsole
-from snowflake.cli.api.console.enum import Output
+from src.snowflake.cli.api.console.abc import AbstractConsole
+from src.snowflake.cli.api.console.enum import Output
 
 PHASE_STYLE: Style = Style(color="grey93", bold=True)
 STEP_STYLE: Style = Style(color="grey89", italic=True)

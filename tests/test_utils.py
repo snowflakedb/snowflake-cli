@@ -145,6 +145,7 @@ def test_generate_streamlit_package_wrapper():
         assert 'importlib.reload(sys.modules["example_module"])' in f.read()
     os.remove(result)
 
+
 @pytest.mark.parametrize(
     "contents, expected",
     [
@@ -213,6 +214,7 @@ def test_parse_anaconda_packages(mock_get):
     assert split_requirements.other[0].specs == [(">=", "0.9.3")]
     assert split_requirements.other[1].name == "Pamela"
     assert split_requirements.other[1].specs == [("==", "1.0.1")]
+
 
 def test_deduplicate_and_sort_reqs():
     packages = [
