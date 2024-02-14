@@ -92,7 +92,7 @@ class SecurePath:
             log.info("Creating directory %s", str(self._path))
         self._path.mkdir(mode=permissions_mask, parents=parents, exist_ok=exist_ok)
 
-    def read_text(self, file_size_limit_mb: int, encoding=None, errors=None) -> str:
+    def read_text(self, file_size_limit_mb: int, *args, **kwargs) -> str:
         """
         Return the decoded contents of the file as a string.
         Raises an error of the file exceeds the specified size limit.
@@ -101,26 +101,23 @@ class SecurePath:
         self._assert_exists_and_is_file()
         self._assert_file_size_limit(file_size_limit_mb)
         log.info("Reading file %s", self._path)
-        return self._path.read_text(encoding=encoding, errors=errors)
+        return self._path.read_text(*args, **kwargs)
 
-    def write_text(self, data: str, encoding=None, errors=None, newline=None):
+    def write_text(self, *args, **kwargs):
         """
         Open the file pointed to in text mode, write data to it, and close the file.
         """
         if not self.exists():
             self.touch()
         log.info("Writing to file %s", self._path)
-        self.path.write_text(data, encoding=encoding, errors=errors, newline=newline)
+        self.path.write_text(*args, **kwargs)
 
     @contextmanager
     def open(  # noqa: A003
         self,
         mode="r",
         read_file_limit_mb: Optional[int] = None,
-        buffering=-1,
-        encoding=None,
-        errors=None,
-        newline=None,
+        **open_kwargs,
     ):
         """
         Open the file pointed by this path and return a file object, as
@@ -142,13 +139,7 @@ class SecurePath:
             self.touch()  # makes sure permissions of freshly-created file are strict
 
         log.info("Opening file %s in mode '%s'", self._path, mode)
-        with self._path.open(
-            mode=mode,
-            buffering=buffering,
-            encoding=encoding,
-            errors=errors,
-            newline=newline,
-        ) as fd:
+        with self._path.open(mode=mode, **open_kwargs) as fd:
             yield fd
         log.info("Closing file %s", self._path)
 
