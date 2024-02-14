@@ -1,6 +1,4 @@
-import unittest
 from textwrap import dedent
-
 from snowflake.cli.plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     NAME_COL,
@@ -14,7 +12,6 @@ from snowflake.cli.plugins.nativeapp.manager import (
 )
 from snowflake.cli.plugins.object.stage.diff import DiffResult
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.patch_utils import (
@@ -300,7 +297,7 @@ def test_is_app_pkg_distribution_same_in_sf_no_mismatch(mock_mismatch, temp_dir)
 
 
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(f"{NATIVEAPP_MODULE}.log.warning")
+@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
     mock_warning, mock_mismatch, temp_dir
 ):
@@ -415,7 +412,8 @@ def test_get_existing_app_pkg_info_app_pkg_exists(mock_execute, temp_dir, mock_c
                     [],
                 ),
                 mock.call(
-                    "show application packages like 'APP_PKG'", cursor_class=DictCursor
+                    r"show application packages like 'APP\\_PKG'",
+                    cursor_class=DictCursor,
                 ),
             ),
             (None, mock.call("use role old_role")),
@@ -451,7 +449,8 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
             (
                 mock_cursor([], []),
                 mock.call(
-                    "show application packages like 'APP_PKG'", cursor_class=DictCursor
+                    r"show application packages like 'APP\\_PKG'",
+                    cursor_class=DictCursor,
                 ),
             ),
             (None, mock.call("use role old_role")),

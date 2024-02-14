@@ -4,11 +4,7 @@ from pathlib import Path
 
 import click
 import typer
-from snowflake.cli.api.commands.decorators import (
-    global_options_with_connection,
-    with_output,
-)
-from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import (
     CommandResult,
     ObjectResult,
@@ -18,18 +14,15 @@ from snowflake.cli.api.output.types import (
 from snowflake.cli.plugins.object.stage.diff import DiffResult
 from snowflake.cli.plugins.object.stage.manager import StageManager
 
-app = typer.Typer(
+app = SnowTyper(
     name="stage",
-    context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manages stages.",
 )
 
 StageNameArgument = typer.Argument(..., help="Name of the stage.")
 
 
-@app.command("list")
-@with_output
-@global_options_with_connection
+@app.command("list", requires_connection=True)
 def stage_list(stage_name: str = StageNameArgument, **options) -> CommandResult:
     """
     Lists the stage contents.
@@ -42,9 +35,7 @@ def _is_stage_path(path: str):
     return path.startswith("@") or path.startswith("snow://")
 
 
-@app.command("copy")
-@with_output
-@global_options_with_connection
+@app.command("copy", requires_connection=True)
 def copy(
     source_path: str = typer.Argument(
         help="Source path for copy operation. Can be either stage path or local."
@@ -96,9 +87,7 @@ def copy(
     return QueryResult(cursor)
 
 
-@app.command("create")
-@with_output
-@global_options_with_connection
+@app.command("create", requires_connection=True)
 def stage_create(stage_name: str = StageNameArgument, **options) -> CommandResult:
     """
     Creates a named stage if it does not already exist.
@@ -107,9 +96,7 @@ def stage_create(stage_name: str = StageNameArgument, **options) -> CommandResul
     return SingleQueryResult(cursor)
 
 
-@app.command("remove")
-@with_output
-@global_options_with_connection
+@app.command("remove", requires_connection=True)
 def stage_remove(
     stage_name: str = StageNameArgument,
     file_name: str = typer.Argument(..., help="Name of the file to remove."),
@@ -123,9 +110,7 @@ def stage_remove(
     return SingleQueryResult(cursor)
 
 
-@app.command("diff", hidden=True)
-@with_output
-@global_options_with_connection
+@app.command("diff", hidden=True, requires_connection=True)
 def stage_diff(
     stage_name: str = typer.Argument(None, help="Fully qualified name of a stage"),
     folder_name: str = typer.Argument(None, help="Path to local folder"),
@@ -135,11 +120,4 @@ def stage_diff(
     Diffs a stage with a local folder.
     """
     diff: DiffResult = stage_diff(Path(folder_name), stage_name)
-    return ObjectResult(
-        {
-            "only on local": diff.only_local,
-            "only on stage": diff.only_on_stage,
-            "modified/unknown": diff.different,
-            "identical": diff.identical,
-        }
-    )
+    return ObjectResult(str(diff))

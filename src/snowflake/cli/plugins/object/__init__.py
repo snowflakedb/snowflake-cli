@@ -1,11 +1,9 @@
-import typer
-from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.plugins.object.commands import app as show_app
 from snowflake.cli.plugins.object.stage.commands import app as stage_app
 
-app = typer.Typer(
+app = SnowTyper(
     name="object",
-    context_settings=DEFAULT_CONTEXT_SETTINGS,
     help="Manages Snowflake objects like warehouses and stages",
 )
 

@@ -67,12 +67,10 @@ def test_process_has_no_existing_app_pkg(mock_get_existing, policy_param, temp_d
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(f"{VERSION_MODULE}.{DROP_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=(None, None))
-@mock.patch(f"{VERSION_MODULE}.log.info")
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
 def test_process_no_version_from_user_no_version_in_manifest(
-    mock_log,
     mock_version_info_in_manifest,
     mock_build_bundle,
     mock_mismatch,
@@ -94,7 +92,6 @@ def test_process_no_version_from_user_no_version_in_manifest(
         processor.process(
             version=None, policy=policy_param, is_interactive=True
         )  # last two don't matter here
-    mock_log.assert_called_once()
     mock_build_bundle.assert_called_once()
     mock_version_info_in_manifest.assert_called_once()
 

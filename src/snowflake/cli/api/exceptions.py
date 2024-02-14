@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 from click.exceptions import ClickException
@@ -93,4 +94,23 @@ class SecretsWithoutExternalAccessIntegrationError(ClickException):
     def __init__(self, object_name: str):
         super().__init__(
             f"{object_name} defined with secrets but without external integration."
+        )
+
+
+class FileTooLargeError(ClickException):
+    def __init__(self, path: Path, size_limit_in_kb: int):
+        super().__init__(
+            f"File {path} is too large (size limit: {size_limit_in_kb} KB)"
+        )
+
+
+class DirectoryIsNotEmptyError(ClickException):
+    def __init__(self, path: Path):
+        super().__init__(f"Directory '{path}' is not empty")
+
+
+class ConfigFileTooWidePermissionsError(ClickException):
+    def __init__(self, path: Path):
+        super().__init__(
+            f'Configuration file {path} has too wide permissions, run `chmod 0600 "{path}"`'
         )

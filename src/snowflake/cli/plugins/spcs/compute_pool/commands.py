@@ -2,14 +2,10 @@ from typing import Optional
 
 import typer
 from click import ClickException
-from snowflake.cli.api.commands.decorators import (
-    global_options_with_connection,
-    with_output,
-)
 from snowflake.cli.api.commands.flags import (
-    DEFAULT_CONTEXT_SETTINGS,
     OverrideableOption,
 )
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
 from snowflake.cli.api.project.util import is_valid_object_name
 from snowflake.cli.plugins.object.common import CommentOption
@@ -19,8 +15,7 @@ from snowflake.cli.plugins.spcs.common import (
 )
 from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
 
-app = typer.Typer(
-    context_settings=DEFAULT_CONTEXT_SETTINGS,
+app = SnowTyper(
     name="compute-pool",
     help="Manages compute pools.",
 )
@@ -68,9 +63,7 @@ AutoSuspendSecsOption = OverrideableOption(
 )
 
 
-@app.command()
-@with_output
-@global_options_with_connection
+@app.command(requires_connection=True)
 def create(
     name: str = ComputePoolNameArgument,
     min_nodes: int = MinNodesOption(),
@@ -107,9 +100,7 @@ def create(
     return SingleQueryResult(cursor)
 
 
-@app.command("stop-all")
-@with_output
-@global_options_with_connection
+@app.command("stop-all", requires_connection=True)
 def stop_all(name: str = ComputePoolNameArgument, **options) -> CommandResult:
     """
     Deletes all services running on the compute pool.
@@ -118,9 +109,7 @@ def stop_all(name: str = ComputePoolNameArgument, **options) -> CommandResult:
     return SingleQueryResult(cursor)
 
 
-@app.command()
-@with_output
-@global_options_with_connection
+@app.command(requires_connection=True)
 def suspend(name: str = ComputePoolNameArgument, **options) -> CommandResult:
     """
     Suspends the compute pool by suspending all currently running services and then releasing compute pool nodes.
@@ -128,9 +117,7 @@ def suspend(name: str = ComputePoolNameArgument, **options) -> CommandResult:
     return SingleQueryResult(ComputePoolManager().suspend(name))
 
 
-@app.command()
-@with_output
-@global_options_with_connection
+@app.command(requires_connection=True)
 def resume(name: str = ComputePoolNameArgument, **options) -> CommandResult:
     """
     Resumes the compute pool from SUSPENDED state.
@@ -138,9 +125,7 @@ def resume(name: str = ComputePoolNameArgument, **options) -> CommandResult:
     return SingleQueryResult(ComputePoolManager().resume(name))
 
 
-@app.command("set")
-@with_output
-@global_options_with_connection
+@app.command("set", requires_connection=True)
 def set_property(
     name: str = ComputePoolNameArgument,
     min_nodes: Optional[int] = MinNodesOption(default=None, show_default=False),
@@ -173,9 +158,7 @@ def set_property(
         )
 
 
-@app.command("unset")
-@with_output
-@global_options_with_connection
+@app.command("unset", requires_connection=True)
 def unset_property(
     name: str = ComputePoolNameArgument,
     auto_resume: bool = AutoResumeOption(

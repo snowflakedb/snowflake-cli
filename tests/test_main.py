@@ -141,3 +141,19 @@ def test_if_there_are_no_option_duplicates(runner):
     _check(ctx.command)
 
     assert duplicates == {}, "\n".join(duplicates)
+
+
+@pytest.mark.skip("Causes fails in specific tests order - SNOW-1057111")
+def test_fail_command_when_default_config_has_too_wide_permissions(
+    snowflake_home: Path,
+    runner,
+):
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(0o777)
+
+    result = runner.super_invoke(["sql", "-q", "select 1"])
+
+    assert result.exit_code == 1, result.output
+    assert result.output.__contains__("Error")
+    assert result.output.__contains__("Configuration file")

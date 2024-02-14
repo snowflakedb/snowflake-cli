@@ -61,6 +61,7 @@ def test_connection_caching(mock_connect):
                 connection_name=None,
                 role="newValue",
                 warehouse="newValue2",
+                mfa_passcode=None,
             ),
             call(
                 temporary_connection=False,
@@ -68,6 +69,7 @@ def test_connection_caching(mock_connect):
                 role="newValue",
                 warehouse="newValue2",
                 user="newValue3",
+                mfa_passcode=None,
             ),
         ]
     )

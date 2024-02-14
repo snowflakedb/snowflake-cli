@@ -204,12 +204,11 @@ def test_add_new_patch_custom(mock_execute, temp_dir, mock_cursor):
 
 # Test version create when user did not pass in a version AND we could not find a version in the manifest file either
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=(None, None))
-@mock.patch(f"{VERSION_MODULE}.log.info")
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
 def test_process_no_version_from_user_no_version_in_manifest(
-    mock_log, mock_version_info_in_manifest, policy_param, temp_dir
+    mock_version_info_in_manifest, policy_param, temp_dir
 ):
     current_working_directory = os.getcwd()
     create_named_file(
@@ -227,7 +226,6 @@ def test_process_no_version_from_user_no_version_in_manifest(
             git_policy=policy_param,
             is_interactive=False,
         )  # last three parameters do not matter here, so it should succeed for all policies.
-    mock_log.assert_called_once()
     mock_version_info_in_manifest.assert_called_once()
 
 

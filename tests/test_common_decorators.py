@@ -17,6 +17,7 @@ _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "role",
     "warehouse",
     "temporary_connection",
+    "mfa_passcode",
     "format",
     "verbose",
     "debug",
