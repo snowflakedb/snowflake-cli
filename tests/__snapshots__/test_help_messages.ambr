@@ -2474,7 +2474,7 @@
                                                                                   
    Usage: default spcs image-registry [OPTIONS] COMMAND [ARGS]...                 
                                                                                   
-   Manages Snowpark registries.                                                   
+   Manages image registries.                                                      
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -2768,7 +2768,7 @@
                                                                                   
    Usage: default spcs image-repository [OPTIONS] COMMAND [ARGS]...               
                                                                                   
-   Manages Snowpark Container Services image repositories.                        
+   Manages image repositories.                                                    
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -3376,7 +3376,7 @@
                                                                                   
    Usage: default spcs service [OPTIONS] COMMAND [ARGS]...                        
                                                                                   
-   Manages Snowpark services.                                                     
+   Manages services.                                                              
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -3400,16 +3400,17 @@
                                                                                   
    Usage: default spcs [OPTIONS] COMMAND [ARGS]...                                
                                                                                   
-   Manages Snowpark services, pools, image registries, and image repositories.    
+   Manages Snowpark Container Services compute pools, services, image registries, 
+   and image repositories.                                                        
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ compute-pool       Manages compute pools.                                    │
-  │ image-registry     Manages Snowpark registries.                              │
-  │ image-repository   Manages Snowpark Container Services image repositories.   │
-  │ service            Manages Snowpark services.                                │
+  │ compute-pool                  Manages compute pools.                         │
+  │ image-registry                Manages image registries.                      │
+  │ image-repository              Manages image repositories.                    │
+  │ service                       Manages services.                              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
