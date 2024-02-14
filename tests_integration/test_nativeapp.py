@@ -24,6 +24,21 @@ def pushd(directory: Path):
         os.chdir(cwd)
 
 
+@pytest.fixture(autouse=True)
+def set_log_level_to_debug(snowflake_home, runner) -> None:
+    config = snowflake_home / "config.toml"
+    config.write_text(
+        """[cli.logs]
+save_logs = true
+level = "debug"
+
+[connections.integration]
+"""
+    )
+    config.chmod(0o600)
+    runner.use_config(config)
+
+
 # Tests a simple flow of initiating a new project, executing snow app run and teardown, all with distribution=internal
 @pytest.mark.integration
 def test_nativeapp_init_run_without_modifications(
