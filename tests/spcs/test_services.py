@@ -299,3 +299,31 @@ def test_upgrade_spec_cli(mock_upgrade_spec, mock_cursor, runner, other_director
     )
     assert result.exit_code == 0, result.output
     assert "Statement executed successfully" in result.output
+
+
+@patch(
+    "snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_schema_query"
+)
+def test_list_endpoints(mock_execute_schema_query):
+    service_name = "test_service"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_schema_query.return_value = cursor
+    result = ServiceManager().list_endpoints(service_name)
+    expected_query = f"show endpoints in service test_service"
+    mock_execute_schema_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.list_endpoints")
+def test_list_endpoints_cli(mock_list_endpoints, mock_cursor, runner):
+    service_name = "test_service"
+    cursor = mock_cursor(
+        rows=[["endpoint", 8000, "HTTP", "true", "test-snowflakecomputing.app"]],
+        columns=["name", "port", "protocol", "ingress_enabled", "ingress_url"],
+    )
+    mock_list_endpoints.return_value = cursor
+    result = runner.invoke(["spcs", "service", "list-endpoints", service_name])
+
+    mock_list_endpoints.assert_called_once_with(service_name=service_name)
+    assert result.exit_code == 0
+    assert "test-snowflakecomputing.app" in result.output

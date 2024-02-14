@@ -12,7 +12,7 @@
   * Added `image-repository url <repo_name>` command to get the URL for specified image repository.
   * Added `create` command for `image-repository`.
   * Added `set (property)`, `unset (property)`, `suspend` and `resume` commands for `compute-pool`.
-  * Added `upgrade` command for `service`.
+  * Added `upgrade` and `list-endpoints` commands for `service`.
 
 ## Fixes and improvements
 * Restricted permissions of automatically created files
