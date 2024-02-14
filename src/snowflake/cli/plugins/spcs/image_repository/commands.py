@@ -16,7 +16,7 @@ from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryM
 
 app = SnowTyper(
     name="image-repository",
-    help="Manages Snowpark Container Services image repositories.",
+    help="Manages image repositories.",
 )
 
 

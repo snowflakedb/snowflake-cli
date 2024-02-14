@@ -1,6 +1,6 @@
 import pytest
 
-from tests_integration.testing_utils.snowpark_jobs_utils import (
+from tests_integration.spcs.testing_utils.spcs_jobs_utils import (
     SnowparkJobsTestSetup,
     SnowparkJobsTestSteps,
 )
