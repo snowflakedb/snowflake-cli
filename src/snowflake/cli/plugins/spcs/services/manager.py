@@ -88,3 +88,6 @@ class ServiceManager(SqlExecutionMixin):
         spec = self._read_yaml(spec_path)
         query = f"alter service {service_name} from specification $$ {spec} $$"
         return self._execute_schema_query(query)
+
+    def list_endpoints(self, service_name: str) -> SnowflakeCursor:
+        return self._execute_schema_query(f"show endpoints in service {service_name}")

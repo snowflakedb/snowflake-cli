@@ -8,6 +8,7 @@ from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import (
     CommandResult,
     QueryJsonValueResult,
+    QueryResult,
     SingleQueryResult,
 )
 from snowflake.cli.api.project.util import is_valid_object_name
@@ -142,3 +143,11 @@ def upgrade(
     return SingleQueryResult(
         ServiceManager().upgrade_spec(service_name=name, spec_path=spec_path)
     )
+
+
+@app.command("list-endpoints", requires_connection=True)
+def list_endpoints(name: str = ServiceNameArgument, **options):
+    """
+    Lists the endpoints in a Snowpark Container Services service.
+    """
+    return QueryResult(ServiceManager().list_endpoints(service_name=name))
