@@ -232,7 +232,7 @@ def _init_from_template(
 
             temp_path = Path(temp_dir)
 
-            log.debug("Clone repo into %s", temp_path.path)
+            log.debug("Clone repo into %s", temp_path)
             # Clone the repository in the temporary directory with options.
             Repo.clone_from(
                 url=git_url,
@@ -245,11 +245,11 @@ def _init_from_template(
                 # the template is the entire git repository
                 template_root = temp_path
                 # Remove all git history before we move the repo
-                log.debug("Removing .git: %s", (template_root / ".git").path)
+                log.debug("Removing .git: %s", (template_root / ".git"))
                 rmtree(template_root.joinpath(".git").resolve())
             else:
                 log.debug("Not removing .git")
-                for file in (temp_path.path / ".git" / "objects" / "pack").glob("**/*"):
+                for file in (temp_path / ".git" / "objects" / "pack").glob("**/*"):
                     log.debug("Permissions: %s - %s", file, oct(file.stat().st_mode))
                 # The template is a subdirectory of the git repository
                 template_name = template if template else BASIC_TEMPLATE
@@ -275,7 +275,7 @@ def _init_from_template(
             project_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Move the template to the specified path
-            log.debug("move %s", template_root.path)
+            log.debug("move %s", template_root)
             move(
                 src=template_root,  # type: ignore
                 dst=project_path,
