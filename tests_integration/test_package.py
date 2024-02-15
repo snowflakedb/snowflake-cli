@@ -93,7 +93,8 @@ class TestPackage:
     def test_package_with_conda_dependencies(
         self, directory_for_test, runner
     ):  # TODO think how to make this test with packages controlled by us
-        # t
+        # test case is: We have a non-conda package, that has a dependency present on conda
+        # but not in latest version - here the case is matplotlib.
         result = runner.invoke_with_connection_json(
             ["snowpark", "package", "create", "july", "-y"]
         )

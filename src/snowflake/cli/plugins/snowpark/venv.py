@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import re
@@ -70,13 +69,6 @@ class Venv:
     def get_package_dependencies(
         self, name: str, req_type: str
     ) -> List[RequirementWithFilesAndDeps]:
-
-        packages_info = [
-            p["metadata"]
-            for p in json.loads(self.run_python(["-m", "pip", "inspect"]).stdout)[
-                "installed"
-            ]
-        ]
 
         if req_type == "package":
             dependencies = self._get_dependencies(Requirement.parse_line(name))
