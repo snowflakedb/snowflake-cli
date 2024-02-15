@@ -4,15 +4,15 @@ from typing import List, Optional
 
 import typer
 from click import ClickException
+from snowflake.cli.api.commands.flags import (
+    OverrideableOption,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import (
     CommandResult,
     QueryJsonValueResult,
     QueryResult,
     SingleQueryResult,
-)
-from snowflake.cli.api.commands.flags import (
-    OverrideableOption,
 )
 from snowflake.cli.api.project.util import is_valid_object_name
 from snowflake.cli.plugins.object.common import CommentOption, Tag, TagOption
@@ -91,7 +91,7 @@ def create(
         help="Identifies External Access Integrations(EAI) that the service can access. This option may be specified multiple times for multiple EAIs.",
     ),
     query_warehouse: Optional[str] = QueryWarehouseOption(),
-    tags: Optional[List[str]] = TagOption(help="Tag for the service."),
+    tags: Optional[List[Tag]] = TagOption(help="Tag for the service."),
     comment: Optional[str] = CommentOption(help=_COMMENT_HELP),
     **options,
 ) -> CommandResult:
