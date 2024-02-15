@@ -5,4 +5,4 @@ import os
 logging.getLogger("snowflake").setLevel(logging.ERROR)
 
 # Restrict permissions of all created files
-os.umask(0o007)
+os.umask(0o077)
