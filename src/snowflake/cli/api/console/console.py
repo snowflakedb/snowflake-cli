@@ -8,10 +8,10 @@ from rich.text import Text
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.console.enum import Output
 
-PHASE_STYLE: Style = Style(color="grey93", bold=True)
-STEP_STYLE: Style = Style(color="grey89", italic=True)
-INFO_STYLE: Style = Style(color="black")
-IMPORTANT_STYLE: Style = Style(color="red", bold=True, italic=True)
+PHASE_STYLE: Style = Style(bold=True)
+STEP_STYLE: Style = Style(italic=True)
+INFO_STYLE: Style = Style()
+IMPORTANT_STYLE: Style = Style(bold=True, italic=True)
 INDENTATION_LEVEL: int = 2
 
 
