@@ -250,7 +250,7 @@ def _init_from_template(
             else:
                 log.debug("Not removing .git")
                 for file in (temp_path.path / ".git" / "objects" / "pack").glob("**/*"):
-                    log.debug("Permissions: %s", file, oct(file.stat().st_mode))
+                    log.debug("Permissions: %s - %s", file, oct(file.stat().st_mode))
                 # The template is a subdirectory of the git repository
                 template_name = template if template else BASIC_TEMPLATE
                 template_root = temp_path / template_name
