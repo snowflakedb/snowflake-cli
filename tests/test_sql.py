@@ -157,7 +157,7 @@ def test_show_specific_object_no_match(mock_execute, mock_cursor):
     mock_execute.assert_called_once_with(
         r"show objects like 'EXAMPLE\\_ID'", cursor_class=DictCursor
     )
-    assert result == None
+    assert result is None
 
 
 @mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")

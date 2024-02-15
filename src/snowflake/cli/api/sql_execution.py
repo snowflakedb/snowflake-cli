@@ -9,7 +9,11 @@ from typing import Iterable, Optional
 
 from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.exceptions import (
+    DatabaseNotProvidedError,
+    SchemaNotProvidedError,
+    SnowflakeSQLExecutionError,
+)
 from snowflake.cli.api.project.util import (
     identifier_to_show_like_pattern,
     unquote_identifier,
@@ -83,48 +87,39 @@ class SqlExecutionMixin:
         return self._execute_query(query, **kwargs)
 
     def check_database_and_schema(self) -> None:
-        database = self._conn.database
-        schema = self._conn.schema
-        self.check_database_exists(database)
-        self.check_schema_exists(database, schema)
+        """
+        Checks if the connection database and schema are set and that they actually exist in Snowflake.
+        """
+        self.check_schema_exists(self._conn.database, self._conn.schema)
 
     def check_database_exists(self, database: str) -> None:
+        """
+        Checks that database is provided and that it is a valid database in
+        Snowflake. Note that this could fail for a variety of reasons,
+        including not authorized to use database, database doesn't exist,
+        database is not a valid identifier, and more.
+        """
         if not database:
-            raise Exception(
-                """
-                Database not specified. Please update connection to add `DATABASE` parameter,
-                or re-run command using `--dbname` option.
-                Use `snow connection list` to list existing connections
-                """
-            )
+            raise DatabaseNotProvidedError()
         try:
             self._execute_query(f"USE DATABASE {database}")
         except ProgrammingError as e:
-            raise Exception(
-                f"""
-            Exception occurred: {e}. Make sure you have `DATABASE` parameter in connection or `--dbname` option provided
-            Use `snow connection list` to list existing connections
-            """
-            ) from e
+            raise ClickException(f"Exception occurred: {e}.") from e
 
     def check_schema_exists(self, database: str, schema: str) -> None:
+        """
+        Checks that schema is provided and that it is a valid schema in Snowflake.
+        Note that this could fail for a variety of reasons,
+        including not authorized to use schema, schema doesn't exist,
+        schema is not a valid identifier, and more.
+        """
+        self.check_database_exists(database)
         if not schema:
-            raise Exception(
-                """
-                Schema not specified. Please update connection to add `SCHEMA` parameter,
-                or re-run command using `--schema` option.
-                Use `snow connection list` to list existing connections
-                """
-            )
+            raise SchemaNotProvidedError()
         try:
             self._execute_query(f"USE {database}.{schema}")
         except ProgrammingError as e:
-            raise Exception(
-                f"""
-            Exception occurred: {e}. Make sure you have `SCHEMA` parameter in connection or `--schema` option provided
-            Use `snow connection list` to list existing connections
-            """
-            ) from e
+            raise ClickException(f"Exception occurred: {e}.") from e
 
     def to_fully_qualified_name(self, name: str):
         current_parts = name.split(".")

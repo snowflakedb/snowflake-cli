@@ -114,3 +114,25 @@ class ConfigFileTooWidePermissionsError(ClickException):
         super().__init__(
             f'Configuration file {path} has too wide permissions, run `chmod 0600 "{path}"`'
         )
+
+
+class DatabaseNotProvidedError(ClickException):
+    def __init__(self):
+        super().__init__(
+            """
+            Database not specified. Please update connection to add `DATABASE` parameter,
+            or re-run command using `--dbname` option.
+            Use `snow connection list` to list existing connections
+            """
+        )
+
+
+class SchemaNotProvidedError(ClickException):
+    def __init__(self):
+        super().__init__(
+            """
+            Schema not specified. Please update connection to add `SCHEMA` parameter,
+            or re-run command using `--schema` option.
+            Use `snow connection list` to list existing connections
+            """
+        )
