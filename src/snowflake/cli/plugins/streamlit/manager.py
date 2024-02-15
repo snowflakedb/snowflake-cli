@@ -92,6 +92,8 @@ class StreamlitManager(SqlExecutionMixin):
         main_file: Path,
         environment_file: Optional[Path] = None,
         pages_dir: Optional[Path] = None,
+        database: Optional[str] = None,
+        schema: Optional[str] = None,
         stage_name: Optional[str] = None,
         query_warehouse: Optional[str] = None,
         replace: Optional[bool] = False,
@@ -122,7 +124,9 @@ class StreamlitManager(SqlExecutionMixin):
                     log.info("Checkout already exists, continuing")
                 else:
                     raise
-            stage_path = stage_manager.to_fully_qualified_name(streamlit_name)
+            stage_path = stage_manager.to_fully_qualified_name(
+                streamlit_name, database=database, schema=schema
+            )
             embedded_stage_name = f"snow://streamlit/{stage_path}"
             root_location = f"{embedded_stage_name}/default_checkout"
 

@@ -104,10 +104,17 @@ def streamlit_deploy(
     elif pages_dir is None:
         pages_dir = "pages"
 
+    database = streamlit.get("database") or options.get("database")
+    schema = streamlit.get("schema") or options.get("schema")
+    options.pop("database", None)
+    options.pop("schema", None)
+
     url = StreamlitManager().deploy(
         streamlit_name=streamlit["name"],
         environment_file=Path(environment_file),
         pages_dir=Path(pages_dir),
+        database=database,
+        schema=schema,
         stage_name=streamlit["stage"],
         main_file=Path(streamlit["main_file"]),
         replace=replace,
