@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import logging
 
+import click
 import typer
 from click import ClickException
 from click.types import StringParamType
 from snowflake.cli.api.cli_global_context import cli_context
-from snowflake.cli.api.commands.flags import ConnectionOption
+from snowflake.cli.api.commands.flags import PLAIN_PASSWORD_MSG, ConnectionOption
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.config import (
     add_connection,
@@ -68,6 +69,12 @@ def require_integer(field_name: str):
     return callback
 
 
+def _password_callback(value: str):
+    if value:
+        click.echo(PLAIN_PASSWORD_MSG)
+    return value
+
+
 @app.command()
 def add(
     connection_name: str = typer.Option(
@@ -101,6 +108,7 @@ def add(
         "--password",
         "-p",
         click_type=OptionalPrompt(),
+        callback=_password_callback,
         prompt="Snowflake password",
         help="Snowflake password.",
         hide_input=True,
