@@ -215,6 +215,13 @@ def _init_from_template(
     Returns:
         None
     """
+    log.debug(
+        "_init_from_template(%s, %s, %s, %s)",
+        project_path,
+        project_identifier,
+        git_url,
+        template,
+    )
     use_whole_repo_as_template = git_url and not template
     if not use_whole_repo_as_template:
         git_url = git_url if git_url else OFFICIAL_TEMPLATES_GITHUB_URL
@@ -225,6 +232,7 @@ def _init_from_template(
 
             temp_path = Path(temp_dir)
 
+            log.debug("Clone repo into %s", temp_path.path)
             # Clone the repository in the temporary directory with options.
             Repo.clone_from(
                 url=git_url,
@@ -237,8 +245,10 @@ def _init_from_template(
                 # the template is the entire git repository
                 template_root = temp_path
                 # Remove all git history before we move the repo
+                log.debug("Removing .git: %s", (template_root / ".git").path)
                 rmtree(template_root.joinpath(".git").resolve())
             else:
+                log.debug("Not removing .git")
                 # The template is a subdirectory of the git repository
                 template_name = template if template else BASIC_TEMPLATE
                 template_root = temp_path / template_name
@@ -247,6 +257,7 @@ def _init_from_template(
 
             if Path.exists(template_root / "snowflake.yml.jinja"):
                 # Render snowflake.yml file from its jinja template
+                log.debug("render")
                 _render_snowflake_yml(
                     parent_to_snowflake_yml=template_root,
                     project_identifier=project_identifier,
@@ -262,6 +273,7 @@ def _init_from_template(
             project_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Move the template to the specified path
+            log.debug("move %s", template_root.path)
             move(
                 src=template_root,  # type: ignore
                 dst=project_path,
@@ -276,6 +288,7 @@ def _init_from_template(
             rmtree(project_path.resolve())
 
         log.error(err)
+        raise err
         raise InitError()
 
 
