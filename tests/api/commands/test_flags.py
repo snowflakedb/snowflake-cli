@@ -1,4 +1,7 @@
-from tests.testing_utils.fixtures import *
+from typer import Typer
+
+from snowflake.cli.api.commands.flags import PLAIN_PASSWORD_MSG, PasswordOption
+from typer.testing import CliRunner
 
 
 def test_format(runner):
@@ -15,3 +18,16 @@ Try 'default object stage list --help' for help.
 ╰──────────────────────────────────────────────────────────────────────────────╯
 """
     )
+
+
+def test_password_flag():
+    app = Typer()
+
+    @app.command()
+    def _(password: str = PasswordOption):
+        return "ok"
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["--password", "dummy"], catch_exceptions=False)
+    assert result.exit_code == 0
+    assert PLAIN_PASSWORD_MSG in result.output
