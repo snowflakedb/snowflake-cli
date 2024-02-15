@@ -17,7 +17,6 @@ from snowflake.cli.api.output.types import (
 from snowflake.cli.api.project.util import is_valid_object_name
 from snowflake.cli.plugins.object.common import CommentOption, Tag, TagOption
 from snowflake.cli.plugins.spcs.common import (
-    NoPropertiesProvidedError,
     print_log_lines,
     validate_and_set_instances,
 )
@@ -200,20 +199,15 @@ def set_property(
     """
     Sets one or more properties or parameters for the service.
     """
-    try:
-        cursor = ServiceManager().set_property(
-            service_name=name,
-            min_instances=min_instances,
-            max_instances=max_instances,
-            query_warehouse=query_warehouse,
-            auto_resume=auto_resume,
-            comment=comment,
-        )
-        return SingleQueryResult(cursor)
-    except NoPropertiesProvidedError:
-        raise ClickException(
-            f"No properties specified for service '{name}'. Please provide at least one property to set."
-        )
+    cursor = ServiceManager().set_property(
+        service_name=name,
+        min_instances=min_instances,
+        max_instances=max_instances,
+        query_warehouse=query_warehouse,
+        auto_resume=auto_resume,
+        comment=comment,
+    )
+    return SingleQueryResult(cursor)
 
 
 @app.command("unset", requires_connection=True)
@@ -251,17 +245,12 @@ def unset_property(
     """
     Resets one or more properties or parameters for the service to their default value(s).
     """
-    try:
-        cursor = ServiceManager().unset_property(
-            service_name=name,
-            min_instances=min_instances,
-            max_instances=max_instances,
-            query_warehouse=query_warehouse,
-            auto_resume=auto_resume,
-            comment=comment,
-        )
-        return SingleQueryResult(cursor)
-    except NoPropertiesProvidedError:
-        raise ClickException(
-            f"No properties specified for service '{name}'. Please provide at least one property to reset to its default value."
-        )
+    cursor = ServiceManager().unset_property(
+        service_name=name,
+        min_instances=min_instances,
+        max_instances=max_instances,
+        query_warehouse=query_warehouse,
+        auto_resume=auto_resume,
+        comment=comment,
+    )
+    return SingleQueryResult(cursor)

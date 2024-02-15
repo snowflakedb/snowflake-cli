@@ -92,7 +92,7 @@ class SnowparkServicesTestSteps:
                 service_name,
                 "--comment",
                 comment,
-                *self._database_schema_args()
+                *self._database_schema_args(),
             ]
         )
         assert_that_result_is_successful_and_executed_successfully(
@@ -108,7 +108,7 @@ class SnowparkServicesTestSteps:
                 "unset",
                 service_name,
                 "--comment",
-                *self._database_schema_args()
+                *self._database_schema_args(),
             ]
         )
         assert_that_result_is_successful_and_executed_successfully(

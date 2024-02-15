@@ -416,8 +416,12 @@ def test_set_property(mock_execute_schema_query):
 
 def test_set_property_no_properties():
     service_name = "test_service"
-    with pytest.raises(NoPropertiesProvidedError):
+    with pytest.raises(NoPropertiesProvidedError) as e:
         ServiceManager().set_property(service_name, None, None, None, None, None)
+    assert (
+        e.value.message
+        == f"No properties specified for service '{service_name}'. Please provide at least one property to set."
+    )
 
 
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.set_property")
@@ -462,7 +466,9 @@ def test_set_property_cli(mock_set, mock_statement_success, runner):
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.set_property")
 def test_set_property_no_properties_cli(mock_set, runner):
     service_name = "test_service"
-    mock_set.side_effect = NoPropertiesProvidedError()
+    mock_set.side_effect = NoPropertiesProvidedError(
+        f"No properties specified for service '{service_name}'. Please provide at least one property to set."
+    )
     result = runner.invoke(["spcs", "service", "set", service_name])
     assert result.exit_code == 1, result.output
     assert "No properties specified" in result.output
@@ -491,8 +497,12 @@ def test_unset_property(mock_execute_query):
 
 def test_unset_property_no_properties():
     service_name = "test_service"
-    with pytest.raises(NoPropertiesProvidedError):
+    with pytest.raises(NoPropertiesProvidedError) as e:
         ServiceManager().unset_property(service_name, False, False, False, False, False)
+    assert (
+        e.value.message
+        == f"No properties specified for service '{service_name}'. Please provide at least one property to reset to its default value."
+    )
 
 
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.unset_property")
@@ -528,7 +538,9 @@ def test_unset_property_cli(mock_unset, mock_statement_success, runner):
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.unset_property")
 def test_unset_property_no_properties_cli(mock_unset, runner):
     service_name = "test_service"
-    mock_unset.side_effect = NoPropertiesProvidedError()
+    mock_unset.side_effect = NoPropertiesProvidedError(
+        f"No properties specified for service '{service_name}'. Please provide at least one property to reset to its default value."
+    )
     result = runner.invoke(["spcs", "service", "unset", service_name])
     assert result.exit_code == 1, result.output
     assert "No properties specified" in result.output

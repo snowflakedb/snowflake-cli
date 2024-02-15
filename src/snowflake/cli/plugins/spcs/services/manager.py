@@ -117,7 +117,7 @@ class ServiceManager(SqlExecutionMixin):
         ]
         if all([value is None for property_name, value in property_pairs]):
             raise NoPropertiesProvidedError(
-                "at least one of the properties passed to 'set_property' must not be None"
+                f"No properties specified for service '{service_name}'. Please provide at least one property to set."
             )
         query: list[str] = [f"alter service {service_name} set"]
         for property_name, value in property_pairs:
@@ -143,7 +143,7 @@ class ServiceManager(SqlExecutionMixin):
         ]
         if not any([value for property_name, value in property_pairs]):
             raise NoPropertiesProvidedError(
-                "at least one of the properties passed to 'unset_property' must be True"
+                f"No properties specified for service '{service_name}'. Please provide at least one property to reset to its default value."
             )
         unset_list = [property_name for property_name, value in property_pairs if value]
         query = f"alter service {service_name} unset {','.join(unset_list)}"
