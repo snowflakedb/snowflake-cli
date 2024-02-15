@@ -1,5 +1,7 @@
 from tempfile import TemporaryDirectory
 
+import pytest
+
 from snowflake.cli.api.config import (
     config_init,
     get_config_section,

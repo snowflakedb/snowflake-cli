@@ -11,6 +11,18 @@ DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
 _CONNECTION_SECTION = "Connection configuration"
 _CLI_BEHAVIOUR = "Global configuration"
+PLAIN_PASSWORD_MSG = "WARNING! Using --password via the CLI is insecure. Use environment variables instead."
+
+
+def _snowflake_env_variable(name: str):
+    return f"SNOWFLAKE_{name}".upper()
+
+
+def _password_callback(value: str):
+    if value:
+        click.echo(PLAIN_PASSWORD_MSG)
+
+    return _callback(lambda: cli_context_manager.connection_context.set_password)(value)
 
 
 def _callback(provide_setter: Callable[[], Callable[[Any], Any]]):
@@ -55,6 +67,8 @@ AccountOption = typer.Option(
     callback=_callback(lambda: cli_context_manager.connection_context.set_account),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
+    envvar=_snowflake_env_variable("ACCOUNT"),
+    show_envvar=False,
 )
 
 UserOption = typer.Option(
@@ -65,17 +79,9 @@ UserOption = typer.Option(
     callback=_callback(lambda: cli_context_manager.connection_context.set_user),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
+    envvar=_snowflake_env_variable("USER"),
+    show_envvar=False,
 )
-
-
-PLAIN_PASSWORD_MSG = "WARNING! Using --password via the CLI is insecure. Use environment variables instead."
-
-
-def _password_callback(value: str):
-    if value:
-        click.echo(PLAIN_PASSWORD_MSG)
-
-    return _callback(lambda: cli_context_manager.connection_context.set_password)(value)
 
 
 PasswordOption = typer.Option(
@@ -86,6 +92,8 @@ PasswordOption = typer.Option(
     callback=_password_callback,
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
+    envvar=_snowflake_env_variable("PASSWORD"),
+    show_envvar=False,
 )
 
 AuthenticatorOption = typer.Option(
@@ -123,6 +131,8 @@ DatabaseOption = typer.Option(
     callback=_callback(lambda: cli_context_manager.connection_context.set_database),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
+    envvar=_snowflake_env_variable("DATABASE"),
+    show_envvar=False,
 )
 
 SchemaOption = typer.Option(
@@ -133,6 +143,8 @@ SchemaOption = typer.Option(
     callback=_callback(lambda: cli_context_manager.connection_context.set_schema),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
+    envvar=_snowflake_env_variable("SCHEMA"),
+    show_envvar=False,
 )
 
 RoleOption = typer.Option(
@@ -143,6 +155,8 @@ RoleOption = typer.Option(
     callback=_callback(lambda: cli_context_manager.connection_context.set_role),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
+    envvar=_snowflake_env_variable("ROLE"),
+    show_envvar=False,
 )
 
 WarehouseOption = typer.Option(
@@ -152,6 +166,8 @@ WarehouseOption = typer.Option(
     callback=_callback(lambda: cli_context_manager.connection_context.set_warehouse),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
+    envvar=_snowflake_env_variable("WAREHOUSE"),
+    show_envvar=False,
 )
 
 MfaPasscodeOption = typer.Option(
@@ -161,6 +177,8 @@ MfaPasscodeOption = typer.Option(
     callback=_callback(lambda: cli_context_manager.connection_context.set_mfa_passcode),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
+    envvar=_snowflake_env_variable("MFA_PASSCODE"),
+    show_envvar=False,
 )
 
 OutputFormatOption = typer.Option(
