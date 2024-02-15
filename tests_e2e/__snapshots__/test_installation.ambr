@@ -33,8 +33,8 @@
   │ connection  Manages connections to Snowflake.                                │
   │ object      Manages Snowflake objects like warehouses and stages             │
   │ snowpark    Manage procedures and functions.                                 │
-  │ spcs        Manages Snowpark services, pools, image registries, and image    │
-  │             repositories.                                                    │
+  │ spcs        Manages Snowpark Container Services compute pools, services,     │
+  │             image registries, and image repositories.                        │
   │ sql         Executes Snowflake query.                                        │
   │ streamlit   Manages Streamlit in Snowflake.                                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
