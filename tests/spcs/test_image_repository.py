@@ -199,7 +199,9 @@ def test_get_repository_url(mock_get_row, mock_check_database_and_schema):
     expected_row = MOCK_ROWS_DICT[0]
     mock_get_row.return_value = expected_row
     result = ImageRepositoryManager().get_repository_url(repo_name="IMAGES")
-    mock_get_row.assert_called_once_with("image repositories", "IMAGES")
+    mock_get_row.assert_called_once_with(
+        "image repositories", "IMAGES", check_schema=True
+    )
     assert isinstance(expected_row, Dict)
     assert "repository_url" in expected_row
     assert result == f"https://{expected_row['repository_url']}"
@@ -217,7 +219,9 @@ def test_get_repository_url_no_scheme(mock_get_row, mock_check_database_and_sche
     result = ImageRepositoryManager().get_repository_url(
         repo_name="IMAGES", with_scheme=False
     )
-    mock_get_row.assert_called_once_with("image repositories", "IMAGES")
+    mock_get_row.assert_called_once_with(
+        "image repositories", "IMAGES", check_schema=True
+    )
     assert isinstance(expected_row, Dict)
     assert "repository_url" in expected_row
     assert result == expected_row["repository_url"]
@@ -244,7 +248,9 @@ def test_get_repository_url_no_repo_found(
         e.value.message
         == "Image repository 'IMAGES' does not exist in database 'DB' and schema 'SCHEMA' or not authorized."
     )
-    mock_get_row.assert_called_once_with("image repositories", "IMAGES")
+    mock_get_row.assert_called_once_with(
+        "image repositories", "IMAGES", check_schema=True
+    )
 
 
 @mock.patch(
