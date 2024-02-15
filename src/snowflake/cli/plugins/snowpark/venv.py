@@ -1,16 +1,17 @@
+import json
 import logging
+import os
+import re
+import shutil
 import subprocess
 import sys
 import venv
-from email.parser import HeaderParser
-from os.path import abspath, join
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import List
+from typing import Dict, List
 
 from requirements.requirement import Requirement
-
-from src.snowflake.cli.plugins.snowpark.models import RequirementWithFilesAndDeps
+from snowflake.cli.plugins.snowpark.models import RequirementWithFilesAndDeps
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class Venv:
 
         return process
 
-    def pip_install(self, name: str, req_type: str, directory: str = ".packages"):
+    def pip_install(self, name: str, req_type: str):
         arguments = ["-m", "pip", "install"]
         arguments += ["-r", name] if req_type == "file" else [name]
         process = self.run_python(arguments)
@@ -55,14 +56,28 @@ class Venv:
         venv.create(self.directory.name, self.with_pip)
 
     @staticmethod
-    def _get_python_path(venv_dir: Path):
+    def _get_python_path(venv_dir: Path) -> Path:
         if sys.platform == "win32":
             return venv_dir / "scripts" / "python"
         return venv_dir / "bin" / "python"
 
+    def _get_library_path(self) -> Path:
+        directory = os.listdir(Path(self.directory.name) / "lib")[0]
+        return (
+            Path(self.directory.name) / "lib" / directory / "site-packages"
+        ).absolute()
+
     def get_package_dependencies(
         self, name: str, req_type: str
     ) -> List[RequirementWithFilesAndDeps]:
+
+        packages_info = [
+            p["metadata"]
+            for p in json.loads(self.run_python(["-m", "pip", "inspect"]).stdout)[
+                "installed"
+            ]
+        ]
+
         if req_type == "package":
             dependencies = self._get_dependencies(Requirement.parse_line(name))
 
@@ -89,14 +104,60 @@ class Venv:
         return result
 
     def get_package_info(self, package: Requirement) -> RequirementWithFilesAndDeps:
+        library_path = self._get_library_path()
         result = self.run_python(["-m", "pip", "show", "-f", package.name])
-        package_info_dict = dict(HeaderParser().parsestr(result.stdout))
+        package_info_dict = self._parse_pip_info(result.stdout)
 
         return RequirementWithFilesAndDeps(
             requirement=package,
-            files=[
-                abspath(join(self.python_path, file))
-                for file in package_info_dict["Files"].split("\n")
-            ],
-            dependencies=package_info_dict["Requires"].split(","),
+            files=self._parse_file_list(
+                library_path, package_info_dict.get("Files", [])
+            ),
+            dependencies=package_info_dict.get("Requires", []),
         )
+
+    def _parse_pip_info(self, pip_string: str) -> Dict:
+        pattern = "^{}:(.*)$"
+        matchers = [
+            ("Name", re.MULTILINE, ""),
+            ("Requires", re.MULTILINE, ","),
+            ("Files", re.MULTILINE | re.DOTALL, "\n"),
+        ]
+        info_dict = {}
+
+        for matcher in matchers:
+            result = re.search(
+                pattern.format(matcher[0]), string=pip_string, flags=matcher[1]
+            )
+            if result:
+                result_string = result.group(0).replace(f"{matcher[0]}:", "").strip()
+                info_dict[matcher[0]] = (
+                    result_string.split(matcher[2]) if matcher[2] else result_string
+                )
+
+        return info_dict
+
+    def _parse_file_list(self, base_dir: Path, files: List):
+        result = []
+
+        for file in files:
+            file_path = base_dir / file.strip()
+            if file_path.exists():
+                result.append(str(file_path))
+
+        return result
+
+    def copy_files_to_packages_dir(
+        self, files_to_be_copied: List[Path], destination: Path = Path(".packages")
+    ) -> None:
+        if not destination.exists():
+            destination.mkdir()
+        library_path = self._get_library_path()
+        src_directories = set(
+            file.relative_to(library_path).parts[0] for file in files_to_be_copied
+        )
+
+        for src_dir in src_directories:
+            shutil.copytree(
+                library_path / src_dir, destination / src_dir, dirs_exist_ok=True
+            )

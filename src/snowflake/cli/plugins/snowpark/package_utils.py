@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
+from pathlib import Path
 from typing import List
 
 import click
@@ -50,12 +50,14 @@ def parse_requirements(
     return deduplicate_and_sort_reqs(reqs)
 
 
-def deduplicate_and_sort_reqs(packages: List[Requirement]) -> List[Requirement]:
+def deduplicate_and_sort_reqs(
+    packages: List[Requirement],
+) -> List[Requirement]:
     """
     Deduplicates a list of requirements, keeping the first occurrence of each package.
     """
     seen = set()
-    deduped: List[Requirement] = []
+    deduped: List[RequirementWithFilesAndDeps] = []
     for package in packages:
         if package.name not in seen:
             deduped.append(package)
@@ -104,7 +106,7 @@ def _get_anaconda_channel_contents():
 def install_packages(
     file_name: str | None,
     perform_anaconda_check: bool = True,
-    package_native_libraries: PypiOption = PypiOption.ASK,
+    package_native_libraries: PypiOption = PypiOption.YES,
     package_name: str | None = None,
 ) -> tuple[bool, SplitRequirements | None]:
     """
@@ -118,8 +120,6 @@ def install_packages(
     which are available on the Snowflake anaconda channel. These will have
     been deleted from the local packages folder.
     """
-    second_chance_results = None
-
     with Venv() as v:
         if file_name is not None:
             pip_install_result = v.pip_install(file_name, "file")
@@ -135,9 +135,14 @@ def install_packages(
 
         if perform_anaconda_check:
             log.info("Checking for dependencies available in Anaconda...")
-            dependency_requirements = [dep.requirement.name for dep in dependencies]
-            log.info("Downloaded packages: %s", ",".join(dependency_requirements))
-            second_chance_results = parse_anaconda_packages(dependency_requirements)
+            dependency_requirements = [dep.requirement for dep in dependencies]
+            log.info(
+                "Downloaded packages: %s",
+                ",".join([d.name for d in dependency_requirements]),
+            )
+            second_chance_results: SplitRequirements = parse_anaconda_packages(
+                dependency_requirements
+            )
 
             if len(second_chance_results.snowflake) > 0:
                 log.info(second_chance_msg.format(second_chance_results.snowflake))
@@ -145,30 +150,21 @@ def install_packages(
                 log.info("None of the package dependencies were found on Anaconda")
 
         dependencies_to_be_packed = _get_dependencies_not_avaiable_in_conda(
-            dependencies, second_chance_results.snowflake
+            dependencies,
+            second_chance_results.snowflake if second_chance_results else None,
         )
 
         log.info("Checking to see if packages have native libraries...")
 
-        if _check_for_native_libraries(dependencies_to_be_packed):
-            continue_installation = (
-                click.confirm(
-                    "\n\nWARNING! Some packages appear to have native libraries!\n"
-                    "Continue with package installation?",
-                    default=False,
-                )
-                if package_native_libraries == PypiOption.ASK
-                else True
+        if _perform_native_libraries_check(
+            dependencies_to_be_packed, package_native_libraries
+        ):
+            v.copy_files_to_packages_dir(
+                [Path(file) for dep in dependencies_to_be_packed for file in dep.files]
             )
-            print("hello")
-            if not continue_installation:
-                shutil.rmtree(".packages")
-                return False, second_chance_results
+            return True, second_chance_results
         else:
-            log.info(
-                "No non-supported native libraries found in packages (Good news!)..."
-            )
-    return True, second_chance_results
+            return False, second_chance_results
 
 
 def _check_for_native_libraries(dependencies: List[RequirementWithFilesAndDeps]):
@@ -193,7 +189,7 @@ def get_snowflake_packages() -> List[str]:
 def _get_dependencies_not_avaiable_in_conda(
     dependencies: List[RequirementWithFilesAndDeps],
     avaiable_in_conda: List[Requirement],
-):
+) -> List[RequirementWithFilesAndDeps]:
     return [
         dep
         for dep in dependencies
@@ -231,3 +227,22 @@ def check_if_package_is_avaiable_in_conda(package: Requirement, packages: dict) 
         latest_ver = parse(packages[package_name]["version"])
         return all([parse(spec[1]) <= latest_ver for spec in package.specs])
     return True
+
+
+def _perform_native_libraries_check(
+    deps: List[RequirementWithFilesAndDeps], package_native_libraries: PypiOption
+):
+    if _check_for_native_libraries(deps):
+        return (
+            click.confirm(
+                "\n\nWARNING! Some packages appear to have native libraries!\n"
+                "Continue with package installation?",
+                default=False,
+            )
+            if package_native_libraries == PypiOption.ASK
+            else True
+        )
+
+    else:
+        log.info("No non-supported native libraries found in packages (Good news!)...")
+        return True
