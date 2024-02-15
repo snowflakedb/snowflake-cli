@@ -145,12 +145,15 @@ class SqlExecutionMixin:
         unqualified_name: str,
         name_col: str = "name",
         in_clause: str = "",
+        check_schema: bool = False,
     ) -> Optional[dict]:
         """
         Executes a "show <objects> like" query for a particular entity with a
         given (unqualified) name. This command is useful when the corresponding
         "describe <object>" query does not provide the information you seek.
         """
+        if check_schema:
+            self.check_database_and_schema()
         show_obj_query = f"show {object_type_plural} like {identifier_to_show_like_pattern(unqualified_name)} {in_clause}".strip()
         show_obj_cursor = self._execute_query(  # type: ignore
             show_obj_query, cursor_class=DictCursor
