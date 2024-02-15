@@ -265,12 +265,10 @@ class SecurePath:
 
         Works similarly to tempfile.TemporaryDirectory
         """
-        with tempfile.TemporaryDirectory() as system_temp_dir:
-            spath = cls(tempfile.mkdtemp(prefix="snowcli", dir=system_temp_dir))
-            log.info("Created temporary directory %s", spath.path)
-            yield spath
-            log.info("Removing temporary directory %s", spath.path)
-            spath.rmdir(recursive=True, missing_ok=True)
+        with tempfile.TemporaryDirectory(prefix="snowcli") as tmpdir:
+            log.info("Created temporary directory %s", tmpdir)
+            yield SecurePath(tmpdir)
+            log.info("Removing temporary directory %s", tmpdir)
 
     def _assert_exists_and_is_file(self) -> None:
         self._assert_exists()
