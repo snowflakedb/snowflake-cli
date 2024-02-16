@@ -6,11 +6,10 @@ import tempfile
 from pathlib import Path
 from shutil import rmtree
 
-from requirements.requirement import Requirement
 from snowflake.cli.api.constants import PACKAGES_DIR
 from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.cli.plugins.snowpark import package_utils
-from snowflake.cli.plugins.snowpark.models import SplitRequirements
+from snowflake.cli.plugins.snowpark.models import Requirement, SplitRequirements
 from snowflake.cli.plugins.snowpark.package.utils import (
     CreatedSuccessfully,
     InAnaconda,
@@ -20,6 +19,7 @@ from snowflake.cli.plugins.snowpark.package.utils import (
     RequiresPackages,
     prepare_app_zip,
 )
+from snowflake.cli.plugins.snowpark.package_utils import create_zip_name
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
 
 log = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ def upload(file: Path, stage: str, overwrite: bool):
 
 
 def create(zip_name: str):
-    file_name = zip_name if zip_name.endswith(".zip") else f"{zip_name}.zip"
+    file_name = create_zip_name(zip_name)
     zip_dir(dest_zip=Path(file_name), source=Path.cwd() / ".packages")
 
     if os.path.exists(file_name):

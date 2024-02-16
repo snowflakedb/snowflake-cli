@@ -9,8 +9,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, List
 
-from requirements.requirement import Requirement
-from snowflake.cli.plugins.snowpark.models import RequirementWithFilesAndDeps
+from snowflake.cli.plugins.snowpark.models import (
+    Requirement,
+    RequirementWithFilesAndDeps,
+)
 
 log = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import snowflake.cli.plugins.snowpark.package.utils
 import typer
-from requirements.requirement import Requirement
+from snowflake.cli.plugins.snowpark.models import Requirement
 from snowflake.cli.api.utils import path_utils
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.models import PypiOption

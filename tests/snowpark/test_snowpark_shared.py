@@ -1,7 +1,7 @@
 from zipfile import ZipFile
 
 import snowflake.cli.plugins.snowpark.snowpark_shared as shared
-from requirements.requirement import Requirement
+from snowflake.cli.plugins.snowpark.models import Requirement
 from snowflake.cli.plugins.snowpark.models import SplitRequirements
 
 from tests.testing_utils.fixtures import *

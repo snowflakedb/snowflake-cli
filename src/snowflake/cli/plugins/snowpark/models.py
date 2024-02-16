@@ -4,13 +4,24 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import List
 
-from requirements.requirement import Requirement
+from requirements import requirement
 
 
 class PypiOption(Enum):
     YES = "yes"
     NO = "no"
     ASK = "ask"
+
+
+class Requirement(requirement.Requirement):
+    @classmethod
+    def parse_line(cls, line: str) -> Requirement:
+        result = super().parse_line(line)
+
+        if result.uri and not result.name:
+            result.name = result.uri
+
+        return result
 
 
 @dataclass

@@ -5,8 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
-from requirements.requirement import Requirement
-from snowflake.cli.plugins.snowpark.models import SplitRequirements
+from snowflake.cli.plugins.snowpark.models import Requirement, SplitRequirements
 
 
 @dataclass

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from zipfile import ZipFile
 
 import pytest
-from requirements.requirement import Requirement
+from snowflake.cli.plugins.snowpark.models import Requirement
 from snowflake.cli.plugins.snowpark.models import SplitRequirements
 from snowflake.cli.plugins.snowpark.package.utils import NotInAnaconda
 

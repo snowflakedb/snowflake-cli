@@ -6,9 +6,8 @@ from typing import List
 
 import click
 import typer
-from requirements.requirement import Requirement
 from snowflake.cli.plugins.snowpark import package_utils
-from snowflake.cli.plugins.snowpark.models import PypiOption
+from snowflake.cli.plugins.snowpark.models import PypiOption, Requirement
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
 
 PyPiDownloadOption: PypiOption = typer.Option(

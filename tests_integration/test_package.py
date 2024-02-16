@@ -106,6 +106,19 @@ class TestPackage:
         assert "july/__init__.py" in files
         assert not any(["matplotlib" in name for name in files])
 
+    def test_package_from_github(self, directory_for_test, runner):
+        result = runner.invoke_with_connection_json(
+            [
+                "snowpark",
+                "package",
+                "create",
+                "git+https://github.com/sfc-gh-turbaszek/dummy-pkg-for-tests.git",
+                "-y",
+            ]
+        )
+
+        assert result.exit_code == 0
+
     @pytest.fixture(scope="function")
     def directory_for_test(self):
         init_dir = os.getcwd()

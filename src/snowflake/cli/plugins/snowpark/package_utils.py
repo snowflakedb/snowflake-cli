@@ -10,9 +10,9 @@ import requests
 import requirements
 import typer
 from packaging.version import parse
-from requirements.requirement import Requirement
 from snowflake.cli.plugins.snowpark.models import (
     PypiOption,
+    Requirement,
     RequirementWithFilesAndDeps,
     SplitRequirements,
     pip_failed_msg,
@@ -246,3 +246,17 @@ def _perform_native_libraries_check(
     else:
         log.info("No non-supported native libraries found in packages (Good news!)...")
         return True
+
+
+def create_zip_name(name: str) -> str:
+    if name.startswith("git+"):
+        return (
+            name.replace("git+https://github.com/", "")
+            .replace(".git", "")
+            .split("/")[-1]
+            + ".zip"
+        )
+    elif name.endswith(".zip"):
+        return name
+    else:
+        return name + ".zip"
