@@ -82,6 +82,41 @@ class SnowparkServicesTestSteps:
         assert result.json
         assert result.json[0]["name"] == service_name.upper()  # type: ignore
 
+    def set_unset_service_property(self, service_name: str) -> None:
+        comment = "test comment"
+        set_result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "service",
+                "set",
+                service_name,
+                "--comment",
+                comment,
+                *self._database_schema_args(),
+            ]
+        )
+        assert_that_result_is_successful_and_executed_successfully(
+            set_result, is_json=True
+        )
+
+        description = self._execute_describe(service_name)
+        assert contains_row_with(description.json, {"comment": comment})
+        unset_result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "service",
+                "unset",
+                service_name,
+                "--comment",
+                *self._database_schema_args(),
+            ]
+        )
+        assert_that_result_is_successful_and_executed_successfully(
+            unset_result, is_json=True
+        )
+        description = self._execute_describe(service_name)
+        assert contains_row_with(description.json, {"comment": None})
+
     def drop_service(self, service_name: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
             [
