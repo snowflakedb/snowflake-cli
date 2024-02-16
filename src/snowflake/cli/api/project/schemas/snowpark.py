@@ -37,6 +37,8 @@ procedure_schema = RelaxedMap(
 snowpark_schema = RelaxedMap(
     {
         "project_name": Str(),
+        Optional("database", default=None): Str(),
+        Optional("schema", default=None): Str(),
         "stage_name": Str(),
         "src": Str(),
         Optional("functions"): Seq(function_schema),

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set
 
 import typer
 from click import ClickException
@@ -76,6 +76,15 @@ def deploy(
     All deployed objects use the same artifact which is deployed only once.
     """
     snowpark = cli_context.project_definition
+    database = snowpark.get("database") or options.get("database")
+    schema = snowpark.get("schema") or options.get("schema")
+
+    import json
+
+    print("=== options ===")
+    print(json.dumps(options, indent=2))
+    print("=== snowpark ===")
+    print(json.dumps(snowpark, indent=2))
 
     procedures = snowpark.get("procedures", [])
     functions = snowpark.get("functions", [])
@@ -112,13 +121,16 @@ def deploy(
     # Create stage
     stage_name = snowpark.get("stage_name", DEPLOYMENT_STAGE)
     stage_manager = StageManager()
+    stage_name = stage_manager.to_fully_qualified_name(
+        stage_name, database=database, schema=schema
+    )
     stage_manager.create(
         stage_name=stage_name, comment="deployments managed by snowcli"
     )
 
     packages = get_snowflake_packages()
 
-    artifact_stage_directory = get_app_stage_path(snowpark)
+    artifact_stage_directory = get_app_stage_path(stage_name, snowpark["project_name"])
     artifact_stage_target = f"{artifact_stage_directory}/{build_artifact_path.name}"
 
     stage_manager.put(
@@ -130,6 +142,9 @@ def deploy(
     deploy_status = []
     # Procedures
     for procedure in procedures:
+        procedure["name"] = stage_manager.to_fully_qualified_name(
+            procedure["name"], database=database, schema=schema
+        )
         operation_result = _deploy_single_object(
             manager=pm,
             object_type=ObjectType.PROCEDURE,
@@ -142,6 +157,9 @@ def deploy(
 
     # Functions
     for function in functions:
+        function["name"] = stage_manager.to_fully_qualified_name(
+            function["name"], database=database, schema=schema
+        )
         operation_result = _deploy_single_object(
             manager=fm,
             object_type=ObjectType.FUNCTION,
@@ -203,10 +221,8 @@ def _check_if_all_defined_integrations_exists(
         )
 
 
-def get_app_stage_path(snowpark):
-    artifact_stage_directory = (
-        f"@{snowpark.get('stage_name', DEPLOYMENT_STAGE)}/{snowpark['project_name']}"
-    )
+def get_app_stage_path(stage_name: Optional[str], project_name: str) -> str:
+    artifact_stage_directory = f"@{(stage_name or DEPLOYMENT_STAGE)}/{project_name}"
     return artifact_stage_directory
 
 

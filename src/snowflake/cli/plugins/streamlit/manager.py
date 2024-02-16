@@ -148,7 +148,9 @@ class StreamlitManager(SqlExecutionMixin):
             stage_name = stage_name or "streamlit"
             stage_name = stage_manager.to_fully_qualified_name(stage_name)
 
-            stage_manager.create(stage_name=stage_name)
+            stage_manager.create(
+                stage_name=stage_name, comment="deployments managed by snowcli"
+            )
 
             root_location = stage_manager.get_standard_stage_name(
                 f"{stage_name}/{streamlit_name}"
