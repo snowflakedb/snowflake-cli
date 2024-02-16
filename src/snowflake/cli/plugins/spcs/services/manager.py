@@ -91,3 +91,9 @@ class ServiceManager(SqlExecutionMixin):
 
     def list_endpoints(self, service_name: str) -> SnowflakeCursor:
         return self._execute_schema_query(f"show endpoints in service {service_name}")
+
+    def suspend(self, service_name: str):
+        return self._execute_schema_query(f"alter service {service_name} suspend")
+
+    def resume(self, service_name: str):
+        return self._execute_schema_query(f"alter service {service_name} resume")

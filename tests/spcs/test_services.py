@@ -327,3 +327,53 @@ def test_list_endpoints_cli(mock_list_endpoints, mock_cursor, runner):
     mock_list_endpoints.assert_called_once_with(service_name=service_name)
     assert result.exit_code == 0
     assert "test-snowflakecomputing.app" in result.output
+
+
+@patch(
+    "snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_schema_query"
+)
+def test_suspend(mock_execute_schema_query):
+    service_name = "test_service"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_schema_query.return_value = cursor
+    result = ServiceManager().suspend(service_name)
+    expected_query = f"alter service {service_name} suspend"
+    mock_execute_schema_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.suspend")
+def test_suspend_cli(mock_suspend, mock_cursor, runner):
+    service_name = "test_service"
+    cursor = mock_cursor(
+        rows=[["Statement executed successfully."]], columns=["status"]
+    )
+    mock_suspend.return_value = cursor
+    result = runner.invoke(["spcs", "service", "suspend", service_name])
+    assert result.exit_code == 0, result.output
+    assert "Statement executed successfully" in result.output
+
+
+@patch(
+    "snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_schema_query"
+)
+def test_resume(mock_execute_schema_query):
+    service_name = "test_service"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_schema_query.return_value = cursor
+    result = ServiceManager().resume(service_name)
+    expected_query = f"alter service {service_name} resume"
+    mock_execute_schema_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.resume")
+def test_resume_cli(mock_resume, mock_cursor, runner):
+    service_name = "test_service"
+    cursor = mock_cursor(
+        rows=[["Statement executed successfully."]], columns=["status"]
+    )
+    mock_resume.return_value = cursor
+    result = runner.invoke(["spcs", "service", "resume", service_name])
+    assert result.exit_code == 0, result.output
+    assert "Statement executed successfully" in result.output
