@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from logging import FileHandler
 
 import pytest
 from snowflake.cli.api.cli_global_context import cli_context_manager
@@ -37,7 +38,7 @@ def reset_global_context_and_setup_config_and_logging_levels(
 # in one test caused by presence of capsys in other test.
 # See similar issues: https://github.com/pytest-dev/pytest/issues/5502
 @pytest.fixture(autouse=True)
-def clean_logging_handlers_fixture(request):
+def clean_logging_handlers_fixture(request, snowflake_home):
     yield
     clean_logging_handlers()
 
@@ -56,6 +57,8 @@ def clean_logging_handlers():
         handlers = [hdl for hdl in getattr(logger, "handlers", [])]
         for handler in handlers:
             logger.removeHandler(handler)
+            if isinstance(handler, FileHandler):
+                handler.close()
 
 
 @pytest.fixture(name="_create_mock_cursor")
