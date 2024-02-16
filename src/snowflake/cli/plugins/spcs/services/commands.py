@@ -4,6 +4,9 @@ from typing import List, Optional
 
 import typer
 from click import ClickException
+from snowflake.cli.api.commands.flags import (
+    OverrideableOption,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -44,6 +47,32 @@ SpecPathOption = typer.Option(
     exists=True,
 )
 
+_MIN_INSTANCES_HELP = "Minimum number of service instances to run."
+MinInstancesOption = OverrideableOption(
+    1, "--min-instances", help=_MIN_INSTANCES_HELP, min=1
+)
+
+_MAX_INSTANCES_HELP = "Maximum number of service instances to run."
+MaxInstancesOption = OverrideableOption(
+    None, "--max-instances", help=_MAX_INSTANCES_HELP, min=1
+)
+
+_QUERY_WAREHOUSE_HELP = "Warehouse to use if a service container connects to Snowflake to execute a query without explicitly specifying a warehouse to use."
+QueryWarehouseOption = OverrideableOption(
+    None,
+    "--query-warehouse",
+    help=_QUERY_WAREHOUSE_HELP,
+)
+
+_AUTO_RESUME_HELP = "The service will automatically resume when a service function or ingress is called."
+AutoResumeOption = OverrideableOption(
+    True,
+    "--auto-resume/--no-auto-resume",
+    help=_AUTO_RESUME_HELP,
+)
+
+_COMMENT_HELP = "Comment for the service."
+
 
 @app.command(requires_connection=True)
 def create(
@@ -52,29 +81,17 @@ def create(
         ..., "--compute-pool", help="Compute pool to run the service on."
     ),
     spec_path: Path = SpecPathOption,
-    min_instances: int = typer.Option(
-        1, "--min-instances", help="Minimum number of service instances to run."
-    ),
-    max_instances: Optional[int] = typer.Option(
-        None, "--max-instances", help="Maximum number of service instances to run."
-    ),
-    auto_resume: bool = typer.Option(
-        True,
-        "--auto-resume/--no-auto-resume",
-        help="The service will automatically resume when a service function or ingress is called.",
-    ),
+    min_instances: int = MinInstancesOption(),
+    max_instances: Optional[int] = MaxInstancesOption(),
+    auto_resume: bool = AutoResumeOption(),
     external_access_integrations: Optional[List[str]] = typer.Option(
         None,
         "--eai-name",
         help="Identifies External Access Integrations(EAI) that the service can access. This option may be specified multiple times for multiple EAIs.",
     ),
-    query_warehouse: Optional[str] = typer.Option(
-        None,
-        "--query-warehouse",
-        help="Warehouse to use if a service container connects to Snowflake to execute a query without explicitly specifying a warehouse to use.",
-    ),
+    query_warehouse: Optional[str] = QueryWarehouseOption(),
     tags: Optional[List[Tag]] = TagOption(help="Tag for the service."),
-    comment: Optional[str] = CommentOption(help="Comment for the service."),
+    comment: Optional[str] = CommentOption(help=_COMMENT_HELP),
     **options,
 ) -> CommandResult:
     """
@@ -167,3 +184,73 @@ def resume(name: str = ServiceNameArgument, **options) -> CommandResult:
     Resumes the service from SUSPENDED state.
     """
     return SingleQueryResult(ServiceManager().resume(name))
+
+
+@app.command("set", requires_connection=True)
+def set_property(
+    name: str = ServiceNameArgument,
+    min_instances: Optional[int] = MinInstancesOption(default=None, show_default=False),
+    max_instances: Optional[int] = MaxInstancesOption(show_default=False),
+    query_warehouse: Optional[str] = QueryWarehouseOption(show_default=False),
+    auto_resume: Optional[bool] = AutoResumeOption(default=None, show_default=False),
+    comment: Optional[str] = CommentOption(help=_COMMENT_HELP, show_default=False),
+    **options,
+):
+    """
+    Sets one or more properties or parameters for the service.
+    """
+    cursor = ServiceManager().set_property(
+        service_name=name,
+        min_instances=min_instances,
+        max_instances=max_instances,
+        query_warehouse=query_warehouse,
+        auto_resume=auto_resume,
+        comment=comment,
+    )
+    return SingleQueryResult(cursor)
+
+
+@app.command("unset", requires_connection=True)
+def unset_property(
+    name: str = ServiceNameArgument,
+    min_instances: bool = MinInstancesOption(
+        default=False,
+        help=f"Reset the MIN_INSTANCES property - {_MIN_INSTANCES_HELP}",
+        show_default=False,
+    ),
+    max_instances: bool = MaxInstancesOption(
+        default=False,
+        help=f"Reset the MAX_INSTANCES property - {_MAX_INSTANCES_HELP}",
+        show_default=False,
+    ),
+    query_warehouse: bool = QueryWarehouseOption(
+        default=False,
+        help=f"Reset the QUERY_WAREHOUSE property - {_QUERY_WAREHOUSE_HELP}",
+        show_default=False,
+    ),
+    auto_resume: bool = AutoResumeOption(
+        default=False,
+        param_decls=["--auto-resume"],
+        help=f"Reset the AUTO_RESUME property - {_AUTO_RESUME_HELP}",
+        show_default=False,
+    ),
+    comment: bool = CommentOption(
+        default=False,
+        help=f"Reset the COMMENT property - {_COMMENT_HELP}",
+        callback=None,
+        show_default=False,
+    ),
+    **options,
+):
+    """
+    Resets one or more properties or parameters for the service to their default value(s).
+    """
+    cursor = ServiceManager().unset_property(
+        service_name=name,
+        min_instances=min_instances,
+        max_instances=max_instances,
+        query_warehouse=query_warehouse,
+        auto_resume=auto_resume,
+        comment=comment,
+    )
+    return SingleQueryResult(cursor)

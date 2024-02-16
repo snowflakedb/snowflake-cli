@@ -3008,59 +3008,66 @@
   │ *    name      TEXT  Name of the service. [default: None] [required]         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ *  --compute-pool                             TEXT        Compute pool to    │
-  │                                                           run the service    │
-  │                                                           on.                │
-  │                                                           [default: None]    │
-  │                                                           [required]         │
-  │ *  --spec-path                                FILE        Path to service    │
-  │                                                           specification      │
-  │                                                           file.              │
-  │                                                           [default: None]    │
-  │                                                           [required]         │
-  │    --min-instances                            INTEGER     Minimum number of  │
-  │                                                           service instances  │
-  │                                                           to run.            │
-  │                                                           [default: 1]       │
-  │    --max-instances                            INTEGER     Maximum number of  │
-  │                                                           service instances  │
-  │                                                           to run.            │
-  │                                                           [default: None]    │
-  │    --auto-resume          --no-auto-resume                The service will   │
-  │                                                           automatically      │
-  │                                                           resume when a      │
-  │                                                           service function   │
-  │                                                           or ingress is      │
-  │                                                           called.            │
-  │                                                           [default:          │
-  │                                                           auto-resume]       │
-  │    --eai-name                                 TEXT        Identifies         │
-  │                                                           External Access    │
-  │                                                           Integrations(EAI)  │
-  │                                                           that the service   │
-  │                                                           can access. This   │
-  │                                                           option may be      │
-  │                                                           specified multiple │
-  │                                                           times for multiple │
-  │                                                           EAIs.              │
-  │                                                           [default: None]    │
-  │    --query-warehouse                          TEXT        Warehouse to use   │
-  │                                                           if a service       │
-  │                                                           container connects │
-  │                                                           to Snowflake to    │
-  │                                                           execute a query    │
-  │                                                           without explicitly │
-  │                                                           specifying a       │
-  │                                                           warehouse to use.  │
-  │                                                           [default: None]    │
-  │    --tag                                      NAME=VALUE  Tag for the        │
-  │                                                           service.           │
-  │                                                           [default: None]    │
-  │    --comment                                  TEXT        Comment for the    │
-  │                                                           service.           │
-  │                                                           [default: None]    │
-  │    --help             -h                                  Show this message  │
-  │                                                           and exit.          │
+  │ *  --compute-pool                          TEXT             Compute pool to  │
+  │                                                             run the service  │
+  │                                                             on.              │
+  │                                                             [default: None]  │
+  │                                                             [required]       │
+  │ *  --spec-path                             FILE             Path to service  │
+  │                                                             specification    │
+  │                                                             file.            │
+  │                                                             [default: None]  │
+  │                                                             [required]       │
+  │    --min-instances                         INTEGER RANGE    Minimum number   │
+  │                                            [x>=1]           of service       │
+  │                                                             instances to     │
+  │                                                             run.             │
+  │                                                             [default: 1]     │
+  │    --max-instances                         INTEGER RANGE    Maximum number   │
+  │                                            [x>=1]           of service       │
+  │                                                             instances to     │
+  │                                                             run.             │
+  │                                                             [default: None]  │
+  │    --auto-resume        --no-auto-resu…                     The service will │
+  │                                                             automatically    │
+  │                                                             resume when a    │
+  │                                                             service function │
+  │                                                             or ingress is    │
+  │                                                             called.          │
+  │                                                             [default:        │
+  │                                                             auto-resume]     │
+  │    --eai-name                              TEXT             Identifies       │
+  │                                                             External Access  │
+  │                                                             Integrations(EA… │
+  │                                                             that the service │
+  │                                                             can access. This │
+  │                                                             option may be    │
+  │                                                             specified        │
+  │                                                             multiple times   │
+  │                                                             for multiple     │
+  │                                                             EAIs.            │
+  │                                                             [default: None]  │
+  │    --query-wareho…                         TEXT             Warehouse to use │
+  │                                                             if a service     │
+  │                                                             container        │
+  │                                                             connects to      │
+  │                                                             Snowflake to     │
+  │                                                             execute a query  │
+  │                                                             without          │
+  │                                                             explicitly       │
+  │                                                             specifying a     │
+  │                                                             warehouse to     │
+  │                                                             use.             │
+  │                                                             [default: None]  │
+  │    --tag                                   NAME=VALUE       Tag for the      │
+  │                                                             service.         │
+  │                                                             [default: None]  │
+  │    --comment                               TEXT             Comment for the  │
+  │                                                             service.         │
+  │                                                             [default: None]  │
+  │    --help           -h                                      Show this        │
+  │                                                             message and      │
+  │                                                             exit.            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
@@ -3305,6 +3312,98 @@
   
   '''
 # ---
+# name: test_help_messages[spcs.service.set]
+  '''
+                                                                                  
+   Usage: default spcs service set [OPTIONS] NAME                                 
+                                                                                  
+   Sets one or more properties or parameters for the service.                     
+                                                                                  
+  ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+  │ *    name      TEXT  Name of the service. [default: None] [required]         │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --min-instances                           INTEGER RANGE     Minimum number   │
+  │                                           [x>=1]            of service       │
+  │                                                             instances to     │
+  │                                                             run.             │
+  │ --max-instances                           INTEGER RANGE     Maximum number   │
+  │                                           [x>=1]            of service       │
+  │                                                             instances to     │
+  │                                                             run.             │
+  │ --query-warehouse                         TEXT              Warehouse to use │
+  │                                                             if a service     │
+  │                                                             container        │
+  │                                                             connects to      │
+  │                                                             Snowflake to     │
+  │                                                             execute a query  │
+  │                                                             without          │
+  │                                                             explicitly       │
+  │                                                             specifying a     │
+  │                                                             warehouse to     │
+  │                                                             use.             │
+  │ --auto-resume          --no-auto-resu…                      The service will │
+  │                                                             automatically    │
+  │                                                             resume when a    │
+  │                                                             service function │
+  │                                                             or ingress is    │
+  │                                                             called.          │
+  │ --comment                                 TEXT              Comment for the  │
+  │                                                             service.         │
+  │ --help             -h                                       Show this        │
+  │                                                             message and      │
+  │                                                             exit.            │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Connection configuration ───────────────────────────────────────────────────╮
+  │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
+  │                                           in your `config.toml`. Default:    │
+  │                                           `default`.                         │
+  │ --account,--accountname             TEXT  Name assigned to your Snowflake    │
+  │                                           account. Overrides the value       │
+  │                                           specified for the connection.      │
+  │ --user,--username                   TEXT  Username to connect to Snowflake.  │
+  │                                           Overrides the value specified for  │
+  │                                           the connection.                    │
+  │ --password                          TEXT  Snowflake password. Overrides the  │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --authenticator                     TEXT  Snowflake authenticator. Overrides │
+  │                                           the value specified for the        │
+  │                                           connection.                        │
+  │ --private-key-path                  TEXT  Snowflake private key path.        │
+  │                                           Overrides the value specified for  │
+  │                                           the connection.                    │
+  │ --database,--dbname                 TEXT  Database to use. Overrides the     │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --schema,--schemaname               TEXT  Database schema to use. Overrides  │
+  │                                           the value specified for the        │
+  │                                           connection.                        │
+  │ --role,--rolename                   TEXT  Role to use. Overrides the value   │
+  │                                           specified for the connection.      │
+  │ --warehouse                         TEXT  Warehouse to use. Overrides the    │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --temporary-connection      -x            Uses connection defined with       │
+  │                                           command line parameters, instead   │
+  │                                           of one defined in config           │
+  │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
+  │                                           authentication (MFA)               │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Global configuration ───────────────────────────────────────────────────────╮
+  │ --format           [TABLE|JSON]  Specifies the output format.                │
+  │                                  [default: TABLE]                            │
+  │ --verbose  -v                    Displays log entries for log levels `info`  │
+  │                                  and higher.                                 │
+  │ --debug                          Displays log entries for log levels `debug` │
+  │                                  and higher; debug logs contains additional  │
+  │                                  information.                                │
+  │ --silent                         Turns off intermediate output to console.   │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
 # name: test_help_messages[spcs.service.status]
   '''
                                                                                   
@@ -3380,6 +3479,83 @@
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Connection configuration ───────────────────────────────────────────────────╮
+  │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
+  │                                           in your `config.toml`. Default:    │
+  │                                           `default`.                         │
+  │ --account,--accountname             TEXT  Name assigned to your Snowflake    │
+  │                                           account. Overrides the value       │
+  │                                           specified for the connection.      │
+  │ --user,--username                   TEXT  Username to connect to Snowflake.  │
+  │                                           Overrides the value specified for  │
+  │                                           the connection.                    │
+  │ --password                          TEXT  Snowflake password. Overrides the  │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --authenticator                     TEXT  Snowflake authenticator. Overrides │
+  │                                           the value specified for the        │
+  │                                           connection.                        │
+  │ --private-key-path                  TEXT  Snowflake private key path.        │
+  │                                           Overrides the value specified for  │
+  │                                           the connection.                    │
+  │ --database,--dbname                 TEXT  Database to use. Overrides the     │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --schema,--schemaname               TEXT  Database schema to use. Overrides  │
+  │                                           the value specified for the        │
+  │                                           connection.                        │
+  │ --role,--rolename                   TEXT  Role to use. Overrides the value   │
+  │                                           specified for the connection.      │
+  │ --warehouse                         TEXT  Warehouse to use. Overrides the    │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --temporary-connection      -x            Uses connection defined with       │
+  │                                           command line parameters, instead   │
+  │                                           of one defined in config           │
+  │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
+  │                                           authentication (MFA)               │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Global configuration ───────────────────────────────────────────────────────╮
+  │ --format           [TABLE|JSON]  Specifies the output format.                │
+  │                                  [default: TABLE]                            │
+  │ --verbose  -v                    Displays log entries for log levels `info`  │
+  │                                  and higher.                                 │
+  │ --debug                          Displays log entries for log levels `debug` │
+  │                                  and higher; debug logs contains additional  │
+  │                                  information.                                │
+  │ --silent                         Turns off intermediate output to console.   │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages[spcs.service.unset]
+  '''
+                                                                                  
+   Usage: default spcs service unset [OPTIONS] NAME                               
+                                                                                  
+   Resets one or more properties or parameters for the service to their default   
+   value(s).                                                                      
+                                                                                  
+  ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+  │ *    name      TEXT  Name of the service. [default: None] [required]         │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --min-instances              Reset the MIN_INSTANCES property - Minimum      │
+  │                              number of service instances to run.             │
+  │ --max-instances              Reset the MAX_INSTANCES property - Maximum      │
+  │                              number of service instances to run.             │
+  │ --query-warehouse            Reset the QUERY_WAREHOUSE property - Warehouse  │
+  │                              to use if a service container connects to       │
+  │                              Snowflake to execute a query without explicitly │
+  │                              specifying a warehouse to use.                  │
+  │ --auto-resume                Reset the AUTO_RESUME property - The service    │
+  │                              will automatically resume when a service        │
+  │                              function or ingress is called.                  │
+  │ --comment                    Reset the COMMENT property - Comment for the    │
+  │                              service.                                        │
+  │ --help             -h        Show this message and exit.                     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
@@ -3515,9 +3691,12 @@
   │ logs            Retrieves local logs from a Snowpark Container Services      │
   │                 service container.                                           │
   │ resume          Resumes the service from SUSPENDED state.                    │
+  │ set             Sets one or more properties or parameters for the service.   │
   │ status          Retrieves status of a Snowpark Container Services service.   │
   │ suspend         Suspends the service, shutting down and deleting all its     │
   │                 containers.                                                  │
+  │ unset           Resets one or more properties or parameters for the service  │
+  │                 to their default value(s).                                   │
   │ upgrade         Updates an existing service with a new specification file.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   

@@ -5,6 +5,7 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.object.common import Tag
 from snowflake.cli.plugins.spcs.common import (
+    NoPropertiesProvidedError,
     handle_object_already_exists,
     strip_empty_lines,
 )
@@ -97,3 +98,57 @@ class ServiceManager(SqlExecutionMixin):
 
     def resume(self, service_name: str):
         return self._execute_schema_query(f"alter service {service_name} resume")
+
+    def set_property(
+        self,
+        service_name: str,
+        min_instances: Optional[int],
+        max_instances: Optional[int],
+        query_warehouse: Optional[str],
+        auto_resume: Optional[bool],
+        comment: Optional[str],
+    ):
+        property_pairs = [
+            ("min_instances", min_instances),
+            ("max_instances", max_instances),
+            ("query_warehouse", query_warehouse),
+            ("auto_resume", auto_resume),
+            ("comment", comment),
+        ]
+
+        # Check if all provided properties are set to None (no properties are being set)
+        if all([value is None for property_name, value in property_pairs]):
+            raise NoPropertiesProvidedError(
+                f"No properties specified for service '{service_name}'. Please provide at least one property to set."
+            )
+        query: list[str] = [f"alter service {service_name} set"]
+        for property_name, value in property_pairs:
+            if value is not None:
+                query.append(f"{property_name} = {value}")
+        return self._execute_schema_query(strip_empty_lines(query))
+
+    def unset_property(
+        self,
+        service_name: str,
+        min_instances: bool,
+        max_instances: bool,
+        query_warehouse: bool,
+        auto_resume: bool,
+        comment: bool,
+    ):
+        property_pairs = [
+            ("min_instances", min_instances),
+            ("max_instances", max_instances),
+            ("query_warehouse", query_warehouse),
+            ("auto_resume", auto_resume),
+            ("comment", comment),
+        ]
+
+        # Check if all properties provided are False (no properties are being unset)
+        if not any([value for property_name, value in property_pairs]):
+            raise NoPropertiesProvidedError(
+                f"No properties specified for service '{service_name}'. Please provide at least one property to reset to its default value."
+            )
+        unset_list = [property_name for property_name, value in property_pairs if value]
+        query = f"alter service {service_name} unset {','.join(unset_list)}"
+        return self._execute_schema_query(query)
