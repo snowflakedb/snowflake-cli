@@ -1,6 +1,5 @@
 from tempfile import TemporaryDirectory
 
-import pytest
 
 from snowflake.cli.api.config import (
     config_init,
@@ -117,6 +116,7 @@ def test_get_all_connections(test_snowcli_config):
             "user": "dev_user",
             "warehouse": "dev_warehouse",
         },
+        "test_connections": {"user": "python"},
     }
 
 

@@ -24,7 +24,8 @@
   * `SNOWFLAKE_MFA_PASSCODE`
 
   The `SNOWFLAKE_CONNECTION_<NAME>_<KEY>` variable takes precedence before the generic flag. For example if
-  `SNOWFLAKE_PASSWORD` and `SNOWFLAKE_CONNECTIONS_FOO_PASSWORD` are present then the later will be used.
+  `SNOWFLAKE_PASSWORD` and `SNOWFLAKE_CONNECTIONS_FOO_PASSWORD` are present and user tries to use connection
+  "foo" then the later variable will be used.
 
 ## Fixes and improvements
 * Restricted permissions of automatically created files
