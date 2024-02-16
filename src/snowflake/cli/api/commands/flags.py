@@ -11,14 +11,6 @@ DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
 _CONNECTION_SECTION = "Connection configuration"
 _CLI_BEHAVIOUR = "Global configuration"
-PLAIN_PASSWORD_MSG = "WARNING! Using --password via the CLI is insecure. Use environment variables instead."
-
-
-def _password_callback(value: str):
-    if value:
-        click.echo(PLAIN_PASSWORD_MSG)
-
-    return _callback(lambda: cli_context_manager.connection_context.set_password)(value)
 
 
 def _callback(provide_setter: Callable[[], Callable[[Any], Any]]):
@@ -74,6 +66,16 @@ UserOption = typer.Option(
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
+
+
+PLAIN_PASSWORD_MSG = "WARNING! Using --password via the CLI is insecure. Use environment variables instead."
+
+
+def _password_callback(value: str):
+    if value:
+        click.echo(PLAIN_PASSWORD_MSG)
+
+    return _callback(lambda: cli_context_manager.connection_context.set_password)(value)
 
 
 PasswordOption = typer.Option(
