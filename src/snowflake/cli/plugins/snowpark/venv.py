@@ -1,5 +1,4 @@
 import logging
-import os
 import re
 import shutil
 import subprocess
@@ -63,10 +62,9 @@ class Venv:
         return venv_dir / "bin" / "python"
 
     def _get_library_path(self) -> Path:
-        directory = os.listdir(Path(self.directory.name) / "lib")[0]
-        return (
-            Path(self.directory.name) / "lib" / directory / "site-packages"
-        ).absolute()
+        return [
+            lib for lib in (Path(self.directory.name) / "lib").glob("**/site-packages")
+        ][0]
 
     def get_package_dependencies(
         self, name: str, req_type: str

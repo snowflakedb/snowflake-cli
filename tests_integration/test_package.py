@@ -103,9 +103,10 @@ class TestPackage:
         assert Path("july.zip").exists()
 
         files = self._get_filenames_from_zip("july.zip")
-        assert "july/__init__.py" in files
+        assert any(["colormaps.py" in name for name in files])
         assert not any(["matplotlib" in name for name in files])
 
+    @pytest.mark.integration
     def test_package_from_github(self, directory_for_test, runner):
         result = runner.invoke_with_connection_json(
             [
