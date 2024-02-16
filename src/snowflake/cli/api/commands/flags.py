@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
+import click
 import typer
 from snowflake.cli.api.cli_global_context import cli_context_manager
 from snowflake.cli.api.output.formats import OutputFormat
@@ -66,12 +67,23 @@ UserOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+
+PLAIN_PASSWORD_MSG = "WARNING! Using --password via the CLI is insecure. Use environment variables instead."
+
+
+def _password_callback(value: str):
+    if value:
+        click.echo(PLAIN_PASSWORD_MSG)
+
+    return _callback(lambda: cli_context_manager.connection_context.set_password)(value)
+
+
 PasswordOption = typer.Option(
     None,
     "--password",
     help="Snowflake password. Overrides the value specified for the connection.",
     hide_input=True,
-    callback=_callback(lambda: cli_context_manager.connection_context.set_password),
+    callback=_password_callback,
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
