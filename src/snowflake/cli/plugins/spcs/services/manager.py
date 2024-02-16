@@ -115,6 +115,8 @@ class ServiceManager(SqlExecutionMixin):
             ("auto_resume", auto_resume),
             ("comment", comment),
         ]
+
+        # Check if all provided properties are set to None (no properties are being set)
         if all([value is None for property_name, value in property_pairs]):
             raise NoPropertiesProvidedError(
                 f"No properties specified for service '{service_name}'. Please provide at least one property to set."
@@ -141,6 +143,8 @@ class ServiceManager(SqlExecutionMixin):
             ("auto_resume", auto_resume),
             ("comment", comment),
         ]
+
+        # Check if all properties provided are False (no properties are being unset)
         if not any([value for property_name, value in property_pairs]):
             raise NoPropertiesProvidedError(
                 f"No properties specified for service '{service_name}'. Please provide at least one property to reset to its default value."

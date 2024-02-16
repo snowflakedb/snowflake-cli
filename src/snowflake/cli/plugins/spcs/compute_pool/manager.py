@@ -65,6 +65,8 @@ class ComputePoolManager(SqlExecutionMixin):
             ("auto_suspend_secs", auto_suspend_secs),
             ("comment", comment),
         ]
+
+        # Check if all provided properties are set to None (no properties are being set)
         if all([value is None for property_name, value in property_pairs]):
             raise NoPropertiesProvidedError(
                 f"No properties specified for compute pool '{pool_name}'. Please provide at least one property to set."
@@ -83,6 +85,8 @@ class ComputePoolManager(SqlExecutionMixin):
             ("auto_suspend_secs", auto_suspend_secs),
             ("comment", comment),
         ]
+
+        # Check if all properties provided are False (no properties are being unset)
         if not any([value for property_name, value in property_pairs]):
             raise NoPropertiesProvidedError(
                 f"No properties specified for compute pool '{pool_name}'. Please provide at least one property to reset to its default value."

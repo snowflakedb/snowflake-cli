@@ -406,3 +406,12 @@ def test_unset_property_no_properties_cli(mock_unset, runner):
     mock_unset.assert_called_once_with(
         pool_name=pool_name, auto_resume=False, auto_suspend_secs=False, comment=False
     )
+
+
+def test_unset_property_with_args(runner):
+    pool_name = "test_pool"
+    result = runner.invoke(
+        ["spcs", "compute-pool", "unset", pool_name, "--auto-suspend-secs", "1"]
+    )
+    assert result.exit_code == 2, result.output
+    assert "Got unexpected extra argument" in result.output

@@ -552,3 +552,12 @@ def test_unset_property_no_properties_cli(mock_unset, runner):
         auto_resume=False,
         comment=False,
     )
+
+
+def test_unset_property_with_args(runner):
+    service_name = "test_service"
+    result = runner.invoke(
+        ["spcs", "service", "unset", service_name, "--min-instances", "1"]
+    )
+    assert result.exit_code == 2, result.output
+    assert "Got unexpected extra argument" in result.output
