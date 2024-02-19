@@ -21,6 +21,7 @@
 * Restricted permissions of automatically created files
 * Fixed bug where `spcs service create` would not throw error if service with specified name already exists.
 * Improved package lookup, to avoid unnecessary uploads
+* Logging into the file by default (INFO level)
 
 
 # v2.0.0

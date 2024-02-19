@@ -261,19 +261,20 @@ def project_directory(temp_dir, test_root_path):
 
 
 @pytest.fixture
-def snowflake_home(monkeypatch, temp_dir):
+def snowflake_home(monkeypatch):
     """
     Set up the default location of config files to [temp_dir]/.snowflake
     """
-    snowflake_home = Path(temp_dir) / ".snowflake"
-    snowflake_home.mkdir()
-    monkeypatch.setenv("SNOWFLAKE_HOME", str(snowflake_home))
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        snowflake_home = Path(tmp_dir) / ".snowflake"
+        snowflake_home.mkdir()
+        monkeypatch.setenv("SNOWFLAKE_HOME", str(snowflake_home))
 
-    for module in [
-        sys.modules["snowflake.connector.constants"],
-        sys.modules["snowflake.connector.config_manager"],
-        sys.modules["snowflake.cli.api.config"],
-    ]:
-        importlib.reload(module)
+        for module in [
+            sys.modules["snowflake.connector.constants"],
+            sys.modules["snowflake.connector.config_manager"],
+            sys.modules["snowflake.cli.api.config"],
+        ]:
+            importlib.reload(module)
 
-    yield snowflake_home
+        yield snowflake_home
