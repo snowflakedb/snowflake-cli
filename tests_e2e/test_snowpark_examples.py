@@ -12,14 +12,16 @@ def test_snowpark_examples_functions_work_locally(snowcli):
         encoding="utf-8",
     )
 
+    python = snowcli.parent / "python"
+
     output = subprocess.check_output(
-        ["python", f"{project_name}/app/functions.py", "FooBar"],
+        [python, f"{project_name}/app/functions.py", "FooBar"],
         encoding="utf-8",
     )
     assert output.strip() == "Hello FooBar!"
 
     output = subprocess.check_output(
-        ["python", f"{project_name}/app/procedures.py", "BazBar"],
+        [python, f"{project_name}/app/procedures.py", "BazBar"],
         encoding="utf-8",
     )
     assert output.strip() == "Hello BazBar!"
