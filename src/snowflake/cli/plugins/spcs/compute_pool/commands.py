@@ -10,7 +10,6 @@ from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
 from snowflake.cli.api.project.util import is_valid_object_name
 from snowflake.cli.plugins.object.common import CommentOption
 from snowflake.cli.plugins.spcs.common import (
-    NoPropertiesProvidedError,
     validate_and_set_instances,
 )
 from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
@@ -26,7 +25,7 @@ def _compute_pool_name_callback(name: str) -> str:
     Verifies that compute pool name is a single valid identifier.
     """
     if not is_valid_object_name(name, 0):
-        raise ClickException(f"{name} is not a valid compute pool name.")
+        raise ClickException(f"'{name}' is not a valid compute pool name.")
     return name
 
 
@@ -142,20 +141,15 @@ def set_property(
     """
     Sets one or more properties or parameters for the compute pool.
     """
-    try:
-        cursor = ComputePoolManager().set_property(
-            pool_name=name,
-            min_nodes=min_nodes,
-            max_nodes=max_nodes,
-            auto_resume=auto_resume,
-            auto_suspend_secs=auto_suspend_secs,
-            comment=comment,
-        )
-        return SingleQueryResult(cursor)
-    except NoPropertiesProvidedError:
-        raise ClickException(
-            f"No properties specified for compute pool '{name}'. Please provide at least one property to set."
-        )
+    cursor = ComputePoolManager().set_property(
+        pool_name=name,
+        min_nodes=min_nodes,
+        max_nodes=max_nodes,
+        auto_resume=auto_resume,
+        auto_suspend_secs=auto_suspend_secs,
+        comment=comment,
+    )
+    return SingleQueryResult(cursor)
 
 
 @app.command("unset", requires_connection=True)
@@ -182,15 +176,10 @@ def unset_property(
     """
     Resets one or more properties or parameters for the compute pool to their default value(s).
     """
-    try:
-        cursor = ComputePoolManager().unset_property(
-            pool_name=name,
-            auto_resume=auto_resume,
-            auto_suspend_secs=auto_suspend_secs,
-            comment=comment,
-        )
-        return SingleQueryResult(cursor)
-    except NoPropertiesProvidedError:
-        raise ClickException(
-            f"No properties specified for compute pool '{name}'. Please provide at least one property to reset to its default value."
-        )
+    cursor = ComputePoolManager().unset_property(
+        pool_name=name,
+        auto_resume=auto_resume,
+        auto_suspend_secs=auto_suspend_secs,
+        comment=comment,
+    )
+    return SingleQueryResult(cursor)

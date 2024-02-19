@@ -12,7 +12,7 @@
   * Added `image-repository url <repo_name>` command to get the URL for specified image repository.
   * Added `create` command for `image-repository`.
   * Added `set (property)`, `unset (property)`, `suspend` and `resume` commands for `compute-pool`.
-  * Added `upgrade` and `list-endpoints` commands for `service`.
+  * Added `set (property)`, `unset (property)`,`upgrade` and `list-endpoints` commands for `service`.
 * Connections parameters are also supported by generic environment variables:
   * `SNOWFLAKE_ACCOUNT`
   * `SNOWFLAKE_USER`
@@ -26,6 +26,7 @@
   The `SNOWFLAKE_CONNECTION_<NAME>_<KEY>` variable takes precedence before the generic flag. For example if
   `SNOWFLAKE_PASSWORD` and `SNOWFLAKE_CONNECTIONS_FOO_PASSWORD` are present and user tries to use connection
   "foo" then the later variable will be used.
+
 
 ## Fixes and improvements
 * Restricted permissions of automatically created files

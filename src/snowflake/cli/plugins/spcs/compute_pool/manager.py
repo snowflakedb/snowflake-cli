@@ -65,9 +65,11 @@ class ComputePoolManager(SqlExecutionMixin):
             ("auto_suspend_secs", auto_suspend_secs),
             ("comment", comment),
         ]
+
+        # Check if all provided properties are set to None (no properties are being set)
         if all([value is None for property_name, value in property_pairs]):
             raise NoPropertiesProvidedError(
-                "at least one of the properties passed to 'set_property' must not be None"
+                f"No properties specified for compute pool '{pool_name}'. Please provide at least one property to set."
             )
         query: List[str] = [f"alter compute pool {pool_name} set"]
         for property_name, value in property_pairs:
@@ -83,9 +85,11 @@ class ComputePoolManager(SqlExecutionMixin):
             ("auto_suspend_secs", auto_suspend_secs),
             ("comment", comment),
         ]
+
+        # Check if all properties provided are False (no properties are being unset)
         if not any([value for property_name, value in property_pairs]):
             raise NoPropertiesProvidedError(
-                "at least one of the properties passed to 'unset_property' must be True"
+                f"No properties specified for compute pool '{pool_name}'. Please provide at least one property to reset to its default value."
             )
         unset_list = [property_name for property_name, value in property_pairs if value]
         query = f"alter compute pool {pool_name} unset {','.join(unset_list)}"

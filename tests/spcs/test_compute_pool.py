@@ -272,8 +272,12 @@ def test_set_property(mock_execute_query):
 
 def test_set_property_no_properties():
     pool_name = "test_pool"
-    with pytest.raises(NoPropertiesProvidedError):
+    with pytest.raises(NoPropertiesProvidedError) as e:
         ComputePoolManager().set_property(pool_name, None, None, None, None, None)
+    assert (
+        e.value.message
+        == f"No properties specified for compute pool '{pool_name}'. Please provide at least one property to set."
+    )
 
 
 @patch(
@@ -322,7 +326,9 @@ def test_set_property_cli(mock_set, mock_statement_success, runner):
 )
 def test_set_property_no_properties_cli(mock_set, runner):
     pool_name = "test_pool"
-    mock_set.side_effect = NoPropertiesProvidedError()
+    mock_set.side_effect = NoPropertiesProvidedError(
+        f"No properties specified for compute pool '{pool_name}'. Please provide at least one property to set."
+    )
     result = runner.invoke(["spcs", "compute-pool", "set", pool_name])
     assert result.exit_code == 1, result.output
     assert "No properties specified" in result.output
@@ -353,8 +359,12 @@ def test_unset_property(mock_execute_query):
 
 def test_unset_property_no_properties():
     pool_name = "test_pool"
-    with pytest.raises(NoPropertiesProvidedError):
+    with pytest.raises(NoPropertiesProvidedError) as e:
         ComputePoolManager().unset_property(pool_name, False, False, False)
+    assert (
+        e.value.message
+        == f"No properties specified for compute pool '{pool_name}'. Please provide at least one property to reset to its default value."
+    )
 
 
 @patch(
@@ -387,10 +397,21 @@ def test_unset_property_cli(mock_unset, mock_statement_success, runner):
 )
 def test_unset_property_no_properties_cli(mock_unset, runner):
     pool_name = "test_pool"
-    mock_unset.side_effect = NoPropertiesProvidedError()
+    mock_unset.side_effect = NoPropertiesProvidedError(
+        f"No properties specified for compute pool '{pool_name}'. Please provide at least one property to reset to its default value."
+    )
     result = runner.invoke(["spcs", "compute-pool", "unset", pool_name])
     assert result.exit_code == 1, result.output
     assert "No properties specified" in result.output
     mock_unset.assert_called_once_with(
         pool_name=pool_name, auto_resume=False, auto_suspend_secs=False, comment=False
     )
+
+
+def test_unset_property_with_args(runner):
+    pool_name = "test_pool"
+    result = runner.invoke(
+        ["spcs", "compute-pool", "unset", pool_name, "--auto-suspend-secs", "1"]
+    )
+    assert result.exit_code == 2, result.output
+    assert "Got unexpected extra argument" in result.output
