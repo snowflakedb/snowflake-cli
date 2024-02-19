@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 from pathlib import Path
 from typing import List
 
@@ -108,7 +107,7 @@ def _get_anaconda_channel_contents():
 def install_packages(
     file_name: str | None,
     perform_anaconda_check: bool = True,
-    package_native_libraries: PypiOption = PypiOption.ASK,
+    package_native_libraries: PypiOption = PypiOption.YES,
     package_name: str | None = None,
 ) -> tuple[bool, SplitRequirements | None]:
     """
@@ -130,7 +129,7 @@ def install_packages(
         if package_name is not None:
             pip_install_result = v.pip_install(package_name, RequirementType.PACKAGE)
             dependencies = v.get_package_dependencies(
-                package_name, RequirementType.FILE
+                package_name, RequirementType.PACKAGE
             )
 
         if pip_install_result != 0:
@@ -250,17 +249,3 @@ def _perform_native_libraries_check(
     else:
         log.info("Unsupported native libraries not found in packages (Good news!)...")
         return True
-
-
-def create_zip_name(name: str) -> str:
-    if name.startswith("git+"):
-        pattern = r"github\.com\/([^\/]+)\/([^\/.]+)(\.git)?"
-        if match := re.search(pattern, name):
-            return match.group(2) + ".zip"
-        else:
-            return "package.zip"
-
-    elif name.endswith(".zip"):
-        return name
-    else:
-        return name + ".zip"

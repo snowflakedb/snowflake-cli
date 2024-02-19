@@ -16,7 +16,7 @@ from snowflake.cli.plugins.snowpark.models import (
 
 log = logging.getLogger(__name__)
 
-from importlib_metadata import requires
+
 class Venv:
     ERROR_MESSAGE = "Running command {0} caused error {1}"
 
@@ -107,6 +107,19 @@ class Venv:
         library_path = self._get_library_path()
         result = self.run_python(["-m", "pip", "show", "-f", package.name])
         package_info_dict = self._parse_pip_info(result.stdout)
+
+        dependencies = self.run_python(
+            [
+                "-c",
+                f"from importlib_metadata import requires; print(requires('{package.name}'))",
+            ]
+        ).stdout
+        files = self.run_python(
+            [
+                "-c",
+                f"from importlib_metadata import files; print(files('{package.name}'))",
+            ]
+        ).stdout
 
         return RequirementWithFilesAndDeps(
             requirement=package,

@@ -26,7 +26,8 @@ log = logging.getLogger(__name__)
 
 install_option = typer.Option(
     False,
-    "--install-from-pip" "--yes",
+    "--install-from-pip",
+    "--yes",
     "-y",
     help="Installs packages that are not available on the Snowflake anaconda channel.",
 )

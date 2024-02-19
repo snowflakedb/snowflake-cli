@@ -106,23 +106,24 @@ class TestPackage:
         assert any(["colormaps.py" in name for name in files])
         assert not any(["matplotlib" in name for name in files])
 
-    #@pytest.mark.integration
+    @pytest.mark.integration
     def test_package_from_github(self, directory_for_test, runner):
         result = runner.invoke_with_connection_json(
             [
                 "snowpark",
                 "package",
                 "create",
-                "git+https://github.com/sfc-gh-turbaszek/dummy-pkg-for-tests.git",
+                "git+https://github.com/sfc-gh-turbaszek/dummy-pkg-for-tests-with-deps.git",
                 "-y",
             ]
         )
 
         assert result.exit_code == 0
-        assert Path("dummy-pkg-for-tests.zip").exists()
+        assert Path("dummy-pkg-for-tests-with-deps.zip").exists()
 
-        files = self._get_filenames_from_zip("dummy-pkg-for-tests.zip")
-        assert any(["shrubbery.py" in file for file in files])
+        files = self._get_filenames_from_zip("dummy-pkg-for-tests-with-deps.zip")
+        assert any(["dummy_pkg_for_tests_with_deps-1.0.dist-info" in file for file in files])
+        assert any(["dummy_pkg_for_tests-1.0.dist-info" in file for file in files])
 
     @pytest.fixture(scope="function")
     def directory_for_test(self):

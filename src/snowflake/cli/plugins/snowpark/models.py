@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import List
@@ -24,7 +25,7 @@ class Requirement(requirement.Requirement):
         result = super().parse_line(line)
 
         if result.uri and not result.name:
-            result.name = result.uri
+            result.name = get_package_name(result.uri)
 
         return result
 
@@ -63,3 +64,17 @@ pip_failed_msg = """pip failed with return code {}.
 second_chance_msg = """Good news! The following package dependencies can be
                 imported directly from Anaconda, and will be excluded from
                 the zip: {}"""
+
+
+def get_package_name(name: str) -> str:
+    if name.startswith("git+"):
+        pattern = r"github\.com\/([^\/]+)\/([^\/.]+)(\.git)?"
+        if match := re.search(pattern, name):
+            return match.group(2)
+        else:
+            return "package"
+
+    elif name.endswith(".zip"):
+        return name.replace(".zip", "")
+    else:
+        return name

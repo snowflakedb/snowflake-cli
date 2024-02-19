@@ -4,6 +4,7 @@ from distutils.dir_util import copy_tree
 from pathlib import PosixPath
 from unittest.mock import MagicMock, mock_open, patch
 
+import snowflake.cli.plugins.snowpark.models
 import snowflake.cli.plugins.snowpark.package.utils
 import typer
 from snowflake.cli.plugins.snowpark.models import Requirement
@@ -283,14 +284,14 @@ def test_check_if_package_is_avaiable_in_conda(argument, expected):
 @pytest.mark.parametrize(
     "name,expected",
     [
-        ("package", "package.zip"),
-        ("package.zip", "package.zip"),
-        ("git+https://github.com/Snowflake-Labs/snowflake-cli/", "snowflake-cli.zip"),
+        ("package", "package"),
+        ("package.zip", "package"),
+        ("git+https://github.com/Snowflake-Labs/snowflake-cli/", "snowflake-cli"),
         (
             "git+https://github.com/Snowflake-Labs/snowflake-cli.git/@snow-123456-fix",
-            "snowflake-cli.zip",
+            "snowflake-cli",
         ),
     ],
 )
-def test_create_zip_name(name: str, expected: str):
-    assert package_utils.create_zip_name(name) == expected
+def test_get_package_name(name: str, expected: str):
+    assert snowflake.cli.plugins.snowpark.models.get_package_name(name) == expected
