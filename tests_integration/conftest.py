@@ -164,6 +164,22 @@ def project_directory(temporary_working_directory, test_root_path):
     return _temporary_project_directory
 
 
+@pytest.fixture
+def multiple_project_directories(temporary_working_directory, test_root_path):
+    @contextmanager
+    def _multiple_projects_directories(*project_names):
+        projects_paths = []
+        for project_name in project_names:
+            project_path = test_root_path / "test_data" / "projects" / project_name
+            new_project_path = temporary_working_directory / project_name
+
+            shutil.copytree(project_path, new_project_path, dirs_exist_ok=True)
+            projects_paths.append(new_project_path)
+        yield projects_paths
+
+    return _multiple_projects_directories
+
+
 @pytest.fixture(autouse=True)
 def reset_global_context_after_each_test(request):
     cli_context_manager.reset()
