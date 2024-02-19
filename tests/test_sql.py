@@ -101,15 +101,17 @@ def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
     assert result.exit_code == 0, result.output
     mock_conn.assert_called_once_with(
         temporary_connection=False,
+        mfa_passcode=None,
         connection_name="connectionName",
         account="accountnameValue",
         user="usernameValue",
-        warehouse="warehouseValue",
+        password="passFromTest",
+        authenticator=None,
+        private_key_path=None,
         database="dbnameValue",
         schema="schemanameValue",
         role="rolenameValue",
-        password="passFromTest",
-        mfa_passcode=None,
+        warehouse="warehouseValue",
     )
 
 
