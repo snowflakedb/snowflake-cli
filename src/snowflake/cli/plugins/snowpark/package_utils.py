@@ -108,7 +108,7 @@ def _get_anaconda_channel_contents():
 def install_packages(
     file_name: str | None,
     perform_anaconda_check: bool = True,
-    package_native_libraries: PypiOption = PypiOption.YES,
+    package_native_libraries: PypiOption = PypiOption.ASK,
     package_name: str | None = None,
 ) -> tuple[bool, SplitRequirements | None]:
     """

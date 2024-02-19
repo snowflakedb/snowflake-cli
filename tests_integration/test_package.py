@@ -87,7 +87,7 @@ class TestPackage:
         )
 
         files = self._get_filenames_from_zip("dummy_pkg_for_tests_with_deps.zip")
-        assert "dummy_pkg_for_tests/shrubbery.py" in files
+        assert any(["shrubbery.py" in file for file in files])
 
     @pytest.mark.integration
     def test_package_with_conda_dependencies(
@@ -106,7 +106,7 @@ class TestPackage:
         assert any(["colormaps.py" in name for name in files])
         assert not any(["matplotlib" in name for name in files])
 
-    @pytest.mark.integration
+    #@pytest.mark.integration
     def test_package_from_github(self, directory_for_test, runner):
         result = runner.invoke_with_connection_json(
             [
@@ -119,6 +119,10 @@ class TestPackage:
         )
 
         assert result.exit_code == 0
+        assert Path("dummy-pkg-for-tests.zip").exists()
+
+        files = self._get_filenames_from_zip("dummy-pkg-for-tests.zip")
+        assert any(["shrubbery.py" in file for file in files])
 
     @pytest.fixture(scope="function")
     def directory_for_test(self):

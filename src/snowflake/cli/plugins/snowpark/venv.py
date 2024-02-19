@@ -16,7 +16,7 @@ from snowflake.cli.plugins.snowpark.models import (
 
 log = logging.getLogger(__name__)
 
-
+from importlib_metadata import requires
 class Venv:
     ERROR_MESSAGE = "Running command {0} caused error {1}"
 
@@ -80,7 +80,9 @@ class Venv:
                     dependencies = [
                         package
                         for line in req_file
-                        for package in self._get_dependencies(Requirement.parse_line(line))
+                        for package in self._get_dependencies(
+                            Requirement.parse_line(line)
+                        )
                     ]
             else:
                 dependencies = []
