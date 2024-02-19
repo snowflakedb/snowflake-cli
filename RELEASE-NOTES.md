@@ -13,7 +13,9 @@
   * Added `create` command for `image-repository`.
   * Added `set (property)`, `unset (property)`, `suspend` and `resume` commands for `compute-pool`.
   * Added `set (property)`, `unset (property)`,`upgrade` and `list-endpoints` commands for `service`.
-  * You can now use github repo link in `snow snowpark package create` to prepare your code for upload
+* You can now use github repo link in `snow snowpark package create` to prepare your code for upload
+* Added `allow-native-libraries` option to `snow snowpark package create` command
+* Added alias `--install-from-pip` for `-y` option in `snow snowpark package create` command 
 
 ## Fixes and improvements
 * Restricted permissions of automatically created files

@@ -107,8 +107,8 @@ def _get_anaconda_channel_contents():
 def install_packages(
     file_name: str | None,
     perform_anaconda_check: bool = True,
-    package_native_libraries: PypiOption = PypiOption.YES,
     package_name: str | None = None,
+    allow_native_libraries: PypiOption = PypiOption.ASK,
 ) -> tuple[bool, SplitRequirements | None]:
     """
     Install packages from a requirements.txt file or a single package name,
@@ -160,25 +160,25 @@ def install_packages(
         log.info("Checking to see if packages have native libraries...")
 
         if _perform_native_libraries_check(
-            dependencies_to_be_packed, package_native_libraries
-        ):
+            dependencies_to_be_packed
+        ) and not _confirm_native_libraries(allow_native_libraries):
+            return False, second_chance_results
+        else:
             v.copy_files_to_packages_dir(
                 [Path(file) for dep in dependencies_to_be_packed for file in dep.files]
             )
             return True, second_chance_results
-        else:
-            return False, second_chance_results
 
 
-def _check_for_native_libraries(dependencies: List[RequirementWithFilesAndDeps]):
-    return any(
-        [
-            file
-            for dependency in dependencies
-            for file in dependency.files
-            if not file.endswith(".so")
-        ]
-    )
+def _check_for_native_libraries(
+    dependencies: List[RequirementWithFilesAndDeps],
+) -> List[str]:
+    return [
+        dependency.requirement.name
+        for dependency in dependencies
+        for file in dependency.files
+        if file.endswith(".so")
+    ]
 
 
 def get_snowflake_packages() -> List[str]:
@@ -232,20 +232,29 @@ def check_if_package_is_avaiable_in_conda(package: Requirement, packages: dict) 
     return True
 
 
-def _perform_native_libraries_check(
-    deps: List[RequirementWithFilesAndDeps], package_native_libraries: PypiOption
-):
-    if _check_for_native_libraries(deps):
-        return (
-            click.confirm(
-                "\n\nWARNING! Some packages appear to have native libraries!\n"
-                "Continue with package installation?",
-                default=False,
-            )
-            if package_native_libraries == PypiOption.ASK
-            else True
-        )
-
+def _perform_native_libraries_check(deps: List[RequirementWithFilesAndDeps]):
+    if native_libraries := _check_for_native_libraries(deps):
+        _log_native_libraries(native_libraries)
+        return True
     else:
         log.info("Unsupported native libraries not found in packages (Good news!)...")
-        return True
+        return False
+
+
+def _log_native_libraries(
+    native_libraries: List[str],
+) -> None:
+    log.error(
+        "Following dependencies utilise native libraries, not supported by Conda:"
+    )
+    log.error("\n".join(set(native_libraries)))
+    log.error("You may still try to create your package, but it probably won`t work")
+    log.error("You may also request adding the package to Snowflake Conda channel")
+    log.error("at https://support.anaconda.com/")
+
+
+def _confirm_native_libraries(allow_native_libraries: PypiOption) -> bool:
+    if allow_native_libraries == PypiOption.ASK:
+        return click.confirm("Continue with package installation?", default=False)
+    else:
+        return allow_native_libraries == PypiOption.YES

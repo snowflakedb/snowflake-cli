@@ -122,8 +122,25 @@ class TestPackage:
         assert Path("dummy-pkg-for-tests-with-deps.zip").exists()
 
         files = self._get_filenames_from_zip("dummy-pkg-for-tests-with-deps.zip")
-        assert any(["dummy_pkg_for_tests_with_deps-1.0.dist-info" in file for file in files])
+        assert any(
+            ["dummy_pkg_for_tests_with_deps-1.0.dist-info" in file for file in files]
+        )
         assert any(["dummy_pkg_for_tests-1.0.dist-info" in file for file in files])
+
+    # @pytest.mark.integration
+    def test_package_with_native_libraries(self, directory_for_test, runner):
+        result = runner.invoke_with_connection(
+            [
+                "snowpark",
+                "package",
+                "create",
+                "pygame",
+                "-y",
+            ]
+        )
+
+        assert result.exit_code == 0
+        assert "at https://support.anaconda.com/" in result.output
 
     @pytest.fixture(scope="function")
     def directory_for_test(self):

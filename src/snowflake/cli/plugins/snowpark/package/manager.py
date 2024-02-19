@@ -9,7 +9,12 @@ from shutil import rmtree
 from snowflake.cli.api.constants import PACKAGES_DIR
 from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.cli.plugins.snowpark import package_utils
-from snowflake.cli.plugins.snowpark.models import Requirement, SplitRequirements, get_package_name
+from snowflake.cli.plugins.snowpark.models import (
+    PypiOption,
+    Requirement,
+    SplitRequirements,
+    get_package_name,
+)
 from snowflake.cli.plugins.snowpark.package.utils import (
     CreatedSuccessfully,
     InAnaconda,
@@ -24,7 +29,9 @@ from snowflake.cli.plugins.snowpark.zipper import zip_dir
 log = logging.getLogger(__name__)
 
 
-def lookup(name: str, install_packages: bool) -> LookupResult:
+def lookup(
+    name: str, install_packages: bool, allow_native_libraries: PypiOption
+) -> LookupResult:
 
     package_response = package_utils.parse_anaconda_packages([Requirement.parse(name)])
 
@@ -32,7 +39,10 @@ def lookup(name: str, install_packages: bool) -> LookupResult:
         return InAnaconda(package_response, name)
     elif install_packages:
         status, result = package_utils.install_packages(
-            perform_anaconda_check=True, package_name=name, file_name=None
+            perform_anaconda_check=True,
+            package_name=name,
+            file_name=None,
+            allow_native_libraries=allow_native_libraries,
         )
 
         if status:
