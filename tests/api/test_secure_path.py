@@ -19,7 +19,6 @@ import re
 def save_logs(snowflake_home):
     config = snowflake_home / "config.toml"
     logs_path = snowflake_home / "logs"
-    logs_path.mkdir()
     config.write_text(
         "\n".join(["[cli.logs]", "save_logs = true", f'path = "{logs_path}"'])
     )
