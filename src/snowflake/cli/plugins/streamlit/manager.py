@@ -101,6 +101,9 @@ class StreamlitManager(SqlExecutionMixin):
         **options,
     ):
         stage_manager = StageManager()
+        streamlit_name = stage_manager.to_fully_qualified_name(
+            streamlit_name, database=database, schema=schema
+        )
         if experimental_behaviour_enabled():
             """
             1. Create streamlit object
@@ -146,7 +149,9 @@ class StreamlitManager(SqlExecutionMixin):
             stage_manager = StageManager()
 
             stage_name = stage_name or "streamlit"
-            stage_name = stage_manager.to_fully_qualified_name(stage_name)
+            stage_name = stage_manager.to_fully_qualified_name(
+                stage_name, database=database, schema=schema
+            )
 
             stage_manager.create(
                 stage_name=stage_name, comment="deployments managed by snowcli"
