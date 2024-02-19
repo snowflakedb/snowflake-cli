@@ -20,6 +20,19 @@ def test_deploy_function_no_procedure(runner, project_directory):
     assert "No snowpark project definition found" in result.output
 
 
+def _mock_fully_qualified_name(name, database, schema):
+    current_parts = name.split(".")
+    if len(current_parts) == 3:
+        return name.upper()
+
+    if len(current_parts) == 2:
+        return f"{database}.{name}".upper()
+
+    schema = schema or "public"
+    database = database or "db"
+    return f"{database}.{schema}.{name}".upper()
+
+
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager")
 def test_deploy_procedure(
@@ -29,7 +42,9 @@ def test_deploy_procedure(
     mock_ctx,
     project_directory,
 ):
-
+    mock_object_manager.return_value.to_fully_qualified_name = (
+        _mock_fully_qualified_name
+    )
     mock_object_manager.return_value.describe.side_effect = ProgrammingError(
         "does not exist or not authorized"
     )
@@ -47,31 +62,34 @@ def test_deploy_procedure(
     assert result.exit_code == 0, result.output
     mock_object_manager.return_value.describe.assert_has_calls(
         [
-            call(object_type=str(ObjectType.PROCEDURE), name="procedureName(string)"),
-            call(object_type=str(ObjectType.PROCEDURE), name="test()"),
+            call(
+                object_type=str(ObjectType.PROCEDURE),
+                name="DB.PUBLIC.PROCEDURENAME(string)",
+            ),
+            call(object_type=str(ObjectType.PROCEDURE), name="DB.PUBLIC.TEST()"),
         ]
     )
     assert ctx.get_queries() == [
-        "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
-        f"put file://{Path(tmp).resolve()}/app.zip @dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
+        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT comment='deployments managed by snowcli'",
+        f"put file://{Path(tmp).resolve()}/app.zip @MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace procedure procedureName(name string)
+            create or replace procedure MOCKDATABASE.MOCKSCHEMA.PROCEDURENAME(name string)
             returns string
             language python
             runtime_version=3.8
-            imports=('@dev_deployment/my_snowpark_project/app.zip')
+            imports=('@MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project/app.zip')
             handler='hello'
             packages=()
             """
         ).strip(),
         dedent(
             """\
-            create or replace procedure test()
+            create or replace procedure MOCKDATABASE.MOCKSCHEMA.TEST()
             returns string
             language python
             runtime_version=3.10
-            imports=('@dev_deployment/my_snowpark_project/app.zip')
+            imports=('@MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project/app.zip')
             handler='test'
             packages=()
             """
@@ -88,6 +106,9 @@ def test_deploy_procedure_with_external_access(
     mock_ctx,
     project_directory,
 ):
+    mock_object_manager.return_value.to_fully_qualified_name = (
+        _mock_fully_qualified_name
+    )
     mock_object_manager.return_value.describe.side_effect = ProgrammingError(
         "does not exist or not authorized"
     )
@@ -110,20 +131,23 @@ def test_deploy_procedure_with_external_access(
     assert result.exit_code == 0, result.output
     mock_object_manager.return_value.describe.assert_has_calls(
         [
-            call(object_type=str(ObjectType.PROCEDURE), name="procedureName(string)"),
+            call(
+                object_type=str(ObjectType.PROCEDURE),
+                name="DB.PUBLIC.PROCEDURENAME(string) (why?)",
+            ),
         ]
     )
     assert ctx.get_queries() == [
-        "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
-        f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project"
+        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT comment='deployments managed by snowcli'",
+        f"put file://{Path(project_dir).resolve()}/app.zip @MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace procedure procedureName(name string)
+            create or replace procedure MOCKDATABASE.MOCKSCHEMA.PROCEDURENAME(name string)
             returns string
             language python
             runtime_version=3.8
-            imports=('@dev_deployment/my_snowpark_project/app.zip')
+            imports=('@MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project/app.zip')
             handler='app.hello'
             packages=()
             external_access_integrations=(external_1,external_2)
@@ -206,6 +230,9 @@ def test_deploy_procedure_fails_if_object_exists_and_no_replace(
     project_directory,
     snapshot,
 ):
+    mock_object_manager.return_value.to_fully_qualified_name = (
+        _mock_fully_qualified_name
+    )
     mock_object_manager.return_value.describe.return_value = mock_cursor(
         [
             ("packages", "[]"),
@@ -237,6 +264,9 @@ def test_deploy_procedure_replace_nothing_to_update(
     mock_ctx,
     project_directory,
 ):
+    mock_object_manager.return_value.to_fully_qualified_name = (
+        _mock_fully_qualified_name
+    )
     mock_object_manager.return_value.describe.side_effect = [
         mock_cursor(
             [
@@ -264,11 +294,15 @@ def test_deploy_procedure_replace_nothing_to_update(
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == [
         {
-            "object": "procedureName(name string)",
+            "object": "MOCKDATABASE.MOCKSCHEMA.PROCEDURENAME(name string)",
             "status": "packages updated",
             "type": "procedure",
         },
-        {"object": "test()", "status": "packages updated", "type": "procedure"},
+        {
+            "object": "MOCKDATABASE.MOCKSCHEMA.TEST()",
+            "status": "packages updated",
+            "type": "procedure",
+        },
     ]
 
 
@@ -282,6 +316,9 @@ def test_deploy_procedure_replace_updates_single_object(
     mock_ctx,
     project_directory,
 ):
+    mock_object_manager.return_value.to_fully_qualified_name = (
+        _mock_fully_qualified_name
+    )
     mock_object_manager.return_value.describe.side_effect = [
         mock_cursor(
             [
@@ -309,11 +346,15 @@ def test_deploy_procedure_replace_updates_single_object(
     assert result.exit_code == 0
     assert json.loads(result.output) == [
         {
-            "object": "procedureName(name string)",
+            "object": "MOCKDATABASE.MOCKSCHEMA.PROCEDURENAME(name string)",
             "status": "packages updated",
             "type": "procedure",
         },
-        {"object": "test()", "status": "definition updated", "type": "procedure"},
+        {
+            "object": "MOCKDATABASE.MOCKSCHEMA.TEST()",
+            "status": "definition updated",
+            "type": "procedure",
+        },
     ]
 
 
@@ -327,6 +368,9 @@ def test_deploy_procedure_replace_creates_missing_object(
     mock_ctx,
     project_directory,
 ):
+    mock_object_manager.return_value.to_fully_qualified_name = (
+        _mock_fully_qualified_name
+    )
     mock_object_manager.return_value.describe.side_effect = [
         mock_cursor(
             [
@@ -347,11 +391,15 @@ def test_deploy_procedure_replace_creates_missing_object(
     assert result.exit_code == 0
     assert json.loads(result.output) == [
         {
-            "object": "procedureName(name string)",
+            "object": "MOCKDATABASE.MOCKSCHEMA.PROCEDURENAME(name string)",
             "status": "packages updated",
             "type": "procedure",
         },
-        {"object": "test()", "status": "created", "type": "procedure"},
+        {
+            "object": "MOCKDATABASE.MOCKSCHEMA.TEST()",
+            "status": "created",
+            "type": "procedure",
+        },
     ]
 
 

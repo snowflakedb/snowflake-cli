@@ -146,7 +146,8 @@ class SqlExecutionMixin:
             return f"{database}.{name}".upper()
 
         schema = schema or self._conn.schema or "public"
-        return f"{self._conn.database}.{schema}.{name}".upper()
+        database = database or self._conn.database
+        return f"{database}.{schema}.{name}".upper()
 
     def show_specific_object(
         self,
