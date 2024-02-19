@@ -63,7 +63,7 @@ def _render_usage(
             arguments.append(param)
         else:
             options.append(param)
-    file_path = root / f"usage-{command_name}.rst"
+    file_path = root / f"usage-{command_name}.txt"
     log.info("Creating %s", file_path)
     with open(file_path, "w+") as fh:
         fh.write(
