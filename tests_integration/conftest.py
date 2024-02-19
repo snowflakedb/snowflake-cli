@@ -19,6 +19,7 @@ from strictyaml import as_document
 from typer import Typer
 from typer.testing import CliRunner
 
+from tests.conftest import clean_logging_handlers_fixture
 from tests.testing_utils.fixtures import snowflake_home, temp_dir
 
 pytest_plugins = [
@@ -177,4 +178,4 @@ def isolate_snowflake_home(snowflake_home):
     yield snowflake_home
 
 
-__all__ = ["snowflake_home", "temp_dir"]
+__all__ = ["snowflake_home", "temp_dir", "clean_logging_handlers_fixture"]
