@@ -127,7 +127,7 @@ class TestPackage:
         )
         assert any(["dummy_pkg_for_tests-1.0.dist-info" in file for file in files])
 
-    # @pytest.mark.integration
+    @pytest.mark.integration
     def test_package_with_native_libraries(self, directory_for_test, runner):
         result = runner.invoke_with_connection(
             [
