@@ -13,6 +13,11 @@ class PypiOption(Enum):
     ASK = "ask"
 
 
+class RequirementType(Enum):
+    FILE = "file"
+    PACKAGE = "package"
+
+
 class Requirement(requirement.Requirement):
     @classmethod
     def parse_line(cls, line: str) -> Requirement:

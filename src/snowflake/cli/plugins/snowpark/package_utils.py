@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from pathlib import Path
 from typing import List
 
@@ -13,6 +14,7 @@ from packaging.version import parse
 from snowflake.cli.plugins.snowpark.models import (
     PypiOption,
     Requirement,
+    RequirementType,
     RequirementWithFilesAndDeps,
     SplitRequirements,
     pip_failed_msg,
@@ -122,12 +124,14 @@ def install_packages(
     """
     with Venv() as v:
         if file_name is not None:
-            pip_install_result = v.pip_install(file_name, "file")
-            dependencies = v.get_package_dependencies(file_name, "file")
+            pip_install_result = v.pip_install(file_name, RequirementType.FILE)
+            dependencies = v.get_package_dependencies(file_name, RequirementType.FILE)
 
         if package_name is not None:
-            pip_install_result = v.pip_install(package_name, "package")
-            dependencies = v.get_package_dependencies(package_name, "package")
+            pip_install_result = v.pip_install(package_name, RequirementType.PACKAGE)
+            dependencies = v.get_package_dependencies(
+                package_name, RequirementType.FILE
+            )
 
         if pip_install_result != 0:
             log.info(pip_failed_msg.format(pip_install_result))
@@ -250,12 +254,12 @@ def _perform_native_libraries_check(
 
 def create_zip_name(name: str) -> str:
     if name.startswith("git+"):
-        return (
-            name.replace("git+https://github.com/", "")
-            .replace(".git", "")
-            .split("/")[-1]
-            + ".zip"
-        )
+        pattern = r"github\.com\/([^\/]+)\/([^\/.]+)(\.git)?"
+        if match := re.search(pattern, name):
+            return match.group(2) + ".zip"
+        else:
+            return "package.zip"
+
     elif name.endswith(".zip"):
         return name
     else:

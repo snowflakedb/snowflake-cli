@@ -10,6 +10,7 @@ from typing import Dict, List
 
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
+    RequirementType,
     RequirementWithFilesAndDeps,
 )
 
@@ -45,9 +46,9 @@ class Venv:
 
         return process
 
-    def pip_install(self, name: str, req_type: str):
+    def pip_install(self, name: str, req_type: RequirementType):
         arguments = ["-m", "pip", "install"]
-        arguments += ["-r", name] if req_type == "file" else [name]
+        arguments += ["-r", name] if req_type == RequirementType.FILE else [name]
         process = self.run_python(arguments)
 
         return process.returncode
@@ -67,13 +68,13 @@ class Venv:
         ][0]
 
     def get_package_dependencies(
-        self, name: str, req_type: str
+        self, name: str, req_type: RequirementType
     ) -> List[RequirementWithFilesAndDeps]:
 
-        if req_type == "package":
+        if req_type == RequirementType.PACKAGE:
             dependencies = self._get_dependencies(Requirement.parse_line(name))
 
-        elif req_type == "file":
+        elif req_type == RequirementType.FILE:
             with open(name, "r") as req_file:
                 dependencies = [
                     package
@@ -91,7 +92,9 @@ class Venv:
 
         for dependency in package_info.dependencies:
             if dependency:
-                result += self._get_dependencies(Requirement.parse_line(dependency))
+                result.extend(
+                    self._get_dependencies(Requirement.parse_line(dependency))
+                )
 
         return result
 

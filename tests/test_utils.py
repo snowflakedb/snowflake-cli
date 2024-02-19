@@ -278,3 +278,19 @@ def test_check_if_package_is_avaiable_in_conda(argument, expected):
         )
         == expected
     )
+
+
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        ("package", "package.zip"),
+        ("package.zip", "package.zip"),
+        ("git+https://github.com/Snowflake-Labs/snowflake-cli/", "snowflake-cli.zip"),
+        (
+            "git+https://github.com/Snowflake-Labs/snowflake-cli.git/@snow-123456-fix",
+            "snowflake-cli.zip",
+        ),
+    ],
+)
+def test_create_zip_name(name: str, expected: str):
+    assert package_utils.create_zip_name(name) == expected
