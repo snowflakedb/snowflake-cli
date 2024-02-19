@@ -248,7 +248,7 @@ def _perform_native_libraries_check(
         )
 
     else:
-        log.info("No non-supported native libraries found in packages (Good news!)...")
+        log.info("Unsupported native libraries not found in packages (Good news!)...")
         return True
 
 

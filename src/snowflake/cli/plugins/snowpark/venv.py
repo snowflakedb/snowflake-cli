@@ -75,12 +75,15 @@ class Venv:
             dependencies = self._get_dependencies(Requirement.parse_line(name))
 
         elif req_type == RequirementType.FILE:
-            with open(name, "r") as req_file:
-                dependencies = [
-                    package
-                    for line in req_file
-                    for package in self._get_dependencies(Requirement.parse_line(line))
-                ]
+            if Path(name).exists():
+                with open(name, "r") as req_file:
+                    dependencies = [
+                        package
+                        for line in req_file
+                        for package in self._get_dependencies(Requirement.parse_line(line))
+                    ]
+            else:
+                dependencies = []
 
         return dependencies
 
