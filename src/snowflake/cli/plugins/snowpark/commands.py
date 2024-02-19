@@ -79,13 +79,6 @@ def deploy(
     database = snowpark.get("database") or options.get("database")
     schema = snowpark.get("schema") or options.get("schema")
 
-    import json
-
-    print("=== options ===")
-    print(json.dumps(options, indent=2))
-    print("=== snowpark ===")
-    print(json.dumps(snowpark, indent=2))
-
     procedures = snowpark.get("procedures", [])
     functions = snowpark.get("functions", [])
 
@@ -108,8 +101,12 @@ def deploy(
 
     _check_if_all_defined_integrations_exists(om, functions, procedures)
 
-    existing_functions = _find_existing_objects(ObjectType.FUNCTION, functions, om)
-    existing_procedures = _find_existing_objects(ObjectType.PROCEDURE, procedures, om)
+    existing_functions = _find_existing_objects(
+        ObjectType.FUNCTION, functions, om, database=database, schema=schema
+    )
+    existing_procedures = _find_existing_objects(
+        ObjectType.PROCEDURE, procedures, om, database=database, schema=schema
+    )
 
     if (existing_functions or existing_procedures) and not replace:
         msg = "Following objects already exists. Consider using --replace.\n"
@@ -174,10 +171,18 @@ def deploy(
 
 
 def _find_existing_objects(
-    object_type: ObjectType, objects: List[Dict], om: ObjectManager
+    object_type: ObjectType,
+    objects: List[Dict],
+    om: ObjectManager,
+    database: Optional[str] = None,
+    schema: Optional[str] = None,
 ):
     existing_objects = {}
     for object_definition in objects:
+        object_definition = dict(object_definition)
+        object_definition["name"] = om.to_fully_qualified_name(
+            object_definition["name"], database=database, schema=schema
+        )
         identifier = build_udf_sproc_identifier(
             object_definition, include_parameter_names=False
         )
