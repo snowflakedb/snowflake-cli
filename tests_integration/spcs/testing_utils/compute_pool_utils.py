@@ -113,7 +113,7 @@ class ComputePoolTestSteps:
         assert contains_row_with(description.json, {"comment": None})
 
     def wait_until_compute_pool_is_idle(self, compute_pool_name: str) -> None:
-        self._wait_until_compute_pool_reaches_state(compute_pool_name, "IDLE", 300)
+        self._wait_until_compute_pool_reaches_state(compute_pool_name, "IDLE", 900)
 
     def wait_until_compute_pool_is_suspended(self, compute_pool_name: str) -> None:
         self._wait_until_compute_pool_reaches_state(compute_pool_name, "SUSPENDED", 60)
@@ -131,7 +131,7 @@ class ComputePoolTestSteps:
             time.sleep(10)
         status = self._execute_describe(compute_pool_name)
 
-        error_message = f"Compute pool {compute_pool_name} didn't reach target state '{target_state}' in {max_duration} seconds. Current state is '{status.json['state']}'"
+        error_message = f"Compute pool {compute_pool_name} didn't reach target state '{target_state}' in {max_duration} seconds. Current state is '{status.json[0]['state']}'"
         pytest.fail(error_message)
 
     def _execute_describe(self, compute_pool_name: str):
