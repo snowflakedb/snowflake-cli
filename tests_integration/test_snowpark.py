@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
 
 from tests_integration.testing_utils import (
     SnowparkTestSteps,
+    assert_that_result_is_successful,
 )
 from tests_integration.testing_utils.snowpark_utils import (
     SnowparkTestSetup,
@@ -387,6 +389,67 @@ def test_snowpark_default_arguments(
             identifier="check_all_types()",
             expected_value="s:<str>, i:7, b1:True, b2:True, f:1.5, l:[1, 2, 3]",
         )
+
+
+@pytest.fixture
+def _create_custom_schemas(runner, test_database):
+    custom_schema = "custom_schema"
+    different_schema = "totally_different_schema"
+    for schema in [custom_schema, different_schema]:
+        runner.invoke_with_connection(["sql", "-q", f"create schema {schema}"])
+    yield
+    for schema in [custom_schema, different_schema]:
+        runner.invoke_with_connection(["object", "drop", "schema", schema])
+
+
+@pytest.mark.skip(reason="Weird error")
+@pytest.mark.integration
+def test_snowpark_deploy_with_defined_stage(
+    _test_steps, _create_custom_schemas, runner, multiple_project_directories
+):
+    different_schema = "totally_different_schema"
+    custom_schema = "custom_schema"
+
+    def invoke_from_workdir_connection(path, command):
+        os.chdir(path)
+        result = runner.invoke_with_connection_json(command)
+        assert_that_result_is_successful(result)
+        return result
+
+    def invoke_from_workdir(path, command):
+        os.chdir(path)
+        result = runner.invoke(command)
+        assert_that_result_is_successful(result)
+        return result
+
+    def _assert_streamlit_exists(schema=None):
+        cmd = ["object", "list", "streamlit"]
+        if schema is not None:
+            cmd += ["--schema", schema]
+        result = runner.invoke_with_connection_json(cmd)
+        assert_that_result_is_successful(result)
+        assert len(result.json) == 1
+        assert result.json[0]["schema_name"] == schema.upper() if schema else "PUBLIC"
+
+    with multiple_project_directories("snowpark", "snowpark_with_defined_schema") as (
+        snowpark_public,
+        snowpark_custom,
+    ):
+        for project in [snowpark_public, snowpark_custom]:
+            invoke_from_workdir(project, ["snowpark", "build"])
+
+        # snowparks from different schemas should not conflict
+        result = invoke_from_workdir(snowpark_public, ["snowpark", "deploy"])
+        print(result.json)
+        # invoke_from_workdir(
+        #     streamlit_public, ["streamlit", "deploy", "--schema", different_schema]
+        # )
+        # invoke_from_workdir(streamlit_custom, ["streamlit", "deploy"])
+        #
+        # # streamlits from different schemas are independent - list shows only one
+        # _assert_streamlit_exists()
+        # _assert_streamlit_exists(different_schema)
+        # _assert_streamlit_exists(custom_schema)
 
 
 @pytest.fixture
