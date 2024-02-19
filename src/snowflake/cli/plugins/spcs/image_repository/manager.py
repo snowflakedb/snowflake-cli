@@ -25,7 +25,10 @@ class ImageRepositoryManager(SqlExecutionMixin):
             raise ValueError(
                 f"repo_name '{repo_name}' is not a valid unquoted Snowflake identifier"
             )
-        repo_row = self.show_specific_object("image repositories", repo_name)
+        # we explicitly do not allow this function to be used without connection database and schema set
+        repo_row = self.show_specific_object(
+            "image repositories", repo_name, check_schema=True
+        )
         if repo_row is None:
             raise ClickException(
                 f"Image repository '{repo_name}' does not exist in database '{self.get_database()}' and schema '{self.get_schema()}' or not authorized."
