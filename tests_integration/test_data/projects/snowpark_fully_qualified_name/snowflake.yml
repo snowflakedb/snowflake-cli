@@ -38,12 +38,3 @@ snowpark:
         - name: "name"
           type: "string"
       returns: string
-#     TODO: unit test for this definition
-#    - name: "custom_database.custom_schema.fqn_function2"
-#      database: custom_database
-#      schema: custom_schema
-#      handler: "app.hello_function"
-#      signature:
-#        - name: "name"
-#          type: "string"
-#      returns: string

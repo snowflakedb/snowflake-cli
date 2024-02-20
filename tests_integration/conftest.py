@@ -20,7 +20,7 @@ from typer import Typer
 from typer.testing import CliRunner
 
 from tests.conftest import clean_logging_handlers_fixture
-from tests.testing_utils.fixtures import snowflake_home
+from tests.testing_utils.fixtures import alter_snowflake_yml, snowflake_home
 
 pytest_plugins = [
     "tests_integration.testing_utils",
@@ -116,31 +116,6 @@ def runner(test_snowcli_config_provider):
     return SnowCLIRunner(app, test_snowcli_config_provider)
 
 
-@pytest.fixture
-def alter_snowflake_yml():
-    def _update(snowflake_yml_path: Path, parameter_path: str, value):
-        import yaml
-
-        with open(snowflake_yml_path) as fh:
-            yml = yaml.safe_load(fh)
-
-        parts = parameter_path.split(".")
-        current_object = yml
-        while parts:
-            part = parts.pop(0)
-            evaluated_part = int(part) if part.isdigit() else part
-
-            if parts:
-                current_object = current_object[evaluated_part]
-            else:
-                current_object[evaluated_part] = value
-
-        with open(snowflake_yml_path, "w+") as fh:
-            yaml.safe_dump(yml, fh)
-
-    return _update
-
-
 class QueryResultJsonEncoderError(RuntimeError):
     def __init__(self, output: str):
         super().__init__(f"Can not parse query result:\n{output}")
@@ -178,4 +153,4 @@ def isolate_snowflake_home(snowflake_home):
     yield snowflake_home
 
 
-__all__ = ["snowflake_home", "clean_logging_handlers_fixture"]
+__all__ = ["alter_snowflake_yml", "snowflake_home", "clean_logging_handlers_fixture"]
