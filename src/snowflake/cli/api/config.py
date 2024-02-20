@@ -66,7 +66,7 @@ def add_connection(name: str, parameters: dict):
 
 
 _DEFAULT_LOGS_CONFIG = {
-    "save_logs": False,
+    "save_logs": True,
     "path": str(CONFIG_MANAGER.file_path.parent / "logs"),
     "level": "info",
 }
@@ -96,10 +96,6 @@ def get_plugins_config() -> dict:
         return get_config_section(*PLUGINS_SECTION_PATH)
     else:
         return {}
-
-
-def is_default_logs_path(path: SecurePath) -> bool:
-    return path.path.resolve() == Path(str(_DEFAULT_LOGS_CONFIG["path"])).resolve()
 
 
 def connection_exists(connection_name: str) -> bool:
