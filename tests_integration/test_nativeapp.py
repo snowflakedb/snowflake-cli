@@ -2,6 +2,8 @@ import os
 import uuid
 
 from snowflake.cli.api.project.util import generate_user_env
+from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.plugins.nativeapp.init import OFFICIAL_TEMPLATES_GITHUB_URL
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
@@ -450,3 +452,43 @@ def test_nativeapp_upgrade(
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+
+
+# Tests initialization of a project from a repo with a single template
+@pytest.mark.integration
+def test_nativeapp_init_from_repo_with_single_template(
+    runner,
+    snowflake_session,
+    temporary_working_directory,
+):
+    from git import Repo
+
+    with SecurePath.temporary_directory() as all_templates_local_repo_path:
+        # prepare a local repository with only one template (basic)
+        all_templates_local_repo = Repo.clone_from(
+            url=OFFICIAL_TEMPLATES_GITHUB_URL,
+            to_path=all_templates_local_repo_path.path,
+            filter=["tree:0"],
+            depth=1,
+        )
+        all_templates_local_repo.close()
+        (all_templates_local_repo_path / ".git").rmdir(recursive=True, missing_ok=True)
+
+        single_template_repo_path = all_templates_local_repo_path / "basic"
+        single_template_local_repo = Repo.init(single_template_repo_path.path)
+        single_template_local_repo.index.add(["**/*", "*", ".gitignore"])
+        single_template_local_repo.index.commit("initial commit")
+
+        # confirm that no error is thrown when initializing a project from a repo with a single template
+        project_name = "myapp"
+        result = runner.invoke_json(
+            [
+                "app",
+                "init",
+                "--template-repo",
+                f"file://{single_template_repo_path.path}",
+                project_name,
+            ],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
