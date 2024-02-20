@@ -7,6 +7,7 @@ from typing import List
 import click
 import typer
 from requirements.requirement import Requirement
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.models import PypiOption
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
@@ -100,6 +101,6 @@ def snowpark_package(
 
 def _write_requirements_file(file_name: str, requirements: List[Requirement]):
     log.info("Writing %s file", file_name)
-    with open(file_name, "w", encoding="utf-8") as f:
+    with SecurePath(file_name).open("w", encoding="utf-8") as f:
         for req in requirements:
             f.write(f"{req.line}\n")

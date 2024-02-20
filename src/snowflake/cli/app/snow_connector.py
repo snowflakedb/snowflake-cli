@@ -8,10 +8,12 @@ from typing import Dict, Optional
 import snowflake.connector
 from click.exceptions import ClickException
 from snowflake.cli.api.config import get_connection, get_default_connection
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import (
     InvalidConnectionConfiguration,
     SnowflakeConnectionError,
 )
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.app.telemetry import command_info
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.errors import DatabaseError, ForbiddenError
@@ -104,7 +106,9 @@ def _load_pem_to_der(private_key_path: str) -> bytes:
         load_pem_private_key,
     )
 
-    with open(private_key_path, "rb") as f:
+    with SecurePath(private_key_path).open(
+        "rb", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
+    ) as f:
         private_key_pem = f.read()
 
     private_key_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
@@ -129,9 +133,11 @@ def _load_pem_to_der(private_key_path: str) -> bytes:
 
     private_key = load_pem_private_key(
         private_key_pem,
-        str.encode(private_key_passphrase)
-        if private_key_passphrase is not None
-        else private_key_passphrase,
+        (
+            str.encode(private_key_passphrase)
+            if private_key_passphrase is not None
+            else private_key_passphrase
+        ),
         default_backend(),
     )
 
