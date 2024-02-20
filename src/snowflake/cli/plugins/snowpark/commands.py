@@ -12,6 +12,7 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.flags import (
+    ReplaceOption,
     execution_identifier_argument,
 )
 from snowflake.cli.api.commands.project_initialisation import add_init_command
@@ -50,12 +51,6 @@ app = SnowTyper(
     help="Manages procedures and functions.",
 )
 
-ReplaceOption = typer.Option(
-    False,
-    "--replace",
-    help="Replaces procedure or function, even if no detected changes to metadata",
-)
-
 ObjectTypeArgument = typer.Argument(
     help="Type of Snowpark object",
     case_sensitive=False,
@@ -67,7 +62,7 @@ add_init_command(app, project_type="Snowpark", template="default_snowpark")
 @app.command("deploy", requires_connection=True)
 @with_project_definition("snowpark")
 def deploy(
-    replace: bool = ReplaceOption,
+    replace: bool = ReplaceOption(help="Replaces procedure or function, even if no detected changes to metadata"),
     **options,
 ) -> CommandResult:
     """

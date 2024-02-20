@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import Optional
 
 import click
 import typer
@@ -10,6 +9,7 @@ from snowflake.cli.api.commands.decorators import (
     with_experimental_behaviour,
     with_project_definition,
 )
+from snowflake.cli.api.commands.flags import ReplaceOption
 from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import (
@@ -70,12 +70,7 @@ def _default_file_callback(param_name: str):
 @with_project_definition("streamlit")
 @with_experimental_behaviour()
 def streamlit_deploy(
-    replace: Optional[bool] = typer.Option(
-        False,
-        "--replace",
-        help="Replace the Streamlit if it already exists.",
-        is_flag=True,
-    ),
+    replace: bool = ReplaceOption(help="Replace the Streamlit if it already exists."),
     open_: bool = typer.Option(
         False, "--open", help="Whether to open Streamlit in a browser.", is_flag=True
     ),
