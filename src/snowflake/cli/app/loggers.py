@@ -7,7 +7,6 @@ from typing import Any, Dict, List
 import typer
 from snowflake.cli.api.config import (
     get_logs_config,
-    is_default_logs_path,
 )
 from snowflake.cli.api.exceptions import InvalidLogsConfiguration
 
@@ -86,16 +85,11 @@ class FileLogsConfig:
 
         self._check_log_level(config)
         if self.save_logs:
-            self._check_logs_directory_exists()
+            self._create_logs_directory_if_not_exists()
 
-    def _check_logs_directory_exists(self):
+    def _create_logs_directory_if_not_exists(self):
         if not self.path.exists():
-            if is_default_logs_path(self.path):
-                self.path.mkdir(parents=True)
-            else:
-                raise InvalidLogsConfiguration(
-                    f"Directory '{self.path}' does not exist"
-                )
+            self.path.mkdir(parents=True)
 
     def _check_log_level(self, config):
         possible_log_levels = [

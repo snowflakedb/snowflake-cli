@@ -22,7 +22,6 @@ def setup_config_and_logs(snowflake_home):
         level: Optional[str] = None,
         verbose: bool = False,
         debug: bool = False,
-        do_not_create_directory: bool = True,
         use_custom_logs_path=False,
     ):
         logs_path = snowflake_home / "logs"
@@ -30,8 +29,6 @@ def setup_config_and_logs(snowflake_home):
             logs_path = snowflake_home / "custom" / "logs"
 
         config_path = snowflake_home / "config.toml"
-        if not do_not_create_directory:
-            logs_path.mkdir(parents=True)
         config_path.write_text(
             "\n".join(
                 x
@@ -40,7 +37,9 @@ def setup_config_and_logs(snowflake_home):
                     "",
                     "[cli.logs]",
                     f'path = "{logs_path}"' if use_custom_logs_path else None,
-                    f"save_logs = {str(save_logs).lower()}" if save_logs else None,
+                    f"save_logs = {str(save_logs).lower()}"
+                    if save_logs is not None
+                    else None,
                     f'level = "{level}"' if level else None,
                 ]
                 if x is not None
@@ -96,8 +95,8 @@ def assert_file_log_level(logs_path: Path, expected_level: str) -> None:
     assert_log_level(_get_logs_file(logs_path).read_text(), expected_level)
 
 
-def assert_log_dir_is_empty(logs_path: Path) -> None:
-    assert len(list(logs_path.iterdir())) == 0
+def assert_log_is_empty(logs_path: Path) -> None:
+    assert _get_logs_file(logs_path).read_text() == ""
 
 
 def test_logs_section_appears_in_fresh_config_file(temp_dir):
@@ -105,36 +104,30 @@ def test_logs_section_appears_in_fresh_config_file(temp_dir):
     assert config_file.exists() is False
     config_init(config_file)
     assert config_file.exists() is True
-    assert '[cli.logs]\nsave_logs = false\npath = "' in config_file.read_text()
+    assert '[cli.logs]\nsave_logs = true\npath = "' in config_file.read_text()
     assert '/logs"\nlevel = "info"' in config_file.read_text()
 
 
-def test_logs_not_saved_by_default(setup_config_and_logs):
-    with setup_config_and_logs(do_not_create_directory=False) as logs_path:
+def test_logs_saved_by_default(setup_config_and_logs):
+    with setup_config_and_logs(save_logs=True) as logs_path:
         print_log_messages()
-        assert_log_dir_is_empty(logs_path)
+        assert_file_log_level(logs_path, expected_level="info")
 
 
 def test_default_logs_location_is_created_automatically(setup_config_and_logs):
-    with setup_config_and_logs(
-        save_logs=True, do_not_create_directory=True
-    ) as logs_path:
+    with setup_config_and_logs(save_logs=True) as logs_path:
         print_log_messages()
         assert logs_path.exists()
 
 
 def test_logs_can_be_turned_off_by_config(setup_config_and_logs):
-    with setup_config_and_logs(
-        save_logs=False, do_not_create_directory=False
-    ) as logs_path:
+    with setup_config_and_logs(save_logs=False) as logs_path:
         print_log_messages()
-        assert_log_dir_is_empty(logs_path)
+        assert_log_is_empty(logs_path)
 
 
 def test_logs_path_is_configurable(setup_config_and_logs):
-    with setup_config_and_logs(
-        save_logs=True, do_not_create_directory=False, use_custom_logs_path=True
-    ) as logs_path:
+    with setup_config_and_logs(save_logs=True, use_custom_logs_path=True) as logs_path:
         print_log_messages()
         assert_file_log_level(logs_path, expected_level="info")
 
@@ -178,17 +171,6 @@ def test_stdout_log_level_remains_error(capsys, setup_config_and_logs):
         print_log_messages()
         captured = capsys.readouterr()
         assert_log_level(captured.out + captured.err, expected_level="error")
-
-
-def test_custom_log_directory_does_not_exist(setup_config_and_logs):
-    try:
-        with setup_config_and_logs(
-            save_logs=True, do_not_create_directory=True, use_custom_logs_path=True
-        ):
-            assert False, "Bug: below error should be thrown"
-    except InvalidLogsConfiguration as e:
-        assert e.message.startswith("Directory '")
-        assert e.message.endswith("' does not exist")
 
 
 def test_incorrect_log_level_in_config(setup_config_and_logs):

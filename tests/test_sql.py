@@ -101,15 +101,17 @@ def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
     assert result.exit_code == 0, result.output
     mock_conn.assert_called_once_with(
         temporary_connection=False,
+        mfa_passcode=None,
         connection_name="connectionName",
         account="accountnameValue",
         user="usernameValue",
-        warehouse="warehouseValue",
+        password="passFromTest",
+        authenticator=None,
+        private_key_path=None,
         database="dbnameValue",
         schema="schemanameValue",
         role="rolenameValue",
-        password="passFromTest",
-        mfa_passcode=None,
+        warehouse="warehouseValue",
     )
 
 
@@ -155,7 +157,7 @@ def test_show_specific_object_no_match(mock_execute, mock_cursor):
     mock_execute.assert_called_once_with(
         r"show objects like 'EXAMPLE\\_ID'", cursor_class=DictCursor
     )
-    assert result == None
+    assert result is None
 
 
 @mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
