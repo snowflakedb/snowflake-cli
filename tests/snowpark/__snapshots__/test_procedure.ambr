@@ -12,8 +12,8 @@
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
   │ Following objects already exists. Consider using --replace.                  │
-  │ procedure: DB.PUBLIC.PROCEDURENAME(string)                                   │
-  │ procedure: DB.PUBLIC.TEST()                                                  │
+  │ procedure: MOCKDATABASE.MOCKSCHEMA.PROCEDURENAME(string)                     │
+  │ procedure: MOCKDATABASE.MOCKSCHEMA.TEST()                                    │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   '''

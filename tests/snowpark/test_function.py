@@ -31,16 +31,16 @@ def test_deploy_function(
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
-        f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project"
+        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT comment='deployments managed by snowcli'",
+        f"put file://{Path(project_dir).resolve()}/app.zip @MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace function func1(a string default 'default value', b variant)
+            create or replace function MOCKDATABASE.MOCKSCHEMA.FUNC1(a string default 'default value', b variant)
             returns string
             language python
             runtime_version=3.10
-            imports=('@dev_deployment/my_snowpark_project/app.zip')
+            imports=('@MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project/app.zip')
             handler='app.func1_handler'
             packages=()
             """
@@ -78,16 +78,16 @@ def test_deploy_function_with_external_access(
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
-        f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project"
+        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT comment='deployments managed by snowcli'",
+        f"put file://{Path(project_dir).resolve()}/app.zip @MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace function func1(a string, b variant)
+            create or replace function MOCKDATABASE.MOCKSCHEMA.FUNC1(a string, b variant)
             returns string
             language python
             runtime_version=3.8
-            imports=('@dev_deployment/my_snowpark_project/app.zip')
+            imports=('@MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project/app.zip')
             handler='app.func1_handler'
             packages=()
             external_access_integrations=(external_1,external_2)
@@ -153,14 +153,14 @@ def test_deploy_function_no_changes(
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == [
         {
-            "object": "func1(a string default 'default value', b variant)",
+            "object": "MOCKDATABASE.MOCKSCHEMA.FUNC1(a string default 'default value', b variant)",
             "status": "packages updated",
             "type": "function",
         }
     ]
     assert queries == [
-        "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
-        f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
+        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT comment='deployments managed by snowcli'",
+        f"put file://{Path(project_dir).resolve()}/app.zip @MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
     ]
 
 
@@ -191,21 +191,21 @@ def test_deploy_function_needs_update_because_packages_changes(
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == [
         {
-            "object": "func1(a string default 'default value', b variant)",
+            "object": "MOCKDATABASE.MOCKSCHEMA.FUNC1(a string default 'default value', b variant)",
             "status": "definition updated",
             "type": "function",
         }
     ]
     assert queries == [
-        "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
-        f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
+        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT comment='deployments managed by snowcli'",
+        f"put file://{Path(project_dir).resolve()}/app.zip @MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace function func1(a string default 'default value', b variant)
+            create or replace function MOCKDATABASE.MOCKSCHEMA.FUNC1(a string default 'default value', b variant)
             returns string
             language python
             runtime_version=3.10
-            imports=('@dev_deployment/my_snowpark_project/app.zip')
+            imports=('@MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project/app.zip')
             handler='app.func1_handler'
             packages=('foo=1.2.3','bar>=3.0.0')
             """
@@ -240,22 +240,22 @@ def test_deploy_function_needs_update_because_handler_changes(
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == [
         {
-            "object": "func1(a string default 'default value', b variant)",
+            "object": "MOCKDATABASE.MOCKSCHEMA.FUNC1(a string default 'default value', b variant)",
             "status": "definition updated",
             "type": "function",
         }
     ]
     assert queries == [
-        "create stage if not exists dev_deployment comment='deployments managed by snowcli'",
-        f"put file://{Path(project_dir).resolve()}/app.zip @dev_deployment/my_snowpark_project"
+        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT comment='deployments managed by snowcli'",
+        f"put file://{Path(project_dir).resolve()}/app.zip @MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace function func1(a string default 'default value', b variant)
+            create or replace function MOCKDATABASE.MOCKSCHEMA.FUNC1(a string default 'default value', b variant)
             returns string
             language python
             runtime_version=3.10
-            imports=('@dev_deployment/my_snowpark_project/app.zip')
+            imports=('@MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project/app.zip')
             handler='app.func1_handler'
             packages=('foo=1.2.3','bar>=3.0.0')
             """
@@ -291,8 +291,12 @@ def _deploy_function(
 ):
     ctx = mock_ctx(mock_cursor(rows=rows, columns=[]))
     mock_connector.return_value = ctx
-    with mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager") as om:
-        om.return_value.describe.return_value = rows
+    with mock.patch(
+        "snowflake.cli.plugins.snowpark.commands.ObjectManager.describe"
+    ) as om_describe, mock.patch(
+        "snowflake.cli.plugins.snowpark.commands.ObjectManager.show"
+    ) as om_show:
+        om_describe.return_value = rows
 
         with project_directory("snowpark_functions") as temp_dir:
             (Path(temp_dir) / "requirements.snowflake.txt").write_text(
