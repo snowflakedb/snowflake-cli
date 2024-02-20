@@ -4,7 +4,13 @@ snowpark:
   stage_name: "dev_deployment"
   src: "app/"
   functions:
-    - name: fqn_function
+    - name: db.schema.fqn_function
+      handler: "app.hello_function"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+    - name: db.schema.fqn_function2
       handler: "app.hello_function"
       signature:
         - name: "name"

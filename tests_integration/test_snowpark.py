@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
 
 from tests_integration.testing_utils import (
     SnowparkTestSteps,
-    assert_that_result_is_successful,
 )
 from tests_integration.testing_utils.snowpark_utils import (
     SnowparkTestSetup,
@@ -391,130 +389,80 @@ def test_snowpark_default_arguments(
         )
 
 
-CUSTOM_SCHEMA = "custom_schema"
-DIFFERENT_SCHEMA = "different_schema"
-
-
-@pytest.fixture
-def _create_custom_schemas(runner, test_database):
-    for schema in [CUSTOM_SCHEMA, DIFFERENT_SCHEMA]:
-        runner.invoke_with_connection(
-            ["sql", "-q", f"create schema {test_database}.{schema}"]
-        )
-
-
-@pytest.mark.skip(reason="Weird error")
 @pytest.mark.integration
-def test_snowpark_deploy_with_defined_stage(
-    _test_steps, _create_custom_schemas, runner, multiple_project_directories
-):
-    different_schema = "totally_different_schema"
-    custom_schema = "custom_schema"
-
-    def invoke_from_workdir_connection(path, command):
-        os.chdir(path)
-        result = runner.invoke_with_connection_json(command)
-        assert_that_result_is_successful(result)
-        return result
-
-    def invoke_from_workdir(path, command):
-        os.chdir(path)
-        result = runner.invoke(command)
-        assert_that_result_is_successful(result)
-        return result
-
-    def _assert_streamlit_exists(schema=None):
-        cmd = ["object", "list", "streamlit"]
-        if schema is not None:
-            cmd += ["--schema", schema]
-        result = runner.invoke_with_connection_json(cmd)
-        assert_that_result_is_successful(result)
-        assert len(result.json) == 1
-        assert result.json[0]["schema_name"] == schema.upper() if schema else "PUBLIC"
-
-    with multiple_project_directories("snowpark", "snowpark_with_defined_schema") as (
-        snowpark_public,
-        snowpark_custom,
-    ):
-        for project in [snowpark_public, snowpark_custom]:
-            invoke_from_workdir(project, ["snowpark", "build"])
-
-        # snowparks from different schemas should not conflict
-        result = invoke_from_workdir(snowpark_public, ["snowpark", "deploy"])
-        print(result.json)
-        # invoke_from_workdir(
-        #     streamlit_public, ["streamlit", "deploy", "--schema", different_schema]
-        # )
-        # invoke_from_workdir(streamlit_custom, ["streamlit", "deploy"])
-        #
-        # # streamlits from different schemas are independent - list shows only one
-        # _assert_streamlit_exists()
-        # _assert_streamlit_exists(different_schema)
-        # _assert_streamlit_exists(custom_schema)
-
-
-@pytest.mark.integration
-def test_snowpark_fqn(
+def test_snowpark_fully_qualified_name(
     _test_steps,
+    runner,
     test_database,
     project_directory,
     alter_snowflake_yml,
-    _create_custom_schemas,
 ):
     database = test_database.upper()
-    schema = "PUBLIC"
+    default_schema = "PUBLIC"
+    different_schema = "TOTALLY_DIFFERENT_SCHEMA"
 
-    with project_directory("snowpark_with_defined_schema") as tmp_dir:
+    runner.invoke_with_connection(
+        ["sql", "-q", f"create schema {database}.{different_schema}"]
+    )
+    with project_directory("snowpark_fully_qualified_name") as tmp_dir:
         _test_steps.snowpark_build_should_zip_files()
 
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
             parameter_path="snowpark.functions.0.name",
-            value=f"{database}.{schema}.fqn_function",
+            value=f"{database}.{default_schema}.fqn_function",
         )
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
-            parameter_path="snowpark.functions.1.schema",
-            value=DIFFERENT_SCHEMA,
+            parameter_path="snowpark.functions.1.name",
+            value=f"{database}.{different_schema}.fqn_function2",
         )
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
-            parameter_path="snowpark.functions.2.database",
-            value=database,
-        )
-        alter_snowflake_yml(
-            tmp_dir / "snowflake.yml",
-            parameter_path="snowpark.functions.3.schema",
-            value=DIFFERENT_SCHEMA,
+            parameter_path="snowpark.functions.2.schema",
+            value=different_schema,
         )
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
             parameter_path="snowpark.functions.3.database",
             value=database,
         )
-
-        print((tmp_dir / "snowflake.yml").read_text())
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.functions.4.schema",
+            value=different_schema,
+        )
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.functions.4.database",
+            value=database,
+        )
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{database}.PUBLIC.FQN_FUNCTION(name string)",
+                    "object": f"{database}.{default_schema}.FQN_FUNCTION(name string)",
                     "status": "created",
                     "type": "function",
                 },
                 {
-                    "object": f"{database}.DIFFERENT_SCHEMA.SCHEMA_FUNCTION(name "
+                    "object": f"{database}.{different_schema}.FQN_FUNCTION2(name string)",
+                    "status": "created",
+                    "type": "function",
+                },
+                {
+                    "object": f"{database}.{different_schema}.SCHEMA_FUNCTION(name "
                     "string)",
                     "status": "created",
                     "type": "function",
                 },
                 {
-                    "object": f"{database}.PUBLIC.DATABASE_FUNCTION(name string)",
+                    "object": f"{database}.{default_schema}.DATABASE_FUNCTION(name string)",
                     "status": "created",
                     "type": "function",
                 },
                 {
-                    "object": f"{database}.DIFFERENT_SCHEMA.DATABASE_SCHEMA_FUNCTION(name "
+                    "object": f"{database}.{different_schema}.DATABASE_SCHEMA_FUNCTION(name "
                     "string)",
                     "status": "created",
                     "type": "function",
@@ -525,23 +473,28 @@ def test_snowpark_fqn(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{database}.PUBLIC.FQN_FUNCTION(name string)",
+                    "object": f"{database}.{default_schema}.FQN_FUNCTION(name string)",
                     "status": "packages updated",
                     "type": "function",
                 },
                 {
-                    "object": f"{database}.DIFFERENT_SCHEMA.SCHEMA_FUNCTION(name "
+                    "object": f"{database}.{different_schema}.FQN_FUNCTION2(name string)",
+                    "status": "packages updated",
+                    "type": "function",
+                },
+                {
+                    "object": f"{database}.{different_schema}.SCHEMA_FUNCTION(name "
                     "string)",
                     "status": "packages updated",
                     "type": "function",
                 },
                 {
-                    "object": f"{database}.PUBLIC.DATABASE_FUNCTION(name string)",
+                    "object": f"{database}.{default_schema}.DATABASE_FUNCTION(name string)",
                     "status": "packages updated",
                     "type": "function",
                 },
                 {
-                    "object": f"{database}.DIFFERENT_SCHEMA.DATABASE_SCHEMA_FUNCTION(name "
+                    "object": f"{database}.{different_schema}.DATABASE_SCHEMA_FUNCTION(name "
                     "string)",
                     "status": "packages updated",
                     "type": "function",

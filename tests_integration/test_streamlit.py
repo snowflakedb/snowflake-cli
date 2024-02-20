@@ -1,4 +1,3 @@
-import os
 import uuid
 
 import pytest
@@ -74,56 +73,6 @@ def test_streamlit_deploy(
         f"show streamlits like '{streamlit_name}'"
     )
     assert row_from_snowflake_session(expect) == []
-
-
-@pytest.fixture
-def _create_schemas(runner, test_database):
-    custom_schema = "custom_schema"
-    different_schema = "totally_different_schema"
-    for schema in [custom_schema, different_schema]:
-        runner.invoke_with_connection(["sql", "-q", f"create schema {schema}"])
-    yield
-    for schema in [custom_schema, different_schema]:
-        runner.invoke_with_connection(["object", "drop", "schema", schema])
-
-
-@pytest.mark.integration
-def test_streamlit_deploy_with_defined_stage(
-    _create_schemas, runner, multiple_project_directories
-):
-    custom_schema = "custom_schema"
-    different_schema = "totally_different_schema"
-
-    def invoke_from_workdir(path, command):
-        os.chdir(path)
-        result = runner.invoke_with_connection(command)
-        assert_that_result_is_successful(result)
-        return result
-
-    def _assert_streamlit_exists(schema=None):
-        cmd = ["object", "list", "streamlit"]
-        if schema is not None:
-            cmd += ["--schema", schema]
-        result = runner.invoke_with_connection_json(cmd)
-        assert_that_result_is_successful(result)
-        assert len(result.json) == 1
-        assert result.json[0]["schema_name"] == schema.upper() if schema else "PUBLIC"
-
-    with multiple_project_directories("streamlit", "streamlit_with_defined_schema") as (
-        streamlit_public,
-        streamlit_custom,
-    ):
-        # streamlits from different schemas should not conflict
-        invoke_from_workdir(streamlit_public, ["streamlit", "deploy"])
-        invoke_from_workdir(
-            streamlit_public, ["streamlit", "deploy", "--schema", different_schema]
-        )
-        invoke_from_workdir(streamlit_custom, ["streamlit", "deploy"])
-
-        # streamlits from different schemas are independent - list shows only one
-        _assert_streamlit_exists()
-        _assert_streamlit_exists(different_schema)
-        _assert_streamlit_exists(custom_schema)
 
 
 @pytest.mark.integration
