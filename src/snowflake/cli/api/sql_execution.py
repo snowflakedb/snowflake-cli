@@ -142,7 +142,7 @@ class SqlExecutionMixin:
             database = self._conn.database
 
         if len(current_parts) == 2:
-            # we assume this is schema.object
+            # we assume name is in form of `schema.object`
             return f"{database}.{name}".upper()
 
         schema = schema or self._conn.schema or "public"
