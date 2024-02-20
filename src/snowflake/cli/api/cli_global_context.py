@@ -132,7 +132,7 @@ class _ConnectionContext:
         return self._cached_connection
 
     def _collect_not_empty_connection_attributes(self):
-        all_attributes = {
+        return {
             "account": self.account,
             "user": self.user,
             "password": self.password,
@@ -143,10 +143,6 @@ class _ConnectionContext:
             "role": self.role,
             "warehouse": self.warehouse,
         }
-        not_empty_attributes = {
-            k: v for (k, v) in all_attributes.items() if v is not None
-        }
-        return not_empty_attributes
 
     def _build_connection(self):
         from snowflake.cli.app.snow_connector import connect_to_snowflake
