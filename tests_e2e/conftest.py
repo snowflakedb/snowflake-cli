@@ -62,31 +62,28 @@ def _build_snowcli(venv_path: Path, test_root_path: Path) -> None:
     )
 
 
+def _pip_install(python, *args):
+    return subprocess.check_call([python, "-m", "pip", "install", *args])
+
+
 def _install_snowcli_with_external_plugin(
     venv_path: Path, test_root_path: Path
 ) -> None:
     version = __about__.VERSION
-    subprocess.check_call(
-        [
-            _python_path(venv_path),
-            "-m",
-            "pip",
-            "install",
-            test_root_path / f"../dist/snowflake_cli_labs-{version}-py3-none-any.whl",
-        ]
+    python = _python_path(venv_path)
+    _pip_install(
+        python,
+        test_root_path / f"../dist/snowflake_cli_labs-{version}-py3-none-any.whl",
     )
-    subprocess.check_call(
-        [
-            _python_path(venv_path),
-            "-m",
-            "pip",
-            "install",
-            test_root_path
-            / ".."
-            / "test_external_plugins"
-            / "multilingual_hello_command_group",
-        ]
+    _pip_install(
+        python,
+        test_root_path.parent
+        / "test_external_plugins"
+        / "multilingual_hello_command_group",
     )
+
+    # Required by snowpark example tests
+    _pip_install(python, "snowflake-snowpark-python")
 
 
 def _python_path(venv_path: Path) -> Path:
