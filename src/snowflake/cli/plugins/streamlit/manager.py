@@ -92,8 +92,6 @@ class StreamlitManager(SqlExecutionMixin):
         main_file: Path,
         environment_file: Optional[Path] = None,
         pages_dir: Optional[Path] = None,
-        database: Optional[str] = None,
-        schema: Optional[str] = None,
         stage_name: Optional[str] = None,
         query_warehouse: Optional[str] = None,
         replace: Optional[bool] = False,
@@ -101,9 +99,6 @@ class StreamlitManager(SqlExecutionMixin):
         **options,
     ):
         stage_manager = StageManager()
-        streamlit_name = stage_manager.to_fully_qualified_name(
-            streamlit_name, database=database, schema=schema
-        )
         if experimental_behaviour_enabled():
             """
             1. Create streamlit object
@@ -127,9 +122,7 @@ class StreamlitManager(SqlExecutionMixin):
                     log.info("Checkout already exists, continuing")
                 else:
                     raise
-            stage_path = stage_manager.to_fully_qualified_name(
-                streamlit_name, database=database, schema=schema
-            )
+            stage_path = stage_manager.to_fully_qualified_name(streamlit_name)
             embedded_stage_name = f"snow://streamlit/{stage_path}"
             root_location = f"{embedded_stage_name}/default_checkout"
 
@@ -149,13 +142,9 @@ class StreamlitManager(SqlExecutionMixin):
             stage_manager = StageManager()
 
             stage_name = stage_name or "streamlit"
-            stage_name = stage_manager.to_fully_qualified_name(
-                stage_name, database=database, schema=schema
-            )
+            stage_name = stage_manager.to_fully_qualified_name(stage_name)
 
-            stage_manager.create(
-                stage_name=stage_name, comment="deployments managed by snowcli"
-            )
+            stage_manager.create(stage_name=stage_name)
 
             root_location = stage_manager.get_standard_stage_name(
                 f"{stage_name}/{streamlit_name}"

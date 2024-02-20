@@ -10,8 +10,6 @@ from strictyaml import (
 streamlit_schema = RelaxedMap(
     {
         "name": Str(),
-        Optional("database", default=None): Str(),
-        Optional("schema", default=None): Str(),
         Optional("stage", default="streamlit"): Str(),
         "query_warehouse": Str(),
         Optional("main_file", default="streamlit_app.py"): FilePath(),
