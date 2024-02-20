@@ -13,6 +13,34 @@ _CONNECTION_SECTION = "Connection configuration"
 _CLI_BEHAVIOUR = "Global configuration"
 
 
+class OverrideableOption:
+    """
+    Class that allows you to generate instances of typer.models.OptionInfo with some default properties while allowing specific values to be overriden.
+    """
+
+    def __init__(self, default: Any, *param_decls: str, **kwargs):
+        self.default = default
+        self.param_decls = param_decls
+        self.kwargs = kwargs
+
+    def __call__(self, **kwargs) -> typer.models.OptionInfo:
+        """
+        Returns a typer.models.OptionInfo instance initialized with the specified default values along with any overrides
+        from kwargs.Note that if you are overriding param_decls,
+        you must pass an iterable of strings, you cannot use positional arguments like you can with typer.Option.
+        Does not modify the original instance.
+        """
+        default = kwargs.get("default", self.default)
+        param_decls = kwargs.get("param_decls", self.param_decls)
+        if not isinstance(param_decls, list) and not isinstance(param_decls, tuple):
+            raise TypeError("param_decls must be a list or tuple")
+        passed_kwargs = self.kwargs.copy()
+        passed_kwargs.update(kwargs)
+        passed_kwargs.pop("default", None)
+        passed_kwargs.pop("param_decls", None)
+        return typer.Option(default, *param_decls, **passed_kwargs)
+
+
 def _callback(provide_setter: Callable[[], Callable[[Any], Any]]):
     def callback(value):
         set_value = provide_setter()
@@ -209,6 +237,24 @@ LikeOption = typer.Option(
     help='Regular expression for filtering objects by name. For example, `list --like "my%"` lists all objects that begin with “my”.',
 )
 
+# Consideration: it may be useful to put these options in a separate help panel, as they are somewhat generic among objects.
+
+IfExistsOption = OverrideableOption(
+    False,
+    "--if-exists",
+    help="Only apply this operation if the specified object exists.",
+)
+
+IfNotExistsOption = OverrideableOption(
+    False,
+    "--if-not-exists",
+    help="Only apply this operation if the specified object does not already exist.",
+)
+
+ReplaceOption = OverrideableOption(
+    False, "--replace", help="Replace this object if it already exists."
+)
+
 
 def experimental_option(
     experimental_behaviour_description: Optional[str] = None,
@@ -268,31 +314,3 @@ def project_definition_option(project_name: str):
         callback=_callback,
         show_default=False,
     )
-
-
-class OverrideableOption:
-    """
-    Class that allows you to generate instances of typer.models.OptionInfo with some default properties while allowing specific values to be overriden.
-    """
-
-    def __init__(self, default: Any, *param_decls: str, **kwargs):
-        self.default = default
-        self.param_decls = param_decls
-        self.kwargs = kwargs
-
-    def __call__(self, **kwargs) -> typer.models.OptionInfo:
-        """
-        Returns a typer.models.OptionInfo instance initialized with the specified default values along with any overrides
-        from kwargs.Note that if you are overriding param_decls,
-        you must pass an iterable of strings, you cannot use positional arguments like you can with typer.Option.
-        Does not modify the original instance.
-        """
-        default = kwargs.get("default", self.default)
-        param_decls = kwargs.get("param_decls", self.param_decls)
-        if not isinstance(param_decls, list) and not isinstance(param_decls, tuple):
-            raise TypeError("param_decls must be a list or tuple")
-        passed_kwargs = self.kwargs.copy()
-        passed_kwargs.update(kwargs)
-        passed_kwargs.pop("default", None)
-        passed_kwargs.pop("param_decls", None)
-        return typer.Option(default, *param_decls, **passed_kwargs)
