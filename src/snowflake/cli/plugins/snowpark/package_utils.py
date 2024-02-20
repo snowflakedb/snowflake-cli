@@ -74,6 +74,9 @@ def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
     Returns a dict with two keys: 'snowflake' and 'other'.
     Each key contains a list of Requirement object.
 
+    As snowflake currently doesn't support extra syntax (ex. 'jinja2[diagrams`), if such
+    extra is present in the dependency, we mark it as unavailable.
+
     Parameters:
         packages (List[Requirement]) - list of requirements to be checked
 
@@ -86,8 +89,9 @@ def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
     channel_data = _get_anaconda_channel_contents()
 
     for package in packages:
-        # pip package names are case-insensitive, while Anaconda package names are lowercase
-        if check_if_package_is_avaiable_in_conda(package, channel_data["packages"]):
+        if package.extras:
+            result.other.append(package)
+        elif check_if_package_is_avaiable_in_conda(package, channel_data["packages"]):
             result.snowflake.append(package)
         else:
             log.info("'%s' not found in Snowflake anaconda channel...", package.name)

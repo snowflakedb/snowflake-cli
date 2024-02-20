@@ -22,12 +22,20 @@ class RequirementType(Enum):
 class Requirement(requirement.Requirement):
     @classmethod
     def parse_line(cls, line: str) -> Requirement:
+        if len(extras := line.split(";")) > 1:
+            line = extras[0]
         result = super().parse_line(line)
 
+        if len(extras) > 1:
+            result.extras = extras[1]
         if result.uri and not result.name:
             result.name = get_package_name(result.uri)
 
         return result
+
+    @classmethod
+    def _look_for_specifier(cls, specifier: str, line: str):
+        return re.search(cls.specifier_pattern.format(specifier), line)
 
 
 @dataclass
@@ -72,7 +80,7 @@ def get_package_name(name: str) -> str:
         if match := re.search(pattern, name):
             return match.group(2)
         else:
-            return "package"
+            return name
 
     elif name.endswith(".zip"):
         return name.replace(".zip", "")

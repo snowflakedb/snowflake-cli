@@ -1,12 +1,14 @@
 import logging
+import os
 import re
 import shutil
 import subprocess
 import sys
 import venv
+from enum import Enum
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Dict, List
+from typing import List
 
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
@@ -15,6 +17,11 @@ from snowflake.cli.plugins.snowpark.models import (
 )
 
 log = logging.getLogger(__name__)
+
+
+class PackageInfoType(Enum):
+    FILES = "files"
+    DEPENDENCIES = "requires"
 
 
 class Venv:
@@ -105,50 +112,33 @@ class Venv:
 
     def get_package_info(self, package: Requirement) -> RequirementWithFilesAndDeps:
         library_path = self._get_library_path()
-        result = self.run_python(["-m", "pip", "show", "-f", package.name])
-        package_info_dict = self._parse_pip_info(result.stdout)
 
-        dependencies = self.run_python(
-            [
-                "-c",
-                f"from importlib_metadata import requires; print(requires('{package.name}'))",
-            ]
-        ).stdout
-        files = self.run_python(
-            [
-                "-c",
-                f"from importlib_metadata import files; print(files('{package.name}'))",
-            ]
-        ).stdout
+        dependencies = self._parse_info(package.name, PackageInfoType.DEPENDENCIES)
+        files = self._parse_info(package.name, PackageInfoType.FILES)
 
         return RequirementWithFilesAndDeps(
             requirement=package,
-            files=self._parse_file_list(
-                library_path, package_info_dict.get("Files", [])
-            ),
-            dependencies=package_info_dict.get("Requires", []),
+            files=self._parse_file_list(library_path, files),
+            dependencies=dependencies,
         )
 
-    def _parse_pip_info(self, pip_string: str) -> Dict:
-        pattern = "^{}:(.*)$"
-        matchers = [
-            ("Name", re.MULTILINE, ""),
-            ("Requires", re.MULTILINE, ","),
-            ("Files", re.MULTILINE | re.DOTALL, "\n"),
-        ]
-        info_dict = {}
+    def _parse_info(self, package_name: str, info_type: PackageInfoType) -> List[str]:
+        patterns = {
+            PackageInfoType.FILES: "PackagePath\\('([^']+)'\\)",
+            PackageInfoType.DEPENDENCIES: "'([^']+)'",
+        }
+        info = self.run_python(
+            [
+                "-c",
+                f"from importlib.metadata import {info_type.value}; print({info_type.value}('{package_name}'))",
+            ]
+        )
+        result = re.findall(r"{}".format(patterns[info_type]), info.stdout)
 
-        for matcher in matchers:
-            result = re.search(
-                pattern.format(matcher[0]), string=pip_string, flags=matcher[1]
-            )
-            if result:
-                result_string = result.group(0).replace(f"{matcher[0]}:", "").strip()
-                info_dict[matcher[0]] = (
-                    result_string.split(matcher[2]) if matcher[2] else result_string
-                )
-
-        return info_dict
+        if result:
+            return result
+        else:
+            return []
 
     def _parse_file_list(self, base_dir: Path, files: List):
         result = []
@@ -166,11 +156,10 @@ class Venv:
         if not destination.exists():
             destination.mkdir()
         library_path = self._get_library_path()
-        src_directories = set(
-            file.relative_to(library_path).parts[0] for file in files_to_be_copied
-        )
 
-        for src_dir in src_directories:
-            shutil.copytree(
-                library_path / src_dir, destination / src_dir, dirs_exist_ok=True
-            )
+        for file in files_to_be_copied:
+            destination_file = destination / file.relative_to(library_path)
+
+            if not destination_file.parent.exists():
+                os.mkdir(destination_file.parent)
+            shutil.copy(file, destination / file.relative_to(library_path))
