@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
 from snowflake.cli.plugins.snowpark.models import Requirement, SplitRequirements
+from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.plugins.snowpark.models import SplitRequirements
 
 
 @dataclass
@@ -58,12 +59,12 @@ class CreatedSuccessfully(CreateResult):
         return f"Package {self.package_name}.zip created. You can now upload it to a stage (`snow snowpark package upload -f {self.package_name}.zip -s packages`) and reference it in your procedure or function."
 
 
-def prepare_app_zip(file_path: Path, temp_dir: str) -> str:
+def prepare_app_zip(file_path: SecurePath, temp_dir: SecurePath) -> SecurePath:
     # get filename from file path (e.g. app.zip from /path/to/app.zip)
     # TODO: think if no file exceptions are handled correctly
-    file_name = file_path.name
-    temp_path = temp_dir + "/" + file_name
-    shutil.copy(file_path, temp_path)
+    file_name = file_path.path.name
+    temp_path = temp_dir / file_name
+    file_path.copy(temp_path.path)
     return temp_path
 
 

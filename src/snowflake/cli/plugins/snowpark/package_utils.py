@@ -4,12 +4,17 @@ import logging
 import os
 from pathlib import Path
 from typing import List
+import re
+from typing import Dict, List
 
 import click
 import requests
 import requirements
 import typer
 from packaging.version import parse
+from requirements.requirement import Requirement
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
     PypiOption,
     Requirement,
@@ -41,8 +46,11 @@ def parse_requirements(
         list[str]: A flat list of package names, without versions
     """
     reqs: List[Requirement] = []
-    if os.path.exists(requirements_file):
-        with open(requirements_file, encoding="utf-8") as f:
+    requirements_file_spath = SecurePath(requirements_file)
+    if requirements_file_spath.exists():
+        with requirements_file_spath.open(
+            "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
+        ) as f:
             for req in requirements.parse(f):
                 reqs.append(req)
     else:
@@ -186,8 +194,11 @@ def _check_for_native_libraries(
 
 
 def get_snowflake_packages() -> List[str]:
-    if os.path.exists("requirements.snowflake.txt"):
-        with open("requirements.snowflake.txt", encoding="utf-8") as f:
+    requirements_file = SecurePath("requirements.snowflake.txt")
+    if requirements_file.exists():
+        with requirements_file.open(
+            "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
+        ) as f:
             return [req for line in f if (req := line.split("#")[0].strip())]
     else:
         return []

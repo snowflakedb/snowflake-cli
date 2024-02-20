@@ -1,4 +1,4 @@
-# v2.0.1
+# v2.1.0
 
 ## Backward incompatibility
 
@@ -16,6 +16,20 @@
 * You can now use github repo link in `snow snowpark package create` to prepare your code for upload
 * Added `allow-native-libraries` option to `snow snowpark package create` command
 * Added alias `--install-from-pip` for `-y` option in `snow snowpark package create` command
+* Connections parameters are also supported by generic environment variables:
+  * `SNOWFLAKE_ACCOUNT`
+  * `SNOWFLAKE_USER`
+  * `SNOWFLAKE_PASSWORD`
+  * `SNOWFLAKE_DATABASE`
+  * `SNOWFLAKE_SCHEMA`
+  * `SNOWFLAKE_ROLE`
+  * `SNOWFLAKE_WAREHOUSE`
+  * `SNOWFLAKE_MFA_PASSCODE`
+
+  The `SNOWFLAKE_CONNECTION_<NAME>_<KEY>` variable takes precedence before the generic flag. For example if
+  `SNOWFLAKE_PASSWORD` and `SNOWFLAKE_CONNECTIONS_FOO_PASSWORD` are present and user tries to use connection
+  "foo" then the later variable will be used.
+
 
 ## Fixes and improvements
 * Restricted permissions of automatically created files

@@ -1,11 +1,12 @@
 import os
-import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
 import strictyaml
 from click import ClickException
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.secure_path import SecurePath
 
 
 class DeployRootError(ClickException):
@@ -120,10 +121,11 @@ def delete(path: Path) -> None:
     Obliterates whatever is at the given path, or is a no-op if the
     given path does not represent a file or directory that exists.
     """
-    if os.path.isfile(path) or os.path.islink(path):
-        os.remove(path)  # remove the file
-    elif os.path.isdir(path):
-        shutil.rmtree(path)  # remove dir and all contains
+    spath = SecurePath(path)
+    if spath.path.is_file():
+        spath.unlink()  # remove the file
+    elif spath.path.is_dir():
+        spath.rmdir(recursive=True)  # remove dir and all contains
 
 
 def symlink_or_copy(src: Path, dst: Path, makedirs=True, overwrite=True) -> None:
@@ -133,14 +135,16 @@ def symlink_or_copy(src: Path, dst: Path, makedirs=True, overwrite=True) -> None
     If makedirs is True, the directory hierarchy above dst is created if any
     of those directories do not exist.
     """
+    ssrc = SecurePath(src)
+    sdst = SecurePath(dst)
     if makedirs:
-        dst.parent.mkdir(parents=True, exist_ok=True)
+        sdst.parent.mkdir(parents=True, exist_ok=True)
     if overwrite:
         delete(dst)
     try:
         os.symlink(src, dst)
     except OSError:
-        shutil.copy(src, dst)
+        ssrc.copy(dst)
 
 
 def translate_artifact(item: Union[dict, str]) -> ArtifactMapping:
@@ -263,7 +267,9 @@ def find_version_info_in_manifest_file(
     patch_field = "patch"
 
     manifest_file = find_manifest_file(deploy_root)
-    with open(manifest_file, "r") as file:
+    with SecurePath(manifest_file).open(
+        "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
+    ) as file:
         manifest_content = strictyaml.load(file.read())
 
     version_name: Optional[str] = None

@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict, List, Union
 
 from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.schemas.project_definition import (
     project_override_schema,
     project_schema,
@@ -12,6 +13,7 @@ from snowflake.cli.api.project.util import (
     get_env_username,
     to_identifier,
 )
+from snowflake.cli.api.secure_path import SecurePath
 from strictyaml import (
     YAML,
     as_document,
@@ -42,14 +44,17 @@ def load_project_definition(paths: List[Path]) -> dict:
     Loads project definition, optionally overriding values. Definition values
     are merged in left-to-right order (increasing precedence).
     """
-    if len(paths) == 0:
+    spaths: List[SecurePath] = [SecurePath(p) for p in paths]
+    if len(spaths) == 0:
         raise ValueError("Need at least one definition file.")
 
-    with open(paths[0], "r") as base_yml:
+    with spaths[0].open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as base_yml:
         definition = load(base_yml.read(), project_schema)
 
-    for override_path in paths[1:]:
-        with open(override_path, "r") as override_yml:
+    for override_path in spaths[1:]:
+        with override_path.open(
+            "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
+        ) as override_yml:
             overrides = load(override_yml.read(), project_override_schema)
             merge_left(definition, overrides)
 

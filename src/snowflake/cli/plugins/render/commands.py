@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
+from snowflake.cli.api import secure_path
 from snowflake.cli.api.commands.decorators import global_options
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowflake.cli.api.utils.rendering import generic_render_template
@@ -60,7 +61,11 @@ def render_template(
     """Renders Jinja2 template. Can be used to construct complex SQL files."""
     data = {}
     if data_file_path:
-        data = json.loads(data_file_path.read_text())
+        data = json.loads(
+            secure_path.SecurePath(data_file_path).read_text(
+                file_size_limit_mb=secure_path.UNLIMITED
+            )
+        )
     if data_override:
         for key_value_str in data_override:
             key, value = _parse_key_value(key_value_str)
