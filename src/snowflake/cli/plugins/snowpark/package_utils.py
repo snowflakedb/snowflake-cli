@@ -10,7 +10,6 @@ import requests
 import requirements
 import typer
 from packaging.version import parse
-from requirements.requirement import Requirement
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
