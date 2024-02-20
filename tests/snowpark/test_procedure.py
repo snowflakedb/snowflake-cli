@@ -4,8 +4,12 @@ from textwrap import dedent
 from unittest import mock
 from unittest.mock import call
 
+import pytest
+
 from snowflake.cli.api.constants import ObjectType
 from snowflake.connector import ProgrammingError
+
+from click import ClickException
 
 
 def test_deploy_function_no_procedure(runner, project_directory):
@@ -393,6 +397,7 @@ def test_deploy_procedure_fully_qualified_name(
     mock_ctx,
     project_directory,
     alter_snowflake_yml,
+    snapshot,
 ):
     mock_om_describe.side_effect = [
         ProgrammingError("does not exist or not authorized"),
@@ -401,41 +406,26 @@ def test_deploy_procedure_fully_qualified_name(
     mock_conn.return_value = ctx
 
     with project_directory("snowpark_procedure_fully_qualified_name") as tmp_dir:
-        result = runner.invoke(["snowpark", "deploy", "--replace", "--format", "json"])
+        result = runner.invoke(["snowpark", "deploy"])
+        assert result.output == snapshot(name="database error")
 
-    assert result.exit_code == 0
-    assert json.loads(result.output) == [
-        {
-            "object": "CUSTOM_DB.CUSTOM_SCHEMA.FQN_PROCEDURE(name string)",
-            "status": "created",
-            "type": "procedure",
-        },
-        {
-            "object": "MOCKDATABASE.CUSTOM_SCHEMA.FQN_PROCEDURE_ONLY_SCHEMA(name string)",
-            "status": "created",
-            "type": "procedure",
-        },
-        {
-            "object": "MOCKDATABASE.CUSTOM_SCHEMA.SCHEMA_PROCEDURE(name string)",
-            "status": "created",
-            "type": "procedure",
-        },
-        {
-            "object": "CUSTOM_DB.MOCKSCHEMA.DATABASE_PROCEDURE(name string)",
-            "status": "created",
-            "type": "procedure",
-        },
-        {
-            "object": "CUSTOM_DB.CUSTOM_SCHEMA.DATABASE_PROCEDURE(name string)",
-            "status": "created",
-            "type": "procedure",
-        },
-        {
-            "object": "CUSTOM_DATABASE.CUSTOM_SCHEMA.FQN_PROCEDURE_ERROR(name string)",
-            "status": "created",
-            "type": "procedure",
-        },
-    ]
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.procedures.5.name",
+            value="custom_schema.fqn_procedure_error",
+        )
+        result = runner.invoke(["snowpark", "deploy"])
+        assert result.output == snapshot(name="schema error")
+
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.procedures.5.name",
+            value="fqn_procedure3",
+        )
+        result = runner.invoke(["snowpark", "deploy"])
+        assert result.exit_code == 0
+        print(result.output)
+        assert result.output == snapshot(name="ok")
 
 
 @mock.patch("snowflake.connector.connect")

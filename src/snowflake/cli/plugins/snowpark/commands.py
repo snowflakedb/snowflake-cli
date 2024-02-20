@@ -84,6 +84,8 @@ def deploy(
         raise ClickException(
             "No procedures or functions were specified in the project definition."
         )
+    _assert_object_definitions_are_correct("function", functions)
+    _assert_object_definitions_are_correct("procedure", procedures)
 
     build_artifact_path = _get_snowpark_artifact_path(snowpark)
 
@@ -154,6 +156,22 @@ def deploy(
         deploy_status.append(operation_result)
 
     return CollectionResult(deploy_status)
+
+
+def _assert_object_definitions_are_correct(object_type, object_definitions):
+    for definition in object_definitions:
+        database = definition.get("database")
+        schema = definition.get("schema")
+        name = definition["name"]
+        fqn_parts = len(name.split("."))
+        if fqn_parts == 3 and database:
+            raise ClickException(
+                f"database of {object_type} {name} is redefined in its name"
+            )
+        if fqn_parts >= 2 and schema:
+            raise ClickException(
+                f"schema of {object_type} {name} is redefined in its name"
+            )
 
 
 def _find_existing_objects(
