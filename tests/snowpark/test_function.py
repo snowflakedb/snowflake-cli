@@ -264,6 +264,48 @@ def test_deploy_function_needs_update_because_handler_changes(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
+def test_deploy_procedure_fully_qualified_name(
+    mock_om_show,
+    mock_om_describe,
+    mock_conn,
+    runner,
+    mock_ctx,
+    project_directory,
+    alter_snowflake_yml,
+    snapshot,
+):
+    mock_om_describe.side_effect = [
+        ProgrammingError("does not exist or not authorized"),
+    ] * 100
+    ctx = mock_ctx()
+    mock_conn.return_value = ctx
+
+    with project_directory("snowpark_function_fully_qualified_name") as tmp_dir:
+        result = runner.invoke(["snowpark", "deploy"])
+        assert result.output == snapshot(name="database error")
+
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.functions.5.name",
+            value="custom_schema.fqn_function_error",
+        )
+        result = runner.invoke(["snowpark", "deploy"])
+        assert result.output == snapshot(name="schema error")
+
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.functions.5.name",
+            value="fqn_function3",
+        )
+        result = runner.invoke(["snowpark", "deploy"])
+        assert result.exit_code == 0
+        print(result.output)
+        assert result.output == snapshot(name="ok")
+
+
+@mock.patch("snowflake.connector.connect")
 def test_execute_function(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
