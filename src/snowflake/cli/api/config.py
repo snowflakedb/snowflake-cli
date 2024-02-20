@@ -11,6 +11,7 @@ from snowflake.cli.api.exceptions import (
     MissingConfiguration,
     UnsupportedConfigSectionTypeError,
 )
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.secure_utils import file_permissions_are_strict
 from snowflake.connector.config_manager import CONFIG_MANAGER
 from snowflake.connector.constants import CONFIG_FILE, CONNECTIONS_FILE
@@ -65,7 +66,7 @@ def add_connection(name: str, parameters: dict):
 
 
 _DEFAULT_LOGS_CONFIG = {
-    "save_logs": False,
+    "save_logs": True,
     "path": str(CONFIG_MANAGER.file_path.parent / "logs"),
     "level": "info",
 }
@@ -95,10 +96,6 @@ def get_plugins_config() -> dict:
         return get_config_section(*PLUGINS_SECTION_PATH)
     else:
         return {}
-
-
-def is_default_logs_path(path: Path) -> bool:
-    return path.resolve() == Path(str(_DEFAULT_LOGS_CONFIG["path"])).resolve()
 
 
 def connection_exists(connection_name: str) -> bool:
@@ -148,7 +145,8 @@ def get_config_value(*path, key: str, default: Optional[Any] = Empty) -> Any:
 
 
 def _initialise_config(config_file: Path) -> None:
-    os.makedirs(os.path.dirname(config_file), exist_ok=True)
+    config_file = SecurePath(config_file)
+    config_file.parent.mkdir(parents=True, exist_ok=True)
     config_file.touch()
     _initialise_logs_section()
     log.info("Created Snowflake configuration file at %s", CONFIG_MANAGER.file_path)
@@ -190,7 +188,7 @@ def _get_envs_for_path(*path) -> dict:
 
 
 def _dump_config(conf_file_cache: Dict):
-    with open(CONFIG_MANAGER.file_path, "w+") as fh:
+    with SecurePath(CONFIG_MANAGER.file_path).open("w+") as fh:
         dump(conf_file_cache, fh)
 
 

@@ -15,6 +15,7 @@ from snowflake.cli.api import Api, api_provider
 from snowflake.cli.api.config import config_init
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import CollectionResult
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.app.api_impl.plugin.plugin_config_provider_impl import (
     PluginConfigProviderImpl,
 )
@@ -87,7 +88,7 @@ def _disable_external_command_plugins_callback(value: bool):
 def _docs_callback(value: bool):
     if value:
         ctx = click.get_current_context()
-        generate_docs(Path("gen_docs"), ctx.command)
+        generate_docs(SecurePath("gen_docs"), ctx.command)
         _exit_with_cleanup()
 
 

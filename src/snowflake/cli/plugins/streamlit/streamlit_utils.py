@@ -6,6 +6,7 @@ from typing import List, Optional
 
 from jinja2 import Environment, FileSystemLoader
 from snowflake.cli.api.constants import TEMPLATES_PATH
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.package_utils import parse_requirements
 
 log = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ def generate_streamlit_environment_file(
         dependencies_list = "\n".join(requirement_yaml_lines)
         environment = Environment(loader=FileSystemLoader(TEMPLATES_PATH))
         template = environment.get_template("environment.yml.jinja")
-        with open("environment.yml", "w", encoding="utf-8") as f:
+        with SecurePath("environment.yml").open("w", encoding="utf-8") as f:
             f.write(template.render(dependencies=dependencies_list))
         return Path("environment.yml")
     return None
@@ -49,13 +50,13 @@ def generate_streamlit_environment_file(
 
 def generate_streamlit_package_wrapper(
     stage_name: str, main_module: str, extract_zip: bool
-) -> Path:
+) -> SecurePath:
     """Uses a jinja template to generate a streamlit wrapper.
     The wrapper will add app.zip to the path and import the app module.
     """
     environment = Environment(loader=FileSystemLoader(TEMPLATES_PATH))
     template = environment.get_template("streamlit_app_launcher.py.jinja")
-    target_file = Path("streamlit_app_launcher.py")
+    target_file = SecurePath("streamlit_app_launcher.py")
     content = template.render(
         {
             "stage_name": stage_name,
@@ -63,6 +64,6 @@ def generate_streamlit_package_wrapper(
             "extract_zip": extract_zip,
         }
     )
-    with open(target_file, "w", encoding="utf-8") as output_file:
+    with target_file.open("w", encoding="utf-8") as output_file:
         output_file.write(content)
     return target_file

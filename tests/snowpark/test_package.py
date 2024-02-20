@@ -103,6 +103,37 @@ class TestPackage:
         assert result.exit_code == 0
         assert ctx.get_query() == ""
 
+    @mock.patch(
+        "snowflake.cli.plugins.snowpark.package.manager.StageManager._execute_query"
+    )
+    def test_package_upload_to_path(
+        self,
+        mock_execute_queries,
+        package_file: str,
+        runner,
+        mock_ctx,
+        mock_cursor,
+    ) -> None:
+        mock_execute_queries.return_value = MagicMock()
+
+        result = runner.invoke(
+            [
+                "snowpark",
+                "package",
+                "upload",
+                "-f",
+                package_file,
+                "-s",
+                "db.schema.stage/path/to/file",
+            ]
+        )
+
+        assert result.exit_code == 0
+        assert mock_execute_queries.call_count == 2
+        create, put = mock_execute_queries.call_args_list
+        assert create.args[0] == "create stage if not exists db.schema.stage"
+        assert "db.schema.stage/path/to/file" in put.args[0]
+
     @staticmethod
     def mocked_anaconda_response(response: dict):
         mock_response = MagicMock()

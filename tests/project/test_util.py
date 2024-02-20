@@ -96,7 +96,7 @@ def test_is_valid_identifier():
 
 def test_is_valid_object_name():
     valid_identifiers = VALID_QUOTED_IDENTIFIERS + VALID_UNQUOTED_IDENTIFIERS
-    invalid_identifiers = INVALID_QUOTED_IDENTIFIERS + INVALID_QUOTED_IDENTIFIERS
+    invalid_identifiers = INVALID_QUOTED_IDENTIFIERS + INVALID_UNQUOTED_IDENTIFIERS
 
     # any combination of 1, 2, or 3 valid identifiers separated by a '.' is valid
     for num in [1, 2, 3]:

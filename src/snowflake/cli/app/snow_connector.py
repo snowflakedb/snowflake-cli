@@ -8,10 +8,12 @@ from typing import Dict, Optional
 import snowflake.connector
 from click.exceptions import ClickException
 from snowflake.cli.api.config import get_connection, get_default_connection
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import (
     InvalidConnectionConfiguration,
     SnowflakeConnectionError,
 )
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.app.telemetry import command_info
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.errors import DatabaseError, ForbiddenError
@@ -22,20 +24,39 @@ ENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN ENCRYPTED PRIVATE KEY-----"
 UNENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN PRIVATE KEY-----"
 
 
-def connect_to_snowflake(temporary_connection: bool = False, mfa_passcode: Optional[str] = None, connection_name: Optional[str] = None, **overrides) -> SnowflakeConnection:  # type: ignore
+def connect_to_snowflake(
+    temporary_connection: bool = False,
+    mfa_passcode: Optional[str] = None,
+    connection_name: Optional[str] = None,
+    **overrides,
+) -> SnowflakeConnection:
+    if temporary_connection and connection_name:
+        raise ClickException("Can't use connection name and temporary connection.")
 
-    if not temporary_connection:
-        if connection_name is not None:
-            connection_parameters = get_connection(connection_name)
-        else:
-            connection_parameters = get_default_connection()
+    if connection_name:
+        connection_parameters = get_connection(connection_name)
+    elif temporary_connection:
+        connection_parameters = {}  # we will apply overrides in next step
     else:
-        connection_parameters = {}
+        connection_parameters = get_default_connection()
 
-    if overrides:
-        connection_parameters.update(
-            {k: v for k, v in overrides.items() if v is not None}
-        )
+    # Apply overrides to connection details
+    for key, value in overrides.items():
+        # Command line override case
+        if value:
+            connection_parameters[key] = value
+            continue
+
+        # Generic environment variable case, apply only if value not passed via flag or connection variable
+        generic_env_value = os.environ.get(f"SNOWFLAKE_{key}".upper())
+        if key not in connection_parameters and generic_env_value:
+            connection_parameters[key] = generic_env_value
+            continue
+
+    # Clean up connection params
+    connection_parameters = {
+        k: v for k, v in connection_parameters.items() if v is not None
+    }
 
     connection_parameters = _update_connection_details_with_private_key(
         connection_parameters
@@ -85,7 +106,9 @@ def _load_pem_to_der(private_key_path: str) -> bytes:
         load_pem_private_key,
     )
 
-    with open(private_key_path, "rb") as f:
+    with SecurePath(private_key_path).open(
+        "rb", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
+    ) as f:
         private_key_pem = f.read()
 
     private_key_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
@@ -110,9 +133,11 @@ def _load_pem_to_der(private_key_path: str) -> bytes:
 
     private_key = load_pem_private_key(
         private_key_pem,
-        str.encode(private_key_passphrase)
-        if private_key_passphrase is not None
-        else private_key_passphrase,
+        (
+            str.encode(private_key_passphrase)
+            if private_key_passphrase is not None
+            else private_key_passphrase
+        ),
         default_backend(),
     )
 

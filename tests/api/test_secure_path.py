@@ -19,7 +19,6 @@ import re
 def save_logs(snowflake_home):
     config = snowflake_home / "config.toml"
     logs_path = snowflake_home / "logs"
-    logs_path.mkdir()
     config.write_text(
         "\n".join(["[cli.logs]", "save_logs = true", f'path = "{logs_path}"'])
     )
@@ -65,6 +64,29 @@ def test_read_text(temp_dir, save_logs):
     # "opening" directory causes an error
     with pytest.raises(IsADirectoryError):
         SecurePath(save_logs).read_text(file_size_limit_mb=100)
+
+
+def test_write_text(temp_dir, save_logs):
+    # not existing file
+    path = Path(temp_dir) / "file.txt"
+    text = "What say you, noble knight?"
+    SecurePath(path).write_text(text)
+    assert path.read_text() == text
+    assert_file_permissions_are_strict(path)
+    _assert_count_matching_logs(save_logs, 1, "Creating file", path.name)
+    _assert_count_matching_logs(save_logs, 1, "Writing to file", path.name)
+
+    # existing file permissions are not overwritten
+    path.chmod(0o777)
+    SecurePath(path).write_text(text * 2)
+    assert path.read_text() == text * 2
+    _assert_count_matching_logs(save_logs, 1, "Creating file", path.name)
+    _assert_count_matching_logs(save_logs, 2, "Writing to file", path.name)
+    writable_and_readable_by_group = stat.S_IRGRP | stat.S_IWGRP
+    assert (
+        path.stat().st_mode & writable_and_readable_by_group
+        == writable_and_readable_by_group
+    )
 
 
 def test_open_write(temp_dir, save_logs):
@@ -115,6 +137,7 @@ def test_navigation():
     p = SecurePath("a/b/c")
     assert str(p / "b" / "c" / "d" / "e") == 'SecurePath("a/b/c/b/c/d/e")'
     assert str(p.parent.parent) == 'SecurePath("a")'
+    assert type(p.absolute()) is SecurePath
 
 
 def test_iterdir(temp_dir):
@@ -180,6 +203,78 @@ def test_mkdir(temp_dir, save_logs):
     while dir2.path != Path(temp_dir):
         assert_file_permissions_are_strict(dir2.path)
         dir2 = dir2.parent
+
+
+def test_move(temp_dir, save_logs):
+    def _get_new_file():
+        file = Path(temp_dir) / "file.txt"
+        file.touch()
+        return file
+
+    def _get_new_dir():
+        dir = Path(temp_dir) / "dir"
+        (dir / "subdir").mkdir(parents=True)
+        (dir / "empty").mkdir()
+        (dir / "file1.txt").touch()
+        (dir / "subdir" / "file2.txt").touch()
+        return dir
+
+    def _check_dir_moved(dst):
+        for filename in ["file1.txt", "empty", "subdir/file2.txt"]:
+            path = Path(dst) / filename
+            assert path.exists()
+            if filename.endswith(".txt"):
+                assert path.is_file()
+            else:
+                assert path.is_dir()
+
+    # move file
+    file = SecurePath(_get_new_file())
+    moved_file = file.move("moved_file.txt")
+    assert moved_file.path.exists() and not file.exists()
+    assert moved_file.path == Path("moved_file.txt")
+    _assert_count_matching_logs(
+        save_logs, 1, "Moving", "file.txt", " to \S+moved_file.txt"
+    )
+
+    file = SecurePath(_get_new_file())
+    with pytest.raises(FileExistsError):
+        file.move("moved_file.txt")
+    assert file.exists()
+
+    dir = _get_new_dir()
+    moved_file = file.move(dir)
+    assert moved_file.exists() and not file.exists()
+    assert moved_file.path.resolve() == (Path("dir") / "file.txt").resolve()
+    _assert_count_matching_logs(
+        save_logs, 1, "Moving", "file.txt", " to \S+dir[\/]file.txt"
+    )
+
+    file = SecurePath(_get_new_file())
+    with pytest.raises(FileExistsError):
+        file.move(dir)
+    assert file.exists()
+
+    # moving directory
+    dir = SecurePath(dir)
+    moved_dir = dir.move("moved_dir")
+    assert moved_dir.exists() and not dir.exists()
+    assert moved_dir.path == Path("moved_dir")
+    _check_dir_moved("moved_dir")
+    _assert_count_matching_logs(save_logs, 1, "Moving", "dir", " to \S+moved_dir")
+
+    dir = SecurePath(_get_new_dir())
+    moved_dir = dir.move("moved_dir")
+    assert moved_dir.exists() and not dir.exists()
+    assert moved_dir.path == Path("moved_dir") / "dir"
+    _check_dir_moved(Path("moved_dir") / "dir")
+    _assert_count_matching_logs(
+        save_logs, 1, "Moving", "dir", " to \S+moved_dir[\/]dir"
+    )
+
+    dir = SecurePath(_get_new_dir())
+    with pytest.raises(FileExistsError):
+        dir.move("moved_dir")
 
 
 def test_copy_file(temp_dir, save_logs):
@@ -260,6 +355,93 @@ def test_copy_directory(temp_dir, save_logs):
 
     _assert_count_matching_logs(save_logs, 10, "Copying file", ".txt")
     _assert_count_matching_logs(save_logs, 8, "Creating directory", "")
+
+
+def test_copy_dir_onto_existing_dir(temp_dir, save_logs):
+    DIR, FILE = "DIR", "FILE"
+    original = [
+        (DIR, "dir"),
+        (FILE, "dir/subfile"),
+        (DIR, "dir/subdir"),
+        (FILE, "dir/subdir/subfile"),
+        (DIR, "dir/newdir/"),
+    ]
+    file_instead_of_dir = [
+        (DIR, "dir"),
+        (FILE, "dir/subfile"),
+        (FILE, "dir/subdir"),
+    ]
+    dir_instead_of_file = [
+        (DIR, "dir"),
+        (DIR, "dir/subfile"),
+        (DIR, "dir/subdir"),
+        (FILE, "dir/subdir/subfile"),
+    ]
+    proper_destination = [
+        (DIR, "dir"),
+        (FILE, "dir/subfile"),
+        (DIR, "dir/subdir"),
+        (FILE, "dir/subdir/subfile2"),
+    ]
+    expected_result = [
+        (DIR, "dir"),
+        (FILE, "dir/subfile"),
+        (DIR, "dir/subdir"),
+        (FILE, "dir/subdir/subfile"),
+        (FILE, "dir/subdir/subfile2"),
+        (DIR, "dir/newdir/"),
+    ]
+    should_be_overridden = [("dir/subfile"), ("dir/subdir/subfile"), ("dir/newdir/")]
+
+    def _check_result_tree(root):
+        readable_by_group = stat.S_IRGRP
+
+        for filetype, filename in expected_result:
+            file = root / filename
+            assert file.exists()
+            if filename in should_be_overridden:
+                assert_file_permissions_are_strict(root / filename)
+                if filetype == FILE:
+                    assert file.read_text() == "new"
+            else:
+                assert file.stat().st_mode & readable_by_group == readable_by_group
+                if filetype == FILE:
+                    assert file.read_text() == "old"
+
+    def _create_tree(root, tree, file_content):
+        for filetype, filename in tree:
+            if filetype == DIR:
+                (root / filename).mkdir(parents=True)
+                (root / filename).chmod(0o750)
+            else:
+                (root / filename).write_text(file_content)
+                (root / filename).chmod(0o660)
+
+    tmpdir = Path(temp_dir)
+    _create_tree(tmpdir / "original", original, file_content="new")
+    src = SecurePath(tmpdir / "original" / "dir")
+
+    _create_tree(
+        tmpdir / "file_instead_of_dir", file_instead_of_dir, file_content="old"
+    )
+    _create_tree(
+        tmpdir / "dir_instead_of_file", dir_instead_of_file, file_content="old"
+    )
+    _create_tree(tmpdir / "good1", proper_destination, file_content="old")
+    _create_tree(tmpdir / "good2", proper_destination, file_content="old")
+
+    with pytest.raises(NotADirectoryError):
+        src.copy(tmpdir / "file_instead_of_dir", dirs_exist_ok=True)
+    with pytest.raises(IsADirectoryError):
+        src.copy(tmpdir / "dir_instead_of_file", dirs_exist_ok=True)
+    with pytest.raises(FileExistsError):
+        src.copy(tmpdir / "good1")
+
+    src.copy(tmpdir / "good1", dirs_exist_ok=True)
+    src.copy(tmpdir / "good2" / "dir", dirs_exist_ok=True)
+
+    _check_result_tree(tmpdir / "good1")
+    _check_result_tree(tmpdir / "good2")
 
 
 def test_rm(temp_dir, save_logs):
