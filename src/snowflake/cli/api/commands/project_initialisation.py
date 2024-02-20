@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-import shutil
-
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.constants import TEMPLATES_PATH
 from snowflake.cli.api.output.types import CommandResult, MessageResult
+from snowflake.cli.api.secure_path import SecurePath
 from typer import Argument
 
 
 def _create_project_template(template_name: str, project_directory: str):
-    shutil.copytree(
-        TEMPLATES_PATH / template_name,  # type: ignore
-        project_directory,
-        dirs_exist_ok=True,
+    SecurePath(TEMPLATES_PATH / template_name).copy(
+        project_directory, dirs_exist_ok=True
     )
 
 

@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, mock_open, patch
 import snowflake.cli.plugins.snowpark.package.utils
 import typer
 from requirements.requirement import Requirement
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.models import PypiOption
@@ -21,9 +22,11 @@ def test_prepare_app_zip(
     temp_directory_for_app_zip: str,
 ):
     result = snowflake.cli.plugins.snowpark.package.utils.prepare_app_zip(
-        Path(app_zip), temp_directory_for_app_zip
+        SecurePath(app_zip), SecurePath(temp_directory_for_app_zip)
     )
-    assert result == os.path.join(temp_directory_for_app_zip, Path(app_zip).name)
+    assert str(result.path) == os.path.join(
+        temp_directory_for_app_zip, Path(app_zip).name
+    )
 
 
 def test_prepare_app_zip_if_exception_is_raised_if_no_source(
@@ -31,7 +34,7 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_source(
 ):
     with pytest.raises(FileNotFoundError) as expected_error:
         snowflake.cli.plugins.snowpark.package.utils.prepare_app_zip(
-            Path("/non/existent/path"), temp_directory_for_app_zip
+            SecurePath("/non/existent/path"), SecurePath(temp_directory_for_app_zip)
         )
 
     assert expected_error.value.errno == 2
@@ -41,7 +44,7 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_source(
 def test_prepare_app_zip_if_exception_is_raised_if_no_dst(app_zip):
     with pytest.raises(FileNotFoundError) as expected_error:
         snowflake.cli.plugins.snowpark.package.utils.prepare_app_zip(
-            Path(app_zip), "/non/existent/path"
+            SecurePath(app_zip), SecurePath("/non/existent/path")
         )
 
     assert expected_error.value.errno == 2
@@ -141,9 +144,9 @@ def test_generate_streamlit_package_wrapper():
     )
 
     assert result.exists()
-    with open(result, "r") as f:
+    with result.open("r", read_file_limit_mb=100) as f:
         assert 'importlib.reload(sys.modules["example_module"])' in f.read()
-    os.remove(result)
+    result.unlink()
 
 
 def test_get_package_name_from_metadata_using_correct_data(
@@ -171,10 +174,12 @@ def test_get_package_name_from_metadata_using_correct_data(
     ],
 )
 def test_get_packages(contents, expected, correct_requirements_snowflake_txt):
-    with patch("builtins.open", mock_open(read_data=contents)) as mock_file:
+    with patch.object(
+        snowflake.cli.api.secure_path.SecurePath, "open", mock_open(read_data=contents)
+    ) as mock_file:
         mock_file.return_value.__iter__.return_value = contents.splitlines()
         result = package_utils.get_snowflake_packages()
-    mock_file.assert_called_with("requirements.snowflake.txt", encoding="utf-8")
+    mock_file.assert_called_with("r", read_file_limit_mb=128, encoding="utf-8")
     assert result == expected
 
 
