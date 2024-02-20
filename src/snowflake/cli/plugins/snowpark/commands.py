@@ -164,7 +164,7 @@ def _find_existing_objects(
     existing_objects = {}
     for object_definition in objects:
         identifier = build_udf_sproc_identifier(
-            om, object_definition, include_parameter_names=False
+            object_definition, om, include_parameter_names=False
         )
         try:
             current_state = om.describe(
@@ -220,11 +220,11 @@ def _deploy_single_object(
     stage_artifact_path: str,
 ):
     identifier = build_udf_sproc_identifier(
-        manager, object_definition, include_parameter_names=False
+        object_definition, manager, include_parameter_names=False
     )
     identifier_with_default_values = build_udf_sproc_identifier(
-        manager,
         object_definition,
+        manager,
         include_parameter_names=True,
         include_default_values=True,
     )
