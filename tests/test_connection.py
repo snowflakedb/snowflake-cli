@@ -427,6 +427,15 @@ def test_mfa_passcode(mock_connect, runner):
 
 
 @mock.patch("snowflake.connector.connect")
+def test_mfa_passcode_from_prompt(mock_connect, runner):
+    result = runner.invoke(["sql", "-q", "select 1", "--mfa-passcode"], input="123")
+
+    assert result.exit_code == 0, result.output
+    args, kwargs = mock_connect.call_args
+    assert kwargs["passcode"] == "123"
+
+
+@mock.patch("snowflake.connector.connect")
 def test_no_mfa_passcode(mock_connect, runner):
     result = runner.invoke(["sql", "-q", "select 1"])
 
