@@ -7,7 +7,11 @@ import typer
 from click import ClickException
 from click.types import StringParamType
 from snowflake.cli.api.cli_global_context import cli_context
-from snowflake.cli.api.commands.flags import PLAIN_PASSWORD_MSG, ConnectionOption
+from snowflake.cli.api.commands.flags import (
+    PLAIN_PASSWORD_MSG,
+    ConnectionOption,
+    MfaPasscodeOption,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.config import (
     add_connection,
@@ -215,7 +219,9 @@ def add(
 
 
 @app.command(requires_connection=False)
-def test(connection: str = ConnectionOption, **options) -> CommandResult:
+def test(
+    connection: str = ConnectionOption, mfa_passcode: str = MfaPasscodeOption, **options
+) -> CommandResult:
     """
     Tests the connection to Snowflake.
     """

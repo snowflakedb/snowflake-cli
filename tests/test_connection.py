@@ -417,18 +417,34 @@ def test_key_pair_authentication_from_config(
     )
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["sql", "-q", "select 1"],
+        ["connection", "test"],
+    ],
+)
 @mock.patch("snowflake.connector.connect")
-def test_mfa_passcode(mock_connect, runner):
-    result = runner.invoke(["sql", "-q", "select 1", "--mfa-passcode", "123"])
+def test_mfa_passcode(mock_connect, runner, command):
+    command.extend(["--mfa-passcode", "123"])
+    result = runner.invoke(command)
 
     assert result.exit_code == 0, result.output
     args, kwargs = mock_connect.call_args
     assert kwargs["passcode"] == "123"
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["sql", "-q", "select 1"],
+        ["connection", "test"],
+    ],
+)
 @mock.patch("snowflake.connector.connect")
-def test_mfa_passcode_from_prompt(mock_connect, runner):
-    result = runner.invoke(["sql", "-q", "select 1", "--mfa-passcode"], input="123")
+def test_mfa_passcode_from_prompt(mock_connect, runner, command):
+    command.append("--mfa-passcode")
+    result = runner.invoke(command, input="123")
 
     assert result.exit_code == 0, result.output
     args, kwargs = mock_connect.call_args
@@ -441,7 +457,7 @@ def test_no_mfa_passcode(mock_connect, runner):
 
     assert result.exit_code == 0, result.output
     args, kwargs = mock_connect.call_args
-    assert kwargs.get("passcode") == None
+    assert kwargs.get("passcode") is None
 
 
 @pytest.mark.parametrize(
