@@ -15,7 +15,9 @@ from strictyaml import (
 Argument = RelaxedMap({"name": Str(), "type": Str(), Optional("default"): Str()})
 
 _callable_mapping = {
-    "name": Regex(IDENTIFIER),
+    "name": Str(),
+    Optional("database", default=None): Regex(IDENTIFIER),
+    Optional("schema", default=None): Regex(IDENTIFIER),
     "handler": Str(),
     "returns": Str(),
     "signature": Seq(Argument) | EmptyList(),
@@ -37,8 +39,6 @@ procedure_schema = RelaxedMap(
 snowpark_schema = RelaxedMap(
     {
         "project_name": Str(),
-        Optional("database", default=None): Str(),
-        Optional("schema", default=None): Str(),
         "stage_name": Str(),
         "src": Str(),
         Optional("functions"): Seq(function_schema),

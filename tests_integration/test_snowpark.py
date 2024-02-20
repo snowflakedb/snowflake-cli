@@ -391,15 +391,16 @@ def test_snowpark_default_arguments(
         )
 
 
+CUSTOM_SCHEMA = "custom_schema"
+DIFFERENT_SCHEMA = "different_schema"
+
+
 @pytest.fixture
 def _create_custom_schemas(runner, test_database):
-    custom_schema = "custom_schema"
-    different_schema = "totally_different_schema"
-    for schema in [custom_schema, different_schema]:
-        runner.invoke_with_connection(["sql", "-q", f"create schema {schema}"])
-    yield
-    for schema in [custom_schema, different_schema]:
-        runner.invoke_with_connection(["object", "drop", "schema", schema])
+    for schema in [CUSTOM_SCHEMA, DIFFERENT_SCHEMA]:
+        runner.invoke_with_connection(
+            ["sql", "-q", f"create schema {test_database}.{schema}"]
+        )
 
 
 @pytest.mark.skip(reason="Weird error")
@@ -450,6 +451,104 @@ def test_snowpark_deploy_with_defined_stage(
         # _assert_streamlit_exists()
         # _assert_streamlit_exists(different_schema)
         # _assert_streamlit_exists(custom_schema)
+
+
+@pytest.mark.integration
+def test_snowpark_fqn(
+    _test_steps,
+    test_database,
+    project_directory,
+    alter_snowflake_yml,
+    _create_custom_schemas,
+):
+    database = test_database.upper()
+    schema = "PUBLIC"
+
+    with project_directory("snowpark_with_defined_schema") as tmp_dir:
+        _test_steps.snowpark_build_should_zip_files()
+
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.functions.0.name",
+            value=f"{database}.{schema}.fqn_function",
+        )
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.functions.1.schema",
+            value=DIFFERENT_SCHEMA,
+        )
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.functions.2.database",
+            value=database,
+        )
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.functions.3.schema",
+            value=DIFFERENT_SCHEMA,
+        )
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.functions.3.database",
+            value=database,
+        )
+
+        print((tmp_dir / "snowflake.yml").read_text())
+
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            [
+                {
+                    "object": f"{database}.PUBLIC.FQN_FUNCTION(name string)",
+                    "status": "created",
+                    "type": "function",
+                },
+                {
+                    "object": f"{database}.DIFFERENT_SCHEMA.SCHEMA_FUNCTION(name "
+                    "string)",
+                    "status": "created",
+                    "type": "function",
+                },
+                {
+                    "object": f"{database}.PUBLIC.DATABASE_FUNCTION(name string)",
+                    "status": "created",
+                    "type": "function",
+                },
+                {
+                    "object": f"{database}.DIFFERENT_SCHEMA.DATABASE_SCHEMA_FUNCTION(name "
+                    "string)",
+                    "status": "created",
+                    "type": "function",
+                },
+            ]
+        )
+
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            [
+                {
+                    "object": f"{database}.PUBLIC.FQN_FUNCTION(name string)",
+                    "status": "packages updated",
+                    "type": "function",
+                },
+                {
+                    "object": f"{database}.DIFFERENT_SCHEMA.SCHEMA_FUNCTION(name "
+                    "string)",
+                    "status": "packages updated",
+                    "type": "function",
+                },
+                {
+                    "object": f"{database}.PUBLIC.DATABASE_FUNCTION(name string)",
+                    "status": "packages updated",
+                    "type": "function",
+                },
+                {
+                    "object": f"{database}.DIFFERENT_SCHEMA.DATABASE_SCHEMA_FUNCTION(name "
+                    "string)",
+                    "status": "packages updated",
+                    "type": "function",
+                },
+            ],
+            additional_arguments=["--replace"],
+        )
 
 
 @pytest.fixture

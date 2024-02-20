@@ -76,8 +76,6 @@ def deploy(
     All deployed objects use the same artifact which is deployed only once.
     """
     snowpark = cli_context.project_definition
-    database = snowpark.get("database") or options.get("database")
-    schema = snowpark.get("schema") or options.get("schema")
 
     procedures = snowpark.get("procedures", [])
     functions = snowpark.get("functions", [])
@@ -101,12 +99,8 @@ def deploy(
 
     _check_if_all_defined_integrations_exists(om, functions, procedures)
 
-    existing_functions = _find_existing_objects(
-        ObjectType.FUNCTION, functions, om, database=database, schema=schema
-    )
-    existing_procedures = _find_existing_objects(
-        ObjectType.PROCEDURE, procedures, om, database=database, schema=schema
-    )
+    existing_functions = _find_existing_objects(ObjectType.FUNCTION, functions, om)
+    existing_procedures = _find_existing_objects(ObjectType.PROCEDURE, procedures, om)
 
     if (existing_functions or existing_procedures) and not replace:
         msg = "Following objects already exists. Consider using --replace.\n"
@@ -118,9 +112,7 @@ def deploy(
     # Create stage
     stage_name = snowpark.get("stage_name", DEPLOYMENT_STAGE)
     stage_manager = StageManager()
-    stage_name = stage_manager.to_fully_qualified_name(
-        stage_name, database=database, schema=schema
-    )
+    stage_name = stage_manager.to_fully_qualified_name(stage_name)
     stage_manager.create(
         stage_name=stage_name, comment="deployments managed by snowcli"
     )
@@ -139,9 +131,6 @@ def deploy(
     deploy_status = []
     # Procedures
     for procedure in procedures:
-        procedure["name"] = stage_manager.to_fully_qualified_name(
-            procedure["name"], database=database, schema=schema
-        )
         operation_result = _deploy_single_object(
             manager=pm,
             object_type=ObjectType.PROCEDURE,
@@ -154,9 +143,6 @@ def deploy(
 
     # Functions
     for function in functions:
-        function["name"] = stage_manager.to_fully_qualified_name(
-            function["name"], database=database, schema=schema
-        )
         operation_result = _deploy_single_object(
             manager=fm,
             object_type=ObjectType.FUNCTION,
@@ -174,17 +160,11 @@ def _find_existing_objects(
     object_type: ObjectType,
     objects: List[Dict],
     om: ObjectManager,
-    database: Optional[str] = None,
-    schema: Optional[str] = None,
 ):
     existing_objects = {}
     for object_definition in objects:
-        object_definition = dict(object_definition)
-        object_definition["name"] = om.to_fully_qualified_name(
-            object_definition["name"], database=database, schema=schema
-        )
         identifier = build_udf_sproc_identifier(
-            object_definition, include_parameter_names=False
+            om, object_definition, include_parameter_names=False
         )
         try:
             current_state = om.describe(
@@ -240,10 +220,13 @@ def _deploy_single_object(
     stage_artifact_path: str,
 ):
     identifier = build_udf_sproc_identifier(
-        object_definition, include_parameter_names=False
+        manager, object_definition, include_parameter_names=False
     )
     identifier_with_default_values = build_udf_sproc_identifier(
-        object_definition, include_parameter_names=True, include_default_values=True
+        manager,
+        object_definition,
+        include_parameter_names=True,
+        include_default_values=True,
     )
     log.info("Deploying %s: %s", object_type, identifier_with_default_values)
 
