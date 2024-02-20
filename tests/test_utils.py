@@ -37,7 +37,6 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_source(
             SecurePath("/non/existent/path"), SecurePath(temp_directory_for_app_zip)
         )
 
-    print(expected_error.value.__dict__)
     assert expected_error.value.errno == 2
     assert expected_error.type == FileNotFoundError
 

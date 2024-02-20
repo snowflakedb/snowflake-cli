@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Iterable, Optional, Tuple
 
 from click import UsageError
-from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.util_text import split_statements
@@ -27,7 +27,7 @@ class SqlManager(SqlExecutionMixin):
         if std_in:
             query = sys.stdin.read()
         elif file:
-            query = SecurePath(file).read_text(file_size_limit_mb=128)
+            query = SecurePath(file).read_text(file_size_limit_mb=UNLIMITED)
 
         statements = tuple(
             statement
