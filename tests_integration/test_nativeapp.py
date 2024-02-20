@@ -482,15 +482,17 @@ def test_nativeapp_init_from_repo_with_single_template(
 
         # confirm that no error is thrown when initializing a project from a repo with a single template
         project_name = "myapp"
-        result = runner.invoke_json(
-            [
-                "app",
-                "init",
-                "--template-repo",
-                f"file://{single_template_repo_path.path}",
-                project_name,
-            ],
-            env=TEST_ENV,
-        )
-        assert result.exit_code == 0
-        single_template_repo.close()
+        try:
+            result = runner.invoke_json(
+                [
+                    "app",
+                    "init",
+                    "--template-repo",
+                    f"file://{single_template_repo_path.path}",
+                    project_name,
+                ],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+        finally:
+            single_template_repo.close()
