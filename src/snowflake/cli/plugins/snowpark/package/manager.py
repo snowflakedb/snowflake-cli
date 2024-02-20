@@ -50,7 +50,7 @@ def upload(file: Path, stage: str, overwrite: bool):
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_app_zip_path = prepare_app_zip(file, temp_dir)
         sm = StageManager()
-        sm.create(stage)
+        sm.create(sm.get_stage_name_from_path(stage))
         put_response = sm.put(temp_app_zip_path, stage, overwrite=overwrite).fetchone()
 
     message = f"Package {file} {put_response[6]} to Snowflake @{stage}/{file}."
