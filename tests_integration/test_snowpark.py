@@ -15,20 +15,27 @@ STAGE_NAME = "dev_deployment"
 
 
 @pytest.mark.integration
-def test_snowpark_flow(_test_steps, project_directory, alter_snowflake_yml):
+def test_snowpark_flow(
+    _test_steps, project_directory, alter_snowflake_yml, test_database
+):
+    database = test_database.upper()
     with project_directory("snowpark") as tmp_dir:
         _test_steps.snowpark_build_should_zip_files()
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": "hello_procedure(name string)",
+                    "object": f"{database}.PUBLIC.HELLO_PROCEDURE(name string)",
                     "status": "created",
                     "type": "procedure",
                 },
-                {"object": "test()", "status": "created", "type": "procedure"},
                 {
-                    "object": "hello_function(name string)",
+                    "object": f"{database}.PUBLIC.TEST()",
+                    "status": "created",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{database}.PUBLIC.HELLO_FUNCTION(name string)",
                     "status": "created",
                     "type": "function",
                 },
@@ -109,17 +116,17 @@ def test_snowpark_flow(_test_steps, project_directory, alter_snowflake_yml):
             additional_arguments=["--replace"],
             expected_result=[
                 {
-                    "object": "hello_procedure(name string)",
+                    "object": f"{database}.PUBLIC.HELLO_PROCEDURE(name string)",
                     "status": "definition updated",
                     "type": "procedure",
                 },
                 {
-                    "object": "test()",
+                    "object": f"{database}.PUBLIC.TEST()",
                     "status": "packages updated",
                     "type": "procedure",
                 },
                 {
-                    "object": "hello_function(name string)",
+                    "object": f"{database}.PUBLIC.HELLO_FUNCTION(name string)",
                     "status": "definition updated",
                     "type": "function",
                 },
@@ -184,7 +191,7 @@ def test_snowpark_flow(_test_steps, project_directory, alter_snowflake_yml):
 
 @pytest.mark.integration
 def test_snowpark_with_separately_created_package(
-    _test_steps, project_directory, alter_snowflake_yml
+    _test_steps, project_directory, alter_snowflake_yml, test_database
 ):
     _test_steps.package_should_build_proper_artifact(
         "dummy_pkg_for_tests", "dummy_pkg_for_tests/shrubbery.py"
@@ -203,7 +210,7 @@ def test_snowpark_with_separately_created_package(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": "test_func(name string)",
+                    "object": f"{test_database.upper()}.PUBLIC.TEST_FUNC(name string)",
                     "status": "created",
                     "type": "function",
                 },
@@ -218,7 +225,7 @@ def test_snowpark_with_separately_created_package(
 
 @pytest.mark.integration
 def test_snowpark_with_single_dependency_having_no_other_deps(
-    runner, _test_steps, project_directory, alter_snowflake_yml
+    runner, _test_steps, project_directory, alter_snowflake_yml, test_database
 ):
     with project_directory("snowpark_with_single_requirements_having_no_other_deps"):
         result = runner.invoke_json(
@@ -240,7 +247,7 @@ def test_snowpark_with_single_dependency_having_no_other_deps(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": "test_func(name string)",
+                    "object": f"{test_database.upper()}.PUBLIC.TEST_FUNC(name string)",
                     "type": "function",
                     "status": "created",
                 }
@@ -256,7 +263,7 @@ def test_snowpark_with_single_dependency_having_no_other_deps(
 
 @pytest.mark.integration
 def test_snowpark_with_single_requirement_having_transient_deps(
-    runner, _test_steps, project_directory, alter_snowflake_yml
+    runner, _test_steps, project_directory, alter_snowflake_yml, test_database
 ):
     with project_directory("snowpark_with_single_requirements_having_transient_deps"):
         result = runner.invoke_json(
@@ -279,7 +286,7 @@ def test_snowpark_with_single_requirement_having_transient_deps(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": "test_func(name string)",
+                    "object": f"{test_database.upper()}.PUBLIC.TEST_FUNC(name string)",
                     "type": "function",
                     "status": "created",
                 }
@@ -295,7 +302,7 @@ def test_snowpark_with_single_requirement_having_transient_deps(
 
 @pytest.mark.integration
 def test_snowpark_default_arguments(
-    _test_steps, project_directory, alter_snowflake_yml
+    _test_steps, project_directory, alter_snowflake_yml, test_database
 ):
     with project_directory("snowpark_with_default_values") as tmp_dir:
         _test_steps.snowpark_build_should_zip_files()
@@ -303,19 +310,19 @@ def test_snowpark_default_arguments(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": "whole_new_word_procedure(base varchar default 'word', "
+                    "object": f"{test_database.upper()}.PUBLIC.WHOLE_NEW_WORD_PROCEDURE(base varchar default 'word', "
                     "mult number default 2, suffix varchar default ', but a procedure')",
                     "type": "procedure",
                     "status": "created",
                 },
                 {
-                    "object": "whole_new_word(base string default 'word', "
+                    "object": f"{test_database.upper()}.PUBLIC.WHOLE_NEW_WORD(base string default 'word', "
                     "mult int default 2, suffix string default '!')",
                     "type": "function",
                     "status": "created",
                 },
                 {
-                    "object": "check_all_types("
+                    "object": f"{test_database.upper()}.PUBLIC.CHECK_ALL_TYPES("
                     "s string default '<str>', "
                     "i int default 7, "
                     "b1 boolean default true, "
