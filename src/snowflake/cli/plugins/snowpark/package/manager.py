@@ -49,7 +49,8 @@ def upload(file: Path, stage: str, overwrite: bool):
     with SecurePath.temporary_directory() as temp_dir:
         temp_app_zip_path = prepare_app_zip(SecurePath(file), temp_dir)
         sm = StageManager()
-        sm.create(stage)
+
+        sm.create(sm.get_stage_name_from_path(stage))
         put_response = sm.put(
             temp_app_zip_path.path, stage, overwrite=overwrite
         ).fetchone()

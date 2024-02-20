@@ -27,6 +27,14 @@ class StageManager(SqlExecutionMixin):
         return f"@{name}"
 
     @staticmethod
+    def get_stage_name_from_path(path: str):
+        """
+        Returns stage name from potential path on stage. For example
+        db.schema.stage/foo/bar  -> db.schema.stage
+        """
+        return Path(path).parts[0]
+
+    @staticmethod
     def quote_stage_name(name: str) -> str:
         if name.startswith("'") and name.endswith("'"):
             return name  # already quoted
