@@ -4,9 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
-from snowflake.cli.plugins.snowpark.models import Requirement, SplitRequirements
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.plugins.snowpark.models import SplitRequirements
+from snowflake.cli.plugins.snowpark.models import Requirement, SplitRequirements
 
 
 @dataclass

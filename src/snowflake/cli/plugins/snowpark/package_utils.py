@@ -4,8 +4,6 @@ import logging
 import os
 from pathlib import Path
 from typing import List
-import re
-from typing import Dict, List
 
 import click
 import requests
