@@ -96,8 +96,9 @@ def test_streamlit_deploy_with_defined_stage(
 
     def invoke_from_workdir(path, command):
         os.chdir(path)
-        runner.invoke_with_connection(command)
+        result = runner.invoke_with_connection(command)
         assert_that_result_is_successful(result)
+        return result
 
     def _assert_streamlit_exists(schema=None):
         cmd = ["object", "list", "streamlit"]
