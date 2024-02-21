@@ -27,6 +27,7 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
 )
 from snowflake.cli.plugins.object.manager import ObjectManager
+from snowflake.connector import ProgrammingError
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
 app = SnowTyper(
@@ -235,16 +236,21 @@ def test(
 
     # Test session attributes
     om = ObjectManager()
-    if conn.role:
-        om.use_role(new_role=conn.role)
-    if conn.database:
-        om.describe(object_type=ObjectType.DATABASE.value.cli_name, name=conn.database)
-    if conn.schema:
-        om.describe(object_type=ObjectType.SCHEMA.value.cli_name, name=conn.schema)
-    if conn.warehouse:
-        om.describe(
-            object_type=ObjectType.WAREHOUSE.value.cli_name, name=conn.warehouse
-        )
+    try:
+        if conn.role:
+            om.use_role(new_role=conn.role)
+        if conn.database:
+            om.describe(
+                object_type=ObjectType.DATABASE.value.cli_name, name=conn.database
+            )
+        if conn.schema:
+            om.describe(object_type=ObjectType.SCHEMA.value.cli_name, name=conn.schema)
+        if conn.warehouse:
+            om.describe(
+                object_type=ObjectType.WAREHOUSE.value.cli_name, name=conn.warehouse
+            )
+    except ProgrammingError as err:
+        raise ClickException(str(err))
 
     result = {
         "Connection name": connection,
