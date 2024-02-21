@@ -446,7 +446,7 @@ def test_if_password_callback_is_called_only_once_from_prompt(runner):
         )
 
     assert result.exit_code == 0
-    assert result.output.count("WARNING!") == 1
+    assert result.output.count("WARNING!") == 0
 
 
 def test_if_password_callback_is_called_only_once_from_arguments(runner):
