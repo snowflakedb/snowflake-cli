@@ -221,20 +221,23 @@ def _init_from_template(
     try:
         with SecurePath.temporary_directory() as temp_path:
             from git import Repo
+            from git import rmtree as git_rmtree
 
             # Clone the repository in the temporary directory with options.
-            Repo.clone_from(
+            repo = Repo.clone_from(
                 url=git_url,
                 to_path=temp_path.path,
                 filter=["tree:0"],
                 depth=1,
             )
+            # Close repo to avoid issues with permissions on Windows
+            repo.close()
 
             if use_whole_repo_as_template:
                 # the template is the entire git repository
                 template_root = temp_path
                 # Remove all git history before we move the repo
-                (template_root / ".git").rmdir(recursive=True, missing_ok=True)
+                git_rmtree((template_root / ".git").path)
             else:
                 # The template is a subdirectory of the git repository
                 template_name = template if template else BASIC_TEMPLATE
