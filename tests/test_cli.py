@@ -6,7 +6,7 @@ def test_global(runner):
 
     assert result.exit_code == 0
 
-    assert "SnowCLI - A CLI for Snowflake " in result.output
+    assert "Snowflake CLI tool for developers" in result.output
 
 
 @pytest.mark.parametrize(

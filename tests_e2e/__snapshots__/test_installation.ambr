@@ -14,19 +14,15 @@
                                                                                   
    Usage: snow [OPTIONS] COMMAND [ARGS]...                                        
                                                                                   
-   SnowCLI - A CLI for Snowflake                                                  
+   Snowflake CLI tool for developers.                                             
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --version                                     Shows version of the snowcli   │
-  │ --info                                        Shows information about the    │
-  │                                               snowcli                        │
-  │ --config-file                           FILE  Specifies snowcli              │
-  │                                               configuration file that should │
-  │                                               be used                        │
-  │                                               [default: None]                │
-  │ --disable-external-command-pl…                Disable external command       │
-  │                                               plugins                        │
-  │ --help                          -h            Show this message and exit.    │
+  │ --version                    Shows version of the Snowflake CLI              │
+  │ --info                       Shows information about the Snowflake CLI       │
+  │ --config-file          FILE  Specifies Snowflake CLI configuration file that │
+  │                              should be used                                  │
+  │                              [default: None]                                 │
+  │ --help         -h            Show this message and exit.                     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
   │ app         Manage Native Apps in Snowflake                                  │

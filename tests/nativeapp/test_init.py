@@ -63,6 +63,7 @@ def fake_clone_template_with_files(files: dict):
                 dir=str(repo_path),
                 contents=[file_contents],
             )
+        return mock.MagicMock()
 
     return fake_clone_mock
 
@@ -97,6 +98,7 @@ def fake_clone_default_repo(url: str, to_path: str, filter: list, depth: int):
         dir=str(py_template_dir),
         contents=[TEMPLATED_SNOWFLAKE_YML],
     )
+    return mock.MagicMock()
 
 
 def fake_clone_jinja_template_repo(url: str, to_path: str, filter: list, depth: int):
