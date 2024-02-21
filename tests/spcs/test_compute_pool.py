@@ -12,7 +12,9 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.plugins.spcs.common import (
     NoPropertiesProvidedError,
 )
-from tests_integration.testing_utils.assertions.test_result_assertions import assert_that_result_is_successful_and_executed_successfully
+from tests_integration.testing_utils.assertions.test_result_assertions import (
+    assert_that_result_is_successful_and_executed_successfully,
+)
 from tests.spcs.utils import assert_mock_execute_is_called_once_with_query
 
 
@@ -240,10 +242,7 @@ def test_set_property_no_properties():
     pool_name = "test_pool"
     with pytest.raises(NoPropertiesProvidedError) as e:
         ComputePoolManager().set_property(pool_name, None, None, None, None, None)
-    assert (
-        e.value.message
-        == ComputePoolManager.set_no_properties_message
-    )
+    assert e.value.message == ComputePoolManager.set_no_properties_message
 
 
 @patch(
@@ -325,10 +324,7 @@ def test_unset_property_no_properties():
     pool_name = "test_pool"
     with pytest.raises(NoPropertiesProvidedError) as e:
         ComputePoolManager().unset_property(pool_name, False, False, False)
-    assert (
-        e.value.message
-        == ComputePoolManager.unset_no_properties_message
-    )
+    assert e.value.message == ComputePoolManager.unset_no_properties_message
 
 
 @patch(
