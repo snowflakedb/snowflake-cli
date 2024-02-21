@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 install_option = typer.Option(
     False,
-    "--install-from-pip",
+    "--pypi-download",
     help="Installs packages that are not available on the Snowflake anaconda channel.",
 )
 
@@ -48,7 +48,7 @@ def package_lookup(
 ) -> CommandResult:
     """
     Checks if a package is available on the Snowflake anaconda channel.
-    If the `--install-from-pip` flag is provided, this command checks all dependencies of the packages
+    If the `--pypi-download` flag is provided, this command checks all dependencies of the packages
     outside Snowflake channel.
     """
     if deprecated_install_option:

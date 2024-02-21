@@ -141,10 +141,10 @@ class TestPackage:
     @pytest.mark.parametrize(
         "flags,expected_value",
         [
-            (["--install-from-pip"], True),
+            (["--pypi-download"], True),
             (["-y"], True),
             (["--yes"], True),
-            (["--install-from-pip", "-y"], True),
+            (["--pypi-download", "-y"], True),
             ([], False),
         ],
     )
