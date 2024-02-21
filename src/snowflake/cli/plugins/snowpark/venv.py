@@ -1,3 +1,4 @@
+
 import logging
 import os
 import re
@@ -6,9 +7,10 @@ import subprocess
 import sys
 import venv
 from enum import Enum
+from importlib.metadata import PackagePath
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import List
+from typing import List, Optional
 
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
@@ -97,18 +99,17 @@ class Venv:
         return dependencies
 
     def _get_dependencies(
-        self, package: Requirement
+        self, package: Requirement, result: List[RequirementWithFilesAndDeps] = None
     ) -> List[RequirementWithFilesAndDeps]:
+        if not result:
+            result = []
         package_info = self.get_package_info(package)
-        result = [package_info]
+        if package_info in result:
+            return result
 
-        for dependency in package_info.dependencies:
-            if dependency:
-                result.extend(
-                    self._get_dependencies(Requirement.parse_line(dependency))
-                )
+        result.append(package_info)
 
-        return result
+        return result + [dep for pack in package_info.dependencies for dep in self._get_dependencies(Requirement.parse_line(pack), result)]
 
     def get_package_info(self, package: Requirement) -> RequirementWithFilesAndDeps:
         library_path = self._get_library_path()
@@ -123,17 +124,17 @@ class Venv:
         )
 
     def _parse_info(self, package_name: str, info_type: PackageInfoType) -> List[str]:
-        patterns = {
-            PackageInfoType.FILES: "PackagePath\\('([^']+)'\\)",
-            PackageInfoType.DEPENDENCIES: "'([^']+)'",
-        }
+
         info = self.run_python(
             [
                 "-c",
                 f"from importlib.metadata import {info_type.value}; print({info_type.value}('{package_name}'))",
             ]
         )
-        result = re.findall(r"{}".format(patterns[info_type]), info.stdout)
+        if info.returncode != 0:
+            return []
+
+        result = eval(info.stdout)
 
         if result:
             return result
@@ -143,8 +144,8 @@ class Venv:
     def _parse_file_list(self, base_dir: Path, files: List):
         result = []
 
-        for file in files:
-            file_path = base_dir / file.strip()
+        for file in [Path(f) for f in files]:
+            file_path = base_dir / file
             if file_path.exists():
                 result.append(str(file_path))
 

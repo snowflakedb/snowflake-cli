@@ -1556,7 +1556,7 @@
   │                      [required]                                              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --install-from-pip,--yes  -y                    Installs packages that are   │
+  │ --install-from-pip                              Installs packages that are   │
   │                                                 not available on the         │
   │                                                 Snowflake anaconda channel.  │
   │ --allow-native-libraries          [yes|no|ask]  When using packages from     │
@@ -1628,7 +1628,7 @@
   │ *    name      TEXT  Name of the package. [default: None] [required]         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --install-from-pip,--yes  -y                    Installs packages that are   │
+  │ --install-from-pip                              Installs packages that are   │
   │                                                 not available on the         │
   │                                                 Snowflake anaconda channel.  │
   │ --allow-native-libraries          [yes|no|ask]  When using packages from     │

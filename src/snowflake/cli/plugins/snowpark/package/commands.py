@@ -29,8 +29,14 @@ log = logging.getLogger(__name__)
 install_option = typer.Option(
     False,
     "--install-from-pip",
+    help="Installs packages that are not available on the Snowflake anaconda channel.",
+)
+
+deprecated_install_option = typer.Option(
+    False,
     "--yes",
     "-y",
+    hidden=True,
     help="Installs packages that are not available on the Snowflake anaconda channel.",
 )
 
@@ -39,6 +45,7 @@ install_option = typer.Option(
 def package_lookup(
     name: str = typer.Argument(..., help="Name of the package."),
     install_packages: bool = install_option,
+    deprecated_install_packages :bool = deprecated_install_option,
     allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
     **options,
 ) -> CommandResult:
@@ -47,6 +54,9 @@ def package_lookup(
     If the `--yes` flag is provided, this command checks all dependencies of the packages
     outside Snowflake channel.
     """
+    if deprecated_install_packages:
+        install_packages = deprecated_install_packages
+
     lookup_result = lookup(
         name=name,
         install_packages=install_packages,
@@ -92,12 +102,15 @@ def package_create(
         help="Name of the package to create.",
     ),
     install_packages: bool = install_option,
+    deprecated_install_packages :bool = deprecated_install_option,
     allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
     **options,
 ) -> CommandResult:
     """
     Creates a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
     """
+    if deprecated_install_packages:
+        install_packages = deprecated_install_packages
 
     if (
         type(
