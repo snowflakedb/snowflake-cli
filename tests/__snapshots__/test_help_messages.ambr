@@ -1888,6 +1888,11 @@
   │    --comment                               TEXT             Comment for the  │
   │                                                             compute pool.    │
   │                                                             [default: None]  │
+  │    --if-not-exists                                          Only apply this  │
+  │                                                             operation if the │
+  │                                                             specified object │
+  │                                                             does not already │
+  │                                                             exist.           │
   │    --help           -h                                      Show this        │
   │                                                             message and      │
   │                                                             exit.            │

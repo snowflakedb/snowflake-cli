@@ -22,9 +22,15 @@ class ComputePoolManager(SqlExecutionMixin):
         initially_suspended: bool,
         auto_suspend_secs: int,
         comment: Optional[str],
+        if_not_exists: bool,
     ) -> SnowflakeCursor:
+        create_statement = (
+            "CREATE COMPUTE POOL IF NOT EXISTS"
+            if if_not_exists
+            else "CREATE COMPUTE POOL"
+        )
         query = f"""\
-            CREATE COMPUTE POOL {pool_name}
+            {create_statement} {pool_name}
             MIN_NODES = {min_nodes}
             MAX_NODES = {max_nodes}
             INSTANCE_FAMILY = {instance_family}
