@@ -4,7 +4,7 @@ import logging
 
 import click
 import typer
-from click import ClickException
+from click import ClickException, Context, Parameter
 from click.types import StringParamType
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import PLAIN_PASSWORD_MSG, ConnectionOption
@@ -69,9 +69,10 @@ def require_integer(field_name: str):
     return callback
 
 
-def _password_callback(value: str):
-    if value:
+def _password_callback(ctx: Context, param: Parameter, value: str):
+    if value and not ctx.default_map:
         click.echo(PLAIN_PASSWORD_MSG)
+        ctx.default_map = {"password_callback_shown": True}
     return value
 
 

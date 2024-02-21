@@ -404,6 +404,43 @@ def test_key_pair_authentication_from_config(
     )
 
 
+def test_if_password_callback_is_called_only_once_from_prompt(runner):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            [
+                "connection",
+                "add",
+            ],
+            input="connName\naccName\nuserName\npassword",
+        )
+
+    assert result.exit_code == 0
+    assert result.output.count("WARNING!") == 1
+
+
+def test_if_password_callback_is_called_only_once_from_arguments(runner):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            [
+                "connection",
+                "add",
+                "-n",
+                "test_conn",
+                "-a",
+                "test_conn",
+                "-u",
+                "test_conn",
+                "-p",
+                "test_conn",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert result.output.count("WARNING!") == 1
+
+
 @mock.patch("snowflake.connector.connect")
 def test_mfa_passcode(mock_connect, runner):
     result = runner.invoke(["sql", "-q", "select 1", "--mfa-passcode", "123"])
