@@ -6,8 +6,11 @@ from zipfile import ZipFile
 
 import pytest
 from requirements.requirement import Requirement
+
+import snowflake.cli.plugins.snowpark.package.manager
+import src.snowflake.cli.plugins.snowpark.package.manager
 from snowflake.cli.plugins.snowpark.models import SplitRequirements
-from snowflake.cli.plugins.snowpark.package.utils import NotInAnaconda
+from snowflake.cli.plugins.snowpark.package.utils import NotInAnaconda, NothingFound
 
 from tests.test_data import test_data
 
@@ -133,6 +136,24 @@ class TestPackage:
         create, put = mock_execute_queries.call_args_list
         assert create.args[0] == "create stage if not exists db.schema.stage"
         assert "db.schema.stage/path/to/file" in put.args[0]
+
+    @pytest.mark.parametrize("command", ["lookup", "create"])
+    @pytest.mark.parametrize(
+        "flags,expected_value",
+        [
+            (["--install-from-pip"], True),
+            (["-y"], True),
+            (["--yes"], True),
+            (["--install-from-pip", "-y"], True),
+            ([], False),
+        ],
+    )
+    @mock.patch("snowflake.cli.plugins.snowpark.package.commands.lookup")
+    def test_install_flag(self, mock_lookup, command, flags, expected_value, runner):
+        mock_lookup.return_value = NothingFound
+        result = runner.invoke(["snowpark", "package", "lookup", "foo", *flags])
+
+        mock_lookup.assert_called_with(name="foo", install_packages=expected_value)
 
     @staticmethod
     def mocked_anaconda_response(response: dict):
