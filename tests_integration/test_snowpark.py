@@ -332,14 +332,14 @@ def test_snowpark_default_arguments(
             object_type="function",
             identifier=(
                 "WHOLE_NEW_WORD",
-                "( [VARCHAR] [, NUMBER] [, VARCHAR]) RETURN VARCHAR",
+                "(DEFAULT VARCHAR, DEFAULT NUMBER, DEFAULT VARCHAR) RETURN VARCHAR",
             ),
         )
         _test_steps.object_show_includes_given_identifiers(
             object_type="procedure",
             identifier=(
                 "WHOLE_NEW_WORD_PROCEDURE",
-                "( [VARCHAR] [, NUMBER] [, VARCHAR]) RETURN VARCHAR",
+                "(DEFAULT VARCHAR, DEFAULT NUMBER, DEFAULT VARCHAR) RETURN VARCHAR",
             ),
         )
 
