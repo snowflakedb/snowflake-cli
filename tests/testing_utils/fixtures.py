@@ -278,3 +278,28 @@ def snowflake_home(monkeypatch):
             importlib.reload(module)
 
         yield snowflake_home
+
+
+@pytest.fixture
+def alter_snowflake_yml():
+    def _update(snowflake_yml_path: Path, parameter_path: str, value=None):
+        import yaml
+
+        with open(snowflake_yml_path) as fh:
+            yml = yaml.safe_load(fh)
+
+        parts = parameter_path.split(".")
+        current_object = yml
+        while parts:
+            part = parts.pop(0)
+            evaluated_part = int(part) if part.isdigit() else part
+
+            if parts:
+                current_object = current_object[evaluated_part]
+            else:
+                current_object[evaluated_part] = value
+
+        with open(snowflake_yml_path, "w+") as fh:
+            yaml.safe_dump(yml, fh)
+
+    return _update

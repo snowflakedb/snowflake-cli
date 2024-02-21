@@ -1,0 +1,40 @@
+definition_version: 1
+snowpark:
+  project_name: "my_snowpark_project"
+  stage_name: "dev_deployment"
+  src: "app/"
+  functions:
+    - name: db.schema.fqn_function
+      handler: "app.hello_function"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+    - name: db.schema.fqn_function2
+      handler: "app.hello_function"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+    - name: schema_function
+      schema: custom_schema
+      handler: "app.hello_function"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+    - name: database_function
+      database: "custom_database"
+      handler: "app.hello_function"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+    - name: database_schema_function
+      database: custom_database
+      schema: custom_schema
+      handler: "app.hello_function"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string

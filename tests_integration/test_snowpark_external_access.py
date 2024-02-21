@@ -6,7 +6,7 @@ STAGE_NAME = "dev_deployment"
 
 
 @pytest.mark.integration
-def test_snowpark_external_access(project_directory, _test_steps):
+def test_snowpark_external_access(project_directory, _test_steps, test_database):
 
     with project_directory("snowpark_external_access"):
         _test_steps.snowpark_build_should_zip_files()
@@ -14,12 +14,12 @@ def test_snowpark_external_access(project_directory, _test_steps):
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": "status_procedure()",
+                    "object": f"{test_database.upper()}.PUBLIC.STATUS_PROCEDURE()",
                     "status": "created",
                     "type": "procedure",
                 },
                 {
-                    "object": "status_function()",
+                    "object": f"{test_database.upper()}.PUBLIC.STATUS_FUNCTION()",
                     "status": "created",
                     "type": "function",
                 },
