@@ -231,13 +231,15 @@ def test_second_connection_not_update_default_connection(runner, snapshot):
         assert content == snapshot
 
 
+@mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
 @mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
-def test_connection_test(mock_connect, runner):
+def test_connection_test(mock_connect, mock_om, runner):
     result = runner.invoke(["connection", "test", "-c", "full"])
     assert result.exit_code == 0, result.output
     assert "Host" in result.output
     assert "Password" not in result.output
     assert "password" not in result.output
+
     mock_connect.assert_called_with(
         temporary_connection=False,
         mfa_passcode=None,
@@ -252,6 +254,14 @@ def test_connection_test(mock_connect, runner):
         role=None,
         warehouse=None,
     )
+
+    conn = mock_connect.return_value
+    mock_om.return_value.use_role.assert_called_once_with(new_role=conn.role)
+    assert mock_om.return_value.describe.mock_calls == [
+        mock.call(object_type="database", name=conn.database),
+        mock.call(object_type="schema", name=conn.schema),
+        mock.call(object_type="warehouse", name=conn.warehouse),
+    ]
 
 
 @mock.patch("snowflake.connector.connect")

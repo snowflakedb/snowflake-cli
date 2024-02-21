@@ -19,12 +19,14 @@ from snowflake.cli.api.config import (
     connection_exists,
     get_config_section,
 )
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
     MessageResult,
     ObjectResult,
 )
+from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
 app = SnowTyper(
@@ -228,7 +230,22 @@ def test(
     Tests the connection to Snowflake.
     """
 
+    # Test connection
     conn = cli_context.connection
+
+    # Test session attributes
+    om = ObjectManager()
+    if conn.role:
+        om.use_role(new_role=conn.role)
+    if conn.database:
+        om.describe(object_type=ObjectType.DATABASE.value.cli_name, name=conn.database)
+    if conn.schema:
+        om.describe(object_type=ObjectType.SCHEMA.value.cli_name, name=conn.schema)
+    if conn.warehouse:
+        om.describe(
+            object_type=ObjectType.WAREHOUSE.value.cli_name, name=conn.warehouse
+        )
+
     result = {
         "Connection name": connection,
         "Status": "OK",
