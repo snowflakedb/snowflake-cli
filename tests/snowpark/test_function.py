@@ -276,9 +276,10 @@ def test_deploy_procedure_fully_qualified_name(
     alter_snowflake_yml,
     snapshot,
 ):
+    number_of_functions_in_project = 6
     mock_om_describe.side_effect = [
         ProgrammingError("does not exist or not authorized"),
-    ] * 100
+    ] * number_of_functions_in_project
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
