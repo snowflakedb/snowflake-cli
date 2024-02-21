@@ -435,7 +435,8 @@ def test_key_pair_authentication_from_config(
     ],
 )
 @mock.patch("snowflake.connector.connect")
-def test_mfa_passcode(mock_connect, runner, command):
+@mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
+def test_mfa_passcode(_, mock_connect, runner, command):
     command.extend(["--mfa-passcode", "123"])
     result = runner.invoke(command)
 
@@ -489,7 +490,8 @@ def test_if_password_callback_is_called_only_once_from_arguments(runner):
     ],
 )
 @mock.patch("snowflake.connector.connect")
-def test_mfa_passcode_from_prompt(mock_connect, runner, command):
+@mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
+def test_mfa_passcode_from_prompt(_, mock_connect, runner, command):
     command.append("--mfa-passcode")
     result = runner.invoke(command, input="123")
 
