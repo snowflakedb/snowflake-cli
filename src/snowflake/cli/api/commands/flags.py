@@ -68,7 +68,7 @@ UserOption = typer.Option(
 )
 
 
-PLAIN_PASSWORD_MSG = "WARNING! Using --password via the CLI is insecure. Use environment variables instead."
+PLAIN_PASSWORD_MSG = "WARNING! Using --password via the CLI, or passing password in prompt is insecure. Use environment variables instead."
 
 
 def _password_callback(value: str):
