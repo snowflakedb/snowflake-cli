@@ -1,7 +1,8 @@
 from pathlib import Path
 from typing import List, Optional
 
-from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.object.common import Tag
 from snowflake.cli.plugins.spcs.common import (
@@ -69,7 +70,7 @@ class ServiceManager(SqlExecutionMixin):
 
         import yaml
 
-        with open(path) as fh:
+        with SecurePath(path).open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fh:
             data = yaml.safe_load(fh)
         return json.dumps(data)
 

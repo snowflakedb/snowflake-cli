@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import os
 from typing import Dict, List, Optional
 
-from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.snowpark.package_utils import generate_deploy_stage_name
 from snowflake.connector.cursor import SnowflakeCursor
@@ -69,8 +69,11 @@ def _convert_resource_details_to_dict(function_details: SnowflakeCursor) -> dict
 
 def _get_snowflake_packages_delta(anaconda_packages) -> List[str]:
     updated_package_list = []
-    if os.path.exists("requirements.snowflake.txt"):
-        with open("requirements.snowflake.txt", encoding="utf-8") as f:
+    requirements_file = SecurePath("requirements.snowflake.txt")
+    if requirements_file.exists():
+        with requirements_file.open(
+            "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
+        ) as f:
             # for each line, check if it exists in anaconda_packages. If it
             # doesn't, add it to the return string
             for line in f:

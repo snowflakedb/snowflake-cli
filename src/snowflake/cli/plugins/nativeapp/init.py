@@ -1,20 +1,19 @@
 from __future__ import annotations
 
 import logging
-import os
 import re
 from pathlib import Path
-from shutil import move, rmtree
-from tempfile import TemporaryDirectory
 from typing import Optional
 
 from click.exceptions import ClickException
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.util import (
     is_valid_identifier,
     is_valid_unquoted_identifier,
     to_identifier,
 )
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.rendering import generic_render_template
 from strictyaml import as_document, load
 from yaml import dump
@@ -131,7 +130,7 @@ def _render_snowflake_yml(parent_to_snowflake_yml: Path, project_identifier: str
             },
             output_file_path=parent_to_snowflake_yml / "snowflake.yml",
         )
-        os.remove(parent_to_snowflake_yml / snowflake_yml_jinja)
+        (parent_to_snowflake_yml / snowflake_yml_jinja).unlink()
     except Exception as err:
         log.error(err)
         raise RenderingFromJinjaError(snowflake_yml_jinja)
@@ -152,10 +151,10 @@ def _replace_snowflake_yml_name_with_project(
         None
     """
 
-    path_to_snowflake_yml = target_directory / "snowflake.yml"
+    path_to_snowflake_yml = SecurePath(target_directory) / "snowflake.yml"
     contents = None
 
-    with open(path_to_snowflake_yml) as f:
+    with path_to_snowflake_yml.open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as f:
         contents = load(f.read()).data
 
     if (
@@ -164,7 +163,7 @@ def _replace_snowflake_yml_name_with_project(
         and (contents["native_app"]["name"] != project_identifier)
     ):
         contents["native_app"]["name"] = project_identifier
-        with open(path_to_snowflake_yml, "w") as f:
+        with path_to_snowflake_yml.open("w") as f:
             f.write(as_document(contents).as_yaml())
 
 
@@ -220,15 +219,13 @@ def _init_from_template(
         git_url = git_url if git_url else OFFICIAL_TEMPLATES_GITHUB_URL
 
     try:
-        with TemporaryDirectory() as temp_dir:
+        with SecurePath.temporary_directory() as temp_path:
             from git import Repo
-
-            temp_path = Path(temp_dir)
 
             # Clone the repository in the temporary directory with options.
             Repo.clone_from(
                 url=git_url,
-                to_path=temp_dir,
+                to_path=temp_path.path,
                 filter=["tree:0"],
                 depth=1,
             )
@@ -237,35 +234,32 @@ def _init_from_template(
                 # the template is the entire git repository
                 template_root = temp_path
                 # Remove all git history before we move the repo
-                rmtree(template_root.joinpath(".git").resolve())
+                (template_root / ".git").rmdir(recursive=True, missing_ok=True)
             else:
                 # The template is a subdirectory of the git repository
                 template_name = template if template else BASIC_TEMPLATE
                 template_root = temp_path / template_name
-                if not template_root.is_dir():
+                if not template_root.path.is_dir():
                     raise TemplateNotFoundError(template_name=template_name)
 
-            if Path.exists(template_root / "snowflake.yml.jinja"):
+            if (template_root / "snowflake.yml.jinja").exists():
                 # Render snowflake.yml file from its jinja template
                 _render_snowflake_yml(
-                    parent_to_snowflake_yml=template_root,
+                    parent_to_snowflake_yml=template_root.path,
                     project_identifier=project_identifier,
                 )
 
             # If not an official Snowflake Native App template
             if git_url != OFFICIAL_TEMPLATES_GITHUB_URL:
                 _validate_and_update_snowflake_yml(
-                    target_directory=template_root,
+                    target_directory=template_root.path,
                     project_identifier=project_identifier,
                 )
 
             project_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Move the template to the specified path
-            move(
-                src=template_root,  # type: ignore
-                dst=project_path,
-            )
+            template_root.move(project_path)
 
     except TemplateNotFoundError:
         raise
@@ -273,7 +267,7 @@ def _init_from_template(
         # If there was any error, validation on Project Definition file or otherwise,
         # there should not be any Native Apps Project left after this.
         if project_path.exists():
-            rmtree(project_path.resolve())
+            SecurePath(project_path).rmdir(recursive=True)
 
         log.error(err)
         raise InitError()

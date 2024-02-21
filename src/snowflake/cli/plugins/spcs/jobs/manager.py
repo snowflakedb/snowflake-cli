@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -24,7 +26,7 @@ class JobManager(SqlExecutionMixin):
 
         import yaml
 
-        with open(path) as fh:
+        with SecurePath(path).open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fh:
             data = yaml.safe_load(fh)
         return json.dumps(data)
 

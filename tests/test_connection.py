@@ -1,11 +1,12 @@
 import json
+import os
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
-from unittest.mock import MagicMock
+from unittest import mock
 
-from snowflake.cli.api.exceptions import SnowflakeConnectionError
+import pytest
 
-from tests.testing_utils.fixtures import *
+from tests.testing_utils.fixtures import TEST_DIR
 
 
 def test_new_connection_can_be_added(runner, snapshot):
@@ -189,6 +190,7 @@ def test_lists_connection_information(runner):
             },
         },
         {"connection_name": "empty", "parameters": {}},
+        {"connection_name": "test_connections", "parameters": {"user": "python"}},
     ]
 
 
@@ -237,7 +239,18 @@ def test_connection_test(mock_connect, runner):
     assert "Password" not in result.output
     assert "password" not in result.output
     mock_connect.assert_called_with(
-        connection_name="full", temporary_connection=False, mfa_passcode=None
+        temporary_connection=False,
+        mfa_passcode=None,
+        connection_name="full",
+        account=None,
+        user=None,
+        password=None,
+        authenticator=None,
+        private_key_path=None,
+        database=None,
+        schema=None,
+        role=None,
+        warehouse=None,
     )
 
 
@@ -404,6 +417,30 @@ def test_key_pair_authentication_from_config(
     )
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["sql", "-q", "select 1"],
+        ["connection", "test"],
+    ],
+)
+@mock.patch("snowflake.connector.connect")
+def test_mfa_passcode(mock_connect, runner, command):
+    command.extend(["--mfa-passcode", "123"])
+    result = runner.invoke(command)
+
+    assert result.exit_code == 0, result.output
+    args, kwargs = mock_connect.call_args
+    assert kwargs["passcode"] == "123"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["sql", "-q", "select 1"],
+        ["connection", "test"],
+    ],
+)
 def test_if_password_callback_is_called_only_once_from_prompt(runner):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
@@ -442,8 +479,9 @@ def test_if_password_callback_is_called_only_once_from_arguments(runner):
 
 
 @mock.patch("snowflake.connector.connect")
-def test_mfa_passcode(mock_connect, runner):
-    result = runner.invoke(["sql", "-q", "select 1", "--mfa-passcode", "123"])
+def test_mfa_passcode_from_prompt(mock_connect, runner, command):
+    command.append("--mfa-passcode")
+    result = runner.invoke(command, input="123")
 
     assert result.exit_code == 0, result.output
     args, kwargs = mock_connect.call_args
@@ -456,4 +494,140 @@ def test_no_mfa_passcode(mock_connect, runner):
 
     assert result.exit_code == 0, result.output
     args, kwargs = mock_connect.call_args
-    assert kwargs.get("passcode") == None
+    assert kwargs.get("passcode") is None
+
+
+@pytest.mark.parametrize(
+    "env",
+    [
+        {
+            "SNOWFLAKE_CONNECTIONS_EMPTY_ACCOUNT": "some_account",
+            "SNOWFLAKE_CONNECTIONS_EMPTY_DATABASE": "test_database",
+            "SNOWFLAKE_CONNECTIONS_EMPTY_WAREHOUSE": "large",
+            "SNOWFLAKE_CONNECTIONS_EMPTY_ROLE": "role",
+            "SNOWFLAKE_CONNECTIONS_EMPTY_SCHEMA": "my_schema",
+            "SNOWFLAKE_CONNECTIONS_EMPTY_PASSWORD": "dummy",
+        },
+        {
+            "SNOWFLAKE_ACCOUNT": "some_account",
+            "SNOWFLAKE_DATABASE": "test_database",
+            "SNOWFLAKE_WAREHOUSE": "large",
+            "SNOWFLAKE_ROLE": "role",
+            "SNOWFLAKE_SCHEMA": "my_schema",
+            "SNOWFLAKE_PASSWORD": "dummy",
+        },
+    ],
+)
+@mock.patch("snowflake.connector.connect")
+def test_connection_details_are_resolved_using_environment_variables(
+    mock_connect, env, test_snowcli_config, runner
+):
+    with mock.patch.dict(os.environ, env, clear=True):
+
+        result = runner.invoke(["sql", "-q", "select 1", "-c", "empty"])
+
+        assert result.exit_code == 0, result.output
+        args, kwargs = mock_connect.call_args
+        assert kwargs == {
+            "account": "some_account",
+            "application": "SNOWCLI.SQL",
+            "database": "test_database",
+            "warehouse": "large",
+            "schema": "my_schema",
+            "role": "role",
+            "password": "dummy",
+        }
+
+
+@pytest.mark.parametrize(
+    "env",
+    [
+        {
+            "SNOWFLAKE_CONNECTIONS_EMPTY_ACCOUNT": "some_account",
+            "SNOWFLAKE_CONNECTIONS_EMPTY_DATABASE": "test_database",
+            "SNOWFLAKE_CONNECTIONS_EMPTY_WAREHOUSE": "large",
+            "SNOWFLAKE_CONNECTIONS_EMPTY_ROLE": "role",
+            "SNOWFLAKE_CONNECTIONS_EMPTY_SCHEMA": "my_schema",
+        },
+        {
+            "SNOWFLAKE_ACCOUNT": "some_account",
+            "SNOWFLAKE_DATABASE": "test_database",
+            "SNOWFLAKE_WAREHOUSE": "large",
+            "SNOWFLAKE_ROLE": "role",
+            "SNOWFLAKE_SCHEMA": "my_schema",
+        },
+    ],
+)
+@mock.patch("snowflake.connector.connect")
+def test_flags_take_precedence_before_environment_variables(
+    mock_connect, env, test_snowcli_config, runner
+):
+    with mock.patch.dict(os.environ, env, clear=True):
+
+        result = runner.invoke(
+            [
+                "sql",
+                "-q",
+                "select 1",
+                "-c",
+                "empty",
+                "--account",
+                "account_from_flag",
+                "--database",
+                "database_from_flag",
+                "--schema",
+                "schema_from_flag",
+                "--password",
+                "password_from_flag",
+                "--role",
+                "role_from_flag",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        args, kwargs = mock_connect.call_args
+        assert kwargs == {
+            "account": "account_from_flag",
+            "application": "SNOWCLI.SQL",
+            "database": "database_from_flag",
+            "warehouse": "large",
+            "schema": "schema_from_flag",
+            "password": "password_from_flag",
+            "role": "role_from_flag",
+        }
+
+
+@mock.patch.dict(
+    os.environ,
+    {
+        "SNOWFLAKE_CONNECTIONS_TEST_CONNECTIONS_ACCOUNT": "account_from_connection_env",
+        "SNOWFLAKE_ACCOUNT": "account_from_global_env",
+        "SNOWFLAKE_CONNECTIONS_TEST_CONNECTIONS_DATABASE": "database_from_connection_env",
+        "SNOWFLAKE_DATABASE": "database_from_global_env",
+        "SNOWFLAKE_ROLE": "role_from_global_env",
+    },
+    clear=True,
+)
+@mock.patch("snowflake.connector.connect")
+def test_source_precedence(mock_connect, runner):
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "select 1",
+            "-c",
+            "test_connections",
+            "--account",
+            "account_from_flag",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    args, kwargs = mock_connect.call_args
+    assert kwargs == {
+        "user": "python",  # from config
+        "account": "account_from_flag",
+        "application": "SNOWCLI.SQL",
+        "database": "database_from_connection_env",
+        "role": "role_from_global_env",
+    }

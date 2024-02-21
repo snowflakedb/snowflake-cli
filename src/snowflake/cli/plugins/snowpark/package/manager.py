@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import logging
 import os.path
-import tempfile
 from pathlib import Path
-from shutil import rmtree
 
 from requirements.requirement import Requirement
 from snowflake.cli.api.constants import PACKAGES_DIR
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.models import SplitRequirements
@@ -47,11 +46,14 @@ def lookup(name: str, install_packages: bool) -> LookupResult:
 
 def upload(file: Path, stage: str, overwrite: bool):
     log.info("Uploading %s to Snowflake @%s/%s...", file, stage, file)
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_app_zip_path = prepare_app_zip(file, temp_dir)
+    with SecurePath.temporary_directory() as temp_dir:
+        temp_app_zip_path = prepare_app_zip(SecurePath(file), temp_dir)
         sm = StageManager()
-        sm.create(stage)
-        put_response = sm.put(temp_app_zip_path, stage, overwrite=overwrite).fetchone()
+
+        sm.create(sm.get_stage_name_from_path(stage))
+        put_response = sm.put(
+            temp_app_zip_path.path, stage, overwrite=overwrite
+        ).fetchone()
 
     message = f"Package {file} {put_response[6]} to Snowflake @{stage}/{file}."
 
@@ -71,4 +73,4 @@ def create(zip_name: str):
 
 def cleanup_after_install():
     if PACKAGES_DIR.exists():
-        rmtree(PACKAGES_DIR)
+        SecurePath(PACKAGES_DIR).rmdir(recursive=True)
