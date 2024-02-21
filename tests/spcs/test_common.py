@@ -6,7 +6,7 @@ from snowflake.cli.plugins.spcs.common import handle_object_already_exists
 from snowflake.cli.api.exceptions import ObjectAlreadyExistsError, ObjectType
 from unittest.mock import Mock
 
-
+# TODO: Undo this
 @pytest.mark.parametrize(
     "min_instances, max_instances, expected_max",
     [
