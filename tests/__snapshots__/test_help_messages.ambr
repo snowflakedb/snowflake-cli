@@ -1618,8 +1618,8 @@
    Usage: default snowpark package lookup [OPTIONS] NAME                          
                                                                                   
    Checks if a package is available on the Snowflake anaconda channel. If the     
-   `--yes` flag is provided, this command checks all dependencies of the packages 
-   outside Snowflake channel.                                                     
+   `--install-from-pip` flag is provided, this command checks all dependencies of 
+   the packages outside Snowflake channel.                                        
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the package. [default: None] [required]         │
@@ -1762,8 +1762,8 @@
   │ create  Creates a python package as a zip file that can be uploaded to a     │
   │         stage and imported for a Snowpark python app.                        │
   │ lookup  Checks if a package is available on the Snowflake anaconda channel.  │
-  │         If the `--yes` flag is provided, this command checks all             │
-  │         dependencies of the packages outside Snowflake channel.              │
+  │         If the `--install-from-pip` flag is provided, this command checks    │
+  │         all dependencies of the packages outside Snowflake channel.          │
   │ upload  Uploads a python package zip file to a Snowflake stage so it can be  │
   │         referenced in the imports of a procedure or function.                │
   ╰──────────────────────────────────────────────────────────────────────────────╯

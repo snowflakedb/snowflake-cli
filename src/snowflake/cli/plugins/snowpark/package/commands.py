@@ -48,7 +48,7 @@ def package_lookup(
 ) -> CommandResult:
     """
     Checks if a package is available on the Snowflake anaconda channel.
-    If the `--yes` flag is provided, this command checks all dependencies of the packages
+    If the `--install-from-pip` flag is provided, this command checks all dependencies of the packages
     outside Snowflake channel.
     """
     if deprecated_install_option:
