@@ -8,6 +8,8 @@ from tests_integration.conftest import SnowCLIRunner
 from tests_integration.test_utils import contains_row_with, not_contains_row_with
 from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_is_successful_and_executed_successfully,
+    assert_that_result_is_successful_and_output_json_contains,
+    assert_that_result_is_successful_and_output_json_equals,
 )
 
 
@@ -47,7 +49,9 @@ class ComputePoolTestSteps:
 
     def list_should_return_compute_pool(self, compute_pool_name) -> None:
         result = self._execute_list()
-        assert contains_row_with(result.json, {"name": compute_pool_name.upper()})
+        assert_that_result_is_successful_and_output_json_contains(
+            result, {"name": compute_pool_name.upper()}
+        )
 
     def list_should_not_return_compute_pool(self, compute_pool_name: str) -> None:
         result = self._execute_list()
@@ -55,9 +59,19 @@ class ComputePoolTestSteps:
 
     def describe_should_return_compute_pool(self, compute_pool_name: str) -> None:
         result = self._execute_describe(compute_pool_name)
-        assert result.json
-        assert len(result.json) == 1
-        assert result.json[0]["name"] == compute_pool_name.upper()
+        assert_that_result_is_successful_and_output_json_contains(
+            result, {"name": compute_pool_name.upper()}
+        )
+
+    def status_should_return_compute_pool_idle_status(
+        self, compute_pool_name: str
+    ) -> None:
+        result = self._setup.runner.invoke_with_connection_json(
+            ["spcs", "compute-pool", "status", compute_pool_name]
+        )
+        assert_that_result_is_successful_and_output_json_contains(
+            result, {"status": "IDLE"}
+        )
 
     def drop_compute_pool(self, compute_pool_name: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
@@ -68,11 +82,9 @@ class ComputePoolTestSteps:
                 compute_pool_name,
             ],
         )
-        assert result.json
-        assert len(result.json) == 1
-        assert result.json[0] == {  # type: ignore
-            "status": f"{compute_pool_name.upper()} successfully dropped."
-        }
+        assert_that_result_is_successful_and_output_json_equals(
+            result, [{"status": f"{compute_pool_name.upper()} successfully dropped."}]
+        )
 
     def stop_all_on_compute_pool(self, compute_pool_name: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
@@ -101,16 +113,20 @@ class ComputePoolTestSteps:
             set_result, is_json=True
         )
 
-        description = self._execute_describe(compute_pool_name)
-        assert contains_row_with(description.json, {"comment": comment})
+        describe_result = self._execute_describe(compute_pool_name)
+        assert_that_result_is_successful_and_output_json_contains(
+            describe_result, {"comment": comment}
+        )
         unset_result = self._setup.runner.invoke_with_connection_json(
             ["spcs", "compute-pool", "unset", compute_pool_name, "--comment"]
         )
         assert_that_result_is_successful_and_executed_successfully(
             unset_result, is_json=True
         )
-        description = self._execute_describe(compute_pool_name)
-        assert contains_row_with(description.json, {"comment": None})
+        describe_result = self._execute_describe(compute_pool_name)
+        assert_that_result_is_successful_and_output_json_contains(
+            describe_result, {"comment": None}
+        )
 
     def wait_until_compute_pool_is_idle(self, compute_pool_name: str) -> None:
         self._wait_until_compute_pool_reaches_state(compute_pool_name, "IDLE", 900)

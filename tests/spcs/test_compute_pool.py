@@ -13,6 +13,9 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.plugins.spcs.common import (
     NoPropertiesProvidedError,
 )
+from tests_integration.testing_utils.assertions.test_result_assertions import (
+    assert_that_result_is_successful_and_executed_successfully,
+)
 
 
 @patch(
@@ -415,3 +418,25 @@ def test_unset_property_with_args(runner):
     )
     assert result.exit_code == 2, result.output
     assert "Got unexpected extra argument" in result.output
+
+
+@patch(
+    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+)
+def test_status(mock_execute_query):
+    pool_name = "test_pool"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ComputePoolManager().status(pool_name=pool_name)
+    expected_query = f"call system$get_compute_pool_status('{pool_name}')"
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch("snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.status")
+def test_status_cli(mock_status, mock_statement_success, runner):
+    pool_name = "test_pool"
+    mock_status.return_value = mock_statement_success()
+    result = runner.invoke(["spcs", "compute-pool", "status", pool_name])
+    mock_status.assert_called_once_with(pool_name=pool_name)
+    assert_that_result_is_successful_and_executed_successfully(result)

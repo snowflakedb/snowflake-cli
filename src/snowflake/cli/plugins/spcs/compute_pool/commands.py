@@ -183,3 +183,12 @@ def unset_property(
         comment=comment,
     )
     return SingleQueryResult(cursor)
+
+
+@app.command(requires_connection=True)
+def status(pool_name: str = ComputePoolNameArgument, **options) -> CommandResult:
+    """
+    Retrieves status of a compute pool along with a relevant message, if one exists.
+    """
+    cursor = ComputePoolManager().status(pool_name=pool_name)
+    return SingleQueryResult(cursor)
