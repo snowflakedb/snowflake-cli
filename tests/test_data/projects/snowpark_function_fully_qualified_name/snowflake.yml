@@ -1,0 +1,53 @@
+definition_version: 1
+snowpark:
+  project_name: "my_snowpark_project"
+  stage_name: "dev_deployment"
+  src: "app/"
+  functions:
+# provide database and schema in the name
+    - name: custom_db.custom_schema.fqn_function
+      handler: "app.hello_function"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+# provide only schema in the name
+    - name: custom_schema.fqn_function_only_schema
+      handler: "app.hello_function"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+# provide schema as an argument
+    - name: schema_function
+      schema: custom_schema
+      handler: "app.hello_function"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+# provide database as an argument
+    - name: database_function
+      database: custom_db
+      handler: "app.hello_function"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+# provide schema as an argument and database in the name
+    - name: custom_schema.database_function
+      database: custom_db
+      handler: "app.hello_function"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+# error - provide database and schema in the name AND as arguments - fixed in test
+    - name: custom_database.custom_schema.fqn_function_error
+      database: custom_database
+      schema: custom_schema
+      handler: "app.hello_function"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
