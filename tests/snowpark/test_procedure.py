@@ -424,7 +424,6 @@ def test_deploy_procedure_fully_qualified_name(
         )
         result = runner.invoke(["snowpark", "deploy"])
         assert result.exit_code == 0
-        print(result.output)
         assert result.output == snapshot(name="ok")
 
 

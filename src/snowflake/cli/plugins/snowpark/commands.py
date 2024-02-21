@@ -84,8 +84,6 @@ def deploy(
         raise ClickException(
             "No procedures or functions were specified in the project definition."
         )
-    _assert_object_definitions_are_correct("function", functions)
-    _assert_object_definitions_are_correct("procedure", procedures)
 
     build_artifact_path = _get_snowpark_artifact_path(snowpark)
 
@@ -99,6 +97,8 @@ def deploy(
     fm = FunctionManager()
     om = ObjectManager()
 
+    _assert_object_definitions_are_correct("function", functions)
+    _assert_object_definitions_are_correct("procedure", procedures)
     _check_if_all_defined_integrations_exists(om, functions, procedures)
 
     existing_functions = _find_existing_objects(ObjectType.FUNCTION, functions, om)

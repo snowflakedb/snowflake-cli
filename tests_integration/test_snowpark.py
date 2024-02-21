@@ -304,25 +304,26 @@ def test_snowpark_with_single_requirement_having_transient_deps(
 def test_snowpark_default_arguments(
     _test_steps, project_directory, alter_snowflake_yml, test_database
 ):
+    database = test_database.upper()
     with project_directory("snowpark_with_default_values") as tmp_dir:
         _test_steps.snowpark_build_should_zip_files()
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.WHOLE_NEW_WORD_PROCEDURE(base varchar default 'word', "
+                    "object": f"{database}.PUBLIC.WHOLE_NEW_WORD_PROCEDURE(base varchar default 'word', "
                     "mult number default 2, suffix varchar default ', but a procedure')",
                     "type": "procedure",
                     "status": "created",
                 },
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.WHOLE_NEW_WORD(base string default 'word', "
+                    "object": f"{database}.PUBLIC.WHOLE_NEW_WORD(base string default 'word', "
                     "mult int default 2, suffix string default '!')",
                     "type": "function",
                     "status": "created",
                 },
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.CHECK_ALL_TYPES("
+                    "object": f"{database}.PUBLIC.CHECK_ALL_TYPES("
                     "s string default '<str>', "
                     "i int default 7, "
                     "b1 boolean default true, "
@@ -414,26 +415,31 @@ def test_snowpark_fully_qualified_name(
     with project_directory("snowpark_fully_qualified_name") as tmp_dir:
         _test_steps.snowpark_build_should_zip_files()
 
+        # "default" database and schema provided by fully qualified name
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
             parameter_path="snowpark.functions.0.name",
             value=f"{database}.{default_schema}.fqn_function",
         )
+        # changed schema provided by fully qualified name
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
             parameter_path="snowpark.functions.1.name",
             value=f"{database}.{different_schema}.fqn_function2",
         )
+        # changed schema provided as argument
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
             parameter_path="snowpark.functions.2.schema",
             value=different_schema,
         )
+        # default database provided as argument
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
             parameter_path="snowpark.functions.3.database",
             value=database,
         )
+        # provide default database and changed schema as arguments
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
             parameter_path="snowpark.functions.4.schema",
