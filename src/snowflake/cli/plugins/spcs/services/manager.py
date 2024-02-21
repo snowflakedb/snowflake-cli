@@ -121,9 +121,7 @@ class ServiceManager(SqlExecutionMixin):
 
         # Check if all provided properties are set to None (no properties are being set)
         if all([value is None for property_name, value in property_pairs]):
-            raise NoPropertiesProvidedError(
-                self.set_no_properties_message
-            )
+            raise NoPropertiesProvidedError(self.set_no_properties_message)
         query: list[str] = [f"alter service {service_name} set"]
         for property_name, value in property_pairs:
             if value is not None:
@@ -151,9 +149,7 @@ class ServiceManager(SqlExecutionMixin):
 
         # Check if all properties provided are False (no properties are being unset)
         if not any([value for property_name, value in property_pairs]):
-            raise NoPropertiesProvidedError(
-                self.unset_no_properties_msg
-            )
+            raise NoPropertiesProvidedError(self.unset_no_properties_msg)
         unset_list = [property_name for property_name, value in property_pairs if value]
         query = f"alter service {service_name} unset {','.join(unset_list)}"
         return self._execute_schema_query(query)

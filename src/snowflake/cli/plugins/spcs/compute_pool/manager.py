@@ -70,9 +70,7 @@ class ComputePoolManager(SqlExecutionMixin):
 
         # Check if all provided properties are set to None (no properties are being set)
         if all([value is None for property_name, value in property_pairs]):
-            raise NoPropertiesProvidedError(
-                self.set_no_properties_message
-            )
+            raise NoPropertiesProvidedError(self.set_no_properties_message)
         query: List[str] = [f"alter compute pool {pool_name} set"]
         for property_name, value in property_pairs:
             if value is not None:
@@ -92,9 +90,7 @@ class ComputePoolManager(SqlExecutionMixin):
 
         # Check if all properties provided are False (no properties are being unset)
         if not any([value for property_name, value in property_pairs]):
-            raise NoPropertiesProvidedError(
-                self.unset_no_properties_message
-            )
+            raise NoPropertiesProvidedError(self.unset_no_properties_message)
         unset_list = [property_name for property_name, value in property_pairs if value]
         query = f"alter compute pool {pool_name} unset {','.join(unset_list)}"
         return self._execute_query(query)

@@ -279,7 +279,9 @@ def test_upgrade_spec(mock_execute_schema_query, sample_spec_path):
 
 
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.upgrade_spec")
-def test_upgrade_spec_cli(mock_upgrade_spec, mock_statement_success, runner, sample_spec_path):
+def test_upgrade_spec_cli(
+    mock_upgrade_spec, mock_statement_success, runner, sample_spec_path
+):
     mock_upgrade_spec.return_value = mock_statement_success()
     service_name = "test_service"
 
@@ -391,7 +393,9 @@ def test_set_property(mock_execute_schema_query):
         auto_resume = {auto_resume}
         comment = {comment}
     """
-    assert_mock_execute_is_called_once_with_query(mock_execute_schema_query, expected_query)
+    assert_mock_execute_is_called_once_with_query(
+        mock_execute_schema_query, expected_query
+    )
     assert result == cursor
 
 
@@ -399,10 +403,7 @@ def test_set_property_no_properties():
     service_name = "test_service"
     with pytest.raises(NoPropertiesProvidedError) as e:
         ServiceManager().set_property(service_name, None, None, None, None, None)
-    assert (
-        e.value.message
-        == ServiceManager.set_no_properties_message
-    )
+    assert e.value.message == ServiceManager.set_no_properties_message
 
 
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.set_property")
@@ -479,10 +480,7 @@ def test_unset_property_no_properties():
     service_name = "test_service"
     with pytest.raises(NoPropertiesProvidedError) as e:
         ServiceManager().unset_property(service_name, False, False, False, False, False)
-    assert (
-        e.value.message
-        == ServiceManager.unset_no_properties_msg
-    )
+    assert e.value.message == ServiceManager.unset_no_properties_msg
 
 
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.unset_property")
