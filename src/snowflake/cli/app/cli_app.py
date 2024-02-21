@@ -104,7 +104,7 @@ def _commands_structure_callback(value: bool):
 @_do_not_execute_on_completion
 def _version_callback(value: bool):
     if value:
-        typer.echo(f"SnowCLI Version: {__about__.VERSION}")
+        typer.echo(f"Snowflake CLI version: {__about__.VERSION}")
         _exit_with_cleanup()
 
 
@@ -131,7 +131,7 @@ def default(
     version: bool = typer.Option(
         None,
         "--version",
-        help="Shows version of the snowcli",
+        help="Shows version of the Snowflake CLI",
         callback=_version_callback,
         is_eager=True,
     ),
@@ -154,13 +154,13 @@ def default(
     info: bool = typer.Option(
         None,
         "--info",
-        help="Shows information about the snowcli",
+        help="Shows information about the Snowflake CLI",
         callback=_info_callback,
     ),
     configuration_file: Path = typer.Option(
         None,
         "--config-file",
-        help="Specifies snowcli configuration file that should be used",
+        help="Specifies Snowflake CLI configuration file that should be used",
         exists=True,
         dir_okay=False,
         is_eager=True,
@@ -187,6 +187,7 @@ def default(
         help="Disable external command plugins",
         callback=_disable_external_command_plugins_callback,
         is_eager=True,
+        hidden=True,
     ),
     # THIS OPTION SHOULD BE THE LAST OPTION IN THE LIST!
     # ---
@@ -208,7 +209,7 @@ def default(
     ),
 ) -> None:
     """
-    SnowCLI - A CLI for Snowflake
+    Snowflake CLI tool for developers.
     """
     setup_pycharm_remote_debugger_if_provided(
         pycharm_debug_library_path=pycharm_debug_library_path,
