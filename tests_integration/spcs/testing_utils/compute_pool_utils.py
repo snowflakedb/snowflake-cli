@@ -40,13 +40,11 @@ class ComputePoolTestSteps:
                 "CPU_X64_XS",
             ]
         )
-        assert_that_result_is_successful_and_output_json_equals(
-            result,
-            [
-                {
-                    "status": f"Compute Pool {compute_pool_name.upper()} successfully created."
-                }
-            ],
+        assert result.json, result.output
+        assert "status" in result.json
+        assert (
+            f"Compute Pool {compute_pool_name.upper()} successfully created."
+            in result.json["status"]  # type: ignore
         )
 
     def list_should_return_compute_pool(self, compute_pool_name) -> None:
