@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set
 
 import typer
 from click import ClickException
@@ -97,6 +97,8 @@ def deploy(
     fm = FunctionManager()
     om = ObjectManager()
 
+    _assert_object_definitions_are_correct("function", functions)
+    _assert_object_definitions_are_correct("procedure", procedures)
     _check_if_all_defined_integrations_exists(om, functions, procedures)
 
     existing_functions = _find_existing_objects(ObjectType.FUNCTION, functions, om)
@@ -112,13 +114,14 @@ def deploy(
     # Create stage
     stage_name = snowpark.get("stage_name", DEPLOYMENT_STAGE)
     stage_manager = StageManager()
+    stage_name = stage_manager.to_fully_qualified_name(stage_name)
     stage_manager.create(
         stage_name=stage_name, comment="deployments managed by snowcli"
     )
 
     packages = get_snowflake_packages()
 
-    artifact_stage_directory = get_app_stage_path(snowpark)
+    artifact_stage_directory = get_app_stage_path(stage_name, snowpark["project_name"])
     artifact_stage_target = f"{artifact_stage_directory}/{build_artifact_path.name}"
 
     stage_manager.put(
@@ -155,13 +158,31 @@ def deploy(
     return CollectionResult(deploy_status)
 
 
+def _assert_object_definitions_are_correct(object_type, object_definitions):
+    for definition in object_definitions:
+        database = definition.get("database")
+        schema = definition.get("schema")
+        name = definition["name"]
+        fqn_parts = len(name.split("."))
+        if fqn_parts == 3 and database:
+            raise ClickException(
+                f"database of {object_type} {name} is redefined in its name"
+            )
+        if fqn_parts >= 2 and schema:
+            raise ClickException(
+                f"schema of {object_type} {name} is redefined in its name"
+            )
+
+
 def _find_existing_objects(
-    object_type: ObjectType, objects: List[Dict], om: ObjectManager
+    object_type: ObjectType,
+    objects: List[Dict],
+    om: ObjectManager,
 ):
     existing_objects = {}
     for object_definition in objects:
         identifier = build_udf_sproc_identifier(
-            object_definition, include_parameter_names=False
+            object_definition, om, include_parameter_names=False
         )
         try:
             current_state = om.describe(
@@ -203,10 +224,8 @@ def _check_if_all_defined_integrations_exists(
         )
 
 
-def get_app_stage_path(snowpark):
-    artifact_stage_directory = (
-        f"@{snowpark.get('stage_name', DEPLOYMENT_STAGE)}/{snowpark['project_name']}"
-    )
+def get_app_stage_path(stage_name: Optional[str], project_name: str) -> str:
+    artifact_stage_directory = f"@{(stage_name or DEPLOYMENT_STAGE)}/{project_name}"
     return artifact_stage_directory
 
 
@@ -219,10 +238,13 @@ def _deploy_single_object(
     stage_artifact_path: str,
 ):
     identifier = build_udf_sproc_identifier(
-        object_definition, include_parameter_names=False
+        object_definition, manager, include_parameter_names=False
     )
     identifier_with_default_values = build_udf_sproc_identifier(
-        object_definition, include_parameter_names=True, include_default_values=True
+        object_definition,
+        manager,
+        include_parameter_names=True,
+        include_default_values=True,
     )
     log.info("Deploying %s: %s", object_type, identifier_with_default_values)
 
