@@ -26,6 +26,7 @@
   * `SNOWFLAKE_ROLE`
   * `SNOWFLAKE_WAREHOUSE`
   * `SNOWFLAKE_MFA_PASSCODE`
+* Introduced `--pypi-download` flag for `snow snowpark package` commands to replace `-y` and `--yes`
 
   The `SNOWFLAKE_CONNECTION_<NAME>_<KEY>` variable takes precedence before the generic flag. For example if
   `SNOWFLAKE_PASSWORD` and `SNOWFLAKE_CONNECTIONS_FOO_PASSWORD` are present and user tries to use connection
