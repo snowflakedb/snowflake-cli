@@ -4,7 +4,7 @@ import logging
 
 import click
 import typer
-from click import ClickException, Context, Parameter
+from click import ClickException, Context
 from click.types import StringParamType
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import (

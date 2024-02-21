@@ -471,6 +471,13 @@ def test_if_password_callback_is_called_only_once_from_arguments(runner):
     assert result.output.count("WARNING!") == 1
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["sql", "-q", "select 1"],
+        ["connection", "test"],
+    ],
+)
 @mock.patch("snowflake.connector.connect")
 def test_mfa_passcode_from_prompt(mock_connect, runner, command):
     command.append("--mfa-passcode")
