@@ -89,7 +89,7 @@ class TestPackage:
         files = self._get_filenames_from_zip("dummy_pkg_for_tests_with_deps.zip")
         assert any(["shrubbery.py" in file for file in files])
 
-    #@pytest.mark.integration
+    # @pytest.mark.integration
     def test_package_with_conda_dependencies(
         self, directory_for_test, runner
     ):  # TODO think how to make this test with packages controlled by us

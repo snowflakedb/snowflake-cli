@@ -1,13 +1,10 @@
-
 import logging
 import os
-import re
 import shutil
 import subprocess
 import sys
 import venv
 from enum import Enum
-from importlib.metadata import PackagePath
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import List, Optional
@@ -99,7 +96,9 @@ class Venv:
         return dependencies
 
     def _get_dependencies(
-        self, package: Requirement, result: List[RequirementWithFilesAndDeps] = None
+        self,
+        package: Requirement,
+        result: Optional[List[RequirementWithFilesAndDeps]] = None,
     ) -> List[RequirementWithFilesAndDeps]:
         if not result:
             result = []
@@ -109,7 +108,11 @@ class Venv:
 
         result.append(package_info)
 
-        return result + [dep for pack in package_info.dependencies for dep in self._get_dependencies(Requirement.parse_line(pack), result)]
+        return result + [
+            dep
+            for pack in package_info.dependencies
+            for dep in self._get_dependencies(Requirement.parse_line(pack), result)
+        ]
 
     def get_package_info(self, package: Requirement) -> RequirementWithFilesAndDeps:
         library_path = self._get_library_path()

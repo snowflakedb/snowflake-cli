@@ -46,7 +46,7 @@ def package_lookup(
     name: str = typer.Argument(..., help="Name of the package."),
     install_packages: bool = install_option,
     deprecated_install_option: bool = deprecated_install_option,
-allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
+    allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
     **options,
 ) -> CommandResult:
     """
@@ -56,7 +56,6 @@ allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
     """
     if deprecated_install_option:
         install_packages = deprecated_install_option
-
 
     lookup_result = lookup(
         name=name,
@@ -104,7 +103,7 @@ def package_create(
     ),
     install_packages: bool = install_option,
     deprecated_install_option: bool = deprecated_install_option,
-allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
+    allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
     **options,
 ) -> CommandResult:
     """
