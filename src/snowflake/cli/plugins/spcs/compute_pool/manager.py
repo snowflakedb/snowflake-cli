@@ -94,3 +94,8 @@ class ComputePoolManager(SqlExecutionMixin):
         unset_list = [property_name for property_name, value in property_pairs if value]
         query = f"alter compute pool {pool_name} unset {','.join(unset_list)}"
         return self._execute_query(query)
+
+    def status(self, pool_name: str):
+        return self._execute_query(
+            f"call system$get_compute_pool_status('{pool_name}')"
+        )
