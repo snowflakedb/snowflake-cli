@@ -417,18 +417,71 @@ def test_key_pair_authentication_from_config(
     )
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["sql", "-q", "select 1"],
+        ["connection", "test"],
+    ],
+)
 @mock.patch("snowflake.connector.connect")
-def test_mfa_passcode(mock_connect, runner):
-    result = runner.invoke(["sql", "-q", "select 1", "--mfa-passcode", "123"])
+def test_mfa_passcode(mock_connect, runner, command):
+    command.extend(["--mfa-passcode", "123"])
+    result = runner.invoke(command)
 
     assert result.exit_code == 0, result.output
     args, kwargs = mock_connect.call_args
     assert kwargs["passcode"] == "123"
 
 
+def test_if_password_callback_is_called_only_once_from_prompt(runner):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            [
+                "connection",
+                "add",
+            ],
+            input="connName\naccName\nuserName\npassword",
+        )
+
+    assert result.exit_code == 0
+    assert result.output.count("WARNING!") == 0
+
+
+def test_if_password_callback_is_called_only_once_from_arguments(runner):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            [
+                "connection",
+                "add",
+                "-n",
+                "test_conn",
+                "-a",
+                "test_conn",
+                "-u",
+                "test_conn",
+                "-p",
+                "test_conn",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert result.output.count("WARNING!") == 1
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["sql", "-q", "select 1"],
+        ["connection", "test"],
+    ],
+)
 @mock.patch("snowflake.connector.connect")
-def test_mfa_passcode_from_prompt(mock_connect, runner):
-    result = runner.invoke(["sql", "-q", "select 1", "--mfa-passcode"], input="123")
+def test_mfa_passcode_from_prompt(mock_connect, runner, command):
+    command.append("--mfa-passcode")
+    result = runner.invoke(command, input="123")
 
     assert result.exit_code == 0, result.output
     args, kwargs = mock_connect.call_args
@@ -441,7 +494,7 @@ def test_no_mfa_passcode(mock_connect, runner):
 
     assert result.exit_code == 0, result.output
     args, kwargs = mock_connect.call_args
-    assert kwargs.get("passcode") == None
+    assert kwargs.get("passcode") is None
 
 
 @pytest.mark.parametrize(

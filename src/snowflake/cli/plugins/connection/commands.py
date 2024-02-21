@@ -4,10 +4,15 @@ import logging
 
 import click
 import typer
-from click import ClickException
+from click import ClickException, Context, Parameter  # type: ignore
+from click.core import ParameterSource  # type: ignore
 from click.types import StringParamType
 from snowflake.cli.api.cli_global_context import cli_context
-from snowflake.cli.api.commands.flags import PLAIN_PASSWORD_MSG, ConnectionOption
+from snowflake.cli.api.commands.flags import (
+    PLAIN_PASSWORD_MSG,
+    ConnectionOption,
+    MfaPasscodeOption,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.config import (
     add_connection,
@@ -69,9 +74,10 @@ def require_integer(field_name: str):
     return callback
 
 
-def _password_callback(value: str):
-    if value:
+def _password_callback(ctx: Context, param: Parameter, value: str):
+    if value and ctx.get_parameter_source(param.name) == ParameterSource.COMMANDLINE:  # type: ignore
         click.echo(PLAIN_PASSWORD_MSG)
+
     return value
 
 
@@ -215,7 +221,9 @@ def add(
 
 
 @app.command(requires_connection=False)
-def test(connection: str = ConnectionOption, **options) -> CommandResult:
+def test(
+    connection: str = ConnectionOption, mfa_passcode: str = MfaPasscodeOption, **options
+) -> CommandResult:
     """
     Tests the connection to Snowflake.
     """

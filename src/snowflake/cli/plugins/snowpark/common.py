@@ -173,7 +173,10 @@ def _is_signature_type_a_string(sig_type: str) -> bool:
 
 
 def build_udf_sproc_identifier(
-    udf_sproc_dict, include_parameter_names, include_default_values=False
+    udf_sproc_dict,
+    slq_exec_mixin,
+    include_parameter_names,
+    include_default_values=False,
 ):
     def format_arg(arg):
         result = f"{arg['type']}"
@@ -187,4 +190,9 @@ def build_udf_sproc_identifier(
         return result
 
     arguments = ", ".join(format_arg(arg) for arg in udf_sproc_dict["signature"])
-    return f"{udf_sproc_dict['name']}({arguments})"
+    name = slq_exec_mixin.to_fully_qualified_name(
+        udf_sproc_dict["name"],
+        database=udf_sproc_dict.get("database"),
+        schema=udf_sproc_dict.get("schema"),
+    )
+    return f"{name}({arguments})"
