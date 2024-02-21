@@ -434,13 +434,6 @@ def test_mfa_passcode(mock_connect, runner, command):
     assert kwargs["passcode"] == "123"
 
 
-@pytest.mark.parametrize(
-    "command",
-    [
-        ["sql", "-q", "select 1"],
-        ["connection", "test"],
-    ],
-)
 def test_if_password_callback_is_called_only_once_from_prompt(runner):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(

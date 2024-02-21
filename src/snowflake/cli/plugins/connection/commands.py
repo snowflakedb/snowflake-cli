@@ -73,7 +73,7 @@ def require_integer(field_name: str):
     return callback
 
 
-def _password_callback(ctx: Context, param: Parameter, value: str):
+def _password_callback(ctx: Context, value: str):
     if value and not ctx.default_map:
         click.echo(PLAIN_PASSWORD_MSG)
         ctx.default_map = {"password_callback_shown": True}
