@@ -31,33 +31,33 @@ class ServiceManager(SqlExecutionMixin):
         spec = self._read_yaml(spec_path)
 
         query = f"""\
-            CREATE SERVICE {service_name}
-            IN COMPUTE POOL {compute_pool}
-            FROM SPECIFICATION $$
+            create service {service_name}
+            in compute pool {compute_pool}
+            from specification $$
             {spec}
             $$
-            MIN_INSTANCES = {min_instances}
-            MAX_INSTANCES = {max_instances}
-            AUTO_RESUME = {auto_resume}
+            min_instances = {min_instances}
+            max_instances = {max_instances}
+            auto_resume = {auto_resume}
             """.splitlines()
 
         if external_access_integrations:
             external_access_integration_list = ",".join(
-                f"{e}" for e in external_access_integrations
+                eai for eai in external_access_integrations
             )
             query.append(
-                f"EXTERNAL_ACCESS_INTEGRATIONS = ({external_access_integration_list})"
+                f"external_access_integrations = ({external_access_integration_list})"
             )
 
         if query_warehouse:
-            query.append(f"QUERY_WAREHOUSE = {query_warehouse}")
+            query.append(f"query_warehouse = {query_warehouse}")
 
         if comment:
-            query.append(f"COMMENT = {comment}")
+            query.append(f"comment = {comment}")
 
         if tags:
             tag_list = ",".join(f"{t.name}={t.value_string_literal()}" for t in tags)
-            query.append(f"WITH TAG ({tag_list})")
+            query.append(f"with tag ({tag_list})")
 
         try:
             return self._execute_schema_query(strip_empty_lines(query))
@@ -76,14 +76,14 @@ class ServiceManager(SqlExecutionMixin):
 
     def status(self, service_name: str) -> SnowflakeCursor:
         return self._execute_schema_query(
-            f"CALL SYSTEM$GET_SERVICE_STATUS('{service_name}')"
+            f"call system$get_service_status('{service_name}')"
         )
 
     def logs(
         self, service_name: str, instance_id: str, container_name: str, num_lines: int
     ):
         return self._execute_schema_query(
-            f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines});"
+            f"call system$get_service_logs('{service_name}', '{instance_id}', '{container_name}', {num_lines});"
         )
 
     def upgrade_spec(self, service_name: str, spec_path: Path):
@@ -99,6 +99,8 @@ class ServiceManager(SqlExecutionMixin):
 
     def resume(self, service_name: str):
         return self._execute_schema_query(f"alter service {service_name} resume")
+
+    set_no_properties_message = "No properties specified for service. Please provide at least one property to set."
 
     def set_property(
         self,
@@ -120,13 +122,15 @@ class ServiceManager(SqlExecutionMixin):
         # Check if all provided properties are set to None (no properties are being set)
         if all([value is None for property_name, value in property_pairs]):
             raise NoPropertiesProvidedError(
-                f"No properties specified for service '{service_name}'. Please provide at least one property to set."
+                self.set_no_properties_message
             )
         query: list[str] = [f"alter service {service_name} set"]
         for property_name, value in property_pairs:
             if value is not None:
                 query.append(f"{property_name} = {value}")
         return self._execute_schema_query(strip_empty_lines(query))
+
+    unset_no_properties_msg = "No properties specified for service. Please provide at least one property to reset to its default value."
 
     def unset_property(
         self,
@@ -148,7 +152,7 @@ class ServiceManager(SqlExecutionMixin):
         # Check if all properties provided are False (no properties are being unset)
         if not any([value for property_name, value in property_pairs]):
             raise NoPropertiesProvidedError(
-                f"No properties specified for service '{service_name}'. Please provide at least one property to reset to its default value."
+                self.unset_no_properties_msg
             )
         unset_list = [property_name for property_name, value in property_pairs if value]
         query = f"alter service {service_name} unset {','.join(unset_list)}"
