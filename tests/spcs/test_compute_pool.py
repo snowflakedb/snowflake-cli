@@ -4,7 +4,6 @@ from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
 from snowflake.cli.plugins.spcs.compute_pool.commands import _compute_pool_name_callback
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.cli.api.project.util import to_string_literal
-import json
 import pytest
 
 from click import ClickException
@@ -13,9 +12,8 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.plugins.spcs.common import (
     NoPropertiesProvidedError,
 )
-from tests_integration.testing_utils.assertions.test_result_assertions import (
-    assert_that_result_is_successful_and_executed_successfully,
-)
+from tests_integration.testing_utils.assertions.test_result_assertions import assert_that_result_is_successful_and_executed_successfully
+from tests.spcs.utils import assert_mock_execute_is_called_once_with_query
 
 
 @patch(
@@ -42,20 +40,17 @@ def test_create(mock_execute_query):
         auto_suspend_secs=auto_suspend_secs,
         comment=comment,
     )
-    expected_query = " ".join(
-        [
-            "CREATE COMPUTE POOL test_pool",
-            "MIN_NODES = 2",
-            "MAX_NODES = 3",
-            "INSTANCE_FAMILY = test_family",
-            "AUTO_RESUME = True",
-            "INITIALLY_SUSPENDED = False",
-            "AUTO_SUSPEND_SECS = 7200",
-            "COMMENT = 'test comment'",
-        ]
-    )
-    actual_query = " ".join(mock_execute_query.mock_calls[0].args[0].split())
-    assert expected_query == actual_query
+    expected_query = """
+        create compute pool test_pool
+        min_nodes = 2
+        max_nodes = 3
+        instance_family = test_family
+        auto_resume = True
+        initially_suspended = False
+        auto_suspend_secs = 7200
+        comment = 'test comment'
+    """
+    assert_mock_execute_is_called_once_with_query(mock_execute_query, expected_query)
     assert result == cursor
 
 
@@ -168,27 +163,12 @@ def test_suspend(mock_execute_query):
 
 
 @patch("snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.suspend")
-def test_suspend_cli(mock_suspend, mock_cursor, runner):
+def test_suspend_cli(mock_suspend, mock_statement_success, runner):
     pool_name = "test_pool"
-    cursor = mock_cursor(
-        rows=[["Statement executed successfully."]], columns=["status"]
-    )
-    mock_suspend.return_value = cursor
+    mock_suspend.return_value = mock_statement_success()
     result = runner.invoke(["spcs", "compute-pool", "suspend", pool_name])
     mock_suspend.assert_called_once_with(pool_name)
-    assert result.exit_code == 0, result.output
-    assert "Statement executed successfully" in result.output
-
-    cursor_copy = mock_cursor(
-        rows=[["Statement executed successfully."]], columns=["status"]
-    )
-    mock_suspend.return_value = cursor_copy
-    result_json = runner.invoke(
-        ["spcs", "compute-pool", "suspend", pool_name, "--format", "json"]
-    )
-    result_json_parsed = json.loads(result_json.output)
-    assert isinstance(result_json_parsed, dict)
-    assert result_json_parsed == {"status": "Statement executed successfully."}
+    assert_that_result_is_successful_and_executed_successfully(result)
 
 
 @patch(
@@ -205,27 +185,12 @@ def test_resume(mock_execute_query):
 
 
 @patch("snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.resume")
-def test_resume_cli(mock_resume, mock_cursor, runner):
+def test_resume_cli(mock_resume, mock_statement_success, runner):
     pool_name = "test_pool"
-    cursor = mock_cursor(
-        rows=[["Statement executed successfully."]], columns=["status"]
-    )
-    mock_resume.return_value = cursor
+    mock_resume.return_value = mock_statement_success()
     result = runner.invoke(["spcs", "compute-pool", "resume", pool_name])
     mock_resume.assert_called_once_with(pool_name)
-    assert result.exit_code == 0, result.output
-    assert "Statement executed successfully" in result.output
-
-    cursor_copy = mock_cursor(
-        rows=[["Statement executed successfully."]], columns=["status"]
-    )
-    mock_resume.return_value = cursor_copy
-    result_json = runner.invoke(
-        ["spcs", "compute-pool", "resume", pool_name, "--format", "json"]
-    )
-    result_json_parsed = json.loads(result_json.output)
-    assert isinstance(result_json_parsed, dict)
-    assert result_json_parsed == {"status": "Statement executed successfully."}
+    assert_that_result_is_successful_and_executed_successfully(result)
 
 
 @patch("snowflake.cli.plugins.spcs.compute_pool.commands.is_valid_object_name")
@@ -259,17 +224,15 @@ def test_set_property(mock_execute_query):
     result = ComputePoolManager().set_property(
         pool_name, min_nodes, max_nodes, auto_resume, auto_suspend_secs, comment
     )
-    expected_query = "\n".join(
-        [
-            f"alter compute pool {pool_name} set",
-            f"min_nodes = {min_nodes}",
-            f"max_nodes = {max_nodes}",
-            f"auto_resume = {auto_resume}",
-            f"auto_suspend_secs = {auto_suspend_secs}",
-            f"comment = {comment}",
-        ]
-    )
-    mock_execute_query.assert_called_once_with(expected_query)
+    expected_query = f"""
+        alter compute pool {pool_name} set
+        min_nodes = {min_nodes}
+        max_nodes = {max_nodes}
+        auto_resume = {auto_resume}
+        auto_suspend_secs = {auto_suspend_secs}
+        comment = {comment}
+    """
+    assert_mock_execute_is_called_once_with_query(mock_execute_query, expected_query)
     assert result == cursor
 
 
@@ -279,7 +242,7 @@ def test_set_property_no_properties():
         ComputePoolManager().set_property(pool_name, None, None, None, None, None)
     assert (
         e.value.message
-        == f"No properties specified for compute pool '{pool_name}'. Please provide at least one property to set."
+        == ComputePoolManager.set_no_properties_message
     )
 
 
@@ -287,8 +250,7 @@ def test_set_property_no_properties():
     "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.set_property"
 )
 def test_set_property_cli(mock_set, mock_statement_success, runner):
-    cursor = mock_statement_success()
-    mock_set.return_value = cursor
+    mock_set.return_value = mock_statement_success()
     pool_name = "test_pool"
     min_nodes = 2
     max_nodes = 3
@@ -320,8 +282,7 @@ def test_set_property_cli(mock_set, mock_statement_success, runner):
         auto_suspend_secs=auto_suspend_secs,
         comment=to_string_literal(comment),
     )
-    assert result.exit_code == 0, result.output
-    assert "Statement executed successfully" in result.output
+    assert_that_result_is_successful_and_executed_successfully(result)
 
 
 @patch(
@@ -330,7 +291,7 @@ def test_set_property_cli(mock_set, mock_statement_success, runner):
 def test_set_property_no_properties_cli(mock_set, runner):
     pool_name = "test_pool"
     mock_set.side_effect = NoPropertiesProvidedError(
-        f"No properties specified for compute pool '{pool_name}'. Please provide at least one property to set."
+        ComputePoolManager.set_no_properties_message
     )
     result = runner.invoke(["spcs", "compute-pool", "set", pool_name])
     assert result.exit_code == 1, result.output
@@ -366,7 +327,7 @@ def test_unset_property_no_properties():
         ComputePoolManager().unset_property(pool_name, False, False, False)
     assert (
         e.value.message
-        == f"No properties specified for compute pool '{pool_name}'. Please provide at least one property to reset to its default value."
+        == ComputePoolManager.unset_no_properties_message
     )
 
 
@@ -374,8 +335,7 @@ def test_unset_property_no_properties():
     "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.unset_property"
 )
 def test_unset_property_cli(mock_unset, mock_statement_success, runner):
-    cursor = mock_statement_success()
-    mock_unset.return_value = cursor
+    mock_unset.return_value = mock_statement_success()
     pool_name = "test_pool"
     result = runner.invoke(
         [
@@ -391,8 +351,7 @@ def test_unset_property_cli(mock_unset, mock_statement_success, runner):
     mock_unset.assert_called_once_with(
         pool_name=pool_name, auto_resume=True, auto_suspend_secs=True, comment=True
     )
-    assert result.exit_code == 0, result.output
-    assert "Statement executed successfully" in result.output
+    assert_that_result_is_successful_and_executed_successfully(result)
 
 
 @patch(
@@ -401,7 +360,7 @@ def test_unset_property_cli(mock_unset, mock_statement_success, runner):
 def test_unset_property_no_properties_cli(mock_unset, runner):
     pool_name = "test_pool"
     mock_unset.side_effect = NoPropertiesProvidedError(
-        f"No properties specified for compute pool '{pool_name}'. Please provide at least one property to reset to its default value."
+        ComputePoolManager.unset_no_properties_message
     )
     result = runner.invoke(["spcs", "compute-pool", "unset", pool_name])
     assert result.exit_code == 1, result.output

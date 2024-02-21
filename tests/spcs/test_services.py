@@ -9,6 +9,10 @@ from snowflake.cli.plugins.spcs.services.manager import ServiceManager
 from tests.testing_utils.fixtures import *
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.plugins.object.common import Tag
+from tests_integration.testing_utils.assertions.test_result_assertions import (
+    assert_that_result_is_successful_and_executed_successfully,
+)
+from tests.spcs.utils import assert_mock_execute_is_called_once_with_query
 
 SPEC_CONTENT = dedent(
     """
@@ -34,17 +38,22 @@ SPEC_DICT = {
 }
 
 
+@pytest.fixture(scope="function")
+def sample_spec_path(other_directory):
+    tmp_dir = Path(other_directory)
+    spec_path = tmp_dir / "spec.yml"
+    spec_path.write_text(SPEC_CONTENT)
+    yield spec_path
+
+
 @patch(
     "snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_schema_query"
 )
-def test_create_service(mock_execute_schema_query, other_directory):
+def test_create_service(mock_execute_schema_query, sample_spec_path):
     service_name = "test_service"
     compute_pool = "test_pool"
     min_instances = 42
     max_instances = 43
-    tmp_dir = Path(other_directory)
-    spec_path = tmp_dir / "spec.yml"
-    spec_path.write_text(SPEC_CONTENT)
     auto_resume = True
     external_access_integrations = [
         "google_apis_access_integration",
@@ -60,7 +69,7 @@ def test_create_service(mock_execute_schema_query, other_directory):
     result = ServiceManager().create(
         service_name=service_name,
         compute_pool=compute_pool,
-        spec_path=Path(spec_path),
+        spec_path=sample_spec_path,
         min_instances=min_instances,
         max_instances=max_instances,
         auto_resume=auto_resume,
@@ -69,29 +78,25 @@ def test_create_service(mock_execute_schema_query, other_directory):
         tags=tags,
         comment=comment,
     )
-    expected_query = " ".join(
-        [
-            "CREATE SERVICE test_service",
-            "IN COMPUTE POOL test_pool",
-            f"FROM SPECIFICATION $$ {json.dumps(SPEC_DICT)} $$",
-            "MIN_INSTANCES = 42 MAX_INSTANCES = 43",
-            "AUTO_RESUME = True",
-            "EXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration,salesforce_api_access_integration)",
-            "QUERY_WAREHOUSE = test_warehouse",
-            "COMMENT = 'user\\'s comment'",
-            "WITH TAG (test_tag='test value',key='value')",
-        ]
+    expected_query = f"""
+        create service test_service
+        in compute pool test_pool
+        from specification $$ {json.dumps(SPEC_DICT)} $$
+        min_instances = 42 MAX_INSTANCES = 43
+        auto_resume = True
+        external_access_integrations = (google_apis_access_integration,salesforce_api_access_integration)
+        query_warehouse = test_warehouse
+        comment = 'user\\'s comment'
+        with tag (test_tag='test value',key='value')
+    """
+    assert_mock_execute_is_called_once_with_query(
+        mock_execute_schema_query, expected_query
     )
-    actual_query = " ".join(mock_execute_schema_query.mock_calls[0].args[0].split())
-    assert expected_query == actual_query
     assert result == cursor
 
 
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.create")
-def test_create_service_cli_defaults(mock_create, other_directory, runner):
-    tmp_dir = Path(other_directory)
-    spec_path = tmp_dir / "spec.yml"
-    spec_path.write_text(SPEC_CONTENT)
+def test_create_service_cli_defaults(mock_create, sample_spec_path, runner):
     result = runner.invoke(
         [
             "spcs",
@@ -101,14 +106,14 @@ def test_create_service_cli_defaults(mock_create, other_directory, runner):
             "--compute-pool",
             "test_pool",
             "--spec-path",
-            f"{spec_path}",
+            f"{sample_spec_path}",
         ]
     )
     assert result.exit_code == 0, result.output
     mock_create.assert_called_once_with(
         service_name="test_service",
         compute_pool="test_pool",
-        spec_path=spec_path,
+        spec_path=sample_spec_path,
         min_instances=1,
         max_instances=1,
         auto_resume=True,
@@ -120,10 +125,7 @@ def test_create_service_cli_defaults(mock_create, other_directory, runner):
 
 
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.create")
-def test_create_service_cli(mock_create, other_directory, runner):
-    tmp_dir = Path(other_directory)
-    spec_path = tmp_dir / "spec.yml"
-    spec_path.write_text(SPEC_CONTENT)
+def test_create_service_cli(mock_create, sample_spec_path, runner):
     result = runner.invoke(
         [
             "spcs",
@@ -133,7 +135,7 @@ def test_create_service_cli(mock_create, other_directory, runner):
             "--compute-pool",
             "test_pool",
             "--spec-path",
-            f"{spec_path}",
+            f"{sample_spec_path}",
             "--min-instances",
             "42",
             "--max-instances",
@@ -154,11 +156,10 @@ def test_create_service_cli(mock_create, other_directory, runner):
         ]
     )
     assert result.exit_code == 0, result.output
-    print(mock_create.mock_calls[0])
     mock_create.assert_called_once_with(
         service_name="test_service",
         compute_pool="test_pool",
-        spec_path=spec_path,
+        spec_path=sample_spec_path,
         min_instances=42,
         max_instances=43,
         auto_resume=False,
@@ -234,7 +235,7 @@ def test_status(mock_execute_schema_query):
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_schema_query.return_value = cursor
     result = ServiceManager().status(service_name)
-    expected_query = "CALL SYSTEM$GET_SERVICE_STATUS('test_service')"
+    expected_query = "call system$get_service_status('test_service')"
     mock_execute_schema_query.assert_called_once_with(expected_query)
     assert result == cursor
 
@@ -249,57 +250,47 @@ def test_logs(mock_execute_schema_query):
     mock_execute_schema_query.return_value = cursor
     result = ServiceManager().logs(service_name, "10", container_name, 42)
     expected_query = (
-        "call SYSTEM$GET_SERVICE_LOGS('test_service', '10', 'test_container', 42);"
+        "call system$get_service_logs('test_service', '10', 'test_container', 42);"
     )
     mock_execute_schema_query.assert_called_once_with(expected_query)
     assert result == cursor
 
 
-def test_read_yaml(other_directory):
-    tmp_dir = Path(other_directory)
-    spec_path = tmp_dir / "spec.yml"
-    spec_path.write_text(SPEC_CONTENT)
-    result = ServiceManager()._read_yaml(spec_path)
+def test_read_yaml(sample_spec_path):
+    result = ServiceManager()._read_yaml(sample_spec_path)
     assert result == json.dumps(SPEC_DICT)
 
 
 @patch(
     "snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_schema_query"
 )
-def test_upgrade_spec(mock_execute_schema_query, other_directory):
+def test_upgrade_spec(mock_execute_schema_query, sample_spec_path):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_schema_query.return_value = cursor
-    tmp_dir = Path(other_directory)
-    spec_path = tmp_dir / "spec.yml"
-    spec_path.write_text(SPEC_CONTENT)
-    result = ServiceManager().upgrade_spec(service_name, spec_path)
+    result = ServiceManager().upgrade_spec(
+        service_name=service_name, spec_path=sample_spec_path
+    )
     expected_query = (
         f"alter service {service_name} from specification $$ {json.dumps(SPEC_DICT)} $$"
     )
-    actual_query = " ".join(mock_execute_schema_query.mock_calls[0].args[0].split())
-    assert expected_query == actual_query
+    mock_execute_schema_query.assert_called_once_with(expected_query)
     assert result == cursor
 
 
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.upgrade_spec")
-def test_upgrade_spec_cli(mock_upgrade_spec, mock_cursor, runner, other_directory):
-    cursor = mock_cursor(rows=[["Statement executed successfully"]], columns=["status"])
-    mock_upgrade_spec.return_value = cursor
+def test_upgrade_spec_cli(mock_upgrade_spec, mock_statement_success, runner, sample_spec_path):
+    mock_upgrade_spec.return_value = mock_statement_success()
     service_name = "test_service"
-    tmp_dir = Path(other_directory)
-    spec_path = tmp_dir / "spec.yml"
-    spec_path.write_text(SPEC_CONTENT)
 
     result = runner.invoke(
-        ["spcs", "service", "upgrade", service_name, "--spec-path", spec_path]
+        ["spcs", "service", "upgrade", service_name, "--spec-path", sample_spec_path]
     )
 
     mock_upgrade_spec.assert_called_once_with(
-        service_name=service_name, spec_path=spec_path
+        service_name=service_name, spec_path=sample_spec_path
     )
-    assert result.exit_code == 0, result.output
-    assert "Statement executed successfully" in result.output
+    assert_that_result_is_successful_and_executed_successfully(result)
 
 
 @patch(
@@ -344,15 +335,11 @@ def test_suspend(mock_execute_schema_query):
 
 
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.suspend")
-def test_suspend_cli(mock_suspend, mock_cursor, runner):
+def test_suspend_cli(mock_suspend, mock_statement_success, runner):
     service_name = "test_service"
-    cursor = mock_cursor(
-        rows=[["Statement executed successfully."]], columns=["status"]
-    )
-    mock_suspend.return_value = cursor
+    mock_suspend.return_value = mock_statement_success()
     result = runner.invoke(["spcs", "service", "suspend", service_name])
-    assert result.exit_code == 0, result.output
-    assert "Statement executed successfully" in result.output
+    assert_that_result_is_successful_and_executed_successfully(result)
 
 
 @patch(
@@ -369,15 +356,11 @@ def test_resume(mock_execute_schema_query):
 
 
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.resume")
-def test_resume_cli(mock_resume, mock_cursor, runner):
+def test_resume_cli(mock_resume, mock_statement_success, runner):
     service_name = "test_service"
-    cursor = mock_cursor(
-        rows=[["Statement executed successfully."]], columns=["status"]
-    )
-    mock_resume.return_value = cursor
+    mock_resume.return_value = mock_statement_success()
     result = runner.invoke(["spcs", "service", "resume", service_name])
-    assert result.exit_code == 0, result.output
-    assert "Statement executed successfully" in result.output
+    assert_that_result_is_successful_and_executed_successfully(result)
 
 
 @patch(
@@ -400,17 +383,15 @@ def test_set_property(mock_execute_schema_query):
         auto_resume=auto_resume,
         comment=comment,
     )
-    expected_query = "\n".join(
-        [
-            f"alter service {service_name} set",
-            f"min_instances = {min_instances}",
-            f"max_instances = {max_instances}",
-            f"query_warehouse = {query_warehouse}",
-            f"auto_resume = {auto_resume}",
-            f"comment = {comment}",
-        ]
-    )
-    mock_execute_schema_query.assert_called_once_with(expected_query)
+    expected_query = f"""
+        alter service {service_name} set
+        min_instances = {min_instances}
+        max_instances = {max_instances}
+        query_warehouse = {query_warehouse}
+        auto_resume = {auto_resume}
+        comment = {comment}
+    """
+    assert_mock_execute_is_called_once_with_query(mock_execute_schema_query, expected_query)
     assert result == cursor
 
 
@@ -420,7 +401,7 @@ def test_set_property_no_properties():
         ServiceManager().set_property(service_name, None, None, None, None, None)
     assert (
         e.value.message
-        == f"No properties specified for service '{service_name}'. Please provide at least one property to set."
+        == ServiceManager.set_no_properties_message
     )
 
 
@@ -459,8 +440,7 @@ def test_set_property_cli(mock_set, mock_statement_success, runner):
         auto_resume=auto_resume,
         comment=to_string_literal(comment),
     )
-    assert result.exit_code == 0, result.output
-    assert "Statement executed successfully" in result.output
+    assert_that_result_is_successful_and_executed_successfully(result)
 
 
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.set_property")
@@ -501,7 +481,7 @@ def test_unset_property_no_properties():
         ServiceManager().unset_property(service_name, False, False, False, False, False)
     assert (
         e.value.message
-        == f"No properties specified for service '{service_name}'. Please provide at least one property to reset to its default value."
+        == ServiceManager.unset_no_properties_msg
     )
 
 
@@ -531,15 +511,14 @@ def test_unset_property_cli(mock_unset, mock_statement_success, runner):
         auto_resume=True,
         comment=True,
     )
-    assert result.exit_code == 0, result.output
-    assert "Statement executed successfully" in result.output
+    assert_that_result_is_successful_and_executed_successfully(result)
 
 
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager.unset_property")
 def test_unset_property_no_properties_cli(mock_unset, runner):
     service_name = "test_service"
     mock_unset.side_effect = NoPropertiesProvidedError(
-        f"No properties specified for service '{service_name}'. Please provide at least one property to reset to its default value."
+        ServiceManager.unset_no_properties_msg
     )
     result = runner.invoke(["spcs", "service", "unset", service_name])
     assert result.exit_code == 1, result.output

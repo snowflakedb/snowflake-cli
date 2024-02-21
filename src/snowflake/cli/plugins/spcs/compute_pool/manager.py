@@ -24,16 +24,16 @@ class ComputePoolManager(SqlExecutionMixin):
         comment: Optional[str],
     ) -> SnowflakeCursor:
         query = f"""\
-            CREATE COMPUTE POOL {pool_name}
-            MIN_NODES = {min_nodes}
-            MAX_NODES = {max_nodes}
-            INSTANCE_FAMILY = {instance_family}
-            AUTO_RESUME = {auto_resume}
-            INITIALLY_SUSPENDED = {initially_suspended}
-            AUTO_SUSPEND_SECS = {auto_suspend_secs}
+            create compute pool {pool_name}
+            min_nodes = {min_nodes}
+            max_nodes = {max_nodes}
+            instance_family = {instance_family}
+            auto_resume = {auto_resume}
+            initially_suspended = {initially_suspended}
+            auto_suspend_secs = {auto_suspend_secs}
             """.splitlines()
         if comment:
-            query.append(f"COMMENT = {comment}")
+            query.append(f"comment = {comment}")
 
         try:
             return self._execute_query(strip_empty_lines(query))
@@ -48,6 +48,8 @@ class ComputePoolManager(SqlExecutionMixin):
 
     def resume(self, pool_name: str) -> SnowflakeCursor:
         return self._execute_query(f"alter compute pool {pool_name} resume")
+
+    set_no_properties_message = "No properties specified for compute pool. Please provide at least one property to set."
 
     def set_property(
         self,
@@ -69,13 +71,15 @@ class ComputePoolManager(SqlExecutionMixin):
         # Check if all provided properties are set to None (no properties are being set)
         if all([value is None for property_name, value in property_pairs]):
             raise NoPropertiesProvidedError(
-                f"No properties specified for compute pool '{pool_name}'. Please provide at least one property to set."
+                self.set_no_properties_message
             )
         query: List[str] = [f"alter compute pool {pool_name} set"]
         for property_name, value in property_pairs:
             if value is not None:
                 query.append(f"{property_name} = {value}")
         return self._execute_query(strip_empty_lines(query))
+
+    unset_no_properties_message = "No properties specified for compute pool. Please provide at least one property to reset to its default value."
 
     def unset_property(
         self, pool_name: str, auto_resume: bool, auto_suspend_secs: bool, comment: bool
@@ -89,7 +93,7 @@ class ComputePoolManager(SqlExecutionMixin):
         # Check if all properties provided are False (no properties are being unset)
         if not any([value for property_name, value in property_pairs]):
             raise NoPropertiesProvidedError(
-                f"No properties specified for compute pool '{pool_name}'. Please provide at least one property to reset to its default value."
+                self.unset_no_properties_message
             )
         unset_list = [property_name for property_name, value in property_pairs if value]
         query = f"alter compute pool {pool_name} unset {','.join(unset_list)}"
