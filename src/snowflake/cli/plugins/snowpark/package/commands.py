@@ -24,16 +24,26 @@ app = SnowTyper(
 )
 log = logging.getLogger(__name__)
 
+install_option = typer.Option(
+    False,
+    "--install-from-pip",
+    help="Installs packages that are not available on the Snowflake anaconda channel.",
+)
+
+deprecated_install_option = typer.Option(
+    False,
+    "--yes",
+    "-y",
+    hidden=True,
+    help="Installs packages that are not available on the Snowflake anaconda channel.",
+)
+
 
 @app.command("lookup", requires_connection=True)
 def package_lookup(
     name: str = typer.Argument(..., help="Name of the package."),
-    install_packages: bool = typer.Option(
-        False,
-        "--yes",
-        "-y",
-        help="Installs packages that are not available on the Snowflake anaconda channel.",
-    ),
+    install_packages: bool = install_option,
+    deprecated_install_packages=deprecated_install_option,
     **options,
 ) -> CommandResult:
     """
@@ -81,12 +91,8 @@ def package_create(
         ...,
         help="Name of the package to create.",
     ),
-    install_packages: bool = typer.Option(
-        False,
-        "--yes",
-        "-y",
-        help="Installs packages that are not available on the Snowflake anaconda channel.",
-    ),
+    install_packages: bool = install_option,
+    deprecated_install_packages=deprecated_install_option,
     **options,
 ) -> CommandResult:
     """
