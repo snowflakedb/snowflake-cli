@@ -28,7 +28,8 @@
   The `SNOWFLAKE_CONNECTION_<NAME>_<KEY>` variable takes precedence before the generic flag. For example if
   `SNOWFLAKE_PASSWORD` and `SNOWFLAKE_CONNECTIONS_FOO_PASSWORD` are present and user tries to use connection
   "foo" then the later variable will be used.
-
+* Testing connection using `snow connection test` validates also access to database, schema, role and warehouse
+  specified in the connection details.
 
 ## Fixes and improvements
 * Restricted permissions of automatically created files
