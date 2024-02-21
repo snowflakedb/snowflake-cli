@@ -121,23 +121,28 @@ class SqlExecutionMixin:
         except ProgrammingError as e:
             raise ClickException(f"Exception occurred: {e}.") from e
 
-    def to_fully_qualified_name(self, name: str):
+    def to_fully_qualified_name(
+        self, name: str, database: Optional[str] = None, schema: Optional[str] = None
+    ):
         current_parts = name.split(".")
         if len(current_parts) == 3:
             # already fully qualified name
             return name.upper()
 
-        if not self._conn.database:
-            raise ClickException(
-                "Default database not specified in connection details."
-            )
+        if not database:
+            if not self._conn.database:
+                raise ClickException(
+                    "Default database not specified in connection details."
+                )
+            database = self._conn.database
 
         if len(current_parts) == 2:
-            # we assume this is schema.object
-            return f"{self._conn.database}.{name}".upper()
+            # we assume name is in form of `schema.object`
+            return f"{database}.{name}".upper()
 
-        schema = self._conn.schema or "public"
-        return f"{self._conn.database}.{schema}.{name}".upper()
+        schema = schema or self._conn.schema or "public"
+        database = database or self._conn.database
+        return f"{database}.{schema}.{name}".upper()
 
     def show_specific_object(
         self,
