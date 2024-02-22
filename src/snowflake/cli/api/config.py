@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
@@ -58,11 +59,7 @@ def config_init(config_file: Optional[Path]):
 
 
 def add_connection(name: str, parameters: dict):
-    conf_file_cache = CONFIG_MANAGER.conf_file_cache
-    if conf_file_cache.get(CONNECTIONS_SECTION) is None:
-        conf_file_cache[CONNECTIONS_SECTION] = {}
-    conf_file_cache[CONNECTIONS_SECTION][name] = parameters
-    _dump_config(conf_file_cache)
+    set_config_value(section=CONNECTIONS_SECTION, key=name, value=parameters)
 
 
 _DEFAULT_LOGS_CONFIG = {
@@ -74,14 +71,30 @@ _DEFAULT_LOGS_CONFIG = {
 _DEFAULT_CLI_CONFIG = {LOGS_SECTION: _DEFAULT_LOGS_CONFIG}
 
 
-def _initialise_logs_section():
+@contextmanager
+def _config_file():
     CONFIG_MANAGER.read_config()
     conf_file_cache = CONFIG_MANAGER.conf_file_cache
-    if conf_file_cache.get(CLI_SECTION) is None:
-        conf_file_cache[CLI_SECTION] = _DEFAULT_CLI_CONFIG
-    if conf_file_cache[CLI_SECTION].get(LOGS_SECTION) is None:
-        conf_file_cache[CLI_SECTION][LOGS_SECTION] = _DEFAULT_LOGS_CONFIG
+    yield conf_file_cache
     _dump_config(conf_file_cache)
+
+
+def _initialise_logs_section():
+    with _config_file() as conf_file_cache:
+        if conf_file_cache.get(CLI_SECTION) is None:
+            conf_file_cache[CLI_SECTION] = _DEFAULT_CLI_CONFIG
+        if conf_file_cache[CLI_SECTION].get(LOGS_SECTION) is None:
+            conf_file_cache[CLI_SECTION][LOGS_SECTION] = _DEFAULT_LOGS_CONFIG
+
+
+def set_config_value(section: str | None, key: str, value: Any):
+    with _config_file() as conf_file_cache:
+        if section:
+            if conf_file_cache.get(section) is None:
+                conf_file_cache[section] = {}
+            conf_file_cache[section][key] = value
+        else:
+            conf_file_cache[key] = value
 
 
 def get_logs_config() -> dict:
