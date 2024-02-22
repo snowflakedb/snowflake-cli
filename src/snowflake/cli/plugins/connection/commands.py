@@ -18,6 +18,7 @@ from snowflake.cli.api.config import (
     add_connection,
     connection_exists,
     get_config_section,
+    set_config_value,
 )
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import (
@@ -264,3 +265,10 @@ def test(
     }
 
     return ObjectResult(result)
+
+
+@app.command(requires_connection=False)
+def set_default(name: str = typer.Argument(help="Connection's name"), **options):
+    """Changes default connection to provided value."""
+    set_config_value(section=None, key="default_connection_name", value=name)
+    return MessageResult(f"Default connection set to: {name}")

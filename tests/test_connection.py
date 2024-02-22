@@ -1,10 +1,12 @@
 import json
 import os
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import mock
 
 import pytest
+import toml
 
 from tests.testing_utils.fixtures import TEST_DIR
 
@@ -643,3 +645,19 @@ def test_source_precedence(mock_connect, runner):
         "database": "database_from_connection_env",
         "role": "role_from_global_env",
     }
+
+
+def test_set_default_connection(runner):
+    def _change_connection(config_file, conn_name):
+        result = runner.invoke_with_config_file(
+            config_file.name, ["connection", "set-default", conn_name]
+        )
+        assert result.exit_code == 0, result.output
+        return toml.loads(Path(tmp_file.name).read_text())
+
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        config = _change_connection(tmp_file, "conn1")
+        assert config["default_connection_name"] == "conn1"
+
+        config = _change_connection(tmp_file, "conn2")
+        assert config["default_connection_name"] == "conn2"
