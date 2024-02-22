@@ -101,6 +101,9 @@ class StreamlitManager(SqlExecutionMixin):
         **options,
     ):
         stage_manager = StageManager()
+        # for backwards compatibility - quoted stage path might be case-sensitive
+        # https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers
+        streamlit_name_for_root_location = streamlit_name.split(".")[-1]
         fully_qualified_name = stage_manager.to_fully_qualified_name(
             streamlit_name, database=database, schema=schema
         )
@@ -153,7 +156,7 @@ class StreamlitManager(SqlExecutionMixin):
             stage_manager.create(stage_name=stage_name)
 
             root_location = stage_manager.get_standard_stage_name(
-                f"{stage_name}/{streamlit_name}"
+                f"{stage_name}/{streamlit_name_for_root_location}"
             )
 
             self._put_streamlit_files(
