@@ -672,6 +672,33 @@
   
   '''
 # ---
+# name: test_help_messages[connection.set-default]
+  '''
+                                                                                  
+   Usage: default connection set-default [OPTIONS] NAME                           
+                                                                                  
+   Changes default connection to provided value.                                  
+                                                                                  
+  ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+  │ *    name      TEXT  Connection's name [default: None] [required]            │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Global configuration ───────────────────────────────────────────────────────╮
+  │ --format           [TABLE|JSON]  Specifies the output format.                │
+  │                                  [default: TABLE]                            │
+  │ --verbose  -v                    Displays log entries for log levels `info`  │
+  │                                  and higher.                                 │
+  │ --debug                          Displays log entries for log levels `debug` │
+  │                                  and higher; debug logs contains additional  │
+  │                                  information.                                │
+  │ --silent                         Turns off intermediate output to console.   │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
 # name: test_help_messages[connection.test]
   '''
                                                                                   
@@ -714,9 +741,10 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ add       Adds a connection to configuration file.                           │
-  │ list      Lists configured connections.                                      │
-  │ test      Tests the connection to Snowflake.                                 │
+  │ add              Adds a connection to configuration file.                    │
+  │ list             Lists configured connections.                               │
+  │ set-default      Changes default connection to provided value.               │
+  │ test             Tests the connection to Snowflake.                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
