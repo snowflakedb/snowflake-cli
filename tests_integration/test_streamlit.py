@@ -268,10 +268,10 @@ def test_fully_qualified_name(
         alter_snowflake_yml(
             snowflake_yml,
             parameter_path="streamlit.name",
-            value=f"{different_schema}.{streamlit_name}",
+            value=f"{streamlit_name}",
         )
         result = runner.invoke_with_connection_json(["streamlit", "deploy"])
-        assert result.exit_code == 1
+        assert result.exit_code == 0
         assert result.json == {
             "message": "Streamlit successfully deployed and available under "
             f"https://app.snowflake.com/SFENGINEERING/snowcli_it/#/streamlit-apps/{database}.{different_schema}.{streamlit_name.upper()}",

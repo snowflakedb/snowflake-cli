@@ -1,0 +1,17 @@
+# serializer version: 1
+# name: test_fully_qualified_name[error database]
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ database of the streamlit is redefined in its name                           │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_fully_qualified_name[error schema]
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ schema of the streamlit is redefined in its name                             │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---

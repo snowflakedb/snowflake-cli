@@ -57,7 +57,7 @@ class StreamlitManager(SqlExecutionMixin):
 
     def _create_streamlit(
         self,
-        streamlit_name: str,
+        fully_qualified_name: str,
         main_file: Path,
         replace: Optional[bool] = None,
         experimental: Optional[bool] = None,
@@ -66,15 +66,15 @@ class StreamlitManager(SqlExecutionMixin):
     ):
         query = []
         if replace:
-            query.append(f"CREATE OR REPLACE STREAMLIT {streamlit_name}")
+            query.append(f"CREATE OR REPLACE STREAMLIT {fully_qualified_name}")
         elif experimental:
             # For experimental behaviour, we need to use CREATE STREAMLIT IF NOT EXISTS
             # for a streamlit app with an embedded stage
             # because this is analogous to the behavior for non-experimental
             # deploy which does CREATE STAGE IF NOT EXISTS
-            query.append(f"CREATE STREAMLIT IF NOT EXISTS {streamlit_name}")
+            query.append(f"CREATE STREAMLIT IF NOT EXISTS {fully_qualified_name}")
         else:
-            query.append(f"CREATE STREAMLIT {streamlit_name}")
+            query.append(f"CREATE STREAMLIT {fully_qualified_name}")
 
         if from_stage_name:
             query.append(f"ROOT_LOCATION = '{from_stage_name}'")
@@ -89,6 +89,8 @@ class StreamlitManager(SqlExecutionMixin):
     def deploy(
         self,
         streamlit_name: str,
+        database: Optional[str],
+        schema: Optional[str],
         main_file: Path,
         environment_file: Optional[Path] = None,
         pages_dir: Optional[Path] = None,
@@ -99,6 +101,10 @@ class StreamlitManager(SqlExecutionMixin):
         **options,
     ):
         stage_manager = StageManager()
+        fully_qualified_name = stage_manager.to_fully_qualified_name(
+            streamlit_name, database=database, schema=schema
+        )
+        streamlit_name = fully_qualified_name.split(".")[-1]
         if experimental_behaviour_enabled():
             """
             1. Create streamlit object
@@ -107,14 +113,14 @@ class StreamlitManager(SqlExecutionMixin):
             # TODO: Support from_stage
             # from_stage_stmt = f"FROM_STAGE = '{stage_name}'" if stage_name else ""
             self._create_streamlit(
-                streamlit_name,
+                fully_qualified_name,
                 main_file,
                 replace=replace,
                 query_warehouse=query_warehouse,
                 experimental=True,
             )
             try:
-                self._execute_query(f"ALTER streamlit {streamlit_name} CHECKOUT")
+                self._execute_query(f"ALTER streamlit {fully_qualified_name} CHECKOUT")
             except ProgrammingError as e:
                 # If an error is raised because a CHECKOUT has already occured,
                 # simply skip it and continue
@@ -159,7 +165,7 @@ class StreamlitManager(SqlExecutionMixin):
             )
 
             self._create_streamlit(
-                streamlit_name,
+                fully_qualified_name,
                 main_file,
                 replace=replace,
                 query_warehouse=query_warehouse,
@@ -167,13 +173,13 @@ class StreamlitManager(SqlExecutionMixin):
                 experimental=False,
             )
 
-        return self.get_url(streamlit_name)
+        return self.get_url(fully_qualified_name)
 
-    def get_url(self, streamlit_name: str) -> str:
+    def get_url(self, streamlit_name: str, database=None, schema=None) -> str:
         try:
             return make_snowsight_url(
                 self._conn,
-                f"/#/streamlit-apps/{self.qualified_name_for_url(streamlit_name)}",
+                f"/#/streamlit-apps/{self.qualified_name_for_url(streamlit_name, database=database, schema=schema)}",
             )
         except MissingConnectionHostError as e:
             return "https://app.snowflake.com"
