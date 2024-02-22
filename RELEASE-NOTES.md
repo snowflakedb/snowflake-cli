@@ -30,6 +30,7 @@
   "foo" then the later variable will be used.
 * Testing connection using `snow connection test` validates also access to database, schema, role and warehouse
   specified in the connection details.
+* Added `snow connection set-default` command for changing default connection.
 
 ## Fixes and improvements
 * Restricted permissions of automatically created files
