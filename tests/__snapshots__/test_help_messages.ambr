@@ -3892,12 +3892,11 @@
                                                                                   
    Usage: default streamlit deploy [OPTIONS]                                      
                                                                                   
-   Uploads local files to specified stage and creates a Streamlit dashboard using 
-   the files. You must specify the main python file and query warehouse. By       
-   default, the command will upload environment.yml and pages/ folder if present. 
-   If you don't provide any stage name then 'streamlit' stage will be used. If    
-   provided, a stage will be created if it does not exist. You can modify the     
-   behaviour using flags. For details check help information.                     
+   Deploys a Streamlit dashboard defined in project definition file               
+   (snowflake.yml). By default, the command will upload environment.yml and       
+   pages/ folder if present. If stage name is not specified then 'streamlit'      
+   stage will be used. If stage does not exist it will be created by this         
+   command.                                                                       
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --replace                Replace the Streamlit if it already exists.         │
@@ -4128,13 +4127,11 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ deploy   Uploads local files to specified stage and creates a Streamlit      │
-  │          dashboard using the files. You must specify the main python file    │
-  │          and query warehouse. By default, the command will upload            │
-  │          environment.yml and pages/ folder if present. If you don't provide  │
-  │          any stage name then 'streamlit' stage will be used. If provided, a  │
-  │          stage will be created if it does not exist. You can modify the      │
-  │          behaviour using flags. For details check help information.          │
+  │ deploy   Deploys a Streamlit dashboard defined in project definition file    │
+  │          (snowflake.yml). By default, the command will upload                │
+  │          environment.yml and pages/ folder if present. If stage name is not  │
+  │          specified then 'streamlit' stage will be used. If stage does not    │
+  │          exist it will be created by this command.                           │
   │ get-url  Returns url to provided streamlit app                               │
   │ init     Initializes this directory with a sample set of files for creating  │
   │          a Streamlit project.                                                │
