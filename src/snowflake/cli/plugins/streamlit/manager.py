@@ -178,12 +178,8 @@ class StreamlitManager(SqlExecutionMixin):
         except MissingConnectionHostError as e:
             return "https://app.snowflake.com"
 
-    def qualified_name(self, object_name: str):
-        return f"{self._conn.database}.{self._conn.schema}.{object_name}"
-
-    def qualified_name_for_url(self, object_name: str):
-        return (
-            f"{unquote_identifier(self._conn.database)}."
-            f"{unquote_identifier(self._conn.schema)}."
-            f"{unquote_identifier(object_name)}"
+    def qualified_name_for_url(self, object_name: str, database=None, schema=None):
+        fqn = self.to_fully_qualified_name(
+            object_name, database=database, schema=schema
         )
+        return ".".join(unquote_identifier(part) for part in fqn.split("."))
