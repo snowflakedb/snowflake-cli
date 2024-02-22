@@ -645,6 +645,16 @@ def test_source_precedence(mock_connect, runner):
     }
 
 
+def test_set_default_connection_fails_if_no_connection(runner):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke_with_config_file(
+            tmp_file.name, ["connection", "set-default", "foo"]
+        )
+
+    assert result.exit_code == 1
+    assert "Connection foo is not configured" in result.output
+
+
 def test_set_default_connection(runner):
     def _change_connection(config_file, conn_name):
         result = runner.invoke_with_config_file(
@@ -654,6 +664,9 @@ def test_set_default_connection(runner):
         return tomlkit.loads(Path(tmp_file.name).read_text()).value
 
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        tmp_file.write("[connections.conn1]\n[connections.conn2]")
+        tmp_file.flush()
+
         config = _change_connection(tmp_file, "conn1")
         assert config["default_connection_name"] == "conn1"
 
