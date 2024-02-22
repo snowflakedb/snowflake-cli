@@ -179,7 +179,7 @@ def test_fully_qualified_name(
         streamlit_name = "streamlit_fqn"
         snowflake_yml = tmp_dir / "snowflake.yml"
 
-        # FQN with just schema
+        # FQN with "default" values
         alter_snowflake_yml(
             snowflake_yml,
             parameter_path="streamlit.name",
