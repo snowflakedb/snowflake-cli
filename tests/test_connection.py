@@ -6,9 +6,7 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-import toml
-
-from tests.testing_utils.fixtures import TEST_DIR
+import tomlkit
 
 
 def test_new_connection_can_be_added(runner, snapshot):
@@ -653,7 +651,7 @@ def test_set_default_connection(runner):
             config_file.name, ["connection", "set-default", conn_name]
         )
         assert result.exit_code == 0, result.output
-        return toml.loads(Path(tmp_file.name).read_text())
+        return tomlkit.loads(Path(tmp_file.name).read_text()).value
 
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         config = _change_connection(tmp_file, "conn1")
