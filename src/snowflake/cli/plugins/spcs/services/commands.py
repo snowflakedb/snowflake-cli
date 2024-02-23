@@ -30,7 +30,9 @@ app = SnowTyper(
 
 def _service_name_callback(name: str) -> str:
     if not is_valid_object_name(name, max_depth=0, allow_quoted=False):
-        raise ClickException(f"'{name}' is not a valid service name.")
+        raise ClickException(
+            f"'{name}' is not a valid service name. Note service names must be unquoted identifiers. The same constraint also applies to database and schema names where you create a service."
+        )
     return name
 
 
