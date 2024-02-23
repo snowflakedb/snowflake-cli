@@ -1,9 +1,11 @@
-# v2.1.1
+# v2.2.0
 
 ## Backward incompatibility
 
 ## New additions
 * Added possibility to specify `database` and `schema` in snowflake.yml for streamlit apps. Also `name` can specify a fully qualify name.
+
+## Fixes and improvements
 
 
 # v2.1.0
@@ -38,12 +40,15 @@
   "foo" then the later variable will be used.
 * Testing connection using `snow connection test` validates also access to database, schema, role and warehouse
   specified in the connection details.
+* Added `snow connection set-default` command for changing default connection.
 
 ## Fixes and improvements
 * Restricted permissions of automatically created files
 * Fixed bug where `spcs service create` would not throw error if service with specified name already exists.
 * Logging into the file by default (INFO level)
-
+* Added validation that service, compute pool, and image repository names are unqualified identifiers.
+* `spcs service` commands now accept qualified names.
+* Updated help messages for `spcs` commands.
 
 # v2.0.0
 
