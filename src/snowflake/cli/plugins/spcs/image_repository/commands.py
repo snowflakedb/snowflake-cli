@@ -10,7 +10,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
-from snowflake.cli.api.project.util import is_valid_unquoted_identifier
+from snowflake.cli.api.project.util import is_valid_object_name
 from snowflake.cli.plugins.spcs.image_registry.manager import RegistryManager
 from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
 
@@ -22,9 +22,9 @@ app = SnowTyper(
 
 
 def _repo_name_callback(name: str):
-    if not is_valid_unquoted_identifier(name):
+    if not is_valid_object_name(name, max_depth=0, allow_quoted=True):
         raise ClickException(
-            "Repository name must be a valid unquoted identifier. Quoted names for special characters or case-sensitive names are not supported for image repositories."
+            f"'{name}' is not a valid image repository name. Note that image repository names must be unquoted identifiers. The same constraint also applies to database and schema names where you create an image repository."
         )
     return name
 
