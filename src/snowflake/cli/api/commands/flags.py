@@ -289,10 +289,8 @@ class OverrideableOption:
         """
         default = kwargs.get("default", self.default)
         param_decls = kwargs.get("param_decls", self.param_decls)
-        try:
-            iter(param_decls)
-        except TypeError:
-            raise TypeError("param_decls must be an iterable")
+        if not isinstance(param_decls, list) and not isinstance(param_decls, tuple):
+            raise TypeError("param_decls must be a list or tuple")
         passed_kwargs = self.kwargs.copy()
         passed_kwargs.update(kwargs)
         passed_kwargs.pop("default", None)

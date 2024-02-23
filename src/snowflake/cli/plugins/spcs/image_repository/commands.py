@@ -16,7 +16,8 @@ from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryM
 
 app = SnowTyper(
     name="image-repository",
-    help="Manages image repositories.",
+    help="Manages Snowpark Container Services image repositories.",
+    short_help="Manages image repositories.",
 )
 
 
@@ -29,7 +30,7 @@ def _repo_name_callback(name: str):
 
 
 REPO_NAME_ARGUMENT = typer.Argument(
-    help="Name of the image repository. Only unquoted identifiers are supported for image repositories.",
+    help="Name of the image repository.",
     callback=_repo_name_callback,
 )
 
@@ -47,14 +48,14 @@ def create(
 
 @app.command("list-images", requires_connection=True)
 def list_images(
-    repo_name: str = REPO_NAME_ARGUMENT,
+    name: str = REPO_NAME_ARGUMENT,
     **options,
 ) -> CollectionResult:
-    """Lists images in given repository."""
+    """Lists images in the given repository."""
     repository_manager = ImageRepositoryManager()
     database = repository_manager.get_database()
     schema = repository_manager.get_schema()
-    url = repository_manager.get_repository_url(repo_name)
+    url = repository_manager.get_repository_url(name)
     api_url = repository_manager.get_repository_api_url(url)
     bearer_login = RegistryManager().login_to_registry(api_url)
     repos = []
@@ -81,7 +82,7 @@ def list_images(
 
     images = []
     for repo in repos:
-        prefix = f"/{database}/{schema}/{repo_name}/"
+        prefix = f"/{database}/{schema}/{name}/"
         repo = repo.replace("baserepo/", prefix)
         images.append({"image": repo})
 
@@ -90,7 +91,7 @@ def list_images(
 
 @app.command("list-tags", requires_connection=True)
 def list_tags(
-    repo_name: str = REPO_NAME_ARGUMENT,
+    name: str = REPO_NAME_ARGUMENT,
     image_name: str = typer.Option(
         ...,
         "--image_name",
@@ -99,10 +100,10 @@ def list_tags(
     ),
     **options,
 ) -> CollectionResult:
-    """Lists tags for given image in a repository."""
+    """Lists tags for the given image in a repository."""
 
     repository_manager = ImageRepositoryManager()
-    url = repository_manager.get_repository_url(repo_name)
+    url = repository_manager.get_repository_url(name)
     api_url = repository_manager.get_repository_api_url(url)
     bearer_login = RegistryManager().login_to_registry(api_url)
 
@@ -139,14 +140,10 @@ def list_tags(
 
 @app.command("url", requires_connection=True)
 def repo_url(
-    repo_name: str = REPO_NAME_ARGUMENT,
+    name: str = REPO_NAME_ARGUMENT,
     **options,
 ):
     """Returns the URL for the given repository."""
     return MessageResult(
-        (
-            ImageRepositoryManager().get_repository_url(
-                repo_name=repo_name, with_scheme=False
-            )
-        )
+        (ImageRepositoryManager().get_repository_url(repo_name=name, with_scheme=False))
     )
