@@ -82,11 +82,9 @@ def streamlit_deploy(
     **options,
 ) -> CommandResult:
     """
-    Uploads local files to specified stage and creates a Streamlit dashboard using the files. You must specify the
-    main python file and query warehouse. By default, the command will upload environment.yml and pages/ folder
-    if present. If you don't provide any stage name then 'streamlit' stage will be used. If provided, a stage will be
-    created if it does not exist.
-    You can modify the behaviour using flags. For details check help information.
+    Deploys a Streamlit dashboard defined in project definition file (snowflake.yml). By default, the command will
+    upload environment.yml and pages/ folder if present. If stage name is not specified then 'streamlit' stage
+    will be used. If stage does not exist it will be created by this command.
     """
     streamlit = cli_context.project_definition
     if not streamlit:

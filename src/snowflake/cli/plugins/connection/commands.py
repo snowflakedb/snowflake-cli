@@ -18,13 +18,18 @@ from snowflake.cli.api.config import (
     add_connection,
     connection_exists,
     get_config_section,
+    get_connection,
+    set_config_value,
 )
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
     MessageResult,
     ObjectResult,
 )
+from snowflake.cli.plugins.object.manager import ObjectManager
+from snowflake.connector import ProgrammingError
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
 app = SnowTyper(
@@ -228,7 +233,27 @@ def test(
     Tests the connection to Snowflake.
     """
 
+    # Test connection
     conn = cli_context.connection
+
+    # Test session attributes
+    om = ObjectManager()
+    try:
+        if conn.role:
+            om.use_role(new_role=conn.role)
+        if conn.database:
+            om.describe(
+                object_type=ObjectType.DATABASE.value.cli_name, name=conn.database
+            )
+        if conn.schema:
+            om.describe(object_type=ObjectType.SCHEMA.value.cli_name, name=conn.schema)
+        if conn.warehouse:
+            om.describe(
+                object_type=ObjectType.WAREHOUSE.value.cli_name, name=conn.warehouse
+            )
+    except ProgrammingError as err:
+        raise ClickException(str(err))
+
     result = {
         "Connection name": connection,
         "Status": "OK",
@@ -241,3 +266,16 @@ def test(
     }
 
     return ObjectResult(result)
+
+
+@app.command(requires_connection=False)
+def set_default(
+    name: str = typer.Argument(
+        help="Name of the connection, as defined in your `config.toml`"
+    ),
+    **options,
+):
+    """Changes default connection to provided value."""
+    get_connection(connection_name=name)
+    set_config_value(section=None, key="default_connection_name", value=name)
+    return MessageResult(f"Default connection set to: {name}")

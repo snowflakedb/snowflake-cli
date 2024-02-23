@@ -1,3 +1,12 @@
+# v2.2.0
+
+## Backward incompatibility
+
+## New additions
+
+## Fixes and improvements
+
+
 # v2.1.0
 
 ## Backward incompatibility
@@ -12,7 +21,7 @@
   * Added `image-registry login` command to fetch authentication token and log in to image registry in one command.
   * Added `image-repository url <repo_name>` command to get the URL for specified image repository.
   * Added `create` command for `image-repository`.
-  * Added `set (property)`, `unset (property)`, `suspend` and `resume` commands for `compute-pool`.
+  * Added `status`, `set (property)`, `unset (property)`, `suspend` and `resume` commands for `compute-pool`.
   * Added `set (property)`, `unset (property)`,`upgrade` and `list-endpoints` commands for `service`.
 * You can now use github repo link in `snow snowpark package create` to prepare your code for upload
 * Added `allow-native-libraries` option to `snow snowpark package create` command
@@ -31,14 +40,18 @@
   The `SNOWFLAKE_CONNECTION_<NAME>_<KEY>` variable takes precedence before the generic flag. For example if
   `SNOWFLAKE_PASSWORD` and `SNOWFLAKE_CONNECTIONS_FOO_PASSWORD` are present and user tries to use connection
   "foo" then the later variable will be used.
-
+* Testing connection using `snow connection test` validates also access to database, schema, role and warehouse
+  specified in the connection details.
+* Added `snow connection set-default` command for changing default connection.
 
 ## Fixes and improvements
 * Restricted permissions of automatically created files
 * Fixed bug where `spcs service create` would not throw error if service with specified name already exists.
 * Improved package lookup, to avoid unnecessary uploads
 * Logging into the file by default (INFO level)
-
+* Added validation that service, compute pool, and image repository names are unqualified identifiers.
+* `spcs service` commands now accept qualified names.
+* Updated help messages for `spcs` commands.
 
 # v2.0.0
 

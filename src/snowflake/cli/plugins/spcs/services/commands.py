@@ -24,13 +24,16 @@ from snowflake.cli.plugins.spcs.services.manager import ServiceManager
 
 app = SnowTyper(
     name="service",
-    help="Manages services.",
+    help="Manages Snowpark Container Services services.",
+    short_help="Manages services.",
 )
 
 
 def _service_name_callback(name: str) -> str:
-    if not is_valid_object_name(name, 2):
-        raise ClickException(f"'{name}' is not a valid service name.")
+    if not is_valid_object_name(name, max_depth=2, allow_quoted=False):
+        raise ClickException(
+            f"'{name}' is not a valid service name. Note service names must be unquoted identifiers. The same constraint also applies to database and schema names where you create a service."
+        )
     return name
 
 
@@ -95,7 +98,7 @@ def create(
     **options,
 ) -> CommandResult:
     """
-    Creates a new Snowpark Container Services service in the current schema.
+    Creates a new service in the current schema.
     """
     max_instances = validate_and_set_instances(
         min_instances, max_instances, "instances"
@@ -118,7 +121,7 @@ def create(
 @app.command(requires_connection=True)
 def status(name: str = ServiceNameArgument, **options) -> CommandResult:
     """
-    Retrieves status of a Snowpark Container Services service.
+    Retrieves the status of a service.
     """
     cursor = ServiceManager().status(service_name=name)
     return QueryJsonValueResult(cursor)
@@ -130,12 +133,16 @@ def logs(
     container_name: str = typer.Option(
         ..., "--container-name", help="Name of the container."
     ),
-    instance_id: str = typer.Option(..., "--instance-id", help="Instance Id"),
-    num_lines: int = typer.Option(500, "--num-lines", help="Number of lines"),
+    instance_id: str = typer.Option(
+        ..., "--instance-id", help="ID of the service instance, starting with 0."
+    ),
+    num_lines: int = typer.Option(
+        500, "--num-lines", help="Number of lines to retrieve."
+    ),
     **options,
 ):
     """
-    Retrieves local logs from a Snowpark Container Services service container.
+    Retrieves local logs from a service container.
     """
     results = ServiceManager().logs(
         service_name=name,
@@ -165,7 +172,7 @@ def upgrade(
 @app.command("list-endpoints", requires_connection=True)
 def list_endpoints(name: str = ServiceNameArgument, **options):
     """
-    Lists the endpoints in a Snowpark Container Services service.
+    Lists the endpoints in a service.
     """
     return QueryResult(ServiceManager().list_endpoints(service_name=name))
 
@@ -181,7 +188,7 @@ def suspend(name: str = ServiceNameArgument, **options) -> CommandResult:
 @app.command(requires_connection=True)
 def resume(name: str = ServiceNameArgument, **options) -> CommandResult:
     """
-    Resumes the service from SUSPENDED state.
+    Resumes the service from a SUSPENDED state.
     """
     return SingleQueryResult(ServiceManager().resume(name))
 
@@ -197,7 +204,7 @@ def set_property(
     **options,
 ):
     """
-    Sets one or more properties or parameters for the service.
+    Sets one or more properties for the service.
     """
     cursor = ServiceManager().set_property(
         service_name=name,
@@ -243,7 +250,7 @@ def unset_property(
     **options,
 ):
     """
-    Resets one or more properties or parameters for the service to their default value(s).
+    Resets one or more properties for the service to their default value(s).
     """
     cursor = ServiceManager().unset_property(
         service_name=name,

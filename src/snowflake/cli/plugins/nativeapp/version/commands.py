@@ -24,7 +24,7 @@ from snowflake.cli.plugins.nativeapp.version.version_processor import (
 
 app = SnowTyper(
     name="version",
-    help="Manage Native Application Package versions in Snowflake",
+    help="Manages Native Application Package versions in Snowflake",
 )
 
 log = logging.getLogger(__name__)
