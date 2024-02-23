@@ -18,14 +18,14 @@ PyPiDownloadOption: PypiOption = typer.Option(
 
 PackageNativeLibrariesOption: PypiOption = typer.Option(
     PypiOption.NO.value,
-    help="When using packages from PyPi, whether to allow native libraries.",
+    help="Allows native libraries, when using packages installed through PIP",
 )
 
 CheckAnacondaForPyPiDependencies: bool = typer.Option(
     True,
     "--check-anaconda-for-pypi-deps/--no-check-anaconda-for-pypi-deps",
     "-a",
-    help="""Whether to check if any of missing Anaconda packages dependencies can be imported directly from Anaconda. Valid values include: `true`, `false`, Default: `true`.""",
+    help="""Checks if any of missing Anaconda packages dependencies can be imported directly from Anaconda. Valid values include: `true`, `false`, Default: `true`.""",
 )
 
 ReturnsOption = typer.Option(
@@ -39,7 +39,7 @@ OverwriteOption = typer.Option(
     False,
     "--overwrite",
     "-o",
-    help="Whether to replace an existing procedure with this one.",
+    help="Replaces an existing procedure with this one.",
 )
 
 log = logging.getLogger(__name__)
