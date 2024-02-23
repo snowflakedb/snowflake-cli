@@ -554,7 +554,7 @@
                                                                                   
    Usage: default app version [OPTIONS] COMMAND [ARGS]...                         
                                                                                   
-   Manages Native Application Package versions in Snowflake
+   Manages Native Application Package versions in Snowflake                       
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -577,7 +577,7 @@
                                                                                   
    Usage: default app [OPTIONS] COMMAND [ARGS]...                                 
                                                                                   
-   Manages Native Apps in Snowflake
+   Manages Native Apps in Snowflake                                               
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -1783,7 +1783,7 @@
                                                                                   
    Usage: default snowpark package [OPTIONS] COMMAND [ARGS]...                    
                                                                                   
-   Manages custom Python packages for Snowpark
+   Manages custom Python packages for Snowpark                                    
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -1806,7 +1806,7 @@
                                                                                   
    Usage: default snowpark [OPTIONS] COMMAND [ARGS]...                            
                                                                                   
-   Manages procedures and functions.
+   Manages procedures and functions.                                              
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -1834,7 +1834,7 @@
                                                                                   
    Usage: default spcs compute-pool create [OPTIONS] NAME                         
                                                                                   
-   Creates a new compute pool.
+   Creates a new compute pool.                                                    
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the compute pool. [required]                    │
@@ -1868,10 +1868,12 @@
   │                                                             it.              │
   │                                                             [default:        │
   │                                                             auto-resume]     │
-  │    --init-suspend       --no-init-susp…                                    Starts the       │
+  │    --init-suspend       --no-init-susp…                     Starts the       │
   │                                                             compute pool in  │
   │                                                             a suspended      │
   │                                                             state.           │
+  │                                                             [default:        │
+  │                                                             no-init-suspend] │
   │    --auto-suspend…                         INTEGER RANGE    Number of        │
   │                                            [x>=1]           seconds of       │
   │                                                             inactivity after │
@@ -1943,7 +1945,7 @@
                                                                                   
    Usage: default spcs compute-pool resume [OPTIONS] NAME                         
                                                                                   
-   Resumes the compute pool from a SUSPENDED state.
+   Resumes the compute pool from a SUSPENDED state.                               
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the compute pool. [required]                    │
@@ -2006,7 +2008,7 @@
                                                                                   
    Usage: default spcs compute-pool set [OPTIONS] NAME                            
                                                                                   
-   Sets one or more properties for the compute pool.
+   Sets one or more properties for the compute pool.                              
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the compute pool. [required]                    │
@@ -2094,7 +2096,7 @@
                                                                                   
    Usage: default spcs compute-pool status [OPTIONS] POOL_NAME                    
                                                                                   
-   Retrieves the status of a compute pool along with a relevant message, if one
+   Retrieves the status of a compute pool along with a relevant message, if one   
    exists.                                                                        
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
@@ -2285,7 +2287,7 @@
                                                                                   
    Usage: default spcs compute-pool unset [OPTIONS] NAME                          
                                                                                   
-   Resets one or more properties for the compute pool to their default value(s).
+   Resets one or more properties for the compute pool to their default value(s).  
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the compute pool. [required]                    │
@@ -2357,7 +2359,7 @@
                                                                                   
    Usage: default spcs compute-pool [OPTIONS] COMMAND [ARGS]...                   
                                                                                   
-   Manages Snowpark Container Services compute pools.
+   Manages Snowpark Container Services compute pools.                             
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -2383,8 +2385,8 @@
                                                                                   
    Usage: default spcs image-registry login [OPTIONS]                             
                                                                                   
-   Logs in to the account image registry with the current user's credentials
-   through Docker.
+   Logs in to the account image registry with the current user's credentials      
+   through Docker.                                                                
    Must be called from a role that can view at least one image repository in the  
    image registry.                                                                
                                                                                   
@@ -2446,7 +2448,7 @@
                                                                                   
    Usage: default spcs image-registry token [OPTIONS]                             
                                                                                   
-   Retrieves a registry authentication token based on your current connection.
+   Retrieves a registry authentication token based on your current connection.    
    Note that this token is specific to your current user and will not grant       
    access to any repositories that your current user cannot access.               
                                                                                   
@@ -2499,14 +2501,14 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-
-   Usage Example: snow spcs image-registry token --format JSON | docker login
-   $(snow spcs image-registry url) -u 0sessiontoken --password-stdin
-   See the following for how to use this command to authenticate with SSO:
-   https://community.snowflake.com/s/article/Authenticating-with-Snowpark-Contain
-   er-Services-Image-Repository-via-SSO-and-Token-with-Snow-CLI
-
-
+                                                                                  
+   Usage Example: snow spcs image-registry token --format JSON | docker login     
+   $(snow spcs image-registry url) -u 0sessiontoken --password-stdin              
+   See the following for how to use this command to authenticate with SSO:        
+   https://community.snowflake.com/s/article/Authenticating-with-Snowpark-Contain 
+   er-Services-Image-Repository-via-SSO-and-Token-with-Snow-CLI                   
+                                                                                  
+  
   
   '''
 # ---
@@ -2515,9 +2517,9 @@
                                                                                   
    Usage: default spcs image-registry url [OPTIONS]                               
                                                                                   
-   Gets the image registry URL for the current account.
-   Must be called from a role that can view at least one image repository in the
-   image registry.
+   Gets the image registry URL for the current account.                           
+   Must be called from a role that can view at least one image repository in the  
+   image registry.                                                                
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -2577,7 +2579,7 @@
                                                                                   
    Usage: default spcs image-registry [OPTIONS] COMMAND [ARGS]...                 
                                                                                   
-   Manages Snowpark Container Services image registries.
+   Manages Snowpark Container Services image registries.                          
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -2660,9 +2662,9 @@
 # name: test_help_messages[spcs.image-repository.list-images]
   '''
                                                                                   
-   Usage: default spcs image-repository list-images [OPTIONS] NAME
+   Usage: default spcs image-repository list-images [OPTIONS] NAME                
                                                                                   
-   Lists images in the given repository.
+   Lists images in the given repository.                                          
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the image repository. [default: None]           │
@@ -2724,9 +2726,9 @@
 # name: test_help_messages[spcs.image-repository.list-tags]
   '''
                                                                                   
-   Usage: default spcs image-repository list-tags [OPTIONS] NAME
+   Usage: default spcs image-repository list-tags [OPTIONS] NAME                  
                                                                                   
-   Lists tags for the given image in a repository.
+   Lists tags for the given image in a repository.                                
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the image repository. [default: None]           │
@@ -2792,7 +2794,7 @@
 # name: test_help_messages[spcs.image-repository.url]
   '''
                                                                                   
-   Usage: default spcs image-repository url [OPTIONS] NAME
+   Usage: default spcs image-repository url [OPTIONS] NAME                        
                                                                                   
    Returns the URL for the given repository.                                      
                                                                                   
@@ -2858,7 +2860,7 @@
                                                                                   
    Usage: default spcs image-repository [OPTIONS] COMMAND [ARGS]...               
                                                                                   
-   Manages Snowpark Container Services image repositories.
+   Manages Snowpark Container Services image repositories.                        
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -3073,7 +3075,7 @@
                                                                                   
    Usage: default spcs job [OPTIONS] COMMAND [ARGS]...                            
                                                                                   
-   Manages Snowpark jobs.
+   Manages Snowpark jobs.                                                         
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -3092,7 +3094,7 @@
                                                                                   
    Usage: default spcs service create [OPTIONS] NAME                              
                                                                                   
-   Creates a new service in the current schema.
+   Creates a new service in the current schema.                                   
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the service. [default: None] [required]         │
@@ -3214,7 +3216,7 @@
                                                                                   
    Usage: default spcs service list-endpoints [OPTIONS] NAME                      
                                                                                   
-   Lists the endpoints in a service.
+   Lists the endpoints in a service.                                              
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the service. [default: None] [required]         │
@@ -3277,7 +3279,7 @@
                                                                                   
    Usage: default spcs service logs [OPTIONS] NAME                                
                                                                                   
-   Retrieves local logs from a service container.
+   Retrieves local logs from a service container.                                 
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the service. [default: None] [required]         │
@@ -3348,7 +3350,7 @@
                                                                                   
    Usage: default spcs service resume [OPTIONS] NAME                              
                                                                                   
-   Resumes the service from a SUSPENDED state.
+   Resumes the service from a SUSPENDED state.                                    
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the service. [default: None] [required]         │
@@ -3411,7 +3413,7 @@
                                                                                   
    Usage: default spcs service set [OPTIONS] NAME                                 
                                                                                   
-   Sets one or more properties for the service.
+   Sets one or more properties for the service.                                   
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the service. [default: None] [required]         │
@@ -3503,7 +3505,7 @@
                                                                                   
    Usage: default spcs service status [OPTIONS] NAME                              
                                                                                   
-   Retrieves the status of a service.
+   Retrieves the status of a service.                                             
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the service. [default: None] [required]         │
@@ -3629,7 +3631,7 @@
                                                                                   
    Usage: default spcs service unset [OPTIONS] NAME                               
                                                                                   
-   Resets one or more properties for the service to their default value(s).
+   Resets one or more properties for the service to their default value(s).       
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the service. [default: None] [required]         │
@@ -3771,7 +3773,7 @@
                                                                                   
    Usage: default spcs service [OPTIONS] COMMAND [ARGS]...                        
                                                                                   
-   Manages Snowpark Container Services services.
+   Manages Snowpark Container Services services.                                  
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
