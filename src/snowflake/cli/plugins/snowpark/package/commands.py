@@ -20,7 +20,7 @@ from snowflake.cli.plugins.snowpark.package.utils import (
 
 app = SnowTyper(
     name="package",
-    help="Manage custom Python packages for Snowpark",
+    help="Manages custom Python packages for Snowpark",
 )
 log = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ def package_upload(
         False,
         "--overwrite",
         "-o",
-        help="Whether to overwrite the file if it already exists.",
+        help="Overwrites the file if it already exists.",
     ),
     **options,
 ) -> CommandResult:
