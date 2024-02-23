@@ -1,4 +1,33 @@
 # serializer version: 1
+# name: test_help_messages[]
+  '''
+                                                                                  
+   Usage: default [OPTIONS] COMMAND [ARGS]...                                     
+                                                                                  
+   Snowflake CLI tool for developers.                                             
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --version                    Shows version of the Snowflake CLI              │
+  │ --info                       Shows information about the Snowflake CLI       │
+  │ --config-file          FILE  Specifies Snowflake CLI configuration file that │
+  │                              should be used                                  │
+  │                              [default: None]                                 │
+  │ --help         -h            Show this message and exit.                     │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ app         Manages Native Apps in Snowflake                                 │
+  │ connection  Manages connections to Snowflake.                                │
+  │ object      Manages Snowflake objects like warehouses and stages             │
+  │ snowpark    Manages procedures and functions.                                │
+  │ spcs        Manages Snowpark Container Services compute pools, services,     │
+  │             image registries, and image repositories.                        │
+  │ sql         Executes Snowflake query.                                        │
+  │ streamlit   Manages Streamlit in Snowflake.                                  │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
 # name: test_help_messages[app.bundle]
   '''
                                                                                   
