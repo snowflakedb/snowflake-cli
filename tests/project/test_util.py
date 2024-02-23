@@ -117,6 +117,20 @@ def test_is_valid_object_name():
                     assert not is_valid_object_name(name)
 
 
+def test_is_valid_object_name_disallow_quoted():
+    valid_identifiers = VALID_QUOTED_IDENTIFIERS + VALID_UNQUOTED_IDENTIFIERS
+    for num in [1, 2, 3]:
+        name_tuples = list(permutations(valid_identifiers, num))
+        for name_tuple in name_tuples:
+            has_quotes = any(t in VALID_QUOTED_IDENTIFIERS for t in name_tuple)
+            name = ".".join(name_tuple)
+            assert is_valid_object_name(name, max_depth=2, allow_quoted=True)
+            if has_quotes:
+                assert not is_valid_object_name(name, max_depth=2, allow_quoted=False)
+            else:
+                assert is_valid_object_name(name, max_depth=2, allow_quoted=False)
+
+
 def test_to_identifier():
     for id in VALID_UNQUOTED_IDENTIFIERS:
         assert to_identifier(id) == id

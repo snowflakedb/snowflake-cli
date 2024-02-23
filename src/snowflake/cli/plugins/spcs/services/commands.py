@@ -29,7 +29,7 @@ app = SnowTyper(
 
 
 def _service_name_callback(name: str) -> str:
-    if not is_valid_object_name(name, 2):
+    if not is_valid_object_name(name, max_depth=0, allow_quoted=False):
         raise ClickException(f"'{name}' is not a valid service name.")
     return name
 
