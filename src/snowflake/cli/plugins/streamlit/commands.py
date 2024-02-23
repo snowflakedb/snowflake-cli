@@ -17,6 +17,9 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
+from snowflake.cli.api.utils.project_definition import (
+    assert_object_definition_does_not_redefine_database_and_schema,
+)
 from snowflake.cli.plugins.streamlit.manager import StreamlitManager
 
 app = SnowTyper(
@@ -97,12 +100,9 @@ def streamlit_deploy(
     schema = streamlit.get("schema")
     options.pop("database")
     options.pop("schema")
-
-    number_of_fqn_parts_in_name = len(streamlit["name"].split("."))
-    if number_of_fqn_parts_in_name >= 3 and database:
-        raise ClickException(f"database of the streamlit is redefined in its name")
-    if number_of_fqn_parts_in_name >= 2 and schema:
-        raise ClickException(f"schema of the streamlit is redefined in its name")
+    assert_object_definition_does_not_redefine_database_and_schema(
+        streamlit, "streamlit"
+    )
 
     environment_file = streamlit.get("env_file", None)
     if environment_file and not Path(environment_file).exists():

@@ -26,6 +26,9 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
+from snowflake.cli.api.utils.project_definition import (
+    assert_object_definition_does_not_redefine_database_and_schema,
+)
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.cli.plugins.snowpark.common import (
@@ -97,8 +100,14 @@ def deploy(
     fm = FunctionManager()
     om = ObjectManager()
 
-    _assert_object_definitions_are_correct("function", functions)
-    _assert_object_definitions_are_correct("procedure", procedures)
+    for function in functions:
+        assert_object_definition_does_not_redefine_database_and_schema(
+            function, "function"
+        )
+    for procedure in procedures:
+        assert_object_definition_does_not_redefine_database_and_schema(
+            procedure, "procedure"
+        )
     _check_if_all_defined_integrations_exists(om, functions, procedures)
 
     existing_functions = _find_existing_objects(ObjectType.FUNCTION, functions, om)
@@ -156,22 +165,6 @@ def deploy(
         deploy_status.append(operation_result)
 
     return CollectionResult(deploy_status)
-
-
-def _assert_object_definitions_are_correct(object_type, object_definitions):
-    for definition in object_definitions:
-        database = definition.get("database")
-        schema = definition.get("schema")
-        name = definition["name"]
-        fqn_parts = len(name.split("."))
-        if fqn_parts == 3 and database:
-            raise ClickException(
-                f"database of {object_type} {name} is redefined in its name"
-            )
-        if fqn_parts >= 2 and schema:
-            raise ClickException(
-                f"schema of {object_type} {name} is redefined in its name"
-            )
 
 
 def _find_existing_objects(

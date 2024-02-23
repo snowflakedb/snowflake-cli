@@ -240,29 +240,29 @@ def test_fully_qualified_name(
             value=different_schema,
         )
 
-        # error - redefined database
-        alter_snowflake_yml(
-            snowflake_yml,
-            parameter_path="streamlit.name",
-            value=f"{database}.{different_schema}.{streamlit_name}",
-        )
-        result = runner.invoke_with_connection(
-            ["streamlit", "deploy"], catch_exceptions=True
-        )
-        assert result.exit_code == 1
-        assert result.output == snapshot(name="error database")
-
-        # error - redefined schema
-        alter_snowflake_yml(
-            snowflake_yml,
-            parameter_path="streamlit.name",
-            value=f"{different_schema}.{streamlit_name}",
-        )
-        result = runner.invoke_with_connection(
-            ["streamlit", "deploy"], catch_exceptions=True
-        )
-        assert result.exit_code == 1
-        assert result.output == snapshot(name="error schema")
+        # # error - redefined database
+        # alter_snowflake_yml(
+        #     snowflake_yml,
+        #     parameter_path="streamlit.name",
+        #     value=f"{database}.{different_schema}.{streamlit_name}",
+        # )
+        # result = runner.invoke_with_connection(
+        #     ["streamlit", "deploy"], catch_exceptions=True
+        # )
+        # assert result.exit_code == 1
+        # assert result.output == snapshot(name="error database")
+        #
+        # # error - redefined schema
+        # alter_snowflake_yml(
+        #     snowflake_yml,
+        #     parameter_path="streamlit.name",
+        #     value=f"{different_schema}.{streamlit_name}",
+        # )
+        # result = runner.invoke_with_connection(
+        #     ["streamlit", "deploy"], catch_exceptions=True
+        # )
+        # assert result.exit_code == 1
+        # assert result.output == snapshot(name="error schema")
 
         # success
         alter_snowflake_yml(

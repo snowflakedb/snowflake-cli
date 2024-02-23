@@ -103,11 +103,13 @@ class StreamlitManager(SqlExecutionMixin):
         stage_manager = StageManager()
         # for backwards compatibility - quoted stage path might be case-sensitive
         # https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers
-        streamlit_name_for_root_location = streamlit_name.split(".")[-1]
+        streamlit_name_for_root_location = self.get_name_from_fully_qualified_name(
+            streamlit_name
+        )
         fully_qualified_name = stage_manager.to_fully_qualified_name(
             streamlit_name, database=database, schema=schema
         )
-        streamlit_name = fully_qualified_name.split(".")[-1]
+        streamlit_name = self.get_name_from_fully_qualified_name(fully_qualified_name)
         if experimental_behaviour_enabled():
             """
             1. Create streamlit object
