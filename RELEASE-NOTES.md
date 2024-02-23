@@ -1,3 +1,12 @@
+# v2.2.0
+
+## Backward incompatibility
+
+## New additions
+
+## Fixes and improvements
+* Updated help messages for `spcs` commands.
+
 # v2.1.0
 
 ## Backward incompatibility
