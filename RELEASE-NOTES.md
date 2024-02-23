@@ -1,3 +1,11 @@
+# v2.1.1
+
+## Backward incompatibility
+
+## New additions
+* Added possibility to specify `database` and `schema` in snowflake.yml for streamlit apps. Also `name` can specify a fully qualify name.
+
+
 # v2.1.0
 
 ## Backward incompatibility
@@ -6,7 +14,7 @@
 * Added ability to specify scope of the `object list` command with the `--in <scope_type> <scope_name>` option.
 * Introduced `snowflake.cli.api.console.cli_console` object with helper methods for intermediate output.
 * Added new `--mfa-passcode` flag to support MFA.
-* Added possibility to specify `database` and `schema` in snowflake.yml for snowpark objects and streamlit apps. Also `name` can specify a fully qualify name.
+* Added possibility to specify `database` and `schema` in snowflake.yml for snowpark objects. Also `name` can specify a fully qualify name.
 * New commands for `spcs`
   * Added `image-registry url` command to get the URL for your account image registry.
   * Added `image-registry login` command to fetch authentication token and log in to image registry in one command.
