@@ -554,7 +554,7 @@
                                                                                   
    Usage: default app version [OPTIONS] COMMAND [ARGS]...                         
                                                                                   
-   Manage Native Application Package versions in Snowflake                        
+   Manages Native Application Package versions in Snowflake                       
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -577,7 +577,7 @@
                                                                                   
    Usage: default app [OPTIONS] COMMAND [ARGS]...                                 
                                                                                   
-   Manage Native Apps in Snowflake                                                
+   Manages Native Apps in Snowflake                                               
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -591,7 +591,7 @@
   │           development-mode instance of that application.                     │
   │ teardown  Attempts to drop both the application and package as defined in    │
   │           the project definition file.                                       │
-  │ version   Manage Native Application Package versions in Snowflake            │
+  │ version   Manages Native Application Package versions in Snowflake           │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -680,7 +680,10 @@
    Changes default connection to provided value.                                  
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    name      TEXT  Connection's name [default: None] [required]            │
+  │ *    name      TEXT  Name of the connection, as defined in your              │
+  │                      `config.toml`                                           │
+  │                      [default: None]                                         │
+  │                      [required]                                              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -1361,9 +1364,9 @@
   │                                                            packages from     │
   │                                                            PyPi.             │
   │                                                            [default: ask]    │
-  │ --check-anaconda-…  -a  --no-check-anaco…                  Whether to check  │
-  │                                                            if any of missing │
-  │                                                            Anaconda packages │
+  │ --check-anaconda-…  -a  --no-check-anaco…                  Checks if any of  │
+  │                                                            missing Anaconda  │
+  │                                                            packages          │
   │                                                            dependencies can  │
   │                                                            be imported       │
   │                                                            directly from     │
@@ -1373,11 +1376,11 @@
   │                                                            Default: `true`.  │
   │                                                            [default:         │
   │                                                            check-anaconda-f… │
-  │ --package-native-…                           [yes|no|ask]  When using        │
-  │                                                            packages from     │
-  │                                                            PyPi, whether to  │
-  │                                                            allow native      │
-  │                                                            libraries.        │
+  │ --package-native-…                           [yes|no|ask]  Allows native     │
+  │                                                            libraries, when   │
+  │                                                            using packages    │
+  │                                                            installed through │
+  │                                                            PIP               │
   │                                                            [default: no]     │
   │ --project           -p                       TEXT          Path where the    │
   │                                                            Snowpark project  │
@@ -1413,7 +1416,7 @@
    deployed objects use the same artifact which is deployed only once.            
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --replace                Replace procedure or function, even if no detected  │
+  │ --replace                Replaces procedure or function, even if no detected │
   │                          changes to metadata                                 │
   │ --project  -p      TEXT  Path where the Snowpark project resides. Defaults   │
   │                          to current working directory.                       │
@@ -1722,8 +1725,7 @@
   │                               not including the @ symbol.                    │
   │                               [default: None]                                │
   │                               [required]                                     │
-  │    --overwrite  -o            Whether to overwrite the file if it already    │
-  │                               exists.                                        │
+  │    --overwrite  -o            Overwrites the file if it already exists.      │
   │    --help       -h            Show this message and exit.                    │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -1781,7 +1783,7 @@
                                                                                   
    Usage: default snowpark package [OPTIONS] COMMAND [ARGS]...                    
                                                                                   
-   Manage custom Python packages for Snowpark                                     
+   Manages custom Python packages for Snowpark                                    
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -1804,7 +1806,7 @@
                                                                                   
    Usage: default snowpark [OPTIONS] COMMAND [ARGS]...                            
                                                                                   
-   Manage procedures and functions.                                               
+   Manages procedures and functions.                                              
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -1821,7 +1823,7 @@
   │ execute  Executes a procedure or function in a specified environment.        │
   │ init     Initializes this directory with a sample set of files for creating  │
   │          a snowpark project.                                                 │
-  │ package  Manage custom Python packages for Snowpark                          │
+  │ package  Manages custom Python packages for Snowpark                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -1866,9 +1868,10 @@
   │                                                             it.              │
   │                                                             [default:        │
   │                                                             auto-resume]     │
-  │    --init-suspend       --no-init-susp…                     The compute pool │
-  │                                                             will start in a  │
-  │                                                             suspended state. │
+  │    --init-suspend       --no-init-susp…                     Starts the       │
+  │                                                             compute pool in  │
+  │                                                             a suspended      │
+  │                                                             state.           │
   │                                                             [default:        │
   │                                                             no-init-suspend] │
   │    --auto-suspend…                         INTEGER RANGE    Number of        │
@@ -3072,7 +3075,7 @@
                                                                                   
    Usage: default spcs job [OPTIONS] COMMAND [ARGS]...                            
                                                                                   
-   Manage Snowpark jobs.                                                          
+   Manages Snowpark jobs.                                                         
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │

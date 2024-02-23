@@ -47,13 +47,13 @@ log = logging.getLogger(__name__)
 
 app = SnowTyper(
     name="snowpark",
-    help="Manage procedures and functions.",
+    help="Manages procedures and functions.",
 )
 
 ReplaceOption = typer.Option(
     False,
     "--replace",
-    help="Replace procedure or function, even if no detected changes to metadata",
+    help="Replaces procedure or function, even if no detected changes to metadata",
 )
 
 ObjectTypeArgument = typer.Argument(

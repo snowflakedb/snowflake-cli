@@ -25,10 +25,10 @@
   │ --help         -h            Show this message and exit.                     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ app         Manage Native Apps in Snowflake                                  │
+  │ app         Manages Native Apps in Snowflake                                 │
   │ connection  Manages connections to Snowflake.                                │
   │ object      Manages Snowflake objects like warehouses and stages             │
-  │ snowpark    Manage procedures and functions.                                 │
+  │ snowpark    Manages procedures and functions.                                │
   │ spcs        Manages Snowpark Container Services compute pools, services,     │
   │             image registries, and image repositories.                        │
   │ sql         Executes Snowflake query.                                        │

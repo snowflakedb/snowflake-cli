@@ -86,7 +86,7 @@ def create(
     initially_suspended: bool = typer.Option(
         False,
         "--init-suspend/--no-init-suspend",
-        help="The compute pool will start in a suspended state.",
+        help="Starts the compute pool in a suspended state.",
     ),
     auto_suspend_secs: int = AutoSuspendSecsOption(),
     comment: Optional[str] = CommentOption(help=_COMMENT_HELP),
