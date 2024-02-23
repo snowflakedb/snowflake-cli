@@ -25,7 +25,7 @@ from snowflake.cli.plugins.nativeapp.version.commands import app as versions_app
 
 app = SnowTyper(
     name="app",
-    help="Manage Native Apps in Snowflake",
+    help="Manages Native Apps in Snowflake",
 )
 app.add_typer(versions_app)
 

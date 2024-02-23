@@ -269,7 +269,12 @@ def test(
 
 
 @app.command(requires_connection=False)
-def set_default(name: str = typer.Argument(help="Connection's name"), **options):
+def set_default(
+    name: str = typer.Argument(
+        help="Name of the connection, as defined in your `config.toml`"
+    ),
+    **options,
+):
     """Changes default connection to provided value."""
     get_connection(connection_name=name)
     set_config_value(section=None, key="default_connection_name", value=name)

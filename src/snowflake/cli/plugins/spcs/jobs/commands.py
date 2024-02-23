@@ -9,7 +9,7 @@ from snowflake.cli.plugins.spcs.jobs.manager import JobManager
 
 app = SnowTyper(
     name="job",
-    help="Manage Snowpark jobs.",
+    help="Manages Snowpark jobs.",
     hidden=True,
 )
 
