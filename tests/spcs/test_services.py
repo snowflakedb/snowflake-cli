@@ -9,6 +9,8 @@ from snowflake.cli.plugins.spcs.services.manager import ServiceManager
 from tests.testing_utils.fixtures import *
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.plugins.object.common import Tag
+from snowflake.cli.plugins.spcs.services.commands import _service_name_callback
+from click import ClickException
 
 SPEC_CONTENT = dedent(
     """
@@ -152,7 +154,6 @@ def test_create_service_cli(mock_create, other_directory, runner):
         ]
     )
     assert result.exit_code == 0, result.output
-    print(mock_create.mock_calls[0])
     mock_create.assert_called_once_with(
         service_name="test_service",
         compute_pool="test_pool",
@@ -229,6 +230,17 @@ def test_status(mock_execute_query):
     mock_execute_query.return_value = cursor
     result = ServiceManager().status(service_name)
     expected_query = "CALL SYSTEM$GET_SERVICE_STATUS('test_service')"
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_query")
+def test_status_qualified_name(mock_execute_query):
+    service_name = "db.schema.test_service"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ServiceManager().status(service_name)
+    expected_query = f"CALL SYSTEM$GET_SERVICE_STATUS('{service_name}')"
     mock_execute_query.assert_called_once_with(expected_query)
     assert result == cursor
 
@@ -541,3 +553,29 @@ def test_unset_property_with_args(runner):
     )
     assert result.exit_code == 2, result.output
     assert "Got unexpected extra argument" in result.output
+
+
+def test_invalid_service_name(runner):
+    invalid_service_name = "account.db.schema.name"
+    result = runner.invoke(["spcs", "service", "status", invalid_service_name])
+    assert result.exit_code == 1
+    assert f"'{invalid_service_name}' is not a valid service name." in result.output
+
+
+@patch("snowflake.cli.plugins.spcs.services.commands.is_valid_object_name")
+def test_service_name_parser(mock_is_valid_object_name):
+    service_name = "db.schema.test_service"
+    mock_is_valid_object_name.return_value = True
+    assert _service_name_callback(service_name) == service_name
+    mock_is_valid_object_name.assert_called_once_with(
+        service_name, max_depth=2, allow_quoted=False
+    )
+
+
+@patch("snowflake.cli.plugins.spcs.services.commands.is_valid_object_name")
+def test_service_name_parser_invalid_object_name(mock_is_valid_object_name):
+    invalid_service_name = "account.db.schema.test_service"
+    mock_is_valid_object_name.return_value = False
+    with pytest.raises(ClickException) as e:
+        _service_name_callback(invalid_service_name)
+    assert f"'{invalid_service_name}' is not a valid service name." in e.value.message
