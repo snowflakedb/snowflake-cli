@@ -5,8 +5,7 @@
 ## New additions
 
 ## Fixes and improvements
-* Added validation that service, compute pool, and image repository names are unqualified identifiers.
-* `spcs service` commands now accept qualified names.
+
 
 # v2.1.0
 
@@ -46,6 +45,9 @@
 * Restricted permissions of automatically created files
 * Fixed bug where `spcs service create` would not throw error if service with specified name already exists.
 * Logging into the file by default (INFO level)
+* Added validation that service, compute pool, and image repository names are unqualified identifiers.
+* `spcs service` commands now accept qualified names.
+* Updated help messages for `spcs` commands.
 
 # v2.0.0
 
