@@ -62,7 +62,9 @@ add_init_command(app, project_type="Snowpark", template="default_snowpark")
 @app.command("deploy", requires_connection=True)
 @with_project_definition("snowpark")
 def deploy(
-    replace: bool = ReplaceOption(help="Replaces procedure or function, even if no detected changes to metadata"),
+    replace: bool = ReplaceOption(
+        help="Replaces procedure or function, even if no detected changes to metadata"
+    ),
     **options,
 ) -> CommandResult:
     """

@@ -232,9 +232,8 @@ def test_create_service_already_exists(mock_handle, mock_execute, mock_read_yaml
         SPCS_OBJECT_EXISTS_ERROR, ObjectType.SERVICE, service_name
     )
 
-@patch(
-    "snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_query"
-)
+
+@patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_query")
 def test_create_service_if_not_exists(mock_execute_query, other_directory):
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
@@ -266,6 +265,7 @@ def test_create_service_if_not_exists(mock_execute_query, other_directory):
     actual_query = " ".join(mock_execute_query.mock_calls[0].args[0].split())
     assert expected_query == actual_query
     assert result == cursor
+
 
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_query")
 def test_status(mock_execute_query):
