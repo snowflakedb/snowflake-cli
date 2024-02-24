@@ -2,7 +2,10 @@ import os
 from tempfile import TemporaryDirectory
 from unittest import mock
 
+import pytest
 
+
+@pytest.mark.skip("Snowpark Container Services Job not supported.")
 @mock.patch("snowflake.connector.connect")
 def test_create_job(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
@@ -40,6 +43,7 @@ spec:
     )
 
 
+@pytest.mark.skip("Snowpark Container Services Job not supported.")
 @mock.patch("snowflake.connector.connect")
 def test_job_status(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
@@ -51,6 +55,7 @@ def test_job_status(mock_connector, runner, mock_ctx):
     assert ctx.get_query() == "CALL SYSTEM$GET_JOB_STATUS('jobName')"
 
 
+@pytest.mark.skip("Snowpark Container Services Job not supported.")
 @mock.patch("snowflake.connector.connect")
 def test_job_logs(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()

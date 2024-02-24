@@ -169,3 +169,80 @@ def test_show_specific_object_sql_execution_error(mock_execute):
     mock_execute.assert_called_once_with(
         r"show objects like 'EXAMPLE\\_ID'", cursor_class=DictCursor
     )
+
+
+@pytest.mark.parametrize(
+    "name, name_split, expected_name, expected_in_clause",
+    [
+        (
+            "func(number, number)",
+            ("func(number, number)", None, None),
+            "func(number, number)",
+            None,
+        ),
+        ("name", ("name", None, None), "name", None),
+        ("schema.name", ("name", "schema", None), "name", "in schema schema"),
+        ("db.schema.name", ("name", "schema", "db"), "name", "in schema db.schema"),
+    ],
+)
+@mock.patch("snowflake.cli.api.sql_execution.from_qualified_name")
+def test_qualified_name_to_in_clause(
+    mock_from_qualified_name, name, name_split, expected_name, expected_in_clause
+):
+    mock_from_qualified_name.return_value = name_split
+    assert SqlExecutionMixin._qualified_name_to_in_clause(name) == (  # noqa: SLF001
+        expected_name,
+        expected_in_clause,
+    )
+    mock_from_qualified_name.assert_called_once_with(name)
+
+
+@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
+@mock.patch(
+    "snowflake.cli.api.sql_execution.SqlExecutionMixin._qualified_name_to_in_clause"
+)
+def test_show_specific_object_qualified_name(
+    mock_qualified_name_to_in_clause, mock_execute_query, mock_cursor
+):
+    name = "db.schema.obj"
+    unqualified_name = "obj"
+    name_in_clause = "in schema db.schema"
+    mock_columns = ["name", "created_on"]
+    mock_row_dict = {c: r for c, r in zip(mock_columns, [unqualified_name, "date"])}
+    cursor = mock_cursor(rows=[mock_row_dict], columns=mock_columns)
+    mock_execute_query.return_value = cursor
+
+    mock_qualified_name_to_in_clause.return_value = (unqualified_name, name_in_clause)
+    SqlExecutionMixin().show_specific_object("objects", name)
+    mock_execute_query.assert_called_once_with(
+        f"show objects like {identifier_to_show_like_pattern(unqualified_name)} {name_in_clause}",
+        cursor_class=DictCursor,
+    )
+
+
+@mock.patch(
+    "snowflake.cli.api.sql_execution.SqlExecutionMixin._qualified_name_to_in_clause"
+)
+def test_show_specific_object_qualified_name_and_in_clause_error(
+    mock_qualified_name_to_in_clause,
+):
+    object_name = "db.schema.name"
+    mock_qualified_name_to_in_clause.return_value = ("name", "in schema db.schema")
+    with pytest.raises(SqlExecutionMixin.InClauseWithQualifiedNameError):
+        SqlExecutionMixin().show_specific_object(
+            "objects", object_name, in_clause="in database db"
+        )
+    mock_qualified_name_to_in_clause.assert_called_once_with(object_name)
+
+
+@mock.patch("snowflake.cli.api.sql_execution.SqlExecutionMixin._execute_query")
+def test_show_specific_object_multiple_rows(mock_execute_query):
+    cursor = mock.Mock(spec=DictCursor)
+    cursor.rowcount = 2
+    mock_execute_query.return_value = cursor
+    with pytest.raises(ProgrammingError) as err:
+        SqlExecutionMixin().show_specific_object("objects", "name", name_col="id")
+    assert "Received multiple rows" in err.value.msg
+    mock_execute_query.assert_called_once_with(
+        r"show objects like 'NAME'", cursor_class=DictCursor
+    )
