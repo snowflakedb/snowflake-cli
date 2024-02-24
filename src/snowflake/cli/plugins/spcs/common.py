@@ -66,12 +66,16 @@ def validate_and_set_instances(min_instances, max_instances, instance_name):
 
 
 def handle_object_already_exists(
-    error: ProgrammingError, object_type: ObjectType, object_name: str
+    error: ProgrammingError,
+    object_type: ObjectType,
+    object_name: str,
+    replace_available: bool = False,
 ):
     if error.errno == 2002:
         raise ObjectAlreadyExistsError(
             object_type=object_type,
             name=unquote_identifier(object_name),
+            replace_available=replace_available,
         )
     else:
         raise error

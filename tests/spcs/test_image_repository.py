@@ -44,33 +44,52 @@ MOCK_ROWS_DICT = [
 ]
 
 
+@pytest.mark.parametrize(
+    "replace, if_not_exists, expected_query",
+    [
+        (False, False, "create image repository test_repo"),
+        (False, True, "create image repository if not exists test_repo"),
+        (True, False, "create or replace image repository test_repo"),
+        (True, True, "create or replace image repository if not exists test_repo"),
+    ],
+)
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
 )
-def test_create(
-    mock_execute,
-):
+def test_create(mock_execute, replace, if_not_exists, expected_query):
     repo_name = "test_repo"
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute.return_value = cursor
-    result = ImageRepositoryManager().create(name=repo_name)
-    expected_query = "create image repository test_repo"
+    result = ImageRepositoryManager().create(
+        name=repo_name, replace=replace, if_not_exists=if_not_exists
+    )
     mock_execute.assert_called_once_with(expected_query, name=repo_name)
     assert result == cursor
 
 
+@pytest.mark.parametrize(
+    "replace, if_not_exists",
+    [(False, False), (True, False), (False, True), (True, True)],
+)
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.create"
 )
-def test_create_cli(mock_create, mock_cursor, runner):
+def test_create_cli(mock_create, mock_cursor, runner, replace, if_not_exists):
     repo_name = "test_repo"
     cursor = mock_cursor(
         rows=[[f"Image Repository {repo_name.upper()} successfully created."]],
         columns=["status"],
     )
     mock_create.return_value = cursor
-    result = runner.invoke(["spcs", "image-repository", "create", repo_name])
-    mock_create.assert_called_once_with(name=repo_name)
+    command = ["spcs", "image-repository", "create", repo_name]
+    if replace:
+        command.append("--replace")
+    if if_not_exists:
+        command.append("--if-not-exists")
+    result = runner.invoke(command)
+    mock_create.assert_called_once_with(
+        name=repo_name, replace=replace, if_not_exists=if_not_exists
+    )
     assert result.exit_code == 0, result.output
     assert (
         f"Image Repository {repo_name.upper()} successfully created." in result.output
@@ -86,9 +105,12 @@ def test_create_cli(mock_create, mock_cursor, runner):
 def test_create_repository_already_exists(mock_handle, mock_execute):
     repo_name = "test_object"
     mock_execute.side_effect = SPCS_OBJECT_EXISTS_ERROR
-    ImageRepositoryManager().create(repo_name)
+    ImageRepositoryManager().create(repo_name, replace=False, if_not_exists=False)
     mock_handle.assert_called_once_with(
-        SPCS_OBJECT_EXISTS_ERROR, ObjectType.IMAGE_REPOSITORY, repo_name
+        SPCS_OBJECT_EXISTS_ERROR,
+        ObjectType.IMAGE_REPOSITORY,
+        repo_name,
+        replace_available=True,
     )
 
 

@@ -43,10 +43,23 @@ class ImageRepositoryManager(SqlExecutionMixin):
 
         return f"{scheme}://{host}/v2{path}"
 
-    def create(self, name: str):
+    def create(
+        self,
+        name: str,
+        if_not_exists: bool,
+        replace: bool,
+    ):
+
+        create_statement = (
+            f"{'create or replace' if replace else 'create'} image repository"
+        )
+        if if_not_exists:
+            create_statement = f"{create_statement} if not exists"
         try:
             return self._execute_schema_query(
-                f"create image repository {name}", name=name
+                f"{create_statement} {name}", name=name
             )
         except ProgrammingError as e:
-            handle_object_already_exists(e, ObjectType.IMAGE_REPOSITORY, name)
+            handle_object_already_exists(
+                e, ObjectType.IMAGE_REPOSITORY, name, replace_available=True
+            )
