@@ -24,11 +24,9 @@ class ComputePoolManager(SqlExecutionMixin):
         comment: Optional[str],
         if_not_exists: bool,
     ) -> SnowflakeCursor:
-        create_statement = (
-            "CREATE COMPUTE POOL IF NOT EXISTS"
-            if if_not_exists
-            else "CREATE COMPUTE POOL"
-        )
+        create_statement = "CREATE COMPUTE POOL"
+        if if_not_exists:
+            create_statement = f"{create_statement} IF NOT EXISTS"
         query = f"""\
             {create_statement} {pool_name}
             MIN_NODES = {min_nodes}
