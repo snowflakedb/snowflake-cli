@@ -2,7 +2,7 @@
 
 **Note**: Snowflake CLI is in Private Preview (PrPr). You must register for the PrPr to use Snowflake CLI by filling out the
 [Snowflake CLI  - PrPr Intake Form](https://forms.gle/HZNhPNbzn7oExjFu8). For more information, you can contact a
-Snowflake sales representative.
+Snowflake sales representative
 
 ## Install Snowflake CLI
 
