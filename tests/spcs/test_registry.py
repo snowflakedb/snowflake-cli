@@ -1,5 +1,5 @@
 import json
-from subprocess import CalledProcessError, PIPE
+from subprocess import PIPE, CalledProcessError
 from unittest import mock
 
 import pytest
