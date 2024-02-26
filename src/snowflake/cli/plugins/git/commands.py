@@ -1,10 +1,9 @@
 import logging
 
+import typer
 from snowflake.cli.api.commands.snow_typer import SnowTyper
-from snowflake.cli.api.output.types import (
-    CommandResult,
-    MessageResult,
-)
+from snowflake.cli.api.output.types import CommandResult, QueryResult
+from snowflake.cli.plugins.git.manager import GitManager
 
 app = SnowTyper(
     name="git",
@@ -12,14 +11,22 @@ app = SnowTyper(
 )
 log = logging.getLogger(__name__)
 
-
-@app.command("draft1")
-def draft_command1(**options) -> CommandResult:
-    """Slot for actual command."""
-    return MessageResult("Mornin'!")
+RepoNameArgument = typer.Argument(help="name of the git repository")
 
 
-@app.command("draft2")
-def draft_command2(**options) -> CommandResult:
-    """Slot for actual command."""
-    return MessageResult("Nice day for fishin', innit?")
+@app.command("list-branches", help="List all branches in the repository.")
+def list_branches(
+    repository_name: str = RepoNameArgument,
+    **options,
+) -> CommandResult:
+    return QueryResult(
+        GitManager().show(object_type="branches", repo_name=repository_name)
+    )
+
+
+@app.command("list-tags", help="List all tags in the repository.")
+def list_tags(
+    repository_name: str = RepoNameArgument,
+    **options,
+) -> CommandResult:
+    return QueryResult(GitManager().show(object_type="tags", repo_name=repository_name))
