@@ -1,8 +1,11 @@
-import unittest
+import os
 from textwrap import dedent
+from unittest import mock
 
+import pytest
 import typer
 from click import UsageError
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
@@ -20,7 +23,6 @@ from snowflake.cli.plugins.nativeapp.policy import (
 )
 from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli.plugins.object.stage.diff import DiffResult
-from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -28,8 +30,20 @@ from tests.nativeapp.patch_utils import (
     mock_connection,
     mock_get_app_pkg_distribution_in_sf,
 )
-from tests.nativeapp.utils import *
-from tests.testing_utils.fixtures import *
+from tests.nativeapp.utils import (
+    NATIVEAPP_MANAGER_EXECUTE,
+    NATIVEAPP_MANAGER_EXECUTE_QUERIES,
+    NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME,
+    RUN_MODULE,
+    RUN_PROCESSOR_GET_EXISTING_APP_INFO,
+    RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO,
+    TYPER_CONFIRM,
+    mock_execute_helper,
+    mock_snowflake_yml_file,
+    quoted_override_yml_file,
+)
+from tests.testing_utils.files_and_dirs import create_named_file
+from tests.testing_utils.fixtures import MockConnectionCtx
 
 mock_project_definition_override = {
     "native_app": {
@@ -90,7 +104,7 @@ def test_create_app_pkg_no_existing_package(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -113,7 +127,7 @@ def test_create_app_pkg_incorrect_owner(mock_get_existing_app_pkg_info, temp_dir
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -151,7 +165,7 @@ def test_create_app_pkg_external_distribution(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -192,7 +206,7 @@ def test_create_app_pkg_internal_distribution_special_comment(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -233,7 +247,7 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -277,7 +291,7 @@ def test_create_dev_app_w_warehouse_access_exception(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -285,7 +299,7 @@ def test_create_dev_app_w_warehouse_access_exception(
     assert not mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        run_processor._create_dev_app(mock_diff_result)
+        run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
 
     assert mock_execute.mock_calls == expected
     assert "Please grant usage privilege on warehouse to this role." in err.value.msg
@@ -330,13 +344,13 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file.replace("package_role", "app_role")],
     )
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)
+    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
     assert mock_execute.mock_calls == expected
 
 
@@ -404,13 +418,13 @@ def test_create_dev_app_create_new_with_additional_privileges(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)
+    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
     assert mock_execute_query.mock_calls == mock_execute_query_expected
     assert mock_execute_queries.mock_calls == mock_execute_queries_expected
 
@@ -457,7 +471,7 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file.replace("package_role", "app_role")],
     )
 
@@ -465,7 +479,7 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
     assert not mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        run_processor._create_dev_app(mock_diff_result)
+        run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
 
     assert "Please provide a warehouse for the active session role" in err.value.msg
     assert mock_execute.mock_calls == expected
@@ -518,14 +532,14 @@ def test_create_dev_app_incorrect_properties(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
     with pytest.raises(ApplicationAlreadyExistsError):
         run_processor = _get_na_run_processor()
         assert not mock_diff_result.has_changes()
-        run_processor._create_dev_app(mock_diff_result)
+        run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
 
     assert mock_execute.mock_calls == expected
 
@@ -561,14 +575,14 @@ def test_create_dev_app_incorrect_owner(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
     with pytest.raises(UnexpectedOwnerError):
         run_processor = _get_na_run_processor()
         assert not mock_diff_result.has_changes()
-        run_processor._create_dev_app(mock_diff_result)
+        run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
 
     assert mock_execute.mock_calls == expected
 
@@ -605,13 +619,13 @@ def test_create_dev_app_no_diff_changes(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)
+    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
     assert mock_execute.mock_calls == expected
 
 
@@ -653,13 +667,13 @@ def test_create_dev_app_w_diff_changes(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
     run_processor = _get_na_run_processor()
     assert mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)
+    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
     assert mock_execute.mock_calls == expected
 
 
@@ -702,7 +716,7 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -710,7 +724,7 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
     assert mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        run_processor._create_dev_app(mock_diff_result)
+        run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
 
     assert mock_execute.mock_calls == expected
     assert "Please provide a warehouse for the active session role" in err.value.msg
@@ -755,7 +769,7 @@ def test_create_dev_app_create_new_quoted(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[
             dedent(
                 """\
@@ -792,7 +806,7 @@ def test_create_dev_app_create_new_quoted(
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)
+    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
     assert mock_execute.mock_calls == expected
 
 
@@ -835,18 +849,18 @@ def test_create_dev_app_create_new_quoted_override(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file.replace("package_role", "app_role")],
     )
     create_named_file(
         file_name="snowflake.local.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[quoted_override_yml_file],
     )
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)
+    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
     assert mock_execute.mock_calls == expected
 
 
@@ -882,7 +896,7 @@ def test_upgrade_app_warehouse_error(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -929,7 +943,7 @@ def test_upgrade_app_incorrect_owner(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -977,7 +991,7 @@ def test_upgrade_app_succeeds(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -1030,7 +1044,7 @@ def test_upgrade_app_fails_generic_error(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -1093,7 +1107,7 @@ def test_upgrade_app_fails_upgrade_restriction_error(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -1165,7 +1179,7 @@ def test_upgrade_app_fails_drop_fails(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -1246,7 +1260,7 @@ def test_upgrade_app_recreate_app(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -1270,7 +1284,7 @@ def test_upgrade_app_from_version_throws_usage_error_one(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -1294,7 +1308,7 @@ def test_upgrade_app_from_version_throws_usage_error_two(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -1386,7 +1400,7 @@ def test_upgrade_app_recreate_app_from_version(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -1431,7 +1445,7 @@ def test_get_existing_version_info(mock_execute, temp_dir, mock_cursor):
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 

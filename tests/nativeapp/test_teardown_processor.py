@@ -1,5 +1,8 @@
-import unittest
+import os
+from unittest import mock
 
+import pytest
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.constants import SPECIAL_COMMENT
 from snowflake.cli.plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
@@ -9,13 +12,24 @@ from snowflake.cli.plugins.nativeapp.manager import SnowflakeSQLExecutionError
 from snowflake.cli.plugins.nativeapp.teardown_processor import (
     NativeAppTeardownProcessor,
 )
-from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.patch_utils import mock_get_app_pkg_distribution_in_sf
-from tests.nativeapp.utils import *
-from tests.testing_utils.fixtures import *
+from tests.nativeapp.utils import (
+    NATIVEAPP_MANAGER_EXECUTE,
+    NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME,
+    TEARDOWN_MODULE,
+    TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT,
+    TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO,
+    TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO,
+    TEARDOWN_PROCESSOR_IS_CORRECT_OWNER,
+    TYPER_CONFIRM,
+    mock_execute_helper,
+    mock_snowflake_yml_file,
+    quoted_override_yml_file,
+)
+from tests.testing_utils.files_and_dirs import create_named_file
 
 
 def _get_na_teardown_processor():
@@ -45,7 +59,7 @@ def test_drop_generic_object_success(mock_execute, temp_dir, mock_cursor):
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -81,7 +95,7 @@ def test_drop_generic_object_failure_w_exception(mock_execute, temp_dir, mock_cu
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -108,7 +122,7 @@ def test_drop_application_no_existing_application(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -138,7 +152,7 @@ def test_drop_application_incorrect_owner(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -172,7 +186,7 @@ def test_drop_application_has_special_comment(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -235,12 +249,12 @@ def test_drop_application_has_special_comment_and_quoted_name(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
     create_named_file(
         file_name="snowflake.local.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[quoted_override_yml_file],
     )
 
@@ -276,7 +290,7 @@ def test_drop_application_user_prohibits_drop(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -333,7 +347,7 @@ def test_drop_application_user_allows_drop(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -370,7 +384,7 @@ def test_drop_application_idempotent(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -401,7 +415,7 @@ def test_drop_package_no_existing_application(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -431,7 +445,7 @@ def test_drop_package_incorrect_owner(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -481,7 +495,7 @@ def test_show_versions_failure_w_exception(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -536,7 +550,7 @@ def test_drop_package_no_mismatch_no_drop(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -603,7 +617,7 @@ def test_drop_package_variable_mismatch_allowed_user_allows_drop(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -676,7 +690,7 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -755,12 +769,12 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
     create_named_file(
         file_name="snowflake.local.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[quoted_override_yml_file],
     )
 
@@ -820,7 +834,7 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_prohibits_drop(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -890,7 +904,7 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_allows_drop(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -951,7 +965,7 @@ def test_drop_package_idempotent(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 

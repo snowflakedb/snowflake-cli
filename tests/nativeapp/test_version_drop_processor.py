@@ -1,7 +1,10 @@
-import unittest
+import os
+from unittest import mock
 
+import pytest
 import typer
 from click import ClickException
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
 )
@@ -13,12 +16,18 @@ from snowflake.cli.plugins.nativeapp.policy import (
 from snowflake.cli.plugins.nativeapp.version.version_processor import (
     NativeAppVersionDropProcessor,
 )
-from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.patch_utils import mock_get_app_pkg_distribution_in_sf
-from tests.nativeapp.utils import *
-from tests.testing_utils.fixtures import *
+from tests.nativeapp.utils import (
+    FIND_VERSION_FROM_MANIFEST,
+    NATIVEAPP_MANAGER_EXECUTE,
+    TYPER_CONFIRM,
+    VERSION_MODULE,
+    mock_execute_helper,
+    mock_snowflake_yml_file,
+)
+from tests.testing_utils.files_and_dirs import create_named_file
 
 DROP_PROCESSOR = "NativeAppVersionDropProcessor"
 
@@ -48,7 +57,7 @@ def test_process_has_no_existing_app_pkg(mock_get_existing, policy_param, temp_d
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -83,7 +92,7 @@ def test_process_no_version_from_user_no_version_in_manifest(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -133,7 +142,7 @@ def test_process_drop_cannot_complete(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -202,7 +211,7 @@ def test_process_drop_success(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 

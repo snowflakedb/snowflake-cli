@@ -120,7 +120,7 @@ class ServiceManager(SqlExecutionMixin):
             raise NoPropertiesProvidedError(
                 f"No properties specified for service '{service_name}'. Please provide at least one property to set."
             )
-        query: list[str] = [f"alter service {service_name} set"]
+        query: List[str] = [f"alter service {service_name} set"]
         for property_name, value in property_pairs:
             if value is not None:
                 query.append(f"{property_name} = {value}")

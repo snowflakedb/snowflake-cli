@@ -1,18 +1,16 @@
+import re
+import shutil
 import stat
+from pathlib import Path
 
 import pytest
-
 from snowflake.cli.api import secure_path
-from snowflake.cli.api.exceptions import FileTooLargeError, DirectoryIsNotEmptyError
-from snowflake.cli.api.secure_path import SecurePath
-from pathlib import Path
 from snowflake.cli.api.config import config_init
+from snowflake.cli.api.exceptions import DirectoryIsNotEmptyError, FileTooLargeError
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.app import loggers
 
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
-
-import shutil
-import re
 
 
 @pytest.fixture()
@@ -212,12 +210,12 @@ def test_move(temp_dir, save_logs):
         return file
 
     def _get_new_dir():
-        dir = Path(temp_dir) / "dir"
-        (dir / "subdir").mkdir(parents=True)
-        (dir / "empty").mkdir()
-        (dir / "file1.txt").touch()
-        (dir / "subdir" / "file2.txt").touch()
-        return dir
+        dir_ = Path(temp_dir) / "dir"
+        (dir_ / "subdir").mkdir(parents=True)
+        (dir_ / "empty").mkdir()
+        (dir_ / "file1.txt").touch()
+        (dir_ / "subdir" / "file2.txt").touch()
+        return dir_
 
     def _check_dir_moved(dst):
         for filename in ["file1.txt", "empty", "subdir/file2.txt"]:
@@ -242,8 +240,8 @@ def test_move(temp_dir, save_logs):
         file.move("moved_file.txt")
     assert file.exists()
 
-    dir = _get_new_dir()
-    moved_file = file.move(dir)
+    dir_ = _get_new_dir()
+    moved_file = file.move(dir_)
     assert moved_file.exists() and not file.exists()
     assert moved_file.path.resolve() == (Path("dir") / "file.txt").resolve()
     _assert_count_matching_logs(
@@ -252,29 +250,29 @@ def test_move(temp_dir, save_logs):
 
     file = SecurePath(_get_new_file())
     with pytest.raises(FileExistsError):
-        file.move(dir)
+        file.move(dir_)
     assert file.exists()
 
     # moving directory
-    dir = SecurePath(dir)
-    moved_dir = dir.move("moved_dir")
-    assert moved_dir.exists() and not dir.exists()
+    dir_ = SecurePath(dir_)
+    moved_dir = dir_.move("moved_dir")
+    assert moved_dir.exists() and not dir_.exists()
     assert moved_dir.path == Path("moved_dir")
     _check_dir_moved("moved_dir")
     _assert_count_matching_logs(save_logs, 1, "Moving", "dir", " to \S+moved_dir")
 
-    dir = SecurePath(_get_new_dir())
-    moved_dir = dir.move("moved_dir")
-    assert moved_dir.exists() and not dir.exists()
+    dir_ = SecurePath(_get_new_dir())
+    moved_dir = dir_.move("moved_dir")
+    assert moved_dir.exists() and not dir_.exists()
     assert moved_dir.path == Path("moved_dir") / "dir"
     _check_dir_moved(Path("moved_dir") / "dir")
     _assert_count_matching_logs(
         save_logs, 1, "Moving", "dir", " to \S+moved_dir[\/]dir"
     )
 
-    dir = SecurePath(_get_new_dir())
+    dir_ = SecurePath(_get_new_dir())
     with pytest.raises(FileExistsError):
-        dir.move("moved_dir")
+        dir_.move("moved_dir")
 
 
 def test_copy_file(temp_dir, save_logs):
@@ -358,38 +356,38 @@ def test_copy_directory(temp_dir, save_logs):
 
 
 def test_copy_dir_onto_existing_dir(temp_dir, save_logs):
-    DIR, FILE = "DIR", "FILE"
+    dir_, file = "DIR", "FILE"
     original = [
-        (DIR, "dir"),
-        (FILE, "dir/subfile"),
-        (DIR, "dir/subdir"),
-        (FILE, "dir/subdir/subfile"),
-        (DIR, "dir/newdir/"),
+        (dir_, "dir"),
+        (file, "dir/subfile"),
+        (dir_, "dir/subdir"),
+        (file, "dir/subdir/subfile"),
+        (dir_, "dir/newdir/"),
     ]
     file_instead_of_dir = [
-        (DIR, "dir"),
-        (FILE, "dir/subfile"),
-        (FILE, "dir/subdir"),
+        (dir_, "dir"),
+        (file, "dir/subfile"),
+        (file, "dir/subdir"),
     ]
     dir_instead_of_file = [
-        (DIR, "dir"),
-        (DIR, "dir/subfile"),
-        (DIR, "dir/subdir"),
-        (FILE, "dir/subdir/subfile"),
+        (dir_, "dir"),
+        (dir_, "dir/subfile"),
+        (dir_, "dir/subdir"),
+        (file, "dir/subdir/subfile"),
     ]
     proper_destination = [
-        (DIR, "dir"),
-        (FILE, "dir/subfile"),
-        (DIR, "dir/subdir"),
-        (FILE, "dir/subdir/subfile2"),
+        (dir_, "dir"),
+        (file, "dir/subfile"),
+        (dir_, "dir/subdir"),
+        (file, "dir/subdir/subfile2"),
     ]
     expected_result = [
-        (DIR, "dir"),
-        (FILE, "dir/subfile"),
-        (DIR, "dir/subdir"),
-        (FILE, "dir/subdir/subfile"),
-        (FILE, "dir/subdir/subfile2"),
-        (DIR, "dir/newdir/"),
+        (dir_, "dir"),
+        (file, "dir/subfile"),
+        (dir_, "dir/subdir"),
+        (file, "dir/subdir/subfile"),
+        (file, "dir/subdir/subfile2"),
+        (dir_, "dir/newdir/"),
     ]
     should_be_overridden = [("dir/subfile"), ("dir/subdir/subfile"), ("dir/newdir/")]
 
@@ -401,16 +399,16 @@ def test_copy_dir_onto_existing_dir(temp_dir, save_logs):
             assert file.exists()
             if filename in should_be_overridden:
                 assert_file_permissions_are_strict(root / filename)
-                if filetype == FILE:
+                if filetype == file:
                     assert file.read_text() == "new"
             else:
                 assert file.stat().st_mode & readable_by_group == readable_by_group
-                if filetype == FILE:
+                if filetype == file:
                     assert file.read_text() == "old"
 
     def _create_tree(root, tree, file_content):
         for filetype, filename in tree:
-            if filetype == DIR:
+            if filetype == dir_:
                 (root / filename).mkdir(parents=True)
                 (root / filename).chmod(0o750)
             else:
