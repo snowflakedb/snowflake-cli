@@ -753,13 +753,17 @@
   
   '''
 # ---
-# name: test_help_messages[git.draft1]
+# name: test_help_messages[git.list-branches]
   '''
                                                                                   
-   Usage: default git draft1 [OPTIONS]                                            
+   Usage: default git list-branches [OPTIONS] REPOSITORY_NAME                     
                                                                                   
-   Slot for actual command.                                                       
+   List all branches in the repository.                                           
                                                                                   
+  ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+  │ *    repository_name      TEXT  name of the git repository [default: None]   │
+  │                                 [required]                                   │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -777,13 +781,17 @@
   
   '''
 # ---
-# name: test_help_messages[git.draft2]
+# name: test_help_messages[git.list-tags]
   '''
                                                                                   
-   Usage: default git draft2 [OPTIONS]                                            
+   Usage: default git list-tags [OPTIONS] REPOSITORY_NAME                         
                                                                                   
-   Slot for actual command.                                                       
+   List all tags in the repository.                                               
                                                                                   
+  ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+  │ *    repository_name      TEXT  name of the git repository [default: None]   │
+  │                                 [required]                                   │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -812,8 +820,8 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ draft1            Slot for actual command.                                   │
-  │ draft2            Slot for actual command.                                   │
+  │ list-branches         List all branches in the repository.                   │
+  │ list-tags             List all tags in the repository.                       │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
