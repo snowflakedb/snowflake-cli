@@ -224,59 +224,6 @@ def test_fully_qualified_name(
             f"https://app.snowflake.com/SFENGINEERING/snowcli_it/#/streamlit-apps/{database}.{different_schema}.{streamlit_name.upper()}",
         }
 
-    # should support fully qualified name via parameters
-    with project_directory("streamlit_fully_qualified_name") as tmp_dir:
-        streamlit_name = "streamlit_fqn_parameters"
-        snowflake_yml = tmp_dir / "snowflake.yml"
-
-        alter_snowflake_yml(
-            snowflake_yml,
-            parameter_path="streamlit.database",
-            value=database,
-        )
-        alter_snowflake_yml(
-            snowflake_yml,
-            parameter_path="streamlit.schema",
-            value=different_schema,
-        )
-
-        # # error - redefined database
-        # alter_snowflake_yml(
-        #     snowflake_yml,
-        #     parameter_path="streamlit.name",
-        #     value=f"{database}.{different_schema}.{streamlit_name}",
-        # )
-        # result = runner.invoke_with_connection(
-        #     ["streamlit", "deploy"], catch_exceptions=True
-        # )
-        # assert result.exit_code == 1
-        # assert result.output == snapshot(name="error database")
-        #
-        # # error - redefined schema
-        # alter_snowflake_yml(
-        #     snowflake_yml,
-        #     parameter_path="streamlit.name",
-        #     value=f"{different_schema}.{streamlit_name}",
-        # )
-        # result = runner.invoke_with_connection(
-        #     ["streamlit", "deploy"], catch_exceptions=True
-        # )
-        # assert result.exit_code == 1
-        # assert result.output == snapshot(name="error schema")
-
-        # success
-        alter_snowflake_yml(
-            snowflake_yml,
-            parameter_path="streamlit.name",
-            value=f"{streamlit_name}",
-        )
-        result = runner.invoke_with_connection_json(["streamlit", "deploy"])
-        assert result.exit_code == 0
-        assert result.json == {
-            "message": "Streamlit successfully deployed and available under "
-            f"https://app.snowflake.com/SFENGINEERING/snowcli_it/#/streamlit-apps/{database}.{different_schema}.{streamlit_name.upper()}",
-        }
-
 
 @pytest.fixture
 def _new_streamlit_role(snowflake_session, test_database):

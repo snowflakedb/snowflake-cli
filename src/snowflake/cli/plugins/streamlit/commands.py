@@ -17,9 +17,6 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
-from snowflake.cli.api.utils.project_definition import (
-    assert_object_definition_does_not_redefine_database_and_schema,
-)
 from snowflake.cli.plugins.streamlit.manager import StreamlitManager
 
 app = SnowTyper(
@@ -70,7 +67,7 @@ def _default_file_callback(param_name: str):
 
 
 @app.command("deploy", requires_connection=True)
-@with_project_definition("streamlit", ignore_database_and_schema_in_global_options=True)
+@with_project_definition("streamlit")
 @with_experimental_behaviour()
 def streamlit_deploy(
     replace: Optional[bool] = typer.Option(
@@ -93,12 +90,6 @@ def streamlit_deploy(
     if not streamlit:
         return MessageResult("No streamlit were specified in project definition.")
 
-    database = streamlit.get("database")
-    schema = streamlit.get("schema")
-    assert_object_definition_does_not_redefine_database_and_schema(
-        streamlit, "streamlit"
-    )
-
     environment_file = streamlit.get("env_file", None)
     if environment_file and not Path(environment_file).exists():
         raise ClickException(f"Provided file {environment_file} does not exist")
@@ -113,8 +104,6 @@ def streamlit_deploy(
 
     url = StreamlitManager().deploy(
         streamlit_name=streamlit["name"],
-        database=database,
-        schema=schema,
         environment_file=Path(environment_file),
         pages_dir=Path(pages_dir),
         stage_name=streamlit["stage"],
