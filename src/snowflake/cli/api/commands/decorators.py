@@ -53,19 +53,28 @@ def global_options_with_connection(func: Callable):
     )
 
 
-def with_project_definition(project_name: str):
+def with_project_definition(
+    project_name: str, ignore_database_and_schema_in_global_options=False
+):
     def _decorator(func: Callable):
-        return _options_decorator_factory(
-            func,
-            additional_options=[
-                inspect.Parameter(
-                    "project_definition",
-                    inspect.Parameter.KEYWORD_ONLY,
-                    annotation=Optional[str],
-                    default=project_definition_option(project_name),
-                )
-            ],
-        )
+        @wraps(func)
+        def wrapper(**options):
+            if ignore_database_and_schema_in_global_options:
+                options.pop("database")
+                options.pop("schema")
+            return func(**options)
+
+        additional_options = [
+            inspect.Parameter(
+                "project_definition",
+                inspect.Parameter.KEYWORD_ONLY,
+                annotation=Optional[str],
+                default=project_definition_option(project_name),
+            )
+        ]
+
+        wrapper.__signature__ = _extend_signature_with_additional_options(func, additional_options)  # type: ignore
+        return wrapper
 
     return _decorator
 

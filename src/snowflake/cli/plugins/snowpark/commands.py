@@ -68,7 +68,7 @@ add_init_command(app, project_type="snowpark", template="default_snowpark")
 
 
 @app.command("deploy", requires_connection=True)
-@with_project_definition("snowpark")
+@with_project_definition("snowpark", ignore_database_and_schema_in_global_options=True)
 def deploy(
     replace: bool = ReplaceOption,
     **options,

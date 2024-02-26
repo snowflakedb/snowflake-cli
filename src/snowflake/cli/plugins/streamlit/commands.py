@@ -70,7 +70,7 @@ def _default_file_callback(param_name: str):
 
 
 @app.command("deploy", requires_connection=True)
-@with_project_definition("streamlit")
+@with_project_definition("streamlit", ignore_database_and_schema_in_global_options=True)
 @with_experimental_behaviour()
 def streamlit_deploy(
     replace: Optional[bool] = typer.Option(
@@ -90,14 +90,11 @@ def streamlit_deploy(
     will be used. If stage does not exist it will be created by this command.
     """
     streamlit = cli_context.project_definition
-
     if not streamlit:
         return MessageResult("No streamlit were specified in project definition.")
 
     database = streamlit.get("database")
     schema = streamlit.get("schema")
-    options.pop("database")
-    options.pop("schema")
     assert_object_definition_does_not_redefine_database_and_schema(
         streamlit, "streamlit"
     )
