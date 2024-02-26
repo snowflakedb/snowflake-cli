@@ -22,7 +22,7 @@ Arguments
     {%- if param.required -%}
         {{ '{' }}
     {%- endif -%}
-        {{ param.make_metavar() }}
+        {{ param.make_metavar().lower() }}
     {%- if param.required -%}
         {{ '}' }}
     {%- endif %}`
