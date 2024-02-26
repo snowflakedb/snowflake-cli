@@ -3,7 +3,8 @@
 ## Backward incompatibility
 
 ## New additions
-* Added possibility to specify `database` and `schema` in snowflake.yml for streamlit apps. Also `name` can specify a fully qualify name.
+* Added possibility to specify `database` and `schema` for streamlit apps by providing fully qualified
+  name in `snowflake.yml` (`name = database.schema.name`)
 
 ## Fixes and improvements
 
