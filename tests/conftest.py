@@ -27,6 +27,7 @@ def reset_global_context_and_setup_config_and_logging_levels(
     request, test_snowcli_config
 ):
     cli_context_manager.reset()
+
     cli_context_manager.set_verbose(False)
     cli_context_manager.set_enable_tracebacks(False)
     config_init(test_snowcli_config)
