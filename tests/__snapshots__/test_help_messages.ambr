@@ -758,6 +758,8 @@
                                                                                   
    Usage: default git draft1 [OPTIONS]                                            
                                                                                   
+   Slot for actual command.                                                       
+                                                                                  
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -779,6 +781,8 @@
   '''
                                                                                   
    Usage: default git draft2 [OPTIONS]                                            
+                                                                                  
+   Slot for actual command.                                                       
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -808,8 +812,8 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ draft1                                                                       │
-  │ draft2                                                                       │
+  │ draft1            Slot for actual command.                                   │
+  │ draft2            Slot for actual command.                                   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
