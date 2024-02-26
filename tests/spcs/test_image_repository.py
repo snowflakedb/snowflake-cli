@@ -1,16 +1,18 @@
-from tests.testing_utils.fixtures import *
 import json
-from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
 from typing import Dict
-from click import ClickException
+from unittest import mock
 from unittest.mock import Mock
-from snowflake.connector.cursor import SnowflakeCursor
-from snowflake.connector.errors import ProgrammingError
+
+import pytest
+from click import ClickException
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
     DatabaseNotProvidedError,
     SchemaNotProvidedError,
 )
-from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
+from snowflake.connector.cursor import SnowflakeCursor
+
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
 
 MOCK_ROWS = [

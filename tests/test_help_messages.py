@@ -1,7 +1,7 @@
+import pytest
 from snowflake.cli.app.commands_registration.command_plugins_loader import (
     load_only_builtin_command_plugins,
 )
-import pytest
 
 
 def iter_through_all_commands_paths():
@@ -9,7 +9,7 @@ def iter_through_all_commands_paths():
     Generator iterating through all commands.
     Paths are yielded as List[str]
     """
-    IGNORE_PLUGINS = ["render"]
+    ignore_plugins = ["render"]
 
     def _iter_through_commands(command, path):
         yield list(path)
@@ -21,7 +21,7 @@ def iter_through_all_commands_paths():
     builtin_plugins = load_only_builtin_command_plugins()
     for plugin in builtin_plugins:
         spec = plugin.command_spec
-        if not plugin.plugin_name in IGNORE_PLUGINS:
+        if not plugin.plugin_name in ignore_plugins:
             yield from _iter_through_commands(
                 spec.command, spec.full_command_path.path_segments
             )

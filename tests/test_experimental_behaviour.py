@@ -1,4 +1,5 @@
 import json
+from unittest import mock
 
 import typer
 from snowflake.cli.api.commands.decorators import (
@@ -16,8 +17,6 @@ from snowflake.cli.api.plugins.command import (
     CommandType,
     plugin_hook_impl,
 )
-
-from tests.testing_utils.fixtures import *
 
 _test_experimental_typer = typer.Typer(name="test")
 
