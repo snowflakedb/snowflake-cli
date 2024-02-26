@@ -1,10 +1,8 @@
-from collections import OrderedDict
 from pathlib import Path
 
 import pytest
-from strictyaml import YAML, as_document
 
-from src.snowflake.cli.api.project.definition import load_project_definition, merge_left
+from src.snowflake.cli.api.project.definition import load_project_definition
 
 TEST_DATA = Path(__file__).parent.parent / "test_data" / "streamlit"
 FILE_WITH_LONG_LIST = TEST_DATA / "with_list_in_source_file.yml"

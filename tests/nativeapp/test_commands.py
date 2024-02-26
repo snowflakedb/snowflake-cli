@@ -2,13 +2,11 @@ from unittest import mock
 
 import pytest
 
-from tests.testing_utils.fixtures import *
-
 PROJECT_PATH = "demo_na_project"
 
 
 @pytest.mark.parametrize(
-    "id,init_args",
+    "id_,init_args",
     [
         # with implicit name
         ["all_upper", ["DEMO_NA_PROJECT"]],
@@ -66,7 +64,7 @@ PROJECT_PATH = "demo_na_project"
     "snowflake.cli.plugins.nativeapp.init._init_from_template", return_value=None
 )
 def test_init_no_template_success(
-    mock_init_from_template, runner, temp_dir, snapshot, id, init_args
+    mock_init_from_template, runner, temp_dir, snapshot, id_, init_args
 ):
     args = ["app", "init"]
     args.extend(init_args)
@@ -77,7 +75,7 @@ def test_init_no_template_success(
 
 
 @pytest.mark.parametrize(
-    "id,init_args",
+    "id_,init_args",
     [
         # with implicit name
         ["with_unterminated_id", ['"demo_na_project']],
@@ -103,7 +101,7 @@ def test_init_no_template_success(
     "snowflake.cli.plugins.nativeapp.init._init_from_template", return_value=None
 )
 def test_init_no_template_failure(
-    mock_init_from_template, runner, temp_dir, snapshot, id, init_args
+    mock_init_from_template, runner, temp_dir, snapshot, id_, init_args
 ):
     args = ["app", "init"]
     args.extend(init_args)

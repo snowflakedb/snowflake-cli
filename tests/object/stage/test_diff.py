@@ -1,6 +1,9 @@
 import hashlib
-from typing import Dict, Tuple
+from pathlib import Path
+from typing import Dict, List, Tuple, Union
+from unittest import mock
 
+import pytest
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.plugins.object.stage.diff import (
     DiffResult,
@@ -14,7 +17,6 @@ from snowflake.cli.plugins.object.stage.diff import (
 from snowflake.cli.plugins.object.stage.manager import StageManager
 
 from tests.testing_utils.files_and_dirs import temp_local_dir
-from tests.testing_utils.fixtures import *
 
 STAGE_MANAGER = "snowflake.cli.plugins.object.stage.manager.StageManager"
 
@@ -28,12 +30,12 @@ STAGE_LS_COLUMNS = ["name", "size", "md5", "last_modified"]
 
 
 def md5_of(contents: Union[str, bytes]) -> str:
-    hash = hashlib.md5()
+    hash_value = hashlib.md5()
     if isinstance(contents, bytes):
-        hash.update(contents)
+        hash_value.update(contents)
     else:
-        hash.update(contents.encode("UTF-8"))
-    return hash.hexdigest()
+        hash_value.update(contents.encode("UTF-8"))
+    return hash_value.hexdigest()
 
 
 def stage_contents(

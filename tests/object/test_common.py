@@ -1,10 +1,11 @@
+from typing import Tuple
+
+import pytest
 from snowflake.cli.plugins.object.common import (
-    _parse_tag,
     Tag,
     TagError,
+    _parse_tag,
 )
-from typing import Tuple
-import pytest
 
 
 @pytest.mark.parametrize(

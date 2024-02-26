@@ -2,12 +2,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.commands.project_initialisation import add_init_command
-from typer import Typer
-from typer.testing import CliRunner
-
 from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.secure_path import SecurePath
+from typer.testing import CliRunner
 
 
 @mock.patch.object(SecurePath, "copy")

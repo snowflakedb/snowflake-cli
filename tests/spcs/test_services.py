@@ -1,16 +1,20 @@
+import json
+from pathlib import Path
 from textwrap import dedent
 from unittest.mock import Mock, patch
-import json
 
-from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
-from snowflake.cli.plugins.spcs.common import NoPropertiesProvidedError
+import pytest
+import strictyaml
+from click import ClickException
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.plugins.spcs.services.manager import ServiceManager
-from tests.testing_utils.fixtures import *
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.plugins.object.common import Tag
+from snowflake.cli.plugins.spcs.common import NoPropertiesProvidedError
 from snowflake.cli.plugins.spcs.services.commands import _service_name_callback
-from click import ClickException
+from snowflake.cli.plugins.spcs.services.manager import ServiceManager
+from snowflake.connector.cursor import SnowflakeCursor
+
+from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
 
 SPEC_CONTENT = dedent(
     """
@@ -263,7 +267,7 @@ def test_read_yaml(other_directory):
     tmp_dir = Path(other_directory)
     spec_path = tmp_dir / "spec.yml"
     spec_path.write_text(SPEC_CONTENT)
-    result = ServiceManager()._read_yaml(spec_path)
+    result = ServiceManager()._read_yaml(spec_path)  # noqa: SLF001
     assert result == json.dumps(SPEC_DICT)
 
 

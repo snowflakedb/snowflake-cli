@@ -1,10 +1,13 @@
-from snowflake.cli.plugins.spcs.common import validate_and_set_instances
-from tests.testing_utils.fixtures import *
-from click import ClickException
-from snowflake.connector.errors import ProgrammingError
-from snowflake.cli.plugins.spcs.common import handle_object_already_exists
-from snowflake.cli.api.exceptions import ObjectAlreadyExistsError, ObjectType
 from unittest.mock import Mock
+
+import pytest
+from click import ClickException
+from snowflake.cli.api.exceptions import ObjectAlreadyExistsError, ObjectType
+from snowflake.cli.plugins.spcs.common import (
+    handle_object_already_exists,
+    validate_and_set_instances,
+)
+from snowflake.connector.errors import ProgrammingError
 
 
 @pytest.mark.parametrize(

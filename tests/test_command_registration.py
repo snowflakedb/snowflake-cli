@@ -1,3 +1,5 @@
+from unittest import mock
+
 from snowflake.cli.api.plugins.command import (
     SNOWCLI_ROOT_COMMAND_PATH,
     CommandPath,
@@ -7,8 +9,6 @@ from snowflake.cli.api.plugins.command import (
 from snowflake.cli.plugins.connection import plugin_spec as connection_plugin_spec
 from snowflake.cli.plugins.streamlit import plugin_spec as streamlit_plugin_spec
 from typer import Typer
-
-from tests.testing_utils.fixtures import *
 
 
 def test_builtin_plugins_registration(runner):
