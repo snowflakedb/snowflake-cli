@@ -121,7 +121,7 @@ select = [
   "TID252", # relative imports
   "SLF",    # Accessing private methods
   "F401",   # unused imports
-  "F403", # start imports
+  "F403",   # star imports
 ]
 
 [tool.pytest.ini_options]
