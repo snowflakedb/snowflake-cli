@@ -89,8 +89,6 @@ class StreamlitManager(SqlExecutionMixin):
     def deploy(
         self,
         streamlit_name: str,
-        database: Optional[str],
-        schema: Optional[str],
         main_file: Path,
         environment_file: Optional[Path] = None,
         pages_dir: Optional[Path] = None,
@@ -106,9 +104,7 @@ class StreamlitManager(SqlExecutionMixin):
         streamlit_name_for_root_location = self.get_name_from_fully_qualified_name(
             streamlit_name
         )
-        fully_qualified_name = stage_manager.to_fully_qualified_name(
-            streamlit_name, database=database, schema=schema
-        )
+        fully_qualified_name = stage_manager.to_fully_qualified_name(streamlit_name)
         streamlit_name = self.get_name_from_fully_qualified_name(fully_qualified_name)
         if experimental_behaviour_enabled():
             """
