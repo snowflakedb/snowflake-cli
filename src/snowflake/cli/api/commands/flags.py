@@ -237,22 +237,47 @@ LikeOption = typer.Option(
     help='Regular expression for filtering objects by name. For example, `list --like "my%"` lists all objects that begin with “my”.',
 )
 
-# Consideration: it may be useful to put these options in a separate help panel, as they are somewhat generic among objects.
 
+# consideration: it may be useful to put these options in a separate help panel, as they are somewhat generic among objects.
+# use these as your parameter names for IfExistsOption, IfNotExistsOption, and ReplaceOption to ensure that validation works
+CREATE_MODE_OPTION_NAMES = ["if_exists", "if_not_exists", "replace"]
+
+
+def _create_mode_callback(ctx: typer.Context, param: typer.CallbackParam, value: bool):
+
+    for key in CREATE_MODE_OPTION_NAMES:
+        if ctx.params.get(key, False):
+            curr_opt = param.opts[0]
+            key_opt = [x for x in ctx.command.params if x.name == key][0].opts[0]
+            raise click.ClickException(
+                f"Options '{curr_opt}' and '{key_opt}' are incompatible."
+            )
+
+    return value
+
+
+# parameter name should be 'if_exists' to ensure _create_mode_callback works
 IfExistsOption = OverrideableOption(
     False,
     "--if-exists",
     help="Only apply this operation if the specified object exists.",
+    callback=_create_mode_callback,
 )
 
+# parameter name should be 'if_not_exists' to ensure _create_mode_callback works
 IfNotExistsOption = OverrideableOption(
     False,
     "--if-not-exists",
     help="Only apply this operation if the specified object does not already exist.",
+    callback=_create_mode_callback,
 )
 
+# parameter name should be 'replace' to ensure _create_mode_callback works
 ReplaceOption = OverrideableOption(
-    False, "--replace", help="Replace this object if it already exists."
+    False,
+    "--replace",
+    help="Replace this object if it already exists.",
+    callback=_create_mode_callback,
 )
 
 
