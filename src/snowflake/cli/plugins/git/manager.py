@@ -1,7 +1,7 @@
-from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.plugins.object.stage.manager import StageManager
 
 
-class GitManager(SqlExecutionMixin):
+class GitManager(StageManager):
     def show_branches(self, repo_name: str):
         query = f"show git branches in {repo_name}"
         return self._execute_query(query)
@@ -17,3 +17,6 @@ class GitManager(SqlExecutionMixin):
     def fetch(self, repo_name: str):
         query = f"alter git repository {repo_name} fetch"
         return self._execute_query(query)
+
+    def copy(self, repo_path: str, destination_path: str):
+        pass

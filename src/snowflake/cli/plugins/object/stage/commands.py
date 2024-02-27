@@ -11,6 +11,7 @@ from snowflake.cli.api.output.types import (
     QueryResult,
     SingleQueryResult,
 )
+from snowflake.cli.api.utils.path_utils import is_stage_path
 from snowflake.cli.plugins.object.stage.diff import DiffResult
 from snowflake.cli.plugins.object.stage.manager import StageManager
 
@@ -29,10 +30,6 @@ def stage_list(stage_name: str = StageNameArgument, **options) -> CommandResult:
     """
     cursor = StageManager().list_files(stage_name=stage_name)
     return QueryResult(cursor)
-
-
-def _is_stage_path(path: str):
-    return path.startswith("@") or path.startswith("snow://")
 
 
 @app.command("copy", requires_connection=True)
@@ -57,8 +54,8 @@ def copy(
     Copies all files from target path to target directory. This works for both uploading
     to and downloading files from the stage.
     """
-    is_get = _is_stage_path(source_path)
-    is_put = _is_stage_path(destination_path)
+    is_get = is_stage_path(source_path)
+    is_put = is_stage_path(destination_path)
 
     if is_get and is_put:
         raise click.ClickException(
