@@ -18,7 +18,13 @@ Arguments
 
 {%- if arguments %}
 {% for param in arguments %}
-:samp:`{% for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %} {{ '{' }}{{ param.make_metavar() }}{{ '}' }}`
+:samp:`{{ '{' }}
+    {%- if param.required -%}
+        {{ param.make_metavar().lower() }}
+    {%- else -%}
+        {{ param.make_metavar().replace("[", "").replace("]", "").lower() }}
+    {%- endif -%}
+    {{ '}' }}`
 {% if param.help %}{{ "  " + param.help | replace("`", "``") }}{% if param.help[-1] != '.' %}.{% endif %}{% else %}  TBD{% endif %}
 {% endfor %}
 {% else %}
@@ -32,7 +38,11 @@ Options
 
 {%- if options %}
 {% for param in options if not param.hidden %}
-:samp:`{% for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %}{% if not param.is_flag %} {{ '{' }}{{ param.make_metavar() }}{{ '}' }}{% endif %}`
+:samp:`{% for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %}
+    {%- if not param.is_flag %}
+        {%- if param.type.name != "choice" %}{{ ' {' }}{% else %} {% endif %}{{ param.make_metavar() }}{% if param.type.name != "choice" %}{{ '}' }}
+        {%- endif %}
+    {%- endif %}`
 {% if param.help %}{{ "  " + param.help | replace("`", "``") }}{% if param.help[-1] != '.' %}.{% endif %}{% else %}  TBD{% endif %}
 {% endfor %}
 {% else %}

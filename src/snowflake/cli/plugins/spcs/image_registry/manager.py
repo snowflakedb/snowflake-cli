@@ -82,6 +82,8 @@ class RegistryManager(SqlExecutionMixin):
             registry_url,
         ]
         try:
-            return subprocess.check_output(command, input=json.dumps(token), text=True)
+            return subprocess.check_output(
+                command, input=json.dumps(token), text=True, stderr=subprocess.PIPE
+            )
         except subprocess.CalledProcessError as e:
             raise ClickException(f"Login Failed: {e.stderr}".strip())
