@@ -95,6 +95,7 @@ def list_tags(
     image_name: str = typer.Option(
         ...,
         "--image-name",
+        "--image_name",
         "-i",
         help="Fully qualified name of the image as shown in the output of list-images",
     ),
