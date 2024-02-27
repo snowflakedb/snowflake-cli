@@ -318,7 +318,7 @@ def test_execute_function(mock_connector, runner, mock_ctx):
         ]
     )
 
-    assert result.exit_code == 0, result._output
+    assert result.exit_code == 0, result.output
     assert ctx.get_query() == "select functionName(42, 'string')"
 
 

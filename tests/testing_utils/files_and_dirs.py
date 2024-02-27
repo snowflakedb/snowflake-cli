@@ -4,19 +4,17 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, Generator, List, Union
 
-import stat
-
 from snowflake.cli.api.secure_utils import file_permissions_are_strict
 
 
-def create_temp_file(suffix: str, dir: str, contents: List[str]) -> str:
-    with tempfile.NamedTemporaryFile(suffix=suffix, dir=dir, delete=False) as tmp:
+def create_temp_file(suffix: str, dir_name: str, contents: List[str]) -> str:
+    with tempfile.NamedTemporaryFile(suffix=suffix, dir=dir_name, delete=False) as tmp:
         _write_to_file(tmp.name, contents)
     return tmp.name
 
 
-def create_named_file(file_name: str, dir: str, contents: List[str]):
-    file_path = os.path.join(dir, file_name)
+def create_named_file(file_name: str, dir_name: str, contents: List[str]):
+    file_path = os.path.join(dir_name, file_name)
     _write_to_file(file_path, contents)
     return file_path
 

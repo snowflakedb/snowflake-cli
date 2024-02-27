@@ -32,9 +32,9 @@ def snowflake_ymls(dir_name: str) -> Generator[List[Path], None, None]:
     These files reside alongside any other files in the project directory.
     If there is no local overrides file, returns a list of length 1.
     """
-    with temp_cloned_dir(PROJECT_DIR / dir_name) as dir:
-        project_yml = dir / "snowflake.yml"
-        local_yml = dir / "snowflake.local.yml"
+    with temp_cloned_dir(PROJECT_DIR / dir_name) as dir_:
+        project_yml = dir_ / "snowflake.yml"
+        local_yml = dir_ / "snowflake.local.yml"
         if local_yml.exists():
             yield [project_yml, local_yml]
         else:

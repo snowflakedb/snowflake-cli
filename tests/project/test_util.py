@@ -1,17 +1,17 @@
+from itertools import permutations
+
 import pytest
 from snowflake.cli.api.project.util import (
     append_to_identifier,
+    escape_like_pattern,
     is_valid_identifier,
+    is_valid_object_name,
     is_valid_quoted_identifier,
     is_valid_string_literal,
     is_valid_unquoted_identifier,
     to_identifier,
     to_string_literal,
-    is_valid_object_name,
-    escape_like_pattern,
 )
-
-from itertools import permutations
 
 VALID_UNQUOTED_IDENTIFIERS = (
     "_",
@@ -53,45 +53,45 @@ INVALID_QUOTED_IDENTIFIERS = (
 
 
 def test_is_valid_unquoted_identifier():
-    for id in VALID_UNQUOTED_IDENTIFIERS:
-        assert is_valid_unquoted_identifier(id)
+    for id_ in VALID_UNQUOTED_IDENTIFIERS:
+        assert is_valid_unquoted_identifier(id_)
 
-    for id in VALID_QUOTED_IDENTIFIERS:
-        assert not is_valid_unquoted_identifier(id)
+    for id_ in VALID_QUOTED_IDENTIFIERS:
+        assert not is_valid_unquoted_identifier(id_)
 
-    for id in INVALID_UNQUOTED_IDENTIFIERS:
-        assert not is_valid_unquoted_identifier(id)
+    for id_ in INVALID_UNQUOTED_IDENTIFIERS:
+        assert not is_valid_unquoted_identifier(id_)
 
-    for id in INVALID_QUOTED_IDENTIFIERS:
-        assert not is_valid_unquoted_identifier(id)
+    for id_ in INVALID_QUOTED_IDENTIFIERS:
+        assert not is_valid_unquoted_identifier(id_)
 
 
 def test_is_valid_quoted_identifier():
-    for id in VALID_UNQUOTED_IDENTIFIERS:
-        assert not is_valid_quoted_identifier(id)
+    for id_ in VALID_UNQUOTED_IDENTIFIERS:
+        assert not is_valid_quoted_identifier(id_)
 
-    for id in VALID_QUOTED_IDENTIFIERS:
-        assert is_valid_quoted_identifier(id)
+    for id_ in VALID_QUOTED_IDENTIFIERS:
+        assert is_valid_quoted_identifier(id_)
 
-    for id in INVALID_UNQUOTED_IDENTIFIERS:
-        assert not is_valid_quoted_identifier(id)
+    for id_ in INVALID_UNQUOTED_IDENTIFIERS:
+        assert not is_valid_quoted_identifier(id_)
 
-    for id in INVALID_QUOTED_IDENTIFIERS:
-        assert not is_valid_quoted_identifier(id)
+    for id_ in INVALID_QUOTED_IDENTIFIERS:
+        assert not is_valid_quoted_identifier(id_)
 
 
 def test_is_valid_identifier():
-    for id in VALID_UNQUOTED_IDENTIFIERS:
-        assert is_valid_identifier(id)
+    for id_ in VALID_UNQUOTED_IDENTIFIERS:
+        assert is_valid_identifier(id_)
 
-    for id in VALID_QUOTED_IDENTIFIERS:
-        assert is_valid_identifier(id)
+    for id_ in VALID_QUOTED_IDENTIFIERS:
+        assert is_valid_identifier(id_)
 
-    for id in INVALID_UNQUOTED_IDENTIFIERS:
-        assert not is_valid_identifier(id)
+    for id_ in INVALID_UNQUOTED_IDENTIFIERS:
+        assert not is_valid_identifier(id_)
 
-    for id in INVALID_QUOTED_IDENTIFIERS:
-        assert not is_valid_identifier(id)
+    for id_ in INVALID_QUOTED_IDENTIFIERS:
+        assert not is_valid_identifier(id_)
 
 
 def test_is_valid_object_name():
@@ -132,10 +132,10 @@ def test_is_valid_object_name_disallow_quoted():
 
 
 def test_to_identifier():
-    for id in VALID_UNQUOTED_IDENTIFIERS:
-        assert to_identifier(id) == id
-    for id in VALID_QUOTED_IDENTIFIERS:
-        assert to_identifier(id) == id
+    for id_ in VALID_UNQUOTED_IDENTIFIERS:
+        assert to_identifier(id_) == id_
+    for id_ in VALID_QUOTED_IDENTIFIERS:
+        assert to_identifier(id_) == id_
 
     assert to_identifier("abc def") == '"abc def"'
     assert to_identifier('abc"def') == '"abc""def"'

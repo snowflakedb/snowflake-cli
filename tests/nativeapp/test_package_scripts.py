@@ -1,13 +1,14 @@
+from pathlib import Path
 from textwrap import dedent
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.exceptions import (
     InvalidPackageScriptError,
     MissingPackageScriptError,
 )
 from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
-from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 
 from tests.nativeapp.patch_utils import mock_connection
@@ -15,8 +16,7 @@ from tests.nativeapp.utils import (
     NATIVEAPP_MANAGER_EXECUTE,
     NATIVEAPP_MANAGER_EXECUTE_QUERIES,
 )
-from tests.project.fixtures import *
-from tests.testing_utils.fixtures import *
+from tests.testing_utils.fixtures import MockConnectionCtx
 
 
 def _get_na_manager(working_dir):
@@ -48,7 +48,7 @@ def test_package_scripts(
     mock_conn.return_value = MockConnectionCtx()
     working_dir: Path = project_definition_files[0].parent
     native_app_manager = _get_na_manager(str(working_dir))
-    native_app_manager._apply_package_scripts()
+    native_app_manager._apply_package_scripts()  # noqa: SLF001
     assert mock_execute_query.mock_calls == [
         mock.call(expected_call),
     ]
@@ -88,7 +88,7 @@ def test_missing_package_script(mock_execute, project_definition_files):
     native_app_manager = _get_na_manager(str(working_dir))
     with pytest.raises(MissingPackageScriptError):
         (working_dir / "002-shared.sql").unlink()
-        native_app_manager._apply_package_scripts()
+        native_app_manager._apply_package_scripts()  # noqa: SLF001
 
     # even though the second script was the one missing, nothing should be executed
     assert mock_execute.mock_calls == []
@@ -103,7 +103,7 @@ def test_invalid_package_script(mock_execute, project_definition_files):
         second_file = working_dir / "002-shared.sql"
         second_file.unlink()
         second_file.write_text("select * from {{ package_name")
-        native_app_manager._apply_package_scripts()
+        native_app_manager._apply_package_scripts()  # noqa: SLF001
 
     # even though the second script was the one missing, nothing should be executed
     assert mock_execute.mock_calls == []
@@ -118,7 +118,7 @@ def test_undefined_var_package_script(mock_execute, project_definition_files):
         second_file = working_dir / "001-shared.sql"
         second_file.unlink()
         second_file.write_text("select * from {{ abc }}")
-        native_app_manager._apply_package_scripts()
+        native_app_manager._apply_package_scripts()  # noqa: SLF001
 
     assert mock_execute.mock_calls == []
 
@@ -144,7 +144,7 @@ def test_package_scripts_w_missing_warehouse_exception(
     native_app_manager = _get_na_manager(str(working_dir))
 
     with pytest.raises(ProgrammingError) as err:
-        native_app_manager._apply_package_scripts()
+        native_app_manager._apply_package_scripts()  # noqa: SLF001
 
     assert "Please provide a warehouse for the active session role" in err.value.msg
 
@@ -166,6 +166,6 @@ def test_package_scripts_w_warehouse_access_exception(
     native_app_manager = _get_na_manager(str(working_dir))
 
     with pytest.raises(ProgrammingError) as err:
-        native_app_manager._apply_package_scripts()
+        native_app_manager._apply_package_scripts()  # noqa: SLF001
 
     assert "Please grant usage privilege on warehouse to this role." in err.value.msg

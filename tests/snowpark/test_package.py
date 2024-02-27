@@ -6,11 +6,8 @@ from zipfile import ZipFile
 
 import pytest
 from requirements.requirement import Requirement
-
-import snowflake.cli.plugins.snowpark.package.manager
-import src.snowflake.cli.plugins.snowpark.package.manager
 from snowflake.cli.plugins.snowpark.models import SplitRequirements
-from snowflake.cli.plugins.snowpark.package.utils import NotInAnaconda, NothingFound
+from snowflake.cli.plugins.snowpark.package.utils import NothingFound, NotInAnaconda
 
 from tests.test_data import test_data
 

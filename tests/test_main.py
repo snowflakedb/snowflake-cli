@@ -2,17 +2,19 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
 import sys
 import typing as t
+from pathlib import Path
+from unittest import mock
 
+import pytest
 from click import Command
 from snowflake.cli.__about__ import VERSION
 from snowflake.cli.app.cli_app import app_context_holder
 from snowflake.connector.config_manager import CONFIG_MANAGER
 from typer.core import TyperArgument, TyperOption
-
-from tests.testing_utils.fixtures import *
 
 
 def test_help_option(runner):
