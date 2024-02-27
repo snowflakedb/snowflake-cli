@@ -1,5 +1,5 @@
 import json
-from subprocess import CalledProcessError
+from subprocess import PIPE, CalledProcessError
 from unittest import mock
 
 import pytest
@@ -139,7 +139,7 @@ def test_docker_registry_login(mock_check_output, mock_get_url, mock_get_token):
 
     result = RegistryManager().docker_registry_login()
     mock_check_output.assert_called_once_with(
-        expected_command, input=json.dumps(test_token), text=True
+        expected_command, input=json.dumps(test_token), text=True, stderr=PIPE
     )
     mock_get_url.assert_called_once_with()
     mock_get_token.assert_called_once_with()

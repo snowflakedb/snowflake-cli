@@ -5,7 +5,7 @@
 ## New additions
 
 ## Fixes and improvements
-
+* Fixed errors during `spcs image-registry login` not being formatted correctly.
 
 # v2.1.0
 
