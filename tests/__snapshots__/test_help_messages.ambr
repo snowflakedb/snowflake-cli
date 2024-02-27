@@ -2735,7 +2735,7 @@
   │                      [required]                                              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ *  --image_name  -i      TEXT  Fully qualified name of the image as shown in │
+  │ *  --image-name  -i      TEXT  Fully qualified name of the image as shown in │
   │                                the output of list-images                     │
   │                                [default: None]                               │
   │                                [required]                                    │
