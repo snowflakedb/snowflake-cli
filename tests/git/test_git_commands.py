@@ -36,6 +36,16 @@ def test_list_tags(mock_connector, runner, mock_ctx):
 
 
 @mock.patch("snowflake.connector.connect")
+def test_list_files(mock_connector, runner, mock_ctx):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(["git", "list-files", "@repo_name/branches/main"])
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == "ls @repo_name/branches/main"
+
+
+@mock.patch("snowflake.connector.connect")
 def test_fetch(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
