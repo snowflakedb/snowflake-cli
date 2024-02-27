@@ -3,8 +3,7 @@
 ## Backward incompatibility
 
 ## New additions
-* Added possibility to specify `database` and `schema` for streamlit apps by providing fully qualified
-  name in `snowflake.yml` (`name = database.schema.name`)
+* Added support for fully qualified name (`database.schema.name`) in `name` parameter in streamlit project definition
 
 ## Fixes and improvements
 * Fixed errors during `spcs image-registry login` not being formatted correctly.
