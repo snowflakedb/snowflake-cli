@@ -79,19 +79,15 @@ def copy(
     destination_path: str = typer.Argument(
         help="Target path for copy operation. Should be stage or local file path.",
     ),
-    overwrite: bool = typer.Option(
-        False,
-        help="Overwrites existing files in the target path.",
-    ),
     parallel: int = typer.Option(
         4,
-        help="Number of parallel threads to use when uploading files.",
+        help="Number of parallel threads to use when downloading files.",
     ),
     **options,
 ):
     is_copy = is_stage_path(destination_path)
     if is_copy:
-        cursor = GitManager.copy(
+        cursor = GitManager().copy(
             repo_path=repository_path, destination_path=destination_path
         )
     else:
