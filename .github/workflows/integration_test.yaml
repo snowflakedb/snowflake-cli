@@ -36,7 +36,7 @@ jobs:
         env:
           INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
         run: |
-          if [ $INTEGRATION_HOST == "" ]; then
+          if [ "$INTEGRATION_HOST" == "" ]; then
             echo "are_secrets_available=false" >> "$GITHUB_OUTPUT"
           else
             echo "are_secrets_available=true" >> "$GITHUB_OUTPUT"
