@@ -57,7 +57,7 @@ class StreamlitManager(SqlExecutionMixin):
 
     def _create_streamlit(
         self,
-        streamlit_name: str,
+        fully_qualified_name: str,
         main_file: Path,
         replace: Optional[bool] = None,
         experimental: Optional[bool] = None,
@@ -66,15 +66,15 @@ class StreamlitManager(SqlExecutionMixin):
     ):
         query = []
         if replace:
-            query.append(f"CREATE OR REPLACE STREAMLIT {streamlit_name}")
+            query.append(f"CREATE OR REPLACE STREAMLIT {fully_qualified_name}")
         elif experimental:
             # For experimental behaviour, we need to use CREATE STREAMLIT IF NOT EXISTS
             # for a streamlit app with an embedded stage
             # because this is analogous to the behavior for non-experimental
             # deploy which does CREATE STAGE IF NOT EXISTS
-            query.append(f"CREATE STREAMLIT IF NOT EXISTS {streamlit_name}")
+            query.append(f"CREATE STREAMLIT IF NOT EXISTS {fully_qualified_name}")
         else:
-            query.append(f"CREATE STREAMLIT {streamlit_name}")
+            query.append(f"CREATE STREAMLIT {fully_qualified_name}")
 
         if from_stage_name:
             query.append(f"ROOT_LOCATION = '{from_stage_name}'")
@@ -99,6 +99,13 @@ class StreamlitManager(SqlExecutionMixin):
         **options,
     ):
         stage_manager = StageManager()
+        # for backwards compatibility - quoted stage path might be case-sensitive
+        # https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers
+        streamlit_name_for_root_location = self.get_name_from_fully_qualified_name(
+            streamlit_name
+        )
+        fully_qualified_name = stage_manager.to_fully_qualified_name(streamlit_name)
+        streamlit_name = self.get_name_from_fully_qualified_name(fully_qualified_name)
         if experimental_behaviour_enabled():
             """
             1. Create streamlit object
@@ -107,14 +114,14 @@ class StreamlitManager(SqlExecutionMixin):
             # TODO: Support from_stage
             # from_stage_stmt = f"FROM_STAGE = '{stage_name}'" if stage_name else ""
             self._create_streamlit(
-                streamlit_name,
+                fully_qualified_name,
                 main_file,
                 replace=replace,
                 query_warehouse=query_warehouse,
                 experimental=True,
             )
             try:
-                self._execute_query(f"ALTER streamlit {streamlit_name} CHECKOUT")
+                self._execute_query(f"ALTER streamlit {fully_qualified_name} CHECKOUT")
             except ProgrammingError as e:
                 # If an error is raised because a CHECKOUT has already occured,
                 # simply skip it and continue
@@ -147,7 +154,7 @@ class StreamlitManager(SqlExecutionMixin):
             stage_manager.create(stage_name=stage_name)
 
             root_location = stage_manager.get_standard_stage_name(
-                f"{stage_name}/{streamlit_name}"
+                f"{stage_name}/{streamlit_name_for_root_location}"
             )
 
             self._put_streamlit_files(
@@ -159,7 +166,7 @@ class StreamlitManager(SqlExecutionMixin):
             )
 
             self._create_streamlit(
-                streamlit_name,
+                fully_qualified_name,
                 main_file,
                 replace=replace,
                 query_warehouse=query_warehouse,
@@ -167,23 +174,19 @@ class StreamlitManager(SqlExecutionMixin):
                 experimental=False,
             )
 
-        return self.get_url(streamlit_name)
+        return self.get_url(fully_qualified_name)
 
-    def get_url(self, streamlit_name: str) -> str:
+    def get_url(self, streamlit_name: str, database=None, schema=None) -> str:
         try:
             return make_snowsight_url(
                 self._conn,
-                f"/#/streamlit-apps/{self.qualified_name_for_url(streamlit_name)}",
+                f"/#/streamlit-apps/{self.qualified_name_for_url(streamlit_name, database=database, schema=schema)}",
             )
         except MissingConnectionHostError as e:
             return "https://app.snowflake.com"
 
-    def qualified_name(self, object_name: str):
-        return f"{self._conn.database}.{self._conn.schema}.{object_name}"
-
-    def qualified_name_for_url(self, object_name: str):
-        return (
-            f"{unquote_identifier(self._conn.database)}."
-            f"{unquote_identifier(self._conn.schema)}."
-            f"{unquote_identifier(object_name)}"
+    def qualified_name_for_url(self, object_name: str, database=None, schema=None):
+        fqn = self.to_fully_qualified_name(
+            object_name, database=database, schema=schema
         )
+        return ".".join(unquote_identifier(part) for part in fqn.split("."))

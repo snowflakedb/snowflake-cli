@@ -3,6 +3,7 @@
 ## Backward incompatibility
 
 ## New additions
+* Added support for fully qualified name (`database.schema.name`) in `name` parameter in streamlit project definition
 
 ## Fixes and improvements
 * Fixed errors during `spcs image-registry login` not being formatted correctly.

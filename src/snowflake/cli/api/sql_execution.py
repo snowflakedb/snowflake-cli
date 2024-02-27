@@ -144,6 +144,14 @@ class SqlExecutionMixin:
         database = database or self._conn.database
         return f"{database}.{schema}.{name}".upper()
 
+    @staticmethod
+    def get_name_from_fully_qualified_name(name):
+        """
+        Returns name of the object from the fully-qualified name.
+        Assumes that [name] is in format [[database.]schema.]name
+        """
+        return name.split(".")[-1]
+
     def show_specific_object(
         self,
         object_type_plural: str,
