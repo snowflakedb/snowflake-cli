@@ -1,13 +1,14 @@
 import json
-from subprocess import CalledProcessError
+from subprocess import PIPE, CalledProcessError
+from unittest import mock
 
-from tests.testing_utils.fixtures import *
+import pytest
+from click import ClickException
 from snowflake.cli.plugins.spcs.image_registry.manager import (
-    RegistryManager,
     NoImageRepositoriesFoundError,
+    RegistryManager,
 )
 from snowflake.connector.cursor import DictCursor
-from click import ClickException
 
 
 @mock.patch("snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager._conn")
@@ -18,7 +19,7 @@ def test_registry_get_token(mock_execute, mock_conn, mock_cursor, runner):
     mock_execute.return_value = mock_cursor(
         ["row"], ["Statement executed successfully"]
     )
-    mock_conn._rest._token_request.return_value = {
+    mock_conn._rest._token_request.return_value = {  # noqa: SLF001
         "data": {
             "sessionToken": "token1234",
             "validityInSecondsST": 42,
@@ -107,7 +108,7 @@ def test_get_registry_url_no_repositories_cli(mock_get_registry_url, runner, sna
     ],
 )
 def test_has_url_scheme(url: str, expected: bool):
-    assert RegistryManager()._has_url_scheme(url) == expected
+    assert RegistryManager()._has_url_scheme(url) == expected  # noqa: SLF001
 
 
 @mock.patch(
@@ -138,7 +139,7 @@ def test_docker_registry_login(mock_check_output, mock_get_url, mock_get_token):
 
     result = RegistryManager().docker_registry_login()
     mock_check_output.assert_called_once_with(
-        expected_command, input=json.dumps(test_token), text=True
+        expected_command, input=json.dumps(test_token), text=True, stderr=PIPE
     )
     mock_get_url.assert_called_once_with()
     mock_get_token.assert_called_once_with()

@@ -22,7 +22,7 @@ def test_executing_command_sends_telemetry_data(
     assert result.exit_code == 0, result.output
 
     # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
-    assert mock_conn.return_value._telemetry.try_add_log_to_batch.call_args.args[
+    assert mock_conn.return_value._telemetry.try_add_log_to_batch.call_args.args[  # noqa: SLF001
         0
     ].to_dict() == {
         "message": {

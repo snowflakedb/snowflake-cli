@@ -1,4 +1,9 @@
+import os
 from textwrap import dedent
+from unittest import mock
+
+import pytest
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     NAME_COL,
@@ -11,7 +16,7 @@ from snowflake.cli.plugins.nativeapp.manager import (
     ensure_correct_owner,
 )
 from snowflake.cli.plugins.object.stage.diff import DiffResult
-from snowflake.cli.api.project.definition_manager import DefinitionManager
+from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.patch_utils import (
@@ -24,7 +29,7 @@ from tests.nativeapp.utils import (
     mock_execute_helper,
     mock_snowflake_yml_file,
 )
-from tests.testing_utils.fixtures import *
+from tests.testing_utils.files_and_dirs import create_named_file
 
 mock_project_definition_override = {
     "native_app": {
@@ -61,7 +66,7 @@ def test_sync_deploy_root_with_stage(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -122,7 +127,7 @@ def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_curs
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -158,7 +163,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -190,7 +195,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -225,7 +230,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -242,13 +247,13 @@ def test_is_app_pkg_distribution_same_in_sf_w_arg(mock_mismatch, temp_dir):
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
     create_named_file(
         file_name="snowflake.local.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[
             dedent(
                 """\
@@ -273,13 +278,13 @@ def test_is_app_pkg_distribution_same_in_sf_no_mismatch(mock_mismatch, temp_dir)
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
     create_named_file(
         file_name="snowflake.local.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[
             dedent(
                 """\
@@ -306,7 +311,7 @@ def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -348,7 +353,7 @@ def test_get_existing_app_info_app_exists(mock_execute, temp_dir, mock_cursor):
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -380,7 +385,7 @@ def test_get_existing_app_info_app_does_not_exist(mock_execute, temp_dir, mock_c
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -424,7 +429,7 @@ def test_get_existing_app_pkg_info_app_pkg_exists(mock_execute, temp_dir, mock_c
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -461,7 +466,7 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -486,7 +491,7 @@ def test_get_snowsight_url(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 

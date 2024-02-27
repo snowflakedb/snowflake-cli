@@ -1,7 +1,8 @@
-from typing import Optional
-from unittest import mock
+from pathlib import Path
+from typing import List, Optional
 
 import pytest
+from snowflake.cli.api.project.definition import load_project_definition
 from snowflake.cli.plugins.nativeapp.artifacts import (
     ArtifactMapping,
     DeployRootError,
@@ -12,10 +13,6 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     build_bundle,
     translate_artifact,
 )
-from snowflake.cli.api.project.definition import load_project_definition
-
-from tests.project.fixtures import *
-from tests.testing_utils.fixtures import *
 
 
 def trimmed_contents(path: Path) -> Optional[str]:

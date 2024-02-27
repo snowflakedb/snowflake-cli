@@ -155,7 +155,7 @@ class SecurePath:
         if destination.exists():
             _raise_file_exists_error(destination)
         log.info("Moving %s to %s", str(self._path), destination.resolve())
-        return SecurePath(shutil.move(self._path, destination))
+        return SecurePath(shutil.move(str(self._path), destination))
 
     def copy(
         self, destination: Union[Path, str], dirs_exist_ok: bool = False

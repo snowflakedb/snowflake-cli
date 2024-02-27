@@ -13,7 +13,6 @@ from snowflake.cli.api.output.types import QueryResult
 from snowflake.cli.app import loggers
 from snowflake.cli.app.cli_app import app
 
-
 pytest_plugins = ["tests.testing_utils.fixtures", "tests.project.fixtures"]
 
 

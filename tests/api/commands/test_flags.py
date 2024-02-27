@@ -1,6 +1,5 @@
-from typer import Typer
-
 from snowflake.cli.api.commands.flags import PLAIN_PASSWORD_MSG, PasswordOption
+from typer import Typer
 from typer.testing import CliRunner
 
 
