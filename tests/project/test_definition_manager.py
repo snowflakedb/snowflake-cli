@@ -1,12 +1,9 @@
 from pathlib import Path
 from unittest import TestCase, mock
-from unittest.mock import patch
 
+import pytest
 from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-
-from tests.project.fixtures import *
-from tests.testing_utils.fixtures import *
 
 
 def mock_is_file_for(*known_files):
@@ -23,7 +20,7 @@ class DefinitionManagerTest(TestCase):
     def test_no_project_parameter_provided(self, mock_getcwd):
         with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
             definition_manager = DefinitionManager()
-            assert definition_manager._project_config_paths == [
+            assert definition_manager._project_config_paths == [  # noqa: SLF001
                 Path("/hello/world/snowflake.yml")
             ]
 
@@ -33,7 +30,7 @@ class DefinitionManagerTest(TestCase):
             "/hello/world/snowflake.yml", "/hello/world/snowflake.local.yml"
         ) as mock_is_file:
             definition_manager = DefinitionManager()
-            assert definition_manager._project_config_paths == [
+            assert definition_manager._project_config_paths == [  # noqa: SLF001
                 Path("/hello/world/snowflake.yml"),
                 Path("/hello/world/snowflake.local.yml"),
             ]

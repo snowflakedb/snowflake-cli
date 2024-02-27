@@ -1,5 +1,6 @@
-import pytest
 import sys
+
+import pytest
 
 
 @pytest.mark.loaded_modules

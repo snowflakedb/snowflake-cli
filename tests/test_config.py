@@ -1,16 +1,18 @@
+import os
+from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
-
+import pytest
 from snowflake.cli.api.config import (
+    ConfigFileTooWidePermissionsError,
     config_init,
     get_config_section,
     get_connection,
     get_default_connection,
-    ConfigFileTooWidePermissionsError,
 )
 from snowflake.cli.api.exceptions import MissingConfiguration
 
-from tests.testing_utils.fixtures import *
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
 
 

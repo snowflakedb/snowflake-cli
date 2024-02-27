@@ -1,8 +1,11 @@
-import unittest
+import os
 from textwrap import dedent
+from unittest import mock
 
+import pytest
 import typer
 from click import BadOptionUsage, ClickException
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.constants import SPECIAL_COMMENT
 from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
@@ -15,11 +18,17 @@ from snowflake.cli.plugins.nativeapp.policy import (
 from snowflake.cli.plugins.nativeapp.version.version_processor import (
     NativeAppVersionCreateProcessor,
 )
-from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector.cursor import DictCursor
 
-from tests.nativeapp.utils import *
-from tests.testing_utils.fixtures import *
+from tests.nativeapp.utils import (
+    FIND_VERSION_FROM_MANIFEST,
+    NATIVEAPP_MANAGER_EXECUTE,
+    TYPER_CONFIRM,
+    VERSION_MODULE,
+    mock_execute_helper,
+    mock_snowflake_yml_file,
+)
+from tests.testing_utils.files_and_dirs import create_named_file
 
 CREATE_PROCESSOR = "NativeAppVersionCreateProcessor"
 
@@ -69,7 +78,7 @@ def test_get_existing_release_direction_info(mock_execute, temp_dir, mock_cursor
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -111,7 +120,7 @@ def test_add_version(mock_execute, temp_dir, mock_cursor):
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -152,7 +161,7 @@ def test_add_new_patch_auto(mock_execute, temp_dir, mock_cursor):
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -193,7 +202,7 @@ def test_add_new_patch_custom(mock_execute, temp_dir, mock_cursor):
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -213,7 +222,7 @@ def test_process_no_version_from_user_no_version_in_manifest(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -242,7 +251,7 @@ def test_process_no_version_exists_throws_bad_option_exception_one(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -271,7 +280,7 @@ def test_process_no_version_exists_throws_bad_option_exception_two(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -341,7 +350,7 @@ def test_process_no_existing_release_directives_or_versions(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -429,7 +438,7 @@ def test_process_no_existing_release_directives_w_existing_version(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -520,7 +529,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 
@@ -619,7 +628,7 @@ def test_process_existing_release_directives_w_existing_version_two(
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
-        dir=current_working_directory,
+        dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file],
     )
 

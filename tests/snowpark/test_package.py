@@ -10,7 +10,7 @@ from snowflake.cli.plugins.snowpark.models import Requirement, PypiOption
 import snowflake.cli.plugins.snowpark.package.manager
 import src.snowflake.cli.plugins.snowpark.package.manager
 from snowflake.cli.plugins.snowpark.models import SplitRequirements
-from snowflake.cli.plugins.snowpark.package.utils import NotInAnaconda, NothingFound
+from snowflake.cli.plugins.snowpark.package.utils import NothingFound, NotInAnaconda
 
 from tests.test_data import test_data
 
