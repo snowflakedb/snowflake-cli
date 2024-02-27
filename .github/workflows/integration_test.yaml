@@ -24,7 +24,7 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     needs: secret-check
-    if: ${{ always() && needs.secret-check.result == 'Success' }}
+    if: ${{ needs.secret-check.result == 'Success' }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
