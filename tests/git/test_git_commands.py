@@ -33,3 +33,23 @@ def test_list_tags(mock_connector, runner, mock_ctx):
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "show git tags in repo_name"
+
+
+@mock.patch("snowflake.connector.connect")
+def test_list_files(mock_connector, runner, mock_ctx):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(["git", "list-files", "@repo_name/branches/main"])
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == "ls @repo_name/branches/main"
+
+
+@mock.patch("snowflake.connector.connect")
+def test_fetch(mock_connector, runner, mock_ctx):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(["git", "fetch", "repo_name"])
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == "alter git repository repo_name fetch"

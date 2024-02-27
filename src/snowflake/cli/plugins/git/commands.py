@@ -1,5 +1,6 @@
 import logging
 
+import typer
 from snowflake.cli.api.commands.flags import identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, QueryResult
@@ -37,3 +38,29 @@ def list_tags(
     **options,
 ) -> CommandResult:
     return QueryResult(GitManager().show_tags(repo_name=repository_name))
+
+
+@app.command(
+    "list-files",
+    help="List files from given state of git repository.",
+    requires_connection=True,
+)
+def list_files(
+    repository_path: str = typer.Argument(
+        help="Path to git repository stage with scope provided. For example: @my_repo/branches/main"
+    ),
+    **options,
+) -> CommandResult:
+    return QueryResult(GitManager().show_files(repo_path=repository_path))
+
+
+@app.command(
+    "fetch",
+    help="Fetch changes from origin to snowflake repository.",
+    requires_connection=True,
+)
+def fetch(
+    repository_name: str = RepoNameArgument,
+    **options,
+) -> CommandResult:
+    return QueryResult(GitManager().fetch(repo_name=repository_name))
