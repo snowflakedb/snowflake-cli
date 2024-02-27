@@ -9,30 +9,32 @@ on:
       - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
     branches:
       - main
-env:
-  INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
 
 jobs:
   test:
     runs-on: ${{ matrix.os }}
-    needs: secret-check
-    if: env.INTEGRATION_HOST != ''
+    env:
+      INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
+        if: ${{ env.INTEGRATION_HOST != '' }}
         with:
           persist-credentials: false
       - name: Set up Python
+        if: ${{ env.INTEGRATION_HOST != '' }}
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Install dependencies
+        if: ${{ env.INTEGRATION_HOST != '' }}
         run: |
           python -m pip install --upgrade pip hatch
           python -m hatch env create integration
       - name: Run integration tests
+        if: ${{ env.INTEGRATION_HOST != '' }}
         env:
           TERM: unknown
           SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
