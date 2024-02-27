@@ -16,7 +16,7 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     needs: secret-check
-    if: ${{ env.INTEGRATION_HOST != '' }}
+    if: env.INTEGRATION_HOST != ''
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
