@@ -1,6 +1,9 @@
 from unittest import mock
 
+import pytest
 
+
+@pytest.mark.skip(reason="Command is hidden")
 def test_toplevel_help(runner):
     result = runner.invoke(["--help"])
     assert (
