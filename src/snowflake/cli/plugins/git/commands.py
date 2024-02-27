@@ -37,3 +37,15 @@ def list_tags(
     **options,
 ) -> CommandResult:
     return QueryResult(GitManager().show_tags(repo_name=repository_name))
+
+
+@app.command(
+    "fetch",
+    help="Fetch changes from origin to snowflake repository.",
+    requires_connection=True,
+)
+def fetch(
+    repository_name: str = RepoNameArgument,
+    **options,
+) -> CommandResult:
+    return QueryResult(GitManager().fetch(repo_name=repository_name))
