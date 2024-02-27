@@ -11,9 +11,20 @@ on:
       - main
 
 jobs:
+  secret-check:
+    runs-on: ubuntu-latest
+    env:
+      INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
+    steps:
+      - if: ${{ env.env_text != '' }}
+        run: echo Success
+      - if: ${{ env.env_text == '' }}
+        run: exit 1
+
   test:
     runs-on: ${{ matrix.os }}
-    if: "! secrets"
+    needs: secret-check
+    if: ${{ always() && needs.secret-check.result == 'Success' }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
