@@ -4,10 +4,8 @@ from unittest.mock import MagicMock
 
 import pytest
 import typer
-
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import MessageResult
-
 from typer.testing import CliRunner
 
 

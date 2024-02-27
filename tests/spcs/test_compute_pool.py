@@ -1,18 +1,18 @@
+import json
 from unittest.mock import Mock, patch
 
-from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
-from snowflake.cli.plugins.spcs.compute_pool.commands import _compute_pool_name_callback
-from snowflake.connector.cursor import SnowflakeCursor
-from snowflake.cli.api.project.util import to_string_literal
-import json
 import pytest
-
 from click import ClickException
-from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.plugins.spcs.common import (
     NoPropertiesProvidedError,
 )
+from snowflake.cli.plugins.spcs.compute_pool.commands import _compute_pool_name_callback
+from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
+from snowflake.connector.cursor import SnowflakeCursor
+
+from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
 from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_is_successful_and_executed_successfully,
 )

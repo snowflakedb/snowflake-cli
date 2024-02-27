@@ -8,8 +8,6 @@ from snowflake.cli.plugins.snowpark.common import (
 )
 
 from tests.testing_utils.fixtures import (
-    correct_requirements_snowflake_txt,
-    temp_dir,
     test_data,
 )
 

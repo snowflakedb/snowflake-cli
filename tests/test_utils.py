@@ -1,9 +1,12 @@
 import json
 import logging
+import os
 from distutils.dir_util import copy_tree
-from pathlib import PosixPath
+from pathlib import Path, PosixPath
+from unittest import mock
 from unittest.mock import MagicMock, mock_open, patch
 
+import pytest
 import snowflake.cli.plugins.snowpark.package.utils
 import typer
 from requirements.requirement import Requirement
@@ -13,7 +16,7 @@ from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.models import PypiOption
 from snowflake.cli.plugins.streamlit import streamlit_utils
 
-from tests.testing_utils.fixtures import *
+from tests.test_data import test_data
 
 
 def test_prepare_app_zip(

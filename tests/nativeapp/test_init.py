@@ -1,5 +1,8 @@
+from pathlib import Path
 from textwrap import dedent
+from unittest import mock
 
+import pytest
 from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.plugins.nativeapp.init import (
     CannotInitializeAnExistingProjectError,
@@ -15,7 +18,7 @@ from snowflake.cli.plugins.nativeapp.init import (
     nativeapp_init,
 )
 
-from tests.testing_utils.fixtures import *
+from tests.testing_utils.files_and_dirs import create_named_file
 
 PROJECT_PATH = "demo-na-project"
 PROJECT_NAME = "demo_na_project"
@@ -48,7 +51,7 @@ TEMPLATED_SNOWFLAKE_YML = dedent(
 
 
 def fake_clone_template_with_files(files: dict):
-    def fake_clone_mock(url: str, to_path: str, filter: list, depth: int):
+    def fake_clone_mock(url: str, to_path: str, filter: list, depth: int):  # noqa: A002
         repo_path = Path(to_path)
         repo_path.mkdir(parents=True, exist_ok=True)
 
@@ -60,7 +63,7 @@ def fake_clone_template_with_files(files: dict):
             file_contents = files[file_name]
             create_named_file(
                 file_name=file_name,
-                dir=str(repo_path),
+                dir_name=str(repo_path),
                 contents=[file_contents],
             )
         return mock.MagicMock()
@@ -72,7 +75,9 @@ def fake_clone_template_with_file(file_name: str, file_contents: str):
     return fake_clone_template_with_files({file_name: file_contents})
 
 
-def fake_clone_default_repo(url: str, to_path: str, filter: list, depth: int):
+def fake_clone_default_repo(
+    url: str, to_path: str, filter: list, depth: int  # noqa: A002
+):
     assert url == "https://github.com/snowflakedb/native-apps-templates"
     repo_path = Path(to_path)
     repo_path.mkdir(parents=True, exist_ok=True)
@@ -86,7 +91,7 @@ def fake_clone_default_repo(url: str, to_path: str, filter: list, depth: int):
     basic_template_dir.mkdir()
     create_named_file(
         file_name="snowflake.yml.jinja",
-        dir=str(basic_template_dir),
+        dir_name=str(basic_template_dir),
         contents=[TEMPLATED_SNOWFLAKE_YML],
     )
 
@@ -95,18 +100,22 @@ def fake_clone_default_repo(url: str, to_path: str, filter: list, depth: int):
     py_template_dir.mkdir()
     create_named_file(
         file_name="snowflake.yml.jinja",
-        dir=str(py_template_dir),
+        dir_name=str(py_template_dir),
         contents=[TEMPLATED_SNOWFLAKE_YML],
     )
     return mock.MagicMock()
 
 
-def fake_clone_jinja_template_repo(url: str, to_path: str, filter: list, depth: int):
+def fake_clone_jinja_template_repo(
+    url: str, to_path: str, filter: list, depth: int  # noqa: A002
+):
     fn = fake_clone_template_with_file("snowflake.yml.jinja", TEMPLATED_SNOWFLAKE_YML)
     return fn(url=url, to_path=to_path, filter=filter, depth=depth)
 
 
-def fake_clone_template_repo(url: str, to_path: str, filter: list, depth: int):
+def fake_clone_template_repo(
+    url: str, to_path: str, filter: list, depth: int  # noqa: A002
+):
     fn = fake_clone_template_with_file("snowflake.yml", SNOWFLAKE_YML)
     return fn(url=url, to_path=to_path, filter=filter, depth=depth)
 
@@ -133,7 +142,7 @@ def test_render_snowflake_yml(other_directory):
     temp_dir = Path(other_directory)
     create_named_file(
         file_name="snowflake.yml.jinja",
-        dir=str(temp_dir),
+        dir_name=str(temp_dir),
         contents=[
             dedent(
                 """\
@@ -166,7 +175,7 @@ def test_render_snowflake_yml_raises_exception(other_directory):
     temp_dir = Path(other_directory)
     create_named_file(
         file_name="snowflake.yml.jinja",
-        dir=str(temp_dir),
+        dir_name=str(temp_dir),
         contents=[
             dedent(
                 """\
@@ -188,7 +197,7 @@ def test_replace_snowflake_yml_name_with_project_populated_file(other_directory)
     temp_dir = Path(other_directory)
     create_named_file(
         file_name="snowflake.yml",
-        dir=str(temp_dir),
+        dir_name=str(temp_dir),
         contents=[
             dedent(
                 """\
@@ -220,7 +229,7 @@ def test_replace_snowflake_yml_name_with_project_empty_file(other_directory):
     temp_dir = Path(other_directory)
     create_named_file(
         file_name="snowflake.yml",
-        dir=str(temp_dir),
+        dir_name=str(temp_dir),
         contents=[""],
     )
     expected = dedent(

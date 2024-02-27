@@ -1,4 +1,7 @@
-from tests.testing_utils.fixtures import *
+import os
+from unittest import mock
+
+import pytest
 
 
 # Used as a solution to syrupy having some problems with comparing multilines string
@@ -27,8 +30,8 @@ MOCK_CONNECTION = {
 def test_command_context_is_passed_to_snowflake_connection(
     mock_command_info, mock_connect, cmd, expected, test_snowcli_config
 ):
-    from snowflake.cli.app.snow_connector import connect_to_snowflake
     from snowflake.cli.api.config import config_init
+    from snowflake.cli.app.snow_connector import connect_to_snowflake
 
     config_init(test_snowcli_config)
 

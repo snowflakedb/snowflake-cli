@@ -1,12 +1,11 @@
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from unittest import mock
-from snowflake.connector.cursor import DictCursor
-from snowflake.cli.api.sql_execution import SqlExecutionMixin
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 
 import pytest
-from typer.testing import CliRunner
+from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.connector.cursor import DictCursor
 
 from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
 

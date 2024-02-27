@@ -4,12 +4,8 @@ from textwrap import dedent
 from unittest import mock
 from unittest.mock import call
 
-import pytest
-
 from snowflake.cli.api.constants import ObjectType
 from snowflake.connector import ProgrammingError
-
-from click import ClickException
 
 
 def test_deploy_function_no_procedure(runner, project_directory):
