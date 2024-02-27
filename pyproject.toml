@@ -18,7 +18,7 @@ dependencies = [
   "rich==13.7.0",
   "requests==2.31.0",
   "requirements-parser==0.5.0",
-  "setuptools==69.1.0",
+  "setuptools==69.1.1",
   "snowflake-connector-python[secure-local-storage]==3.7.0",
   "strictyaml==1.7.3",
   "tomlkit==0.12.3",
