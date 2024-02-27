@@ -35,6 +35,18 @@
   
   '''
 # ---
+# name: test_describe[git-repository-git_repository_example]
+  '''
+  SELECT A MOCK QUERY
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
+  
+  '''
+# ---
 # name: test_describe[integration-integration_example]
   '''
   SELECT A MOCK QUERY
@@ -252,6 +264,17 @@
   | status |
   |--------|
   | f      |
+  +--------+
+  
+  '''
+# ---
+# name: test_drop[git-repository-git_repository_example]
+  '''
+  SELECT A MOCK QUERY
+  +--------+
+  | status |
+  |--------|
+  | g      |
   +--------+
   
   '''
