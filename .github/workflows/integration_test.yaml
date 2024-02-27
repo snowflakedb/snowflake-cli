@@ -9,30 +9,14 @@ on:
       - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
     branches:
       - main
+env:
+  INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
 
 jobs:
-  secret-check:
-    runs-on: ubuntu-latest
-    env:
-      INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
-    outputs:
-      are-secrets-available: ${{ steps.check.results.are_secrets_available }}
-    steps:
-      - id: check
-        shell: bash
-        env:
-          INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
-        run: |
-          if [ "$INTEGRATION_HOST" == "" ]; then
-            echo "are_secrets_available=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "are_secrets_available=true" >> "$GITHUB_OUTPUT"
-          fi
-
   test:
     runs-on: ${{ matrix.os }}
     needs: secret-check
-    if: ${{ needs.secret-check.outputs.are_secrets_available == 'true' }}
+    if: ${{ env.INTEGRATION_HOST != '' }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
