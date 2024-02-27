@@ -27,7 +27,6 @@
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
   │ app         Manages Native Apps in Snowflake                                 │
   │ connection  Manages connections to Snowflake.                                │
-  │ git         Manages git repositories in Snowflake.                           │
   │ object      Manages Snowflake objects like warehouses and stages             │
   │ snowpark    Manages procedures and functions.                                │
   │ spcs        Manages Snowpark Container Services compute pools, services,     │
