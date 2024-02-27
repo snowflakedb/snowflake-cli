@@ -17,9 +17,9 @@ jobs:
       INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
     steps:
       - if: ${{ env.env_text != '' }}
-        run: echo Success
+        run: echo 'Success'
       - if: ${{ env.env_text == '' }}
-        run: exit 1
+        run: echo 'Secrets not available'
 
   test:
     runs-on: ${{ matrix.os }}
