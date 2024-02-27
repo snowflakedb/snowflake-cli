@@ -41,6 +41,7 @@ class ObjectType(Enum):
     IMAGE_REPOSITORY = ObjectNames(
         "image-repository", "image repository", "image repositories"
     )
+    GIT_REPOSITORY = ObjectNames("git-repository", "git repository", "git repositories")
 
     def __str__(self):
         """This makes using this Enum easier in formatted string"""
