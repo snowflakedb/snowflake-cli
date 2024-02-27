@@ -1,6 +1,6 @@
 import logging
 
-import typer
+from snowflake.cli.api.commands.flags import identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, QueryResult
 from snowflake.cli.plugins.git.manager import GitManager
@@ -12,7 +12,7 @@ app = SnowTyper(
 )
 log = logging.getLogger(__name__)
 
-RepoNameArgument = typer.Argument(help="name of the git repository")
+RepoNameArgument = identifier_argument(sf_object="git repository", example="my_repo")
 
 
 @app.command(

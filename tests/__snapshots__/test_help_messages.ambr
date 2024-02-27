@@ -761,7 +761,9 @@
    List all branches in the repository.                                           
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    repository_name      TEXT  name of the git repository [default: None]   │
+  │ *    repository_name      TEXT  Identifier of the git repository. For        │
+  │                                 example: my_repo                             │
+  │                                 [default: None]                              │
   │                                 [required]                                   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
@@ -825,7 +827,9 @@
    List all tags in the repository.                                               
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    repository_name      TEXT  name of the git repository [default: None]   │
+  │ *    repository_name      TEXT  Identifier of the git repository. For        │
+  │                                 example: my_repo                             │
+  │                                 [default: None]                              │
   │                                 [required]                                   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
