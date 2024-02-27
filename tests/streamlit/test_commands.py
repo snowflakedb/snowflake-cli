@@ -77,7 +77,7 @@ def test_deploy_only_streamlit_file(
         ),
         dedent(
             f"""
-            CREATE STREAMLIT {STREAMLIT_NAME}
+            CREATE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
             ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
@@ -127,7 +127,7 @@ def test_deploy_only_streamlit_file_no_stage(
         ),
         dedent(
             f"""
-            CREATE STREAMLIT {STREAMLIT_NAME}
+            CREATE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
             ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
@@ -177,7 +177,7 @@ def test_deploy_only_streamlit_file_replace(
         ),
         dedent(
             f"""
-            CREATE OR REPLACE STREAMLIT {STREAMLIT_NAME}
+            CREATE OR REPLACE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
             ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
@@ -244,7 +244,7 @@ def test_deploy_streamlit_and_environment_files(
         _put_query("environment.yml", root_path),
         dedent(
             f"""
-            CREATE STREAMLIT {STREAMLIT_NAME}
+            CREATE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
             ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
@@ -284,7 +284,7 @@ def test_deploy_streamlit_and_pages_files(
         _put_query("pages/*.py", f"{root_path}/pages"),
         dedent(
             f"""
-            CREATE STREAMLIT {STREAMLIT_NAME}
+            CREATE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
             ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
@@ -326,7 +326,7 @@ def test_deploy_all_streamlit_files(
         _put_query("extra_file.py", root_path),
         dedent(
             f"""
-            CREATE STREAMLIT {STREAMLIT_NAME}
+            CREATE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
             ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
@@ -369,7 +369,7 @@ def test_deploy_put_files_on_stage(
         _put_query("pages/*.py", f"{root_path}/pages"),
         dedent(
             f"""
-            CREATE STREAMLIT {STREAMLIT_NAME}
+            CREATE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
             ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT_STAGE/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
@@ -409,7 +409,7 @@ def test_deploy_all_streamlit_files_not_defaults(
         _put_query("streamlit_pages/*.py", f"{root_path}/pages"),
         dedent(
             f"""
-            CREATE STREAMLIT {STREAMLIT_NAME}
+            CREATE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
             ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT_STAGE/{STREAMLIT_NAME}'
             MAIN_FILE = 'main.py'
             QUERY_WAREHOUSE = streamlit_warehouse
@@ -448,12 +448,12 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
     assert ctx.get_queries() == [
         dedent(
             f"""
-            CREATE STREAMLIT IF NOT EXISTS {STREAMLIT_NAME}
+            CREATE STREAMLIT IF NOT EXISTS MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
         ).strip(),
-        "ALTER streamlit test_streamlit CHECKOUT",
+        f"ALTER streamlit MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()} CHECKOUT",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*.py", f"{root_path}/pages"),
@@ -514,7 +514,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
     assert ctx.get_queries() == [
         dedent(
             f"""
-            CREATE STREAMLIT IF NOT EXISTS {STREAMLIT_NAME}
+            CREATE STREAMLIT IF NOT EXISTS MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
@@ -555,12 +555,12 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
     assert ctx.get_queries() == [
         dedent(
             f"""
-            CREATE STREAMLIT IF NOT EXISTS {STREAMLIT_NAME}
+            CREATE STREAMLIT IF NOT EXISTS MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
         ).strip(),
-        "ALTER streamlit test_streamlit CHECKOUT",
+        f"ALTER streamlit MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()} CHECKOUT",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*.py", f"{root_path}/pages"),
@@ -597,12 +597,12 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
     assert ctx.get_queries() == [
         dedent(
             f"""
-            CREATE OR REPLACE STREAMLIT {STREAMLIT_NAME}
+            CREATE OR REPLACE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
         ).strip(),
-        "ALTER streamlit test_streamlit CHECKOUT",
+        f"ALTER streamlit MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()} CHECKOUT",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*.py", f"{root_path}/pages"),
