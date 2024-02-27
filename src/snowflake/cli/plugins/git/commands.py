@@ -71,7 +71,7 @@ def fetch(
 
 @app.command(
     "copy",
-    help="Copies all files from given state of repository to target directory.",
+    help="Copies all files from given state of repository to local directory or stage.",
     requires_connection=True,
 )
 def copy(
