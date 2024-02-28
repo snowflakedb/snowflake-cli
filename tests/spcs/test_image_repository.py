@@ -50,7 +50,7 @@ MOCK_ROWS_DICT = [
         (False, False, "create image repository test_repo"),
         (False, True, "create image repository if not exists test_repo"),
         (True, False, "create or replace image repository test_repo"),
-        (True, True, "create or replace image repository if not exists test_repo"),
+        # (True, True) is an invalid case as OR REPLACE and IF NOT EXISTS are mutually exclusive.
     ],
 )
 @mock.patch(
@@ -67,14 +67,22 @@ def test_create(mock_execute, replace, if_not_exists, expected_query):
     assert result == cursor
 
 
+def test_create_replace_and_if_not_exist():
+    with pytest.raises(ValueError) as e:
+        ImageRepositoryManager().create(
+            name="test_repo", replace=True, if_not_exists=True
+        )
+    assert "mutually exclusive" in str(e.value)
+
+
 @pytest.mark.parametrize(
     "replace, if_not_exists",
-    [(False, False), (True, False), (False, True), (True, True)],
+    [(False, False), (True, False), (False, True)],
 )
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.create"
 )
-def test_create_cli(mock_create, mock_cursor, runner, replace, if_not_exists):
+def test_create_cli(mock_create, mock_cursor, runner, replace, if_not_exists, snapshot):
     repo_name = "test_repo"
     cursor = mock_cursor(
         rows=[[f"Image Repository {repo_name.upper()} successfully created."]],
@@ -91,9 +99,21 @@ def test_create_cli(mock_create, mock_cursor, runner, replace, if_not_exists):
         name=repo_name, replace=replace, if_not_exists=if_not_exists
     )
     assert result.exit_code == 0, result.output
-    assert (
-        f"Image Repository {repo_name.upper()} successfully created." in result.output
-    )
+    assert result.output == snapshot
+
+
+def test_create_cli_replace_and_if_not_exists(runner, snapshot):
+    command = [
+        "spcs",
+        "image-repository",
+        "create",
+        "test_repo",
+        "--replace",
+        "--if-not-exists",
+    ]
+    result = runner.invoke(command)
+    assert result.exit_code == 1
+    assert result.output == snapshot
 
 
 @mock.patch(

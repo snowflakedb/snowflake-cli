@@ -49,12 +49,17 @@ class ImageRepositoryManager(SqlExecutionMixin):
         if_not_exists: bool,
         replace: bool,
     ):
+        if if_not_exists and replace:
+            raise ValueError(
+                "'replace' and 'if_not_exists' options are mutually exclusive for ImageRepositoryManager.create"
+            )
+        elif replace:
+            create_statement = "create or replace image repository"
+        elif if_not_exists:
+            create_statement = "create image repository if not exists"
+        else:
+            create_statement = "create image repository"
 
-        create_statement = (
-            f"{'create or replace' if replace else 'create'} image repository"
-        )
-        if if_not_exists:
-            create_statement = f"{create_statement} if not exists"
         try:
             return self._execute_schema_query(
                 f"{create_statement} {name}", name=name

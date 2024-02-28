@@ -246,7 +246,9 @@ CREATE_MODE_OPTION_NAMES = ["if_exists", "if_not_exists", "replace"]
 def _create_mode_callback(ctx: typer.Context, param: typer.CallbackParam, value: bool):
 
     for key in CREATE_MODE_OPTION_NAMES:
-        if ctx.params.get(key, False):
+        if value and ctx.params.get(
+            key, False
+        ):  # if the current parameter is set to True and a previous parameter is also Truthy
             curr_opt = param.opts[0]
             key_opt = [x for x in ctx.command.params if x.name == key][0].opts[0]
             raise click.ClickException(
