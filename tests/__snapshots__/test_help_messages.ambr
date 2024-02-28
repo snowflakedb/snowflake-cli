@@ -3020,11 +3020,12 @@
   │                      [required]                                              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ *  --image_name  -i      TEXT  Fully qualified name of the image as shown in │
-  │                                the output of list-images                     │
-  │                                [default: None]                               │
-  │                                [required]                                    │
-  │    --help        -h            Show this message and exit.                   │
+  │ *  --image-name,--image_name  -i      TEXT  Fully qualified name of the      │
+  │                                             image as shown in the output of  │
+  │                                             list-images                      │
+  │                                             [default: None]                  │
+  │                                             [required]                       │
+  │    --help                     -h            Show this message and exit.      │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │

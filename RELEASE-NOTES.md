@@ -6,6 +6,7 @@
 * Added support for fully qualified name (`database.schema.name`) in `name` parameter in streamlit project definition
 
 ## Fixes and improvements
+* Adding `--image-name` option for image name argument in `spcs image-repository list-tags` for consistency with other commands.
 * Fixed errors during `spcs image-registry login` not being formatted correctly.
 
 # v2.1.0
