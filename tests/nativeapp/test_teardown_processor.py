@@ -715,7 +715,7 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
     mock_drop_generic_object.assert_called_once()
     if not is_pkg_distribution_same:
         mock_warning.assert_any_call(
-            "Continuing to execute `snow app teardown` on appliaction package app_pkg with distribution 'internal'."
+            "Continuing to execute `snow app teardown` on application package app_pkg with distribution 'internal'."
         )
 
 
