@@ -53,12 +53,13 @@ class TestPackage:
 
         assert result.exit_code == 0
         assert Path("dummy-pkg-for-tests-with-deps.zip").is_file()
-        assert str(
-            Path("dummy_pkg_for_tests") / "shrubbery.py"
-        ) in self._get_filenames_from_zip("dummy-pkg-for-tests-with-deps.zip")
-        assert str(
-            Path("dummy_pkg_for_tests_with_deps") / "shrubbery.py"
-        ) in self._get_filenames_from_zip("dummy-pkg-for-tests-with-deps.zip")
+        assert "dummy_pkg_for_tests/shrubbery.py" in self._get_filenames_from_zip(
+            "dummy-pkg-for-tests-with-deps.zip"
+        )
+        assert (
+            "dummy_pkg_for_tests_with_deps/shrubbery.py"
+            in self._get_filenames_from_zip("dummy-pkg-for-tests-with-deps.zip")
+        )
 
     @pytest.mark.integration
     def test_package_create_with_non_anaconda_package_without_install(
@@ -136,7 +137,10 @@ class TestPackage:
         assert any(["dummy_pkg_for_tests-1.0.dist-info" in file for file in files])
 
     @pytest.mark.integration
-    @pytest.mark.skipif(sys.platform.startswith("win"))
+    @pytest.mark.skipif(
+        sys.platform.startswith("win"),
+        reason="Windows version of PyGame has no native libraries",
+    )
     def test_package_with_native_libraries(self, directory_for_test, runner):
         result = runner.invoke_with_connection(
             [
