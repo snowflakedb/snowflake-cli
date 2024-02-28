@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 import typer
+from click import ClickException
 from snowflake.cli.api.commands.flags import identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, QueryResult
@@ -54,6 +55,7 @@ def list_files(
     repository_path: str = RepoPathArgument,
     **options,
 ) -> CommandResult:
+    _assert_repository_path_is_stage("REPOSITORY_PATH", path=repository_path)
     return QueryResult(GitManager().show_files(repo_path=repository_path))
 
 
@@ -85,6 +87,7 @@ def copy(
     ),
     **options,
 ):
+    _assert_repository_path_is_stage("REPOSITORY_PATH", path=repository_path)
     is_copy = is_stage_path(destination_path)
     if is_copy:
         cursor = GitManager().copy(
@@ -96,3 +99,11 @@ def copy(
             stage_name=repository_path, dest_path=target, parallel=parallel
         )
     return QueryResult(cursor)
+
+
+def _assert_repository_path_is_stage(argument_name, path):
+    if not is_stage_path(path):
+        raise ClickException(
+            f"{argument_name} should be a path to git repository stage with scope provided."
+            " For example: @my_repo/branches/main"
+        )
