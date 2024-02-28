@@ -46,7 +46,7 @@ class Venv:
                 [self.python_path, *args],
                 capture_output=True,
                 text=True,
-                encoding="utf-8",
+                encoding=sys.getdefaultencoding(),
             )
         except subprocess.CalledProcessError as e:
             log.error(self.ERROR_MESSAGE, "python" + " ".join(args), e.stderr)
