@@ -137,7 +137,7 @@ def app_run(
         is_interactive=is_interactive,
     )
     return MessageResult(
-        f"Your application object ({processor.app_name}) is now live:\n"
+        f"Your application object ({processor.app_name}) is now available:\n"
         + processor.get_snowsight_url()
     )
 

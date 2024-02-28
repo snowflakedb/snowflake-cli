@@ -62,15 +62,6 @@ class MissingSchemaError(ClickException):
         super().__init__(f'Identifier missing a schema qualifier: "{identifier}"')
 
 
-class CouldNotFindDistributionForAppPackage(ClickException):
-    """The 'distribution' attribute for an application package could not be found."""
-
-    def __init__(self, name: str):
-        super().__init__(
-            f"Could not find the 'distribution' attribute for application package {name}."
-        )
-
-
 class CouldNotDropApplicationPackageWithVersions(ClickException):
     """Application package could not be dropped as it has versions associated with it."""
 

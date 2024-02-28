@@ -415,7 +415,7 @@
                                                                                   
    Usage: default app version drop [OPTIONS] [VERSION]                            
                                                                                   
-   Drops a version defined in your application package. Version can either be     
+   Drops a version defined in your application package. Versions can either be    
    passed in as an argument to the command or read from the `manifest.yml` file.  
    Dropping patches is not allowed.                                               
                                                                                   
@@ -565,7 +565,7 @@
   │ create  Adds a new patch to the provided version defined in your application │
   │         package. If the version does not exist, creates a version with patch │
   │         0.                                                                   │
-  │ drop    Drops a version defined in your application package. Version can     │
+  │ drop    Drops a version defined in your application package. Versions can    │
   │         either be passed in as an argument to the command or read from the   │
   │         `manifest.yml` file. Dropping patches is not allowed.                │
   │ list    Lists all versions defined in an application package.                │

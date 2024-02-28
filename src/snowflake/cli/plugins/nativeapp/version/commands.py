@@ -118,7 +118,7 @@ def drop(
     **options,
 ) -> CommandResult:
     """
-    Drops a version defined in your application package. Version can either be passed in as an argument to the command or read from the `manifest.yml` file.
+    Drops a version defined in your application package. Versions can either be passed in as an argument to the command or read from the `manifest.yml` file.
     Dropping patches is not allowed.
     """
     is_interactive = False

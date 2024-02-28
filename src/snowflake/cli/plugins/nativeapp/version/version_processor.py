@@ -176,7 +176,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 if not self.get_existing_version_info(version):
                     raise BadOptionUsage(
                         option_name="patch",
-                        message=f"Cannot create a custom patch when version {version} is not defined in application package {self.package_name}. Try again without using --patch.",
+                        message=f"Cannot create a custom patch when version {version} is not defined in the application package {self.package_name}. Try again without using --patch.",
                     )
             except ApplicationPackageDoesNotExistError as app_err:
                 raise BadOptionUsage(
