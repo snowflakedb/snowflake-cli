@@ -149,7 +149,7 @@ class Venv:
 
         for file in [Path(f) for f in files]:
             file_path = base_dir / file
-            if file_path.exists():
+            if file_path.exists() and not ".." in file_path.parts:
                 result.append(str(file_path))
 
         return result
