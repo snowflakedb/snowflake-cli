@@ -1,4 +1,5 @@
 import os
+import sys
 import tempfile
 from pathlib import Path
 from typing import List
@@ -135,6 +136,7 @@ class TestPackage:
         assert any(["dummy_pkg_for_tests-1.0.dist-info" in file for file in files])
 
     @pytest.mark.integration
+    @pytest.mark.skipif(sys.platform.startswith("win"))
     def test_package_with_native_libraries(self, directory_for_test, runner):
         result = runner.invoke_with_connection(
             [
