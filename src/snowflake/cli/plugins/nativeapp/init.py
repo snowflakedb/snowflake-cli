@@ -26,7 +26,7 @@ BASIC_TEMPLATE = "basic"
 
 class InitError(ClickException):
     """
-    Native app project could not be initiated due to an underlying error.
+    Snowflake Native App project could not be initiated due to an underlying error.
     """
 
     def __init__(self):
@@ -57,7 +57,7 @@ class RenderingFromJinjaError(ClickException):
 
 class CannotInitializeAnExistingProjectError(ClickException):
     """
-    Cannot initialize a new project within an existing Native Application project.
+    Cannot initialize a new project within an existing Snowflake Native App project.
     """
 
     def __init__(self):
@@ -89,7 +89,7 @@ class TemplateNotFoundError(ClickException):
 
 class ProjectDescriptor:
     """
-    Encapsulates static properties of a Native Application project.
+    Encapsulates static properties of a Snowflake Native App project.
     """
 
     def __init__(self, *, name, path):
@@ -140,7 +140,7 @@ def _replace_snowflake_yml_name_with_project(
     target_directory: Path, project_identifier: str
 ):
     """
-    Replace the native_app schema's "name" field in a snowflake.yml file with its parent directory name, i.e. the native app project, as the default start.
+    Replace the native_app schema's "name" field in a snowflake.yml file with its parent directory name, i.e. the Snowflake Native App project, as the default start.
     This does not change the name in any other snowflake.*.yml as snowflake.yml is the base file and all others are overrides for the user to customize.
 
     Args:
@@ -202,7 +202,7 @@ def _init_from_template(
     template: Optional[str],
 ):
     """
-    Initialize a Native Apps project with a git URL and optionally a specific template within the git URL.
+    Initialize a Snowflake Native App project with a git URL and optionally a specific template within the git URL.
 
     Args:
         project_path (Path): The directory of the user where the project will be added.
@@ -268,7 +268,7 @@ def _init_from_template(
         raise
     except Exception as err:
         # If there was any error, validation on Project Definition file or otherwise,
-        # there should not be any Native Apps Project left after this.
+        # there should not be any Snowflake Native App Project left after this.
         if project_path.exists():
             SecurePath(project_path).rmdir(recursive=True)
 
@@ -283,7 +283,7 @@ def nativeapp_init(
     template: Optional[str] = None,
 ) -> ProjectDescriptor:
     """
-    Initialize a Native Apps project in the user's current working directory, with or without the use of a template.
+    Initialize a Snowflake Native App project in the user's current working directory, with or without the use of a template.
 
     Args:
         path (str): The location of the project to be created.
@@ -303,7 +303,7 @@ def nativeapp_init(
     if project_path.exists():
         raise DirectoryAlreadyExistsError(path)
 
-    # Check if the specified path already exists in a native apps project. Nesting projects is not allowed.
+    # Check if the specified path already exists in a Snowflake Native App project. Nesting projects is not allowed.
     if DefinitionManager.find_project_root(search_path=project_path.parent) is not None:
         raise CannotInitializeAnExistingProjectError()
 
