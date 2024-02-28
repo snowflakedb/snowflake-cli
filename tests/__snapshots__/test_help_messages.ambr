@@ -555,7 +555,7 @@
                                                                                   
    Usage: default app version [OPTIONS] COMMAND [ARGS]...                         
                                                                                   
-   Manages versions defined in application package                                
+   Manages versions defined in an application package                             
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -592,7 +592,7 @@
   │           object from the application package.                               │
   │ teardown  Attempts to drop both the application object and application       │
   │           package as defined in the project definition file.                 │
-  │ version   Manages versions defined in application package                    │
+  │ version   Manages versions defined in an application package                 │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
