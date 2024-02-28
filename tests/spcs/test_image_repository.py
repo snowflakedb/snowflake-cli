@@ -167,7 +167,7 @@ def test_list_tags(
             "image-repository",
             "list-tags",
             "IMAGES",
-            "--image_name",
+            "--image-name",
             "/DB/SCHEMA/IMAGES/super-cool-repo",
             "--format",
             "JSON",
