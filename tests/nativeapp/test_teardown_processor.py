@@ -130,7 +130,7 @@ def test_drop_application_no_existing_application(
     teardown_processor.drop_application(auto_yes_param)
     mock_get_existing_app_info.assert_called_once()
     mock_warning.assert_called_once_with(
-        "Role app_role does not own any application with the name myapp, or the application does not exist."
+        "Role app_role does not own any application object with the name myapp, or the application object does not exist."
     )
 
 
@@ -299,7 +299,7 @@ def test_drop_application_user_prohibits_drop(
     mock_get_existing_app_info.assert_called_once()
     mock_is_correct_owner.assert_called_once()
     mock_drop_generic_object.assert_not_called()
-    mock_message.assert_called_once_with("Did not drop application myapp.")
+    mock_message.assert_called_once_with("Did not drop application object myapp.")
 
 
 # Test drop_application() without special comment AND auto_yes is False AND should_drop is True
@@ -423,7 +423,7 @@ def test_drop_package_no_existing_application(
     teardown_processor.drop_package(auto_yes_param)
     mock_get_existing_app_pkg_info.assert_called_once()
     mock_warning.assert_called_once_with(
-        "Role package_role does not own any application package with the name app_pkg, or the package does not exist."
+        "Role package_role does not own any application package with the name app_pkg, or the application package does not exist."
     )
 
 
@@ -626,7 +626,7 @@ def test_drop_package_variable_mismatch_allowed_user_allows_drop(
     mock_execute.mock_calls == expected
     if not is_pkg_distribution_same:
         mock_warning.assert_any_call(
-            "Continuing to execute `snow app teardown` on app pkg app_pkg with distribution external."
+            "Continuing to execute `snow app teardown` on application package app_pkg with distribution 'external'."
         )
     if not auto_yes_param:
         mock_warning.assert_any_call(
@@ -700,7 +700,7 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
     mock_drop_generic_object.assert_called_once()
     if not is_pkg_distribution_same:
         mock_warning.assert_any_call(
-            "Continuing to execute `snow app teardown` on app pkg app_pkg with distribution internal."
+            "Continuing to execute `snow app teardown` on appliaction package app_pkg with distribution 'internal'."
         )
 
 
@@ -843,7 +843,7 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_prohibits_drop(
     mock_execute.mock_calls == expected
     if not is_pkg_distribution_same:
         mock_warning.assert_any_call(
-            "Continuing to execute `snow app teardown` on app pkg app_pkg with distribution internal."
+            "Continuing to execute `snow app teardown` on application package app_pkg with distribution 'internal'."
         )
 
 

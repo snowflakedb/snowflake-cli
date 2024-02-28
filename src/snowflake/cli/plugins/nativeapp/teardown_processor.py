@@ -105,7 +105,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
         show_obj_row = self.get_existing_app_pkg_info()
         if show_obj_row is None:
             cc.warning(
-                f"Role {self.package_role} does not own any application package with the name {self.package_name}, or the package does not exist."
+                f"Role {self.package_role} does not own any application package with the name {self.package_name}, or the application package does not exist."
             )
             return
 
@@ -131,7 +131,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
         actual_distribution = self.get_app_pkg_distribution_in_snowflake
         if not self.verify_project_distribution(actual_distribution):
             cc.warning(
-                f"Continuing to execute `snow app teardown` on application package {self.package_name} with distribution {actual_distribution}."
+                f"Continuing to execute `snow app teardown` on application package {self.package_name} with distribution '{actual_distribution}'."
             )
 
         # 5. If distribution is internal, check if created by the Snowflake CLI

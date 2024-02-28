@@ -173,7 +173,7 @@ def test_create_app_pkg_external_distribution(
     run_processor.create_app_package()
     if not is_pkg_distribution_same:
         mock_warning.assert_called_once_with(
-            "Continuing to execute `snow app run` on app pkg app_pkg with distribution 'external'."
+            "Continuing to execute `snow app run` on application package app_pkg with distribution 'external'."
         )
 
 
@@ -214,7 +214,7 @@ def test_create_app_pkg_internal_distribution_special_comment(
     run_processor.create_app_package()
     if not is_pkg_distribution_same:
         mock_warning.assert_called_once_with(
-            "Continuing to execute `snow app run` on app pkg app_pkg with distribution 'internal'."
+            "Continuing to execute `snow app run` on application package app_pkg with distribution 'internal'."
         )
 
 
@@ -257,7 +257,7 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
 
     if not is_pkg_distribution_same:
         mock_warning.assert_called_once_with(
-            "Continuing to execute `snow app run` on app pkg app_pkg with distribution 'internal'."
+            "Continuing to execute `snow app run` on application package app_pkg with distribution 'internal'."
         )
 
 
