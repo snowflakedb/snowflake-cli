@@ -45,7 +45,7 @@ def _list_tags(runner):
             "image-repository",
             "list-tags",
             "snowcli_repository",
-            "--image_name",
+            "--image-name",
             f"/{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test_echo",
             "--database",
             INTEGRATION_DATABASE,
