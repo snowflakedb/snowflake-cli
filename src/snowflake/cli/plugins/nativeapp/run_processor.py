@@ -8,6 +8,7 @@ from click import UsageError
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.plugins.nativeapp.constants import (
+    ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
     INTERNAL_DISTRIBUTION,
     LOOSE_FILES_MAGIC_VERSION,
@@ -65,7 +66,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             if actual_distribution == INTERNAL_DISTRIBUTION:
                 row_comment = show_obj_row[COMMENT_COL]
 
-                if row_comment != SPECIAL_COMMENT:
+                if row_comment not in ALLOWED_SPECIAL_COMMENTS:
                     raise ApplicationPackageAlreadyExistsError(self.package_name)
 
             return
@@ -145,7 +146,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             if show_app_row:
 
                 # Check if not created by Snowflake CLI or not created using "files on a named stage" / stage dev mode.
-                if show_app_row[COMMENT_COL] != SPECIAL_COMMENT or (
+                if show_app_row[COMMENT_COL] not in ALLOWED_SPECIAL_COMMENTS or (
                     show_app_row[VERSION_COL] != LOOSE_FILES_MAGIC_VERSION
                 ):
                     raise ApplicationAlreadyExistsError(self.app_name)

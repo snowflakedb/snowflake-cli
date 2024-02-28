@@ -3,7 +3,10 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.plugins.nativeapp.constants import SPECIAL_COMMENT
+from snowflake.cli.plugins.nativeapp.constants import (
+    SPECIAL_COMMENT,
+    SPECIAL_COMMENT_OLD,
+)
 from snowflake.cli.plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
     UnexpectedOwnerError,
@@ -167,20 +170,26 @@ def test_drop_application_incorrect_owner(
 @mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
 @pytest.mark.parametrize(
-    "auto_yes_param",
-    [True, False],  # This should have no effect on the test
+    "auto_yes_param, special_comment",  # auto_yes should have no effect on the test
+    [
+        (True, SPECIAL_COMMENT),
+        (True, SPECIAL_COMMENT_OLD),
+        (False, SPECIAL_COMMENT),
+        (False, SPECIAL_COMMENT_OLD),
+    ],
 )
 def test_drop_application_has_special_comment(
     mock_drop_generic_object,
     mock_is_correct_owner,
     mock_get_existing_app_info,
     auto_yes_param,
+    special_comment,
     temp_dir,
 ):
     mock_get_existing_app_info.return_value = {
         "name": "myapp",
         "owner": "app_role",
-        "comment": SPECIAL_COMMENT,
+        "comment": special_comment,
     }
 
     current_working_directory = os.getcwd()
@@ -200,12 +209,18 @@ def test_drop_application_has_special_comment(
 # Test drop_application() successfully when it has special comment but is a quoted string
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @pytest.mark.parametrize(
-    "auto_yes_param",
-    [True, False],  # This should have no effect on the test
+    "auto_yes_param, special_comment",  # auto_yes should have no effect on the test
+    [
+        (True, SPECIAL_COMMENT),
+        (True, SPECIAL_COMMENT_OLD),
+        (False, SPECIAL_COMMENT),
+        (False, SPECIAL_COMMENT_OLD),
+    ],
 )
 def test_drop_application_has_special_comment_and_quoted_name(
     mock_execute,
     auto_yes_param,
+    special_comment,
     temp_dir,
     mock_cursor,
 ):
@@ -222,7 +237,7 @@ def test_drop_application_has_special_comment_and_quoted_name(
                     [
                         {
                             "name": "My Application",
-                            "comment": SPECIAL_COMMENT,
+                            "comment": special_comment,
                             "version": "UNVERSIONED",
                             "owner": "APP_ROLE",
                         }
@@ -708,10 +723,21 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock_get_app_pkg_distribution_in_sf()
 @pytest.mark.parametrize(
-    "auto_yes_param", [True, False]  # auto_yes_param should have no effect on the test
+    "auto_yes_param, special_comment",  # auto_yes should have no effect on the test
+    [
+        (True, SPECIAL_COMMENT),
+        (True, SPECIAL_COMMENT_OLD),
+        (False, SPECIAL_COMMENT),
+        (False, SPECIAL_COMMENT_OLD),
+    ],
 )
 def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop(
-    mock_get_distribution, mock_execute, auto_yes_param, temp_dir, mock_cursor
+    mock_get_distribution,
+    mock_execute,
+    auto_yes_param,
+    special_comment,
+    temp_dir,
+    mock_cursor,
 ):
     mock_get_distribution.return_value = "internal"
 
@@ -728,7 +754,7 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
                     [
                         {
                             "name": "My Package",
-                            "comment": SPECIAL_COMMENT,
+                            "comment": special_comment,
                             "owner": "PACKAGE_ROLE",
                         }
                     ],

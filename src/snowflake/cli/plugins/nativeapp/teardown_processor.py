@@ -6,11 +6,11 @@ import typer
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.plugins.nativeapp.constants import (
+    ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
     EXTERNAL_DISTRIBUTION,
     INTERNAL_DISTRIBUTION,
     OWNER_COL,
-    SPECIAL_COMMENT,
 )
 from snowflake.cli.plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
@@ -64,7 +64,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
 
         # 3. Check if created by the Snowflake CLI
         row_comment = show_obj_row[COMMENT_COL]
-        if row_comment == SPECIAL_COMMENT:
+        if row_comment in ALLOWED_SPECIAL_COMMENTS:
             # No confirmation needed before dropping
             needs_confirm = False
         else:
@@ -137,7 +137,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
         # 5. If distribution is internal, check if created by the Snowflake CLI
         row_comment = show_obj_row[COMMENT_COL]
         if actual_distribution == INTERNAL_DISTRIBUTION:
-            if row_comment == SPECIAL_COMMENT:
+            if row_comment in ALLOWED_SPECIAL_COMMENTS:
                 needs_confirm = False
             else:
                 if needs_confirmation(needs_confirm, auto_yes):
