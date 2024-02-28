@@ -7,8 +7,8 @@
    Prepares a local folder with configured app artifacts.                         
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --project  -p      TEXT  Path where the Native app project resides. Defaults │
-  │                          to current working directory.                       │
+  │ --project  -p      TEXT  Path where the Snowflake Native App project         │
+  │                          resides. Defaults to current working directory.     │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
@@ -95,8 +95,8 @@
    installed in your account.                                                     
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --project  -p      TEXT  Path where the Native app project resides. Defaults │
-  │                          to current working directory.                       │
+  │ --project  -p      TEXT  Path where the Snowflake Native App project         │
+  │                          resides. Defaults to current working directory.     │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -197,9 +197,9 @@
   │                                         mode is not specified and if you     │
   │                                         want perform potentially destructive │
   │                                         actions. Defaults to unset.          │
-  │ --project                 -p      TEXT  Path where the Native app project    │
-  │                                         resides. Defaults to current working │
-  │                                         directory.                           │
+  │ --project                 -p      TEXT  Path where the Snowflake Native App  │
+  │                                         project resides. Defaults to current │
+  │                                         working directory.                   │
   │ --help                    -h            Show this message and exit.          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -266,8 +266,8 @@
   │                          should enable this option if interactive mode is    │
   │                          not specified and if you want perform potentially   │
   │                          destructive actions. Defaults to unset.             │
-  │ --project  -p      TEXT  Path where the Native app project resides. Defaults │
-  │                          to current working directory.                       │
+  │ --project  -p      TEXT  Path where the Snowflake Native App project         │
+  │                          resides. Defaults to current working directory.     │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -355,8 +355,9 @@
   │                                 interactive mode is not specified and if you │
   │                                 want perform potentially destructive         │
   │                                 actions. Defaults to unset.                  │
-  │ --project         -p      TEXT  Path where the Native app project resides.   │
-  │                                 Defaults to current working directory.       │
+  │ --project         -p      TEXT  Path where the Snowflake Native App project  │
+  │                                 resides. Defaults to current working         │
+  │                                 directory.                                   │
   │ --help            -h            Show this message and exit.                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -434,8 +435,8 @@
   │                              is not specified and if you want perform        │
   │                              potentially destructive actions. Defaults to    │
   │                              unset.                                          │
-  │ --project      -p      TEXT  Path where the Native app project resides.      │
-  │                              Defaults to current working directory.          │
+  │ --project      -p      TEXT  Path where the Snowflake Native App project     │
+  │                              resides. Defaults to current working directory. │
   │ --help         -h            Show this message and exit.                     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -496,8 +497,8 @@
    Lists all versions defined in an application package.                          
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --project  -p      TEXT  Path where the Native app project resides. Defaults │
-  │                          to current working directory.                       │
+  │ --project  -p      TEXT  Path where the Snowflake Native App project         │
+  │                          resides. Defaults to current working directory.     │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
