@@ -1,20 +1,18 @@
 import json
 import logging
 import os
-from distutils.dir_util import copy_tree
 from pathlib import Path, PosixPath
 from unittest import mock
 from unittest.mock import MagicMock, mock_open, patch
 
-import snowflake.cli.plugins.snowpark.models
 import pytest
+import snowflake.cli.plugins.snowpark.models
 import snowflake.cli.plugins.snowpark.package.utils
 import typer
-from snowflake.cli.plugins.snowpark.models import Requirement
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
 from snowflake.cli.plugins.snowpark import package_utils
-from snowflake.cli.plugins.snowpark.models import PypiOption
+from snowflake.cli.plugins.snowpark.models import PypiOption, Requirement
 from snowflake.cli.plugins.streamlit import streamlit_utils
 
 from tests.test_data import test_data

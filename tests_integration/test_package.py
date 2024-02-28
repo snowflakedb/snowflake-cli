@@ -47,18 +47,17 @@ class TestPackage:
     @pytest.mark.integration
     def test_package_create_with_non_anaconda_package(self, directory_for_test, runner):
         result = runner.invoke_with_connection_json(
-            ["snowpark", "package", "create", "dummy_pkg_for_tests_with_deps", "-y"]
+            ["snowpark", "package", "create", "dummy-pkg-for-tests-with-deps", "-y"]
         )
 
         assert result.exit_code == 0
-        assert os.path.isfile("dummy_pkg_for_tests_with_deps.zip")
-        assert "dummy_pkg_for_tests/shrubbery.py" in self._get_filenames_from_zip(
-            "dummy_pkg_for_tests_with_deps.zip"
-        )
-        assert (
-            "dummy_pkg_for_tests_with_deps/shrubbery.py"
-            in self._get_filenames_from_zip("dummy_pkg_for_tests_with_deps.zip")
-        )
+        assert Path("dummy-pkg-for-tests-with-deps.zip").is_file()
+        assert str(
+            Path("dummy_pkg_for_tests") / "shrubbery.py"
+        ) in self._get_filenames_from_zip("dummy-pkg-for-tests-with-deps.zip")
+        assert str(
+            Path("dummy_pkg_for_tests_with_deps") / "shrubbery.py"
+        ) in self._get_filenames_from_zip("dummy-pkg-for-tests-with-deps.zip")
 
     @pytest.mark.integration
     def test_package_create_with_non_anaconda_package_without_install(
@@ -89,14 +88,22 @@ class TestPackage:
         files = self._get_filenames_from_zip("dummy_pkg_for_tests_with_deps.zip")
         assert any(["shrubbery.py" in file for file in files])
 
-    # @pytest.mark.integration
+    @pytest.mark.integration
     def test_package_with_conda_dependencies(
         self, directory_for_test, runner
     ):  # TODO think how to make this test with packages controlled by us
         # test case is: We have a non-conda package, that has a dependency present on conda
         # but not in latest version - here the case is matplotlib.
         result = runner.invoke_with_connection_json(
-            ["snowpark", "package", "create", "july", "-y"]
+            [
+                "snowpark",
+                "package",
+                "create",
+                "july",
+                "--pypi-download",
+                "--allow-native-libraries",
+                "yes",
+            ]
         )
 
         assert result.exit_code == 0

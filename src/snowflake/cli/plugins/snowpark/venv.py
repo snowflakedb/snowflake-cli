@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import shutil
@@ -7,7 +8,7 @@ import venv
 from enum import Enum
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import List, Optional
+from typing import Dict, List
 
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
@@ -76,57 +77,56 @@ class Venv:
     def get_package_dependencies(
         self, name: str, req_type: RequirementType
     ) -> List[RequirementWithFilesAndDeps]:
+        installed_packages = self._get_installed_packages_metadata()
+        dependencies: Dict = {}
+
+        def _get_dependencies(package: Requirement):
+            if package.name not in dependencies.keys():
+                requires = installed_packages.get(package.name, {}).get(
+                    "requires_dist", []
+                )
+                files = self._parse_file_list(
+                    self._get_library_path(),
+                    self._parse_info(package.name, PackageInfoType.FILES),
+                )
+
+                dependencies[package.name] = RequirementWithFilesAndDeps(
+                    requirement=package, files=files, dependencies=requires
+                )
+
+                for package in requires:
+                    _get_dependencies(Requirement.parse_line(package))
 
         if req_type == RequirementType.PACKAGE:
-            dependencies = self._get_dependencies(Requirement.parse_line(name))
+            _get_dependencies(Requirement.parse_line(name))
 
         elif req_type == RequirementType.FILE:
             if Path(name).exists():
                 with open(name, "r") as req_file:
-                    dependencies = [
-                        package
-                        for line in req_file
-                        for package in self._get_dependencies(
-                            Requirement.parse_line(line)
-                        )
-                    ]
-            else:
-                dependencies = []
+                    for line in req_file:
+                        _get_dependencies(Requirement.parse_line(line))
 
-        return dependencies
+        return [dep for dep in dependencies.values()]
 
-    def _get_dependencies(
-        self,
-        package: Requirement,
-        result: Optional[List[RequirementWithFilesAndDeps]] = None,
-    ) -> List[RequirementWithFilesAndDeps]:
-        if not result:
-            result = []
-        package_info = self.get_package_info(package)
-        if package_info in result:
-            return result
+    def _get_installed_packages_metadata(self):
+        if inspect := self.get_pip_inspect():
+            return {
+                package.get("metadata", {}).get("name"): package.get("metadata", {})
+                for package in inspect.get("installed", {})
+            }
+        else:
+            return {}
 
-        result.append(package_info)
+    def get_pip_inspect(self) -> Dict:
+        result = self.run_python(["-m", "pip", "inspect"])
 
-        return result + [
-            dep
-            for pack in package_info.dependencies
-            for dep in self._get_dependencies(Requirement.parse_line(pack), result)
-        ]
-
-    def get_package_info(self, package: Requirement) -> RequirementWithFilesAndDeps:
-        library_path = self._get_library_path()
-
-        dependencies = self._parse_info(package.name, PackageInfoType.DEPENDENCIES)
-        files = self._parse_info(package.name, PackageInfoType.FILES)
-
-        return RequirementWithFilesAndDeps(
-            requirement=package,
-            files=self._parse_file_list(library_path, files),
-            dependencies=dependencies,
-        )
+        if result.returncode == 0:
+            return json.loads(result.stdout)
+        else:
+            return {}
 
     def _parse_info(self, package_name: str, info_type: PackageInfoType) -> List[str]:
+        from importlib.metadata import PackagePath  # noqa
 
         info = self.run_python(
             [
@@ -165,5 +165,5 @@ class Venv:
             destination_file = destination / file.relative_to(library_path)
 
             if not destination_file.parent.exists():
-                os.mkdir(destination_file.parent)
+                os.makedirs(destination_file.parent)
             shutil.copy(file, destination / file.relative_to(library_path))

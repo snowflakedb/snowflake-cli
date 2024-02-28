@@ -1592,9 +1592,9 @@
   │ --pypi-download                                 Installs packages that are   │
   │                                                 not available on the         │
   │                                                 Snowflake anaconda channel.  │
-  │ --allow-native-libraries          [yes|no|ask]  When using packages from     │
-  │                                                 PyPi, whether to allow       │
-  │                                                 native libraries.            │
+  │ --allow-native-libraries          [yes|no|ask]  Allows native libraries,     │
+  │                                                 when using packages          │
+  │                                                 installed through PIP        │
   │                                                 [default: no]                │
   │ --help                    -h                    Show this message and exit.  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -1664,9 +1664,9 @@
   │ --pypi-download                                 Installs packages that are   │
   │                                                 not available on the         │
   │                                                 Snowflake anaconda channel.  │
-  │ --allow-native-libraries          [yes|no|ask]  When using packages from     │
-  │                                                 PyPi, whether to allow       │
-  │                                                 native libraries.            │
+  │ --allow-native-libraries          [yes|no|ask]  Allows native libraries,     │
+  │                                                 when using packages          │
+  │                                                 installed through PIP        │
   │                                                 [default: no]                │
   │ --help                    -h                    Show this message and exit.  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
