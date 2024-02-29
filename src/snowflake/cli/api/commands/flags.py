@@ -41,9 +41,8 @@ class OverrideableOption:
     def __call__(self, **kwargs) -> typer.models.OptionInfo:
         """
         Returns a typer.models.OptionInfo instance initialized with the specified default values along with any overrides
-        from kwargs.Note that if you are overriding param_decls,
-        you must pass an iterable of strings, you cannot use positional arguments like you can with typer.Option.
-        Does not modify the original instance.
+        from kwargs. Note that if you are overriding param_decls, you must pass an iterable of strings, you cannot use
+        positional arguments like you can with typer.Option. Does not modify the original instance.
         """
         default = kwargs.get("default", self.default)
         param_decls = kwargs.get("param_decls", self.param_decls)
@@ -310,9 +309,11 @@ LikeOption = typer.Option(
     help='Regular expression for filtering objects by name. For example, `list --like "my%"` lists all objects that begin with “my”.',
 )
 
+# If IfExistsOption, IfNotExistsOption, or ReplaceOption are used with names other than those in CREATE_MODE_OPTION_NAMES,
+# you must also override mutually_exclusive if you want to retain the validation that at most one of these flags is
+# passed.
 CREATE_MODE_OPTION_NAMES = ["if_exists", "if_not_exists", "replace"]
 
-# parameter name should be 'if_exists' to ensure _create_mode_callback works
 IfExistsOption = OverrideableOption(
     False,
     "--if-exists",
@@ -320,7 +321,6 @@ IfExistsOption = OverrideableOption(
     mutually_exclusive=CREATE_MODE_OPTION_NAMES,
 )
 
-# parameter name should be 'if_not_exists' to ensure _create_mode_callback works
 IfNotExistsOption = OverrideableOption(
     False,
     "--if-not-exists",
@@ -328,7 +328,6 @@ IfNotExistsOption = OverrideableOption(
     mutually_exclusive=CREATE_MODE_OPTION_NAMES,
 )
 
-# parameter name should be 'replace' to ensure _create_mode_callback works
 ReplaceOption = OverrideableOption(
     False,
     "--replace",
