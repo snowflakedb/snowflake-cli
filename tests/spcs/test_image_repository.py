@@ -5,6 +5,10 @@ from unittest.mock import Mock
 
 import pytest
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.exceptions import (
+    DatabaseNotProvidedError,
+    SchemaNotProvidedError,
+)
 from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
@@ -233,8 +237,27 @@ def test_get_repository_url_no_repo_found(mock_get_row, mock_conn):
         ImageRepositoryManager().get_repository_url(repo_name="IMAGES")
     assert (
         e.value.msg
-        == f"Image repository 'DB.SCHEMA.IMAGES' does not exist or not authorized."
+        == "Image repository 'DB.SCHEMA.IMAGES' does not exist or not authorized."
     )
     mock_get_row.assert_called_once_with(
         "image repositories", "IMAGES", check_schema=True
     )
+
+
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
+)
+def test_get_repository_url_no_database_provided(mock_conn):
+    mock_conn.database = None
+    with pytest.raises(DatabaseNotProvidedError):
+        ImageRepositoryManager().get_repository_url("IMAGES")
+
+
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
+)
+def test_get_repository_url_no_schema_provided(mock_conn):
+    mock_conn.database = "DB"
+    mock_conn.schema = None
+    with pytest.raises(SchemaNotProvidedError):
+        ImageRepositoryManager().get_repository_url("IMAGES")
