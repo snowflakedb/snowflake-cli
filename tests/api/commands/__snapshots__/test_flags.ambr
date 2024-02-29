@@ -1,0 +1,42 @@
+# serializer version: 1
+# name: test_format
+  '''
+  Usage: default object stage list [OPTIONS] STAGE_NAME
+  Try 'default object stage list --help' for help.
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Invalid value for '--format': 'invalid_format' is not one of 'TABLE',        │
+  │ 'JSON'.                                                                      │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_mutually_exclusive_options_error
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Options '--option2' and '--option1' are incompatible.                        │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_overrideable_option_is_overrideable
+  '''
+                                                                                  
+   Usage: - [OPTIONS]                                                             
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --option                    INTEGER                  [default: (dynamic)]    │
+  │ --install-completion        [bash|zsh|fish|powershe  Install completion for  │
+  │                             ll|pwsh]                 the specified shell.    │
+  │                                                      [default: None]         │
+  │ --show-completion           [bash|zsh|fish|powershe  Show completion for the │
+  │                             ll|pwsh]                 specified shell, to     │
+  │                                                      copy it or customize    │
+  │                                                      the installation.       │
+  │                                                      [default: None]         │
+  │ --help                                               Show this message and   │
+  │                                                      exit.                   │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---

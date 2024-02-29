@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+from inspect import signature
+from typing import Any, Callable, List, Optional
 
 import click
 import typer
@@ -15,12 +16,26 @@ _CLI_BEHAVIOUR = "Global configuration"
 
 class OverrideableOption:
     """
-    Class that allows you to generate instances of typer.models.OptionInfo with some default properties while allowing specific values to be overriden.
+    Class that allows you to generate instances of typer.models.OptionInfo with some default properties while allowing
+    specific values to be overriden.
+
+    Custom parameters:
+    - mutually_exclusive (List[str]): A list of parameter names that this Option is not compatible with. If this Option has
+     a truthy value and any of the other parameters in the mutually_exclusive list has a truthy value, a
+     ClickException will be thrown. Note that mutually_exclusive can contain an option's own name but does not require
+     it.
     """
 
-    def __init__(self, default: Any, *param_decls: str, **kwargs):
+    def __init__(
+        self,
+        default: Any,
+        *param_decls: str,
+        mutually_exclusive: Optional[List[str]] = None,
+        **kwargs,
+    ):
         self.default = default
         self.param_decls = param_decls
+        self.mutually_exclusive = mutually_exclusive
         self.kwargs = kwargs
 
     def __call__(self, **kwargs) -> typer.models.OptionInfo:
@@ -32,13 +47,71 @@ class OverrideableOption:
         """
         default = kwargs.get("default", self.default)
         param_decls = kwargs.get("param_decls", self.param_decls)
+        mutually_exclusive = kwargs.get("mutually_exclusive", self.mutually_exclusive)
         if not isinstance(param_decls, list) and not isinstance(param_decls, tuple):
             raise TypeError("param_decls must be a list or tuple")
         passed_kwargs = self.kwargs.copy()
         passed_kwargs.update(kwargs)
-        passed_kwargs.pop("default", None)
-        passed_kwargs.pop("param_decls", None)
+        if passed_kwargs.get("callback", None) or mutually_exclusive:
+            passed_kwargs["callback"] = self._callback_factory(
+                passed_kwargs.get("callback", None), mutually_exclusive
+            )
+        for non_kwarg in ["default", "param_decls", "mutually_exclusive"]:
+            passed_kwargs.pop(non_kwarg, None)
         return typer.Option(default, *param_decls, **passed_kwargs)
+
+    def _callback_factory(self, callback, mutually_exclusive: List[str]):
+        mutually_exclusive_names = (
+            tuple(mutually_exclusive) if mutually_exclusive else None
+        )
+
+        def generated_callback(ctx: typer.Context, param: typer.CallbackParam, value):
+            if mutually_exclusive_names:
+                for name in mutually_exclusive_names:
+                    if value and ctx.params.get(
+                        name, False
+                    ):  # if the current parameter is set to True and a previous parameter is also Truthy
+                        curr_opt = param.opts[0]
+                        other_opt = [x for x in ctx.command.params if x.name == name][
+                            0
+                        ].opts[0]
+                        raise click.ClickException(
+                            f"Options '{curr_opt}' and '{other_opt}' are incompatible."
+                        )
+            if callback:
+                # inspect existing_callback to make sure signature is valid
+                existing_params = signature(callback).parameters
+                # at most one parameter with each type in [typer.Context, typer.CallbackParam, any other type]
+                limits = [
+                    lambda x: x == typer.Context,
+                    lambda x: x == typer.CallbackParam,
+                    lambda x: x != typer.Context and x != typer.CallbackParam,
+                ]
+                for limit in limits:
+                    if (
+                        len(
+                            [v for v in existing_params.values() if limit(v.annotation)]
+                        )
+                        > 1
+                    ):
+                        raise click.ClickException(
+                            f"Signature {signature(callback)} is not valid for an OverrideableOption callback function. Must have at most one parameter with each of the following types: (typer.Context, typer.CallbackParam, Any Other Type)"
+                        )
+                # pass args to existing_callback based on its signature (this is how Typer infers callback args)
+                passed_params = {}
+                for existing_param in existing_params:
+                    annotation = existing_params[existing_param].annotation
+                    if annotation == typer.Context:
+                        passed_params[existing_param] = ctx
+                    elif annotation == typer.CallbackParam:
+                        passed_params[existing_param] = param
+                    else:
+                        passed_params[existing_param] = value
+                return callback(**passed_params)
+            else:
+                return value
+
+        return generated_callback
 
 
 def _callback(provide_setter: Callable[[], Callable[[Any], Any]]):
@@ -237,33 +310,14 @@ LikeOption = typer.Option(
     help='Regular expression for filtering objects by name. For example, `list --like "my%"` lists all objects that begin with “my”.',
 )
 
-
-# consideration: it may be useful to put these options in a separate help panel, as they are somewhat generic among objects.
-# use these as your parameter names for IfExistsOption, IfNotExistsOption, and ReplaceOption to ensure that validation works
 CREATE_MODE_OPTION_NAMES = ["if_exists", "if_not_exists", "replace"]
-
-
-def _create_mode_callback(ctx: typer.Context, param: typer.CallbackParam, value: bool):
-
-    for key in CREATE_MODE_OPTION_NAMES:
-        if value and ctx.params.get(
-            key, False
-        ):  # if the current parameter is set to True and a previous parameter is also Truthy
-            curr_opt = param.opts[0]
-            key_opt = [x for x in ctx.command.params if x.name == key][0].opts[0]
-            raise click.ClickException(
-                f"Options '{curr_opt}' and '{key_opt}' are incompatible."
-            )
-
-    return value
-
 
 # parameter name should be 'if_exists' to ensure _create_mode_callback works
 IfExistsOption = OverrideableOption(
     False,
     "--if-exists",
     help="Only apply this operation if the specified object exists.",
-    callback=_create_mode_callback,
+    mutually_exclusive=CREATE_MODE_OPTION_NAMES,
 )
 
 # parameter name should be 'if_not_exists' to ensure _create_mode_callback works
@@ -271,7 +325,7 @@ IfNotExistsOption = OverrideableOption(
     False,
     "--if-not-exists",
     help="Only apply this operation if the specified object does not already exist.",
-    callback=_create_mode_callback,
+    mutually_exclusive=CREATE_MODE_OPTION_NAMES,
 )
 
 # parameter name should be 'replace' to ensure _create_mode_callback works
@@ -279,7 +333,7 @@ ReplaceOption = OverrideableOption(
     False,
     "--replace",
     help="Replace this object if it already exists.",
-    callback=_create_mode_callback,
+    mutually_exclusive=CREATE_MODE_OPTION_NAMES,
 )
 
 
