@@ -8,6 +8,7 @@ from click import UsageError
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.plugins.nativeapp.constants import (
+    ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
     INTERNAL_DISTRIBUTION,
     LOOSE_FILES_MAGIC_VERSION,
@@ -54,23 +55,23 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 row=show_obj_row, role=self.package_role, obj_name=self.package_name
             )
 
-            # 2. Check distribution of the existing app package
+            # 2. Check distribution of the existing application package
             actual_distribution = self.get_app_pkg_distribution_in_snowflake
             if not self.verify_project_distribution(actual_distribution):
                 cc.warning(
-                    f"Continuing to execute `snow app run` on app pkg {self.package_name} with distribution '{actual_distribution}'."
+                    f"Continuing to execute `snow app run` on application package {self.package_name} with distribution '{actual_distribution}'."
                 )
 
             # 3. If actual_distribution is external, skip comment check
             if actual_distribution == INTERNAL_DISTRIBUTION:
                 row_comment = show_obj_row[COMMENT_COL]
 
-                if row_comment != SPECIAL_COMMENT:
+                if row_comment not in ALLOWED_SPECIAL_COMMENTS:
                     raise ApplicationPackageAlreadyExistsError(self.package_name)
 
             return
 
-        # If no app pkg pre-exists, create an app pkg, with the specified distribution in the project definition file.
+        # If no application package pre-exists, create an application package, with the specified distribution in the project definition file.
         with self.use_role(self.package_role):
             cc.step(f"Creating new application package {self.package_name} in account.")
             self._execute_query(
@@ -125,11 +126,11 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
 
     def _create_dev_app(self, diff: DiffResult) -> None:
         """
-        (Re-)creates the application with our up-to-date stage.
+        (Re-)creates the application object with our up-to-date stage.
         """
         with self.use_role(self.app_role):
 
-            # 1. Need to use a warehouse to create an application instance
+            # 1. Need to use a warehouse to create an application object
             try:
                 if self.application_warehouse:
                     self._execute_query(f"use warehouse {self.application_warehouse}")
@@ -138,14 +139,14 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     err=err, role=self.app_role, warehouse=self.application_warehouse
                 )
 
-            # 2. Check for an existing application by the same name
+            # 2. Check for an existing application object by the same name
             show_app_row = self.get_existing_app_info()
 
-            # 3. If existing application is found, perform a few validations and upgrade the instance.
+            # 3. If existing application object is found, perform a few validations and upgrade the application object.
             if show_app_row:
 
-                # Check if not created by snowCLI or not created using "loose files" / stage dev mode.
-                if show_app_row[COMMENT_COL] != SPECIAL_COMMENT or (
+                # Check if not created by Snowflake CLI or not created using "files on a named stage" / stage dev mode.
+                if show_app_row[COMMENT_COL] not in ALLOWED_SPECIAL_COMMENTS or (
                     show_app_row[VERSION_COL] != LOOSE_FILES_MAGIC_VERSION
                 ):
                     raise ApplicationAlreadyExistsError(self.app_name)
@@ -158,7 +159,9 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 # If all the above checks are in order, proceed to upgrade
                 try:
                     if diff.has_changes():
-                        cc.step(f"Upgrading existing application {self.app_name}.")
+                        cc.step(
+                            f"Upgrading existing application object {self.app_name}."
+                        )
                         self._execute_query(
                             f"alter application {self.app_name} upgrade using @{self.stage_fqn}"
                         )
@@ -173,7 +176,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 except ProgrammingError as err:
                     generic_sql_error_handler(err)
 
-            # 4. If no existing application is found, create an app using "loose files" / stage dev mode.
+            # 4. If no existing application object is found, create an application object using "files on a named stage" / stage dev mode.
             cc.step(f"Creating new application {self.app_name} in account.")
 
             if self.app_role != self.package_role:
@@ -207,7 +210,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
 
     def get_all_existing_versions(self) -> SnowflakeCursor:
         """
-        Get all existing versions, if present, for an application package.
+        Get all existing versions, if defined, for an application package.
         It executes a 'show versions in application package' query and returns all the results.
         """
         with self.use_role(self.package_role):
@@ -221,7 +224,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
 
     def get_existing_version_info(self, version: str) -> Optional[dict]:
         """
-        Get an existing version, if present, by the same name for an application package.
+        Get an existing version, if defined, by the same name in an application package.
         It executes a 'show versions like ... in application package' query and returns the result as single row, if one exists.
         """
         with self.use_role(self.package_role):
@@ -242,18 +245,16 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
 
     def drop_application_before_upgrade(self, policy: PolicyBase, is_interactive: bool):
         """
-        This method will attempt to drop an application if a previous upgrade fails.
+        This method will attempt to drop an application object if a previous upgrade fails.
         """
-        user_prompt = (
-            "Do you want the CLI to drop the existing application and recreate it?"
-        )
+        user_prompt = "Do you want the Snowflake CLI to drop the existing application object and recreate it?"
         if not policy.should_proceed(user_prompt):
             if is_interactive:
-                cc.message("Not upgrading the application.")
+                cc.message("Not upgrading the application object.")
                 raise typer.Exit(0)
             else:
                 cc.message(
-                    "Cannot upgrade the application non-interactively without --force."
+                    "Cannot upgrade the application object non-interactively without --force."
                 )
                 raise typer.Exit(1)
         try:
@@ -274,7 +275,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
 
         with self.use_role(self.app_role):
 
-            # 1. Need to use a warehouse to create an application instance
+            # 1. Need to use a warehouse to create an application object
             try:
                 if self.application_warehouse:
                     self._execute_query(f"use warehouse {self.application_warehouse}")
@@ -286,10 +287,10 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             # 2. Check for an existing application by the same name
             show_app_row = self.get_existing_app_info()
 
-            # 3. If existing application is found, perform a few validations and upgrade the instance.
+            # 3. If existing application is found, perform a few validations and upgrade the application object.
             if show_app_row:
 
-                # We skip comment check here, because prod apps/pre-existing apps may not be created by the CLI.
+                # We skip comment check here, because prod/pre-existing application objects may not be created by the Snowflake CLI.
                 # Check for the right owner
                 ensure_correct_owner(
                     row=show_app_row, role=self.app_role, obj_name=self.app_name
@@ -311,12 +312,12 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 except ProgrammingError as err:
                     if err.errno not in UPGRADE_RESTRICTION_CODES:
                         generic_sql_error_handler(err=err)
-                    else:  # The existing app was created from a different process.
+                    else:  # The existing application object was created from a different process.
                         cc.warning(err.msg)
                         self.drop_application_before_upgrade(policy, is_interactive)
 
-            # 4. With no (more) existing applications, create an app using the release directives
-            cc.step(f"Creating new application {self.app_name} in account.")
+            # 4. With no (more) existing application objects, create an application object using the release directives
+            cc.step(f"Creating new application object {self.app_name} in account.")
 
             if self.app_role != self.package_role:
                 with self.use_role(new_role=self.package_role):
@@ -368,11 +369,11 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 version_exists = self.get_existing_version_info(version)
                 if not version_exists:
                     raise UsageError(
-                        f"Application package {self.package_name} does not contain any version {version}. Use 'snow app version create' to create a version on the application package first."
+                        f"Application package {self.package_name} does not have any version {version} defined. Use 'snow app version create' to define a version in the application package first."
                     )
             except ApplicationPackageDoesNotExistError as app_err:
                 raise UsageError(
-                    f"Application package {self.package_name} does not exist. Use 'snow app version create' to create an application package and/or version first."
+                    f"Application package {self.package_name} does not exist. Use 'snow app version create' to first create an application package and then define a version in it."
                 )
 
             self.upgrade_app(

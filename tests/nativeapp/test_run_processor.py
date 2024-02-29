@@ -24,6 +24,7 @@ from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
+from src.snowflake.cli.plugins.nativeapp.constants import SPECIAL_COMMENT_OLD
 from tests.nativeapp.patch_utils import (
     mock_connection,
     mock_get_app_pkg_distribution_in_sf,
@@ -159,7 +160,7 @@ def test_create_app_pkg_external_distribution(
     run_processor.create_app_package()
     if not is_pkg_distribution_same:
         mock_warning.assert_called_once_with(
-            "Continuing to execute `snow app run` on app pkg app_pkg with distribution 'external'."
+            "Continuing to execute `snow app run` on application package app_pkg with distribution 'external'."
         )
 
 
@@ -169,8 +170,13 @@ def test_create_app_pkg_external_distribution(
 @mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
 @mock.patch(f"{RUN_MODULE}.cc.warning")
 @pytest.mark.parametrize(
-    "is_pkg_distribution_same",
-    [False, True],
+    "is_pkg_distribution_same, special_comment",
+    [
+        (False, SPECIAL_COMMENT),
+        (False, SPECIAL_COMMENT_OLD),
+        (True, SPECIAL_COMMENT),
+        (True, SPECIAL_COMMENT_OLD),
+    ],
 )
 def test_create_app_pkg_internal_distribution_special_comment(
     mock_warning,
@@ -178,13 +184,14 @@ def test_create_app_pkg_internal_distribution_special_comment(
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
     is_pkg_distribution_same,
+    special_comment,
     temp_dir,
 ):
     mock_is_distribution_same.return_value = is_pkg_distribution_same
     mock_get_distribution.return_value = "internal"
     mock_get_existing_app_pkg_info.return_value = {
         "name": "APP_PKG",
-        "comment": SPECIAL_COMMENT,
+        "comment": special_comment,
         "version": LOOSE_FILES_MAGIC_VERSION,
         "owner": "PACKAGE_ROLE",
     }
@@ -200,7 +207,7 @@ def test_create_app_pkg_internal_distribution_special_comment(
     run_processor.create_app_package()
     if not is_pkg_distribution_same:
         mock_warning.assert_called_once_with(
-            "Continuing to execute `snow app run` on app pkg app_pkg with distribution 'internal'."
+            "Continuing to execute `snow app run` on application package app_pkg with distribution 'internal'."
         )
 
 
@@ -243,7 +250,7 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
 
     if not is_pkg_distribution_same:
         mock_warning.assert_called_once_with(
-            "Continuing to execute `snow app run` on app pkg app_pkg with distribution 'internal'."
+            "Continuing to execute `snow app run` on application package app_pkg with distribution 'internal'."
         )
 
 
@@ -473,7 +480,7 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
 
 # Test create_dev_app with existing application AND bad comment AND good version
 # Test create_dev_app with existing application AND bad comment AND bad version
-# Test create_dev_app with existing application AND good comment AND bad version
+# Test create_dev_app with existing application AND good comment(s) AND bad version
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock_connection()
@@ -483,6 +490,7 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
         ("dummy", LOOSE_FILES_MAGIC_VERSION),
         ("dummy", "dummy"),
         (SPECIAL_COMMENT, "dummy"),
+        (SPECIAL_COMMENT_OLD, "dummy"),
     ],
 )
 def test_create_dev_app_incorrect_properties(

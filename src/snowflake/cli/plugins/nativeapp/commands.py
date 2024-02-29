@@ -25,7 +25,7 @@ from snowflake.cli.plugins.nativeapp.version.commands import app as versions_app
 
 app = SnowTyper(
     name="app",
-    help="Manages Native Apps in Snowflake",
+    help="Manages a Snowflake Native App",
 )
 app.add_typer(versions_app)
 
@@ -36,18 +36,18 @@ log = logging.getLogger(__name__)
 def app_init(
     path: str = typer.Argument(
         ...,
-        help=f"""Directory to be initialized with the Native Application project. This directory must not already exist.""",
+        help=f"""Directory to be initialized with the Snowflake Native App project. This directory must not already exist.""",
     ),
     name: str = typer.Option(
         None,
-        help=f"""The name of the native application project to include in snowflake.yml. When not specified, it is
+        help=f"""The name of the Snowflake Native App project to include in snowflake.yml. When not specified, it is
         generated from the name of the directory. Names are assumed to be unquoted identifiers whenever possible, but
         can be forced to be quoted by including the surrounding quote characters in the provided value.""",
     ),
     template_repo: str = typer.Option(
         None,
         help=f"""Specifies the git URL to a template repository, which can be a template itself or contain many templates inside it,
-        such as https://github.com/snowflakedb/native-apps-templates.git for all official Snowflake templates.
+        such as https://github.com/snowflakedb/native-apps-templates.git for all official Snowflake Native App with Snowflake CLI templates.
         If using a private Github repo, you might be prompted to enter your Github username and password.
         Please use your personal access token in the password prompt, and refer to
         https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls for information on currently recommended modes of authentication.""",
@@ -59,13 +59,13 @@ def app_init(
     **options,
 ) -> CommandResult:
     """
-    Initializes a Native Apps project.
+    Initializes a Snowflake Native App project.
     """
     project = nativeapp_init(
         path=path, name=name, git_url=template_repo, template=template
     )
     return MessageResult(
-        f"Native Apps project {project.name} has been created at: {path}"
+        f"Snowflake Native App project {project.name} has been created at: {path}"
     )
 
 
@@ -90,19 +90,19 @@ def app_bundle(
 def app_run(
     version: Optional[str] = typer.Option(
         None,
-        help=f"""The identifier or version name of the version of an existing application package from which you want to create an application instance.
-        The application and application package names are determined from the project definition file.""",
+        help=f"""The version defined in an existing application package from which you want to create an application object.
+        The application object and application package names are determined from the project definition file.""",
     ),
     patch: Optional[str] = typer.Option(
         None,
         "--patch",
-        help=f"""The patch number under the given `--version` of an existing application package that should be used to create an application instance.
-        The application and application package names are determined from the project definition file.""",
+        help=f"""The patch number under the given `--version` defined in an existing application package that should be used to create an application object.
+        The application object and application package names are determined from the project definition file.""",
     ),
     from_release_directive: Optional[bool] = typer.Option(
         False,
         "--from-release-directive",
-        help=f"""Creates or upgrades an application to the version and patch specified by the release directive applicable to your Snowflake account.
+        help=f"""Creates or upgrades an application object to the version and patch specified by the release directive applicable to your Snowflake account.
         The command fails if no release directive exists for your Snowflake account for a given application package, which is determined from the project definition file. Default: unset.""",
         is_flag=True,
     ),
@@ -112,7 +112,7 @@ def app_run(
 ) -> CommandResult:
     """
     Creates an application package in your Snowflake account, uploads code files to its stage,
-    then creates (or upgrades) a development-mode instance of that application.
+    then creates or upgrades an application object from the application package.
     """
 
     is_interactive = False
@@ -137,7 +137,7 @@ def app_run(
         is_interactive=is_interactive,
     )
     return MessageResult(
-        f"Your application ({processor.app_name}) is now live:\n"
+        f"Your application object ({processor.app_name}) is now available:\n"
         + processor.get_snowsight_url()
     )
 
@@ -148,7 +148,7 @@ def app_open(
     **options,
 ) -> CommandResult:
     """
-    Opens the application inside of your browser,
+    Opens the Snowflake Native App inside of your browser,
     once it has been installed in your account.
     """
     manager = NativeAppManager(
@@ -157,10 +157,10 @@ def app_open(
     )
     if manager.get_existing_app_info():
         typer.launch(manager.get_snowsight_url())
-        return MessageResult(f"Application opened in browser.")
+        return MessageResult(f"Snowflake Native App opened in browser.")
     else:
         return MessageResult(
-            'Application not yet deployed! Please run "snow app run" first.'
+            'Snowflake Native App not yet deployed! Please run "snow app run" first.'
         )
 
 
@@ -171,7 +171,7 @@ def app_teardown(
     **options,
 ) -> CommandResult:
     """
-    Attempts to drop both the application and package as defined in the project definition file.
+    Attempts to drop both the application object and application package as defined in the project definition file.
     """
     processor = NativeAppTeardownProcessor(
         project_definition=cli_context.project_definition,

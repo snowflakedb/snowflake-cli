@@ -5,11 +5,11 @@ from click.exceptions import ClickException
 
 
 class ApplicationPackageAlreadyExistsError(ClickException):
-    """An application package not created by SnowCLI exists with the same name."""
+    """An application package not created by Snowflake CLI exists with the same name."""
 
     def __init__(self, name: str):
         super().__init__(
-            f"An Application Package {name} already exists in account that may have been created without snowCLI."
+            f"An Application Package {name} already exists in account that may have been created without Snowflake CLI."
         )
 
 
@@ -23,16 +23,16 @@ class ApplicationPackageDoesNotExistError(ClickException):
 
 
 class ApplicationAlreadyExistsError(ClickException):
-    """An application not created by SnowCLI exists with the same name."""
+    """An application object not created by Snowflake CLI exists with the same name."""
 
     def __init__(self, name: str):
         super().__init__(
-            f'A non-dev application "{name}" already exists in the account.'
+            f'A application object "{name}" not created in development mode using files on a named stage already exists in the account.'
         )
 
 
 class UnexpectedOwnerError(ClickException):
-    """An operation is blocked becuase an object is owned by an unexpected role."""
+    """An operation is blocked because an object is owned by an unexpected role."""
 
     def __init__(self, item: str, expected_owner: str, actual_owner: str):
         super().__init__(
@@ -60,15 +60,6 @@ class MissingSchemaError(ClickException):
 
     def __init__(self, identifier: str):
         super().__init__(f'Identifier missing a schema qualifier: "{identifier}"')
-
-
-class CouldNotFindDistributionForAppPackage(ClickException):
-    """The 'distribution' attribute for an app package could not be found."""
-
-    def __init__(self, name: str):
-        super().__init__(
-            f"Could not find the 'distribution' attribute for app package {name}."
-        )
 
 
 class CouldNotDropApplicationPackageWithVersions(ClickException):
