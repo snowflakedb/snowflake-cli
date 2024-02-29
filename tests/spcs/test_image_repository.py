@@ -7,6 +7,7 @@ import pytest
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.errors import ProgrammingError
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
 

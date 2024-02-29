@@ -4,8 +4,10 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.project.util import identifier_to_show_like_pattern
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
+from snowflake.connector.errors import ProgrammingError
 
 from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
 
