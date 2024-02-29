@@ -115,7 +115,7 @@ class TestPackage:
         assert any(["colormaps.py" in name for name in files])
         assert not any(["matplotlib" in name for name in files])
 
-    #@pytest.mark.integration
+    # @pytest.mark.integration
     def test_package_from_github(self, directory_for_test, runner):
         result = runner.invoke_with_connection_json(
             [
