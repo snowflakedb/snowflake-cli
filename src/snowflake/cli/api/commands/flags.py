@@ -263,7 +263,7 @@ def project_definition_option(project_name: str):
         None,
         "-p",
         "--project",
-        help=f"Path where the {project_name.replace('_', ' ').capitalize()} project resides. "
+        help=f"Path where the {'Snowflake Native App' if project_name == 'native_app' else project_name.replace('_', ' ').capitalize()} project resides. "
         f"Defaults to current working directory.",
         callback=_callback,
         show_default=False,

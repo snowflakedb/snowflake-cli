@@ -209,7 +209,7 @@ class NativeAppManager(SqlExecutionMixin):
         raise ProgrammingError(
             msg=dedent(
                 f"""\
-                Could not find the 'distribution' attribute for app package {self.package_name} in the output of SQL query:
+                Could not find the 'distribution' attribute for application package {self.package_name} in the output of SQL query:
                 'describe application package {self.package_name}'
                 """
             )
@@ -232,7 +232,7 @@ class NativeAppManager(SqlExecutionMixin):
             cc.warning(
                 dedent(
                     f"""\
-                    App pkg {self.package_name} in your Snowflake account has distribution property {actual_distribution},
+                    Application package {self.package_name} in your Snowflake account has distribution property {actual_distribution},
                     which does not match the value specified in project definition file: {project_def_distribution}.
                     """
                 )
@@ -252,7 +252,7 @@ class NativeAppManager(SqlExecutionMixin):
         the local filesystem. Returns the DiffResult used to make changes.
         """
 
-        # Does a stage already exist within the app pkg, or we need to create one?
+        # Does a stage already exist within the application package, or we need to create one?
         # Using "if not exists" should take care of either case.
         cc.step("Checking if stage exists, or creating a new one if none exists.")
         with self.use_role(role):
@@ -274,7 +274,7 @@ class NativeAppManager(SqlExecutionMixin):
         diff: DiffResult = stage_diff(self.deploy_root, self.stage_fqn)
         cc.message(str(diff))
 
-        # Upload diff-ed files to app pkg stage
+        # Upload diff-ed files to application package stage
         if diff.has_changes():
             cc.step(
                 "Uploading diff-ed files from your local %s directory to the Snowflake stage."
@@ -290,7 +290,7 @@ class NativeAppManager(SqlExecutionMixin):
 
     def get_existing_app_info(self) -> Optional[dict]:
         """
-        Check for an existing application by the same name as in project definition, in account.
+        Check for an existing application object by the same name as in project definition, in account.
         It executes a 'show applications like' query and returns the result as single row, if one exists.
         """
         with self.use_role(self.app_role):
