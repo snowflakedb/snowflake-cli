@@ -77,6 +77,14 @@ test-cov = [
   "coverage report",
 ]
 
+[tool.hatch.envs.build]
+detached = "true"
+skip-install = "true"
+
+[tool.hatch.envs.build.scripts]
+binary = [
+  "PYAPP_DISTRIBUTION_EMBED=1 PYAPP_FULL_ISOLATION=1 PYAPP_SKIP_INSTALL=1 hatch build -t app"]
+
 [tool.hatch.envs.e2e]
 template = "e2e"
 features = ["development"]
