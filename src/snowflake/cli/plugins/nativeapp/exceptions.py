@@ -27,7 +27,7 @@ class ApplicationAlreadyExistsError(ClickException):
 
     def __init__(self, name: str):
         super().__init__(
-            f'A non-dev application object "{name}" already exists in the account.'
+            f'A application object "{name}" not created in development mode using files on a named stage already exists in the account.'
         )
 
 

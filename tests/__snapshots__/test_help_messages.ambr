@@ -91,7 +91,7 @@
                                                                                   
    Usage: default app open [OPTIONS]                                              
                                                                                   
-   Opens the application object inside of your browser, once it has been          
+   Opens the Snowflake Native App inside of your browser, once it has been        
    installed in your account.                                                     
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
@@ -586,7 +586,7 @@
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
   │ init      Initializes a Snowflake Native App project.                        │
-  │ open      Opens the application object inside of your browser, once it has   │
+  │ open      Opens the Snowflake Native App inside of your browser, once it has │
   │           been installed in your account.                                    │
   │ run       Creates an application package in your Snowflake account, uploads  │
   │           code files to its stage, then creates or upgrades an application   │

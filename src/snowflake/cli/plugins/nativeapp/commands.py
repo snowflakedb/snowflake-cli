@@ -148,7 +148,7 @@ def app_open(
     **options,
 ) -> CommandResult:
     """
-    Opens the application object inside of your browser,
+    Opens the Snowflake Native App inside of your browser,
     once it has been installed in your account.
     """
     manager = NativeAppManager(
@@ -157,10 +157,10 @@ def app_open(
     )
     if manager.get_existing_app_info():
         typer.launch(manager.get_snowsight_url())
-        return MessageResult(f"Application object opened in browser.")
+        return MessageResult(f"Snowflake Native App opened in browser.")
     else:
         return MessageResult(
-            'Application object not yet deployed! Please run "snow app run" first.'
+            'Snowflake Native App not yet deployed! Please run "snow app run" first.'
         )
 
 
