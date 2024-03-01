@@ -243,7 +243,7 @@ def build_bundle(
 
 def find_manifest_file(deploy_root: Path) -> Path:
     """
-    Find manifest.yml file, if available, in the deploy_root of the native apps project.
+    Find manifest.yml file, if available, in the deploy_root of the Snowflake Native App project.
     """
     resolved_root = deploy_root.resolve()
     for root, _, files in os.walk(resolved_root):
@@ -252,7 +252,7 @@ def find_manifest_file(deploy_root: Path) -> Path:
                 return Path(os.path.join(root, file))
 
     raise ClickException(
-        "Required manifest.yml file not found in the deploy root of the native apps project."
+        "Required manifest.yml file not found in the deploy root of the Snowflake Native App project."
     )
 
 
