@@ -1,0 +1,10 @@
+# serializer version: 1
+# name: test_flow[copy-not-stage-error]
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ REPOSITORY_PATH should be a path to git repository stage with scope          │
+  │ provided. For example: @my_repo/branches/main                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
