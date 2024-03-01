@@ -77,7 +77,7 @@ class TestPackage:
         result = runner.invoke_with_connection_json(
             ["snowpark", "package", "create", "dummy_pkg_for_tests_with_deps", "-y"]
         )
-        "hello world"
+        "hello"
         assert result.exit_code == 0
         assert (
             "Package dummy_pkg_for_tests_with_deps.zip created. You can now upload it to a stage"
