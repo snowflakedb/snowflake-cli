@@ -62,16 +62,14 @@ class TestPackage:
 
     @pytest.mark.integration
     def test_package_create_with_non_anaconda_package_without_install(
-        self, directory_for_test, runner
+        self, directory_for_test, runner, snapshot
     ):
         result = runner.invoke_with_connection_json(
             ["snowpark", "package", "create", "dummy_pkg_for_tests_with_deps"]
         )
 
         assert_that_result_is_successful(result)
-        assert result.json == {
-            "message": "Lookup for package dummy_pkg_for_tests_with_deps resulted in some error. Please check the package name or try again with -y option"
-        }
+        assert result.json == snapshot
         assert not os.path.exists("dummy_pkg_for_tests_with_deps.zip")
 
     @pytest.mark.integration
