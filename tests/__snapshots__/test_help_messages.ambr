@@ -1,11 +1,11 @@
 # serializer version: 1
 # name: test_help_messages[]
   '''
-                                                                                  
-   Usage: default [OPTIONS] COMMAND [ARGS]...                                     
-                                                                                  
-   Snowflake CLI tool for developers.                                             
-                                                                                  
+
+   Usage: default [OPTIONS] COMMAND [ARGS]...
+
+   Snowflake CLI tool for developers.
+
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --version                    Shows version of the Snowflake CLI              │
   │ --info                       Shows information about the Snowflake CLI       │
@@ -27,8 +27,8 @@
   │ stage        Manages stages.                                                 │
   │ streamlit    Manages a Streamlit app in Snowflake.                           │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[app.bundle]
@@ -59,14 +59,14 @@
 # ---
 # name: test_help_messages[app.deploy]
   '''
-                                                                                  
-   Usage: default app deploy [OPTIONS] [FILES]...                                 
-                                                                                  
-   Creates an application package in your Snowflake account and syncs the local   
-   changes to the stage without creating or updating the application. Running     
-   this command with no arguments at all, as in `snow app deploy`, is a shorthand 
-   for `snow app deploy --prune --recursive`.                                     
-                                                                                  
+
+   Usage: default app deploy [OPTIONS] [FILES]...
+
+   Creates an application package in your Snowflake account and syncs the local
+   changes to the stage without creating or updating the application. Running
+   this command with no arguments at all, as in `snow app deploy`, is a shorthand
+   for `snow app deploy --prune --recursive`.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │   files      [FILES]...  Paths, relative to the the project root, of files   │
   │                          you want to upload to a stage. The paths must match │
@@ -142,8 +142,8 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[app.init]
@@ -151,7 +151,7 @@
                                                                                   
    Usage: default app init [OPTIONS] PATH                                         
                                                                                   
-   Initializes a Snowflake Native App project.                                    
+   Initializes a Snowflake Native App project.
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    path      TEXT  Directory to be initialized with the Snowflake Native   │
@@ -203,18 +203,18 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[app.list-templates]
   '''
-                                                                                  
-   Usage: default app list-templates [OPTIONS]                                    
-                                                                                  
-   Prints information regarding the official templates that can be used with snow 
-   app init.                                                                      
-                                                                                  
+
+   Usage: default app list-templates [OPTIONS]
+
+   Prints information regarding the official templates that can be used with snow
+   app init.
+
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -228,7 +228,7 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
+
   
   '''
 # ---
@@ -237,8 +237,8 @@
                                                                                   
    Usage: default app open [OPTIONS]                                              
                                                                                   
-   Opens the Snowflake Native App inside of your browser, once it has been        
-   installed in your account.                                                     
+   Opens the Snowflake Native App inside of your browser, once it has been
+   installed in your account.
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --project  -p      TEXT  Path where the Snowflake Native App project         │
@@ -306,8 +306,8 @@
    Usage: default app run [OPTIONS]                                               
                                                                                   
    Creates an application package in your Snowflake account, uploads code files   
-   to its stage, then creates or upgrades an application object from the          
-   application package.                                                           
+   to its stage, then creates or upgrades an application object from the
+   application package.
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --version                                       TEXT  The version defined in │
@@ -441,8 +441,8 @@
                                                                                   
    Usage: default app teardown [OPTIONS]                                          
                                                                                   
-   Attempts to drop both the application object and application package as        
-   defined in the project definition file.                                        
+   Attempts to drop both the application object and application package as
+   defined in the project definition file.
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --force                                      When enabled, this option       │
@@ -530,8 +530,8 @@
                                                                                   
    Usage: default app version create [OPTIONS] [VERSION]                          
                                                                                   
-   Adds a new patch to the provided version defined in your application package.  
-   If the version does not exist, creates a version with patch 0.                 
+   Adds a new patch to the provided version defined in your application package.
+   If the version does not exist, creates a version with patch 0.
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │   version      [VERSION]  Version to define in your application package. If  │
@@ -641,9 +641,9 @@
                                                                                   
    Usage: default app version drop [OPTIONS] [VERSION]                            
                                                                                   
-   Drops a version defined in your application package. Versions can either be    
-   passed in as an argument to the command or read from the `manifest.yml` file.  
-   Dropping patches is not allowed.                                               
+   Drops a version defined in your application package. Versions can either be
+   passed in as an argument to the command or read from the `manifest.yml` file.
+   Dropping patches is not allowed.
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │   version      [VERSION]  Version defined in an application package that you │
@@ -733,7 +733,7 @@
                                                                                   
    Usage: default app version list [OPTIONS]                                      
                                                                                   
-   Lists all versions defined in an application package.                          
+   Lists all versions defined in an application package.
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --project  -p      TEXT  Path where the Snowflake Native App project         │
@@ -800,7 +800,7 @@
                                                                                   
    Usage: default app version [OPTIONS] COMMAND [ARGS]...                         
                                                                                   
-   Manages versions defined in an application package                             
+   Manages versions defined in an application package
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -823,7 +823,7 @@
                                                                                   
    Usage: default app [OPTIONS] COMMAND [ARGS]...                                 
                                                                                   
-   Manages a Snowflake Native App                                                 
+   Manages a Snowflake Native App
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -1460,14 +1460,14 @@
 # ---
 # name: test_help_messages[git.copy]
   '''
-                                                                                  
-   Usage: default git copy [OPTIONS] REPOSITORY_PATH DESTINATION_PATH             
-                                                                                  
-   Copies all files from given state of repository to local directory or stage.   
-   If the source path ends with '/', the command copies contents of specified     
-   directory. Otherwise, it creates a new directory or file in the destination    
-   directory.                                                                     
-                                                                                  
+
+   Usage: default git copy [OPTIONS] REPOSITORY_PATH DESTINATION_PATH
+
+   Copies all files from given state of repository to local directory or stage.
+   If the source path ends with '/', the command copies contents of specified
+   directory. Otherwise, it creates a new directory or file in the destination
+   directory.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    repository_path       TEXT  Path to git repository stage with scope     │
   │                                  provided. Path to the repository root must  │
@@ -1538,17 +1538,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[git.describe]
   '''
-                                                                                  
-   Usage: default git describe [OPTIONS] NAME                                     
-                                                                                  
-   Provides description of git repository.                                        
-                                                                                  
+
+   Usage: default git describe [OPTIONS] NAME
+
+   Provides description of git repository.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Identifier of the git repository. For example: my_repo  │
   │                      [required]                                              │
@@ -1607,17 +1607,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[git.drop]
   '''
-                                                                                  
-   Usage: default git drop [OPTIONS] NAME                                         
-                                                                                  
-   Drops git repository with given name.                                          
-                                                                                  
+
+   Usage: default git drop [OPTIONS] NAME
+
+   Drops git repository with given name.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Identifier of the git repository. For example: my_repo  │
   │                      [required]                                              │
@@ -1676,20 +1676,20 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[git.execute]
   '''
-                                                                                  
-   Usage: default git execute [OPTIONS] REPOSITORY_PATH                           
-                                                                                  
-   Execute immediate all files from the repository path. Files can be filtered    
-   with glob like pattern, e.g. `@my_repo/branches/main/*.sql`,                   
-   `@my_repo/branches/main/dev/*`. Only files with `.sql` extension will be       
-   executed.                                                                      
-                                                                                  
+
+   Usage: default git execute [OPTIONS] REPOSITORY_PATH
+
+   Execute immediate all files from the repository path. Files can be filtered
+   with glob like pattern, e.g. `@my_repo/branches/main/*.sql`,
+   `@my_repo/branches/main/dev/*`. Only files with `.sql` extension will be
+   executed.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    repository_path      TEXT  Path to git repository stage with scope      │
   │                                 provided. Path to the repository root must   │
@@ -1758,17 +1758,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[git.fetch]
   '''
-                                                                                  
-   Usage: default git fetch [OPTIONS] REPOSITORY_NAME                             
-                                                                                  
-   Fetch changes from origin to Snowflake repository.                             
-                                                                                  
+
+   Usage: default git fetch [OPTIONS] REPOSITORY_NAME
+
+   Fetch changes from origin to Snowflake repository.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    repository_name      TEXT  Identifier of the git repository. For        │
   │                                 example: my_repo                             │
@@ -1828,17 +1828,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[git.list-branches]
   '''
-                                                                                  
-   Usage: default git list-branches [OPTIONS] REPOSITORY_NAME                     
-                                                                                  
-   List all branches in the repository.                                           
-                                                                                  
+
+   Usage: default git list-branches [OPTIONS] REPOSITORY_NAME
+
+   List all branches in the repository.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    repository_name      TEXT  Identifier of the git repository. For        │
   │                                 example: my_repo                             │
@@ -1902,17 +1902,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[git.list-files]
   '''
-                                                                                  
-   Usage: default git list-files [OPTIONS] REPOSITORY_PATH                        
-                                                                                  
-   List files from given state of git repository.                                 
-                                                                                  
+
+   Usage: default git list-files [OPTIONS] REPOSITORY_PATH
+
+   List files from given state of git repository.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    repository_path      TEXT  Path to git repository stage with scope      │
   │                                 provided. Path to the repository root must   │
@@ -1978,17 +1978,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[git.list-tags]
   '''
-                                                                                  
-   Usage: default git list-tags [OPTIONS] REPOSITORY_NAME                         
-                                                                                  
-   List all tags in the repository.                                               
-                                                                                  
+
+   Usage: default git list-tags [OPTIONS] REPOSITORY_NAME
+
+   List all tags in the repository.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    repository_name      TEXT  Identifier of the git repository. For        │
   │                                 example: my_repo                             │
@@ -2052,17 +2052,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[git.list]
   '''
-                                                                                  
-   Usage: default git list [OPTIONS]                                              
-                                                                                  
-   Lists all available git repositories.                                          
-                                                                                  
+
+   Usage: default git list [OPTIONS]
+
+   Lists all available git repositories.
+
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --like  -l      TEXT            SQL LIKE pattern for filtering objects by    │
   │                                 name. For example, `list --like "my%"` lists │
@@ -2126,23 +2126,23 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[git.setup]
   '''
-                                                                                  
-   Usage: default git setup [OPTIONS] REPOSITORY_NAME                             
-                                                                                  
-   Sets up a git repository object.                                               
-   You will be prompted for:                                                      
-   * url - address of repository to be used for git clone operation               
-   * secret - Snowflake secret containing authentication credentials. Not needed  
-   if origin repository does not require authentication for RO operations (clone, 
-   fetch)                                                                         
-   * API integration - object allowing Snowflake to interact with git repository. 
-                                                                                  
+
+   Usage: default git setup [OPTIONS] REPOSITORY_NAME
+
+   Sets up a git repository object.
+   You will be prompted for:
+   * url - address of repository to be used for git clone operation
+   * secret - Snowflake secret containing authentication credentials. Not needed
+   if origin repository does not require authentication for RO operations (clone,
+   fetch)
+   * API integration - object allowing Snowflake to interact with git repository.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    repository_name      TEXT  Identifier of the git repository. For        │
   │                                 example: my_repo                             │
@@ -2202,17 +2202,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[git]
   '''
-                                                                                  
-   Usage: default git [OPTIONS] COMMAND [ARGS]...                                 
-                                                                                  
-   Manages git repositories in Snowflake.                                         
-                                                                                  
+
+   Usage: default git [OPTIONS] COMMAND [ARGS]...
+
+   Manages git repositories in Snowflake.
+
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -2233,17 +2233,17 @@
   │ list-tags       List all tags in the repository.                             │
   │ setup           Sets up a git repository object.                             │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[notebook.create]
   '''
-                                                                                  
-   Usage: default notebook create [OPTIONS] IDENTIFIER                            
-                                                                                  
-   Creates notebook from stage.                                                   
-                                                                                  
+
+   Usage: default notebook create [OPTIONS] IDENTIFIER
+
+   Creates notebook from stage.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    identifier      TEXT  Identifier of the notebook. For example:          │
   │                            MY_NOTEBOOK                                       │
@@ -2307,17 +2307,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[notebook.execute]
   '''
-                                                                                  
-   Usage: default notebook execute [OPTIONS] IDENTIFIER                           
-                                                                                  
-   Executes a notebook in a headless mode.                                        
-                                                                                  
+
+   Usage: default notebook execute [OPTIONS] IDENTIFIER
+
+   Executes a notebook in a headless mode.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    identifier      TEXT  Identifier of the notebook. For example:          │
   │                            MY_NOTEBOOK                                       │
@@ -2377,17 +2377,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[notebook.get-url]
   '''
-                                                                                  
-   Usage: default notebook get-url [OPTIONS] IDENTIFIER                           
-                                                                                  
-   Return a url to a notebook.                                                    
-                                                                                  
+
+   Usage: default notebook get-url [OPTIONS] IDENTIFIER
+
+   Return a url to a notebook.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    identifier      TEXT  Identifier of the notebook. For example:          │
   │                            MY_NOTEBOOK                                       │
@@ -2447,17 +2447,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[notebook.open]
   '''
-                                                                                  
-   Usage: default notebook open [OPTIONS] IDENTIFIER                              
-                                                                                  
-   Opens a notebook in default browser                                            
-                                                                                  
+
+   Usage: default notebook open [OPTIONS] IDENTIFIER
+
+   Opens a notebook in default browser
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    identifier      TEXT  Identifier of the notebook. For example:          │
   │                            MY_NOTEBOOK                                       │
@@ -2517,17 +2517,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[notebook]
   '''
-                                                                                  
-   Usage: default notebook [OPTIONS] COMMAND [ARGS]...                            
-                                                                                  
-   Manages notebooks in Snowflake.                                                
-                                                                                  
+
+   Usage: default notebook [OPTIONS] COMMAND [ARGS]...
+
+   Manages notebooks in Snowflake.
+
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -2537,8 +2537,8 @@
   │ get-url   Return a url to a notebook.                                        │
   │ open      Opens a notebook in default browser                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[object.describe]
@@ -2547,9 +2547,9 @@
    Usage: default object describe [OPTIONS] OBJECT_TYPE OBJECT_NAME               
                                                                                   
    Provides description of an object of given type.                               
-   Supported types: compute-pool, database, external-access-integration,          
-   function, git-repository, integration, network-rule, procedure, role, schema,  
-   secret, service, stage, stream, streamlit, table, task, user, view, warehouse  
+   Supported types: compute-pool, database, external-access-integration,
+   function, git-repository, integration, network-rule, procedure, role, schema,
+   secret, service, stage, stream, streamlit, table, task, user, view, warehouse
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    object_type      TEXT  Type of object. For example table, procedure,    │
@@ -2622,10 +2622,10 @@
    Usage: default object drop [OPTIONS] OBJECT_TYPE OBJECT_NAME                   
                                                                                   
    Drops Snowflake object of given name and type.                                 
-   Supported types: compute-pool, database, external-access-integration,          
-   function, git-repository, image-repository, integration, network-rule,         
-   procedure, role, schema, secret, service, stage, stream, streamlit, table,     
-   task, user, view, warehouse                                                    
+   Supported types: compute-pool, database, external-access-integration,
+   function, git-repository, image-repository, integration, network-rule,
+   procedure, role, schema, secret, service, stage, stream, streamlit, table,
+   task, user, view, warehouse
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    object_type      TEXT  Type of object. For example table, procedure,    │
@@ -2698,10 +2698,10 @@
    Usage: default object list [OPTIONS] OBJECT_TYPE                               
                                                                                   
    Lists all available Snowflake objects of given type.                           
-   Supported types: compute-pool, database, external-access-integration,          
-   function, git-repository, image-repository, integration, network-rule,         
-   procedure, role, schema, secret, service, stage, stream, streamlit, table,     
-   task, user, view, warehouse                                                    
+   Supported types: compute-pool, database, external-access-integration,
+   function, git-repository, image-repository, integration, network-rule,
+   procedure, role, schema, secret, service, stage, stream, streamlit, table,
+   task, user, view, warehouse
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    object_type      TEXT  Type of object. For example table, procedure,    │
@@ -2782,11 +2782,11 @@
   '''
   DeprecationWarning: The command 'stage' is deprecated.
   `snow object stage` command group is deprecated. Please use `snow stage` instead.
-                                                                                  
+
    Usage: default object stage copy [OPTIONS] SOURCE_PATH DESTINATION_PATH        
                                                                                   
-   (deprecated)                                                                   
-   Copies all files from target path to target directory. This works for both     
+   (deprecated)
+   Copies all files from target path to target directory. This works for both
    uploading to and downloading files from the stage.                             
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
@@ -2871,11 +2871,11 @@
   '''
   DeprecationWarning: The command 'stage' is deprecated.
   `snow object stage` command group is deprecated. Please use `snow stage` instead.
-                                                                                  
+
    Usage: default object stage create [OPTIONS] STAGE_NAME                        
                                                                                   
-   (deprecated)                                                                   
-   Creates a named stage if it does not already exist.                            
+   (deprecated)
+   Creates a named stage if it does not already exist.
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    stage_name      TEXT  Name of the stage. [required]                     │
@@ -2942,11 +2942,11 @@
   '''
   DeprecationWarning: The command 'stage' is deprecated.
   `snow object stage` command group is deprecated. Please use `snow stage` instead.
-                                                                                  
+
    Usage: default object stage diff [OPTIONS] [STAGE_NAME] [FOLDER_NAME]          
                                                                                   
-   (deprecated)                                                                   
-   Diffs a stage with a local folder.                                             
+   (deprecated)
+   Diffs a stage with a local folder.
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │   stage_name       [STAGE_NAME]   Fully qualified name of a stage            │
@@ -3015,11 +3015,11 @@
   '''
   DeprecationWarning: The command 'stage' is deprecated.
   `snow object stage` command group is deprecated. Please use `snow stage` instead.
-                                                                                  
+
    Usage: default object stage list [OPTIONS] STAGE_NAME                          
                                                                                   
-   (deprecated)                                                                   
-   Lists the stage contents.                                                      
+   (deprecated)
+   Lists the stage contents.
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    stage_name      TEXT  Name of the stage. [required]                     │
@@ -3089,11 +3089,11 @@
   '''
   DeprecationWarning: The command 'stage' is deprecated.
   `snow object stage` command group is deprecated. Please use `snow stage` instead.
-                                                                                  
+
    Usage: default object stage remove [OPTIONS] STAGE_NAME FILE_NAME              
                                                                                   
-   (deprecated)                                                                   
-   Removes a file from a stage.                                                   
+   (deprecated)
+   Removes a file from a stage.
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    stage_name      TEXT  Name of the stage. [required]                     │
@@ -3163,8 +3163,8 @@
                                                                                   
    Usage: default object stage [OPTIONS] COMMAND [ARGS]...                        
                                                                                   
-   (deprecated)                                                                   
-   Manages stages.                                                                
+   (deprecated)
+   Manages stages.
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -3354,18 +3354,18 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[snowpark.describe]
   '''
-                                                                                  
-   Usage: default snowpark describe [OPTIONS] OBJECT_TYPE:{procedure|function}    
-                                    IDENTIFIER                                    
-                                                                                  
-   Provides description of a procedure or function.                               
-                                                                                  
+
+   Usage: default snowpark describe [OPTIONS] OBJECT_TYPE:{procedure|function}
+                                    IDENTIFIER
+
+   Provides description of a procedure or function.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    object_type      OBJECT_TYPE:{procedure|fun  Type of Snowpark object    │
   │                       ction}                      [required]                 │
@@ -3429,18 +3429,18 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[snowpark.drop]
   '''
-                                                                                  
-   Usage: default snowpark drop [OPTIONS] OBJECT_TYPE:{procedure|function}        
-                                IDENTIFIER                                        
-                                                                                  
-   Drop procedure or function.                                                    
-                                                                                  
+
+   Usage: default snowpark drop [OPTIONS] OBJECT_TYPE:{procedure|function}
+                                IDENTIFIER
+
+   Drop procedure or function.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    object_type      OBJECT_TYPE:{procedure|fun  Type of Snowpark object    │
   │                       ction}                      [required]                 │
@@ -3590,7 +3590,7 @@
                                                                                   
    Usage: default snowpark init [OPTIONS] [PROJECT_NAME]                          
                                                                                   
-   Initializes this directory with a sample set of files for creating a Snowpark  
+   Initializes this directory with a sample set of files for creating a Snowpark
    project.                                                                       
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
@@ -3611,17 +3611,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[snowpark.list]
   '''
-                                                                                  
-   Usage: default snowpark list [OPTIONS] OBJECT_TYPE:{procedure|function}        
-                                                                                  
-   Lists all available procedures or functions.                                   
-                                                                                  
+
+   Usage: default snowpark list [OPTIONS] OBJECT_TYPE:{procedure|function}
+
+   Lists all available procedures or functions.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    object_type      OBJECT_TYPE:{procedure|fun  Type of Snowpark object    │
   │                       ction}                      [required]                 │
@@ -3689,7 +3689,7 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
+
   
   '''
 # ---
@@ -3698,8 +3698,8 @@
                                                                                   
    Usage: default snowpark package create [OPTIONS] NAME                          
                                                                                   
-   Creates a Python package as a zip file that can be uploaded to a stage and     
-   imported for a Snowpark Python app.                                            
+   Creates a Python package as a zip file that can be uploaded to a stage and
+   imported for a Snowpark Python app.
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the package to create. [default: None]          │
@@ -3780,9 +3780,9 @@
 # name: test_help_messages[snowpark.package.lookup]
   '''
                                                                                   
-   Usage: default snowpark package lookup [OPTIONS] PACKAGE_NAME                  
+   Usage: default snowpark package lookup [OPTIONS] PACKAGE_NAME
                                                                                   
-   Checks if a package is available on the Snowflake Anaconda channel.            
+   Checks if a package is available on the Snowflake Anaconda channel.
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    package_name      TEXT  Name of the package. [required]                 │
@@ -3850,7 +3850,7 @@
                                                                                   
    Usage: default snowpark package upload [OPTIONS]                               
                                                                                   
-   Uploads a Python package zip file to a Snowflake stage so it can be referenced 
+   Uploads a Python package zip file to a Snowflake stage so it can be referenced
    in the imports of a procedure or function.                                     
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
@@ -4086,17 +4086,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[spcs.compute-pool.describe]
   '''
-                                                                                  
-   Usage: default spcs compute-pool describe [OPTIONS] NAME                       
-                                                                                  
-   Provides description of compute pool.                                          
-                                                                                  
+
+   Usage: default spcs compute-pool describe [OPTIONS] NAME
+
+   Provides description of compute pool.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the compute pool. [required]                    │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -4154,17 +4154,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[spcs.compute-pool.drop]
   '''
-                                                                                  
-   Usage: default spcs compute-pool drop [OPTIONS] NAME                           
-                                                                                  
-   Drops compute pool with given name.                                            
-                                                                                  
+
+   Usage: default spcs compute-pool drop [OPTIONS] NAME
+
+   Drops compute pool with given name.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the compute pool. [required]                    │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -4222,17 +4222,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[spcs.compute-pool.list]
   '''
-                                                                                  
-   Usage: default spcs compute-pool list [OPTIONS]                                
-                                                                                  
-   Lists all available compute pools.                                             
-                                                                                  
+
+   Usage: default spcs compute-pool list [OPTIONS]
+
+   Lists all available compute pools.
+
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    │
   │                       example, `list --like "my%"` lists all compute pools   │
@@ -5065,17 +5065,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[spcs.image-repository.drop]
   '''
-                                                                                  
-   Usage: default spcs image-repository drop [OPTIONS] NAME                       
-                                                                                  
-   Drops image repository with given name.                                        
-                                                                                  
+
+   Usage: default spcs image-repository drop [OPTIONS] NAME
+
+   Drops image repository with given name.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the image repository. [required]                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -5273,17 +5273,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[spcs.image-repository.list]
   '''
-                                                                                  
-   Usage: default spcs image-repository list [OPTIONS]                            
-                                                                                  
-   Lists all available image repositories.                                        
-                                                                                  
+
+   Usage: default spcs image-repository list [OPTIONS]
+
+   Lists all available image repositories.
+
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --like  -l      TEXT            SQL LIKE pattern for filtering objects by    │
   │                                 name. For example, `list --like "my%"` lists │
@@ -5796,17 +5796,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[spcs.service.describe]
   '''
-                                                                                  
-   Usage: default spcs service describe [OPTIONS] NAME                            
-                                                                                  
-   Provides description of service.                                               
-                                                                                  
+
+   Usage: default spcs service describe [OPTIONS] NAME
+
+   Provides description of service.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the service. [required]                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -5864,17 +5864,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[spcs.service.drop]
   '''
-                                                                                  
-   Usage: default spcs service drop [OPTIONS] NAME                                
-                                                                                  
-   Drops service with given name.                                                 
-                                                                                  
+
+   Usage: default spcs service drop [OPTIONS] NAME
+
+   Drops service with given name.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the service. [required]                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -6000,17 +6000,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[spcs.service.list]
   '''
-                                                                                  
-   Usage: default spcs service list [OPTIONS]                                     
-                                                                                  
-   Lists all available services.                                                  
-                                                                                  
+
+   Usage: default spcs service list [OPTIONS]
+
+   Lists all available services.
+
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --like  -l      TEXT            SQL LIKE pattern for filtering objects by    │
   │                                 name. For example, `list --like "my%"` lists │
@@ -6662,9 +6662,9 @@
    Query to execute can be specified using query option, filename option (all     
    queries from file will be executed) or via stdin by piping output from other   
    command. For example `cat my.sql | snow sql -i`.                               
-   The command supports variable substitution that happens on client-side. Both   
-   &VARIABLE or &{ VARIABLE } syntax are supported.                               
-                                                                                  
+   The command supports variable substitution that happens on client-side. Both
+   $VARIABLE or ${ VARIABLE } syntax are supported.
+
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --query     -q      TEXT  Query to execute. [default: None]                  │
   │ --filename  -f      FILE  File to execute. [default: None]                   │
@@ -6735,12 +6735,12 @@
 # ---
 # name: test_help_messages[stage.copy]
   '''
-                                                                                  
-   Usage: default stage copy [OPTIONS] SOURCE_PATH DESTINATION_PATH               
-                                                                                  
-   Copies all files from target path to target directory. This works for both     
-   uploading to and downloading files from the stage.                             
-                                                                                  
+
+   Usage: default stage copy [OPTIONS] SOURCE_PATH DESTINATION_PATH
+
+   Copies all files from target path to target directory. This works for both
+   uploading to and downloading files from the stage.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    source_path           TEXT  Source path for copy operation. Can be      │
   │                                  either stage path or local.                 │
@@ -6813,17 +6813,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[stage.create]
   '''
-                                                                                  
-   Usage: default stage create [OPTIONS] STAGE_NAME                               
-                                                                                  
-   Creates a named stage if it does not already exist.                            
-                                                                                  
+
+   Usage: default stage create [OPTIONS] STAGE_NAME
+
+   Creates a named stage if it does not already exist.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    stage_name      TEXT  Name of the stage. [required]                     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -6881,17 +6881,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[stage.describe]
   '''
-                                                                                  
-   Usage: default stage describe [OPTIONS] NAME                                   
-                                                                                  
-   Provides description of stage.                                                 
-                                                                                  
+
+   Usage: default stage describe [OPTIONS] NAME
+
+   Provides description of stage.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the stage. [required]                           │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -6949,17 +6949,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[stage.diff]
   '''
-                                                                                  
-   Usage: default stage diff [OPTIONS] STAGE_NAME FOLDER_NAME                     
-                                                                                  
-   Diffs a stage with a local folder.                                             
-                                                                                  
+
+   Usage: default stage diff [OPTIONS] STAGE_NAME FOLDER_NAME
+
+   Diffs a stage with a local folder.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    stage_name       TEXT  Fully qualified name of a stage [required]       │
   │ *    folder_name      TEXT  Path to local folder [required]                  │
@@ -7018,17 +7018,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[stage.drop]
   '''
-                                                                                  
-   Usage: default stage drop [OPTIONS] NAME                                       
-                                                                                  
-   Drops stage with given name.                                                   
-                                                                                  
+
+   Usage: default stage drop [OPTIONS] NAME
+
+   Drops stage with given name.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the stage. [required]                           │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -7086,19 +7086,19 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[stage.execute]
   '''
-                                                                                  
-   Usage: default stage execute [OPTIONS] STAGE_PATH                              
-                                                                                  
-   Execute immediate all files from the stage path. Files can be filtered with    
-   glob like pattern, e.g. `@stage/*.sql`, `@stage/dev/*`. Only files with `.sql` 
-   extension will be executed.                                                    
-                                                                                  
+
+   Usage: default stage execute [OPTIONS] STAGE_PATH
+
+   Execute immediate all files from the stage path. Files can be filtered with
+   glob like pattern, e.g. `@stage/*.sql`, `@stage/dev/*`. Only files with `.sql`
+   extension will be executed.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    stage_path      TEXT  Stage path with files to be execute. For example  │
   │                            `@stage/dev/*`.                                   │
@@ -7164,17 +7164,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[stage.list-files]
   '''
-                                                                                  
-   Usage: default stage list-files [OPTIONS] STAGE_NAME                           
-                                                                                  
-   Lists the stage contents.                                                      
-                                                                                  
+
+   Usage: default stage list-files [OPTIONS] STAGE_NAME
+
+   Lists the stage contents.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    stage_name      TEXT  Name of the stage. [required]                     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -7235,17 +7235,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[stage.list]
   '''
-                                                                                  
-   Usage: default stage list [OPTIONS]                                            
-                                                                                  
-   Lists all available stages.                                                    
-                                                                                  
+
+   Usage: default stage list [OPTIONS]
+
+   Lists all available stages.
+
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --like  -l      TEXT            SQL LIKE pattern for filtering objects by    │
   │                                 name. For example, `list --like "my%"` lists │
@@ -7308,17 +7308,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[stage.remove]
   '''
-                                                                                  
-   Usage: default stage remove [OPTIONS] STAGE_NAME FILE_NAME                     
-                                                                                  
-   Removes a file from a stage.                                                   
-                                                                                  
+
+   Usage: default stage remove [OPTIONS] STAGE_NAME FILE_NAME
+
+   Removes a file from a stage.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    stage_name      TEXT  Name of the stage. [required]                     │
   │ *    file_name       TEXT  Name of the file to remove. [required]            │
@@ -7377,17 +7377,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[stage]
   '''
-                                                                                  
-   Usage: default stage [OPTIONS] COMMAND [ARGS]...                               
-                                                                                  
-   Manages stages.                                                                
-                                                                                  
+
+   Usage: default stage [OPTIONS] COMMAND [ARGS]...
+
+   Manages stages.
+
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -7406,8 +7406,8 @@
   │ list-files   Lists the stage contents.                                       │
   │ remove       Removes a file from a stage.                                    │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[streamlit.deploy]
@@ -7415,11 +7415,11 @@
                                                                                   
    Usage: default streamlit deploy [OPTIONS]                                      
                                                                                   
-   Deploys a Streamlit app defined in the project definition file                 
-   (snowflake.yml). By default, the command uploads environment.yml and any other 
-   pages or folders, if present. If you don’t specify a stage name, the           
-   `streamlit` stage is used. If the specified stage does not exist, the command  
-   creates it.                                                                    
+   Deploys a Streamlit app defined in the project definition file
+   (snowflake.yml). By default, the command uploads environment.yml and any other
+   pages or folders, if present. If you don’t specify a stage name, the
+   `streamlit` stage is used. If the specified stage does not exist, the command
+   creates it.
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --replace                Replace the Streamlit app if it already exists.     │
@@ -7479,17 +7479,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[streamlit.describe]
   '''
-                                                                                  
-   Usage: default streamlit describe [OPTIONS] NAME                               
-                                                                                  
-   Provides description of streamlit.                                             
-                                                                                  
+
+   Usage: default streamlit describe [OPTIONS] NAME
+
+   Provides description of streamlit.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the Streamlit app. [required]                   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -7547,17 +7547,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[streamlit.drop]
   '''
-                                                                                  
-   Usage: default streamlit drop [OPTIONS] NAME                                   
-                                                                                  
-   Drops streamlit with given name.                                               
-                                                                                  
+
+   Usage: default streamlit drop [OPTIONS] NAME
+
+   Drops streamlit with given name.
+
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the Streamlit app. [required]                   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -7624,7 +7624,7 @@
                                                                                   
    Usage: default streamlit get-url [OPTIONS] NAME                                
                                                                                   
-   Returns a URL to the specified Streamlit app                                   
+   Returns a URL to the specified Streamlit app
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the Streamlit app. [required]                   │
@@ -7694,7 +7694,7 @@
    Usage: default streamlit init [OPTIONS] [PROJECT_NAME]                         
                                                                                   
    Initializes this directory with a sample set of files for creating a Streamlit 
-   app project.                                                                   
+   app project.
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │   project_name      [PROJECT_NAME]  Name of the Streamlit app project        │
@@ -7715,17 +7715,17 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[streamlit.list]
   '''
-                                                                                  
-   Usage: default streamlit list [OPTIONS]                                        
-                                                                                  
-   Lists all available streamlits.                                                
-                                                                                  
+
+   Usage: default streamlit list [OPTIONS]
+
+   Lists all available streamlits.
+
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --like  -l      TEXT            SQL LIKE pattern for filtering objects by    │
   │                                 name. For example, `list --like "my%"` lists │
@@ -7788,7 +7788,7 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-  
+
   
   '''
 # ---
@@ -7868,7 +7868,7 @@
                                                                                   
    Usage: default streamlit [OPTIONS] COMMAND [ARGS]...                           
                                                                                   
-   Manages a Streamlit app in Snowflake.                                          
+   Manages a Streamlit app in Snowflake.
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │

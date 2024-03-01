@@ -30,7 +30,6 @@ class SnowCliMainTyper(typer.Typer):
             context_settings=DEFAULT_CONTEXT_SETTINGS,
             pretty_exceptions_show_locals=False,
             add_completion=False,
-            no_args_is_help=True,
         )
 
     def __call__(self, *args, **kwargs):
