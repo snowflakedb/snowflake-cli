@@ -16,7 +16,7 @@
 # name: TestPackage.test_package_lookup_with_install_packages
   '''
   The package some-other-package is supported, but does depend on the
-                  following Snowflake supported  libraries. You should
+                  following Snowflake supported libraries. You should
                   include the following in your packages:
                   snowflake-snowpark-python
   
