@@ -1,5 +1,5 @@
 import _snowflake
-import requests
+from http.client import HTTPSConnection
 from snowflake.snowpark import Session
 
 
@@ -15,5 +15,8 @@ def _check_secret_and_get_status():
     generic_secret = _snowflake.get_generic_secret_string("generic_secret")
     assert generic_secret
 
-    response = requests.get("https://docs.snowflake.com/")
-    return response.status_code
+    host = "docs.snowflake.com"
+    conn = HTTPSConnection(host)
+    conn.request("GET", "/")
+    response = conn.getresponse()
+    return response.status
