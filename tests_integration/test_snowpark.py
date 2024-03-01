@@ -262,7 +262,7 @@ def test_snowpark_with_single_dependency_having_no_other_deps(
         )
 
 
-#@pytest.mark.integration
+# @pytest.mark.integration
 def test_snowpark_with_single_requirement_having_transient_deps(
     runner, _test_steps, project_directory, alter_snowflake_yml, test_database
 ):
@@ -279,7 +279,7 @@ def test_snowpark_with_single_requirement_having_transient_deps(
         assert result.exit_code == 0
 
         packages_dir = Path(".packages")
-        print(os.listdir(packages_dir))
+
         assert packages_dir.exists()
         assert (packages_dir / "dummy_pkg_for_tests_with_deps").exists()
         assert (packages_dir / "dummy_pkg_for_tests").exists()  # as transient dep

@@ -131,7 +131,6 @@ class TestPackage:
         assert Path("dummy-pkg-for-tests-with-deps.zip").exists()
 
         files = self._get_filenames_from_zip("dummy-pkg-for-tests-with-deps.zip")
-        print(files)
 
         assert any(
             ["dummy_pkg_for_tests_with_deps-1.0.dist-info" in file for file in files]
