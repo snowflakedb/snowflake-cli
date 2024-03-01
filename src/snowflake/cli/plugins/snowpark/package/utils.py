@@ -29,7 +29,7 @@ class RequiresPackages(LookupResult):
     @property
     def message(self):
         return f"""The package {self.name} is supported, but does depend on the
-                following Snowflake supported  libraries. You should
+                following Snowflake supported libraries. You should
                 include the following in your packages:
                 {get_readable_list_of_requirements(self.requirements.snowflake)}"""
 
