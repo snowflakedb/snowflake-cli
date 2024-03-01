@@ -120,6 +120,10 @@ def _info_callback(value: bool):
                 },
                 {"key": "python_version", "value": sys.version},
                 {"key": "system_info", "value": platform.platform()},
+                {
+                    "key": "logs config",
+                    "value": (CONFIG_MANAGER["cli"]["logs"]),
+                },
             ],
         )
         print_result(result, output_format=OutputFormat.JSON)
