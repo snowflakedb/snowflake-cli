@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from inspect import signature
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Tuple
 
 import click
 import typer
+from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context_manager
 from snowflake.cli.api.output.formats import OutputFormat
 
@@ -30,7 +31,7 @@ class OverrideableOption:
         self,
         default: Any,
         *param_decls: str,
-        mutually_exclusive: Optional[List[str]] = None,
+        mutually_exclusive: Optional[List[str] | Tuple[str]] = None,
         **kwargs,
     ):
         self.default = default
@@ -59,14 +60,32 @@ class OverrideableOption:
             passed_kwargs.pop(non_kwarg, None)
         return typer.Option(default, *param_decls, **passed_kwargs)
 
-    def _callback_factory(self, callback, mutually_exclusive: List[str]):
-        mutually_exclusive_names = (
-            tuple(mutually_exclusive) if mutually_exclusive else None
-        )
+    class InvalidCallbackSignature(ClickException):
+        def __init__(self, callback):
+            super().__init__(
+                f"Signature {signature(callback)} is not valid for an OverrideableOption callback function. Must have at most one parameter with each of the following types: (typer.Context, typer.CallbackParam, Any Other Type)"
+            )
+
+    def _callback_factory(
+        self, callback, mutually_exclusive: Optional[List[str] | Tuple[str]]
+    ):
+        callback = callback if callback else lambda x: x
+
+        # inspect existing_callback to make sure signature is valid
+        existing_params = signature(callback).parameters
+        # at most one parameter with each type in [typer.Context, typer.CallbackParam, any other type]
+        limits = [
+            lambda x: x == typer.Context,
+            lambda x: x == typer.CallbackParam,
+            lambda x: x != typer.Context and x != typer.CallbackParam,
+        ]
+        for limit in limits:
+            if len([v for v in existing_params.values() if limit(v.annotation)]) > 1:
+                raise self.InvalidCallbackSignature(callback)
 
         def generated_callback(ctx: typer.Context, param: typer.CallbackParam, value):
-            if mutually_exclusive_names:
-                for name in mutually_exclusive_names:
+            if mutually_exclusive:
+                for name in mutually_exclusive:
                     if value and ctx.params.get(
                         name, False
                     ):  # if the current parameter is set to True and a previous parameter is also Truthy
@@ -77,38 +96,18 @@ class OverrideableOption:
                         raise click.ClickException(
                             f"Options '{curr_opt}' and '{other_opt}' are incompatible."
                         )
-            if callback:
-                # inspect existing_callback to make sure signature is valid
-                existing_params = signature(callback).parameters
-                # at most one parameter with each type in [typer.Context, typer.CallbackParam, any other type]
-                limits = [
-                    lambda x: x == typer.Context,
-                    lambda x: x == typer.CallbackParam,
-                    lambda x: x != typer.Context and x != typer.CallbackParam,
-                ]
-                for limit in limits:
-                    if (
-                        len(
-                            [v for v in existing_params.values() if limit(v.annotation)]
-                        )
-                        > 1
-                    ):
-                        raise click.ClickException(
-                            f"Signature {signature(callback)} is not valid for an OverrideableOption callback function. Must have at most one parameter with each of the following types: (typer.Context, typer.CallbackParam, Any Other Type)"
-                        )
-                # pass args to existing_callback based on its signature (this is how Typer infers callback args)
-                passed_params = {}
-                for existing_param in existing_params:
-                    annotation = existing_params[existing_param].annotation
-                    if annotation == typer.Context:
-                        passed_params[existing_param] = ctx
-                    elif annotation == typer.CallbackParam:
-                        passed_params[existing_param] = param
-                    else:
-                        passed_params[existing_param] = value
-                return callback(**passed_params)
-            else:
-                return value
+
+            # pass args to existing callback based on its signature (this is how Typer infers callback args)
+            passed_params = {}
+            for existing_param in existing_params:
+                annotation = existing_params[existing_param].annotation
+                if annotation == typer.Context:
+                    passed_params[existing_param] = ctx
+                elif annotation == typer.CallbackParam:
+                    passed_params[existing_param] = param
+                else:
+                    passed_params[existing_param] = value
+            return callback(**passed_params)
 
         return generated_callback
 

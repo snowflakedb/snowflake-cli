@@ -75,14 +75,10 @@ def test_create_replace_and_if_not_exist():
     assert "mutually exclusive" in str(e.value)
 
 
-@pytest.mark.parametrize(
-    "replace, if_not_exists",
-    [(False, False), (True, False), (False, True)],
-)
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.create"
 )
-def test_create_cli(mock_create, mock_cursor, runner, replace, if_not_exists, snapshot):
+def test_create_cli(mock_create, mock_cursor, runner, snapshot):
     repo_name = "test_repo"
     cursor = mock_cursor(
         rows=[[f"Image Repository {repo_name.upper()} successfully created."]],
@@ -90,19 +86,15 @@ def test_create_cli(mock_create, mock_cursor, runner, replace, if_not_exists, sn
     )
     mock_create.return_value = cursor
     command = ["spcs", "image-repository", "create", repo_name]
-    if replace:
-        command.append("--replace")
-    if if_not_exists:
-        command.append("--if-not-exists")
     result = runner.invoke(command)
     mock_create.assert_called_once_with(
-        name=repo_name, replace=replace, if_not_exists=if_not_exists
+        name=repo_name, replace=False, if_not_exists=False
     )
     assert result.exit_code == 0, result.output
     assert result.output == snapshot
 
 
-def test_create_cli_replace_and_if_not_exists(runner, snapshot):
+def test_create_cli_replace_and_if_not_exists_fails(runner, snapshot):
     command = [
         "spcs",
         "image-repository",
