@@ -95,6 +95,8 @@ class Venv:
                     requirement=package, files=files, dependencies=requires
                 )
 
+                log.debug(f"Checking package{package.name}, with dependencies: {requires}")
+
                 for package in requires:
                     _get_dependencies(Requirement.parse_line(package))
 
