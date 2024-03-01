@@ -12,4 +12,3 @@ snowpark:
         - name: "y"
           type: "number(10, 5)"
       returns: float
-

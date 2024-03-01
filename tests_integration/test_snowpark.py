@@ -521,7 +521,11 @@ def test_snowpark_fully_qualified_name(
 
 @pytest.mark.integration
 def test_snowpark_vector_function(
-    _test_steps, project_directory, alter_snowflake_yml, test_database, snowflake_session
+    _test_steps,
+    project_directory,
+    alter_snowflake_yml,
+    test_database,
+    snowflake_session,
 ):
     database = test_database.upper()
     with project_directory("snowpark_vectorized") as tmp_dir:
@@ -537,14 +541,18 @@ def test_snowpark_vector_function(
             ]
         )
 
-        result = snowflake_session.execute_string(dedent(f"""
+        result = snowflake_session.execute_string(
+            dedent(
+                f"""
             select {database}.PUBLIC.VECTOR_FUNC(x, y)
             from (
               select 1 as x, 3.14::float as y union all
               select 2, 1.59 union all
               select 3, -0.5
             );
-        """))
+        """
+            )
+        )
         assert [r for r in result[0]] == [(4.14,), (3.59,), (2.5,)]
 
 
