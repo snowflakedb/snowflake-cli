@@ -206,7 +206,7 @@ def test_snowpark_with_separately_created_package(
         "dummy_pkg_for_tests.zip"
     )
 
-    with project_directory("snowpark_with_package"):
+    with project_directory("snowpark_with_single_requirements_having_no_other_deps"):
         _test_steps.snowpark_build_should_zip_files()
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
