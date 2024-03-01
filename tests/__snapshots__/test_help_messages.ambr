@@ -1483,7 +1483,7 @@
    Executes a procedure or function in a specified environment.                   
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    object_type               OBJECT_TYPE:{procedur  Type of snowpark       │
+  │ *    object_type               OBJECT_TYPE:{procedur  Type of Snowpark       │
   │                                e|function}            object                 │
   │                                                       [default: None]        │
   │                                                       [required]             │
@@ -1553,11 +1553,11 @@
                                                                                   
    Usage: default snowpark init [OPTIONS] [PROJECT_NAME]                          
                                                                                   
-   Initializes this directory with a sample set of files for creating a snowpark  
+   Initializes this directory with a sample set of files for creating a Snowpark  
    project.                                                                       
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │   project_name      [PROJECT_NAME]  Name of the snowpark project you want to │
+  │   project_name      [PROJECT_NAME]  Name of the Snowpark project you want to │
   │                                     create.                                  │
   │                                     [default: example_snowpark]              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -1583,8 +1583,8 @@
                                                                                   
    Usage: default snowpark package create [OPTIONS] NAME                          
                                                                                   
-   Creates a python package as a zip file that can be uploaded to a stage and     
-   imported for a Snowpark python app.                                            
+   Creates a Python package as a zip file that can be uploaded to a stage and     
+   imported for a Snowpark Python app.                                            
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the package to create. [default: None]          │
@@ -1592,7 +1592,7 @@
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --pypi-download            Installs packages that are not available on the   │
-  │                            Snowflake anaconda channel.                       │
+  │                            Snowflake Anaconda channel.                       │
   │ --help           -h        Show this message and exit.                       │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -1650,7 +1650,7 @@
                                                                                   
    Usage: default snowpark package lookup [OPTIONS] NAME                          
                                                                                   
-   Checks if a package is available on the Snowflake anaconda channel. If the     
+   Checks if a package is available on the Snowflake Anaconda channel. If the     
    `--pypi-download` flag is provided, this command checks all dependencies of    
    the packages outside Snowflake channel.                                        
                                                                                   
@@ -1659,7 +1659,7 @@
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --pypi-download            Installs packages that are not available on the   │
-  │                            Snowflake anaconda channel.                       │
+  │                            Snowflake Anaconda channel.                       │
   │ --help           -h        Show this message and exit.                       │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -1717,7 +1717,7 @@
                                                                                   
    Usage: default snowpark package upload [OPTIONS]                               
                                                                                   
-   Uploads a python package zip file to a Snowflake stage so it can be referenced 
+   Uploads a Python package zip file to a Snowflake stage so it can be referenced 
    in the imports of a procedure or function.                                     
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
@@ -1791,12 +1791,12 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ create  Creates a python package as a zip file that can be uploaded to a     │
-  │         stage and imported for a Snowpark python app.                        │
-  │ lookup  Checks if a package is available on the Snowflake anaconda channel.  │
+  │ create  Creates a Python package as a zip file that can be uploaded to a     │
+  │         stage and imported for a Snowpark Python app.                        │
+  │ lookup  Checks if a package is available on the Snowflake Anaconda channel.  │
   │         If the `--pypi-download` flag is provided, this command checks all   │
   │         dependencies of the packages outside Snowflake channel.              │
-  │ upload  Uploads a python package zip file to a Snowflake stage so it can be  │
+  │ upload  Uploads a Python package zip file to a Snowflake stage so it can be  │
   │         referenced in the imports of a procedure or function.                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
@@ -1824,7 +1824,7 @@
   │          is deployed only once.                                              │
   │ execute  Executes a procedure or function in a specified environment.        │
   │ init     Initializes this directory with a sample set of files for creating  │
-  │          a snowpark project.                                                 │
+  │          a Snowpark project.                                                 │
   │ package  Manages custom Python packages for Snowpark                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
