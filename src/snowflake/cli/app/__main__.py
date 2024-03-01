@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import sys
 
-from snowflake.cli.app.cli_app import app
+from snowflake.cli.app.cli_app import app_factory
 
 
 def main(*args):
+    app = app_factory()
     app(*args)
 
 
