@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest import mock
 
 import pytest
@@ -281,3 +281,18 @@ def test_no_error_when_init_from_non_default_config(
     connections_path.chmod(0o777)
 
     config_init(test_snowcli_config)
+
+
+@pytest.mark.parametrize(
+    "content", ["[corrupted", "[connections.foo]\n[connections.foo]"]
+)
+def test_corrupted_config_raises_human_friendly_error(runner, content, snapshot):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        tmp_file.write(content)
+        tmp_file.flush()
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            ["sql", "-q", "foo"],
+        )
+    assert result.exit_code == 1, result.output
+    assert result.output == snapshot
