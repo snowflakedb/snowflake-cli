@@ -207,6 +207,11 @@ def get_default_connection_name() -> str:
 
 
 def get_default_connection_dict() -> dict:
+    if not connection_exists(def_connection_name):
+        raise MissingConfiguration(
+            f"Couldn't find connection for default connection `{def_connection_name}`. "
+            f"Specify connection name or configure default connection."
+        )
     return get_connection_dict(get_default_connection_name())
 
 

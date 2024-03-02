@@ -159,7 +159,10 @@ def test_not_found_default_connection(test_root_path):
     with pytest.raises(MissingConfiguration) as ex:
         get_default_connection_dict()
 
-    assert ex.value.message == "Connection default is not configured"
+    assert (
+        ex.value.message
+        == "Couldn't find connection for default connection `default`. Specify connection name or configure default connection."
+    )
 
 
 @mock.patch.dict(
@@ -174,7 +177,10 @@ def test_not_found_default_connection_from_evn_variable(test_root_path):
     with pytest.raises(MissingConfiguration) as ex:
         get_default_connection_dict()
 
-    assert ex.value.message == "Connection not_existed_connection is not configured"
+    assert (
+        ex.value.message
+        == "Couldn't find connection for default connection `not_existed_connection`. Specify connection name or configure default connection."
+    )
 
 
 def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_home):
