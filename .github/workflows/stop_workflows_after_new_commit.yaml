@@ -31,7 +31,7 @@ jobs:
             const pull_number = process.env.GITHUB_EVENT_NUMBER;
             const head = process.env.COMMIT_SHA
 
-            const runs = octokit.actions.listWorkflowRunsForRepo({
+            const runs = octokit.rest.actions.listWorkflowRunsForRepo({
               repo_owner,
               repo,
               status: "in_progress" })
