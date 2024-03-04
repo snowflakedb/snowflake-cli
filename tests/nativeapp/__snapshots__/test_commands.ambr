@@ -90,271 +90,271 @@
 # ---
 # name: test_init_no_template_success[absolute-init_args21]
   '''
-  Native Apps project project has been created at: /demo/na/project
+  Snowflake Native App project project has been created at: /demo/na/project
   
   '''
 # ---
 # name: test_init_no_template_success[all_upper-init_args0]
   '''
-  Native Apps project DEMO_NA_PROJECT has been created at: DEMO_NA_PROJECT
+  Snowflake Native App project DEMO_NA_PROJECT has been created at: DEMO_NA_PROJECT
   
   '''
 # ---
 # name: test_init_no_template_success[camel_case-init_args2]
   '''
-  Native Apps project DemoNAProject has been created at: DemoNAProject
+  Snowflake Native App project DemoNAProject has been created at: DemoNAProject
   
   '''
 # ---
 # name: test_init_no_template_success[double_quoted-init_args22]
   '''
-  Native Apps project "demo_na_project" has been created at: "demo_na_project"
+  Snowflake Native App project "demo_na_project" has been created at: "demo_na_project"
   
   '''
 # ---
 # name: test_init_no_template_success[leading_digit-init_args14]
   '''
-  Native Apps project 1_demo_na_project has been created at: 1_demo_na_project
+  Snowflake Native App project 1_demo_na_project has been created at: 1_demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[leading_underscore-init_args12]
   '''
-  Native Apps project _demo_na_project has been created at: _demo_na_project
+  Snowflake Native App project _demo_na_project has been created at: _demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[leading_underscore-init_args13]
   '''
-  Native Apps project _demo_na_project has been created at: _demo_na_project
+  Snowflake Native App project _demo_na_project has been created at: _demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[middle_double_quote-init_args16]
   '''
-  Native Apps project demo_na"project has been created at: demo_na"project
+  Snowflake Native App project demo_na"project has been created at: demo_na"project
   
   '''
 # ---
 # name: test_init_no_template_success[middle_single_quote-init_args15]
   '''
-  Native Apps project demo_na'project has been created at: demo_na'project
+  Snowflake Native App project demo_na'project has been created at: demo_na'project
   
   '''
 # ---
 # name: test_init_no_template_success[name_all_upper-init_args24]
   '''
-  Native Apps project DEMO_NA_PROJECT has been created at: demo_na_project
+  Snowflake Native App project DEMO_NA_PROJECT has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_camel_case-init_args26]
   '''
-  Native Apps project DemoNAProject has been created at: demo_na_project
+  Snowflake Native App project DemoNAProject has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_double_quoted-init_args43]
   '''
-  Native Apps project "demo_na_project" has been created at: demo_na_project
+  Snowflake Native App project "demo_na_project" has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_leading_digit-init_args38]
   '''
-  Native Apps project 1_demo_na_project has been created at: demo_na_project
+  Snowflake Native App project 1_demo_na_project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_leading_underscore-init_args36]
   '''
-  Native Apps project _demo_na_project has been created at: demo_na_project
+  Snowflake Native App project _demo_na_project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_leading_underscore-init_args37]
   '''
-  Native Apps project _demo_na_project has been created at: demo_na_project
+  Snowflake Native App project _demo_na_project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_middle_double_quote-init_args40]
   '''
-  Native Apps project demo_na"project has been created at: demo_na_project
+  Snowflake Native App project demo_na"project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_middle_single_quote-init_args39]
   '''
-  Native Apps project demo_na'project has been created at: demo_na_project
+  Snowflake Native App project demo_na'project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_snake_case-init_args25]
   '''
-  Native Apps project demo_na_project has been created at: demo_na_project
+  Snowflake Native App project demo_na_project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_with_ampersand-init_args31]
   '''
-  Native Apps project demo@na@project has been created at: demo_na_project
+  Snowflake Native App project demo@na@project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_with_backslash-init_args41]
   '''
-  Native Apps project demo\na\project has been created at: demo_na_project
+  Snowflake Native App project demo\na\project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_with_dashes-init_args27]
   '''
-  Native Apps project demo-na-project has been created at: demo_na_project
+  Snowflake Native App project demo-na-project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_with_dollar_sign-init_args30]
   '''
-  Native Apps project demo$na$project has been created at: demo_na_project
+  Snowflake Native App project demo$na$project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_with_dots-init_args29]
   '''
-  Native Apps project demo.na.project has been created at: demo_na_project
+  Snowflake Native App project demo.na.project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_with_double_dash-init_args32]
   '''
-  Native Apps project demo--na--project has been created at: demo_na_project
+  Snowflake Native App project demo--na--project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_with_double_dot-init_args33]
   '''
-  Native Apps project demo..na..project has been created at: demo_na_project
+  Snowflake Native App project demo..na..project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_with_double_underscore-init_args34]
   '''
-  Native Apps project demo..na..project has been created at: demo_na_project
+  Snowflake Native App project demo..na..project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_with_inner_quotes-init_args44]
   '''
-  Native Apps project "demo""na""_""""project" has been created at: demo_na_project
+  Snowflake Native App project "demo""na""_""""project" has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_with_mixed_replacement-init_args35]
   '''
-  Native Apps project demo.-na .project has been created at: demo_na_project
+  Snowflake Native App project demo.-na .project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_with_slash-init_args42]
   '''
-  Native Apps project demo/na/project has been created at: demo_na_project
+  Snowflake Native App project demo/na/project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[name_with_spaces-init_args28]
   '''
-  Native Apps project demo na project has been created at: demo_na_project
+  Snowflake Native App project demo na project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[relative_to_cwd-init_args19]
   '''
-  Native Apps project project has been created at: ./demo/na/project
+  Snowflake Native App project project has been created at: ./demo/na/project
   
   '''
 # ---
 # name: test_init_no_template_success[relative_to_parent-init_args20]
   '''
-  Native Apps project project has been created at: ../demo/na/project
+  Snowflake Native App project project has been created at: ../demo/na/project
   
   '''
 # ---
 # name: test_init_no_template_success[snake_case-init_args1]
   '''
-  Native Apps project demo_na_project has been created at: demo_na_project
+  Snowflake Native App project demo_na_project has been created at: demo_na_project
   
   '''
 # ---
 # name: test_init_no_template_success[with_ampersand-init_args7]
   '''
-  Native Apps project demo@na@project has been created at: demo@na@project
+  Snowflake Native App project demo@na@project has been created at: demo@na@project
   
   '''
 # ---
 # name: test_init_no_template_success[with_backslash-init_args17]
   '''
-  Native Apps project demo\na\project has been created at: demo\na\project
+  Snowflake Native App project demo\na\project has been created at: demo\na\project
   
   '''
 # ---
 # name: test_init_no_template_success[with_dashes-init_args3]
   '''
-  Native Apps project demo_na_project has been created at: demo-na-project
+  Snowflake Native App project demo_na_project has been created at: demo-na-project
   
   '''
 # ---
 # name: test_init_no_template_success[with_dollar_sign-init_args6]
   '''
-  Native Apps project demo$na$project has been created at: demo$na$project
+  Snowflake Native App project demo$na$project has been created at: demo$na$project
   
   '''
 # ---
 # name: test_init_no_template_success[with_dots-init_args5]
   '''
-  Native Apps project demo_na_project has been created at: demo.na.project
+  Snowflake Native App project demo_na_project has been created at: demo.na.project
   
   '''
 # ---
 # name: test_init_no_template_success[with_double_dash-init_args8]
   '''
-  Native Apps project demo_na_project has been created at: demo--na--project
+  Snowflake Native App project demo_na_project has been created at: demo--na--project
   
   '''
 # ---
 # name: test_init_no_template_success[with_double_dot-init_args9]
   '''
-  Native Apps project demo_na_project has been created at: demo..na..project
+  Snowflake Native App project demo_na_project has been created at: demo..na..project
   
   '''
 # ---
 # name: test_init_no_template_success[with_double_underscore-init_args10]
   '''
-  Native Apps project demo_na_project has been created at: demo..na..project
+  Snowflake Native App project demo_na_project has been created at: demo..na..project
   
   '''
 # ---
 # name: test_init_no_template_success[with_inner_quotes-init_args23]
   '''
-  Native Apps project "demo""na""_""""project" has been created at: "demo""na""_""""project"
+  Snowflake Native App project "demo""na""_""""project" has been created at: "demo""na""_""""project"
   
   '''
 # ---
 # name: test_init_no_template_success[with_mixed_replacement-init_args11]
   '''
-  Native Apps project demo_na_project has been created at: demo.-na .project
+  Snowflake Native App project demo_na_project has been created at: demo.-na .project
   
   '''
 # ---
 # name: test_init_no_template_success[with_slash-init_args18]
   '''
-  Native Apps project project has been created at: demo/na/project
+  Snowflake Native App project project has been created at: demo/na/project
   
   '''
 # ---
 # name: test_init_no_template_success[with_spaces-init_args4]
   '''
-  Native Apps project demo_na_project has been created at: demo na project
+  Snowflake Native App project demo_na_project has been created at: demo na project
   
   '''
 # ---

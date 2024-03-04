@@ -25,7 +25,7 @@
   │ --help         -h            Show this message and exit.                     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ app         Manages Native Apps in Snowflake                                 │
+  │ app         Manages a Snowflake Native App                                   │
   │ connection  Manages connections to Snowflake.                                │
   │ object      Manages Snowflake objects like warehouses and stages             │
   │ snowpark    Manages procedures and functions.                                │

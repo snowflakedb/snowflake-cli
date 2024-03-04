@@ -32,7 +32,7 @@ def check_index_changes_in_git_repo(
 ) -> None:
     """
     Checks if the project root, i.e. the native apps project is a git repository. If it is a git repository,
-    it also checks if there any local changes to the directory that may not be on the app package stage.
+    it also checks if there any local changes to the directory that may not be on the application package stage.
     """
     from git import Repo
     from git.exc import InvalidGitRepositoryError
@@ -73,7 +73,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         self, version: str
     ) -> List[dict]:
         """
-        Get all existing release directives, if present, set on the version for an application package.
+        Get all existing release directives, if present, set on the version defined in an application package.
         It executes a 'show release directives in application package' query and returns the filtered results, if they exist.
         """
         with self.use_role(self.package_role):
@@ -96,11 +96,11 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
 
     def add_new_version(self, version: str) -> None:
         """
-        Add a new version to an existing application package.
+        Defines a new version in an existing application package.
         """
         with self.use_role(self.package_role):
             cc.step(
-                f"Adding new version {version} to application package {self.package_name}"
+                f"Defining a new version {version} in application package {self.package_name}"
             )
             add_version_query = dedent(
                 f"""\
@@ -116,11 +116,11 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
 
     def add_new_patch_to_version(self, version: str, patch: Optional[str] = None):
         """
-        Add a new patch, optionally a custom one, to an existing version of an application package.
+        Add a new patch, optionally a custom one, to an existing version in an application package.
         """
         with self.use_role(self.package_role):
             cc.step(
-                f"Adding new patch to version {version} of application package {self.package_name}"
+                f"Adding new patch to version {version} defined in application package {self.package_name}"
             )
             add_version_query = dedent(
                 f"""\
@@ -140,7 +140,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
 
             new_patch = show_row["patch"]
             cc.message(
-                f"Patch {new_patch} created for version {version} of application package {self.package_name}."
+                f"Patch {new_patch} created for version {version} defined in application package {self.package_name}."
             )
 
     def process(
@@ -154,14 +154,14 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         **kwargs,
     ):
         """
-        Perform bundle, app package creation, stage upload, version and/or patch to an application package.
+        Perform bundle, application package creation, stage upload, version and/or patch to an application package.
         """
 
         # Make sure version is not None before proceeding any further.
         # This will raise an exception if version information is not found. Patch can be None.
         if not version:
             cc.message(
-                "Version was not provided through the CLI. Checking version in the manifest.yml instead."
+                "Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead."
             )
 
             version, patch = find_version_info_in_manifest_file(self.deploy_root)
@@ -170,13 +170,13 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                     "Manifest.yml file does not contain a value for the version field."
                 )
 
-        # Check if --patch needs to throw a bad option error, either if app package does not exist or if version does not exist
+        # Check if --patch needs to throw a bad option error, either if application package does not exist or if version does not exist
         if patch:
             try:
                 if not self.get_existing_version_info(version):
                     raise BadOptionUsage(
                         option_name="patch",
-                        message=f"Cannot create a custom patch when version {version} does not exist for application package {self.package_name}. Try again without using --patch.",
+                        message=f"Cannot create a custom patch when version {version} is not defined in the application package {self.package_name}. Try again without using --patch.",
                     )
             except ApplicationPackageDoesNotExistError as app_err:
                 raise BadOptionUsage(
@@ -211,13 +211,13 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
             cc.warning(
                 dedent(
                     f"""\
-                    Version {version} already exists for application package {self.package_name} and in release directive(s): {release_directive_names}.
+                    Version {version} already defined in application package {self.package_name} and in release directive(s): {release_directive_names}.
                     """
                 )
             )
 
             user_prompt = (
-                f"Are you sure you want to create a new patch for version {version} of application "
+                f"Are you sure you want to create a new patch for version {version} in application "
                 f"package {self.package_name}? Once added, this operation cannot be undone."
             )
             if not policy.should_proceed(user_prompt):
@@ -230,7 +230,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                     )
                     raise typer.Exit(1)
 
-        # Add a new version to the app package
+        # Define a new version in the application package
         if not self.get_existing_version_info(version):
             self.add_new_version(version=version)
             return  # A new version created automatically has patch 0, we do not need to further increment the patch.
@@ -252,7 +252,7 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
         **kwargs,
     ):
         """
-        Drops a version associated with an application package. If --force is provided, then no user prompts will be executed.
+        Drops a version defined in an application package. If --force is provided, then no user prompts will be executed.
         """
 
         # 1. Check for existing an existing application package
@@ -265,11 +265,11 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
         else:
             raise ApplicationPackageDoesNotExistError(self.package_name)
 
-        # 2. Check distribution of the existing app package
+        # 2. Check distribution of the existing application package
         actual_distribution = self.get_app_pkg_distribution_in_snowflake
         if not self.verify_project_distribution(actual_distribution):
             cc.warning(
-                f"Continuing to execute `snow app version drop` on app pkg {self.package_name} with distribution '{actual_distribution}'."
+                f"Continuing to execute `snow app version drop` on application package {self.package_name} with distribution '{actual_distribution}'."
             )
 
         # 3. If the user did not pass in a version string, determine from manifest.yml
@@ -277,7 +277,7 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
             cc.message(
                 dedent(
                     f"""\
-                        Version was not provided through the CLI. Checking version in the manifest.yml instead.
+                        Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead.
                         This step will bundle your app artifacts to determine the location of the manifest.yml file.
                     """
                 )
@@ -292,14 +292,14 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
         cc.step(
             dedent(
                 f"""\
-                    About to drop version {version} of application package {self.package_name}.
+                    About to drop version {version} in application package {self.package_name}.
                 """
             )
         )
 
         # If user did not provide --force, ask for confirmation
         user_prompt = (
-            f"Are you sure you want to drop version {version} of application package {self.package_name}? Once dropped, this operation cannot be undone.",
+            f"Are you sure you want to drop version {version} in application package {self.package_name}? Once dropped, this operation cannot be undone.",
         )
         if not policy.should_proceed(user_prompt):
             if is_interactive:
@@ -319,5 +319,5 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
                 raise err  # e.g. version is referenced in a release directive(s)
 
         cc.message(
-            f"Version {version} of application package {self.package_name} dropped successfully."
+            f"Version {version} in application package {self.package_name} dropped successfully."
         )

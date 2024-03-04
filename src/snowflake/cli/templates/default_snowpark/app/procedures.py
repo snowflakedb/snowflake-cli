@@ -11,15 +11,11 @@ def hello_procedure(session: Session, name: str) -> str:
 
 
 def test_procedure(session: Session) -> str:
-    """Example showing how to access credentials for external access"""
-    import _snowflake
-
-    credentials = _snowflake.get_generic_secret_string("cred")
     return "Test procedure"
 
 
 # For local debugging
-# Be aware you may need to type-convert arguments if you add input parameters
+# Beware you may need to type-convert arguments if you add input parameters
 if __name__ == "__main__":
     # Create a local Snowpark session
     with Session.builder.config("local_testing", True).getOrCreate() as session:

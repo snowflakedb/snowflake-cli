@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 install_option = typer.Option(
     False,
     "--pypi-download",
-    help="Installs packages that are not available on the Snowflake anaconda channel.",
+    help="Installs packages that are not available on the Snowflake Anaconda channel.",
 )
 
 deprecated_install_option = typer.Option(
@@ -35,7 +35,7 @@ deprecated_install_option = typer.Option(
     "--yes",
     "-y",
     hidden=True,
-    help="Installs packages that are not available on the Snowflake anaconda channel.",
+    help="Installs packages that are not available on the Snowflake Anaconda channel.",
 )
 
 
@@ -47,7 +47,7 @@ def package_lookup(
     **options,
 ) -> CommandResult:
     """
-    Checks if a package is available on the Snowflake anaconda channel.
+    Checks if a package is available on the Snowflake Anaconda channel.
     If the `--pypi-download` flag is provided, this command checks all dependencies of the packages
     outside Snowflake channel.
     """
@@ -83,7 +83,7 @@ def package_upload(
     **options,
 ) -> CommandResult:
     """
-    Uploads a python package zip file to a Snowflake stage so it can be referenced in the imports of a procedure or function.
+    Uploads a Python package zip file to a Snowflake stage so it can be referenced in the imports of a procedure or function.
     """
     return MessageResult(upload(file=file, stage=stage, overwrite=overwrite))
 
@@ -99,7 +99,7 @@ def package_create(
     **options,
 ) -> CommandResult:
     """
-    Creates a python package as a zip file that can be uploaded to a stage and imported for a Snowpark python app.
+    Creates a Python package as a zip file that can be uploaded to a stage and imported for a Snowpark Python app.
     """
     if deprecated_install_option:
         install_packages = deprecated_install_option

@@ -318,7 +318,7 @@ def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
     native_app_manager = _get_na_manager()
     assert native_app_manager.verify_project_distribution() is False
     mock_warning.assert_called_once_with(
-        "App pkg app_pkg in your Snowflake account has distribution property external,\nwhich does not match the value specified in project definition file: internal.\n"
+        "Application package app_pkg in your Snowflake account has distribution property external,\nwhich does not match the value specified in project definition file: internal.\n"
     )
 
 

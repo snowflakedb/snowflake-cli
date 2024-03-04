@@ -7,8 +7,8 @@
    Prepares a local folder with configured app artifacts.                         
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --project  -p      TEXT  Path where the Native app project resides. Defaults │
-  │                          to current working directory.                       │
+  │ --project  -p      TEXT  Path where the Snowflake Native App project         │
+  │                          resides. Defaults to current working directory.     │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
@@ -30,21 +30,21 @@
                                                                                   
    Usage: default app init [OPTIONS] PATH                                         
                                                                                   
-   Initializes a Native Apps project.                                             
+   Initializes a Snowflake Native App project.                                    
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    path      TEXT  Directory to be initialized with the Native Application │
-  │                      project. This directory must not already exist.         │
+  │ *    path      TEXT  Directory to be initialized with the Snowflake Native   │
+  │                      App project. This directory must not already exist.     │
   │                      [default: None]                                         │
   │                      [required]                                              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --name                   TEXT  The name of the native application project to │
-  │                                include in snowflake.yml. When not specified, │
-  │                                it is generated from the name of the          │
-  │                                directory. Names are assumed to be unquoted   │
-  │                                identifiers whenever possible, but can be     │
-  │                                forced to be quoted by including the          │
+  │ --name                   TEXT  The name of the Snowflake Native App project  │
+  │                                to include in snowflake.yml. When not         │
+  │                                specified, it is generated from the name of   │
+  │                                the directory. Names are assumed to be        │
+  │                                unquoted identifiers whenever possible, but   │
+  │                                can be forced to be quoted by including the   │
   │                                surrounding quote characters in the provided  │
   │                                value.                                        │
   │                                [default: None]                               │
@@ -52,11 +52,12 @@
   │                                repository, which can be a template itself or │
   │                                contain many templates inside it, such as     │
   │                                https://github.com/snowflakedb/native-apps-t… │
-  │                                for all official Snowflake templates. If      │
-  │                                using a private Github repo, you might be     │
-  │                                prompted to enter your Github username and    │
-  │                                password. Please use your personal access     │
-  │                                token in the password prompt, and refer to    │
+  │                                for all official Snowflake Native App with    │
+  │                                Snowflake CLI templates. If using a private   │
+  │                                Github repo, you might be prompted to enter   │
+  │                                your Github username and password. Please use │
+  │                                your personal access token in the password    │
+  │                                prompt, and refer to                          │
   │                                https://docs.github.com/en/get-started/getti… │
   │                                for information on currently recommended      │
   │                                modes of authentication.                      │
@@ -90,12 +91,12 @@
                                                                                   
    Usage: default app open [OPTIONS]                                              
                                                                                   
-   Opens the application inside of your browser, once it has been installed in    
-   your account.                                                                  
+   Opens the Snowflake Native App inside of your browser, once it has been        
+   installed in your account.                                                     
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --project  -p      TEXT  Path where the Native app project resides. Defaults │
-  │                          to current working directory.                       │
+  │ --project  -p      TEXT  Path where the Snowflake Native App project         │
+  │                          resides. Defaults to current working directory.     │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -154,38 +155,37 @@
    Usage: default app run [OPTIONS]                                               
                                                                                   
    Creates an application package in your Snowflake account, uploads code files   
-   to its stage, then creates (or upgrades) a development-mode instance of that   
-   application.                                                                   
+   to its stage, then creates or upgrades an application object from the          
+   application package.                                                           
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --version                         TEXT  The identifier or version name of    │
-  │                                         the version of an existing           │
+  │ --version                         TEXT  The version defined in an existing   │
   │                                         application package from which you   │
   │                                         want to create an application        │
-  │                                         instance. The application and        │
+  │                                         object. The application object and   │
   │                                         application package names are        │
   │                                         determined from the project          │
   │                                         definition file.                     │
   │                                         [default: None]                      │
   │ --patch                           TEXT  The patch number under the given     │
-  │                                         `--version` of an existing           │
+  │                                         `--version` defined in an existing   │
   │                                         application package that should be   │
   │                                         used to create an application        │
-  │                                         instance. The application and        │
+  │                                         object. The application object and   │
   │                                         application package names are        │
   │                                         determined from the project          │
   │                                         definition file.                     │
   │                                         [default: None]                      │
   │ --from-release-directive                Creates or upgrades an application   │
-  │                                         to the version and patch specified   │
-  │                                         by the release directive applicable  │
-  │                                         to your Snowflake account. The       │
-  │                                         command fails if no release          │
-  │                                         directive exists for your Snowflake  │
-  │                                         account for a given application      │
-  │                                         package, which is determined from    │
-  │                                         the project definition file.         │
-  │                                         Default: unset.                      │
+  │                                         object to the version and patch      │
+  │                                         specified by the release directive   │
+  │                                         applicable to your Snowflake         │
+  │                                         account. The command fails if no     │
+  │                                         release directive exists for your    │
+  │                                         Snowflake account for a given        │
+  │                                         application package, which is        │
+  │                                         determined from the project          │
+  │                                         definition file. Default: unset.     │
   │ --interactive             -i            When enabled, this option displays   │
   │                                         prompts even if the standard input   │
   │                                         and output are not terminal devices. │
@@ -197,9 +197,9 @@
   │                                         mode is not specified and if you     │
   │                                         want perform potentially destructive │
   │                                         actions. Defaults to unset.          │
-  │ --project                 -p      TEXT  Path where the Native app project    │
-  │                                         resides. Defaults to current working │
-  │                                         directory.                           │
+  │ --project                 -p      TEXT  Path where the Snowflake Native App  │
+  │                                         project resides. Defaults to current │
+  │                                         working directory.                   │
   │ --help                    -h            Show this message and exit.          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -257,8 +257,8 @@
                                                                                   
    Usage: default app teardown [OPTIONS]                                          
                                                                                   
-   Attempts to drop both the application and package as defined in the project    
-   definition file.                                                               
+   Attempts to drop both the application object and application package as        
+   defined in the project definition file.                                        
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --force                  When enabled, this option causes the command to     │
@@ -266,8 +266,8 @@
   │                          should enable this option if interactive mode is    │
   │                          not specified and if you want perform potentially   │
   │                          destructive actions. Defaults to unset.             │
-  │ --project  -p      TEXT  Path where the Native app project resides. Defaults │
-  │                          to current working directory.                       │
+  │ --project  -p      TEXT  Path where the Snowflake Native App project         │
+  │                          resides. Defaults to current working directory.     │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -325,26 +325,27 @@
                                                                                   
    Usage: default app version create [OPTIONS] [VERSION]                          
                                                                                   
-   Adds a new patch to the provided version for your application package. If the  
-   version does not exist, creates a version with patch 0.                        
+   Adds a new patch to the provided version defined in your application package.  
+   If the version does not exist, creates a version with patch 0.                 
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │   version      [VERSION]  Version of the app package for which you want to a │
-  │                           version or patch. Defaults to the version          │
-  │                           specified in the `manifest.yml` file.              │
+  │   version      [VERSION]  Version to define in your application package. If  │
+  │                           the version already exists, an auto-incremented    │
+  │                           patch is added to the version instead. Defaults to │
+  │                           the version specified in the `manifest.yml` file.  │
   │                           [default: None]                                    │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --patch                   TEXT  The patch number you want to create for an   │
   │                                 existing version. Defaults to undefined if   │
-  │                                 it is not set, which means the CLI either    │
-  │                                 uses the patch specified in the              │
+  │                                 it is not set, which means the Snowflake CLI │
+  │                                 either uses the patch specified in the       │
   │                                 `manifest.yml` file or automatically         │
   │                                 generates a new patch number.                │
   │                                 [default: None]                              │
-  │ --skip-git-check                When enabled, the CLI skips checking if your │
-  │                                 project has any untracked or stages files in │
-  │                                 git. Default: unset.                         │
+  │ --skip-git-check                When enabled, the Snowflake CLI skips        │
+  │                                 checking if your project has any untracked   │
+  │                                 or stages files in git. Default: unset.      │
   │ --interactive     -i            When enabled, this option displays prompts   │
   │                                 even if the standard input and output are    │
   │                                 not terminal devices. Defaults to unset.     │
@@ -354,8 +355,9 @@
   │                                 interactive mode is not specified and if you │
   │                                 want perform potentially destructive         │
   │                                 actions. Defaults to unset.                  │
-  │ --project         -p      TEXT  Path where the Native app project resides.   │
-  │                                 Defaults to current working directory.       │
+  │ --project         -p      TEXT  Path where the Snowflake Native App project  │
+  │                                 resides. Defaults to current working         │
+  │                                 directory.                                   │
   │ --help            -h            Show this message and exit.                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -413,14 +415,14 @@
                                                                                   
    Usage: default app version drop [OPTIONS] [VERSION]                            
                                                                                   
-   Drops a version associated with your application package. Version can either   
-   be passed in as an argument to the command or read from the `manifest.yml`     
-   file. Dropping patches is not allowed.                                         
+   Drops a version defined in your application package. Versions can either be    
+   passed in as an argument to the command or read from the `manifest.yml` file.  
+   Dropping patches is not allowed.                                               
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │   version      [VERSION]  Version of the app package that you want to drop.  │
-  │                           Defaults to the version specified in the           │
-  │                           `manifest.yml` file.                               │
+  │   version      [VERSION]  Version defined in an application package that you │
+  │                           want to drop. Defaults to the version specified in │
+  │                           the `manifest.yml` file.                           │
   │                           [default: None]                                    │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
@@ -433,8 +435,8 @@
   │                              is not specified and if you want perform        │
   │                              potentially destructive actions. Defaults to    │
   │                              unset.                                          │
-  │ --project      -p      TEXT  Path where the Native app project resides.      │
-  │                              Defaults to current working directory.          │
+  │ --project      -p      TEXT  Path where the Snowflake Native App project     │
+  │                              resides. Defaults to current working directory. │
   │ --help         -h            Show this message and exit.                     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -492,11 +494,11 @@
                                                                                   
    Usage: default app version list [OPTIONS]                                      
                                                                                   
-   Lists all versions available in an application package.                        
+   Lists all versions defined in an application package.                          
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --project  -p      TEXT  Path where the Native app project resides. Defaults │
-  │                          to current working directory.                       │
+  │ --project  -p      TEXT  Path where the Snowflake Native App project         │
+  │                          resides. Defaults to current working directory.     │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -554,19 +556,19 @@
                                                                                   
    Usage: default app version [OPTIONS] COMMAND [ARGS]...                         
                                                                                   
-   Manages Native Application Package versions in Snowflake                       
+   Manages versions defined in an application package                             
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ create  Adds a new patch to the provided version for your application        │
+  │ create  Adds a new patch to the provided version defined in your application │
   │         package. If the version does not exist, creates a version with patch │
   │         0.                                                                   │
-  │ drop    Drops a version associated with your application package. Version    │
-  │         can either be passed in as an argument to the command or read from   │
-  │         the `manifest.yml` file. Dropping patches is not allowed.            │
-  │ list    Lists all versions available in an application package.              │
+  │ drop    Drops a version defined in your application package. Versions can    │
+  │         either be passed in as an argument to the command or read from the   │
+  │         `manifest.yml` file. Dropping patches is not allowed.                │
+  │ list    Lists all versions defined in an application package.                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -577,21 +579,21 @@
                                                                                   
    Usage: default app [OPTIONS] COMMAND [ARGS]...                                 
                                                                                   
-   Manages Native Apps in Snowflake                                               
+   Manages a Snowflake Native App                                                 
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ init      Initializes a Native Apps project.                                 │
-  │ open      Opens the application inside of your browser, once it has been     │
-  │           installed in your account.                                         │
+  │ init      Initializes a Snowflake Native App project.                        │
+  │ open      Opens the Snowflake Native App inside of your browser, once it has │
+  │           been installed in your account.                                    │
   │ run       Creates an application package in your Snowflake account, uploads  │
-  │           code files to its stage, then creates (or upgrades) a              │
-  │           development-mode instance of that application.                     │
-  │ teardown  Attempts to drop both the application and package as defined in    │
-  │           the project definition file.                                       │
-  │ version   Manages Native Application Package versions in Snowflake           │
+  │           code files to its stage, then creates or upgrades an application   │
+  │           object from the application package.                               │
+  │ teardown  Attempts to drop both the application object and application       │
+  │           package as defined in the project definition file.                 │
+  │ version   Manages versions defined in an application package                 │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -1271,9 +1273,9 @@
   │                                  either stage path or local.                 │
   │                                  [default: None]                             │
   │                                  [required]                                  │
-  │ *    destination_path      TEXT  Target path for copy operation. Should be   │
-  │                                  stage if source is local or local if source │
-  │                                  is stage.                                   │
+  │ *    destination_path      TEXT  Target directory path for copy operation.   │
+  │                                  Should be stage if source is local or local │
+  │                                  if source is stage.                         │
   │                                  [default: None]                             │
   │                                  [required]                                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -1766,7 +1768,7 @@
    Executes a procedure or function in a specified environment.                   
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    object_type               OBJECT_TYPE:{procedur  Type of snowpark       │
+  │ *    object_type               OBJECT_TYPE:{procedur  Type of Snowpark       │
   │                                e|function}            object                 │
   │                                                       [default: None]        │
   │                                                       [required]             │
@@ -1836,11 +1838,11 @@
                                                                                   
    Usage: default snowpark init [OPTIONS] [PROJECT_NAME]                          
                                                                                   
-   Initializes this directory with a sample set of files for creating a snowpark  
+   Initializes this directory with a sample set of files for creating a Snowpark  
    project.                                                                       
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │   project_name      [PROJECT_NAME]  Name of the snowpark project you want to │
+  │   project_name      [PROJECT_NAME]  Name of the Snowpark project you want to │
   │                                     create.                                  │
   │                                     [default: example_snowpark]              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -1866,8 +1868,8 @@
                                                                                   
    Usage: default snowpark package create [OPTIONS] NAME                          
                                                                                   
-   Creates a python package as a zip file that can be uploaded to a stage and     
-   imported for a Snowpark python app.                                            
+   Creates a Python package as a zip file that can be uploaded to a stage and     
+   imported for a Snowpark Python app.                                            
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the package to create. [default: None]          │
@@ -1875,7 +1877,7 @@
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --pypi-download            Installs packages that are not available on the   │
-  │                            Snowflake anaconda channel.                       │
+  │                            Snowflake Anaconda channel.                       │
   │ --help           -h        Show this message and exit.                       │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -1933,7 +1935,7 @@
                                                                                   
    Usage: default snowpark package lookup [OPTIONS] NAME                          
                                                                                   
-   Checks if a package is available on the Snowflake anaconda channel. If the     
+   Checks if a package is available on the Snowflake Anaconda channel. If the     
    `--pypi-download` flag is provided, this command checks all dependencies of    
    the packages outside Snowflake channel.                                        
                                                                                   
@@ -1942,7 +1944,7 @@
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --pypi-download            Installs packages that are not available on the   │
-  │                            Snowflake anaconda channel.                       │
+  │                            Snowflake Anaconda channel.                       │
   │ --help           -h        Show this message and exit.                       │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -2000,7 +2002,7 @@
                                                                                   
    Usage: default snowpark package upload [OPTIONS]                               
                                                                                   
-   Uploads a python package zip file to a Snowflake stage so it can be referenced 
+   Uploads a Python package zip file to a Snowflake stage so it can be referenced 
    in the imports of a procedure or function.                                     
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
@@ -2074,12 +2076,12 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ create  Creates a python package as a zip file that can be uploaded to a     │
-  │         stage and imported for a Snowpark python app.                        │
-  │ lookup  Checks if a package is available on the Snowflake anaconda channel.  │
+  │ create  Creates a Python package as a zip file that can be uploaded to a     │
+  │         stage and imported for a Snowpark Python app.                        │
+  │ lookup  Checks if a package is available on the Snowflake Anaconda channel.  │
   │         If the `--pypi-download` flag is provided, this command checks all   │
   │         dependencies of the packages outside Snowflake channel.              │
-  │ upload  Uploads a python package zip file to a Snowflake stage so it can be  │
+  │ upload  Uploads a Python package zip file to a Snowflake stage so it can be  │
   │         referenced in the imports of a procedure or function.                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
@@ -2107,7 +2109,7 @@
   │          is deployed only once.                                              │
   │ execute  Executes a procedure or function in a specified environment.        │
   │ init     Initializes this directory with a sample set of files for creating  │
-  │          a snowpark project.                                                 │
+  │          a Snowpark project.                                                 │
   │ package  Manages custom Python packages for Snowpark                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
