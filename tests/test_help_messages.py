@@ -11,6 +11,9 @@ def iter_through_all_commands_paths():
     """
     ignore_plugins = ["render"]
 
+    no_command = []
+    yield no_command
+
     def _iter_through_commands(command, path):
         yield list(path)
         for subpath, subcommand in getattr(command, "commands", {}).items():
