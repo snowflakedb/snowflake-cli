@@ -140,7 +140,7 @@ def test_enabled_value_must_be_boolean_2(config_value, runner, snowflake_home):
     first, second, third = result.output.splitlines()[:3]
 
     assert "Error" in first, first
-    assert 'Invalid plugin configuration. [multilingual-hello]: "enabled" must be e' in second, second
+    assert 'Invalid plugin configuration. [multilingual-hello]: "enabled" must be a' in second, second
     assert "boolean" in third, third
 
 
