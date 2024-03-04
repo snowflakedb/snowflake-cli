@@ -11,7 +11,7 @@ jobs:
       - name: Install npm deps
         run: |
           npm install @octokit/rest
-          npm install node-fetch
+          npm install node-fetch@2
 
       - name: Cancel previous workflows
         uses: actions/github-script@v5
