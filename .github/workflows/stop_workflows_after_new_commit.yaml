@@ -15,7 +15,7 @@ jobs:
         uses: actions/github-script@v5
         with:
           script: |
-            import { Octokit } from "@octokit/rest";
+            const { Octokit } = require("@octokit/rest");
             const octo = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
             const repo_owner = process.env.GITHUB_REPOSITORY.split("/")[0];
