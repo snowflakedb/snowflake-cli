@@ -15,9 +15,15 @@ jobs:
         uses: actions/github-script@v5
         with:
           script: |
+            import fetch from "node-fetch";
             const { Octokit } = require("@octokit/rest");
-            const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
-
+            const octokit = new Octokit({
+              request: {
+                fetch: fetch,
+              },
+              auth: process.env.GITHUB_TOKEN
+            });
+            
             const repo_owner = process.env.GITHUB_REPOSITORY.split("/")[0];
             const repo = process.env.GITHUB_REPOSITORY.split("/")[1];
             const pull_number = process.env.GITHUB_EVENT_NUMBER;
