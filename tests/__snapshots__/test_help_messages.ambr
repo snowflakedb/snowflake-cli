@@ -988,9 +988,9 @@
   │                                  either stage path or local.                 │
   │                                  [default: None]                             │
   │                                  [required]                                  │
-  │ *    destination_path      TEXT  Target path for copy operation. Should be   │
-  │                                  stage if source is local or local if source │
-  │                                  is stage.                                   │
+  │ *    destination_path      TEXT  Target directory path for copy operation.   │
+  │                                  Should be stage if source is local or local │
+  │                                  if source is stage.                         │
   │                                  [default: None]                             │
   │                                  [required]                                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
