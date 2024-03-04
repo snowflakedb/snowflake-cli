@@ -22,14 +22,14 @@ class LookupResult:
 class InAnaconda(LookupResult):
     @property
     def message(self):
-        return f"Package {self.name} is available on the Snowflake anaconda channel."
+        return f"Package {self.name} is available on the Snowflake Anaconda channel."
 
 
 class RequiresPackages(LookupResult):
     @property
     def message(self):
         return f"""The package {self.name} is supported, but does depend on the
-                following Snowflake supported native libraries. You should
+                following Snowflake supported libraries. You should
                 include the following in your packages:
                 {get_readable_list_of_requirements(self.requirements.snowflake)}"""
 
@@ -38,13 +38,14 @@ class NotInAnaconda(LookupResult):
     @property
     def message(self):
         return f"""The package {self.name} is avaiable through PIP. You can create a zip using:\n
-                snow snowpark package create {self.name} -y"""
+                snow snowpark package create {self.name} --pypi-download"""
 
 
 class NothingFound(LookupResult):
     @property
     def message(self):
-        return f"Lookup for package {self.name} resulted in some error. Please check the package name or try again with -y option"
+        return f"""Nothing found for {self.name}. Most probably, package is not avaiable on Snowflake Anaconda channel\n
+                    Please check the package name or try again with --pypi-download option"""
 
 
 @dataclass
@@ -56,7 +57,7 @@ class CreateResult:
 class CreatedSuccessfully(CreateResult):
     @property
     def message(self):
-        return f"Package {self.package_name}.zip created. You can now upload it to a stage (`snow snowpark package upload -f {self.package_name}.zip -s packages`) and reference it in your procedure or function."
+        return f"Package {self.package_name}.zip created. You can now upload it to a stage (`snow snowpark package upload -f {self.package_name}.zip -s <stage-name>`) and reference it in your procedure or function."
 
 
 def prepare_app_zip(file_path: SecurePath, temp_dir: SecurePath) -> SecurePath:

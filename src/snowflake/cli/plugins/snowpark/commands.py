@@ -57,11 +57,11 @@ ReplaceOption = typer.Option(
 )
 
 ObjectTypeArgument = typer.Argument(
-    help="Type of snowpark object",
+    help="Type of Snowpark object",
     case_sensitive=False,
 )
 
-add_init_command(app, project_type="snowpark", template="default_snowpark")
+add_init_command(app, project_type="Snowpark", template="default_snowpark")
 
 
 @app.command("deploy", requires_connection=True)
@@ -330,7 +330,7 @@ def build(
 
 
 class _SnowparkObject(Enum):
-    """This clas is used only for snowpark execute where choice is limited."""
+    """This clas is used only for Snowpark execute where choice is limited."""
 
     PROCEDURE = str(ObjectType.PROCEDURE)
     FUNCTION = str(ObjectType.FUNCTION)
