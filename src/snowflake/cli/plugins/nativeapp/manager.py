@@ -43,7 +43,7 @@ from snowflake.connector import ProgrammingError
 def generic_sql_error_handler(
     err: ProgrammingError, role: Optional[str] = None, warehouse: Optional[str] = None
 ):
-    # Potential refactor: If moving away from python 3.8 and 3.9 to >= 3.10, use match ... case
+    # Potential refactor: If moving away from Python 3.8 and 3.9 to >= 3.10, use match ... case
     if err.errno == 2043 or err.msg.__contains__(ERROR_MESSAGE_2043):
         raise ProgrammingError(
             msg=dedent(

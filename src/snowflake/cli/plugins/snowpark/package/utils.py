@@ -22,7 +22,7 @@ class LookupResult:
 class InAnaconda(LookupResult):
     @property
     def message(self):
-        return f"Package {self.name} is available on the Snowflake anaconda channel."
+        return f"Package {self.name} is available on the Snowflake Anaconda channel."
 
 
 class RequiresPackages(LookupResult):

@@ -86,11 +86,11 @@ def _get_snowflake_packages_delta(anaconda_packages) -> List[str]:
 
 def _sql_to_python_return_type_mapper(resource_return_type: str) -> str:
     """
-    Some of the python data types get converted to SQL types, when function/procedure is created.
+    Some of the Python data types get converted to SQL types, when function/procedure is created.
     So, to properly compare types, we use mapping based on:
     https://docs.snowflake.com/en/developer-guide/udf-stored-procedure-data-type-mapping#sql-python-data-type-mappings
 
-    Mind you, this only applies to cases, in which Snowflake accepts python type as return.
+    Mind you, this only applies to cases, in which Snowflake accepts Python type as return.
     Ie. if function returns list, it has to be declared as 'array' during creation,
     therefore any conversion is not necessary
     """
