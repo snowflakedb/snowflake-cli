@@ -15,7 +15,7 @@ jobs:
         uses: actions/github-script@v5
         with:
           script: |
-            import fetch from "node-fetch";
+            const { fetch } = require("node-fetch");
             const { Octokit } = require("@octokit/rest");
             const octokit = new Octokit({
               request: {
