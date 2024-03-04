@@ -14,7 +14,7 @@ import pytest
 import strictyaml
 from snowflake.cli.api.cli_global_context import cli_context_manager
 from snowflake.cli.api.project.definition import merge_left
-from snowflake.cli.app.cli_app import app
+from snowflake.cli.app.cli_app import app_factory
 from strictyaml import as_document
 from typer import Typer
 from typer.testing import CliRunner
@@ -113,7 +113,8 @@ class SnowCLIRunner(CliRunner):
 
 @pytest.fixture
 def runner(test_snowcli_config_provider):
-    return SnowCLIRunner(app, test_snowcli_config_provider)
+    app = app_factory()
+    yield SnowCLIRunner(app, test_snowcli_config_provider)
 
 
 class QueryResultJsonEncoderError(RuntimeError):
