@@ -25,23 +25,24 @@ jobs:
               },
               auth: process.env.GITHUB_TOKEN
             });
-            
+
             const repo_owner = process.env.GITHUB_REPOSITORY.split("/")[0];
             const repo = process.env.GITHUB_REPOSITORY.split("/")[1];
             const pull_number = process.env.GITHUB_EVENT_NUMBER;
+            const head = process.env.COMMIT_SHA
 
-            octokit.actions.listWorkflowRunsForRepo({
+            const runs = octokit.actions.listWorkflowRunsForRepo({
               repo_owner,
               repo,
               status: "in_progress" })
-            .then( ({data}) => {
-              data.workflow_runs.forEach( run => {
-              if (run.pull_requests.some (pr => pr.number == pull_number)) {
-                octokit.actions.cancelWorkflowRun({
-                  owner,
-                  repo,
-                  run_id: run.id
-                  });
-                }
-              });
-            });
+            .filter( run => {
+              return run.pull_requests.some (pr => pr.number == pull_number) && run.head_sha !== head;
+            })
+            .map( run => {
+              return octokit.actions.cancelWorkflowRun({
+              owner,
+              repo,
+              run_id: run.id
+              })
+            }
+            );
