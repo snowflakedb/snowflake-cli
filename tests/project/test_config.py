@@ -4,29 +4,29 @@ from unittest import mock
 from unittest.mock import PropertyMock
 
 import pytest
+from pydantic import ValidationError
 from snowflake.cli.api.project.definition import (
     generate_local_override_yml,
     load_project_definition,
 )
-from strictyaml import YAMLValidationError
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_napp_project_1(project_definition_files):
     project = load_project_definition(project_definition_files)
-    assert project["native_app"]["name"] == "myapp"
-    assert project["native_app"]["deploy_root"] == "output/deploy/"
-    assert project["native_app"]["package"]["role"] == "accountadmin"
-    assert project["native_app"]["application"]["name"] == "myapp_polly"
-    assert project["native_app"]["application"]["role"] == "myapp_consumer"
-    assert project["native_app"]["application"]["debug"] == True
+    assert project.native_app.name == "myapp"
+    assert project.native_app.deploy_root == "output/deploy/"
+    assert project.native_app.package.role == "accountadmin"
+    assert project.native_app.application.name == "myapp_polly"
+    assert project.native_app.application.role == "myapp_consumer"
+    assert project.native_app.application.debug == True
 
 
 @pytest.mark.parametrize("project_definition_files", ["minimal"], indirect=True)
 def test_na_minimal_project(project_definition_files: List[Path]):
     project = load_project_definition(project_definition_files)
-    assert project["native_app"]["name"] == "minimal"
-    assert project["native_app"]["artifacts"] == ["setup.sql", "README.md"]
+    assert project.native_app.name == "minimal"
+    assert project.native_app.artifacts == ["setup.sql", "README.md"]
 
     from os import getenv as original_getenv
 
@@ -46,36 +46,38 @@ def test_na_minimal_project(project_definition_files: List[Path]):
             # a definition structure for these values but directly return defaults
             # in "getter" functions (higher-level data structures).
             local = generate_local_override_yml(project)
-            assert local["native_app"]["application"]["name"] == "minimal_jsmith"
-            assert local["native_app"]["application"]["role"] == "resolved_role"
-            assert (
-                local["native_app"]["application"]["warehouse"] == "resolved_warehouse"
-            )
-            assert local["native_app"]["application"]["debug"] == True
-            assert local["native_app"]["package"]["name"] == "minimal_pkg_jsmith"
-            assert local["native_app"]["package"]["role"] == "resolved_role"
+            assert local.native_app.application.name == "minimal_jsmith"
+            assert local.native_app.application.role == "resolved_role"
+            assert local.native_app.application.warehouse == "resolved_warehouse"
+            assert local.native_app.application.debug == True
+            assert local.native_app.package.name == "minimal_pkg_jsmith"
+            assert local.native_app.package.role == "resolved_role"
 
 
 @pytest.mark.parametrize("project_definition_files", ["underspecified"], indirect=True)
 def test_underspecified_project(project_definition_files):
-    with pytest.raises(YAMLValidationError) as exc_info:
+    with pytest.raises(ValidationError) as exc_info:
         load_project_definition(project_definition_files)
 
-    assert "required key(s) 'artifacts' not found" in str(exc_info.value)
+    assert (
+        "Field required [type=missing, input_value={'name': 'underspecified'}, input_type=dict]"
+        in str(exc_info.value)
+    )
 
 
 @pytest.mark.parametrize(
     "project_definition_files", ["no_definition_version"], indirect=True
 )
 def test_fails_without_definition_version(project_definition_files):
-    with pytest.raises(YAMLValidationError) as exc_info:
+    with pytest.raises(ValidationError) as exc_info:
         load_project_definition(project_definition_files)
 
-    assert "required key(s) 'definition_version' not found" in str(exc_info.value)
+    assert "definition_version" in str(exc_info.value)
 
 
 @pytest.mark.parametrize("project_definition_files", ["unknown_fields"], indirect=True)
-def test_accepts_unknown_fields(project_definition_files):
-    project = load_project_definition(project_definition_files)
-    assert project["native_app"]["name"] == "unknown_fields"
-    assert project["native_app"]["unknown_fields_accepted"] == True
+def test_does_not_accept_unknown_fields(project_definition_files):
+    with pytest.raises(ValidationError) as e:
+        project = load_project_definition(project_definition_files)
+
+    assert "Extra inputs are not permitted [type=extra_forbidden" in e.value.__str__()

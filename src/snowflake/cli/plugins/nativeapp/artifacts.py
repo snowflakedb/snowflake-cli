@@ -6,6 +6,7 @@ from typing import List, Optional, Tuple, Union
 import strictyaml
 from click import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.project.schemas.native_app.path_maping import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 
 
@@ -153,8 +154,8 @@ def translate_artifact(item: Union[dict, str]) -> ArtifactMapping:
     Validation is done later when we actually resolve files / folders.
     """
 
-    if isinstance(item, dict):
-        return ArtifactMapping(item["src"], item.get("dest", item["src"]))
+    if isinstance(item, PathMapping):
+        return ArtifactMapping(item.src, item.dest if item.dest else item.src)
 
     elif isinstance(item, str):
         return ArtifactMapping(item, item)

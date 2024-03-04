@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Dict, List, Optional
 
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
+from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.snowpark.package_utils import generate_deploy_stage_name
@@ -173,26 +174,26 @@ def _is_signature_type_a_string(sig_type: str) -> bool:
 
 
 def build_udf_sproc_identifier(
-    udf_sproc_dict,
+    udf_sproc,
     slq_exec_mixin,
     include_parameter_names,
     include_default_values=False,
 ):
-    def format_arg(arg):
-        result = f"{arg['type']}"
+    def format_arg(arg: Argument):
+        result = f"{arg.arg_type}"
         if include_parameter_names:
-            result = f"{arg['name']} {result}"
-        if include_default_values and "default" in arg:
-            val = f"{arg['default']}"
-            if _is_signature_type_a_string(arg["type"]):
+            result = f"{arg.name} {result}"
+        if include_default_values and arg.default:
+            val = f"{arg.default}"
+            if _is_signature_type_a_string(arg.arg_type):
                 val = f"'{val}'"
             result += f" default {val}"
         return result
 
-    arguments = ", ".join(format_arg(arg) for arg in udf_sproc_dict["signature"])
+    arguments = ", ".join(format_arg(arg) for arg in udf_sproc.signature)
     name = slq_exec_mixin.to_fully_qualified_name(
-        udf_sproc_dict["name"],
-        database=udf_sproc_dict.get("database"),
-        schema=udf_sproc_dict.get("schema"),
+        udf_sproc.name,
+        database=udf_sproc.database,
+        schema=udf_sproc.schema_name,
     )
     return f"{name}({arguments})"

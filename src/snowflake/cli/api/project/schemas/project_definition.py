@@ -1,23 +1,25 @@
 from __future__ import annotations
 
-from snowflake.cli.api.project.schemas import (
-    native_app,
-    snowpark,
-    streamlit,
-)
-from snowflake.cli.api.project.schemas.relaxed_map import RelaxedMap
-from strictyaml import (
-    Int,
-    Optional,
-)
+from typing import Optional
 
-project_schema = RelaxedMap(
-    {
-        "definition_version": Int(),
-        Optional("native_app"): native_app.native_app_schema,
-        Optional("snowpark"): snowpark.snowpark_schema,
-        Optional("streamlit"): streamlit.streamlit_schema,
-    }
-)
+from pydantic import Field
+from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
+from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
+from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
+from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 
-project_override_schema = project_schema.as_fully_optional()
+
+class ProjectDefinition(UpdatableModel):
+    definition_version: int = Field(
+        title="Version of the project definition schema, which is currently 1"
+    )
+    native_app: Optional[NativeApp] = Field(
+        title="Native app definitions for the project", default=None
+    )
+    snowpark: Optional[Snowpark] = Field(
+        title="Snowpark functions and procedures definitions for the project",
+        default=None,
+    )
+    streamlit: Optional[Streamlit] = Field(
+        title="Native app definitions for the project", default=None
+    )

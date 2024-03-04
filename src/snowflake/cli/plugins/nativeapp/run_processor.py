@@ -1,12 +1,13 @@
 from pathlib import Path
 from textwrap import dedent
-from typing import Dict, Optional
+from typing import Optional
 
 import jinja2
 import typer
 from click import UsageError
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
@@ -38,7 +39,7 @@ UPGRADE_RESTRICTION_CODES = {93044, 93055, 93045, 93046}
 
 
 class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
-    def __init__(self, project_definition: Dict, project_root: Path):
+    def __init__(self, project_definition: NativeApp, project_root: Path):
         super().__init__(project_definition, project_root)
 
     def create_app_package(self) -> None:

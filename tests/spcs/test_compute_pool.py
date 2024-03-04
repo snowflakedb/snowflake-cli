@@ -41,6 +41,7 @@ def test_create(mock_execute_query):
         initially_suspended=initially_suspended,
         auto_suspend_secs=auto_suspend_secs,
         comment=comment,
+        if_not_exists=False,
     )
     expected_query = " ".join(
         [
@@ -81,6 +82,7 @@ def test_create_pool_cli_defaults(mock_create, runner):
         initially_suspended=False,
         auto_suspend_secs=3600,
         comment=None,
+        if_not_exists=False,
     )
 
 
@@ -104,6 +106,7 @@ def test_create_pool_cli(mock_create, runner):
             "7200",
             "--comment",
             "this is a test",
+            "--if-not-exists",
         ]
     )
     assert result.exit_code == 0, result.output
@@ -116,6 +119,7 @@ def test_create_pool_cli(mock_create, runner):
         initially_suspended=True,
         auto_suspend_secs=7200,
         comment=to_string_literal("this is a test"),
+        if_not_exists=True,
     )
 
 
@@ -123,8 +127,8 @@ def test_create_pool_cli(mock_create, runner):
     "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
 )
 @patch("snowflake.cli.plugins.spcs.compute_pool.manager.handle_object_already_exists")
-def test_create_repository_already_exists(mock_handle, mock_execute):
-    pool_name = "test_object"
+def test_create_compute_pool_already_exists(mock_handle, mock_execute):
+    pool_name = "test_pool"
     mock_execute.side_effect = SPCS_OBJECT_EXISTS_ERROR
     ComputePoolManager().create(
         pool_name=pool_name,
@@ -135,10 +139,44 @@ def test_create_repository_already_exists(mock_handle, mock_execute):
         initially_suspended=True,
         auto_suspend_secs=7200,
         comment=to_string_literal("this is a test"),
+        if_not_exists=False,
     )
     mock_handle.assert_called_once_with(
         SPCS_OBJECT_EXISTS_ERROR, ObjectType.COMPUTE_POOL, pool_name
     )
+
+
+@patch(
+    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+)
+def test_create_compute_pool_if_not_exists(mock_execute_query):
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ComputePoolManager().create(
+        pool_name="test_pool",
+        min_nodes=1,
+        max_nodes=1,
+        instance_family="test_family",
+        auto_resume=True,
+        initially_suspended=False,
+        auto_suspend_secs=3600,
+        comment=None,
+        if_not_exists=True,
+    )
+    expected_query = " ".join(
+        [
+            "CREATE COMPUTE POOL IF NOT EXISTS test_pool",
+            "MIN_NODES = 1",
+            "MAX_NODES = 1",
+            "INSTANCE_FAMILY = test_family",
+            "AUTO_RESUME = True",
+            "INITIALLY_SUSPENDED = False",
+            "AUTO_SUSPEND_SECS = 3600",
+        ]
+    )
+    actual_query = " ".join(mock_execute_query.mock_calls[0].args[0].split())
+    assert expected_query == actual_query
+    assert result == cursor
 
 
 @patch(

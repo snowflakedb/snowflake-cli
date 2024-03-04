@@ -67,7 +67,7 @@ deny_always_policy = DenyAlwaysPolicy()
 def _get_na_run_processor():
     dm = DefinitionManager()
     return NativeAppRunProcessor(
-        project_definition=dm.project_definition["native_app"],
+        project_definition=dm.project_definition.native_app,
         project_root=dm.project_root,
     )
 
@@ -792,7 +792,7 @@ def test_create_dev_app_create_new_quoted(
                 - setup.sql
                 - app/README.md
                 - src: app/streamlit/*.py
-                dest: ui/
+
 
                 application:
                     name: >-
