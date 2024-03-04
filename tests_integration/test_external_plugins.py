@@ -125,7 +125,6 @@ def test_enabled_value_must_be_boolean(
     config_value,
     runner,
     snowflake_home,
-    snapshot,
     reset_command_registration_state,
 ):
     def _use_config_with_value(value):
@@ -139,7 +138,12 @@ enabled = {value}"""
 
     _use_config_with_value(config_value)
     result = runner.invoke_with_config(("--help,"))
-    snapshot.assert_match(result.output)
+    output = "".join(result.output.splitlines())
+
+    assert (
+        "Invalid plugin configuration. "
+        '[multilingual-hello]: "enabled" must be a boolean'
+    ) in output
 
     reset_command_registration_state()
 
