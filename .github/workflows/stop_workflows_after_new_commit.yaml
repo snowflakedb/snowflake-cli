@@ -9,7 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install npm deps
-        run: npm install @octokit/rest
+        run: |
+          npm install @octokit/rest
+          npm install @node-fetch@2
 
       - name: Cancel previous workflows
         uses: actions/github-script@v5
