@@ -6,8 +6,8 @@ import tempfile
 
 @pytest.fixture
 def git_repository(runner, test_database):
-    repo_name = "GITHUB_SNOWCLI_API_INTEGRATION"
-    integration_name = "GITHUB_SNOWCLI_API_INTEGRATION"
+    repo_name = "SNOWCLI_DUMMY_REPO"
+    integration_name = "SNOWCLI_DUMMY_REPO_API_INTEGRATION"
 
     if not _integration_exists(runner, integration_name=integration_name):
         result = runner.invoke_with_connection(
@@ -17,7 +17,7 @@ def git_repository(runner, test_database):
                 f"""
                 CREATE API INTEGRATION {integration_name}
                 API_PROVIDER = git_https_api
-                API_ALLOWED_PREFIXES = ('https://github.com/Snowflake-Labs')
+                API_ALLOWED_PREFIXES = ('https://github.com/sfc-gh-pczajka')
                 ALLOWED_AUTHENTICATION_SECRETS = ()
                 ENABLED = true
             """,
@@ -32,7 +32,7 @@ def git_repository(runner, test_database):
             f"""
             CREATE GIT REPOSITORY {repo_name}            
             API_INTEGRATION = {integration_name}
-            ORIGIN = 'https://github.com/Snowflake-Labs/snowflake-cli.git'   
+            ORIGIN = 'https://github.com/sfc-gh-pczajka/dummy-repo-for-snowcli-testing.git'   
             """,
         ]
     )
@@ -42,6 +42,9 @@ def git_repository(runner, test_database):
 
 @pytest.mark.integration
 def test_flow(runner, git_repository, snapshot):
+    TAG_NAME = "a-particular-tag"
+    BRANCH_NAME = "a-branch-which-is-different-than-main"
+
     # object list
     result = runner.invoke_with_connection_json(["object", "list", "git-repository"])
     assert result.exit_code == 0
@@ -69,11 +72,12 @@ def test_flow(runner, git_repository, snapshot):
     )
     assert result.exit_code == 0
     _assert_object_with_key_value(result.json, key="name", value="main")
+    _assert_object_with_key_value(result.json, key="name", value=BRANCH_NAME)
 
     # list tags
     result = runner.invoke_with_connection_json(["git", "list-tags", git_repository])
     assert result.exit_code == 0
-    _assert_object_with_key_value(result.json, key="name", value="v2.0.0rc2")
+    _assert_object_with_key_value(result.json, key="name", value=TAG_NAME)
 
     # list files - error messages
     result = runner.invoke_with_connection(["git", "list-files", git_repository])
@@ -108,27 +112,35 @@ def test_flow(runner, git_repository, snapshot):
         )
 
     # list-files - success
-    repository_path = f"@{git_repository}/branches/main"
+    repository_path = f"@{git_repository}/branches/{BRANCH_NAME}"
     result = runner.invoke_with_connection_json(["git", "list-files", repository_path])
     _assert_object_with_key_value(
         result.json,
         key="name",
-        value="github_snowcli_api_integration/branches/main/RELEASE-NOTES.md",
+        value=f"{repository_path[1:]}/file_only_present_on_a_different_branch.txt",
+    )
+    repository_path = f"@{git_repository}/tags/{TAG_NAME}"
+    result = runner.invoke_with_connection_json(["git", "list-files", repository_path])
+    _assert_object_with_key_value(
+        result.json,
+        key="name",
+        value=f"{repository_path[1:]}/file_only_present_on_a_particular_tag.txt",
     )
 
     # create stage for testing copy
-    stage_name = "a_perfect_stage_for_testing"
-    result = runner.invoke_with_connection(["sql", "-q", f"create stage {stage_name}"])
+    STAGE_NAME = "a_perfect_stage_for_testing"
+    result = runner.invoke_with_connection(["sql", "-q", f"create stage {STAGE_NAME}"])
+    assert result.exit_code == 0
 
     # copy - test error messages
     result = runner.invoke_with_connection(
-        ["git", "copy", git_repository, f"@{stage_name}"]
+        ["git", "copy", git_repository, f"@{STAGE_NAME}"]
     )
     assert result.output == snapshot(name="copy-not-stage-error")
     try:
         repository_path = f"@{git_repository}"
         runner.invoke_with_connection(
-            ["git", "copy", repository_path, f"@{stage_name}"]
+            ["git", "copy", repository_path, f"@{STAGE_NAME}"]
         )
     except ProgrammingError as err:
         assert (
@@ -140,7 +152,7 @@ def test_flow(runner, git_repository, snapshot):
     try:
         repository_path = f"@{git_repository}/branches/branch_which_does_not_exist"
         runner.invoke_with_connection(
-            ["git", "copy", repository_path, f"@{stage_name}"]
+            ["git", "copy", repository_path, f"@{STAGE_NAME}"]
         )
     except ProgrammingError as err:
         assert (
@@ -151,7 +163,7 @@ def test_flow(runner, git_repository, snapshot):
     try:
         repository_path = f"@{git_repository}/tags/tag_which_does_not_exist"
         runner.invoke_with_connection(
-            ["git", "copy", repository_path, f"@{stage_name}"]
+            ["git", "copy", repository_path, f"@{STAGE_NAME}"]
         )
     except ProgrammingError as err:
         assert (
@@ -160,25 +172,29 @@ def test_flow(runner, git_repository, snapshot):
         )
 
     # copy to stage - success
-    repository_path = f"@{git_repository}/branches/main"
+    repository_path = f"@{git_repository}/branches/{BRANCH_NAME}"
     result = runner.invoke_with_connection_json(
-        ["git", "copy", repository_path, f"@{stage_name}"]
+        ["git", "copy", repository_path, f"@{STAGE_NAME}"]
     )
     assert result.exit_code == 0
-    _assert_object_with_key_value(result.json, key="file", value="RELEASE-NOTES.md")
-    result = runner.invoke_with_connection_json(["object", "stage", "list", stage_name])
     _assert_object_with_key_value(
-        result.json, key="name", value=f"{stage_name}/RELEASE-NOTES.md"
+        result.json, key="file", value="file_only_present_on_a_different_branch.txt"
+    )
+    result = runner.invoke_with_connection_json(["object", "stage", "list", STAGE_NAME])
+    _assert_object_with_key_value(
+        result.json,
+        key="name",
+        value=f"{STAGE_NAME}/file_only_present_on_a_different_branch.txt",
     )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         # copy to local file system - success
-        repository_path = f"@{git_repository}/branches/main/"
+        repository_path = f"@{git_repository}/tags/{TAG_NAME}"
         result = runner.invoke_with_connection_json(
             ["git", "copy", repository_path, tmp_dir]
         )
         assert result.exit_code == 0
-        assert (Path(tmp_dir) / "RELEASE-NOTES.md").exists()
+        assert (Path(tmp_dir) / "file_only_present_on_a_particular_tag.txt").exists()
         import json
 
         print(json.dumps(result.json, indent=2))

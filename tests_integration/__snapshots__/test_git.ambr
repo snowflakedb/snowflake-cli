@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_flow[copy-not-stage-error]
+# name: test_flow[list-files-not-stage-error]
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
   │ REPOSITORY_PATH should be a path to git repository stage with scope          │
