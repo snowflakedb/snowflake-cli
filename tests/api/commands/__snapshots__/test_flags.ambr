@@ -18,3 +18,11 @@
   
   '''
 # ---
+# name: test_overrideable_option_callback_with_mutually_exclusive
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Options '--option2' and '--option1' are incompatible.                        │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---

@@ -1,4 +1,5 @@
-from unittest.mock import Mock, patch
+from unittest import mock
+from unittest.mock import Mock, create_autospec, patch
 
 import click.core
 import pytest
@@ -60,18 +61,20 @@ def test_overrideable_option_is_overrideable():
     assert modified.param_decls == original_param_decls
 
 
+_MUTEX_OPTION_1 = OverrideableOption(
+    False, "--option1", mutually_exclusive=["option_1", "option_2"]
+)
+_MUTEX_OPTION_2 = OverrideableOption(
+    False, "--option2", mutually_exclusive=["option_1", "option_2"]
+)
+
+
 @pytest.mark.parametrize("set1, set2", [(False, False), (False, True), (True, False)])
 def test_mutually_exclusive_options_no_error(set1, set2):
-    option1 = OverrideableOption(
-        False, "--option1", mutually_exclusive=["option_1, option_2"]
-    )
-    option2 = OverrideableOption(
-        False, "--option2", mutually_exclusive=["option_1, option_2"]
-    )
     app = Typer()
 
     @app.command()
-    def _(option_1: bool = option1(), option_2: bool = option2()):
+    def _(option_1: bool = _MUTEX_OPTION_1(), option_2: bool = _MUTEX_OPTION_2()):
         pass
 
     command = []
@@ -85,16 +88,10 @@ def test_mutually_exclusive_options_no_error(set1, set2):
 
 
 def test_mutually_exclusive_options_error(snapshot):
-    option1 = OverrideableOption(
-        False, "--option1", mutually_exclusive=["option_1", "option_2"]
-    )
-    option2 = OverrideableOption(
-        False, "--option2", mutually_exclusive=["option_1", "option_2"]
-    )
     app = Typer()
 
     @app.command()
-    def _(option_1: bool = option1(), option_2: bool = option2()):
+    def _(option_1: bool = _MUTEX_OPTION_1(), option_2: bool = _MUTEX_OPTION_2()):
         pass
 
     command = ["--option1", "--option2"]
@@ -172,3 +169,34 @@ def test_overrideable_option_invalid_callback_signature(callback):
     invalid_callback_option = OverrideableOption(None, "--option", callback=callback)
     with pytest.raises(OverrideableOption.InvalidCallbackSignature):
         invalid_callback_option()
+
+
+def test_overrideable_option_callback_with_mutually_exclusive(snapshot):
+    """
+    Tests that is both 'callback' and 'mutually_exclusive' are passed to OverrideableOption, both are respected. This
+    is mainly for the rare use case where you are using 'mutually_exclusive' with non-flag options.
+    """
+
+    def passthrough(value):
+        return value
+
+    mock_callback = create_autospec(passthrough)
+    app = Typer()
+
+    @app.command()
+    def _(
+        option_1: int = _MUTEX_OPTION_1(default=None, callback=mock_callback),
+        option_2: int = _MUTEX_OPTION_2(default=None, callback=mock_callback),
+    ):
+        pass
+
+    runner = CliRunner()
+
+    # test that callback is called on the option values
+    runner.invoke(app, ["--option1", "1"])
+    mock_callback.assert_has_calls([mock.call(value=1), mock.call(value=None)])
+
+    # test that we can't provide both options as non-falsey values without throwing error
+    result = runner.invoke(app, ["--option1", "1", "--option2", "2"])
+    assert result.exit_code == 1
+    assert result.output == snapshot

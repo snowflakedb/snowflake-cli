@@ -21,7 +21,7 @@ class OverrideableOption:
     specific values to be overriden.
 
     Custom parameters:
-    - mutually_exclusive (List[str]): A list of parameter names that this Option is not compatible with. If this Option has
+    - mutually_exclusive (Tuple[str]|List[str]): A list of parameter names that this Option is not compatible with. If this Option has
      a truthy value and any of the other parameters in the mutually_exclusive list has a truthy value, a
      ClickException will be thrown. Note that mutually_exclusive can contain an option's own name but does not require
      it.

@@ -61,9 +61,7 @@ class ImageRepositoryManager(SqlExecutionMixin):
             create_statement = "create image repository"
 
         try:
-            return self._execute_schema_query(
-                f"{create_statement} {name}", name=name
-            )
+            return self._execute_schema_query(f"{create_statement} {name}", name=name)
         except ProgrammingError as e:
             handle_object_already_exists(
                 e, ObjectType.IMAGE_REPOSITORY, name, replace_available=True
