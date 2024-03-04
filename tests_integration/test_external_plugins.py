@@ -138,12 +138,14 @@ enabled = {value}"""
 
     _use_config_with_value(config_value)
     result = runner.invoke_with_config(("--help,"))
-    output = "".join(result.output.splitlines())
 
+    first, second, third, *_ = result.output.splitlines()
+    assert "Error" in first, first
     assert (
-        "Invalid plugin configuration. "
-        '[multilingual-hello]: "enabled" must be a boolean'
-    ) in output
+        'Invalid plugin configuration. [multilingual-hello]: "enabled" must be a'
+        in second
+    ), second
+    assert "boolean" in third, third
 
     reset_command_registration_state()
 
