@@ -1,10 +1,6 @@
 from urllib.parse import urlparse
 
-from click import ClickException
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.project.util import (
-    is_valid_unquoted_identifier,
-)
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.spcs.common import handle_object_already_exists
 from snowflake.connector.errors import ProgrammingError
@@ -21,17 +17,13 @@ class ImageRepositoryManager(SqlExecutionMixin):
         return self._conn.role
 
     def get_repository_url(self, repo_name: str, with_scheme: bool = True):
-        if not is_valid_unquoted_identifier(repo_name):
-            raise ValueError(
-                f"repo_name '{repo_name}' is not a valid unquoted Snowflake identifier"
-            )
-        # we explicitly do not allow this function to be used without connection database and schema set
+
         repo_row = self.show_specific_object(
             "image repositories", repo_name, check_schema=True
         )
         if repo_row is None:
-            raise ClickException(
-                f"Image repository '{repo_name}' does not exist in database '{self.get_database()}' and schema '{self.get_schema()}' or not authorized."
+            raise ProgrammingError(
+                f"Image repository '{self.to_fully_qualified_name(repo_name)}' does not exist or not authorized."
             )
         if with_scheme:
             return f"https://{repo_row['repository_url']}"
@@ -53,6 +45,8 @@ class ImageRepositoryManager(SqlExecutionMixin):
 
     def create(self, name: str):
         try:
-            return self._execute_schema_query(f"create image repository {name}")
+            return self._execute_schema_query(
+                f"create image repository {name}", name=name
+            )
         except ProgrammingError as e:
             handle_object_already_exists(e, ObjectType.IMAGE_REPOSITORY, name)

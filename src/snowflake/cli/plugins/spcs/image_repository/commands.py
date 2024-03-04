@@ -22,7 +22,7 @@ app = SnowTyper(
 
 
 def _repo_name_callback(name: str):
-    if not is_valid_object_name(name, max_depth=0, allow_quoted=True):
+    if not is_valid_object_name(name, max_depth=2, allow_quoted=False):
         raise ClickException(
             f"'{name}' is not a valid image repository name. Note that image repository names must be unquoted identifiers. The same constraint also applies to database and schema names where you create an image repository."
         )
