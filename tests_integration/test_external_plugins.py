@@ -121,6 +121,27 @@ enabled = {value}"""
                 "boolean" in output[2],
             ]
         )
+        
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "config_value",
+    (
+        pytest.param("1", id="integer as boolean value"),
+        pytest.param("True", id="pythonic True as boolean"),
+    ),
+)
+def test_enabled_value_must_be_boolean_2(config_value, runner, snowflake_home):
+    config = Path(snowflake_home) / "config.toml"
+    config.write_text(f"[cli.plugins.multilingual-hello]\nenabled = {config_value}")
+
+    runner.use_config(config)
+    result = runner.invoke_with_config(("--help",))
+    first, second, third = result.output.splitlines()[:3]
+
+    assert "Error" in first, first
+    assert 'Invalid plugin configuration. [multilingual-hello]: "enabled" must be e' in second, second
+    assert "boolean" in third, third
 
 
 def _assert_that_no_error_logs(caplog):
