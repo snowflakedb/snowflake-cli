@@ -93,7 +93,10 @@ def test_loading_of_installed_plugins_if_all_plugins_enabled(
 
 @pytest.mark.integration
 def test_loading_of_installed_plugins_if_only_one_plugin_is_enabled(
-    runner, install_plugins, caplog, reset_command_registration_state
+    runner, 
+    install_plugins, 
+    caplog, 
+    reset_command_registration_state,
 ):
     runner.use_config("config_with_enabled_only_one_external_plugin.toml")
 
@@ -123,6 +126,7 @@ def test_enabled_value_must_be_boolean(
     runner, 
     snowflake_home, 
     snapshot,
+    reset_command_registration_state,
 ):
     def _use_config_with_value(value):
         config = Path(snowflake_home) / "config.toml"
@@ -136,6 +140,8 @@ enabled = {value}"""
     _use_config_with_value(config_value)
     result = runner.invoke_with_config(("--help,"))
     snapshot.assert_match(result.output)
+    
+    reset_command_registration_state()
     
 
 def _assert_that_no_error_logs(caplog):
