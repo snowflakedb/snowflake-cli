@@ -17,12 +17,8 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const fetch = require("node-fetch");
             const { Octokit } = require("@octokit/rest");
-            const octokit = new Octokit({
-              request: {
-                fetch: fetch,
-              },
+            const octokit = new Octokit(
               auth: process.env.GITHUB_TOKEN
             });
 
