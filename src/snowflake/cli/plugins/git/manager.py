@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -23,6 +25,13 @@ class GitManager(StageManager):
         if not path.endswith("/"):
             path += "/"
         return self.get_standard_stage_name(path)
+
+    def get(self, repo_path: str, target_path: Path, parallel: int) -> SnowflakeCursor:
+        return super().get(
+            stage_name=self._get_standard_stage_directory_path(repo_path),
+            dest_path=target_path,
+            parallel=parallel,
+        )
 
     def copy(self, repo_path: str, destination_path: str) -> SnowflakeCursor:
         source = self._get_standard_stage_directory_path(repo_path)

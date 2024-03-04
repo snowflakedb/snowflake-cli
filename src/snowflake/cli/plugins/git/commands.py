@@ -96,7 +96,7 @@ def copy(
     else:
         target = Path(destination_path).resolve()
         cursor = GitManager().get(
-            stage_name=repository_path, dest_path=target, parallel=parallel
+            repo_path=repository_path, target_path=target, parallel=parallel
         )
     return QueryResult(cursor)
 
