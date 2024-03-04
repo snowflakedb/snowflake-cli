@@ -4,7 +4,6 @@ from unittest import mock
 from unittest.mock import Mock
 
 import pytest
-from click import ClickException
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
     DatabaseNotProvidedError,
@@ -12,6 +11,7 @@ from snowflake.cli.api.exceptions import (
 )
 from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.errors import ProgrammingError
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
 
@@ -55,7 +55,7 @@ def test_create(
     mock_execute.return_value = cursor
     result = ImageRepositoryManager().create(name=repo_name)
     expected_query = "create image repository test_repo"
-    mock_execute.assert_called_once_with(expected_query)
+    mock_execute.assert_called_once_with(expected_query, name=repo_name)
     assert result == cursor
 
 
@@ -192,12 +192,9 @@ def test_get_repository_url_cli(mock_url, runner):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.check_database_and_schema"
-)
-@mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.show_specific_object"
 )
-def test_get_repository_url(mock_get_row, mock_check_database_and_schema):
+def test_get_repository_url(mock_get_row):
     expected_row = MOCK_ROWS_DICT[0]
     mock_get_row.return_value = expected_row
     result = ImageRepositoryManager().get_repository_url(repo_name="IMAGES")
@@ -210,12 +207,9 @@ def test_get_repository_url(mock_get_row, mock_check_database_and_schema):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.check_database_and_schema"
-)
-@mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.show_specific_object"
 )
-def test_get_repository_url_no_scheme(mock_get_row, mock_check_database_and_schema):
+def test_get_repository_url_no_scheme(mock_get_row):
     expected_row = MOCK_ROWS_DICT[0]
     mock_get_row.return_value = expected_row
     result = ImageRepositoryManager().get_repository_url(
@@ -230,25 +224,20 @@ def test_get_repository_url_no_scheme(mock_get_row, mock_check_database_and_sche
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.check_database_and_schema"
-)
-@mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
 )
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.show_specific_object"
 )
-def test_get_repository_url_no_repo_found(
-    mock_get_row, mock_conn, mock_check_database_and_schema
-):
+def test_get_repository_url_no_repo_found(mock_get_row, mock_conn):
     mock_get_row.return_value = None
     mock_conn.database = "DB"
     mock_conn.schema = "SCHEMA"
-    with pytest.raises(ClickException) as e:
+    with pytest.raises(ProgrammingError) as e:
         ImageRepositoryManager().get_repository_url(repo_name="IMAGES")
     assert (
-        e.value.message
-        == "Image repository 'IMAGES' does not exist in database 'DB' and schema 'SCHEMA' or not authorized."
+        e.value.msg
+        == "Image repository 'DB.SCHEMA.IMAGES' does not exist or not authorized."
     )
     mock_get_row.assert_called_once_with(
         "image repositories", "IMAGES", check_schema=True
@@ -258,17 +247,17 @@ def test_get_repository_url_no_repo_found(
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
 )
-def test_get_repository_url_no_database(mock_conn):
+def test_get_repository_url_no_database_provided(mock_conn):
     mock_conn.database = None
     with pytest.raises(DatabaseNotProvidedError):
-        ImageRepositoryManager().get_repository_url("test_repo")
+        ImageRepositoryManager().get_repository_url("IMAGES")
 
 
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
 )
-@mock.patch("snowflake.cli.api.sql_execution.SqlExecutionMixin.check_database_exists")
-def test_get_repository_url_no_schema(mock_check_database_exists, mock_conn):
+def test_get_repository_url_no_schema_provided(mock_conn):
+    mock_conn.database = "DB"
     mock_conn.schema = None
     with pytest.raises(SchemaNotProvidedError):
-        ImageRepositoryManager().get_repository_url("test_repo")
+        ImageRepositoryManager().get_repository_url("IMAGES")
