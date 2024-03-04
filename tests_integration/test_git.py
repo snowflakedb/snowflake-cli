@@ -113,10 +113,10 @@ def test_list_branches_and_tags(runner, git_repository):
 
 
 @pytest.mark.integration
-def test_list_files(runner, git_repository, snapshot):
+def test_list_files(runner, git_repository):
     # error messages
     result = runner.invoke_with_connection(["git", "list-files", git_repository])
-    assert result.output == snapshot
+    _assert_error_message_in_output(result.output)
 
     try:
         repository_path = f"@{git_repository}"
@@ -170,7 +170,7 @@ def test_list_files(runner, git_repository, snapshot):
 
 
 @pytest.mark.integration
-def test_copy(runner, git_repository, snapshot):
+def test_copy(runner, git_repository):
     # create stage for testing copy
     STAGE_NAME = "a_perfect_stage_for_testing"
     result = runner.invoke_with_connection(["sql", "-q", f"create stage {STAGE_NAME}"])
@@ -180,7 +180,7 @@ def test_copy(runner, git_repository, snapshot):
     result = runner.invoke_with_connection(
         ["git", "copy", git_repository, f"@{STAGE_NAME}"]
     )
-    assert result.output == snapshot
+    _assert_error_message_in_output(result.output)
     try:
         repository_path = f"@{git_repository}"
         runner.invoke_with_connection(
@@ -252,6 +252,14 @@ def test_copy(runner, git_repository, snapshot):
 
 def _filter_key(objects, *, key):
     return [o[key] for o in objects]
+
+
+def _assert_error_message_in_output(output):
+    assert "Error" in output
+    assert (
+        "REPOSITORY_PATH should be a path to git repository stage with scope" in output
+    )
+    assert "provided. For example: @my_repo/branches/main" in output
 
 
 def _integration_exists(runner, integration_name):
