@@ -17,9 +17,21 @@ def install_plugins():
     subprocess.check_call(["pip", "install", path / "snowpark_hello_single_command"])
 
 
+@pytest.fixture()
+def reset_command_registration_state():
+    def _reset_command_registration_state():
+        from snowflake.cli.app.cli_app import _commands_registration
+
+        _commands_registration.reset_running_instance_registration_state()
+
+    yield _reset_command_registration_state
+
+    _reset_command_registration_state()
+
+
 @pytest.mark.integration
 def test_loading_of_installed_plugins_if_all_plugins_enabled(
-    runner, install_plugins, caplog
+    runner, install_plugins, caplog, reset_command_registration_state
 ):
     runner.use_config("config_with_enabled_all_external_plugins.toml")
 
@@ -81,7 +93,7 @@ def test_loading_of_installed_plugins_if_all_plugins_enabled(
 
 @pytest.mark.integration
 def test_loading_of_installed_plugins_if_only_one_plugin_is_enabled(
-    runner, install_plugins, caplog
+    runner, install_plugins, caplog, reset_command_registration_state
 ):
     runner.use_config("config_with_enabled_only_one_external_plugin.toml")
 
@@ -99,7 +111,19 @@ def test_loading_of_installed_plugins_if_only_one_plugin_is_enabled(
 
 
 @pytest.mark.integration
-def test_enabled_value_must_be_boolean(runner, snowflake_home):
+@pytest.mark.parametrize(
+    "config_value",
+    (
+        pytest.param("1", id="integer as value"),
+        pytest.param('"True"', id="string as value"),
+    ),
+)
+def test_enabled_value_must_be_boolean(
+    config_value, 
+    runner, 
+    snowflake_home, 
+    snapshot,
+):
     def _use_config_with_value(value):
         config = Path(snowflake_home) / "config.toml"
         config.write_text(
@@ -109,40 +133,10 @@ enabled = {value}"""
         )
         runner.use_config(config)
 
-    for value in ["1", '"True"']:
-        _use_config_with_value(value)
-        result = runner.invoke_with_config(["--help"])
-        output = result.output.splitlines()
-        assert all(
-            [
-                "Error" in output[0],
-                'Invalid plugin configuration. [multilingual-hello]: "enabled" must be a'
-                in output[1],
-                "boolean" in output[2],
-            ]
-        )
-        
-
-@pytest.mark.integration
-@pytest.mark.parametrize(
-    "config_value",
-    (
-        pytest.param("1", id="integer as boolean value"),
-        pytest.param("True", id="pythonic True as boolean"),
-    ),
-)
-def test_enabled_value_must_be_boolean_2(config_value, runner, snowflake_home):
-    config = Path(snowflake_home) / "config.toml"
-    config.write_text(f"[cli.plugins.multilingual-hello]\nenabled = {config_value}")
-
-    runner.use_config(config)
-    result = runner.invoke_with_config(("--help",))
-    first, second, third = result.output.splitlines()[:3]
-
-    assert "Error" in first, first
-    assert 'Invalid plugin configuration. [multilingual-hello]: "enabled" must be a' in second, second
-    assert "boolean" in third, third
-
+    _use_config_with_value(config_value)
+    result = runner.invoke_with_config(("--help,"))
+    snapshot.assert_match(result.output)
+    
 
 def _assert_that_no_error_logs(caplog):
     error_logs = [

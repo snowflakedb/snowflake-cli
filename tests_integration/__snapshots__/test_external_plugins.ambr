@@ -1,0 +1,37 @@
+# serializer version: 1
+# name: test_enabled_value_must_be_boolean[integer as boolean value]
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Invalid plugin configuration. [multilingual-hello]: "enabled" must be a      │
+  │ boolean                                                                      │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_enabled_value_must_be_boolean[integer as value]
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Invalid plugin configuration. [multilingual-hello]: "enabled" must be a      │
+  │ boolean                                                                      │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_enabled_value_must_be_boolean[pythonic True as boolean]
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Invalid plugin configuration. [multilingual-hello]: "enabled" must be a      │
+  │ boolean                                                                      │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_enabled_value_must_be_boolean[string as value]
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Invalid plugin configuration. [multilingual-hello]: "enabled" must be a      │
+  │ boolean                                                                      │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
