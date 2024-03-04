@@ -20,7 +20,7 @@ jobs:
 
             const repo_owner = process.env.GITHUB_REPOSITORY.split("/")[0];
             const repo = process.env.GITHUB_REPOSITORY.split("/")[1];
-            const pull_number = process_env.GITHUB_EVENT_NUMBER;
+            const pull_number = process.env.GITHUB_EVENT_NUMBER;
 
             octokit.actions.listWorkflowRunsForRepo({
               repo_owner,
