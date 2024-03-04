@@ -1,0 +1,14 @@
+definition_version: 1
+snowpark:
+  project_name: "snowpark_vectorized"
+  stage_name: "dev_deployment"
+  src: "app/"
+  functions:
+    - name: vector_func
+      handler: "app.add_inputs"
+      signature:
+        - name: "x"
+          type: "number(10, 5)"
+        - name: "y"
+          type: "number(10, 5)"
+      returns: float

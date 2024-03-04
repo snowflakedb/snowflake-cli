@@ -1,3 +1,2 @@
 snowflake-snowpark-python
 syrupy
-requests

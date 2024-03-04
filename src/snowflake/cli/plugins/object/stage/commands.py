@@ -38,7 +38,7 @@ def copy(
         help="Source path for copy operation. Can be either stage path or local."
     ),
     destination_path: str = typer.Argument(
-        help="Target path for copy operation. Should be stage if source is local or local if source is stage.",
+        help="Target directory path for copy operation. Should be stage if source is local or local if source is stage.",
     ),
     overwrite: bool = typer.Option(
         False,
