@@ -1,0 +1,36 @@
+name: Stop older workflows after new commit is pushed
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  stop_running_workflows:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel previous workflows
+        uses: actions/github-script@v5
+        with:
+          script: |
+            const { Octokit } = require("@octokit/rest");
+            const octo = new Octokit({ auth: process.env.GITHUB_TOKEN });
+
+            const repo_owner = process.env.GITHUB_REPOSITORY.split("/")[0];
+            const repo = process.env.GITHUB_REPOSITORY.split("/")[1];
+            const pull_number = process_env.GITHUB_EVENT_NUMBER;
+
+            octokit.actions.listWorkflowRunsForRepo({
+              repo_owner,
+              repo,
+              status: "in_progress" })
+            .then( ({data}) => {
+              data.workflow_runs.forEach( run => {
+              if (run.pull_requests.some (pr => pr.number == pull_number)) {
+                octokit.actions.cancelWorkflowRun({
+                  owner,
+                  repo,
+                  run_id: run.id
+                  });
+                }
+              });
+            });
