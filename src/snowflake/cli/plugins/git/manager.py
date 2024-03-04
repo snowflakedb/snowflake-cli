@@ -38,3 +38,15 @@ class GitManager(StageManager):
         destination = self._get_standard_stage_directory_path(destination_path)
         query = f"copy files into {destination} from {source}"
         return self._execute_query(query)
+
+    def create(
+        self, repo_name: str, api_integration: str, url: str, secret: str
+    ) -> SnowflakeCursor:
+        query = (
+            f"create git repository {repo_name}"
+            f" api_integration = {api_integration}"
+            f" origin = '{url}'"
+        )
+        if secret is not None:
+            query += f" git_credentials = {secret}"
+        return self._execute_query(query)

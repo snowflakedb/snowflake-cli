@@ -101,6 +101,34 @@ def copy(
     return QueryResult(cursor)
 
 
+@app.command(
+    "setup",
+    help="Create a git repository stage.",
+    requires_connection=True,
+)
+def setup(
+    repo_name: str = RepoNameArgument,
+    api_integration: str = typer.Option(
+        ...,
+        "--api-integration",
+        "--api",
+        help="identifier of the api integration object to use",
+    ),
+    url=typer.Option(default=..., help="url to clone git repository from"),
+    secret: str = typer.Option(
+        None,
+        help="identifier of the secret to be used for authentication required when"
+        "cloning the repository. Not required for public repositories.",
+    ),
+    **options,
+):
+    return QueryResult(
+        GitManager().create(
+            repo_name=repo_name, api_integration=api_integration, url=url, secret=secret
+        )
+    )
+
+
 def _assert_repository_path_is_stage(argument_name, path):
     if not is_stage_path(path):
         raise ClickException(

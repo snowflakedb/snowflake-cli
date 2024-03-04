@@ -17,6 +17,75 @@ def test_toplevel_help(runner):
 
 
 @mock.patch("snowflake.connector.connect")
+def test_setup(mock_connector, runner, mock_ctx):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(
+        [
+            "git",
+            "setup",
+            "repo_name",
+            "--api",
+            "api_integration_name",
+            "--url",
+            "https://here.is/repo.git",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "create git repository repo_name"
+        " api_integration = api_integration_name"
+        " origin = 'https://here.is/repo.git'"
+    )
+
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(
+        [
+            "git",
+            "setup",
+            "repo_name",
+            "--api-integration",
+            "api_integration_name",
+            "--url",
+            "https://here.is/repo.git",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "create git repository repo_name"
+        " api_integration = api_integration_name"
+        " origin = 'https://here.is/repo.git'"
+    )
+
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(
+        [
+            "git",
+            "setup",
+            "repo_name",
+            "--api",
+            "api_integration_name",
+            "--url",
+            "https://here.is/repo.git",
+            "--secret",
+            "secret_name",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "create git repository repo_name"
+        " api_integration = api_integration_name"
+        " origin = 'https://here.is/repo.git'"
+        " git_credentials = secret_name"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
 def test_list_branches(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx

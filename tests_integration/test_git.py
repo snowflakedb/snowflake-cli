@@ -30,13 +30,13 @@ def git_repository(runner, test_database):
 
     result = runner.invoke_with_connection(
         [
-            "sql",
-            "-q",
-            f"""
-            CREATE GIT REPOSITORY {repo_name}            
-            API_INTEGRATION = {integration_name}
-            ORIGIN = 'https://github.com/sfc-gh-pczajka/dummy-repo-for-snowcli-testing.git'   
-            """,
+            "git",
+            "setup",
+            repo_name,
+            "--api-integration",
+            integration_name,
+            "--url",
+            "https://github.com/sfc-gh-pczajka/dummy-repo-for-snowcli-testing.git",
         ]
     )
     assert result.exit_code == 0
