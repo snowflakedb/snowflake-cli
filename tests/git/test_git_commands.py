@@ -68,10 +68,11 @@ def test_copy(mock_connector, runner, mock_ctx):
     local_path = Path("local/path")
     result = runner.invoke(["git", "copy", "@repo_name/branches/main", str(local_path)])
 
+    # paths in generated SQL should end with '/'
     assert result.exit_code == 0, result.output
     assert (
         ctx.get_query()
-        == f"get @repo_name/branches/main file://{local_path.resolve()}/ parallel=4"
+        == f"get @repo_name/branches/main/ file://{local_path.resolve()}/ parallel=4"
     )
 
     ctx = mock_ctx()
