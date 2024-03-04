@@ -8,6 +8,9 @@ jobs:
   stop_running_workflows:
     runs-on: ubuntu-latest
     steps:
+      - name: Install npm deps
+        run: npm install @octokit/rest
+
       - name: Cancel previous workflows
         uses: actions/github-script@v5
         with:
