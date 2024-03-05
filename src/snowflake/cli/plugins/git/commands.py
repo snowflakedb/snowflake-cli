@@ -91,7 +91,7 @@ def fetch(
 def copy(
     repository_path: str = RepoPathArgument,
     destination_path: str = typer.Argument(
-        help="Target path for copy operation. Should be stage or a path to a local directory.",
+        help="Target path for copy operation. Should be a path to a directory on remote stage or local file system.",
     ),
     parallel: int = typer.Option(
         4,

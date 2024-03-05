@@ -768,8 +768,9 @@
   │                                  @my_repo/branches/main                      │
   │                                  [default: None]                             │
   │                                  [required]                                  │
-  │ *    destination_path      TEXT  Target path for copy operation. Should be   │
-  │                                  stage or a path to a local directory.       │
+  │ *    destination_path      TEXT  Target path for copy operation. Should be a │
+  │                                  path to a directory on remote stage or      │
+  │                                  local file system.                          │
   │                                  [default: None]                             │
   │                                  [required]                                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
