@@ -96,6 +96,6 @@ def copy(
         if not target.exists():
             target.mkdir()
         cursor = GitManager().get(
-            stage_name=repository_path, dest_path=target.path, parallel=parallel
+            stage_path=repository_path, dest_path=target.path, parallel=parallel
         )
     return QueryResult(cursor)

@@ -34,7 +34,7 @@ def test_stage_copy_remote_to_local(mock_execute, runner, mock_cursor):
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        f"get @stageName file://{Path(tmp_dir).resolve()}/ parallel=4"
+        f"get @stageName/ file://{Path(tmp_dir).resolve()}/ parallel=4"
     )
 
 
@@ -47,7 +47,7 @@ def test_stage_copy_remote_to_local_quoted_stage(mock_execute, runner, mock_curs
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        f"get '@\"stage name\"' file://{Path(tmp_dir).resolve()}/ parallel=4"
+        f"get '@\"stage name\"/' file://{Path(tmp_dir).resolve()}/ parallel=4"
     )
 
 
@@ -80,7 +80,7 @@ def test_stage_copy_remote_to_local_quoted_uri(
             ["object", "stage", "copy", "-c", "empty", "@stageName", local_path]
         )
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with(f"get @stageName {file_uri} parallel=4")
+    mock_execute.assert_called_once_with(f"get @stageName/ {file_uri} parallel=4")
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
