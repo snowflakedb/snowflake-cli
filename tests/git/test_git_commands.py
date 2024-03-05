@@ -72,10 +72,9 @@ def test_copy_to_local_file_system(mock_connector, runner, mock_ctx, temp_dir):
 
     assert result.exit_code == 0, result.output
     assert local_path.exists()
-    # paths in generated SQL should end with '/'
     assert (
         ctx.get_query()
-        == f"get @repo_name/branches/main/ file://{local_path.resolve()}/ parallel=4"
+        == f"get @repo_name/branches/main file://{local_path.resolve()}/ parallel=4"
     )
 
 
@@ -87,11 +86,10 @@ def test_copy_to_remote_dir(mock_connector, runner, mock_ctx):
         ["git", "copy", "@repo_name/branches/main", "@stage_path/dir_in_stage"]
     )
 
-    # paths in generated SQL should end with '/'
     assert result.exit_code == 0, result.output
     assert (
         ctx.get_query()
-        == "copy files into @stage_path/dir_in_stage/ from @repo_name/branches/main/"
+        == "copy files into @stage_path/dir_in_stage/ from @repo_name/branches/main"
     )
 
 
