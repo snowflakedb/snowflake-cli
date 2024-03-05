@@ -9,7 +9,7 @@ from typing import Optional
 
 import click
 import typer
-from click import ClickException, Context
+from click import Context
 from snowflake.cli import __about__
 from snowflake.cli.api import Api, api_provider
 from snowflake.cli.api.config import config_init
@@ -30,7 +30,6 @@ from snowflake.cli.app.dev.pycharm_remote_debug import (
 from snowflake.cli.app.main_typer import SnowCliMainTyper
 from snowflake.cli.app.printing import MessageResult, print_result
 from snowflake.connector.config_manager import CONFIG_MANAGER
-from snowflake.connector.errors import ConfigSourceError
 
 log = logging.getLogger(__name__)
 
@@ -74,12 +73,7 @@ def _commands_registration_callback(value: bool):
 
 @_commands_registration.before
 def _config_init_callback(configuration_file: Optional[Path]):
-    try:
-        config_init(configuration_file)
-    except ConfigSourceError as exception:
-        raise ClickException(
-            f"Configuration file seems to be corrupted. {str(exception.__cause__)}"
-        )
+    config_init(configuration_file)
 
 
 @_commands_registration.before

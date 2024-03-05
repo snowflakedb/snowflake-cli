@@ -12,6 +12,9 @@ from snowflake.cli.api.config import (
     get_default_connection_dict,
 )
 from snowflake.cli.api.exceptions import MissingConfiguration
+from snowflake.cli.app.dev.pycharm_remote_debug import (
+    setup_pycharm_remote_debugger_if_provided,
+)
 
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
 
@@ -292,7 +295,10 @@ def test_no_error_when_init_from_non_default_config(
 @pytest.mark.parametrize(
     "content", ["[corrupted", "[connections.foo]\n[connections.foo]"]
 )
-def test_corrupted_config_raises_human_friendly_error(runner, content, snapshot):
+def test_corrupted_config_raises_human_friendly_error(
+    snowflake_home, runner, content, snapshot
+):
+    setup_pycharm_remote_debugger_if_provided("x", "localhost", 12345)
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         tmp_file.write(content)
         tmp_file.flush()

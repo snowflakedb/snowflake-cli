@@ -20,7 +20,7 @@ from snowflake.cli.api.secure_utils import file_permissions_are_strict
 from snowflake.connector.compat import IS_WINDOWS
 from snowflake.connector.config_manager import CONFIG_MANAGER
 from snowflake.connector.constants import CONFIG_FILE, CONNECTIONS_FILE
-from snowflake.connector.errors import MissingConfigOptionError
+from snowflake.connector.errors import ConfigSourceError, MissingConfigOptionError
 from tomlkit import TOMLDocument, dump
 from tomlkit.container import Container
 from tomlkit.exceptions import NonExistentKey
@@ -141,7 +141,12 @@ def _read_config_file():
                 message="Bad owner or permissions.*",
                 module="snowflake.connector.config_manager",
             )
-        CONFIG_MANAGER.read_config()
+        try:
+            CONFIG_MANAGER.read_config()
+        except ConfigSourceError as exception:
+            raise ClickException(
+                f"Configuration file seems to be corrupted. {str(exception.__cause__)}"
+            )
 
 
 def _initialise_logs_section():
