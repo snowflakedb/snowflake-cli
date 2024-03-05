@@ -5,6 +5,7 @@ import typer
 from snowflake.cli.api.commands.flags import identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, QueryResult
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.path_utils import is_stage_path
 from snowflake.cli.plugins.git.manager import GitManager
 
@@ -91,7 +92,7 @@ def copy(
             repo_path=repository_path, destination_path=destination_path
         )
     else:
-        target = Path(destination_path).resolve()
+        target = SecurePath(Path(destination_path).resolve())
         if not target.exists():
             target.mkdir()
         cursor = GitManager().get(
