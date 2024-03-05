@@ -57,7 +57,7 @@ def test_fetch(mock_connector, runner, mock_ctx):
 
 
 @mock.patch("snowflake.connector.connect")
-def test_copy(mock_connector, runner, mock_ctx, temp_dir):
+def test_copy_to_local_file_system(mock_connector, runner, mock_ctx, temp_dir):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     local_path = Path(temp_dir) / "local_dir"
@@ -71,6 +71,9 @@ def test_copy(mock_connector, runner, mock_ctx, temp_dir):
         == f"get @repo_name/branches/main file://{local_path.resolve()}/ parallel=4"
     )
 
+
+@mock.patch("snowflake.connector.connect")
+def test_copy_to_remote_dir(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     result = runner.invoke(

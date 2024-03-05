@@ -18,14 +18,3 @@ class GitManager(StageManager):
     def fetch(self, repo_name: str) -> SnowflakeCursor:
         query = f"alter git repository {repo_name} fetch"
         return self._execute_query(query)
-
-    def _get_standard_stage_directory_path(self, path):
-        if not path.endswith("/"):
-            path += "/"
-        return self.get_standard_stage_name(path)
-
-    def copy(self, repo_path: str, destination_path: str) -> SnowflakeCursor:
-        source = self._get_standard_stage_directory_path(repo_path)
-        destination = self._get_standard_stage_directory_path(destination_path)
-        query = f"copy files into {destination} from {source}"
-        return self._execute_query(query)

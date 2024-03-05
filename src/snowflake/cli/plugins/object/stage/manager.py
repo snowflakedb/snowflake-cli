@@ -27,6 +27,12 @@ class StageManager(SqlExecutionMixin):
         return f"@{name}"
 
     @staticmethod
+    def get_standard_stage_directory_path(path):
+        if not path.endswith("/"):
+            path += "/"
+        return StageManager.get_standard_stage_name(path)
+
+    @staticmethod
     def get_stage_name_from_path(path: str):
         """
         Returns stage name from potential path on stage. For example
@@ -89,6 +95,13 @@ class StageManager(SqlExecutionMixin):
                 f"auto_compress=false parallel={parallel} overwrite={overwrite}"
             )
         return cursor
+
+    def copy_files(self, source_path: str, destination_path: str) -> SnowflakeCursor:
+        source = self.get_standard_stage_directory_path(source_path)
+        destination = self.get_standard_stage_directory_path(destination_path)
+        log.info("Copying files from %s to %s", source, destination)
+        query = f"copy files into {destination} from {source}"
+        return self._execute_query(query)
 
     def remove(
         self, stage_name: str, path: str, role: Optional[str] = None

@@ -88,8 +88,8 @@ def copy(
 ):
     is_copy = is_stage_path(destination_path)
     if is_copy:
-        cursor = GitManager().copy(
-            repo_path=repository_path, destination_path=destination_path
+        cursor = GitManager().copy_files(
+            source_path=repository_path, destination_path=destination_path
         )
     else:
         target = SecurePath(Path(destination_path).resolve())
