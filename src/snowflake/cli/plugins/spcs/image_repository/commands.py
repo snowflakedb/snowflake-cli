@@ -4,6 +4,7 @@ from typing import Optional
 import requests
 import typer
 from click import ClickException
+from snowflake.cli.api.commands.flags import IfNotExistsOption, ReplaceOption
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -22,7 +23,7 @@ app = SnowTyper(
 
 
 def _repo_name_callback(name: str):
-    if not is_valid_object_name(name, max_depth=0, allow_quoted=True):
+    if not is_valid_object_name(name, max_depth=2, allow_quoted=False):
         raise ClickException(
             f"'{name}' is not a valid image repository name. Note that image repository names must be unquoted identifiers. The same constraint also applies to database and schema names where you create an image repository."
         )
@@ -38,12 +39,18 @@ REPO_NAME_ARGUMENT = typer.Argument(
 @app.command(requires_connection=True)
 def create(
     name: str = REPO_NAME_ARGUMENT,
+    replace: bool = ReplaceOption(),
+    if_not_exists: bool = IfNotExistsOption(),
     **options,
 ):
     """
     Creates a new image repository in the current schema.
     """
-    return SingleQueryResult(ImageRepositoryManager().create(name=name))
+    return SingleQueryResult(
+        ImageRepositoryManager().create(
+            name=name, replace=replace, if_not_exists=if_not_exists
+        )
+    )
 
 
 @app.command("list-images", requires_connection=True)

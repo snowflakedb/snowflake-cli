@@ -72,6 +72,7 @@ def test_create_service(mock_execute_query, other_directory):
         query_warehouse=query_warehouse,
         tags=tags,
         comment=comment,
+        if_not_exists=False,
     )
     expected_query = " ".join(
         [
@@ -120,6 +121,7 @@ def test_create_service_cli_defaults(mock_create, other_directory, runner):
         query_warehouse=None,
         tags=[],
         comment=None,
+        if_not_exists=False,
     )
 
 
@@ -155,6 +157,7 @@ def test_create_service_cli(mock_create, other_directory, runner):
             '"$trange name"=normal value',
             "--comment",
             "this is a test",
+            "--if-not-exists",
         ]
     )
     assert result.exit_code == 0, result.output
@@ -169,6 +172,7 @@ def test_create_service_cli(mock_create, other_directory, runner):
         query_warehouse="test_warehouse",
         tags=[Tag("name", "value"), Tag('"$trange name"', "normal value")],
         comment=to_string_literal("this is a test"),
+        if_not_exists=True,
     )
 
 
@@ -195,14 +199,15 @@ def test_create_service_with_invalid_spec(mock_read_yaml):
             query_warehouse=query_warehouse,
             tags=tags,
             comment=comment,
+            if_not_exists=False,
         )
 
 
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager._read_yaml")
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_query")
 @patch("snowflake.cli.plugins.spcs.services.manager.handle_object_already_exists")
-def test_create_repository_already_exists(mock_handle, mock_execute, mock_read_yaml):
-    service_name = "test_object"
+def test_create_service_already_exists(mock_handle, mock_execute, mock_read_yaml):
+    service_name = "test_service"
     compute_pool = "test_pool"
     spec_path = "/path/to/spec.yaml"
     min_instances = 42
@@ -221,10 +226,45 @@ def test_create_repository_already_exists(mock_handle, mock_execute, mock_read_y
         query_warehouse=query_warehouse,
         tags=tags,
         comment=comment,
+        if_not_exists=False,
     )
     mock_handle.assert_called_once_with(
         SPCS_OBJECT_EXISTS_ERROR, ObjectType.SERVICE, service_name
     )
+
+
+@patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_query")
+def test_create_service_if_not_exists(mock_execute_query, other_directory):
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    tmp_dir = Path(other_directory)
+    spec_path = tmp_dir / "spec.yml"
+    spec_path.write_text(SPEC_CONTENT)
+    result = ServiceManager().create(
+        service_name="test_service",
+        compute_pool="test_pool",
+        spec_path=spec_path,
+        min_instances=1,
+        max_instances=1,
+        auto_resume=True,
+        external_access_integrations=None,
+        query_warehouse=None,
+        tags=None,
+        comment=None,
+        if_not_exists=True,
+    )
+    expected_query = " ".join(
+        [
+            "CREATE SERVICE IF NOT EXISTS test_service",
+            "IN COMPUTE POOL test_pool",
+            f"FROM SPECIFICATION $$ {json.dumps(SPEC_DICT)} $$",
+            "MIN_INSTANCES = 1 MAX_INSTANCES = 1",
+            "AUTO_RESUME = True",
+        ]
+    )
+    actual_query = " ".join(mock_execute_query.mock_calls[0].args[0].split())
+    assert expected_query == actual_query
+    assert result == cursor
 
 
 @patch("snowflake.cli.plugins.spcs.services.manager.ServiceManager._execute_query")

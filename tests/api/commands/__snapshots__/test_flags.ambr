@@ -1,0 +1,28 @@
+# serializer version: 1
+# name: test_format
+  '''
+  Usage: default object stage list [OPTIONS] STAGE_NAME
+  Try 'default object stage list --help' for help.
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Invalid value for '--format': 'invalid_format' is not one of 'TABLE',        │
+  │ 'JSON'.                                                                      │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_mutually_exclusive_options_error
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Options '--option2' and '--option1' are incompatible.                        │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_overrideable_option_callback_with_mutually_exclusive
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Options '--option2' and '--option1' are incompatible.                        │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
