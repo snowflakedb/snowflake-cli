@@ -43,10 +43,26 @@ class ImageRepositoryManager(SqlExecutionMixin):
 
         return f"{scheme}://{host}/v2{path}"
 
-    def create(self, name: str):
-        try:
-            return self._execute_schema_query(
-                f"create image repository {name}", name=name
+    def create(
+        self,
+        name: str,
+        if_not_exists: bool,
+        replace: bool,
+    ):
+        if if_not_exists and replace:
+            raise ValueError(
+                "'replace' and 'if_not_exists' options are mutually exclusive for ImageRepositoryManager.create"
             )
+        elif replace:
+            create_statement = "create or replace image repository"
+        elif if_not_exists:
+            create_statement = "create image repository if not exists"
+        else:
+            create_statement = "create image repository"
+
+        try:
+            return self._execute_schema_query(f"{create_statement} {name}", name=name)
         except ProgrammingError as e:
-            handle_object_already_exists(e, ObjectType.IMAGE_REPOSITORY, name)
+            handle_object_already_exists(
+                e, ObjectType.IMAGE_REPOSITORY, name, replace_available=True
+            )

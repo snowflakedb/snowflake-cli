@@ -4,9 +4,7 @@ from typing import List, Optional
 
 import typer
 from click import ClickException
-from snowflake.cli.api.commands.flags import (
-    OverrideableOption,
-)
+from snowflake.cli.api.commands.flags import IfNotExistsOption, OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -95,6 +93,7 @@ def create(
     query_warehouse: Optional[str] = QueryWarehouseOption(),
     tags: Optional[List[Tag]] = TagOption(help="Tag for the service."),
     comment: Optional[str] = CommentOption(help=_COMMENT_HELP),
+    if_not_exists: bool = IfNotExistsOption(),
     **options,
 ) -> CommandResult:
     """
@@ -114,6 +113,7 @@ def create(
         query_warehouse=query_warehouse,
         tags=tags,
         comment=comment,
+        if_not_exists=if_not_exists,
     )
     return SingleQueryResult(cursor)
 
