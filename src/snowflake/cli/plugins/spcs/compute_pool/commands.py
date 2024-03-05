@@ -2,9 +2,7 @@ from typing import Optional
 
 import typer
 from click import ClickException
-from snowflake.cli.api.commands.flags import (
-    OverrideableOption,
-)
+from snowflake.cli.api.commands.flags import IfNotExistsOption, OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
 from snowflake.cli.api.project.util import is_valid_object_name
@@ -90,6 +88,7 @@ def create(
     ),
     auto_suspend_secs: int = AutoSuspendSecsOption(),
     comment: Optional[str] = CommentOption(help=_COMMENT_HELP),
+    if_not_exists: bool = IfNotExistsOption(),
     **options,
 ) -> CommandResult:
     """
@@ -105,6 +104,7 @@ def create(
         initially_suspended=initially_suspended,
         auto_suspend_secs=auto_suspend_secs,
         comment=comment,
+        if_not_exists=if_not_exists,
     )
     return SingleQueryResult(cursor)
 

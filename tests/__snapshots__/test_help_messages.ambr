@@ -1888,6 +1888,11 @@
   │    --comment                               TEXT             Comment for the  │
   │                                                             compute pool.    │
   │                                                             [default: None]  │
+  │    --if-not-exists                                          Only apply this  │
+  │                                                             operation if the │
+  │                                                             specified object │
+  │                                                             does not already │
+  │                                                             exist.           │
   │    --help           -h                                      Show this        │
   │                                                             message and      │
   │                                                             exit.            │
@@ -2609,7 +2614,10 @@
   │                      [required]                                              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --help  -h        Show this message and exit.                                │
+  │ --replace                  Replace this object if it already exists.         │
+  │ --if-not-exists            Only apply this operation if the specified object │
+  │                            does not already exist.                           │
+  │ --help           -h        Show this message and exit.                       │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
@@ -3160,6 +3168,11 @@
   │    --comment                               TEXT             Comment for the  │
   │                                                             service.         │
   │                                                             [default: None]  │
+  │    --if-not-exists                                          Only apply this  │
+  │                                                             operation if the │
+  │                                                             specified object │
+  │                                                             does not already │
+  │                                                             exist.           │
   │    --help           -h                                      Show this        │
   │                                                             message and      │
   │                                                             exit.            │
