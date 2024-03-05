@@ -77,7 +77,7 @@ def fetch(
 def copy(
     repository_path: str = RepoPathArgument,
     destination_path: str = typer.Argument(
-        help="Target path for copy operation. Should be stage or local file path.",
+        help="Target path for copy operation. Should be stage or a path to a local directory.",
     ),
     parallel: int = typer.Option(
         4,
@@ -92,6 +92,8 @@ def copy(
         )
     else:
         target = Path(destination_path).resolve()
+        if not target.exists():
+            target.mkdir()
         cursor = GitManager().get(
             stage_name=repository_path, dest_path=target, parallel=parallel
         )

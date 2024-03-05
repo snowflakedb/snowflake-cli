@@ -769,7 +769,7 @@
   │                                  [default: None]                             │
   │                                  [required]                                  │
   │ *    destination_path      TEXT  Target path for copy operation. Should be   │
-  │                                  stage or local file path.                   │
+  │                                  stage or a path to a local directory.       │
   │                                  [default: None]                             │
   │                                  [required]                                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
