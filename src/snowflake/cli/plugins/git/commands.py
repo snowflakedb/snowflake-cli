@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 import typer
+from click import ClickException
 from snowflake.cli.api.commands.flags import identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, QueryResult
@@ -16,9 +17,21 @@ app = SnowTyper(
 )
 log = logging.getLogger(__name__)
 
+
+def _repo_path_argument_callback(path):
+    if not is_stage_path(path):
+        raise ClickException(
+            f"REPOSITORY_PATH should be a path to git repository stage with scope provided."
+            " For example: @my_repo/branches/main"
+        )
+    return path
+
+
 RepoNameArgument = identifier_argument(sf_object="git repository", example="my_repo")
 RepoPathArgument = typer.Argument(
-    help="Path to git repository stage with scope provided. For example: @my_repo/branches/main"
+    metavar="REPOSITORY_PATH",
+    help="Path to git repository stage with scope provided. For example: @my_repo/branches/main",
+    callback=_repo_path_argument_callback,
 )
 
 

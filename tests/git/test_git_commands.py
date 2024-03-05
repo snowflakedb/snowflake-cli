@@ -46,6 +46,12 @@ def test_list_files(mock_connector, runner, mock_ctx):
     assert ctx.get_query() == "ls @repo_name/branches/main"
 
 
+def test_list_files_not_a_stage_error(runner):
+    result = runner.invoke(["git", "list-files", "repo_name/branches/main"])
+    assert result.exit_code == 1
+    _assert_error_message(result.output)
+
+
 @mock.patch("snowflake.connector.connect")
 def test_fetch(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
@@ -66,9 +72,10 @@ def test_copy_to_local_file_system(mock_connector, runner, mock_ctx, temp_dir):
 
     assert result.exit_code == 0, result.output
     assert local_path.exists()
+    # paths in generated SQL should end with '/'
     assert (
         ctx.get_query()
-        == f"get @repo_name/branches/main file://{local_path.resolve()}/ parallel=4"
+        == f"get @repo_name/branches/main/ file://{local_path.resolve()}/ parallel=4"
     )
 
 
@@ -86,3 +93,17 @@ def test_copy_to_remote_dir(mock_connector, runner, mock_ctx):
         ctx.get_query()
         == "copy files into @stage_path/dir_in_stage/ from @repo_name/branches/main/"
     )
+
+
+def test_copy_not_a_stage_error(runner):
+    result = runner.invoke(["git", "copy", "repo_name", "@stage_path/dir_in_stage"])
+    assert result.exit_code == 1
+    _assert_error_message(result.output)
+
+
+def _assert_error_message(output):
+    assert "Error" in output
+    assert (
+        "REPOSITORY_PATH should be a path to git repository stage with scope" in output
+    )
+    assert "provided. For example: @my_repo/branches/main" in output
