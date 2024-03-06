@@ -784,14 +784,15 @@ def test_create_dev_app_create_new_quoted(
             definition_version: 1
             native_app:
                 name: '"My Native Application"'
-
+            
                 source_stage:
                     app_src.stage
-
+            
                 artifacts:
                 - setup.sql
                 - app/README.md
                 - src: app/streamlit/*.py
+                  dest: ui/
 
 
                 application:

@@ -21,5 +21,5 @@ class ProjectDefinition(UpdatableModel):
         default=None,
     )
     streamlit: Optional[Streamlit] = Field(
-        title="Native app definitions for the project", default=None
+        title="Streamlit definitions for the project", default=None
     )
