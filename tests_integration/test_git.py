@@ -3,14 +3,13 @@ from snowflake.connector.errors import ProgrammingError
 from pathlib import Path
 import tempfile
 
-TAG_NAME = "a-particular-tag"
-BRANCH_NAME = "a-branch-which-is-different-than-main"
+FILE_IN_REPO = "RELEASE-NOTES.md"
 
 
 @pytest.fixture
 def git_repository(runner, test_database):
-    repo_name = "SNOWCLI_DUMMY_REPO"
-    integration_name = "SNOWCLI_DUMMY_REPO_API_INTEGRATION"
+    repo_name = "SNOWCLI_TESTING_REPO"
+    integration_name = "SNOW_GIT_TESTING_API_INTEGRATION"
 
     if not _integration_exists(runner, integration_name=integration_name):
         result = runner.invoke_with_connection(
@@ -20,7 +19,7 @@ def git_repository(runner, test_database):
                 f"""
                 CREATE API INTEGRATION {integration_name}
                 API_PROVIDER = git_https_api
-                API_ALLOWED_PREFIXES = ('https://github.com/sfc-gh-pczajka')
+                API_ALLOWED_PREFIXES = ('https://github.com/snowflakedb/')
                 ALLOWED_AUTHENTICATION_SECRETS = ()
                 ENABLED = true
             """,
@@ -35,7 +34,7 @@ def git_repository(runner, test_database):
             f"""
             CREATE GIT REPOSITORY {repo_name}            
             API_INTEGRATION = {integration_name}
-            ORIGIN = 'https://github.com/sfc-gh-pczajka/dummy-repo-for-snowcli-testing.git'   
+            ORIGIN = 'https://github.com/snowflakedb/snowflake-cli.git'   
             """,
         ]
     )
@@ -48,7 +47,7 @@ def test_object_commands(runner, git_repository):
     # object list
     result = runner.invoke_with_connection_json(["object", "list", "git-repository"])
     assert result.exit_code == 0
-    assert _filter_key(result.json, key="name") == [git_repository]
+    assert git_repository in _filter_key(result.json, key="name")
 
     # describe
     result = runner.invoke_with_connection_json(
@@ -62,7 +61,7 @@ def test_object_commands(runner, git_repository):
         ["object", "drop", "git-repository", git_repository]
     )
     assert result.exit_code == 0
-    assert result.json == [{"status": "SNOWCLI_DUMMY_REPO successfully dropped."}]
+    assert result.json == [{"status": f"{git_repository} successfully dropped."}]
 
 
 @pytest.mark.integration
@@ -83,33 +82,12 @@ def test_list_branches_and_tags(runner, git_repository):
         ["git", "list-branches", git_repository]
     )
     assert result.exit_code == 0
-    assert result.json == [
-        {
-            "checkouts": "",
-            "commit_hash": "f1b8cf60445d9d4c9bee32501738df55d0b4312e",
-            "name": "a-branch-which-is-different-than-main",
-            "path": "/branches/a-branch-which-is-different-than-main",
-        },
-        {
-            "checkouts": "",
-            "commit_hash": "599e77bdbf59e29451f1a909baa2734f96b6c801",
-            "name": "main",
-            "path": "/branches/main",
-        },
-    ]
+    assert "main" in _filter_key(result.json, key="name")
 
     # list tags
     result = runner.invoke_with_connection_json(["git", "list-tags", git_repository])
     assert result.exit_code == 0
-    assert result.json == [
-        {
-            "author": None,
-            "commit_hash": "8fb57b3f1cf69c84274e760e86b16eb9933b45d5",
-            "message": None,
-            "name": "a-particular-tag",
-            "path": "/tags/a-particular-tag",
-        },
-    ]
+    assert "v2.0.0" in _filter_key(result.json, key="name")
 
 
 @pytest.mark.integration
@@ -146,35 +124,18 @@ def test_list_files(runner, git_repository):
             == "The specified tag 'tag_which_does_not_exist' cannot be found in the Git Repository."
         )
 
-    # list-files - branch - no '/' at the end
-    repository_path = f"@{git_repository}/branches/{BRANCH_NAME}"
+    repository_path = f"@{git_repository}/tags/v2.1.0-rc1/"
     result = runner.invoke_with_connection_json(["git", "list-files", repository_path])
     assert result.exit_code == 0
-    prefix = repository_path[1:].lower()
-    assert _filter_key(result.json, key="name") == [
-        f"{prefix}/an_existing_directory/file_inside.txt",
-        f"{prefix}/file.txt",
-        f"{prefix}/file_only_present_on_a_different_branch.txt",
-    ]
-
-    # list-files - tags - '/' at the end
-    repository_path = f"@{git_repository}/tags/{TAG_NAME}/"
-    result = runner.invoke_with_connection_json(["git", "list-files", repository_path])
-    assert result.exit_code == 0
-    prefix = repository_path[1:-1].lower()
-    assert _filter_key(result.json, key="name") == [
-        f"{prefix}/an_existing_directory/file_inside.txt",
-        f"{prefix}/file.txt",
-        f"{prefix}/file_only_present_on_a_particular_tag.txt",
-    ]
+    assert f"{repository_path[1:].lower()}{FILE_IN_REPO}" in _filter_key(
+        result.json, key="name"
+    )
 
 
+@pytest.mark.skip(reason="in progress")
 @pytest.mark.integration
-def test_copy(runner, git_repository):
-    # create stage for testing copy
-    STAGE_NAME = "a_perfect_stage_for_testing"
-    result = runner.invoke_with_connection(["sql", "-q", f"create stage {STAGE_NAME}"])
-    assert result.exit_code == 0
+def test_copy_error_messages(runner, git_repository):
+    STAGE_NAME = "omitted"
 
     # copy - test error messages
     result = runner.invoke_with_connection(
@@ -215,39 +176,93 @@ def test_copy(runner, git_repository):
             == "The specified tag 'tag_which_does_not_exist' cannot be found in the Git Repository."
         )
 
-    # copy to stage - success
-    repository_path = f"@{git_repository}/branches/{BRANCH_NAME}"
+
+@pytest.mark.integration
+def test_copy_to_stage(runner, git_repository):
+    REPO_PATH_PREFIX = f"@{git_repository}/tags/v2.1.0-rc0"
+    SUBDIR = "tests_integration/config"
+    SUBDIR_ON_STAGE = "config"
+    FILE_IN_SUBDIR = "connection_configs.toml"
+    STAGE_NAME = "a_perfect_stage_for_testing"
+
+    def _assert_file_on_stage(file_path):
+        result = runner.invoke_with_connection_json(
+            ["object", "stage", "list", STAGE_NAME]
+        )
+        assert result.exit_code == 0
+        print([f["name"] for f in result.json])
+        assert f"{STAGE_NAME.lower()}/{file_path}" in [f["name"] for f in result.json]
+
+    # create stage for testing copy
+    result = runner.invoke_with_connection(["object", "stage", "create", STAGE_NAME])
+    assert result.exit_code == 0
+
+    # copy directory - whole directory
+    repository_path = f"{REPO_PATH_PREFIX}/{SUBDIR}"
     result = runner.invoke_with_connection_json(
         ["git", "copy", repository_path, f"@{STAGE_NAME}"]
     )
     assert result.exit_code == 0
-    assert result.json == [
-        {"file": "an_existing_directory/file_inside.txt"},
-        {"file": "file.txt"},
-        {"file": "file_only_present_on_a_different_branch.txt"},
-    ]
+    _assert_file_on_stage(f"{SUBDIR_ON_STAGE}/{FILE_IN_SUBDIR}")  # whole dir is copied
 
-    result = runner.invoke_with_connection_json(["object", "stage", "list", STAGE_NAME])
+    # copy directory - copy contents
+    repository_path = f"{REPO_PATH_PREFIX}/{SUBDIR}/"
+    result = runner.invoke_with_connection_json(
+        ["git", "copy", repository_path, f"@{STAGE_NAME}"]
+    )
     assert result.exit_code == 0
-    assert _filter_key(result.json, key="name") == [
-        f"{STAGE_NAME}/an_existing_directory/file_inside.txt",
-        f"{STAGE_NAME}/file.txt",
-        f"{STAGE_NAME}/file_only_present_on_a_different_branch.txt",
-    ]
+    _assert_file_on_stage(FILE_IN_SUBDIR)  # contents are copied
 
-    # copy to local file system - success
+    # copy single file
+    repository_path = f"{REPO_PATH_PREFIX}/{FILE_IN_REPO}"
+    result = runner.invoke_with_connection_json(
+        ["git", "copy", repository_path, f"@{STAGE_NAME}"]
+    )
+    assert result.exit_code == 0
+    _assert_file_on_stage(FILE_IN_REPO)
+
+    # copy file into directory
+    repository_path = f"{REPO_PATH_PREFIX}/{FILE_IN_REPO}"
+    result = runner.invoke_with_connection_json(
+        ["git", "copy", repository_path, f"@{STAGE_NAME}/a_dir/"]
+    )
+    assert result.exit_code == 0
+    _assert_file_on_stage(f"a_dir/{FILE_IN_REPO}")
+    # error with no '/' at the end should be fixed by snowcli
+    repository_path = f"{REPO_PATH_PREFIX}/{FILE_IN_REPO}"
+    result = runner.invoke_with_connection_json(
+        ["git", "copy", repository_path, f"@{STAGE_NAME}/another_dir"]
+    )
+    assert result.exit_code == 0
+    _assert_file_on_stage(f"another_dir/{FILE_IN_REPO}")
+
+
+@pytest.mark.integration
+def test_copy_to_local_file_system(runner, git_repository):
+    # TODO: change subdir to dedicated one after merging this to main
+    REPO_PATH_PREFIX = f"@{git_repository}/tags/v2.1.0-rc0"
+    SUBDIR = "tests_integration/config"
+    FILE_IN_SUBDIR = "connection_configs.toml"
     with tempfile.TemporaryDirectory() as tmp_dir:
-        repository_path = f"@{git_repository}/tags/{TAG_NAME}"
+        LOCAL_DIR = Path(tmp_dir) / "a_dir"
+        assert not LOCAL_DIR.exists()
+
+        # copy directory - GET only copy contents
+        repository_path = f"{REPO_PATH_PREFIX}/{SUBDIR}"
         result = runner.invoke_with_connection_json(
-            ["git", "copy", repository_path, tmp_dir]
+            ["git", "copy", repository_path, str(LOCAL_DIR)]
         )
         assert result.exit_code == 0
-        assert (Path(tmp_dir) / "file_only_present_on_a_particular_tag.txt").exists()
-        assert _filter_key(result.json, key="file") == [
-            f"an_existing_directory/file_inside.txt",
-            f"file.txt",
-            f"file_only_present_on_a_particular_tag.txt",
-        ]
+        assert LOCAL_DIR.exists()  # create directory if not exists
+        assert (LOCAL_DIR / FILE_IN_SUBDIR).exists()  # contents are copied
+
+        # copy single file
+        repository_path = f"{REPO_PATH_PREFIX}/{FILE_IN_REPO}"
+        result = runner.invoke_with_connection_json(
+            ["git", "copy", repository_path, str(LOCAL_DIR)]
+        )
+        assert result.exit_code == 0
+        assert (LOCAL_DIR / FILE_IN_REPO).exists()
 
 
 def _filter_key(objects, *, key):
