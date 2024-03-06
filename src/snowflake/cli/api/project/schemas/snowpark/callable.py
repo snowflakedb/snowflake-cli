@@ -49,7 +49,7 @@ class Callable(UpdatableModel):
 
     @field_validator("runtime")
     @classmethod
-    def convert_runtime(cls, runtime_input: str | float) -> str:
+    def convert_runtime(cls, runtime_input: Union[str,float]) -> str:
         if isinstance(runtime_input, float):
             return str(runtime_input)
         return runtime_input
