@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
-import click
 import typer
 from snowflake.cli.api.cli_global_context import cli_context_manager
 from snowflake.cli.api.console import cli_console
