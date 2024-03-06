@@ -31,7 +31,7 @@ class Callable(UpdatableModel):
     signature: Union[str, List[Argument]] = Field(
         title="The signature parameter describes consecutive arguments passed to the object"
     )
-    runtime: Optional[str | float] = Field(
+    runtime: Optional[Union[str, float]] = Field(
         title="Python version to use when executing ", default=None
     )
     external_access_integrations: Optional[List[str]] = Field(
