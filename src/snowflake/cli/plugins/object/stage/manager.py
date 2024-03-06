@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 from snowflake.cli.api.project.util import to_string_literal
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.utils.path_utils import path_resolver
 from snowflake.connector.cursor import SnowflakeCursor
@@ -19,12 +20,18 @@ UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
 
 class StageManager(SqlExecutionMixin):
     @staticmethod
-    def get_standard_stage_name(name: str) -> str:
+    def get_standard_stage_prefix(name: str) -> str:
         # Handle embedded stages
         if name.startswith("snow://") or name.startswith("@"):
             return name
 
         return f"@{name}"
+
+    @staticmethod
+    def get_standard_stage_directory_path(path):
+        if not path.endswith("/"):
+            path += "/"
+        return StageManager.get_standard_stage_prefix(path)
 
     @staticmethod
     def get_stage_name_from_path(path: str):
@@ -39,7 +46,7 @@ class StageManager(SqlExecutionMixin):
         if name.startswith("'") and name.endswith("'"):
             return name  # already quoted
 
-        standard_name = StageManager.get_standard_stage_name(name)
+        standard_name = StageManager.get_standard_stage_prefix(name)
         if standard_name.startswith("@") and not re.fullmatch(
             r"@([\w./$])+", standard_name
         ):
@@ -54,16 +61,24 @@ class StageManager(SqlExecutionMixin):
         return to_string_literal(uri)
 
     def list_files(self, stage_name: str) -> SnowflakeCursor:
-        stage_name = self.get_standard_stage_name(stage_name)
+        stage_name = self.get_standard_stage_prefix(stage_name)
         return self._execute_query(f"ls {self.quote_stage_name(stage_name)}")
 
+    @staticmethod
+    def _assure_is_existing_directory(path: Path) -> None:
+        spath = SecurePath(path)
+        if not spath.exists():
+            spath.mkdir()
+        spath.assert_is_directory()
+
     def get(
-        self, stage_name: str, dest_path: Path, parallel: int = 4
+        self, stage_path: str, dest_path: Path, parallel: int = 4
     ) -> SnowflakeCursor:
-        stage_name = self.get_standard_stage_name(stage_name)
+        stage_path = self.get_standard_stage_prefix(stage_path)
+        self._assure_is_existing_directory(dest_path)
         dest_directory = f"{dest_path}/"
         return self._execute_query(
-            f"get {self.quote_stage_name(stage_name)} {self._to_uri(dest_directory)} parallel={parallel}"
+            f"get {self.quote_stage_name(stage_path)} {self._to_uri(dest_directory)} parallel={parallel}"
         )
 
     def put(
@@ -81,7 +96,7 @@ class StageManager(SqlExecutionMixin):
         and switch back to the original role for the next commands to run.
         """
         with self.use_role(role) if role else nullcontext():
-            stage_path = self.get_standard_stage_name(stage_path)
+            stage_path = self.get_standard_stage_prefix(stage_path)
             local_resolved_path = path_resolver(str(local_path))
             log.info("Uploading %s to @%s", local_resolved_path, stage_path)
             cursor = self._execute_query(
@@ -89,6 +104,13 @@ class StageManager(SqlExecutionMixin):
                 f"auto_compress=false parallel={parallel} overwrite={overwrite}"
             )
         return cursor
+
+    def copy_files(self, source_path: str, destination_path: str) -> SnowflakeCursor:
+        source = self.get_standard_stage_prefix(source_path)
+        destination = self.get_standard_stage_directory_path(destination_path)
+        log.info("Copying files from %s to %s", source, destination)
+        query = f"copy files into {destination} from {source}"
+        return self._execute_query(query)
 
     def remove(
         self, stage_name: str, path: str, role: Optional[str] = None
@@ -100,7 +122,7 @@ class StageManager(SqlExecutionMixin):
         and switch back to the original role for the next commands to run.
         """
         with self.use_role(role) if role else nullcontext():
-            stage_name = self.get_standard_stage_name(stage_name)
+            stage_name = self.get_standard_stage_prefix(stage_name)
             path = path if path.startswith("/") else "/" + path
             quoted_stage_name = self.quote_stage_name(f"{stage_name}{path}")
             return self._execute_query(f"remove {quoted_stage_name}")

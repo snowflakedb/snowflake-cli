@@ -761,15 +761,20 @@
    Usage: default git copy [OPTIONS] REPOSITORY_PATH DESTINATION_PATH             
                                                                                   
    Copies all files from given state of repository to local directory or stage.   
+   If the source path ends with '/', the command copies contents of specified     
+   directory. Otherwise, it creates a new directory or file in the destination    
+   directory.                                                                     
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    repository_path       TEXT  Path to git repository stage with scope     │
-  │                                  provided. For example:                      │
-  │                                  @my_repo/branches/main                      │
+  │                                  provided. Path to the repository root must  │
+  │                                  end with '/'. For example:                  │
+  │                                  @my_repo/branches/main/                     │
   │                                  [default: None]                             │
   │                                  [required]                                  │
-  │ *    destination_path      TEXT  Target path for copy operation. Should be   │
-  │                                  stage or local file path.                   │
+  │ *    destination_path      TEXT  Target path for copy operation. Should be a │
+  │                                  path to a directory on remote stage or      │
+  │                                  local file system.                          │
   │                                  [default: None]                             │
   │                                  [required]                                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -970,8 +975,9 @@
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    repository_path      TEXT  Path to git repository stage with scope      │
-  │                                 provided. For example:                       │
-  │                                 @my_repo/branches/main                       │
+  │                                 provided. Path to the repository root must   │
+  │                                 end with '/'. For example:                   │
+  │                                 @my_repo/branches/main/                      │
   │                                 [default: None]                              │
   │                                 [required]                                   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -2249,6 +2255,11 @@
   │    --comment                               TEXT             Comment for the  │
   │                                                             compute pool.    │
   │                                                             [default: None]  │
+  │    --if-not-exists                                          Only apply this  │
+  │                                                             operation if the │
+  │                                                             specified object │
+  │                                                             does not already │
+  │                                                             exist.           │
   │    --help           -h                                      Show this        │
   │                                                             message and      │
   │                                                             exit.            │
@@ -2970,7 +2981,10 @@
   │                      [required]                                              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --help  -h        Show this message and exit.                                │
+  │ --replace                  Replace this object if it already exists.         │
+  │ --if-not-exists            Only apply this operation if the specified object │
+  │                            does not already exist.                           │
+  │ --help           -h        Show this message and exit.                       │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
@@ -3521,6 +3535,11 @@
   │    --comment                               TEXT             Comment for the  │
   │                                                             service.         │
   │                                                             [default: None]  │
+  │    --if-not-exists                                          Only apply this  │
+  │                                                             operation if the │
+  │                                                             specified object │
+  │                                                             does not already │
+  │                                                             exist.           │
   │    --help           -h                                      Show this        │
   │                                                             message and      │
   │                                                             exit.            │

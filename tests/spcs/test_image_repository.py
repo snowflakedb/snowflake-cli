@@ -4,7 +4,6 @@ from unittest import mock
 from unittest.mock import Mock
 
 import pytest
-from click import ClickException
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
     DatabaseNotProvidedError,
@@ -12,6 +11,7 @@ from snowflake.cli.api.exceptions import (
 )
 from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.errors import ProgrammingError
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
 
@@ -44,37 +44,68 @@ MOCK_ROWS_DICT = [
 ]
 
 
+@pytest.mark.parametrize(
+    "replace, if_not_exists, expected_query",
+    [
+        (False, False, "create image repository test_repo"),
+        (False, True, "create image repository if not exists test_repo"),
+        (True, False, "create or replace image repository test_repo"),
+        # (True, True) is an invalid case as OR REPLACE and IF NOT EXISTS are mutually exclusive.
+    ],
+)
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
 )
-def test_create(
-    mock_execute,
-):
+def test_create(mock_execute, replace, if_not_exists, expected_query):
     repo_name = "test_repo"
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute.return_value = cursor
-    result = ImageRepositoryManager().create(name=repo_name)
-    expected_query = "create image repository test_repo"
-    mock_execute.assert_called_once_with(expected_query)
+    result = ImageRepositoryManager().create(
+        name=repo_name, replace=replace, if_not_exists=if_not_exists
+    )
+    mock_execute.assert_called_once_with(expected_query, name=repo_name)
     assert result == cursor
+
+
+def test_create_replace_and_if_not_exist():
+    with pytest.raises(ValueError) as e:
+        ImageRepositoryManager().create(
+            name="test_repo", replace=True, if_not_exists=True
+        )
+    assert "mutually exclusive" in str(e.value)
 
 
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.create"
 )
-def test_create_cli(mock_create, mock_cursor, runner):
+def test_create_cli(mock_create, mock_cursor, runner, snapshot):
     repo_name = "test_repo"
     cursor = mock_cursor(
         rows=[[f"Image Repository {repo_name.upper()} successfully created."]],
         columns=["status"],
     )
     mock_create.return_value = cursor
-    result = runner.invoke(["spcs", "image-repository", "create", repo_name])
-    mock_create.assert_called_once_with(name=repo_name)
-    assert result.exit_code == 0, result.output
-    assert (
-        f"Image Repository {repo_name.upper()} successfully created." in result.output
+    command = ["spcs", "image-repository", "create", repo_name]
+    result = runner.invoke(command)
+    mock_create.assert_called_once_with(
+        name=repo_name, replace=False, if_not_exists=False
     )
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot
+
+
+def test_create_cli_replace_and_if_not_exists_fails(runner, snapshot):
+    command = [
+        "spcs",
+        "image-repository",
+        "create",
+        "test_repo",
+        "--replace",
+        "--if-not-exists",
+    ]
+    result = runner.invoke(command)
+    assert result.exit_code == 1
+    assert result.output == snapshot
 
 
 @mock.patch(
@@ -86,9 +117,12 @@ def test_create_cli(mock_create, mock_cursor, runner):
 def test_create_repository_already_exists(mock_handle, mock_execute):
     repo_name = "test_object"
     mock_execute.side_effect = SPCS_OBJECT_EXISTS_ERROR
-    ImageRepositoryManager().create(repo_name)
+    ImageRepositoryManager().create(repo_name, replace=False, if_not_exists=False)
     mock_handle.assert_called_once_with(
-        SPCS_OBJECT_EXISTS_ERROR, ObjectType.IMAGE_REPOSITORY, repo_name
+        SPCS_OBJECT_EXISTS_ERROR,
+        ObjectType.IMAGE_REPOSITORY,
+        repo_name,
+        replace_available=True,
     )
 
 
@@ -192,12 +226,9 @@ def test_get_repository_url_cli(mock_url, runner):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.check_database_and_schema"
-)
-@mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.show_specific_object"
 )
-def test_get_repository_url(mock_get_row, mock_check_database_and_schema):
+def test_get_repository_url(mock_get_row):
     expected_row = MOCK_ROWS_DICT[0]
     mock_get_row.return_value = expected_row
     result = ImageRepositoryManager().get_repository_url(repo_name="IMAGES")
@@ -210,12 +241,9 @@ def test_get_repository_url(mock_get_row, mock_check_database_and_schema):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.check_database_and_schema"
-)
-@mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.show_specific_object"
 )
-def test_get_repository_url_no_scheme(mock_get_row, mock_check_database_and_schema):
+def test_get_repository_url_no_scheme(mock_get_row):
     expected_row = MOCK_ROWS_DICT[0]
     mock_get_row.return_value = expected_row
     result = ImageRepositoryManager().get_repository_url(
@@ -230,25 +258,20 @@ def test_get_repository_url_no_scheme(mock_get_row, mock_check_database_and_sche
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.check_database_and_schema"
-)
-@mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
 )
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.show_specific_object"
 )
-def test_get_repository_url_no_repo_found(
-    mock_get_row, mock_conn, mock_check_database_and_schema
-):
+def test_get_repository_url_no_repo_found(mock_get_row, mock_conn):
     mock_get_row.return_value = None
     mock_conn.database = "DB"
     mock_conn.schema = "SCHEMA"
-    with pytest.raises(ClickException) as e:
+    with pytest.raises(ProgrammingError) as e:
         ImageRepositoryManager().get_repository_url(repo_name="IMAGES")
     assert (
-        e.value.message
-        == "Image repository 'IMAGES' does not exist in database 'DB' and schema 'SCHEMA' or not authorized."
+        e.value.msg
+        == "Image repository 'DB.SCHEMA.IMAGES' does not exist or not authorized."
     )
     mock_get_row.assert_called_once_with(
         "image repositories", "IMAGES", check_schema=True
@@ -258,17 +281,17 @@ def test_get_repository_url_no_repo_found(
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
 )
-def test_get_repository_url_no_database(mock_conn):
+def test_get_repository_url_no_database_provided(mock_conn):
     mock_conn.database = None
     with pytest.raises(DatabaseNotProvidedError):
-        ImageRepositoryManager().get_repository_url("test_repo")
+        ImageRepositoryManager().get_repository_url("IMAGES")
 
 
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
 )
-@mock.patch("snowflake.cli.api.sql_execution.SqlExecutionMixin.check_database_exists")
-def test_get_repository_url_no_schema(mock_check_database_exists, mock_conn):
+def test_get_repository_url_no_schema_provided(mock_conn):
+    mock_conn.database = "DB"
     mock_conn.schema = None
     with pytest.raises(SchemaNotProvidedError):
-        ImageRepositoryManager().get_repository_url("test_repo")
+        ImageRepositoryManager().get_repository_url("IMAGES")

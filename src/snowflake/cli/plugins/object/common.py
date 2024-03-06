@@ -4,8 +4,7 @@ from typing import Optional
 from click import ClickException
 from snowflake.cli.api.commands.flags import OverrideableOption
 from snowflake.cli.api.project.util import (
-    QUOTED_IDENTIFIER_REGEX,
-    UNQUOTED_IDENTIFIER_REGEX,
+    VALID_IDENTIFIER_REGEX,
     is_valid_identifier,
     to_string_literal,
 )
@@ -34,11 +33,9 @@ class TagError(ClickException):
 def _parse_tag(tag: str) -> Tag:
     import re
 
-    identifier_pattern = re.compile(
-        f"(?P<tag_name>{UNQUOTED_IDENTIFIER_REGEX}|{QUOTED_IDENTIFIER_REGEX})"
-    )
-    value_pattern = re.compile(f"(?P<tag_value>.+)")
-    result = re.fullmatch(f"{identifier_pattern.pattern}={value_pattern.pattern}", tag)
+    identifier_pattern = rf"(?P<tag_name>{VALID_IDENTIFIER_REGEX})"
+    value_pattern = r"(?P<tag_value>.+)"
+    result = re.fullmatch(rf"{identifier_pattern}={value_pattern}", tag)
     if result is not None:
         try:
             return Tag(result.group("tag_name"), result.group("tag_value"))

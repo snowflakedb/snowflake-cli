@@ -69,7 +69,7 @@ def copy(
     if is_get:
         target = Path(destination_path).resolve()
         cursor = StageManager().get(
-            stage_name=source_path, dest_path=target, parallel=parallel
+            stage_path=source_path, dest_path=target, parallel=parallel
         )
     else:
         source = Path(source_path).resolve()
