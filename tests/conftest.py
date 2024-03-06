@@ -11,7 +11,6 @@ from snowflake.cli.api.config import config_init
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import QueryResult
 from snowflake.cli.app import loggers
-from snowflake.cli.app.cli_app import app
 
 pytest_plugins = ["tests.testing_utils.fixtures", "tests.project.fixtures"]
 
@@ -72,7 +71,9 @@ def make_mock_cursor(mock_cursor):
 
 
 @pytest.fixture(name="faker_app")
-def make_faker_app(_create_mock_cursor):
+def make_faker_app(runner, _create_mock_cursor):
+    app = runner.app
+
     @app.command("Faker")
     @with_output
     @global_options

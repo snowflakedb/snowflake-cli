@@ -27,11 +27,14 @@ class ServiceManager(SqlExecutionMixin):
         query_warehouse: Optional[str],
         tags: Optional[List[Tag]],
         comment: Optional[str],
+        if_not_exists: bool,
     ) -> SnowflakeCursor:
         spec = self._read_yaml(spec_path)
-
+        create_statement = "CREATE SERVICE"
+        if if_not_exists:
+            create_statement = f"{create_statement} IF NOT EXISTS"
         query = f"""\
-            CREATE SERVICE {service_name}
+            {create_statement} {service_name}
             IN COMPUTE POOL {compute_pool}
             FROM SPECIFICATION $$
             {spec}

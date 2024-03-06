@@ -5,9 +5,8 @@ from contextlib import contextmanager
 from functools import cached_property
 from io import StringIO
 from textwrap import dedent
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Tuple
 
-from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.exceptions import (
     DatabaseNotProvidedError,
@@ -19,6 +18,7 @@ from snowflake.cli.api.project.util import (
     unquote_identifier,
 )
 from snowflake.cli.api.utils.cursor import find_first_row
+from snowflake.cli.api.utils.naming_utils import from_qualified_name
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -82,44 +82,27 @@ class SqlExecutionMixin:
             if is_different_role:
                 self._execute_query(f"use role {prev_role}")
 
-    def _execute_schema_query(self, query: str, **kwargs):
-        self.check_database_and_schema()
+    def _execute_schema_query(self, query: str, name: Optional[str] = None, **kwargs):
+        """
+        Check that a database and schema are provided before executing the query. Useful for operating on schema level objects.
+        """
+        self.check_database_and_schema_provided(name)
         return self._execute_query(query, **kwargs)
 
-    def check_database_and_schema(self) -> None:
+    def check_database_and_schema_provided(self, name: Optional[str] = None) -> None:
         """
-        Checks if the connection database and schema are set and that they actually exist in Snowflake.
+        Checks if a database and schema are provided, either through the connection context or a qualified name.
         """
-        self.check_schema_exists(self._conn.database, self._conn.schema)
-
-    def check_database_exists(self, database: str) -> None:
-        """
-        Checks that database is provided and that it is a valid database in
-        Snowflake. Note that this could fail for a variety of reasons,
-        including not authorized to use database, database doesn't exist,
-        database is not a valid identifier, and more.
-        """
+        if name:
+            _, schema, database = from_qualified_name(name)
+        else:
+            schema, database = None, None
+        schema = schema or self._conn.schema
+        database = database or self._conn.database
         if not database:
             raise DatabaseNotProvidedError()
-        try:
-            self._execute_query(f"USE DATABASE {database}")
-        except ProgrammingError as e:
-            raise ClickException(f"Exception occurred: {e}.") from e
-
-    def check_schema_exists(self, database: str, schema: str) -> None:
-        """
-        Checks that schema is provided and that it is a valid schema in Snowflake.
-        Note that this could fail for a variety of reasons,
-        including not authorized to use schema, schema doesn't exist,
-        schema is not a valid identifier, and more.
-        """
-        self.check_database_exists(database)
         if not schema:
             raise SchemaNotProvidedError()
-        try:
-            self._execute_query(f"USE {database}.{schema}")
-        except ProgrammingError as e:
-            raise ClickException(f"Exception occurred: {e}.") from e
 
     def to_fully_qualified_name(
         self, name: str, database: Optional[str] = None, schema: Optional[str] = None
@@ -131,9 +114,7 @@ class SqlExecutionMixin:
 
         if not database:
             if not self._conn.database:
-                raise ClickException(
-                    "Default database not specified in connection details."
-                )
+                raise DatabaseNotProvidedError()
             database = self._conn.database
 
         if len(current_parts) == 2:
@@ -150,29 +131,65 @@ class SqlExecutionMixin:
         Returns name of the object from the fully-qualified name.
         Assumes that [name] is in format [[database.]schema.]name
         """
-        return name.split(".")[-1]
+        return from_qualified_name(name)[0]
+
+    @staticmethod
+    def _qualified_name_to_in_clause(name: str) -> Tuple[str, Optional[str]]:
+        unqualified_name, schema, database = from_qualified_name(name)
+        if database:
+            in_clause = f"in schema {database}.{schema}"
+        elif schema:
+            in_clause = f"in schema {schema}"
+        else:
+            in_clause = None
+        return unqualified_name, in_clause
+
+    class InClauseWithQualifiedNameError(ValueError):
+        def __init__(self):
+            super().__init__("non-empty 'in_clause' passed with qualified 'name'")
 
     def show_specific_object(
         self,
         object_type_plural: str,
-        unqualified_name: str,
+        name: str,
         name_col: str = "name",
         in_clause: str = "",
         check_schema: bool = False,
     ) -> Optional[dict]:
         """
         Executes a "show <objects> like" query for a particular entity with a
-        given (unqualified) name. This command is useful when the corresponding
+        given (optionally qualified) name. This command is useful when the corresponding
         "describe <object>" query does not provide the information you seek.
+
+        Note that this command is analogous to describe and should only return a single row.
+        If the target object type is a schema level object, then check_schema should be set to True
+        so that the function will verify that a database and schema are provided, either through
+        the connection or a qualified name, before executing the query.
         """
-        if check_schema:
-            self.check_database_and_schema()
+
+        unqualified_name, name_in_clause = self._qualified_name_to_in_clause(name)
+        if in_clause and name_in_clause:
+            raise self.InClauseWithQualifiedNameError()
+        elif name_in_clause:
+            in_clause = name_in_clause
         show_obj_query = f"show {object_type_plural} like {identifier_to_show_like_pattern(unqualified_name)} {in_clause}".strip()
-        show_obj_cursor = self._execute_query(  # type: ignore
-            show_obj_query, cursor_class=DictCursor
-        )
+
+        if check_schema:
+            show_obj_cursor = self._execute_schema_query(  # type: ignore
+                show_obj_query, name=name, cursor_class=DictCursor
+            )
+        else:
+            show_obj_cursor = self._execute_query(  # type: ignore
+                show_obj_query, cursor_class=DictCursor
+            )
+
         if show_obj_cursor.rowcount is None:
             raise SnowflakeSQLExecutionError(show_obj_query)
+        elif show_obj_cursor.rowcount > 1:
+            raise ProgrammingError(
+                f"Received multiple rows from result of SQL statement: {show_obj_query}. Usage of 'show_specific_object' may not be properly scoped."
+            )
+
         show_obj_row = find_first_row(
             show_obj_cursor,
             lambda row: row[name_col] == unquote_identifier(unqualified_name),
