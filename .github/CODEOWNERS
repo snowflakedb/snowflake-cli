@@ -1,10 +1,10 @@
 * @sfc-gh-turbaszek @sfc-gh-pjob @sfc-gh-jsikorski @sfc-gh-astus @sfc-gh-mraba @sfc-gh-pczajka
 
 # Native Apps Owners
-src/snowflake/cli/plugins/nativeapp/ @sfc-gh-bgoel @sfc-gh-cgorrie @sfc-gh-bdufour @sfc-gh-melnacouzi
-tests/nativeapp/ @sfc-gh-bgoel @sfc-gh-cgorrie @sfc-gh-bdufour @sfc-gh-melnacouzi
-tests_integration/test_nativeapp.py @sfc-gh-bgoel @sfc-gh-cgorrie @sfc-gh-bdufour @sfc-gh-melnacouzi
+src/snowflake/cli/plugins/nativeapp/ @snowflakedb/nade
+tests/nativeapp/ @sfc-gh-bgoel @snowflakedb/nade
+tests_integration/test_nativeapp.py @snowflakedb/nade
 
 # Project Definition Owners
-src/snowflake/cli/api/project/schemas/native_app.py @sfc-gh-bgoel @sfc-gh-cgorrie @sfc-gh-bdufour @sfc-gh-melnacouzi
-tests/project/ @sfc-gh-turbaszek @sfc-gh-pjob @sfc-gh-jsikorski @sfc-gh-astus @sfc-gh-mraba @sfc-gh-pczajka @sfc-gh-bgoel @sfc-gh-cgorrie @sfc-gh-bdufour @sfc-gh-melnacouzi
+src/snowflake/cli/api/project/schemas/native_app.py @snowflakedb/nade
+tests/project/ @sfc-gh-turbaszek @sfc-gh-pjob @sfc-gh-jsikorski @sfc-gh-astus @sfc-gh-mraba @sfc-gh-pczajka @snowflakedb/nade
