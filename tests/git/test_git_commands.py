@@ -49,7 +49,7 @@ def test_list_files(mock_connector, runner, mock_ctx):
 def test_list_files_not_a_stage_error(runner):
     result = runner.invoke(["git", "list-files", "repo_name/branches/main"])
     assert result.exit_code == 1
-    _assert_error_message(result.output)
+    _assert_invalid_repo_path_error_message(result.output)
 
 
 @mock.patch("snowflake.connector.connect")
@@ -96,10 +96,10 @@ def test_copy_to_remote_dir(mock_connector, runner, mock_ctx):
 def test_copy_not_a_stage_error(runner):
     result = runner.invoke(["git", "copy", "repo_name", "@stage_path/dir_in_stage"])
     assert result.exit_code == 1
-    _assert_error_message(result.output)
+    _assert_invalid_repo_path_error_message(result.output)
 
 
-def _assert_error_message(output):
+def _assert_invalid_repo_path_error_message(output):
     assert "Error" in output
     assert (
         "REPOSITORY_PATH should be a path to git repository stage with scope" in output
