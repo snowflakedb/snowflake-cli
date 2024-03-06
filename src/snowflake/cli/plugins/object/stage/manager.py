@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 from snowflake.cli.api.project.util import to_string_literal
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.utils.path_utils import path_resolver
 from snowflake.connector.cursor import SnowflakeCursor
@@ -63,10 +64,18 @@ class StageManager(SqlExecutionMixin):
         stage_name = self.get_standard_stage_prefix(stage_name)
         return self._execute_query(f"ls {self.quote_stage_name(stage_name)}")
 
+    @staticmethod
+    def _assure_is_existing_directory(path: Path) -> None:
+        spath = SecurePath(path)
+        if not spath.exists():
+            spath.mkdir()
+        spath.assert_is_directory()
+
     def get(
         self, stage_path: str, dest_path: Path, parallel: int = 4
     ) -> SnowflakeCursor:
         stage_path = self.get_standard_stage_prefix(stage_path)
+        self._assure_is_existing_directory(dest_path)
         dest_directory = f"{dest_path}/"
         return self._execute_query(
             f"get {self.quote_stage_name(stage_path)} {self._to_uri(dest_directory)} parallel={parallel}"
