@@ -104,4 +104,4 @@ def _assert_invalid_repo_path_error_message(output):
     assert (
         "REPOSITORY_PATH should be a path to git repository stage with scope" in output
     )
-    assert "provided. For example: @my_repo/branches/main" in output
+    assert "provided. For example: @my_repo/branches/main/" in output
