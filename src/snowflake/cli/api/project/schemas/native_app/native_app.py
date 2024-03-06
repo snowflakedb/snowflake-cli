@@ -6,7 +6,7 @@ from typing import List, Optional, Union
 from pydantic import Field, field_validator
 from snowflake.cli.api.project.schemas.native_app.application import Application
 from snowflake.cli.api.project.schemas.native_app.package import Package
-from snowflake.cli.api.project.schemas.native_app.path_maping import PathMapping
+from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.project.util import (
     SCHEMA_AND_NAME,

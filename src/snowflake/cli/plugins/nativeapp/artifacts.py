@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple, Union
 import strictyaml
 from click import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
-from snowflake.cli.api.project.schemas.native_app.path_maping import PathMapping
+from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 
 
