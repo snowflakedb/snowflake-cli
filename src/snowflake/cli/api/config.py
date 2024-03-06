@@ -14,6 +14,7 @@ from snowflake.cli.api.exceptions import (
 )
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.secure_utils import file_permissions_are_strict
+from snowflake.connector.compat import IS_WINDOWS
 from snowflake.connector.config_manager import CONFIG_MANAGER
 from snowflake.connector.constants import CONFIG_FILE, CONNECTIONS_FILE
 from snowflake.connector.errors import MissingConfigOptionError
@@ -206,6 +207,8 @@ def _dump_config(conf_file_cache: Dict):
 
 
 def _check_default_config_files_permissions() -> None:
+    if IS_WINDOWS:
+        return
     if CONNECTIONS_FILE.exists() and not file_permissions_are_strict(CONNECTIONS_FILE):
         raise ConfigFileTooWidePermissionsError(CONNECTIONS_FILE)
     if CONFIG_FILE.exists() and not file_permissions_are_strict(CONFIG_FILE):
