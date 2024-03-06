@@ -10,7 +10,7 @@ from snowflake.cli.api.config import (
 from snowflake.cli.api.exceptions import InvalidLogsConfiguration
 from snowflake.cli.api.secure_path import SecurePath
 
-_DEFAULT_LOG_FILENAME = "snowcli.log"
+_DEFAULT_LOG_FILENAME = "snowflake-cli.log"
 
 
 @dataclass

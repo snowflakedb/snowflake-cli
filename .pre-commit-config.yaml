@@ -25,3 +25,32 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [types-all]
+  - repo: local
+    hooks:
+      - id: check-print-in-code
+        language: pygrep
+        name: "Check for print statements"
+        entry: "print\\(|echo\\("
+        pass_filenames: true
+        files: ^src/snowflake/.*\.py$
+        exclude: >
+          (?x)
+          ^src/snowflake/cli/api/console/.*$|
+          ^src/snowflake/cli/app/printing.py$|
+          ^src/snowflake/cli/app/dev/.*$|
+          ^src/snowflake/cli/templates/.*$|
+          ^src/snowflake/cli/api/utils/rendering.py$|
+          ^src/snowflake/cli/plugins/spcs/common.py$
+      - id: check-app-imports-in-api
+        language: pygrep
+        name: "No top level cli.app imports in cli.api"
+        entry: "^from snowflake\\.cli\\.app"
+        pass_filenames: true
+        files: ^src/snowflake/cli/api/.*\.py$
+      - id: avoid-snowcli
+        language: pygrep
+        name: "Prefer snowflake CLI over snowcli"
+        entry: "snowcli"
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^src/snowflake/cli/app/telemetry.py$
