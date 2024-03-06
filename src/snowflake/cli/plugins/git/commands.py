@@ -127,11 +127,3 @@ def copy(
             parallel=parallel,
         )
     return QueryResult(cursor)
-
-
-def _assert_repository_path_is_stage(argument_name, path):
-    if not is_stage_path(path):
-        raise ClickException(
-            f"{argument_name} should be a path to git repository stage with scope provided."
-            " For example: @my_repo/branches/main"
-        )
