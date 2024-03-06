@@ -4,11 +4,11 @@ from unittest import mock
 from unittest.mock import PropertyMock
 
 import pytest
-from pydantic import ValidationError
 from snowflake.cli.api.project.definition import (
     generate_local_override_yml,
     load_project_definition,
 )
+from snowflake.cli.api.project.errors import SchemaValidationError
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
@@ -56,12 +56,12 @@ def test_na_minimal_project(project_definition_files: List[Path]):
 
 @pytest.mark.parametrize("project_definition_files", ["underspecified"], indirect=True)
 def test_underspecified_project(project_definition_files):
-    with pytest.raises(ValidationError) as exc_info:
+    with pytest.raises(SchemaValidationError) as exc_info:
         load_project_definition(project_definition_files)
 
-    assert (
-        "Field required [type=missing, input_value={'name': 'underspecified'}, input_type=dict]"
-        in str(exc_info.value)
+    assert "NativeApp schema" in str(exc_info)
+    assert "Your project definition is missing following fields: ('artifacts',)" in str(
+        exc_info.value
     )
 
 
@@ -69,15 +69,23 @@ def test_underspecified_project(project_definition_files):
     "project_definition_files", ["no_definition_version"], indirect=True
 )
 def test_fails_without_definition_version(project_definition_files):
-    with pytest.raises(ValidationError) as exc_info:
+    with pytest.raises(SchemaValidationError) as exc_info:
         load_project_definition(project_definition_files)
 
-    assert "definition_version" in str(exc_info.value)
+    assert "ProjectDefinition" in str(exc_info)
+    assert (
+        "Your project definition is missing following fields: ('definition_version',)"
+        in str(exc_info.value)
+    )
 
 
 @pytest.mark.parametrize("project_definition_files", ["unknown_fields"], indirect=True)
 def test_does_not_accept_unknown_fields(project_definition_files):
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(SchemaValidationError) as exc_info:
         project = load_project_definition(project_definition_files)
 
-    assert "Extra inputs are not permitted [type=extra_forbidden" in e.value.__str__()
+    assert "NativeApp schema" in str(exc_info)
+    assert (
+        "You provided field '('unknown_fields_accepted',)' with value 'true' that is not present in the schema"
+        in str(exc_info)
+    )
