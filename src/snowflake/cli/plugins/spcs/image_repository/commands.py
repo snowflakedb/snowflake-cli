@@ -5,6 +5,7 @@ import requests
 import typer
 from click import ClickException
 from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import (
     CollectionResult,
     MessageResult,
@@ -118,7 +119,7 @@ def list_tags(
         )
 
         if response.status_code != 200:
-            print("Call to the registry failed", response.text)
+            cli_console.warning(f"Call to the registry failed {response.text}")
 
         data = json.loads(response.text)
         if "tags" in data:

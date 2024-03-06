@@ -28,7 +28,7 @@ from snowflake.cli.app.dev.pycharm_remote_debug import (
     setup_pycharm_remote_debugger_if_provided,
 )
 from snowflake.cli.app.main_typer import SnowCliMainTyper
-from snowflake.cli.app.printing import print_result
+from snowflake.cli.app.printing import MessageResult, print_result
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
 app: SnowCliMainTyper = SnowCliMainTyper()
@@ -104,7 +104,7 @@ def _commands_structure_callback(value: bool):
 @_do_not_execute_on_completion
 def _version_callback(value: bool):
     if value:
-        typer.echo(f"Snowflake CLI version: {__about__.VERSION}")
+        print_result(MessageResult(f"Snowflake CLI version: {__about__.VERSION}"))
         _exit_with_cleanup()
 
 

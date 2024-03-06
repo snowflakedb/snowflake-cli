@@ -116,7 +116,7 @@ def deploy(
     stage_manager = StageManager()
     stage_name = stage_manager.to_fully_qualified_name(stage_name)
     stage_manager.create(
-        stage_name=stage_name, comment="deployments managed by snowcli"
+        stage_name=stage_name, comment="deployments managed by Snowflake CLI"
     )
 
     packages = get_snowflake_packages()
