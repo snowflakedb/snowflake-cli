@@ -7,9 +7,12 @@ from click import ClickException
 from snowflake.cli.api.commands.flags import identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.console.console import cli_console
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import CommandResult, QueryResult
 from snowflake.cli.api.utils.path_utils import is_stage_path
 from snowflake.cli.plugins.git.manager import GitManager
+from snowflake.cli.plugins.object.manager import ObjectManager
+from snowflake.connector import ProgrammingError
 
 app = SnowTyper(
     name="git",
@@ -61,7 +64,15 @@ def setup(
     manager = GitManager()
 
     def _assure_repository_does_not_exist() -> None:
-        pass
+        om = ObjectManager()
+        try:
+            om.describe(
+                object_type=ObjectType.GIT_REPOSITORY.value.cli_name,
+                name=repository_name,
+            )
+            raise ClickException(f"Repository '{repository_name}' already exists")
+        except ProgrammingError:
+            pass
 
     def _get_secret() -> Optional[str]:
         secret_needed = typer.confirm("Use secret for authentication?")
