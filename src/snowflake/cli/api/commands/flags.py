@@ -7,6 +7,7 @@ import click
 import typer
 from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context_manager
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.formats import OutputFormat
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
@@ -172,7 +173,7 @@ PLAIN_PASSWORD_MSG = "WARNING! Using --password via the CLI is insecure. Use env
 
 def _password_callback(value: str):
     if value:
-        click.echo(PLAIN_PASSWORD_MSG)
+        cli_console.message(PLAIN_PASSWORD_MSG)
 
     return _callback(lambda: cli_context_manager.connection_context.set_password)(value)
 
@@ -280,6 +281,7 @@ SilentOption = typer.Option(
     callback=_callback(lambda: cli_context_manager.set_silent),
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
+    is_eager=True,
 )
 
 VerboseOption = typer.Option(
