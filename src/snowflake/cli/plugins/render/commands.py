@@ -8,7 +8,7 @@ import typer
 from snowflake.cli.api import secure_path
 from snowflake.cli.api.commands.decorators import global_options
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
-from snowflake.cli.api.utils.rendering import generic_render_template
+from snowflake.cli.api.utils.rendering import jinja_render_from_file
 
 app = typer.Typer(context_settings=DEFAULT_CONTEXT_SETTINGS, hidden=True, name="render")
 
@@ -71,6 +71,6 @@ def render_template(
             key, value = _parse_key_value(key_value_str)
             data[key] = value
 
-    generic_render_template(
+    jinja_render_from_file(
         template_path=template_path, data=data, output_file_path=output_file_path
     )

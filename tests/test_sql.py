@@ -270,3 +270,19 @@ def test_show_specific_object_multiple_rows(mock_execute_query):
 def test_use_command(mock_execute_query, _object):
     SqlExecutionMixin().use(object_type=_object, name="foo_name")
     mock_execute_query.assert_called_once_with(f"use {_object.value.sf_name} foo_name")
+
+
+@mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
+def test_rendering_of_sql(mock_execute_query, runner):
+    result = runner.invoke(
+        ["sql", "-q", "select %{ aaa }.%{ bbb }", "-D", "aaa=foo", "-D", "bbb=bar"]
+    )
+    assert result.exit_code == 0, result.output
+    mock_execute_query.assert_called_once_with("select foo.bar")
+
+
+@mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
+def test_no_rendering_of_sql_if_no_data(mock_execute_query, runner):
+    result = runner.invoke(["sql", "-q", "select %{ aaa }.%{ bbb }"])
+    assert result.exit_code == 0, result.output
+    mock_execute_query.assert_called_once_with("select %{ aaa }.%{ bbb }")
