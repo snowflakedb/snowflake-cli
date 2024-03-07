@@ -11,7 +11,9 @@ from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 
 class ProjectDefinition(UpdatableModel):
     definition_version: int = Field(
-        title="Version of the project definition schema, which is currently 1"
+        title="Version of the project definition schema, which is currently 1",
+        ge=1,
+        le=1,
     )
     native_app: Optional[NativeApp] = Field(
         title="Native app definitions for the project", default=None

@@ -19,7 +19,7 @@ class Package(UpdatableModel):
         default=None,
     )
     name: Optional[str] = IdentifierField(
-        title="Name of the application created when you run the snow app run command",  # TODO: this description seems duplicated, is it ok?
+        title="Name of the application package created when you run the snow app run command",
         default=None,
     )
     warehouse: Optional[str] = IdentifierField(
@@ -35,6 +35,6 @@ class Package(UpdatableModel):
     def validate_scripts(cls, input_list):
         if len(input_list) != len(set(input_list)):
             raise ValueError(
-                "Scripts field should contain unique values. Check the list for duplicates and try again"
+                "package.scripts field should contain unique values. Check the list for duplicates and try again"
             )
         return input_list
