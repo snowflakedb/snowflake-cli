@@ -33,7 +33,7 @@ PIP_PATH = os.environ.get("SNOWCLI_PIP_PATH", "pip")
 def parse_requirements(
     requirements_file: str = "requirements.txt",
 ) -> List[Requirement]:
-    """Reads and parses a python requirements.txt file.
+    """Reads and parses a Python requirements.txt file.
 
     Args:
         requirements_file (str, optional): The name of the file.
@@ -99,7 +99,7 @@ def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
         elif check_if_package_is_avaiable_in_conda(package, channel_data["packages"]):
             result.snowflake.append(package)
         else:
-            log.info("'%s' not found in Snowflake anaconda channel...", package.name)
+            log.info("'%s' not found in Snowflake Anaconda channel...", package.name)
             result.other.append(package)
     return result
 
@@ -127,7 +127,7 @@ def install_packages(
     Returns a tuple of:
     1) a boolean indicating whether the installation was successful
     2) a SplitRequirements object containing any installed dependencies
-    which are available on the Snowflake anaconda channel. These will have
+    which are available on the Snowflake Anaconda channel. These will have
     been deleted from the local packages folder.
     """
     with Venv() as v:

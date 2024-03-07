@@ -12,6 +12,7 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.flags import (
+    ReplaceOption,
     execution_identifier_argument,
 )
 from snowflake.cli.api.commands.project_initialisation import add_init_command
@@ -50,24 +51,20 @@ app = SnowTyper(
     help="Manages procedures and functions.",
 )
 
-ReplaceOption = typer.Option(
-    False,
-    "--replace",
-    help="Replaces procedure or function, even if no detected changes to metadata",
-)
-
 ObjectTypeArgument = typer.Argument(
-    help="Type of snowpark object",
+    help="Type of Snowpark object",
     case_sensitive=False,
 )
 
-add_init_command(app, project_type="snowpark", template="default_snowpark")
+add_init_command(app, project_type="Snowpark", template="default_snowpark")
 
 
 @app.command("deploy", requires_connection=True)
 @with_project_definition("snowpark")
 def deploy(
-    replace: bool = ReplaceOption,
+    replace: bool = ReplaceOption(
+        help="Replaces procedure or function, even if no detected changes to metadata"
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -116,7 +113,7 @@ def deploy(
     stage_manager = StageManager()
     stage_name = stage_manager.to_fully_qualified_name(stage_name)
     stage_manager.create(
-        stage_name=stage_name, comment="deployments managed by snowcli"
+        stage_name=stage_name, comment="deployments managed by Snowflake CLI"
     )
 
     packages = get_snowflake_packages()
@@ -330,7 +327,7 @@ def build(
 
 
 class _SnowparkObject(Enum):
-    """This clas is used only for snowpark execute where choice is limited."""
+    """This clas is used only for Snowpark execute where choice is limited."""
 
     PROCEDURE = str(ObjectType.PROCEDURE)
     FUNCTION = str(ObjectType.FUNCTION)

@@ -13,6 +13,7 @@ from unittest import mock
 import pytest
 import strictyaml
 from snowflake.cli.api.project.definition import merge_left
+from snowflake.cli.app.cli_app import app_factory
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 from strictyaml import as_document
@@ -80,7 +81,7 @@ def dot_packages_directory(temp_dir):
 
 @pytest.fixture()
 def mock_ctx(mock_cursor):
-    return lambda cursor=mock_cursor(["row"], []): MockConnectionCtx(cursor)
+    yield lambda cursor=mock_cursor(["row"], []): MockConnectionCtx(cursor)
 
 
 class MockConnectionCtx(mock.MagicMock):
@@ -200,9 +201,8 @@ def package_file():
 
 @pytest.fixture(scope="function")
 def runner(test_snowcli_config):
-    from snowflake.cli.app.cli_app import app
-
-    return SnowCLIRunner(app, test_snowcli_config)
+    app = app_factory()
+    yield SnowCLIRunner(app, test_snowcli_config)
 
 
 @pytest.fixture

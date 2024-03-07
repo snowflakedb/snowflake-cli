@@ -52,8 +52,8 @@ class SecurePath:
 
         For details, check pathlib.Path.iterdir()
         """
-        self._assert_exists()
-        self._assert_is_directory()
+        self.assert_exists()
+        self.assert_is_directory()
         return (SecurePath(p) for p in self._path.iterdir())
 
     def exists(self) -> bool:
@@ -134,7 +134,7 @@ class SecurePath:
             self._assert_file_size_limit(read_file_limit_mb)
 
         if self.exists():
-            self._assert_is_file()
+            self.assert_is_file()
         else:
             self.touch()  # makes sure permissions of freshly-created file are strict
 
@@ -175,7 +175,7 @@ class SecurePath:
         and files within the destination tree will be overwritten by corresponding
         files from the src tree.
         """
-        self._assert_exists()
+        self.assert_exists()
 
         destination = Path(destination)
         if destination.exists():
@@ -226,10 +226,10 @@ class SecurePath:
         """
         if not self.exists():
             if not missing_ok:
-                self._assert_exists()
+                self.assert_exists()
             return
 
-        self._assert_is_file()
+        self.assert_is_file()
         log.info("Removing file %s", self._path)
         self._path.unlink()
 
@@ -244,10 +244,10 @@ class SecurePath:
         """
         if not self.exists():
             if not missing_ok:
-                self._assert_exists()
+                self.assert_exists()
             return
 
-        self._assert_is_directory()
+        self.assert_is_directory()
 
         if not recursive and any(self._path.iterdir()):
             raise DirectoryIsNotEmptyError(self._path.resolve())
@@ -265,26 +265,26 @@ class SecurePath:
 
         Works similarly to tempfile.TemporaryDirectory
         """
-        with tempfile.TemporaryDirectory(prefix="snowcli") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="snowflake-cli") as tmpdir:
             log.info("Created temporary directory %s", tmpdir)
             yield SecurePath(tmpdir)
             log.info("Removing temporary directory %s", tmpdir)
 
     def _assert_exists_and_is_file(self) -> None:
-        self._assert_exists()
-        self._assert_is_file()
+        self.assert_exists()
+        self.assert_is_file()
 
-    def _assert_exists(self) -> None:
+    def assert_exists(self) -> None:
         if not self.exists():
             raise FileNotFoundError(
                 errno.ENOENT, os.strerror(errno.ENOENT), self._path.resolve()
             )
 
-    def _assert_is_file(self) -> None:
+    def assert_is_file(self) -> None:
         if not self._path.is_file():
             _raise_is_a_directory_error(self._path.resolve())
 
-    def _assert_is_directory(self) -> None:
+    def assert_is_directory(self) -> None:
         if not self._path.is_dir():
             _raise_not_a_directory_error(self._path.resolve())
 

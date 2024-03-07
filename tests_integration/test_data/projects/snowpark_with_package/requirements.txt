@@ -1,4 +1,0 @@
-snowflake-snowpark-python
-# Package below should not be in snowflake anaconda
-PyRTF3
-#snowcli  # for local development

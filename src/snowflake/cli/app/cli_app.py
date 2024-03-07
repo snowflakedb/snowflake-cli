@@ -28,10 +28,9 @@ from snowflake.cli.app.dev.pycharm_remote_debug import (
     setup_pycharm_remote_debugger_if_provided,
 )
 from snowflake.cli.app.main_typer import SnowCliMainTyper
-from snowflake.cli.app.printing import print_result
+from snowflake.cli.app.printing import MessageResult, print_result
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
-app: SnowCliMainTyper = SnowCliMainTyper()
 log = logging.getLogger(__name__)
 
 _api = Api(plugin_config_provider=PluginConfigProviderImpl())
@@ -104,7 +103,7 @@ def _commands_structure_callback(value: bool):
 @_do_not_execute_on_completion
 def _version_callback(value: bool):
     if value:
-        typer.echo(f"Snowflake CLI version: {__about__.VERSION}")
+        print_result(MessageResult(f"Snowflake CLI version: {__about__.VERSION}"))
         _exit_with_cleanup()
 
 
@@ -126,93 +125,98 @@ def _info_callback(value: bool):
         _exit_with_cleanup()
 
 
-@app.callback()
-def default(
-    version: bool = typer.Option(
-        None,
-        "--version",
-        help="Shows version of the Snowflake CLI",
-        callback=_version_callback,
-        is_eager=True,
-    ),
-    docs: bool = typer.Option(
-        None,
-        "--docs",
-        hidden=True,
-        help="Generates Snowflake CLI documentation",
-        callback=_docs_callback,
-        is_eager=True,
-    ),
-    structure: bool = typer.Option(
-        None,
-        "--structure",
-        hidden=True,
-        help="Prints Snowflake CLI structure of commands",
-        callback=_commands_structure_callback,
-        is_eager=True,
-    ),
-    info: bool = typer.Option(
-        None,
-        "--info",
-        help="Shows information about the Snowflake CLI",
-        callback=_info_callback,
-    ),
-    configuration_file: Path = typer.Option(
-        None,
-        "--config-file",
-        help="Specifies Snowflake CLI configuration file that should be used",
-        exists=True,
-        dir_okay=False,
-        is_eager=True,
-        callback=_config_init_callback,
-    ),
-    pycharm_debug_library_path: str = typer.Option(
-        None,
-        "--pycharm-debug-library-path",
-        hidden=True,
-    ),
-    pycharm_debug_server_host: str = typer.Option(
-        "localhost",
-        "--pycharm-debug-server-host",
-        hidden=True,
-    ),
-    pycharm_debug_server_port: int = typer.Option(
-        12345,
-        "--pycharm-debug-server-port",
-        hidden=True,
-    ),
-    disable_external_command_plugins: bool = typer.Option(
-        None,
-        "--disable-external-command-plugins",
-        help="Disable external command plugins",
-        callback=_disable_external_command_plugins_callback,
-        is_eager=True,
-        hidden=True,
-    ),
-    # THIS OPTION SHOULD BE THE LAST OPTION IN THE LIST!
-    # ---
-    # This is a hidden artificial option used only to guarantee execution of commands registration
-    # and make this guaranty not dependent on other callbacks.
-    # Commands registration is invoked as soon as all callbacks
-    # decorated with "_commands_registration.before" are executed
-    # but if there are no such callbacks (at the result of possible future changes)
-    # then we need to invoke commands registration manually.
-    #
-    # This option is also responsible for resetting registration state for test purposes.
-    commands_registration: bool = typer.Option(
-        True,
-        "--commands-registration",
-        help="Commands registration",
-        hidden=True,
-        is_eager=True,
-        callback=_commands_registration_callback,
-    ),
-) -> None:
-    """
-    Snowflake CLI tool for developers.
-    """
-    setup_pycharm_remote_debugger_if_provided(
-        pycharm_debug_library_path=pycharm_debug_library_path,
-        pycharm_debug_server_host=pycharm_debug_server_host,
-        pycharm_debug_server_port=pycharm_debug_server_port,
-    )
+def app_factory() -> SnowCliMainTyper:
+    app = SnowCliMainTyper()
+
+    @app.callback()
+    def default(
+        version: bool = typer.Option(
+            None,
+            "--version",
+            help="Shows version of the Snowflake CLI",
+            callback=_version_callback,
+            is_eager=True,
+        ),
+        docs: bool = typer.Option(
+            None,
+            "--docs",
+            hidden=True,
+            help="Generates Snowflake CLI documentation",
+            callback=_docs_callback,
+            is_eager=True,
+        ),
+        structure: bool = typer.Option(
+            None,
+            "--structure",
+            hidden=True,
+            help="Prints Snowflake CLI structure of commands",
+            callback=_commands_structure_callback,
+            is_eager=True,
+        ),
+        info: bool = typer.Option(
+            None,
+            "--info",
+            help="Shows information about the Snowflake CLI",
+            callback=_info_callback,
+        ),
+        configuration_file: Path = typer.Option(
+            None,
+            "--config-file",
+            help="Specifies Snowflake CLI configuration file that should be used",
+            exists=True,
+            dir_okay=False,
+            is_eager=True,
+            callback=_config_init_callback,
+        ),
+        pycharm_debug_library_path: str = typer.Option(
+            None,
+            "--pycharm-debug-library-path",
+            hidden=True,
+        ),
+        pycharm_debug_server_host: str = typer.Option(
+            "localhost",
+            "--pycharm-debug-server-host",
+            hidden=True,
+        ),
+        pycharm_debug_server_port: int = typer.Option(
+            12345,
+            "--pycharm-debug-server-port",
+            hidden=True,
+        ),
+        disable_external_command_plugins: bool = typer.Option(
+            None,
+            "--disable-external-command-plugins",
+            help="Disable external command plugins",
+            callback=_disable_external_command_plugins_callback,
+            is_eager=True,
+            hidden=True,
+        ),
+        # THIS OPTION SHOULD BE THE LAST OPTION IN THE LIST!
+        # ---
+        # This is a hidden artificial option used only to guarantee execution of commands registration
+        # and make this guaranty not dependent on other callbacks.
+        # Commands registration is invoked as soon as all callbacks
+        # decorated with "_commands_registration.before" are executed
+        # but if there are no such callbacks (at the result of possible future changes)
+        # then we need to invoke commands registration manually.
+        #
+        # This option is also responsible for resetting registration state for test purposes.
+        commands_registration: bool = typer.Option(
+            True,
+            "--commands-registration",
+            help="Commands registration",
+            hidden=True,
+            is_eager=True,
+            callback=_commands_registration_callback,
+        ),
+    ) -> None:
+        """
+        Snowflake CLI tool for developers.
+        """
+        setup_pycharm_remote_debugger_if_provided(
+            pycharm_debug_library_path=pycharm_debug_library_path,
+            pycharm_debug_server_host=pycharm_debug_server_host,
+            pycharm_debug_server_port=pycharm_debug_server_port,
+        )
+
+    return app
