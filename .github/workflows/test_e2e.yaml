@@ -2,7 +2,7 @@ name: E2E testing
 
 on:
   workflow_run:
-    workflows: [ Code quality checks ]
+    workflows: [ Testing ]
     types:
       - completed
   pull_request:
