@@ -784,6 +784,85 @@
   
   '''
 # ---
+# name: test_help_messages[git.copy]
+  '''
+                                                                                  
+   Usage: default git copy [OPTIONS] REPOSITORY_PATH DESTINATION_PATH             
+                                                                                  
+   Copies all files from given state of repository to local directory or stage.   
+   If the source path ends with '/', the command copies contents of specified     
+   directory. Otherwise, it creates a new directory or file in the destination    
+   directory.                                                                     
+                                                                                  
+  ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+  │ *    repository_path       TEXT  Path to git repository stage with scope     │
+  │                                  provided. Path to the repository root must  │
+  │                                  end with '/'. For example:                  │
+  │                                  @my_repo/branches/main/                     │
+  │                                  [default: None]                             │
+  │                                  [required]                                  │
+  │ *    destination_path      TEXT  Target path for copy operation. Should be a │
+  │                                  path to a directory on remote stage or      │
+  │                                  local file system.                          │
+  │                                  [default: None]                             │
+  │                                  [required]                                  │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --parallel          INTEGER  Number of parallel threads to use when          │
+  │                              downloading files.                              │
+  │                              [default: 4]                                    │
+  │ --help      -h               Show this message and exit.                     │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Connection configuration ───────────────────────────────────────────────────╮
+  │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
+  │                                           in your `config.toml`. Default:    │
+  │                                           `default`.                         │
+  │ --account,--accountname             TEXT  Name assigned to your Snowflake    │
+  │                                           account. Overrides the value       │
+  │                                           specified for the connection.      │
+  │ --user,--username                   TEXT  Username to connect to Snowflake.  │
+  │                                           Overrides the value specified for  │
+  │                                           the connection.                    │
+  │ --password                          TEXT  Snowflake password. Overrides the  │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --authenticator                     TEXT  Snowflake authenticator. Overrides │
+  │                                           the value specified for the        │
+  │                                           connection.                        │
+  │ --private-key-path                  TEXT  Snowflake private key path.        │
+  │                                           Overrides the value specified for  │
+  │                                           the connection.                    │
+  │ --database,--dbname                 TEXT  Database to use. Overrides the     │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --schema,--schemaname               TEXT  Database schema to use. Overrides  │
+  │                                           the value specified for the        │
+  │                                           connection.                        │
+  │ --role,--rolename                   TEXT  Role to use. Overrides the value   │
+  │                                           specified for the connection.      │
+  │ --warehouse                         TEXT  Warehouse to use. Overrides the    │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --temporary-connection      -x            Uses connection defined with       │
+  │                                           command line parameters, instead   │
+  │                                           of one defined in config           │
+  │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
+  │                                           authentication (MFA)               │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Global configuration ───────────────────────────────────────────────────────╮
+  │ --format           [TABLE|JSON]  Specifies the output format.                │
+  │                                  [default: TABLE]                            │
+  │ --verbose  -v                    Displays log entries for log levels `info`  │
+  │                                  and higher.                                 │
+  │ --debug                          Displays log entries for log levels `debug` │
+  │                                  and higher; debug logs contains additional  │
+  │                                  information.                                │
+  │ --silent                         Turns off intermediate output to console.   │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
 # name: test_help_messages[git.fetch]
   '''
                                                                                   
@@ -925,8 +1004,9 @@
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    repository_path      TEXT  Path to git repository stage with scope      │
-  │                                 provided. For example:                       │
-  │                                 @my_repo/branches/main                       │
+  │                                 provided. Path to the repository root must   │
+  │                                 end with '/'. For example:                   │
+  │                                 @my_repo/branches/main/                      │
   │                                 [default: None]                              │
   │                                 [required]                                   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -1060,10 +1140,12 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ fetch             Fetch changes from origin to snowflake repository.         │
-  │ list-branches     List all branches in the repository.                       │
-  │ list-files        List files from given state of git repository.             │
-  │ list-tags         List all tags in the repository.                           │
+  │ copy           Copies all files from given state of repository to local      │
+  │                directory or stage.                                           │
+  │ fetch          Fetch changes from origin to snowflake repository.            │
+  │ list-branches  List all branches in the repository.                          │
+  │ list-files     List files from given state of git repository.                │
+  │ list-tags      List all tags in the repository.                              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
