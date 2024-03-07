@@ -94,7 +94,7 @@ def test_list_branches_and_tags(runner, sf_git_repository):
 def test_list_files(runner, sf_git_repository):
     # error messages are passed to the user
     result = runner.invoke_with_connection(["git", "list-files", sf_git_repository])
-    _assert_error_message_in_output(result.output)
+    _assert_invalid_repo_path_error_message(result.output)
 
     try:
         repository_path = f"@{sf_git_repository}"
@@ -220,7 +220,7 @@ def _filter_key(objects, *, key):
     return [o[key] for o in objects]
 
 
-def _assert_error_message_in_output(output):
+def _assert_invalid_repo_path_error_message(output):
     assert "Error" in output
     assert (
         "REPOSITORY_PATH should be a path to git repository stage with scope" in output
