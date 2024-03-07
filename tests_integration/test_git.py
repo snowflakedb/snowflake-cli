@@ -128,7 +128,6 @@ def test_copy_to_stage(runner, sf_git_repository):
             ["object", "stage", "list", STAGE_NAME]
         )
         assert result.exit_code == 0
-        print([f["name"] for f in result.json])
         assert f"{STAGE_NAME.lower()}/{file_path}" in [f["name"] for f in result.json]
 
     # create stage for testing copy
