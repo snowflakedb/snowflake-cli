@@ -89,3 +89,29 @@ def test_does_not_accept_unknown_fields(project_definition_files):
         "You provided field '('unknown_fields_accepted',)' with value 'true' that is not present in the schema"
         in str(exc_info)
     )
+
+
+@pytest.mark.parametrize(
+    "project_definition_files",
+    [
+        "integration",
+        "integration_external",
+        "minimal",
+        "napp_project_1",
+        "napp_project_with_pkg_warehouse",
+        "snowpark_function_external_access",
+        "snowpark_function_fully_qualified_name",
+        "snowpark_function_secrets_without_external_access",
+        "snowpark_functions",
+        "snowpark_procedure_external_access",
+        "snowpark_procedure_fully_qualified_name",
+        "snowpark_procedure_secrets_without_external_access",
+        "snowpark_procedures",
+        "snowpark_procedures_coverage",
+        "streamlit_full_definition",
+    ],
+    indirect=True,
+)
+def test_fields_are_parsed_correctly(project_definition_files, snapshot):
+    result = load_project_definition(project_definition_files).model_dump()
+    assert result == snapshot
