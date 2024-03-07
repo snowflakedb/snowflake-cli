@@ -138,7 +138,7 @@ class Venv:
         info = self.run_python(
             [
                 "-c",
-                f"from importlib.metadata import {info_type.value}; print({info_type.value}('{package_name}'))",
+                f"from importlib.metadata import {info_type.value}; print({info_type.value}('{package_name}'))",  # noqa
             ]
         )
         if info.returncode != 0:

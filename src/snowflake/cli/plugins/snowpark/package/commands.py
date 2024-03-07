@@ -112,19 +112,16 @@ def package_create(
     if deprecated_install_option:
         install_packages = deprecated_install_option
 
-    if (
-        type(
-            lookup_result := lookup(
-                name=name,
-                install_packages=install_packages,
-                allow_native_libraries=allow_native_libraries,
-            )
-        )
-        in [
-            NotInAnaconda,
-            RequiresPackages,
-        ]
-        and type(creation_result := create(name)) == CreatedSuccessfully
+    lookup_result = lookup(
+        name=name,
+        install_packages=install_packages,
+        allow_native_libraries=allow_native_libraries,
+    )
+
+    creation_result = create(name)
+
+    if isinstance(lookup_result, (NotInAnaconda, RequiresPackages)) and isinstance(
+        creation_result, CreatedSuccessfully
     ):
         message = creation_result.message
         if type(lookup_result) == RequiresPackages:

@@ -20,14 +20,19 @@ class RequirementType(Enum):
 
 
 class Requirement(requirement.Requirement):
+    extra_pattern = re.compile("'([^']*)'")
+
     @classmethod
     def parse_line(cls, line: str) -> Requirement:
-        if len(extras := line.split(";")) > 1:
-            line = extras[0]
+        if len(line_elements := line.split(";")) > 1:
+            line = line_elements[0]
         result = super().parse_line(line)
 
-        if len(extras) > 1:
-            result.extras = extras[1]
+        if len(line_elements) > 1:
+            for element in line_elements[1:]:
+                if "extra" in element and (extras := cls.extra_pattern.search(element)):
+                    result.extras.extend(extras)
+
         if result.uri and not result.name:
             result.name = get_package_name(result.uri)
 
@@ -65,20 +70,11 @@ class RequirementWithFilesAndDeps(RequirementWithFiles):
         return RequirementWithFiles(self.requirement, self.files)
 
 
-pip_failed_msg = """pip failed with return code {}.
-            If pip is installed correctly, this may mean you`re trying to install a package
-            that isn't compatible with the host architecture -
-            and generally means it has native libraries."""
-second_chance_msg = """Good news! The following package dependencies can be
-                imported directly from Anaconda, and will be excluded from
-                the zip: {}"""
-
-
 def get_package_name(name: str) -> str:
-    if name.startswith("git+"):
-        pattern = r"github\.com\/([^\/]+)\/([^\/.]+)(\.git)?"
-        if match := re.search(pattern, name):
-            return match.group(2)
+    if name.lower().startswith(("git+", "http")):
+        pattern = re.compile(r"github\.com\/[^\/]+\/([^\/][^.@$]+)")
+        if match := pattern.search(name):
+            return match.group(1)
         else:
             return name
 
@@ -86,3 +82,16 @@ def get_package_name(name: str) -> str:
         return name.replace(".zip", "")
     else:
         return name
+
+
+pip_failed_msg = (
+    "pip failed with return code {}."
+    "If pip is installed correctly, this may mean you`re trying to install a package"
+    "that isn't compatible with the host architecture -"
+    "and generally means it has native libraries."
+)
+second_chance_msg = (
+    "Good news! The following package dependencies can be"
+    "imported directly from Anaconda, and will be excluded from"
+    "the zip: {}"
+)

@@ -79,7 +79,7 @@ def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
     Returns a dict with two keys: 'snowflake' and 'other'.
     Each key contains a list of Requirement object.
 
-    As snowflake currently doesn't support extra syntax (ex. 'jinja2[diagrams`), if such
+    As snowflake currently doesn't support extra syntax (ex. `jinja2[diagrams]`), if such
     extra is present in the dependency, we mark it as unavailable.
 
     Parameters:
