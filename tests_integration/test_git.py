@@ -7,7 +7,7 @@ FILE_IN_REPO = "RELEASE-NOTES.md"
 
 
 @pytest.fixture
-def git_repository(runner, test_database):
+def sf_git_repository(runner, test_database):
     repo_name = "SNOWCLI_TESTING_REPO"
     integration_name = "SNOW_GIT_TESTING_API_INTEGRATION"
 
@@ -43,62 +43,63 @@ def git_repository(runner, test_database):
 
 
 @pytest.mark.integration
-def test_object_commands(runner, git_repository):
+def test_object_commands(runner, sf_git_repository):
     # object list
     result = runner.invoke_with_connection_json(["object", "list", "git-repository"])
     assert result.exit_code == 0
-    assert git_repository in _filter_key(result.json, key="name")
+    assert sf_git_repository in _filter_key(result.json, key="name")
 
     # describe
     result = runner.invoke_with_connection_json(
-        ["object", "describe", "git-repository", git_repository]
+        ["object", "describe", "git-repository", sf_git_repository]
     )
     assert result.exit_code == 0
-    assert result.json[0]["name"] == git_repository
+    assert result.json[0]["name"] == sf_git_repository
 
     # drop
     result = runner.invoke_with_connection_json(
-        ["object", "drop", "git-repository", git_repository]
+        ["object", "drop", "git-repository", sf_git_repository]
     )
     assert result.exit_code == 0
-    assert result.json == [{"status": f"{git_repository} successfully dropped."}]
+    assert result.json == [{"status": f"{sf_git_repository} successfully dropped."}]
 
 
 @pytest.mark.integration
-def test_fetch(runner, git_repository):
-    result = runner.invoke_with_connection_json(["git", "fetch", git_repository])
+def test_fetch(runner, sf_git_repository):
+    result = runner.invoke_with_connection_json(["git", "fetch", sf_git_repository])
     assert result.exit_code == 0
     assert result.json == [
         {
-            "status": f"Git Repository {git_repository} is up to date. No change was fetched."
+            "status": f"Git Repository {sf_git_repository} is up to date. No change was fetched."
         }
     ]
 
 
 @pytest.mark.integration
-def test_list_branches_and_tags(runner, git_repository):
+def test_list_branches_and_tags(runner, sf_git_repository):
     # list branches
     result = runner.invoke_with_connection_json(
-        ["git", "list-branches", git_repository]
+        ["git", "list-branches", sf_git_repository]
     )
     assert result.exit_code == 0
     assert "main" in _filter_key(result.json, key="name")
 
     # list tags
-    result = runner.invoke_with_connection_json(["git", "list-tags", git_repository])
+    result = runner.invoke_with_connection_json(["git", "list-tags", sf_git_repository])
     assert result.exit_code == 0
     assert "v2.0.0" in _filter_key(result.json, key="name")
 
 
 @pytest.mark.integration
-def test_list_files(runner, git_repository):
-    # error messages
-    result = runner.invoke_with_connection(["git", "list-files", git_repository])
+def test_list_files(runner, sf_git_repository):
+    # error messages are passed to the user
+    result = runner.invoke_with_connection(["git", "list-files", sf_git_repository])
     _assert_error_message_in_output(result.output)
 
     try:
-        repository_path = f"@{git_repository}"
+        repository_path = f"@{sf_git_repository}"
         runner.invoke_with_connection(["git", "list-files", repository_path])
+        assert False, "Expected exception"
     except ProgrammingError as err:
         assert (
             err.raw_msg
@@ -106,25 +107,7 @@ def test_list_files(runner, git_repository):
             "a tag name, or a valid commit hash. Commit hashes are between 6 and 40 characters long."
         )
 
-    try:
-        repository_path = f"@{git_repository}/branches/branch_which_does_not_exist"
-        runner.invoke_with_connection(["git", "list-files", repository_path])
-    except ProgrammingError as err:
-        assert (
-            err.raw_msg
-            == "The specified branch 'branch_which_does_not_exist' cannot be found in the Git Repository."
-        )
-
-    try:
-        repository_path = f"@{git_repository}/tags/tag_which_does_not_exist"
-        runner.invoke_with_connection(["git", "list-files", repository_path])
-    except ProgrammingError as err:
-        assert (
-            err.raw_msg
-            == "The specified tag 'tag_which_does_not_exist' cannot be found in the Git Repository."
-        )
-
-    repository_path = f"@{git_repository}/tags/v2.1.0-rc1/"
+    repository_path = f"@{sf_git_repository}/tags/v2.1.0-rc1/"
     result = runner.invoke_with_connection_json(["git", "list-files", repository_path])
     assert result.exit_code == 0
     assert f"{repository_path[1:].lower()}{FILE_IN_REPO}" in _filter_key(
@@ -132,54 +115,9 @@ def test_list_files(runner, git_repository):
     )
 
 
-@pytest.mark.skip(reason="in progress")
 @pytest.mark.integration
-def test_copy_error_messages(runner, git_repository):
-    STAGE_NAME = "omitted"
-
-    # copy - test error messages
-    result = runner.invoke_with_connection(
-        ["git", "copy", git_repository, f"@{STAGE_NAME}"]
-    )
-    _assert_error_message_in_output(result.output)
-    try:
-        repository_path = f"@{git_repository}"
-        runner.invoke_with_connection(
-            ["git", "copy", repository_path, f"@{STAGE_NAME}"]
-        )
-    except ProgrammingError as err:
-        assert (
-            err.raw_msg
-            == "Files paths in git repositories must specify a scope. For example, a branch name, "
-            "a tag name, or a valid commit hash. Commit hashes are between 6 and 40 characters long."
-        )
-
-    try:
-        repository_path = f"@{git_repository}/branches/branch_which_does_not_exist"
-        runner.invoke_with_connection(
-            ["git", "copy", repository_path, f"@{STAGE_NAME}"]
-        )
-    except ProgrammingError as err:
-        assert (
-            err.raw_msg
-            == "The specified branch 'branch_which_does_not_exist' cannot be found in the Git Repository."
-        )
-
-    try:
-        repository_path = f"@{git_repository}/tags/tag_which_does_not_exist"
-        runner.invoke_with_connection(
-            ["git", "copy", repository_path, f"@{STAGE_NAME}"]
-        )
-    except ProgrammingError as err:
-        assert (
-            err.raw_msg
-            == "The specified tag 'tag_which_does_not_exist' cannot be found in the Git Repository."
-        )
-
-
-@pytest.mark.integration
-def test_copy_to_stage(runner, git_repository):
-    REPO_PATH_PREFIX = f"@{git_repository}/tags/v2.1.0-rc0"
+def test_copy_to_stage(runner, sf_git_repository):
+    REPO_PATH_PREFIX = f"@{sf_git_repository}/tags/v2.1.0-rc0"
     SUBDIR = "tests_integration/config"
     SUBDIR_ON_STAGE = "config"
     FILE_IN_SUBDIR = "connection_configs.toml"
@@ -238,9 +176,9 @@ def test_copy_to_stage(runner, git_repository):
 
 
 @pytest.mark.integration
-def test_copy_to_local_file_system(runner, git_repository):
+def test_copy_to_local_file_system(runner, sf_git_repository):
     # TODO: change subdir to dedicated one after merging this to main
-    REPO_PATH_PREFIX = f"@{git_repository}/tags/v2.1.0-rc0"
+    REPO_PATH_PREFIX = f"@{sf_git_repository}/tags/v2.1.0-rc0"
     SUBDIR = "tests_integration/config"
     FILE_IN_SUBDIR = "connection_configs.toml"
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -263,6 +201,19 @@ def test_copy_to_local_file_system(runner, git_repository):
         )
         assert result.exit_code == 0
         assert (LOCAL_DIR / FILE_IN_REPO).exists()
+
+        # error messages are passed to the user
+        try:
+            repository_path = f"@{sf_git_repository}/tags/no-such-tag/"
+            runner.invoke_with_connection(
+                ["git", "copy", repository_path, str(LOCAL_DIR)]
+            )
+            assert False, "Expected exception"
+        except ProgrammingError as err:
+            assert (
+                err.raw_msg
+                == "The specified tag 'no-such-tag' cannot be found in the Git Repository."
+            )
 
 
 def _filter_key(objects, *, key):
