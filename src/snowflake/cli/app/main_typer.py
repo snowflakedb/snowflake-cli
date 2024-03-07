@@ -3,16 +3,16 @@ from __future__ import annotations
 import sys
 
 import typer
-from rich import print as rich_print
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS, DebugOption
+from snowflake.cli.api.console import cli_console
 
 
 def _handle_exception(exception: Exception):
     if cli_context.enable_tracebacks:
         raise exception
     else:
-        rich_print(
+        cli_console.warning(
             "\nAn unexpected exception occurred. Use --debug option to see the traceback. Exception message:\n\n"
             + exception.__str__()
         )

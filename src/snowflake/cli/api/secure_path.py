@@ -265,7 +265,7 @@ class SecurePath:
 
         Works similarly to tempfile.TemporaryDirectory
         """
-        with tempfile.TemporaryDirectory(prefix="snowcli") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="snowflake-cli") as tmpdir:
             log.info("Created temporary directory %s", tmpdir)
             yield SecurePath(tmpdir)
             log.info("Removing temporary directory %s", tmpdir)
