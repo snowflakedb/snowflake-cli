@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import tomlkit
+from click import ClickException
 from snowflake.cli.api.exceptions import (
     ConfigFileTooWidePermissionsError,
     MissingConfiguration,
@@ -161,11 +162,21 @@ def get_config_value(*path, key: str, default: Optional[Any] = Empty) -> Any:
 
 def get_config_bool_value(*path, key: str, default: Optional[Any] = Empty) -> bool:
     value = get_config_value(*path, key=key, default=default)
-    if not isinstance(value, bool):
-        raise RuntimeError(
+    # If we get bool then we can return
+    if isinstance(value, bool):
+        return value
+
+    # Now if value is not string then cast it to str. Simplifies logic for 1 and 0
+    if not isinstance(value, str):
+        value = str(value)
+
+    know_booleans_mapping = {"true": True, "false": False, "1": True, "0": False}
+
+    if value.lower() not in know_booleans_mapping:
+        raise ClickException(
             f"Expected boolean value for {'.'.join((*path, key))} option."
         )
-    return value
+    return know_booleans_mapping[value.lower()]
 
 
 def _initialise_config(config_file: Path) -> None:
@@ -176,11 +187,12 @@ def _initialise_config(config_file: Path) -> None:
     log.info("Created Snowflake configuration file at %s", CONFIG_MANAGER.file_path)
 
 
+def get_env_variable_name(*path, key: str) -> str:
+    return "SNOWFLAKE_" + "_".join(p.upper() for p in path) + f"_{key.upper()}"
+
+
 def get_env_value(*path, key: str) -> str | None:
-    env_variable_name = (
-        "SNOWFLAKE_" + "_".join(p.upper() for p in path) + f"_{key.upper()}"
-    )
-    return os.environ.get(env_variable_name)
+    return os.environ.get(get_env_variable_name(*path, key=key))
 
 
 def _find_section(*path) -> TOMLDocument:

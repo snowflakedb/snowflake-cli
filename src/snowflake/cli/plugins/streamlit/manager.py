@@ -109,7 +109,7 @@ class StreamlitManager(SqlExecutionMixin):
         streamlit_name = self.get_name_from_fully_qualified_name(fully_qualified_name)
         if (
             experimental_behaviour_enabled()
-            or FeatureFlag.ENABLE_STREAMLIT_EMBED_STAGE.is_enabled()
+            or FeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled()
         ):
             """
             1. Create streamlit object

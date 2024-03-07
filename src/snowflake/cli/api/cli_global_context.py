@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from snowflake.cli.api.exceptions import InvalidSchemaError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.connector import SnowflakeConnection
 
@@ -250,9 +249,7 @@ class _CliGlobalContextAccess:
 
     @property
     def experimental(self) -> bool:
-        if self._manager.experimental:
-            return self._manager.experimental
-        return FeatureFlag.ENABLE_EXPERIMENTAL.is_enabled()
+        return self._manager.experimental
 
     @property
     def project_definition(self):

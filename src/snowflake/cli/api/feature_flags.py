@@ -1,18 +1,20 @@
 from enum import Enum, unique
 from typing import NamedTuple
 
-from snowflake.cli.api.config import FEATURE_FLAGS_SECTION_PATH, get_config_bool_value
+from snowflake.cli.api.config import (
+    FEATURE_FLAGS_SECTION_PATH,
+    get_config_bool_value,
+    get_env_variable_name,
+)
 
 
-class _Flag(NamedTuple):
+class BooleanFlag(NamedTuple):
     name: str
     default: bool = False
 
 
 @unique
-class FeatureFlag(Enum):
-    ENABLE_STREAMLIT_EMBED_STAGE = _Flag("ENABLE_STREAMLIT_EMBED_STAGE", False)
-
+class FeatureFlagMixin(Enum):
     def is_enabled(self) -> bool:
         return get_config_bool_value(
             *FEATURE_FLAGS_SECTION_PATH,
@@ -24,4 +26,11 @@ class FeatureFlag(Enum):
         return not self.is_enabled()
 
     def env_variable(self):
-        return self.get_env_value(*FEATURE_FLAGS_SECTION_PATH, key=self.value.name)
+        return get_env_variable_name(*FEATURE_FLAGS_SECTION_PATH, key=self.value.name)
+
+
+@unique
+class FeatureFlag(FeatureFlagMixin):
+    ENABLE_STREAMLIT_EMBEDDED_STAGE = BooleanFlag(
+        "ENABLE_STREAMLIT_EMBEDDED_STAGE", False
+    )
