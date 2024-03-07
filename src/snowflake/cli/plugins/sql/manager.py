@@ -3,7 +3,8 @@ from io import StringIO
 from pathlib import Path
 from typing import Dict, Iterable, Optional, Tuple
 
-from click import UsageError
+from click import ClickException, UsageError
+from jinja2 import UndefinedError
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.utils.rendering import snowflake_cli_jinja_render
@@ -36,7 +37,10 @@ class SqlManager(SqlExecutionMixin):
 
         if data:
             # Do rendering if any data was provided
-            query = snowflake_cli_jinja_render(content=query, data=data)
+            try:
+                query = snowflake_cli_jinja_render(content=query, data=data)
+            except UndefinedError as err:
+                raise ClickException(f"SQL template rendering error: {err}")
 
         statements = tuple(
             statement

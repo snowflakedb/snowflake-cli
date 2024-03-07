@@ -1,4 +1,5 @@
 import pytest
+from jinja2 import UndefinedError
 from snowflake.cli.api.utils.rendering import snowflake_cli_jinja_render
 
 
@@ -21,3 +22,36 @@ def test_rendering_with_data():
 )
 def test_rendering(text, output):
     assert snowflake_cli_jinja_render(text, data={"foo": "bar"}) == output
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        """
+    {% for item in navigation %}
+        <li><a href="{{ item.href }}">{{ item.caption }}</a></li>
+    {% endfor %}
+    """,
+        """{% if loop.index is divisibleby 3 %}""",
+        """
+    {% if True %}
+        yay
+    {% endif %}
+    """,
+    ],
+)
+def test_that_common_logic_block_are_ignored(text):
+    assert snowflake_cli_jinja_render(text) == text
+
+
+def test_that_common_comments_are_respected():
+    assert snowflake_cli_jinja_render("{# note a comment %{ foo } #}") == ""
+    assert (
+        snowflake_cli_jinja_render("{# note a comment #}%{ foo }", data={"foo": "bar"})
+        == "bar"
+    )
+
+
+def test_that_undefined_variables_raise_error():
+    with pytest.raises(UndefinedError):
+        snowflake_cli_jinja_render("%{ foo }")

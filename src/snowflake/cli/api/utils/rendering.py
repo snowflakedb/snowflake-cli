@@ -111,6 +111,7 @@ SNOWFLAKE_CLI_JINJA_ENV = _env_bootstrap(
         variable_end_string="}",
         block_start_string=_RANDOM_BLOCK,
         block_end_string=_RANDOM_BLOCK,
+        undefined=StrictUndefined,
     )
 )
 

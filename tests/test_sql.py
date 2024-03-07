@@ -286,3 +286,8 @@ def test_no_rendering_of_sql_if_no_data(mock_execute_query, runner):
     result = runner.invoke(["sql", "-q", "select %{ aaa }.%{ bbb }"])
     assert result.exit_code == 0, result.output
     mock_execute_query.assert_called_once_with("select %{ aaa }.%{ bbb }")
+
+
+def test_execution_fails_if_unknown_variable(runner):
+    result = runner.invoke(["sql", "-q", "select %{ foo }", "-D", "bbb=1"])
+    assert "SQL template rendering error: 'foo' is undefined" in result.output
