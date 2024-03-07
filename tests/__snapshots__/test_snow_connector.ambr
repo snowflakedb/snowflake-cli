@@ -19,7 +19,7 @@
   use schema schemaValue;
   
   
-  create stage if not exists namedStageValue comment='deployments managed by snowcli';
+  create stage if not exists namedStageValue comment='deployments managed by Snowflake CLI';
   
   
   put file://file_pathValue @namedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
@@ -45,7 +45,7 @@
   use schema schemaValue;
   
   
-  create stage if not exists snow://embeddedStageValue comment='deployments managed by snowcli';
+  create stage if not exists snow://embeddedStageValue comment='deployments managed by Snowflake CLI';
   
   
   put file://file_pathValue snow://embeddedStageValuepathValue auto_compress=false parallel=4 overwrite=overwriteValue;
