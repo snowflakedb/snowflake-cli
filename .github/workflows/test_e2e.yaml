@@ -1,6 +1,10 @@
 name: E2E testing
 
 on:
+  workflow_run:
+    workflows: [ Code quality checks ]
+    types:
+      - completed
   pull_request:
     branches:
       - "*"
@@ -16,6 +20,7 @@ concurrency:
 
 jobs:
   test:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
