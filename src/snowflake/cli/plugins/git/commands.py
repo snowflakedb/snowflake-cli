@@ -42,6 +42,15 @@ RepoPathArgument = typer.Argument(
 )
 
 
+def like_option(help_example: str):
+    return typer.Option(
+        "%%",
+        "--like",
+        "-l",
+        help=f"SQL LIKE pattern for filtering objects by name. For example, {help_example}",
+    )
+
+
 def _object_exists(object_type, identifier):
     try:
         ObjectManager().describe(
@@ -139,12 +148,15 @@ def setup(
 )
 def list_branches(
     repository_name: str = RepoNameArgument,
+    like=like_option(
+        help_example='list-branches --like "%_test" lists all branches that end with "_test"'
+    ),
     **options,
 ) -> CommandResult:
     """
     List all branches in the repository.
     """
-    return QueryResult(GitManager().show_branches(repo_name=repository_name))
+    return QueryResult(GitManager().show_branches(repo_name=repository_name, like=like))
 
 
 @app.command(
@@ -153,12 +165,15 @@ def list_branches(
 )
 def list_tags(
     repository_name: str = RepoNameArgument,
+    like=like_option(
+        help_example='list-tags --like "v2.0%" lists all tags that start with "v2.0"'
+    ),
     **options,
 ) -> CommandResult:
     """
     List all tags in the repository.
     """
-    return QueryResult(GitManager().show_tags(repo_name=repository_name))
+    return QueryResult(GitManager().show_tags(repo_name=repository_name, like=like))
 
 
 @app.command(

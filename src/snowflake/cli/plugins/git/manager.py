@@ -5,12 +5,12 @@ from snowflake.connector.cursor import SnowflakeCursor
 
 
 class GitManager(StageManager):
-    def show_branches(self, repo_name: str) -> SnowflakeCursor:
-        query = f"show git branches in {repo_name}"
+    def show_branches(self, repo_name: str, like: str) -> SnowflakeCursor:
+        query = f"show git branches like '{like}' in {repo_name}"
         return self._execute_query(query)
 
-    def show_tags(self, repo_name: str) -> SnowflakeCursor:
-        query = f"show git tags in {repo_name}"
+    def show_tags(self, repo_name: str, like: str) -> SnowflakeCursor:
+        query = f"show git tags like '{like}' in {repo_name}"
         return self._execute_query(query)
 
     def show_files(self, repo_path: str) -> SnowflakeCursor:
