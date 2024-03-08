@@ -82,6 +82,29 @@ class SqlExecutionMixin:
             if is_different_role:
                 self._execute_query(f"use role {prev_role}")
 
+    def create_password_secret(
+        self, name: str, username: str, password: str
+    ) -> SnowflakeCursor:
+        query = (
+            f"create secret {name}"
+            f" type = password"
+            f" username = '{username}'"
+            f" password = '{password}'"
+        )
+        return self._execute_query(query)
+
+    def create_api_integration(
+        self, name: str, api_provider: str, allowed_prefix: str, secret: Optional[str]
+    ) -> SnowflakeCursor:
+        query = (
+            f"create api integration {name}"
+            f" api_provider = {api_provider}"
+            f" api_allowed_prefixes = ('{allowed_prefix}')"
+            f" allowed_authentication_secrets = ({secret if secret else ''})"
+            f" enabled = true"
+        )
+        return self._execute_query(query)
+
     def _execute_schema_query(self, query: str, name: Optional[str] = None, **kwargs):
         """
         Check that a database and schema are provided before executing the query. Useful for operating on schema level objects.

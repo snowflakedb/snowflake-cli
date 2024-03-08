@@ -87,7 +87,9 @@ def setup(
             secret = f"{repository_name}_secret"
             username = typer.prompt("username")
             password = typer.prompt("password/token", hide_input=True)
-            manager.create_secret(username=username, password=password, name=secret)
+            manager.create_password_secret(
+                username=username, password=password, name=secret
+            )
             cli_console.step(f"Secret '{secret}' successfully created")
 
     use_existing_api = typer.confirm("Use existing api integration?")
@@ -96,7 +98,10 @@ def setup(
     else:
         api_integration = f"{repository_name}_api_integration"
         manager.create_api_integration(
-            name=api_integration, allowed_prefix=url, secret=secret
+            name=api_integration,
+            api_provider="git_https_api",
+            allowed_prefix=url,
+            secret=secret,
         )
         cli_console.step(f"API integration '{api_integration}' successfully created.")
 
