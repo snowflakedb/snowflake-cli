@@ -42,16 +42,25 @@ RepoPathArgument = typer.Argument(
 )
 
 
-def _assure_repository_does_not_exist(repository_name: str) -> None:
-    om = ObjectManager()
+def _object_exists(object_type, identifier):
     try:
-        om.describe(
-            object_type=ObjectType.GIT_REPOSITORY.value.cli_name,
-            name=repository_name,
+        ObjectManager().describe(
+            object_type=object_type.value.cli_name,
+            name=identifier,
         )
-        raise ClickException(f"Repository '{repository_name}' already exists")
+        return True
     except ProgrammingError:
-        pass
+        return False
+
+
+def _assure_repository_does_not_exist(repository_name: str) -> None:
+    if _object_exists(ObjectType.GIT_REPOSITORY, repository_name):
+        raise ClickException(f"Repository '{repository_name}' already exists")
+
+
+def _validate_origin_url(url: str) -> None:
+    if not url.startswith("https://"):
+        raise ClickException("Url address should start with 'https'")
 
 
 @app.command("setup", requires_connection=True)
@@ -75,42 +84,49 @@ def setup(
     manager = GitManager()
 
     url = typer.prompt("Origin url")
+    _validate_origin_url(url)
 
-    secret = None
+    secret = {}
     secret_needed = typer.confirm("Use secret for authentication?")
     if secret_needed:
-        use_existing_secret = typer.confirm("Use existing secret?")
-        if use_existing_secret:
-            secret = typer.prompt("Secret identifier")
-        else:
-            cli_console.step("Creating new secret")
-            secret = f"{repository_name}_secret"
-            username = typer.prompt("username")
-            password = typer.prompt("password/token", hide_input=True)
-            manager.create_password_secret(
-                username=username, password=password, name=secret
-            )
-            cli_console.step(f"Secret '{secret}' successfully created")
+        secret_name = f"{repository_name}_secret"
+        secret_name = typer.prompt(
+            "Secret identifier (will be created if not exists)", default=secret_name
+        )
+        secret = {"name": secret_name}
+        if not _object_exists(ObjectType.SECRET, secret_name):
+            cli_console.step(f"Secret '{secret_name}' will be created")
+            secret["username"] = typer.prompt("username")
+            secret["password"] = typer.prompt("password/token", hide_input=True)
 
-    use_existing_api = typer.confirm("Use existing api integration?")
-    if use_existing_api:
-        api_integration = typer.prompt("API integration identifier")
-    else:
-        api_integration = f"{repository_name}_api_integration"
+    api_integration = f"{repository_name}_api_integration"
+    api_integration = typer.prompt(
+        "API integration identifier (will be created if not exists)",
+        default=api_integration,
+    )
+
+    if "username" in secret:
+        manager.create_password_secret(**secret)
+        secret_name = secret["name"]
+        cli_console.step(f"Secret '{secret_name}' successfully created")
+
+    if not _object_exists(ObjectType.INTEGRATION, api_integration):
         manager.create_api_integration(
             name=api_integration,
             api_provider="git_https_api",
             allowed_prefix=url,
-            secret=secret,
+            secret=secret.get("name"),
         )
         cli_console.step(f"API integration '{api_integration}' successfully created.")
+    else:
+        cli_console.step(f"Using existing API integration '{api_integration}'")
 
     return QueryResult(
         manager.create(
             repo_name=repository_name,
             url=url,
             api_integration=api_integration,
-            secret=secret,
+            secret=secret.get("name"),
         )
     )
 
