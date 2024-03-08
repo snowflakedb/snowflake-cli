@@ -374,7 +374,7 @@ def project_definition_option(project_name: str):
 
     def _callback(project_path: Optional[str]):
         dm = DefinitionManager(project_path)
-        project_definition = dm.project_definition.get(project_name)
+        project_definition = getattr(dm.project_definition, project_name, None)
         project_root = dm.project_root
 
         if not project_definition:

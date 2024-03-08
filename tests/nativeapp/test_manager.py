@@ -48,7 +48,7 @@ mock_project_definition_override = {
 def _get_na_manager():
     dm = DefinitionManager()
     return NativeAppManager(
-        project_definition=dm.project_definition["native_app"],
+        project_definition=dm.project_definition.native_app,
         project_root=dm.project_root,
     )
 
