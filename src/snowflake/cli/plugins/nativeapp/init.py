@@ -220,18 +220,10 @@ def _init_from_template(
 
     try:
         with SecurePath.temporary_directory() as temp_path:
-            from git import Repo
             from git import rmtree as git_rmtree
+            from snowflake.cli.plugins.nativeapp.utils import shallow_git_clone
 
-            # Clone the repository in the temporary directory with options.
-            repo = Repo.clone_from(
-                url=git_url,
-                to_path=temp_path.path,
-                filter=["tree:0"],
-                depth=1,
-            )
-            # Close repo to avoid issues with permissions on Windows
-            repo.close()
+            shallow_git_clone(git_url, temp_path.path)
 
             if use_whole_repo_as_template:
                 # the template is the entire git repository

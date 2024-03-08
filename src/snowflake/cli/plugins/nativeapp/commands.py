@@ -31,6 +31,7 @@ from snowflake.cli.plugins.nativeapp.teardown_processor import (
 from snowflake.cli.plugins.nativeapp.utils import (
     get_first_paragraph_from_markdown_file,
     is_tty_interactive,
+    shallow_git_clone,
 )
 from snowflake.cli.plugins.nativeapp.version.commands import app as versions_app
 
@@ -86,17 +87,7 @@ def app_list_templates(**options) -> CommandResult:
     Prints information regarding templates that can be used with snow app init.
     """
     with SecurePath.temporary_directory() as temp_path:
-        from git import Repo
-
-        repo = Repo.clone_from(
-            url=OFFICIAL_TEMPLATES_GITHUB_URL,
-            to_path=temp_path.path,
-            filter=["tree:0"],
-            depth=1,
-        )
-
-        # Close repo to avoid issues with permissions on Windows
-        repo.close()
+        repo = shallow_git_clone(OFFICIAL_TEMPLATES_GITHUB_URL, temp_path.path)
 
         # Mark a directory as a template if a project definition jinja template is inside
         template_directories = [

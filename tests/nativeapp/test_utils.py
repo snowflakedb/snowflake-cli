@@ -7,20 +7,29 @@ from snowflake.cli.plugins.nativeapp.utils import get_first_paragraph_from_markd
     "file_content, expected_paragraph",
     [
         (
-            """
-            ## Introduction
-
-            This is an example template for a Snowflake Native App project which demonstrates the use of Python extension code and adding Streamlit code. This template is meant to guide developers towards a possible project structure on the basis of functionality, as well as to indicate the contents of some common and useful files. 
-
-            Since this template contains Python files only, you do not need to perform any additional steps to build the source code. You can directly go to the next section. However, if there were any source code that needed to be built, you must manually perform the build steps here before proceeding to the next section. 
-
-            Similarly, you can also use your own build steps for any other languages supported by Snowflake that you wish to write your code in. For more information on supported languages, visit [docs](https://docs.snowflake.com/en/developer-guide/stored-procedures-vs-udfs#label-sp-udf-languages).
-            """,
-            "This is an example template for a Snowflake Native App project which demonstrates the use of Python extension code and adding Streamlit code. This template is meant to guide developers towards a possible project structure on the basis of functionality, as well as to indicate the contents of some common and useful files.",
-        )
+            "\n"
+            "## Introduction"
+            "\n"
+            "This is an example template for a Snowflake Native App project which demonstrates the use of Python "
+            "extension code and adding Streamlit code. This template is meant to guide developers towards a "
+            "possible project structure on the basis of functionality, as well as to indicate the contents of "
+            "some common and useful files.\n"
+            "\n"
+            "Since this template contains Python files only, you do not need to perform any additional steps to "
+            "build the source code. You can directly go to the next section. However, if there were any source "
+            "code that needed to be built, you must manually perform the build steps here before proceeding to "
+            "the next section.",
+            "This is an example template for a Snowflake Native App project which demonstrates the use of "
+            "Python extension code and adding Streamlit code. This template is meant to guide developers towards a "
+            "possible project structure on the basis of functionality, as well as to indicate the contents of some "
+            "common and useful files.",
+        ),
+        ("# Just a Heading\n" "\n" "## And some whitespace.", None),
     ],
 )
-def test_get_first_paragraph_from_markdown_file(file_content, expected_paragraph):
+def test_get_first_paragraph_from_markdown_file_with_valid_path(
+    file_content, expected_paragraph
+):
     with SecurePath.temporary_directory() as temp_path:
         temp_readme_path = (temp_path / "README.md").path
 
@@ -30,3 +39,12 @@ def test_get_first_paragraph_from_markdown_file(file_content, expected_paragraph
         actual_paragraph = get_first_paragraph_from_markdown_file(temp_readme_path)
 
         assert actual_paragraph == expected_paragraph
+
+
+def test_get_first_paragraph_from_markdown_file_with_invalid_path():
+    with SecurePath.temporary_directory() as temp_path:
+        temp_readme_path = (temp_path / "README.md").path
+
+        actual_paragraph = get_first_paragraph_from_markdown_file(temp_readme_path)
+
+        assert actual_paragraph is None
