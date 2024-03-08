@@ -7,7 +7,7 @@ from typing import List
 from requirements.requirement import Requirement
 
 
-class PypiOption(Enum):
+class YesNoAsk(Enum):
     YES = "yes"
     NO = "no"
     ASK = "ask"

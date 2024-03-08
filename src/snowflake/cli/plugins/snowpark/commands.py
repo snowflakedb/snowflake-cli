@@ -40,7 +40,7 @@ from snowflake.cli.plugins.snowpark.common import (
     check_if_replace_is_required,
 )
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
-from snowflake.cli.plugins.snowpark.models import PypiOption
+from snowflake.cli.plugins.snowpark.models import YesNoAsk
 from snowflake.cli.plugins.snowpark.package_utils import get_snowflake_packages
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     CheckAnacondaForPyPiDependencies,
@@ -307,9 +307,9 @@ def _get_snowpark_artifact_path(snowpark_definition: Snowpark):
 @app.command("build")
 @with_project_definition("snowpark")
 def build(
-    pypi_download: PypiOption = PyPiDownloadOption,
+    pypi_download: YesNoAsk = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
-    package_native_libraries: PypiOption = PackageNativeLibrariesOption,
+    package_native_libraries: YesNoAsk = PackageNativeLibrariesOption,
     **options,
 ) -> CommandResult:
     """

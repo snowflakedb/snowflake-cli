@@ -13,7 +13,7 @@ from requirements.requirement import Requirement
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
 from snowflake.cli.plugins.snowpark import package_utils
-from snowflake.cli.plugins.snowpark.models import PypiOption
+from snowflake.cli.plugins.snowpark.models import YesNoAsk
 from snowflake.cli.plugins.streamlit import streamlit_utils
 
 from tests.test_data import test_data
@@ -314,7 +314,7 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
 
     with caplog.at_level(logging.INFO, "snowflake.cli.plugins.snowpark.package_utils"):
         result = package_utils.install_packages(
-            correct_requirements_txt, True, PypiOption.YES
+            correct_requirements_txt, True, YesNoAsk.YES
         )
 
     assert "pip failed with return code 42" in caplog.text

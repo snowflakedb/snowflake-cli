@@ -6,16 +6,16 @@ import os
 import re
 from typing import Dict, List
 
-import click
 import requests
 import requirements
 import typer
+from click import ClickException
 from packaging.version import parse
 from requirements.requirement import Requirement
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
-    PypiOption,
     RequirementWithFiles,
     SplitRequirements,
 )
@@ -189,17 +189,14 @@ def get_package_name_from_metadata(metadata_file_path: str) -> Requirement | Non
 def install_packages(
     file_name: str | None,
     perform_anaconda_check: bool = True,
-    package_native_libraries: PypiOption = PypiOption.ASK,
     package_name: str | None = None,
-) -> tuple[bool, SplitRequirements | None]:
+) -> SplitRequirements:
     """
     Install packages from a requirements.txt file or a single package name,
     into a local folder named '.packages'.
     If a requirements.txt file is provided, they will be installed using pip.
     If a package name is provided, it will be installed using pip.
-    Returns a tuple of:
-    1) a boolean indicating whether the installation was successful
-    2) a SplitRequirements object containing any installed dependencies
+    Returns a SplitRequirements object containing any installed dependencies
     which are available on the Snowflake Anaconda channel. These will have
     been deleted from the local packages folder.
     """
@@ -207,14 +204,15 @@ def install_packages(
 
     with Venv() as v:
         if file_name is not None:
+            cli_console.step(f"Installing locally {file_name}")
             pip_install_result = v.pip_install(file_name, "file")
 
         if package_name is not None:
+            cli_console.step(f"Installing locally {package_name}")
             pip_install_result = v.pip_install(package_name, "package")
 
     if pip_install_result != 0:
-        log.info(pip_failed_msg.format(pip_install_result))
-        return False, None
+        raise ClickException("Installing dependencies locally failed.")
 
     if perform_anaconda_check:
         log.info("Checking for dependencies available in Anaconda...")
@@ -224,6 +222,7 @@ def install_packages(
         downloaded_packages_dict = get_downloaded_packages()
         log.info("Downloaded packages: %s", downloaded_packages_dict.keys())
         # look for all the downloaded packages on the Anaconda channel
+        # to see if any transient dependencies are already available in Anaconda
         downloaded_package_requirements = [
             r.requirement for r in downloaded_packages_dict.values()
         ]
@@ -231,38 +230,21 @@ def install_packages(
             downloaded_package_requirements,
         )
         second_chance_snowflake_packages = second_chance_results.snowflake
-        if len(second_chance_snowflake_packages) > 0:
-            log.info(second_chance_msg.format(second_chance_results))
-        else:
-            log.info("None of the package dependencies were found on Anaconda")
-        second_chance_snowflake_package_names = [
-            p.name for p in second_chance_snowflake_packages
-        ]
-        downloaded_packages_not_needed = {
-            k: v
-            for k, v in downloaded_packages_dict.items()
-            if k in second_chance_snowflake_package_names
-        }
+
+        downloaded_packages_not_needed = {}
+        for package in second_chance_snowflake_packages:
+            name = package.name
+            if name in downloaded_packages_dict:
+                cli_console.message(
+                    f"{name} is available on Anaconda, removing from package"
+                )
+                downloaded_packages_not_needed[name] = downloaded_packages_dict.pop(
+                    name
+                )
+
         _delete_packages(downloaded_packages_not_needed)
 
-    log.info("Checking to see if packages have native libraries...")
-    # use glob to see if any files in packages have a .so extension
-    if _check_for_native_libraries():
-        continue_installation = (
-            click.confirm(
-                "\n\nWARNING! Some packages appear to have native libraries!\n"
-                "Continue with package installation?",
-                default=False,
-            )
-            if package_native_libraries == PypiOption.ASK
-            else True
-        )
-        if not continue_installation:
-            SecurePath(".packages").rmdir(recursive=True, missing_ok=True)
-            return False, second_chance_results
-    else:
-        log.info("No non-supported native libraries found in packages (Good news!)...")
-    return True, second_chance_results
+    return second_chance_results
 
 
 def _delete_packages(to_be_deleted: Dict) -> None:
@@ -277,7 +259,8 @@ def _delete_packages(to_be_deleted: Dict) -> None:
                     item_path.unlink()
 
 
-def _check_for_native_libraries():
+def check_for_native_libraries():
+    cli_console.step("Checking if any of packages requires native libraries")
     if glob.glob(".packages/**/*.so"):
         for path in glob.glob(".packages/**/*.so"):
             log.info("Potential native library: %s", path)

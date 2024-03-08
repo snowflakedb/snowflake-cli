@@ -6,18 +6,20 @@ from typing import List
 
 import click
 import typer
+from click import UsageError
 from requirements.requirement import Requirement
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark import package_utils
-from snowflake.cli.plugins.snowpark.models import PypiOption
+from snowflake.cli.plugins.snowpark.models import YesNoAsk
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
 
-PyPiDownloadOption: PypiOption = typer.Option(
-    PypiOption.ASK.value, help="Whether to download non-Anaconda packages from PyPi."
+PyPiDownloadOption: YesNoAsk = typer.Option(
+    YesNoAsk.ASK.value, help="Whether to download non-Anaconda packages from PyPi."
 )
 
-PackageNativeLibrariesOption: PypiOption = typer.Option(
-    PypiOption.NO.value,
+PackageNativeLibrariesOption: YesNoAsk = typer.Option(
+    YesNoAsk.NO.value,
     help="Allows native libraries, when using packages installed through PIP",
 )
 
@@ -51,9 +53,9 @@ REQUIREMENTS_OTHER = "requirements.other.txt"
 def snowpark_package(
     source: Path,
     artifact_file: Path,
-    pypi_download: PypiOption,
+    pypi_download: YesNoAsk,
     check_anaconda_for_pypi_deps: bool,
-    package_native_libraries: PypiOption,
+    package_native_libraries: YesNoAsk,
 ):
     log.info("Resolving any requirements from requirements.txt...")
     requirements = package_utils.parse_requirements()
@@ -69,18 +71,22 @@ def snowpark_package(
                     "Do you want to try to download non-Anaconda packages?",
                     default=True,
                 )
-                if pypi_download == PypiOption.ASK
-                else pypi_download == PypiOption.YES
+                if pypi_download == YesNoAsk.ASK
+                else pypi_download == YesNoAsk.YES
             )
             if do_download:
                 log.info("Installing non-Anaconda packages...")
-                should_continue, second_chance_results = package_utils.install_packages(
+                (
+                    requires_native_libs,
+                    second_chance_results,
+                ) = package_utils.install_packages(
                     REQUIREMENTS_OTHER,
                     check_anaconda_for_pypi_deps,
-                    package_native_libraries,
                 )
+                if requires_native_libs:
+                    check_if_can_continue_with_native_libs(package_native_libraries)
                 # add the Anaconda packages discovered as dependencies
-                if should_continue and second_chance_results:
+                if requires_native_libs and second_chance_results:
                     split_requirements.snowflake = (
                         split_requirements.snowflake + second_chance_results.snowflake
                     )
@@ -97,6 +103,22 @@ def snowpark_package(
     if Path(".packages").exists():
         zip_dir(source=Path(".packages"), dest_zip=artifact_file, mode="a")
     log.info("Deployment package now ready: %s", artifact_file)
+
+
+def check_if_can_continue_with_native_libs(package_native_libraries: YesNoAsk):
+    base_warning = "One or many packages may include native libraries. Such libraries may not work when uploaded to Snowpark."
+    if package_native_libraries == YesNoAsk.ASK:
+        continue_installation = typer.confirm(
+            f"{base_warning} Do you want continue anyway?"
+        )
+    else:
+        continue_installation = package_native_libraries == YesNoAsk.YES
+    if continue_installation:
+        cli_console.warning(base_warning)
+        return
+    raise UsageError(
+        "Requested packages require native libraries. Consider enabling them using flag."
+    )
 
 
 def _write_requirements_file(file_name: str, requirements: List[Requirement]):
