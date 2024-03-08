@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import Optional
 
 import typer
 from click import ClickException
@@ -43,6 +42,18 @@ RepoPathArgument = typer.Argument(
 )
 
 
+def _assure_repository_does_not_exist(repository_name: str) -> None:
+    om = ObjectManager()
+    try:
+        om.describe(
+            object_type=ObjectType.GIT_REPOSITORY.value.cli_name,
+            name=repository_name,
+        )
+        raise ClickException(f"Repository '{repository_name}' already exists")
+    except ProgrammingError:
+        pass
+
+
 @app.command("setup", requires_connection=True)
 def setup(
     repository_name: str = RepoNameArgument,
@@ -60,53 +71,35 @@ def setup(
 
     * API integration - object allowing Snowflake to interact with git repository.
     """
-
+    _assure_repository_does_not_exist(repository_name)
     manager = GitManager()
 
-    def _assure_repository_does_not_exist() -> None:
-        om = ObjectManager()
-        try:
-            om.describe(
-                object_type=ObjectType.GIT_REPOSITORY.value.cli_name,
-                name=repository_name,
-            )
-            raise ClickException(f"Repository '{repository_name}' already exists")
-        except ProgrammingError:
-            pass
+    url = typer.prompt("Origin url")
 
-    def _get_secret() -> Optional[str]:
-        secret_needed = typer.confirm("Use secret for authentication?")
-        if not secret_needed:
-            return None
-
+    secret = None
+    secret_needed = typer.confirm("Use secret for authentication?")
+    if secret_needed:
         use_existing_secret = typer.confirm("Use existing secret?")
         if use_existing_secret:
-            existing_secret = typer.prompt("Secret identifier")
-            return existing_secret
+            secret = typer.prompt("Secret identifier")
+        else:
+            cli_console.step("Creating new secret")
+            secret = f"{repository_name}_secret"
+            username = typer.prompt("username")
+            password = typer.prompt("password/token", hide_input=True)
+            manager.create_secret(username=username, password=password, name=secret)
+            cli_console.step(f"Secret '{secret}' successfully created")
 
-        cli_console.step("Creating new secret")
-        secret_name = f"{repository_name}_secret"
-        username = typer.prompt("username")
-        password = typer.prompt("password/token", hide_input=True)
-        manager.create_secret(username=username, password=password, name=secret_name)
-        cli_console.step(f"Secret '{secret_name}' successfully created")
-        return secret_name
+    use_existing_api = typer.confirm("Use existing api integration?")
+    if use_existing_api:
+        api_integration = typer.prompt("API integration identifier")
+    else:
+        api_integration = f"{repository_name}_api_integration"
+        manager.create_api_integration(
+            name=api_integration, allowed_prefix=url, secret=secret
+        )
+        cli_console.step(f"API integration '{api_integration}' successfully created.")
 
-    def _get_api_integration(secret: Optional[str], url: str) -> str:
-        use_existing_api = typer.confirm("Use existing api integration?")
-        if use_existing_api:
-            api_name = typer.prompt("API integration identifier")
-            return api_name
-
-        api_name = f"{repository_name}_api_integration"
-        manager.create_api_integration(name=api_name, allowed_prefix=url, secret=secret)
-        cli_console.step(f"API integration '{api_name}' successfully created.")
-        return api_name
-
-    _assure_repository_does_not_exist()
-    url = typer.prompt("Origin url")
-    secret = _get_secret()
-    api_integration = _get_api_integration(secret=secret, url=url)
     return QueryResult(
         manager.create(
             repo_name=repository_name,
