@@ -19,12 +19,12 @@ def test_flag_value_has_to_be_boolean():
 
 def test_flag_is_enabled():
     assert _TestFlags.ENABLED_BY_DEFAULT.is_enabled() is True
-    assert _TestFlags.ENABLED_BY_DEFAULT.is_disable() is False
+    assert _TestFlags.ENABLED_BY_DEFAULT.is_disabled() is False
 
 
 def test_flag_is_disabled():
     assert _TestFlags.DISABLED_BY_DEFAULT.is_enabled() is False
-    assert _TestFlags.DISABLED_BY_DEFAULT.is_disable() is True
+    assert _TestFlags.DISABLED_BY_DEFAULT.is_disabled() is True
 
 
 def test_flag_env_variable_value():

@@ -22,7 +22,7 @@ class FeatureFlagMixin(Enum):
             default=self.value.default,
         )
 
-    def is_disable(self):
+    def is_disabled(self):
         return not self.is_enabled()
 
     def env_variable(self):
