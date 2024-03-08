@@ -10,12 +10,11 @@ FILE_IN_REPO = "RELEASE-NOTES.md"
 def sf_git_repository(runner, test_database):
     repo_name = "SNOWCLI_TESTING_REPO"
     integration_name = "SNOWCLI_TESTING_REPO_API_INTEGRATION"
-    communication = ["https://github.com/snowflakedb/snowflake-cli.git", "n", "n"]
-    if _integration_exists(runner, integration_name):
-        communication[-1] = "y"
-        communication.append(integration_name)
+    communication = "\n".join(
+        ["https://github.com/snowflakedb/snowflake-cli.git", "n", integration_name, ""]
+    )
     result = runner.invoke_with_connection(
-        ["git", "setup", repo_name], input="\n".join(communication) + "\n"
+        ["git", "setup", repo_name], input=communication
     )
     assert result.exit_code == 0
     assert f"Git Repository {repo_name} was successfully created." in result.output
