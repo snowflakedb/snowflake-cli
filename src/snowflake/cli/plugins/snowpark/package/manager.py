@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os.path
+from functools import wraps
 from pathlib import Path
 
 from requirements.requirement import Requirement
@@ -71,6 +72,13 @@ def create(zip_name: str):
         return CreatedSuccessfully(zip_name, Path(file_name))
 
 
-def cleanup_after_install():
-    if PACKAGES_DIR.exists():
-        SecurePath(PACKAGES_DIR).rmdir(recursive=True)
+def cleanup_after_install(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        finally:
+            if PACKAGES_DIR.exists():
+                SecurePath(PACKAGES_DIR).rmdir(recursive=True)
+
+    return wrapper
