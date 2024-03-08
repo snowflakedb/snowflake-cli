@@ -64,9 +64,40 @@ def test_list_branches_and_tags(runner, sf_git_repository):
     assert "main" in _filter_key(result.json, key="name")
 
     # list tags
-    result = runner.invoke_with_connection_json(["git", "list-tags", sf_git_repository])
+    result = runner.invoke_with_connection_json(
+        ["git", "list-tags", sf_git_repository, "--like", "v2.1.0%"]
+    )
     assert result.exit_code == 0
-    assert "v2.0.0" in _filter_key(result.json, key="name")
+    assert result.json == [
+        {
+            "author": None,
+            "commit_hash": "f0f7d4bd706b92e1c4556d25bf4015cff30588ed",
+            "message": None,
+            "name": "v2.1.0",
+            "path": "/tags/v2.1.0",
+        },
+        {
+            "author": None,
+            "commit_hash": "829887b758b43b86959611dd6127638da75cf871",
+            "message": None,
+            "name": "v2.1.0-rc0",
+            "path": "/tags/v2.1.0-rc0",
+        },
+        {
+            "author": None,
+            "commit_hash": "b7efe1fe9c0925b95ba214e233b18924fa0404b3",
+            "message": None,
+            "name": "v2.1.0-rc1",
+            "path": "/tags/v2.1.0-rc1",
+        },
+        {
+            "author": None,
+            "commit_hash": "36919a3ec01eea0541a1e17a064f6880e612193a",
+            "message": None,
+            "name": "v2.1.0-rc2",
+            "path": "/tags/v2.1.0-rc2",
+        },
+    ]
 
 
 @pytest.mark.integration
