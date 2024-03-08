@@ -94,7 +94,9 @@ def setup(
             "Secret identifier (will be created if not exists)", default=secret_name
         )
         secret = {"name": secret_name}
-        if not _object_exists(ObjectType.SECRET, secret_name):
+        if _object_exists(ObjectType.SECRET, secret_name):
+            cli_console.step(f"Using existing secret '{secret_name}'")
+        else:
             cli_console.step(f"Secret '{secret_name}' will be created")
             secret["username"] = typer.prompt("username")
             secret["password"] = typer.prompt("password/token", hide_input=True)
@@ -108,7 +110,7 @@ def setup(
     if "username" in secret:
         manager.create_password_secret(**secret)
         secret_name = secret["name"]
-        cli_console.step(f"Secret '{secret_name}' successfully created")
+        cli_console.step(f"Secret '{secret_name}' successfully created.")
 
     if not _object_exists(ObjectType.INTEGRATION, api_integration):
         manager.create_api_integration(
@@ -119,7 +121,7 @@ def setup(
         )
         cli_console.step(f"API integration '{api_integration}' successfully created.")
     else:
-        cli_console.step(f"Using existing API integration '{api_integration}'")
+        cli_console.step(f"Using existing API integration '{api_integration}'.")
 
     return QueryResult(
         manager.create(

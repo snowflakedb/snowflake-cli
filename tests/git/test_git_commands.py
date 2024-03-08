@@ -117,14 +117,32 @@ def test_setup_already_exists_error(mock_om_describe, mock_connector, runner, mo
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
-def test_setup_no_secret_existing_api(
-    mock_om_describe, mock_connector, runner, mock_ctx
-):
+def test_setup_invalid_url_error(mock_om_describe, mock_connector, runner, mock_ctx):
     mock_om_describe.side_effect = ProgrammingError("does not exist or not authorized")
     ctx = mock_ctx()
     mock_connector.return_value = ctx
+    communication = "http://invalid_url.git\ns"
+    result = runner.invoke(["git", "setup", "repo_name"], input=communication)
 
-    communication = "\n".join([EXAMPLE_URL, "n", "y", "existing_api_integration", ""])
+    assert result.exit_code == 1, result.output
+    assert "Error" in result.output
+    assert "Url address should start with 'https'" in result.output
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+def test_setup_no_secret_existing_api(
+    mock_om_describe, mock_connector, runner, mock_ctx
+):
+    mock_om_describe.side_effect = [
+        ProgrammingError("does not exist or not authorized"),
+        None,
+    ]
+    mock_om_describe.return_value = [None, {"object_details": "something"}]
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    communication = "\n".join([EXAMPLE_URL, "n", "existing_api_integration", ""])
     result = runner.invoke(["git", "setup", "repo_name"], input=communication)
 
     assert result.exit_code == 0, result.output
@@ -133,8 +151,8 @@ def test_setup_no_secret_existing_api(
             [
                 "Origin url: https://github.com/an-example-repo.git",
                 "Use secret for authentication? [y/N]: n",
-                "Use existing api integration? [y/N]: y",
-                "API integration identifier: existing_api_integration",
+                "API integration identifier (will be created if not exists) [repo_name_api_integration]: existing_api_integration",
+                "Using existing API integration 'existing_api_integration'.",
             ]
         )
     )
@@ -152,7 +170,7 @@ def test_setup_no_secret_create_api(mock_om_describe, mock_connector, runner, mo
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    communication = "\n".join([EXAMPLE_URL, "n", "n", "existing_api_integration", ""])
+    communication = "\n".join([EXAMPLE_URL, "n", "", ""])
     result = runner.invoke(["git", "setup", "repo_name"], input=communication)
 
     assert result.exit_code == 0, result.output
@@ -161,7 +179,7 @@ def test_setup_no_secret_create_api(mock_om_describe, mock_connector, runner, mo
             [
                 "Origin url: https://github.com/an-example-repo.git",
                 "Use secret for authentication? [y/N]: n",
-                "Use existing api integration? [y/N]: n",
+                "API integration identifier (will be created if not exists) [repo_name_api_integration]: ",
                 "API integration 'repo_name_api_integration' successfully created.",
             ]
         )
@@ -184,12 +202,17 @@ def test_setup_no_secret_create_api(mock_om_describe, mock_connector, runner, mo
 def test_setup_existing_secret_existing_api(
     mock_om_describe, mock_connector, runner, mock_ctx
 ):
-    mock_om_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    mock_om_describe.side_effect = [
+        ProgrammingError("does not exist or not authorized"),
+        None,
+        None,
+    ]
+    mock_om_describe.return_value = [None, "integration_details", "secret_details"]
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
     communication = "\n".join(
-        [EXAMPLE_URL, "y", "y", "existing_secret", "y", "existing_api_integration", ""]
+        [EXAMPLE_URL, "y", "existing_secret", "existing_api_integration", ""]
     )
     result = runner.invoke(["git", "setup", "repo_name"], input=communication)
 
@@ -199,10 +222,10 @@ def test_setup_existing_secret_existing_api(
             [
                 "Origin url: https://github.com/an-example-repo.git",
                 "Use secret for authentication? [y/N]: y",
-                "Use existing secret? [y/N]: y",
-                "Secret identifier: existing_secret",
-                "Use existing api integration? [y/N]: y",
-                "API integration identifier: existing_api_integration",
+                "Secret identifier (will be created if not exists) [repo_name_secret]: existing_secret",
+                "Using existing secret 'existing_secret'",
+                "API integration identifier (will be created if not exists) [repo_name_api_integration]: existing_api_integration",
+                "Using existing API integration 'existing_api_integration'.",
             ]
         )
     )
@@ -219,11 +242,16 @@ def test_setup_existing_secret_existing_api(
 def test_setup_existing_secret_create_api(
     mock_om_describe, mock_connector, runner, mock_ctx
 ):
-    mock_om_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    mock_om_describe.side_effect = [
+        ProgrammingError("does not exist or not authorized"),
+        None,
+        ProgrammingError("does not exist or not authorized"),
+    ]
+    mock_om_describe.return_value = [None, "secret_details", None]
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    communication = "\n".join([EXAMPLE_URL, "y", "y", "existing_secret", "n", ""])
+    communication = "\n".join([EXAMPLE_URL, "y", "existing_secret", "", ""])
     result = runner.invoke(["git", "setup", "repo_name"], input=communication)
 
     assert result.exit_code == 0, result.output
@@ -232,9 +260,9 @@ def test_setup_existing_secret_create_api(
             [
                 "Origin url: https://github.com/an-example-repo.git",
                 "Use secret for authentication? [y/N]: y",
-                "Use existing secret? [y/N]: y",
-                "Secret identifier: existing_secret",
-                "Use existing api integration? [y/N]: n",
+                "Secret identifier (will be created if not exists) [repo_name_secret]: existing_secret",
+                "Using existing secret 'existing_secret'",
+                "API integration identifier (will be created if not exists) [repo_name_api_integration]: ",
                 "API integration 'repo_name_api_integration' successfully created.",
             ]
         )
@@ -262,7 +290,9 @@ def test_setup_create_secret_create_api(
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    communication = "\n".join([EXAMPLE_URL, "y", "n", "john_doe", "admin123", "n", ""])
+    communication = "\n".join(
+        [EXAMPLE_URL, "y", "", "john_doe", "admin123", "new_integration", ""]
+    )
     result = runner.invoke(["git", "setup", "repo_name"], input=communication)
 
     assert result.exit_code == 0, result.output
@@ -271,13 +301,13 @@ def test_setup_create_secret_create_api(
             [
                 "Origin url: https://github.com/an-example-repo.git",
                 "Use secret for authentication? [y/N]: y",
-                "Use existing secret? [y/N]: n",
-                "Creating new secret",
+                "Secret identifier (will be created if not exists) [repo_name_secret]: ",
+                "Secret 'repo_name_secret' will be created",
                 "username: john_doe",
                 "password/token: ",
-                "Secret 'repo_name_secret' successfully created",
-                "Use existing api integration? [y/N]: n",
-                "API integration 'repo_name_api_integration' successfully created.",
+                "API integration identifier (will be created if not exists) [repo_name_api_integration]: new_integration",
+                "Secret 'repo_name_secret' successfully created.",
+                "API integration 'new_integration' successfully created.",
             ]
         )
     )
@@ -287,14 +317,14 @@ def test_setup_create_secret_create_api(
         " username = 'john_doe'"
         " password = 'admin123'"
         "\n"
-        "create api integration repo_name_api_integration"
+        "create api integration new_integration"
         " api_provider = git_https_api"
         " api_allowed_prefixes = ('https://github.com/an-example-repo.git')"
         " allowed_authentication_secrets = (repo_name_secret)"
         " enabled = true"
         "\n"
         "create git repository repo_name"
-        " api_integration = repo_name_api_integration"
+        " api_integration = new_integration"
         " origin = 'https://github.com/an-example-repo.git'"
         " git_credentials = repo_name_secret"
     )
