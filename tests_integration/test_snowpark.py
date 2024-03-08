@@ -264,7 +264,7 @@ def test_snowpark_with_single_dependency_having_no_other_deps(
         )
 
 
-# @pytest.mark.integration
+@pytest.mark.integration
 def test_snowpark_with_single_requirement_having_transient_deps(
     runner, _test_steps, project_directory, alter_snowflake_yml, test_database
 ):

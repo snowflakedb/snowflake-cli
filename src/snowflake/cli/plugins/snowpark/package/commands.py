@@ -118,10 +118,8 @@ def package_create(
         allow_native_libraries=allow_native_libraries,
     )
 
-    creation_result = create(name)
-
     if isinstance(lookup_result, (NotInAnaconda, RequiresPackages)) and isinstance(
-        creation_result, CreatedSuccessfully
+        creation_result := create(name), CreatedSuccessfully
     ):
         message = creation_result.message
         if type(lookup_result) == RequiresPackages:

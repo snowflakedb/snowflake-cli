@@ -45,7 +45,7 @@ class TestPackage:
 
         snowflake_session.execute_string(f"DROP STAGE IF EXISTS {self.STAGE_NAME};")
 
-    # @pytest.mark.integration
+    @pytest.mark.integration
     def test_package_create_with_non_anaconda_package(self, directory_for_test, runner):
         result = runner.invoke_with_connection_json(
             ["snowpark", "package", "create", "dummy-pkg-for-tests-with-deps", "-y"]
@@ -113,7 +113,7 @@ class TestPackage:
         assert any(["colormaps.py" in name for name in files])
         assert not any(["matplotlib" in name for name in files])
 
-    # @pytest.mark.integration
+    @pytest.mark.integration
     def test_package_from_github(self, directory_for_test, runner):
         result = runner.invoke_with_connection_json(
             [

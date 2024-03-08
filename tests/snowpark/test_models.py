@@ -20,7 +20,6 @@ def test_requirement_is_parsed_correctly(line, name, extras):
 @pytest.mark.parametrize(
     "line,name",
     [
-        ("pydantic", "pydantic"),
         (
             "git+https://github.com/sfc-gh-turbaszek/dummy-pkg-for-tests",
             "dummy-pkg-for-tests",
@@ -34,6 +33,13 @@ def test_requirement_is_parsed_correctly(line, name, extras):
             "dummy-pkg-for-tests",
         ),
         ("foo.zip", "foo"),
+        ("package", "package"),
+        ("package.zip", "package"),
+        ("git+https://github.com/Snowflake-Labs/snowflake-cli/", "snowflake-cli"),
+        (
+            "git+https://github.com/Snowflake-Labs/snowflake-cli.git/@snow-123456-fix",
+            "snowflake-cli",
+        ),
     ],
 )
 def test_get_package_name(line, name):
