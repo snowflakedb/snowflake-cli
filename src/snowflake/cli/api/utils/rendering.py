@@ -102,18 +102,19 @@ def _env_bootstrap(env: Environment) -> Environment:
     return env
 
 
-_RANDOM_BLOCK = "___very___unique___block___to___disable___logic___blocks___"
-SNOWFLAKE_CLI_JINJA_ENV = _env_bootstrap(
-    Environment(
-        loader=loaders.BaseLoader(),
-        keep_trailing_newline=True,
-        variable_start_string="%{",
-        variable_end_string="}",
-        block_start_string=_RANDOM_BLOCK,
-        block_end_string=_RANDOM_BLOCK,
-        undefined=StrictUndefined,
+def get_snowflake_cli_jinja_env():
+    _random_block = "___very___unique___block___to___disable___logic___blocks___"
+    return _env_bootstrap(
+        Environment(
+            loader=loaders.BaseLoader(),
+            keep_trailing_newline=True,
+            variable_start_string="%{",
+            variable_end_string="}",
+            block_start_string=_random_block,
+            block_end_string=_random_block,
+            undefined=StrictUndefined,
+        )
     )
-)
 
 
 def jinja_render_from_file(
@@ -147,4 +148,4 @@ def jinja_render_from_file(
 
 def snowflake_cli_jinja_render(content: str, data: Dict | None = None) -> str:
     data = data or dict()
-    return SNOWFLAKE_CLI_JINJA_ENV.from_string(content).render(**data)
+    return get_snowflake_cli_jinja_env().from_string(content).render(**data)
