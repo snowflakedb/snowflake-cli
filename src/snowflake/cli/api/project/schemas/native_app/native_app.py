@@ -35,5 +35,5 @@ class NativeApp(UpdatableModel):
     @classmethod
     def validate_source_stage(cls, input_value: str):
         if not re.match(SCHEMA_AND_NAME, input_value):
-            raise ValueError("Incorrect value for Native Apps source stage value")
+            raise ValueError("Incorrect value for source_stage value of native_app")
         return input_value
