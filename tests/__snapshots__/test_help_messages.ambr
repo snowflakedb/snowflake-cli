@@ -1,11 +1,11 @@
 # serializer version: 1
 # name: test_help_messages[]
   '''
-
-   Usage: default [OPTIONS] COMMAND [ARGS]...
-
-   Snowflake CLI tool for developers.
-
+                                                                                  
+   Usage: default [OPTIONS] COMMAND [ARGS]...                                     
+                                                                                  
+   Snowflake CLI tool for developers.                                             
+                                                                                  
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --version                    Shows version of the Snowflake CLI              │
   │ --info                       Shows information about the Snowflake CLI       │
@@ -24,8 +24,8 @@
   │ sql         Executes Snowflake query.                                        │
   │ streamlit   Manages Streamlit in Snowflake.                                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-
-
+  
+  
   '''
 # ---
 # name: test_help_messages[app.bundle]
@@ -1582,7 +1582,7 @@
                                                                                   
    Usage: default snowpark init [OPTIONS] [PROJECT_NAME]                          
                                                                                   
-   Initializes this directory with a sample set of files for creating a Snowpark
+   Initializes this directory with a sample set of files for creating a Snowpark  
    project.                                                                       
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
@@ -1612,8 +1612,8 @@
                                                                                   
    Usage: default snowpark package create [OPTIONS] NAME                          
                                                                                   
-   Creates a Python package as a zip file that can be uploaded to a stage and
-   imported for a Snowpark Python app.
+   Creates a Python package as a zip file that can be uploaded to a stage and     
+   imported for a Snowpark Python app.                                            
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the package to create. [default: None]          │
@@ -1684,7 +1684,7 @@
                                                                                   
    Usage: default snowpark package lookup [OPTIONS] NAME                          
                                                                                   
-   Checks if a package is available on the Snowflake Anaconda channel. If the
+   Checks if a package is available on the Snowflake Anaconda channel. If the     
    `--pypi-download` flag is provided, this command checks all dependencies of    
    the packages outside Snowflake channel.                                        
                                                                                   
@@ -1756,7 +1756,7 @@
                                                                                   
    Usage: default snowpark package upload [OPTIONS]                               
                                                                                   
-   Uploads a Python package zip file to a Snowflake stage so it can be referenced
+   Uploads a Python package zip file to a Snowflake stage so it can be referenced 
    in the imports of a procedure or function.                                     
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮

@@ -31,7 +31,7 @@ class Requirement(requirement.Requirement):
         if len(line_elements) > 1:
             for element in line_elements[1:]:
                 if "extra" in element and (extras := cls.extra_pattern.search(element)):
-                    result.extras.extend(extras)
+                    result.extras.extend(extras.groups())
 
         if result.uri and not result.name:
             result.name = get_package_name(result.uri)
@@ -72,7 +72,7 @@ class RequirementWithFilesAndDeps(RequirementWithFiles):
 
 def get_package_name(name: str) -> str:
     if name.lower().startswith(("git+", "http")):
-        pattern = re.compile(r"github\.com\/[^\/]+\/([^\/][^.@$]+)")
+        pattern = re.compile(r"github\.com\/[^\/]+\/([^\/][^.@$/]+)")
         if match := pattern.search(name):
             return match.group(1)
         else:
