@@ -95,7 +95,7 @@ class Venv:
                     requirement=package, files=files, dependencies=requires
                 )
 
-                log.debug(
+                log.warning(
                     "Checking package{0}, with dependencies: {1}",
                     package.name,
                     requires,
