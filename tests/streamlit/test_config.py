@@ -30,4 +30,4 @@ def test_load_project_definition(test_files, expected):
 
     result = load_project_definition(test_files)
 
-    assert expected in result["streamlit"]["additional_source_files"]
+    assert expected in result.streamlit.additional_source_files

@@ -39,10 +39,10 @@ def dir_structure(path: Path, prefix="") -> List[str]:
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_napp_project_1_artifacts(project_definition_files):
     project_root = project_definition_files[0].parent
-    native_app = load_project_definition(project_definition_files)["native_app"]
+    native_app = load_project_definition(project_definition_files).native_app
 
-    deploy_root = Path(project_root, native_app["deploy_root"])
-    artifacts = [translate_artifact(item) for item in native_app["artifacts"]]
+    deploy_root = Path(project_root, native_app.deploy_root)
+    artifacts = [translate_artifact(item) for item in native_app.artifacts]
     build_bundle(project_root, deploy_root, artifacts)
 
     assert dir_structure(deploy_root) == [
