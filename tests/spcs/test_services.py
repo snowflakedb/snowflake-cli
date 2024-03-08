@@ -4,7 +4,7 @@ from textwrap import dedent
 from unittest.mock import Mock, patch
 
 import pytest
-import yaml
+import strictyaml
 from click import ClickException
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.project.util import to_string_literal
@@ -185,9 +185,9 @@ def test_create_service_with_invalid_spec(mock_read_yaml):
     max_instances = 42
     external_access_integrations = query_warehouse = tags = comment = None
     auto_resume = False
-    mock_read_yaml.side_effect = yaml.YAMLError("Invalid yaml")
+    mock_read_yaml.side_effect = strictyaml.YAMLError("Invalid YAML")
 
-    with pytest.raises(yaml.YAMLError):
+    with pytest.raises(strictyaml.YAMLError):
         ServiceManager().create(
             service_name=service_name,
             compute_pool=compute_pool,
