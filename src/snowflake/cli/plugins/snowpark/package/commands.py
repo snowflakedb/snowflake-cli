@@ -40,6 +40,7 @@ deprecated_install_option = typer.Option(
 
 
 @app.command("lookup", requires_connection=True)
+@cleanup_after_install
 def package_lookup(
     name: str = typer.Argument(..., help="Name of the package."),
     install_packages: bool = install_option,
@@ -55,7 +56,6 @@ def package_lookup(
         install_packages = deprecated_install_option
 
     lookup_result = lookup(name=name, install_packages=install_packages)
-    cleanup_after_install()
     return MessageResult(lookup_result.message)
 
 
@@ -89,6 +89,7 @@ def package_upload(
 
 
 @app.command("create", requires_connection=True)
+@cleanup_after_install
 def package_create(
     name: str = typer.Argument(
         ...,
@@ -117,6 +118,4 @@ def package_create(
             message += "\n" + lookup_result.message
     else:
         message = lookup_result.message
-
-    cleanup_after_install()
     return MessageResult(message)
