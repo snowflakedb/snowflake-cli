@@ -96,11 +96,9 @@ class Venv:
                 )
 
                 log.warning(  # TODO: change back to debug
-                    "Checking package %s, with dependencies: %s . Full package info:",
-                    package.name,
-                    requires,
-                    installed_packages.get(package.name, {}),
+                    "Checking package %s, with dependencies: %s", package.name, requires
                 )
+                log.warning(installed_packages)
 
                 for package in requires:
                     _get_dependencies(Requirement.parse_line(package))
