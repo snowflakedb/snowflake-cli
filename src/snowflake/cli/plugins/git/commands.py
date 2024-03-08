@@ -140,7 +140,7 @@ def list_tags(
     **options,
 ) -> CommandResult:
     """
-    List all tags in the repository.§
+    List all tags in the repository.
     """
     return QueryResult(GitManager().show_tags(repo_name=repository_name))
 
