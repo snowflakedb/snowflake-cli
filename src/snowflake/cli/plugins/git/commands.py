@@ -43,9 +43,8 @@ RepoPathArgument = typer.Argument(
 
 
 def _assure_repository_does_not_exist(repository_name: str) -> None:
-    om = ObjectManager()
     try:
-        om.describe(
+        ObjectManager().describe(
             object_type=ObjectType.GIT_REPOSITORY.value.cli_name,
             name=repository_name,
         )
