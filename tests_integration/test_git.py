@@ -9,34 +9,13 @@ FILE_IN_REPO = "RELEASE-NOTES.md"
 @pytest.fixture
 def sf_git_repository(runner, test_database):
     repo_name = "SNOWCLI_TESTING_REPO"
-    integration_name = "SNOW_GIT_TESTING_API_INTEGRATION"
-
-    if not _integration_exists(runner, integration_name=integration_name):
-        result = runner.invoke_with_connection(
-            [
-                "sql",
-                "-q",
-                f"""
-                CREATE API INTEGRATION {integration_name}
-                API_PROVIDER = git_https_api
-                API_ALLOWED_PREFIXES = ('https://github.com/snowflakedb/')
-                ALLOWED_AUTHENTICATION_SECRETS = ()
-                ENABLED = true
-            """,
-            ]
-        )
-        assert result.exit_code == 0
-
+    integration_name = "SNOWCLI_TESTING_REPO_API_INTEGRATION"
+    communication = ["https://github.com/snowflakedb/snowflake-cli.git", "n", "n"]
+    if _integration_exists(runner, integration_name):
+        communication[-1] = "y"
+        communication.append(integration_name)
     result = runner.invoke_with_connection(
-        [
-            "sql",
-            "-q",
-            f"""
-            CREATE GIT REPOSITORY {repo_name}            
-            API_INTEGRATION = {integration_name}
-            ORIGIN = 'https://github.com/snowflakedb/snowflake-cli.git'   
-            """,
-        ]
+        ["git", "setup", repo_name], input="\n".join(communication) + "\n"
     )
     assert result.exit_code == 0
     return repo_name
