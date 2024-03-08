@@ -40,6 +40,13 @@ RepoPathArgument = typer.Argument(
     ),
     callback=_repo_path_argument_callback,
 )
+PatternOption = typer.Option(
+    ".*",
+    "--pattern",
+    "-p",
+    help="Regex pattern for filtering files by name. Git repository scope prefix is not included in regex matching."
+    ' For example list-files --pattern ".*\.txt lists all files with .txt extension.',
+)
 
 
 def like_option(help_example: str):
@@ -182,12 +189,15 @@ def list_tags(
 )
 def list_files(
     repository_path: str = RepoPathArgument,
+    pattern=PatternOption,
     **options,
 ) -> CommandResult:
     """
     List files from given state of git repository.
     """
-    return QueryResult(GitManager().show_files(repo_path=repository_path))
+    return QueryResult(
+        GitManager().show_files(repo_path=repository_path, pattern=pattern)
+    )
 
 
 @app.command(

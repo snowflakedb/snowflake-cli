@@ -117,12 +117,17 @@ def test_list_files(runner, sf_git_repository):
             "a tag name, or a valid commit hash. Commit hashes are between 6 and 40 characters long."
         )
 
+    # list files with pattern
     repository_path = f"@{sf_git_repository}/tags/v2.1.0-rc1/"
-    result = runner.invoke_with_connection_json(["git", "list-files", repository_path])
-    assert result.exit_code == 0
-    assert f"{repository_path[1:].lower()}{FILE_IN_REPO}" in _filter_key(
-        result.json, key="name"
+    prefix = repository_path[1:-1].lower()
+    result = runner.invoke_with_connection_json(
+        ["git", "list-files", repository_path, "--pattern", "R.*\.md"]
     )
+    assert result.exit_code == 0
+    assert _filter_key(result.json, key="name") == [
+        f"{prefix}/README.md",
+        f"{prefix}/RELEASE-NOTES.md",
+    ]
 
 
 @pytest.mark.integration

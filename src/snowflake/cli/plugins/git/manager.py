@@ -13,8 +13,8 @@ class GitManager(StageManager):
         query = f"show git tags like '{like}' in {repo_name}"
         return self._execute_query(query)
 
-    def show_files(self, repo_path: str) -> SnowflakeCursor:
-        query = f"ls {repo_path}"
+    def show_files(self, repo_path: str, pattern: str) -> SnowflakeCursor:
+        query = f"ls {repo_path} pattern = '{pattern}'"
         return self._execute_query(query)
 
     def fetch(self, repo_name: str) -> SnowflakeCursor:

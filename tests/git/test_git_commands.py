@@ -64,10 +64,22 @@ def test_list_tags_like(mock_connector, runner, mock_ctx):
 def test_list_files(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    result = runner.invoke(["git", "list-files", "@repo_name/branches/main"])
+    result = runner.invoke(["git", "list-files", "@repo_name/branches/main/"])
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_query() == "ls @repo_name/branches/main"
+    assert ctx.get_query() == "ls @repo_name/branches/main/ pattern = '.*'"
+
+
+@mock.patch("snowflake.connector.connect")
+def test_list_files_pattern(mock_connector, runner, mock_ctx):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(
+        ["git", "list-files", "@repo_name/branches/main/", "--pattern", "REGEX"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == "ls @repo_name/branches/main/ pattern = 'REGEX'"
 
 
 def test_list_files_not_a_stage_error(runner):
