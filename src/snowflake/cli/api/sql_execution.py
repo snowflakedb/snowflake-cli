@@ -85,23 +85,27 @@ class SqlExecutionMixin:
     def create_password_secret(
         self, name: str, username: str, password: str
     ) -> SnowflakeCursor:
-        query = (
-            f"create secret {name}"
-            f" type = password"
-            f" username = '{username}'"
-            f" password = '{password}'"
+        query = dedent(
+            f"""
+            create secret {name}
+            type = password
+            username = '{username}'
+            password = '{password}'
+            """
         )
         return self._execute_query(query)
 
     def create_api_integration(
         self, name: str, api_provider: str, allowed_prefix: str, secret: Optional[str]
     ) -> SnowflakeCursor:
-        query = (
-            f"create api integration {name}"
-            f" api_provider = {api_provider}"
-            f" api_allowed_prefixes = ('{allowed_prefix}')"
-            f" allowed_authentication_secrets = ({secret if secret else ''})"
-            f" enabled = true"
+        query = dedent(
+            f"""
+            create api integration {name}
+            api_provider = {api_provider}
+            api_allowed_prefixes = ('{allowed_prefix}')
+            allowed_authentication_secrets = ({secret if secret else ''})
+            enabled = true
+            """
         )
         return self._execute_query(query)
 

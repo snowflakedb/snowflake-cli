@@ -1,3 +1,5 @@
+from textwrap import dedent
+
 from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -22,11 +24,13 @@ class GitManager(StageManager):
     def create(
         self, repo_name: str, api_integration: str, url: str, secret: str
     ) -> SnowflakeCursor:
-        query = (
-            f"create git repository {repo_name}"
-            f" api_integration = {api_integration}"
-            f" origin = '{url}'"
+        query = dedent(
+            f"""
+            create git repository {repo_name}
+            api_integration = {api_integration}
+            origin = '{url}'
+            """
         )
         if secret is not None:
-            query += f" git_credentials = {secret}"
+            query += f"git_credentials = {secret}\n"
         return self._execute_query(query)
