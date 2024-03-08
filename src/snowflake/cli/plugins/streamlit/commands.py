@@ -22,7 +22,7 @@ from snowflake.cli.plugins.streamlit.manager import StreamlitManager
 
 app = SnowTyper(
     name="streamlit",
-    help="Manages Streamlit in Snowflake.",
+    help="Manages a Streamlit app in Snowflake.",
 )
 log = logging.getLogger(__name__)
 
@@ -30,18 +30,30 @@ log = logging.getLogger(__name__)
 StageNameOption: str = typer.Option(
     "streamlit",
     "--stage",
-    help="Stage name where Streamlit files will be uploaded.",
+    help="Name of the stage where you want to upload Streamlit app files.",
+)
+
+OpenOption = typer.Option(
+    False,
+    "--open",
+    help="Whether to open the Streamlit app in a browser.",
+    is_flag=True,
 )
 
 
-add_init_command(app, project_type="Streamlit", template="default_streamlit")
+add_init_command(
+    app,
+    project_type="Streamlit",
+    template="default_streamlit",
+    help_message="Name of the Streamlit app project directory you want to create. Defaults to `example_streamlit`.",
+)
 
 
 @app.command("share", requires_connection=True)
 def streamlit_share(
-    name: str = typer.Argument(..., help="Name of streamlit to share."),
+    name: str = typer.Argument(..., help="Name of the Streamlit app to share."),
     to_role: str = typer.Argument(
-        ..., help="Role that streamlit should be shared with."
+        ..., help="Role with which to share the Streamlit app."
     ),
     **options,
 ) -> CommandResult:
@@ -71,16 +83,16 @@ def _default_file_callback(param_name: str):
 @with_project_definition("streamlit")
 @with_experimental_behaviour()
 def streamlit_deploy(
-    replace: bool = ReplaceOption(help="Replace the Streamlit if it already exists."),
-    open_: bool = typer.Option(
-        False, "--open", help="Whether to open Streamlit in a browser.", is_flag=True
+    replace: bool = ReplaceOption(
+        help="Replace the Streamlit app if it already exists."
     ),
+    open_: bool = OpenOption,
     **options,
 ) -> CommandResult:
     """
-    Deploys a Streamlit dashboard defined in project definition file (snowflake.yml). By default, the command will
-    upload environment.yml and pages/ folder if present. If stage name is not specified then 'streamlit' stage
-    will be used. If stage does not exist it will be created by this command.
+    Deploys a Streamlit app defined in the project definition file (snowflake.yml). By default, the command uploads
+    environment.yml and any other pages or folders, if present. If you don’t specify a stage name, the `streamlit`
+    stage is used. If the specified stage does not exist, the command creates it.
     """
     streamlit: Streamlit = cli_context.project_definition
     if not streamlit:
@@ -119,12 +131,10 @@ def streamlit_deploy(
 @app.command("get-url", requires_connection=True)
 def get_url(
     name: str = typer.Argument(..., help="Name of the Streamlit app."),
-    open_: bool = typer.Option(
-        False, "--open", help="Whether to open Streamlit in a browser.", is_flag=True
-    ),
+    open_: bool = OpenOption,
     **options,
 ):
-    """Returns url to provided streamlit app"""
+    """Returns a URL to the specified Streamlit app"""
     url = StreamlitManager().get_url(streamlit_name=name)
     if open_:
         typer.launch(url)
