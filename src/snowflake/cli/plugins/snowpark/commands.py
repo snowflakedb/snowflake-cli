@@ -27,6 +27,12 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
+from snowflake.cli.api.project.schemas.snowpark.callable import (
+    Callable,
+    FunctionSchema,
+    ProcedureSchema,
+)
+from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.cli.plugins.snowpark.common import (
@@ -74,8 +80,8 @@ def deploy(
     """
     snowpark = cli_context.project_definition
 
-    procedures = snowpark.get("procedures", [])
-    functions = snowpark.get("functions", [])
+    procedures = snowpark.procedures
+    functions = snowpark.functions
 
     if not procedures and not functions:
         raise ClickException(
@@ -109,7 +115,7 @@ def deploy(
         raise ClickException(msg)
 
     # Create stage
-    stage_name = snowpark.get("stage_name", DEPLOYMENT_STAGE)
+    stage_name = snowpark.stage_name
     stage_manager = StageManager()
     stage_name = stage_manager.to_fully_qualified_name(stage_name)
     stage_manager.create(
@@ -118,7 +124,7 @@ def deploy(
 
     packages = get_snowflake_packages()
 
-    artifact_stage_directory = get_app_stage_path(stage_name, snowpark["project_name"])
+    artifact_stage_directory = get_app_stage_path(stage_name, snowpark.project_name)
     artifact_stage_target = f"{artifact_stage_directory}/{build_artifact_path.name}"
 
     stage_manager.put(
@@ -155,11 +161,13 @@ def deploy(
     return CollectionResult(deploy_status)
 
 
-def _assert_object_definitions_are_correct(object_type, object_definitions):
+def _assert_object_definitions_are_correct(
+    object_type, object_definitions: List[Callable]
+):
     for definition in object_definitions:
-        database = definition.get("database")
-        schema = definition.get("schema")
-        name = definition["name"]
+        database = definition.database
+        schema = definition.schema_name
+        name = definition.name
         fqn_parts = len(name.split("."))
         if fqn_parts == 3 and database:
             raise ClickException(
@@ -193,7 +201,9 @@ def _find_existing_objects(
 
 
 def _check_if_all_defined_integrations_exists(
-    om: ObjectManager, functions: List[Dict], procedures: List[Dict]
+    om: ObjectManager,
+    functions: List[FunctionSchema],
+    procedures: List[ProcedureSchema],
 ):
     existing_integrations = {
         i["name"].lower()
@@ -203,14 +213,12 @@ def _check_if_all_defined_integrations_exists(
     declared_integration: Set[str] = set()
     for object_definition in [*functions, *procedures]:
         external_access_integrations = {
-            s.lower() for s in object_definition.get("external_access_integrations", [])
+            s.lower() for s in object_definition.external_access_integrations
         }
-        secrets = [s.lower() for s in object_definition.get("secrets", [])]
+        secrets = [s.lower() for s in object_definition.secrets]
 
         if not external_access_integrations and secrets:
-            raise SecretsWithoutExternalAccessIntegrationError(
-                object_definition["name"]
-            )
+            raise SecretsWithoutExternalAccessIntegrationError(object_definition.name)
 
         declared_integration = declared_integration | external_access_integrations
 
@@ -229,7 +237,7 @@ def get_app_stage_path(stage_name: Optional[str], project_name: str) -> str:
 def _deploy_single_object(
     manager: FunctionManager | ProcedureManager,
     object_type: ObjectType,
-    object_definition: Dict,
+    object_definition: Callable,
     existing_objects: Dict[str, Dict],
     packages: List[str],
     stage_artifact_path: str,
@@ -245,8 +253,8 @@ def _deploy_single_object(
     )
     log.info("Deploying %s: %s", object_type, identifier_with_default_values)
 
-    handler = object_definition["handler"]
-    returns = object_definition["returns"]
+    handler = object_definition.handler
+    returns = object_definition.returns
     replace_object = False
 
     object_exists = identifier in existing_objects
@@ -271,18 +279,15 @@ def _deploy_single_object(
         "return_type": returns,
         "artifact_file": stage_artifact_path,
         "packages": packages,
-        "runtime": object_definition.get("runtime"),
-        "external_access_integrations": object_definition.get(
-            "external_access_integrations"
-        ),
-        "secrets": object_definition.get("secrets"),
-        "imports": object_definition.get("imports", []),
+        "runtime": object_definition.runtime,
+        "external_access_integrations": object_definition.external_access_integrations,
+        "secrets": object_definition.secrets,
+        "imports": object_definition.imports,
     }
     if object_type == ObjectType.PROCEDURE:
-        create_or_replace_kwargs["execute_as_caller"] = object_definition.get(
+        create_or_replace_kwargs[
             "execute_as_caller"
-        )
-
+        ] = object_definition.execute_as_caller
     manager.create_or_replace(**create_or_replace_kwargs)
 
     status = "created" if not object_exists else "definition updated"
@@ -293,8 +298,8 @@ def _deploy_single_object(
     }
 
 
-def _get_snowpark_artifact_path(snowpark_definition: Dict):
-    source = Path(snowpark_definition["src"])
+def _get_snowpark_artifact_path(snowpark_definition: Snowpark):
+    source = Path(snowpark_definition.src)
     artifact_file = Path.cwd() / (source.name + ".zip")
     return artifact_file
 
@@ -312,7 +317,7 @@ def build(
     The archive is built using only the `src` directory specified in the project file.
     """
     snowpark = cli_context.project_definition
-    source = Path(snowpark.get("src"))
+    source = Path(snowpark.src)
     artifact_file = _get_snowpark_artifact_path(snowpark)
     log.info("Building package using sources from: %s", source.resolve())
 

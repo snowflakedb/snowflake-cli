@@ -6,6 +6,7 @@ import typer
 from click import BadOptionUsage, ClickException
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.api.utils.cursor import (
     find_all_rows,
@@ -240,7 +241,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
 
 
 class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor):
-    def __init__(self, project_definition: Dict, project_root: Path):
+    def __init__(self, project_definition: NativeApp, project_root: Path):
         super().__init__(project_definition, project_root)
 
     def process(

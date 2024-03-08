@@ -17,6 +17,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
+from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
 from snowflake.cli.plugins.streamlit.manager import StreamlitManager
 
 app = SnowTyper(
@@ -81,31 +82,31 @@ def streamlit_deploy(
     upload environment.yml and pages/ folder if present. If stage name is not specified then 'streamlit' stage
     will be used. If stage does not exist it will be created by this command.
     """
-    streamlit = cli_context.project_definition
+    streamlit: Streamlit = cli_context.project_definition
     if not streamlit:
         return MessageResult("No streamlit were specified in project definition.")
 
-    environment_file = streamlit.get("env_file", None)
+    environment_file = streamlit.env_file
     if environment_file and not Path(environment_file).exists():
         raise ClickException(f"Provided file {environment_file} does not exist")
     elif environment_file is None:
         environment_file = "environment.yml"
 
-    pages_dir = streamlit.get("pages_dir", None)
+    pages_dir = streamlit.pages_dir
     if pages_dir and not Path(pages_dir).exists():
         raise ClickException(f"Provided file {pages_dir} does not exist")
     elif pages_dir is None:
         pages_dir = "pages"
 
     url = StreamlitManager().deploy(
-        streamlit_name=streamlit["name"],
+        streamlit_name=streamlit.name,
         environment_file=Path(environment_file),
         pages_dir=Path(pages_dir),
-        stage_name=streamlit["stage"],
-        main_file=Path(streamlit["main_file"]),
+        stage_name=streamlit.stage,
+        main_file=Path(streamlit.main_file),
         replace=replace,
-        query_warehouse=streamlit["query_warehouse"],
-        additional_source_files=streamlit.get("additional_source_files"),
+        query_warehouse=streamlit.query_warehouse,
+        additional_source_files=streamlit.additional_source_files,
         **options,
     )
 
