@@ -115,6 +115,30 @@
   
   '''
 # ---
+# name: test_help_messages[app.list-templates]
+  '''
+                                                                                  
+   Usage: default app list-templates [OPTIONS]                                    
+                                                                                  
+   Prints information regarding templates that can be used with snow app init.    
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Global configuration ───────────────────────────────────────────────────────╮
+  │ --format           [TABLE|JSON]  Specifies the output format.                │
+  │                                  [default: TABLE]                            │
+  │ --verbose  -v                    Displays log entries for log levels `info`  │
+  │                                  and higher.                                 │
+  │ --debug                          Displays log entries for log levels `debug` │
+  │                                  and higher; debug logs contains additional  │
+  │                                  information.                                │
+  │ --silent                         Turns off intermediate output to console.   │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
 # name: test_help_messages[app.open]
   '''
                                                                                   
