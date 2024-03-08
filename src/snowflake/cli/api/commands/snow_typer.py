@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from functools import wraps
-from typing import Optional
+from typing import Callable, Optional
 
 import typer
 from snowflake.cli.api.commands.decorators import (
@@ -30,6 +30,7 @@ class SnowTyper(typer.Typer):
         name: Optional[str] = None,
         requires_global_options: bool = True,
         requires_connection: bool = False,
+        is_enabled: Callable[[], bool] | None = None,
         **kwargs,
     ):
         """
@@ -37,6 +38,8 @@ class SnowTyper(typer.Typer):
         logic before and after execution as well as process the result and act on possible
         errors.
         """
+        if is_enabled is not None and not is_enabled():
+            return lambda func: func
 
         def custom_command(command_callable):
             """Custom command wrapper similar to Typer.command."""

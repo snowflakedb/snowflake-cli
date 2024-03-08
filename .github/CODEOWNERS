@@ -1,4 +1,4 @@
-* @sfc-gh-turbaszek @sfc-gh-pjob @sfc-gh-jsikorski @sfc-gh-astus @sfc-gh-mraba @sfc-gh-pczajka
+* @snowflakedb/snowcli
 
 # Native Apps Owners
 src/snowflake/cli/plugins/nativeapp/ @snowflakedb/nade
@@ -7,4 +7,4 @@ tests_integration/test_nativeapp.py @snowflakedb/nade
 
 # Project Definition Owners
 src/snowflake/cli/api/project/schemas/native_app.py @snowflakedb/nade
-tests/project/ @sfc-gh-turbaszek @sfc-gh-pjob @sfc-gh-jsikorski @sfc-gh-astus @sfc-gh-mraba @sfc-gh-pczajka @snowflakedb/nade
+tests/project/ @snowflakedb/snowcli @snowflakedb/nade
