@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build packages
+    name: Build project
     runs-on: ${{ matrix.os }}
     needs: lint
     strategy:
