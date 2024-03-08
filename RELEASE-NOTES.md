@@ -6,6 +6,13 @@
 * Added support for fully qualified name (`database.schema.name`) in `name` parameter in streamlit project definition
 * Added support for fully qualified image repository names in `spcs image-repository` commands.
 * Added `--if-not-exists` option to `create` commands for `service`, and `compute-pool`. Added `--replace` and `--if-not-exists` options for `image-repository create`.
+* Added support for snowgit. New commands:
+  * `snow git setup` - wizard setting up a git repository stage and creating all necessary objects
+  * `snow git fetch` - fetches latest changes from the origin repository into Snowflake repository
+  * `snow git list-brahces` - lists all branches in the repository
+  * `snow git list-tags` - lists all tags in the repository
+  * `snow git list-files` - lists all files on provided branch/tag/commit
+  * `snow git copy` - copies files from provided brach/tag/commit into stage or local directory
 
 ## Fixes and improvements
 * Adding `--image-name` option for image name argument in `spcs image-repository list-tags` for consistency with other commands.
