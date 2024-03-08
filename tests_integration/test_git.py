@@ -18,6 +18,7 @@ def sf_git_repository(runner, test_database):
         ["git", "setup", repo_name], input="\n".join(communication) + "\n"
     )
     assert result.exit_code == 0
+    assert f"Git Repository {repo_name} was successfully created." in result.output
     return repo_name
 
 
