@@ -38,15 +38,13 @@ def get_first_paragraph_from_markdown_file(file_path: Path) -> Optional[str]:
         return paragraph_text
 
 
-def shallow_git_clone(
-    url: Union[str, PathLike[str]], to_path: Union[str, PathLike[str]]
-):
+def shallow_git_clone(url: Union[str, PathLike], to_path: Union[str, PathLike]):
     """
     Performs a shallow clone of the repository at the provided url to the path specified
 
     Parameters:
-        url (str | PathLike[str]): Valid git url.
-        to_path (str | PathLike[str]): Path to which the repository should be cloned to.
+        url (str | PathLike): Valid git url.
+        to_path (str | PathLike): Path to which the repository should be cloned to.
 
     Returns:
         Repo: the repository that was cloned
