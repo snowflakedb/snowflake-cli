@@ -1,6 +1,6 @@
 from pathlib import Path
 from sys import stdin, stdout
-from typing import Optional
+from typing import Optional, Union
 
 from git import PathLike, Repo
 
@@ -39,7 +39,7 @@ def get_first_paragraph_from_markdown_file(file_path: Path) -> Optional[str]:
         return paragraph_text
 
 
-def shallow_git_clone(url: str | PathLike, to_path: str | PathLike) -> Repo:
+def shallow_git_clone(url: Union[str, PathLike], to_path: Union[str, PathLike]) -> Repo:
     """
     Performs a shallow clone of the repository at the provided url to the path specified
 
