@@ -1,0 +1,39 @@
+name: TEMPORARY WINDOWS TEST
+
+on:
+  pull_request:
+    branches:
+      - "*"
+  push:
+    tags:
+      - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip hatch
+          python -m hatch env create integration
+      - name: Run integration tests
+        env:
+          TERM: unknown
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+        run: python -m pytest -m integration tests_integration/test_package.py::TestPackage::test_package_from_github
