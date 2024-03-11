@@ -7,6 +7,7 @@ from typing import List, Optional
 
 from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.project.definition import load_project_definition
+from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 
 
 def _compat_is_mount(path: Path):
@@ -100,5 +101,5 @@ class DefinitionManager:
         )
 
     @functools.cached_property
-    def project_definition(self) -> dict:
+    def project_definition(self) -> ProjectDefinition:
         return load_project_definition(self._project_config_paths)

@@ -11,12 +11,11 @@ from typing import Generator, List, NamedTuple, Optional, Union
 from unittest import mock
 
 import pytest
-import strictyaml
+import yaml
 from snowflake.cli.api.project.definition import merge_left
 from snowflake.cli.app.cli_app import app_factory
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
-from strictyaml import as_document
 from typer import Typer
 from typer.testing import CliRunner
 
@@ -250,10 +249,12 @@ def project_directory(temp_dir, test_root_path):
         test_data_file = test_root_path / "test_data" / "projects" / project_name
         shutil.copytree(test_data_file, temp_dir, dirs_exist_ok=True)
         if merge_project_definition:
-            project_definition = strictyaml.load(Path("snowflake.yml").read_text()).data
+            project_definition = yaml.load(
+                Path("snowflake.yml").read_text(), Loader=yaml.BaseLoader
+            )
             merge_left(project_definition, merge_project_definition)
             with open(Path(temp_dir) / "snowflake.yml", "w") as file:
-                file.write(as_document(project_definition).as_yaml())
+                file.write(yaml.dump(project_definition))
 
         yield Path(temp_dir)
 

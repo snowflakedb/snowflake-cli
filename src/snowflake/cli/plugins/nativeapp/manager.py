@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
@@ -13,6 +13,7 @@ from snowflake.cli.api.project.definition import (
     default_application,
     default_role,
 )
+from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.util import (
     extract_schema,
     to_identifier,
@@ -99,7 +100,7 @@ class NativeAppManager(SqlExecutionMixin):
     Base class with frequently used functionality already implemented and ready to be used by related subclasses.
     """
 
-    def __init__(self, project_definition: Dict, project_root: Path):
+    def __init__(self, project_definition: NativeApp, project_root: Path):
         super().__init__()
         self._project_root = project_root
         self._project_definition = project_definition
@@ -109,27 +110,30 @@ class NativeAppManager(SqlExecutionMixin):
         return self._project_root
 
     @property
-    def definition(self) -> Dict:
+    def definition(self) -> NativeApp:
         return self._project_definition
 
     @cached_property
     def artifacts(self) -> List[ArtifactMapping]:
-        return [translate_artifact(item) for item in self.definition["artifacts"]]
+        return [translate_artifact(item) for item in self.definition.artifacts]
 
     @cached_property
     def deploy_root(self) -> Path:
-        return Path(self.project_root, self.definition["deploy_root"])
+        return Path(self.project_root, self.definition.deploy_root)
 
     @cached_property
     def package_scripts(self) -> List[str]:
         """
         Relative paths to package scripts from the project root.
         """
-        return self.definition.get("package", {}).get("scripts", [])
+        if self.definition.package and self.definition.package.scripts:
+            return self.definition.package.scripts
+        else:
+            return []
 
     @cached_property
     def stage_fqn(self) -> str:
-        return f'{self.package_name}.{self.definition["source_stage"]}'
+        return f"{self.package_name}.{self.definition.source_stage}"
 
     @cached_property
     def stage_schema(self) -> Optional[str]:
@@ -137,55 +141,65 @@ class NativeAppManager(SqlExecutionMixin):
 
     @cached_property
     def package_warehouse(self) -> Optional[str]:
-        return self.definition.get("package", {}).get("warehouse", self._conn.warehouse)
+        if self.definition.package and self.definition.package.warehouse:
+            return self.definition.package.warehouse
+        else:
+            return self._conn.warehouse
 
     @cached_property
     def application_warehouse(self) -> Optional[str]:
-        return self.definition.get("application", {}).get(
-            "warehouse", self._conn.warehouse
-        )
+        if self.definition.application and self.definition.application.warehouse:
+            return self.definition.application.warehouse
+        else:
+            return self._conn.warehouse
 
     @cached_property
     def project_identifier(self) -> str:
         # name is expected to be a valid Snowflake identifier, but PyYAML
         # will sometimes strip out double quotes so we try to get them back here.
-        return to_identifier(self.definition["name"])
+        return to_identifier(self.definition.name)
 
     @cached_property
     def package_name(self) -> str:
-        return to_identifier(
-            self.definition.get("package", {}).get(
-                "name", default_app_package(self.project_identifier)
-            )
-        )
+        if self.definition.package and self.definition.package.name:
+            return to_identifier(self.definition.package.name)
+        else:
+            return to_identifier(default_app_package(self.project_identifier))
 
     @cached_property
     def package_role(self) -> str:
-        return self.definition.get("package", {}).get("role", None) or default_role()
+        if self.definition.package and self.definition.package.role:
+            return self.definition.package.role
+        else:
+            return default_role()
 
     @cached_property
     def package_distribution(self) -> str:
-        return (
-            self.definition.get("package", {}).get("distribution", "internal").lower()
-        )
+        if self.definition.package and self.definition.package.distribution:
+            return self.definition.package.distribution.lower()
+        else:
+            return "internal"
 
     @cached_property
     def app_name(self) -> str:
-        return to_identifier(
-            self.definition.get("application", {}).get(
-                "name", default_application(self.project_identifier)
-            )
-        )
+        if self.definition.application and self.definition.application.name:
+            return to_identifier(self.definition.application.name)
+        else:
+            return to_identifier(default_application(self.project_identifier))
 
     @cached_property
     def app_role(self) -> str:
-        return (
-            self.definition.get("application", {}).get("role", None) or default_role()
-        )
+        if self.definition.application and self.definition.application.role:
+            return self.definition.application.role
+        else:
+            return default_role()
 
     @cached_property
     def debug_mode(self) -> bool:
-        return self.definition.get("application", {}).get("debug", True)
+        if self.definition.application:
+            return self.definition.application.debug
+        else:
+            return True
 
     @cached_property
     def get_app_pkg_distribution_in_snowflake(self) -> str:

@@ -1,0 +1,764 @@
+# serializer version: 1
+# name: test_fields_are_parsed_correctly[integration]
+  dict({
+    'definition_version': 1,
+    'native_app': dict({
+      'application': None,
+      'artifacts': list([
+        dict({
+          'dest': './',
+          'src': 'app/*',
+        }),
+      ]),
+      'deploy_root': 'output/deploy/',
+      'name': 'integration',
+      'package': dict({
+        'distribution': 'internal',
+        'name': None,
+        'role': None,
+        'scripts': list([
+          'package/001-shared.sql',
+          'package/002-shared.sql',
+        ]),
+        'warehouse': None,
+      }),
+      'source_stage': 'app_src.stage',
+    }),
+    'snowpark': None,
+    'streamlit': None,
+  })
+# ---
+# name: test_fields_are_parsed_correctly[integration_external]
+  dict({
+    'definition_version': 1,
+    'native_app': dict({
+      'application': None,
+      'artifacts': list([
+        dict({
+          'dest': './',
+          'src': 'app/*',
+        }),
+      ]),
+      'deploy_root': 'output/deploy/',
+      'name': 'integration_external',
+      'package': dict({
+        'distribution': 'external',
+        'name': None,
+        'role': None,
+        'scripts': list([
+          'package/001-shared.sql',
+          'package/002-shared.sql',
+        ]),
+        'warehouse': None,
+      }),
+      'source_stage': 'app_src.stage',
+    }),
+    'snowpark': None,
+    'streamlit': None,
+  })
+# ---
+# name: test_fields_are_parsed_correctly[minimal]
+  dict({
+    'definition_version': 1,
+    'native_app': dict({
+      'application': None,
+      'artifacts': list([
+        'setup.sql',
+        'README.md',
+      ]),
+      'deploy_root': 'output/deploy/',
+      'name': 'minimal',
+      'package': None,
+      'source_stage': 'app_src.stage',
+    }),
+    'snowpark': None,
+    'streamlit': None,
+  })
+# ---
+# name: test_fields_are_parsed_correctly[napp_project_1]
+  dict({
+    'definition_version': 1,
+    'native_app': dict({
+      'application': dict({
+        'debug': True,
+        'name': 'myapp_polly',
+        'role': 'myapp_consumer',
+        'warehouse': None,
+      }),
+      'artifacts': list([
+        'setup.sql',
+        'app/README.md',
+        dict({
+          'dest': 'ui/',
+          'src': 'app/streamlit/*.py',
+        }),
+      ]),
+      'deploy_root': 'output/deploy/',
+      'name': 'myapp',
+      'package': dict({
+        'distribution': 'internal',
+        'name': 'myapp_pkg_polly',
+        'role': 'accountadmin',
+        'scripts': list([
+          '001-shared.sql',
+          '002-shared.sql',
+        ]),
+        'warehouse': None,
+      }),
+      'source_stage': '"MySourceSchema"."SRC_Stage"',
+    }),
+    'snowpark': None,
+    'streamlit': None,
+  })
+# ---
+# name: test_fields_are_parsed_correctly[napp_project_with_pkg_warehouse]
+  dict({
+    'definition_version': 1,
+    'native_app': dict({
+      'application': dict({
+        'debug': True,
+        'name': 'myapp_polly',
+        'role': 'myapp_consumer',
+        'warehouse': None,
+      }),
+      'artifacts': list([
+        'setup.sql',
+        'app/README.md',
+        dict({
+          'dest': 'ui/',
+          'src': 'app/streamlit/*.py',
+        }),
+      ]),
+      'deploy_root': 'output/deploy/',
+      'name': 'myapp',
+      'package': dict({
+        'distribution': 'internal',
+        'name': 'myapp_pkg_polly',
+        'role': 'accountadmin',
+        'scripts': list([
+          '001-shared.sql',
+          '002-shared.sql',
+        ]),
+        'warehouse': 'myapp_pkg_warehouse',
+      }),
+      'source_stage': '"MySourceSchema"."SRC_Stage"',
+    }),
+    'snowpark': None,
+    'streamlit': None,
+  })
+# ---
+# name: test_fields_are_parsed_correctly[snowpark_function_external_access]
+  dict({
+    'definition_version': 1,
+    'native_app': None,
+    'snowpark': dict({
+      'functions': list([
+        dict({
+          'database': None,
+          'external_access_integrations': list([
+            'external_1',
+            'external_2',
+          ]),
+          'handler': 'app.func1_handler',
+          'imports': list([
+          ]),
+          'name': 'func1',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': None,
+          'secrets': dict({
+            'cred': 'cred_name',
+            'other': 'other_name',
+          }),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'a',
+            }),
+            dict({
+              'arg_type': 'variant',
+              'default': None,
+              'name': 'b',
+            }),
+          ]),
+        }),
+      ]),
+      'procedures': list([
+      ]),
+      'project_name': 'my_snowpark_project',
+      'src': 'app/',
+      'stage_name': 'dev_deployment',
+    }),
+    'streamlit': None,
+  })
+# ---
+# name: test_fields_are_parsed_correctly[snowpark_function_fully_qualified_name]
+  dict({
+    'definition_version': 1,
+    'native_app': None,
+    'snowpark': dict({
+      'functions': list([
+        dict({
+          'database': None,
+          'external_access_integrations': list([
+          ]),
+          'handler': 'app.hello_function',
+          'imports': list([
+          ]),
+          'name': 'custom_db.custom_schema.fqn_function',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': None,
+          'secrets': list([
+          ]),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'name',
+            }),
+          ]),
+        }),
+        dict({
+          'database': None,
+          'external_access_integrations': list([
+          ]),
+          'handler': 'app.hello_function',
+          'imports': list([
+          ]),
+          'name': 'custom_schema.fqn_function_only_schema',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': None,
+          'secrets': list([
+          ]),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'name',
+            }),
+          ]),
+        }),
+        dict({
+          'database': None,
+          'external_access_integrations': list([
+          ]),
+          'handler': 'app.hello_function',
+          'imports': list([
+          ]),
+          'name': 'schema_function',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': 'custom_schema',
+          'secrets': list([
+          ]),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'name',
+            }),
+          ]),
+        }),
+        dict({
+          'database': 'custom_db',
+          'external_access_integrations': list([
+          ]),
+          'handler': 'app.hello_function',
+          'imports': list([
+          ]),
+          'name': 'database_function',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': None,
+          'secrets': list([
+          ]),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'name',
+            }),
+          ]),
+        }),
+        dict({
+          'database': 'custom_db',
+          'external_access_integrations': list([
+          ]),
+          'handler': 'app.hello_function',
+          'imports': list([
+          ]),
+          'name': 'custom_schema.database_function',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': None,
+          'secrets': list([
+          ]),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'name',
+            }),
+          ]),
+        }),
+        dict({
+          'database': 'custom_database',
+          'external_access_integrations': list([
+          ]),
+          'handler': 'app.hello_function',
+          'imports': list([
+          ]),
+          'name': 'custom_database.custom_schema.fqn_function_error',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': 'custom_schema',
+          'secrets': list([
+          ]),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'name',
+            }),
+          ]),
+        }),
+      ]),
+      'procedures': list([
+      ]),
+      'project_name': 'my_snowpark_project',
+      'src': 'app/',
+      'stage_name': 'dev_deployment',
+    }),
+    'streamlit': None,
+  })
+# ---
+# name: test_fields_are_parsed_correctly[snowpark_function_secrets_without_external_access]
+  dict({
+    'definition_version': 1,
+    'native_app': None,
+    'snowpark': dict({
+      'functions': list([
+        dict({
+          'database': None,
+          'external_access_integrations': list([
+          ]),
+          'handler': 'app.func1_handler',
+          'imports': list([
+          ]),
+          'name': 'func1',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': None,
+          'secrets': dict({
+            'cred': 'cred_name',
+            'other': 'other_name',
+          }),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'a',
+            }),
+            dict({
+              'arg_type': 'variant',
+              'default': None,
+              'name': 'b',
+            }),
+          ]),
+        }),
+      ]),
+      'procedures': list([
+      ]),
+      'project_name': 'my_snowpark_project',
+      'src': 'app/',
+      'stage_name': 'dev_deployment',
+    }),
+    'streamlit': None,
+  })
+# ---
+# name: test_fields_are_parsed_correctly[snowpark_functions]
+  dict({
+    'definition_version': 1,
+    'native_app': None,
+    'snowpark': dict({
+      'functions': list([
+        dict({
+          'database': None,
+          'external_access_integrations': list([
+          ]),
+          'handler': 'app.func1_handler',
+          'imports': list([
+          ]),
+          'name': 'func1',
+          'returns': 'string',
+          'runtime': '3.10',
+          'schema_name': None,
+          'secrets': list([
+          ]),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': 'default value',
+              'name': 'a',
+            }),
+            dict({
+              'arg_type': 'variant',
+              'default': None,
+              'name': 'b',
+            }),
+          ]),
+        }),
+      ]),
+      'procedures': list([
+      ]),
+      'project_name': 'my_snowpark_project',
+      'src': 'app/',
+      'stage_name': 'dev_deployment',
+    }),
+    'streamlit': None,
+  })
+# ---
+# name: test_fields_are_parsed_correctly[snowpark_procedure_external_access]
+  dict({
+    'definition_version': 1,
+    'native_app': None,
+    'snowpark': dict({
+      'functions': list([
+      ]),
+      'procedures': list([
+        dict({
+          'database': None,
+          'execute_as_caller': False,
+          'external_access_integrations': list([
+            'external_1',
+            'external_2',
+          ]),
+          'handler': 'app.hello',
+          'imports': list([
+          ]),
+          'name': 'procedureName',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': None,
+          'secrets': dict({
+            'cred': 'cred_name',
+            'other': 'other_name',
+          }),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'name',
+            }),
+          ]),
+        }),
+      ]),
+      'project_name': 'my_snowpark_project',
+      'src': 'app/',
+      'stage_name': 'dev_deployment',
+    }),
+    'streamlit': None,
+  })
+# ---
+# name: test_fields_are_parsed_correctly[snowpark_procedure_fully_qualified_name]
+  dict({
+    'definition_version': 1,
+    'native_app': None,
+    'snowpark': dict({
+      'functions': list([
+      ]),
+      'procedures': list([
+        dict({
+          'database': None,
+          'execute_as_caller': False,
+          'external_access_integrations': list([
+          ]),
+          'handler': 'app.hello_procedure',
+          'imports': list([
+          ]),
+          'name': 'custom_db.custom_schema.fqn_procedure',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': None,
+          'secrets': list([
+          ]),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'name',
+            }),
+          ]),
+        }),
+        dict({
+          'database': None,
+          'execute_as_caller': False,
+          'external_access_integrations': list([
+          ]),
+          'handler': 'app.hello_procedure',
+          'imports': list([
+          ]),
+          'name': 'custom_schema.fqn_procedure_only_schema',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': None,
+          'secrets': list([
+          ]),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'name',
+            }),
+          ]),
+        }),
+        dict({
+          'database': None,
+          'execute_as_caller': False,
+          'external_access_integrations': list([
+          ]),
+          'handler': 'app.hello_procedure',
+          'imports': list([
+          ]),
+          'name': 'schema_procedure',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': 'custom_schema',
+          'secrets': list([
+          ]),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'name',
+            }),
+          ]),
+        }),
+        dict({
+          'database': 'custom_db',
+          'execute_as_caller': False,
+          'external_access_integrations': list([
+          ]),
+          'handler': 'app.hello_procedure',
+          'imports': list([
+          ]),
+          'name': 'database_procedure',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': None,
+          'secrets': list([
+          ]),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'name',
+            }),
+          ]),
+        }),
+        dict({
+          'database': 'custom_db',
+          'execute_as_caller': False,
+          'external_access_integrations': list([
+          ]),
+          'handler': 'app.hello_procedure',
+          'imports': list([
+          ]),
+          'name': 'custom_schema.database_procedure',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': None,
+          'secrets': list([
+          ]),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'name',
+            }),
+          ]),
+        }),
+        dict({
+          'database': 'custom_database',
+          'execute_as_caller': False,
+          'external_access_integrations': list([
+          ]),
+          'handler': 'app.hello_procedure',
+          'imports': list([
+          ]),
+          'name': 'custom_database.custom_schema.fqn_procedure_error',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': 'custom_schema',
+          'secrets': list([
+          ]),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'name',
+            }),
+          ]),
+        }),
+      ]),
+      'project_name': 'my_snowpark_project',
+      'src': 'app/',
+      'stage_name': 'dev_deployment',
+    }),
+    'streamlit': None,
+  })
+# ---
+# name: test_fields_are_parsed_correctly[snowpark_procedure_secrets_without_external_access]
+  dict({
+    'definition_version': 1,
+    'native_app': None,
+    'snowpark': dict({
+      'functions': list([
+      ]),
+      'procedures': list([
+        dict({
+          'database': None,
+          'execute_as_caller': False,
+          'external_access_integrations': list([
+          ]),
+          'handler': 'app.hello',
+          'imports': list([
+          ]),
+          'name': 'procedureName',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': None,
+          'secrets': dict({
+            'cred': 'cred_name',
+            'other': 'other_name',
+          }),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'name',
+            }),
+          ]),
+        }),
+      ]),
+      'project_name': 'my_snowpark_project',
+      'src': 'app/',
+      'stage_name': 'dev_deployment',
+    }),
+    'streamlit': None,
+  })
+# ---
+# name: test_fields_are_parsed_correctly[snowpark_procedures]
+  dict({
+    'definition_version': 1,
+    'native_app': None,
+    'snowpark': dict({
+      'functions': list([
+      ]),
+      'procedures': list([
+        dict({
+          'database': None,
+          'execute_as_caller': False,
+          'external_access_integrations': list([
+          ]),
+          'handler': 'hello',
+          'imports': list([
+          ]),
+          'name': 'procedureName',
+          'returns': 'string',
+          'runtime': None,
+          'schema_name': None,
+          'secrets': list([
+          ]),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'name',
+            }),
+          ]),
+        }),
+        dict({
+          'database': None,
+          'execute_as_caller': False,
+          'external_access_integrations': list([
+          ]),
+          'handler': 'test',
+          'imports': list([
+          ]),
+          'name': 'test',
+          'returns': 'string',
+          'runtime': '3.10',
+          'schema_name': None,
+          'secrets': list([
+          ]),
+          'signature': '',
+        }),
+      ]),
+      'project_name': 'my_snowpark_project',
+      'src': 'app/',
+      'stage_name': 'dev_deployment',
+    }),
+    'streamlit': None,
+  })
+# ---
+# name: test_fields_are_parsed_correctly[snowpark_procedures_coverage]
+  dict({
+    'definition_version': 1,
+    'native_app': None,
+    'snowpark': dict({
+      'functions': list([
+      ]),
+      'procedures': list([
+        dict({
+          'database': None,
+          'execute_as_caller': False,
+          'external_access_integrations': list([
+          ]),
+          'handler': 'foo.func',
+          'imports': list([
+          ]),
+          'name': 'foo',
+          'returns': 'variant',
+          'runtime': None,
+          'schema_name': None,
+          'secrets': list([
+          ]),
+          'signature': list([
+            dict({
+              'arg_type': 'string',
+              'default': None,
+              'name': 'name',
+            }),
+          ]),
+        }),
+      ]),
+      'project_name': 'my_snowpark_project',
+      'src': 'app/',
+      'stage_name': 'dev_deployment',
+    }),
+    'streamlit': None,
+  })
+# ---
+# name: test_fields_are_parsed_correctly[streamlit_full_definition]
+  dict({
+    'definition_version': 1,
+    'native_app': None,
+    'snowpark': None,
+    'streamlit': dict({
+      'additional_source_files': list([
+        'utils/utils.py',
+        'extra_file.py',
+      ]),
+      'env_file': 'environment.yml',
+      'main_file': 'streamlit_app.py',
+      'name': 'test_streamlit',
+      'pages_dir': 'pages',
+      'query_warehouse': 'test_warehouse',
+      'stage': 'streamlit',
+    }),
+  })
+# ---
