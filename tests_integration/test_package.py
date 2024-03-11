@@ -48,7 +48,13 @@ class TestPackage:
     @pytest.mark.integration
     def test_package_create_with_non_anaconda_package(self, directory_for_test, runner):
         result = runner.invoke_with_connection_json(
-            ["snowpark", "package", "create", "dummy-pkg-for-tests-with-deps", "-y"]
+            [
+                "snowpark",
+                "package",
+                "create",
+                "dummy-pkg-for-tests-with-deps",
+                "--pypi-download",
+            ]
         )
 
         assert result.exit_code == 0
@@ -76,7 +82,13 @@ class TestPackage:
     @pytest.mark.integration
     def test_create_package_with_deps(self, directory_for_test, runner):
         result = runner.invoke_with_connection_json(
-            ["snowpark", "package", "create", "dummy_pkg_for_tests_with_deps", "-y"]
+            [
+                "snowpark",
+                "package",
+                "create",
+                "dummy_pkg_for_tests_with_deps",
+                "--pypi-download",
+            ]
         )
 
         assert result.exit_code == 0
@@ -121,7 +133,7 @@ class TestPackage:
                 "package",
                 "create",
                 "git+https://github.com/sfc-gh-turbaszek/dummy-pkg-for-tests-with-deps.git",
-                "-y",
+                "--pypi-download",
             ]
         )
 
@@ -141,13 +153,20 @@ class TestPackage:
         reason="Windows version of PyGame has no native libraries",
     )
     def test_package_with_native_libraries(self, directory_for_test, runner):
+        """
+        We use PyGame in this test for two reasons:
+        1. We need a package with native libraries to trigger warning
+        2. This package should not be avaiable on Snowflake Conda channel.
+        As it is highly unlikely, that PyGame will be included in the channel, it's probably ok to leave it for now,
+        but we may reconsider switch to a package controlled by us.
+        """
         result = runner.invoke_with_connection(
             [
                 "snowpark",
                 "package",
                 "create",
                 "pygame",
-                "-y",
+                "--pypi-download",
             ]
         )
 
