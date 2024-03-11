@@ -3,7 +3,7 @@ from pathlib import Path
 
 import typer
 from click import ClickException
-from snowflake.cli.api.commands.flags import identifier_argument
+from snowflake.cli.api.commands.flags import identifier_argument, pattern_option
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
@@ -40,12 +40,8 @@ RepoPathArgument = typer.Argument(
     ),
     callback=_repo_path_argument_callback,
 )
-PatternOption = typer.Option(
-    ".*",
-    "--pattern",
-    "-p",
-    help="Regex pattern for filtering files by name. Git repository scope prefix is not included in regex matching."
-    ' For example list-files --pattern ".*\.txt lists all files with .txt extension.',
+PatternOption = pattern_option(
+    help_example='list-files --pattern ".*\.txt" lists all files with .txt extension',
 )
 
 
@@ -196,7 +192,7 @@ def list_files(
     List files from given state of git repository.
     """
     return QueryResult(
-        GitManager().show_files(repo_path=repository_path, pattern=pattern)
+        GitManager().list_files(stage_name=repository_path, pattern=pattern)
     )
 
 

@@ -1017,8 +1017,8 @@
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --pattern  -p      TEXT  Regex pattern for filtering files by name. Git      │
   │                          repository scope prefix is not included in regex    │
-  │                          matching. For example list-files --pattern ".*\.txt │
-  │                          lists all files with .txt extension.                │
+  │                          matching. For example list-files --pattern          │
+  │                          ".*\.txt" lists all files with .txt extension.      │
   │                          [default: .*]                                       │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
