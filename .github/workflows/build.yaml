@@ -15,81 +15,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
-  lint:
-    name: Check linting
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-      - name: Install pre-commit
-        run: python -m pip install pre-commit
-      - name: Run pre-commit
-        run: pre-commit run --all-files
-
   build:
-    name: Build packages
+    name: Build project
     runs-on: ${{ matrix.os }}
     needs: lint
     strategy:
       matrix:
-        include:
-          - os: macos-latest
-            TARGET: macos
-            CMD_BUILD: >
-              pyinstaller snowcli.spec &&
-              cd ./dist/snow &&
-              zip -g ../../snow.zip -r .
-            ARTIFACT_NAME: snow-${{ github.sha }}-darwin
-            PATH: snow.zip
-          - os: windows-latest
-            TARGET: windows
-            CMD_BUILD: pyinstaller snowcli.spec
-            ARTIFACT_NAME: snow-${{ github.sha }}-windows
-            PATH: ./dist/snow/
-          - os: ubuntu-latest
-            TARGET: linux
-            CMD_BUILD: >
-              pyinstaller snowcli.spec &&
-              cd ./dist/snow &&
-              zip -g ../../snow.zip -r .
-            ARTIFACT_NAME: snow-${{ github.sha }}-linux
-            PATH: snow.zip
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install .
-          pip check
-          snow --help
-          pip install -U pyinstaller
-      - name: Build with pyinstaller for ${{matrix.TARGET}}
-        run: ${{matrix.CMD_BUILD}}
-      - name: Archive python artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{matrix.ARTIFACT_NAME}}
-          path: ${{matrix.PATH}}
-          retention-days: 7
-  dev-build:
-    name: Do dev installation
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: ["3.8", "3.12"]
+        os: [ macos-latest, ubuntu-latest, windows-latest ]
+        python-version: [ "3.8", "3.10", "3.11", "3.12" ]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -98,7 +31,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
+      - name: Install Snowflake CLI
         run: |
-          python -m pip install --upgrade pip hatch
-          python -m hatch run snow -h
+          python -m pip install --upgrade pip
+          pip install .
+          pip check
+          snow --help
+      - name: Install dev dependencies
+        run: |
+          pip install ".[development]"
+          pip check
