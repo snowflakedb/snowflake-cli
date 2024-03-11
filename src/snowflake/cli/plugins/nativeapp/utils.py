@@ -21,10 +21,13 @@ def get_first_paragraph_from_markdown_file(file_path: Path) -> Optional[str]:
 
     Returns:
         Optional[str]: the first paragraph as a string, or None
-        if no paragraph could be found, or the path was invalid
+        if no paragraph could be found
+
+    Raises:
+        FileNotFoundError: if file_path to Markdown file does not exist
     """
     if not file_path.exists():
-        return None
+        raise FileNotFoundError(file_path)
 
     with open(file_path, "r") as markdown_file:
         paragraph_text = None
