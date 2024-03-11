@@ -42,12 +42,12 @@ class Venv:
     def run_python(self, args):
 
         try:
-            log.warning(sys.getdefaultencoding()) # TODO remove this
+            log.warning(sys.getdefaultencoding())  # TODO remove this
             process = subprocess.run(
                 [self.python_path, *args],
                 capture_output=True,
                 text=True,
-                encoding=sys.getdefaultencoding(),
+                encoding=sys.stdout.encoding,
             )
         except subprocess.CalledProcessError as e:
             log.error(self.ERROR_MESSAGE, "python" + " ".join(args), e.stderr)
