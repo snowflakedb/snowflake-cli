@@ -4,6 +4,7 @@ from typing import Tuple
 
 import typer
 from click import ClickException
+from snowflake.cli.api.commands.flags import like_option
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.constants import SUPPORTED_OBJECTS, VALID_SCOPES
 from snowflake.cli.api.output.types import QueryResult
@@ -23,12 +24,8 @@ ObjectArgument = typer.Argument(
     help="Type of object. For example table, procedure, streamlit.",
     case_sensitive=False,
 )
-LikeOption = typer.Option(
-    "%%",
-    "--like",
-    "-l",
-    help='SQL LIKE pattern for filtering objects by name. For example, `list function --like "my%"` lists '
-    "all functions that begin with “my”.",
+LikeOption = like_option(
+    help_example='`list function --like "my%"` lists all functions that begin with “my”',
 )
 
 
