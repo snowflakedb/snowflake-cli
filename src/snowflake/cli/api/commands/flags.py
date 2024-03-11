@@ -341,12 +341,6 @@ DebugOption = typer.Option(
     rich_help_panel=_CLI_BEHAVIOUR,
 )
 
-LikeOption = typer.Option(
-    "%%",
-    "--like",
-    "-l",
-    help='Regular expression for filtering objects by name. For example, `list --like "my%"` lists all objects that begin with “my”.',
-)
 
 # If IfExistsOption, IfNotExistsOption, or ReplaceOption are used with names other than those in CREATE_MODE_OPTION_NAMES,
 # you must also override mutually_exclusive if you want to retain the validation that at most one of these flags is
@@ -373,6 +367,15 @@ ReplaceOption = OverrideableOption(
     help="Replace this object if it already exists.",
     mutually_exclusive=CREATE_MODE_OPTION_NAMES,
 )
+
+
+def like_option(help_example: str):
+    return typer.Option(
+        "%%",
+        "--like",
+        "-l",
+        help=f"SQL LIKE pattern for filtering objects by name. For example, {help_example}.",
+    )
 
 
 def experimental_option(
