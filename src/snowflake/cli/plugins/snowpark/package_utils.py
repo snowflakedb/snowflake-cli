@@ -3,19 +3,20 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import List
 
 import click
 import requests
 import requirements
 import typer
+from click import ClickException
 from packaging.version import parse
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
     PypiOption,
     Requirement,
-    RequirementType,
     RequirementWithFilesAndDeps,
     SplitRequirements,
     pip_failed_msg,
@@ -130,16 +131,22 @@ def install_packages(
     which are available on the Snowflake Anaconda channel. These will have
     been deleted from the local packages folder.
     """
-    with Venv() as v:
-        if file_name is not None:
-            pip_install_result = v.pip_install(file_name, RequirementType.FILE)
-            dependencies = v.get_package_dependencies(file_name, RequirementType.FILE)
+    if file_name and package_name:
+        raise ClickException(
+            "Could not use package name and requirements file simultaneously"
+        )
 
-        if package_name is not None:
-            pip_install_result = v.pip_install(package_name, RequirementType.PACKAGE)
-            dependencies = v.get_package_dependencies(
-                package_name, RequirementType.PACKAGE
-            )
+    if file_name and not Path(file_name).exists():
+        raise ClickException(f"File {file_name} does not exists.")
+
+    with Venv() as v, NamedTemporaryFile(mode="w") as tmp_requirements:
+        if package_name:
+            tmp_requirements.write(str(package_name))
+            tmp_requirements.flush()
+            file_name = tmp_requirements.name
+
+        pip_install_result = v.pip_install(file_name)
+        dependencies = v.get_package_dependencies(file_name)
 
         if pip_install_result != 0:
             log.info(pip_failed_msg.format(pip_install_result))

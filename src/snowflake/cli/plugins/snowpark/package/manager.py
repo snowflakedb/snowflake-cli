@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os.path
 from functools import wraps
 from pathlib import Path
 
@@ -16,7 +15,6 @@ from snowflake.cli.plugins.snowpark.models import (
     get_package_name,
 )
 from snowflake.cli.plugins.snowpark.package.utils import (
-    CreatedSuccessfully,
     InAnaconda,
     LookupResult,
     NothingFound,
@@ -73,12 +71,10 @@ def upload(file: Path, stage: str, overwrite: bool):
     return message
 
 
-def create(zip_name: str):
+def create_packages_zip(zip_name: str) -> str:
     file_name = f"{get_package_name(zip_name)}.zip"
     zip_dir(dest_zip=Path(file_name), source=Path.cwd() / ".packages")
-
-    if os.path.exists(file_name):
-        return CreatedSuccessfully(zip_name, Path(file_name))
+    return file_name
 
 
 def cleanup_after_install(func):
