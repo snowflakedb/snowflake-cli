@@ -100,3 +100,35 @@
   
   '''
 # ---
+# name: test_enabled_command_is_not_visible
+  '''
+  Usage: snow [OPTIONS] COMMAND [ARGS]...
+  Try 'snow --help' for help.
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ No such command 'switchable_cmd'.                                            │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_enabled_command_is_visible
+  '''
+                                                                                  
+   Usage: snow switchable_cmd [OPTIONS]                                           
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Global configuration ───────────────────────────────────────────────────────╮
+  │ --format           [TABLE|JSON]  Specifies the output format.                │
+  │                                  [default: TABLE]                            │
+  │ --verbose  -v                    Displays log entries for log levels `info`  │
+  │                                  and higher.                                 │
+  │ --debug                          Displays log entries for log levels `debug` │
+  │                                  and higher; debug logs contains additional  │
+  │                                  information.                                │
+  │ --silent                         Turns off intermediate output to console.   │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---

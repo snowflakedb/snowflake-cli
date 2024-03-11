@@ -22,7 +22,7 @@ from tests.testing_utils.fixtures import MockConnectionCtx
 def _get_na_manager(working_dir):
     dm = DefinitionManager(working_dir)
     return NativeAppRunProcessor(
-        project_definition=dm.project_definition["native_app"],
+        project_definition=dm.project_definition.native_app,
         project_root=dm.project_root,
     )
 

@@ -39,6 +39,9 @@ def class_factory(
     return _CustomTyper
 
 
+_ENABLED_FLAG = False
+
+
 def app_factory(typer_cls):
     app = typer_cls(name="snow")
 
@@ -61,6 +64,10 @@ def app_factory(typer_cls):
     @app.command("cmd_with_connection_options", requires_connection=True)
     def cmd_with_connection_options(name: str = typer.Argument()):
         return MessageResult(f"hello {name}")
+
+    @app.command("switchable_cmd", is_enabled=lambda: _ENABLED_FLAG)
+    def cmd_witch_enabled_switch():
+        return MessageResult("Enabled")
 
     return app
 
@@ -144,6 +151,22 @@ def test_command_with_global_options(cli, snapshot):
 
 def test_command_with_connection_options(cli, snapshot):
     result = cli(app_factory(SnowTyper))(["cmd_with_connection_options", "--help"])
+    assert result.output == snapshot
+
+
+def test_enabled_command_is_visible(cli, snapshot):
+    global _ENABLED_FLAG
+    _ENABLED_FLAG = True
+    result = cli(app_factory(SnowTyper))(["switchable_cmd", "--help"])
+    assert result.exit_code == 0
+    assert result.output == snapshot
+
+
+def test_enabled_command_is_not_visible(cli, snapshot):
+    global _ENABLED_FLAG
+    _ENABLED_FLAG = False
+    result = cli(app_factory(SnowTyper))(["switchable_cmd", "--help"])
+    assert result.exit_code == 2
     assert result.output == snapshot
 
 

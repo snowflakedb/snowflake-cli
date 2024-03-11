@@ -38,7 +38,7 @@ from tests.testing_utils.files_and_dirs import create_named_file
 def _get_na_teardown_processor():
     dm = DefinitionManager()
     return NativeAppTeardownProcessor(
-        project_definition=dm.project_definition["native_app"],
+        project_definition=dm.project_definition.native_app,
         project_root=dm.project_root,
     )
 
