@@ -337,6 +337,16 @@ ReplaceOption = OverrideableOption(
 )
 
 
+def pattern_option(help_example: str) -> typer.Option:
+    return typer.Option(
+        ".*",
+        "--pattern",
+        "-p",
+        help="Regex pattern for filtering files by name. Git repository scope prefix is not included in regex matching."
+        f" For example {help_example}.",
+    )
+
+
 def experimental_option(
     experimental_behaviour_description: Optional[str] = None,
 ) -> typer.Option:

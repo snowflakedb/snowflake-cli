@@ -14,7 +14,17 @@ def test_stage_list(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "stage", "list", "-c", "empty", "stageName"])
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with("ls @stageName")
+    mock_execute.assert_called_once_with("ls @stageName pattern = '.*'")
+
+
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_stage_list_pattern(mock_execute, runner, mock_cursor):
+    mock_execute.return_value = mock_cursor(["row"], [])
+    result = runner.invoke(
+        ["object", "stage", "list", "-c", "empty", "--pattern", "REGEX", "stageName"]
+    )
+    assert result.exit_code == 0, result.output
+    mock_execute.assert_called_once_with("ls @stageName pattern = 'REGEX'")
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -22,7 +32,7 @@ def test_stage_list_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "stage", "list", "-c", "empty", '"stage name"'])
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with("ls '@\"stage name\"'")
+    mock_execute.assert_called_once_with("ls '@\"stage name\"' pattern = '.*'")
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
