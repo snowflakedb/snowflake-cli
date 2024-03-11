@@ -96,10 +96,9 @@ class Venv:
                     requirement=package, files=files, dependencies=requires
                 )
 
-                log.warning(  # TODO: change back to debug
+                log.debug(
                     "Checking package %s, with dependencies: %s", package.name, requires
                 )
-                log.warning(installed_packages)
 
                 for package in requires:
                     _get_dependencies(Requirement.parse_line(package))
@@ -126,8 +125,7 @@ class Venv:
 
     def get_pip_inspect(self) -> Dict:
         result = self.run_python(["-m", "pip", "inspect", "--local"])
-        log.warning("Result of pip inspect:")
-        log.warning(result)  # TODO: remove this calls
+
         if result.returncode == 0:
             return json.loads(result.stdout)
         else:
@@ -142,8 +140,6 @@ class Venv:
                 f"from importlib.metadata import {info_type.value}; print({info_type.value}('{package_name}'))",
             ]
         )
-        log.warning("Result of: print(%s(%s))", info_type.value, package_name)
-        log.warning(info)  # TODO remove this call
         if info.returncode != 0:
             return []
 

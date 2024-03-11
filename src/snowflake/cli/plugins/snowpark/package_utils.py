@@ -141,10 +141,6 @@ def install_packages(
                 package_name, RequirementType.PACKAGE
             )
 
-        log.warning(
-            "Dependencies: %s", [req.requirement.name for req in dependencies]
-        )  # TODO: delete debug log
-
         if pip_install_result != 0:
             log.info(pip_failed_msg.format(pip_install_result))
             return False, None
@@ -169,10 +165,6 @@ def install_packages(
             dependencies,
             second_chance_results.snowflake if second_chance_results else None,
         )
-        log.warning(
-            "Dependencies to be packed: %s",
-            [req.requirement.name for req in dependencies_to_be_packed],
-        )  # TODO: delete debug log
 
         log.info("Checking to see if packages have native libraries...")
 
