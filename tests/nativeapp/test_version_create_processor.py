@@ -40,7 +40,7 @@ deny_always_policy = DenyAlwaysPolicy()
 def _get_version_create_processor():
     dm = DefinitionManager()
     return NativeAppVersionCreateProcessor(
-        project_definition=dm.project_definition["native_app"],
+        project_definition=dm.project_definition.native_app,
         project_root=dm.project_root,
     )
 

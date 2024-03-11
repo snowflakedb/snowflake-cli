@@ -40,7 +40,7 @@ def _get_version_drop_processor():
     dm = DefinitionManager()
 
     return NativeAppVersionDropProcessor(
-        project_definition=dm.project_definition["native_app"],
+        project_definition=dm.project_definition.native_app,
         project_root=dm.project_root,
     )
 
