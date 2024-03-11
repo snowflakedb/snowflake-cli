@@ -42,6 +42,7 @@ class Venv:
     def run_python(self, args):
 
         try:
+            log.warning(sys.getdefaultencoding()) # TODO remove this
             process = subprocess.run(
                 [self.python_path, *args],
                 capture_output=True,
