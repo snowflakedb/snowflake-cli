@@ -943,7 +943,11 @@
   │                                 [required]                                   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --help  -h        Show this message and exit.                                │
+  │ --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    │
+  │                       example, `list-branches --like "%_test"` lists all     │
+  │                       branches that end with "_test".                        │
+  │                       [default: %%]                                          │
+  │ --help  -h            Show this message and exit.                            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
@@ -1011,7 +1015,12 @@
   │                                 [required]                                   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --help  -h        Show this message and exit.                                │
+  │ --pattern  -p      TEXT  Regex pattern for filtering files by name. Git      │
+  │                          repository scope prefix is not included in regex    │
+  │                          matching. For example `list-files --pattern         │
+  │                          ".*\.txt"` lists all files with .txt extension.     │
+  │                          [default: .*]                                       │
+  │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
@@ -1077,7 +1086,11 @@
   │                                 [required]                                   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --help  -h        Show this message and exit.                                │
+  │ --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    │
+  │                       example, `list-tags --like "v2.0%"` lists all tags     │
+  │                       that start with "v2.0".                                │
+  │                       [default: %%]                                          │
+  │ --help  -h            Show this message and exit.                            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
@@ -1661,7 +1674,12 @@
   │ *    stage_name      TEXT  Name of the stage. [default: None] [required]     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --help  -h        Show this message and exit.                                │
+  │ --pattern  -p      TEXT  Regex pattern for filtering files by name. Git      │
+  │                          repository scope prefix is not included in regex    │
+  │                          matching. For example list --pattern=".*\.txt will  │
+  │                          list all files with .txt extension.                 │
+  │                          [default: .*]                                       │
+  │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │

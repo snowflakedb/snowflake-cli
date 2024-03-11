@@ -27,7 +27,17 @@ def test_list_branches(mock_connector, runner, mock_ctx):
     result = runner.invoke(["git", "list-branches", "repo_name"])
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_query() == "show git branches in repo_name"
+    assert ctx.get_query() == "show git branches like '%%' in repo_name"
+
+
+@mock.patch("snowflake.connector.connect")
+def test_list_branches_like(mock_connector, runner, mock_ctx):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(["git", "list-branches", "repo_name", "--like", "PATTERN"])
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == "show git branches like 'PATTERN' in repo_name"
 
 
 @mock.patch("snowflake.connector.connect")
@@ -37,17 +47,39 @@ def test_list_tags(mock_connector, runner, mock_ctx):
     result = runner.invoke(["git", "list-tags", "repo_name"])
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_query() == "show git tags in repo_name"
+    assert ctx.get_query() == "show git tags like '%%' in repo_name"
+
+
+@mock.patch("snowflake.connector.connect")
+def test_list_tags_like(mock_connector, runner, mock_ctx):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(["git", "list-tags", "repo_name", "--like", "PATTERN"])
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == "show git tags like 'PATTERN' in repo_name"
 
 
 @mock.patch("snowflake.connector.connect")
 def test_list_files(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    result = runner.invoke(["git", "list-files", "@repo_name/branches/main"])
+    result = runner.invoke(["git", "list-files", "@repo_name/branches/main/"])
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_query() == "ls @repo_name/branches/main"
+    assert ctx.get_query() == "ls @repo_name/branches/main/ pattern = '.*'"
+
+
+@mock.patch("snowflake.connector.connect")
+def test_list_files_pattern(mock_connector, runner, mock_ctx):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(
+        ["git", "list-files", "@repo_name/branches/main/", "--pattern", "REGEX"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == "ls @repo_name/branches/main/ pattern = 'REGEX'"
 
 
 def test_list_files_not_a_stage_error(runner):

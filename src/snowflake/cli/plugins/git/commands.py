@@ -3,7 +3,11 @@ from pathlib import Path
 
 import typer
 from click import ClickException
-from snowflake.cli.api.commands.flags import identifier_argument
+from snowflake.cli.api.commands.flags import (
+    identifier_argument,
+    like_option,
+    pattern_option,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
@@ -39,6 +43,9 @@ RepoPathArgument = typer.Argument(
         " For example: @my_repo/branches/main/"
     ),
     callback=_repo_path_argument_callback,
+)
+PatternOption = pattern_option(
+    help_example='`list-files --pattern ".*\.txt"` lists all files with .txt extension',
 )
 
 
@@ -139,12 +146,15 @@ def setup(
 )
 def list_branches(
     repository_name: str = RepoNameArgument,
+    like=like_option(
+        help_example='`list-branches --like "%_test"` lists all branches that end with "_test"'
+    ),
     **options,
 ) -> CommandResult:
     """
     List all branches in the repository.
     """
-    return QueryResult(GitManager().show_branches(repo_name=repository_name))
+    return QueryResult(GitManager().show_branches(repo_name=repository_name, like=like))
 
 
 @app.command(
@@ -153,12 +163,15 @@ def list_branches(
 )
 def list_tags(
     repository_name: str = RepoNameArgument,
+    like=like_option(
+        help_example='`list-tags --like "v2.0%"` lists all tags that start with "v2.0"'
+    ),
     **options,
 ) -> CommandResult:
     """
     List all tags in the repository.
     """
-    return QueryResult(GitManager().show_tags(repo_name=repository_name))
+    return QueryResult(GitManager().show_tags(repo_name=repository_name, like=like))
 
 
 @app.command(
@@ -167,12 +180,15 @@ def list_tags(
 )
 def list_files(
     repository_path: str = RepoPathArgument,
+    pattern=PatternOption,
     **options,
 ) -> CommandResult:
     """
     List files from given state of git repository.
     """
-    return QueryResult(GitManager().show_files(repo_path=repository_path))
+    return QueryResult(
+        GitManager().list_files(stage_name=repository_path, pattern=pattern)
+    )
 
 
 @app.command(

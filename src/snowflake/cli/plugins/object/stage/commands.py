@@ -4,6 +4,7 @@ from pathlib import Path
 
 import click
 import typer
+from snowflake.cli.api.commands.flags import pattern_option
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -21,14 +22,19 @@ app = SnowTyper(
 )
 
 StageNameArgument = typer.Argument(..., help="Name of the stage.")
+PatternOption = pattern_option(
+    help_example='list --pattern=".*\.txt will list all files with .txt extension'
+)
 
 
 @app.command("list", requires_connection=True)
-def stage_list(stage_name: str = StageNameArgument, **options) -> CommandResult:
+def stage_list(
+    stage_name: str = StageNameArgument, pattern=PatternOption, **options
+) -> CommandResult:
     """
     Lists the stage contents.
     """
-    cursor = StageManager().list_files(stage_name=stage_name)
+    cursor = StageManager().list_files(stage_name=stage_name, pattern=pattern)
     return QueryResult(cursor)
 
 
