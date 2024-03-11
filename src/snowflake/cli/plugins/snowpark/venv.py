@@ -140,6 +140,7 @@ class Venv:
                 f"from importlib.metadata import {info_type.value}; print({info_type.value}('{package_name}'))",
             ]
         )
+        log.warning(info)  # TODO remove this call
         if info.returncode != 0:
             return []
 
