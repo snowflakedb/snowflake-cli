@@ -1,4 +1,5 @@
 import json
+import locale
 import logging
 import os
 import shutil
@@ -42,16 +43,11 @@ class Venv:
     def run_python(self, args):
 
         try:
-            import locale
-
-            log.warning(locale.getencoding())
-            log.warning(locale.getpreferredencoding())
-            log.warning(sys.getdefaultencoding())  # TODO remove this
             process = subprocess.run(
                 [self.python_path, *args],
                 capture_output=True,
                 text=True,
-                encoding=sys.stdout.encoding,
+                encoding=locale.getpreferredencoding(),
             )
         except subprocess.CalledProcessError as e:
             log.error(self.ERROR_MESSAGE, "python" + " ".join(args), e.stderr)
