@@ -36,4 +36,4 @@ jobs:
           SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-        run: python -m pytest -m integration tests_integration/test_package.py::TestPackage::test_package_from_github
+        run: python -m hatch run integration:test_win

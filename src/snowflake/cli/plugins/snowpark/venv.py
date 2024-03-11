@@ -43,6 +43,7 @@ class Venv:
 
         try:
             import locale
+
             log.warning(locale.getencoding())
             log.warning(locale.getpreferredencoding())
             log.warning(sys.getdefaultencoding())  # TODO remove this

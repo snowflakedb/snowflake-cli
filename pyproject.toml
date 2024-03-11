@@ -101,7 +101,8 @@ pre-install-commands = [
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
-test = ["pytest -m integration --snapshot-warn-unused -vv"]
+test = ["pytest -m integration --snapshot-warn-unused"]
+test_win = ["pytest -m integration tests_integration/test_package.py::TestPackage::test_package_from_github -vv"]
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.8", "3.9", "3.10", "3.11", "3.12"]
