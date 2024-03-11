@@ -5,8 +5,11 @@ from unittest.mock import MagicMock, patch
 from zipfile import ZipFile
 
 import pytest
-from requirements.requirement import Requirement
-from snowflake.cli.plugins.snowpark.models import SplitRequirements
+from snowflake.cli.plugins.snowpark.models import (
+    PypiOption,
+    Requirement,
+    SplitRequirements,
+)
 from snowflake.cli.plugins.snowpark.package.utils import NothingFound, NotInAnaconda
 
 from tests.test_data import test_data
@@ -150,7 +153,11 @@ class TestPackage:
         mock_lookup.return_value = NothingFound
         result = runner.invoke(["snowpark", "package", "lookup", "foo", *flags])
 
-        mock_lookup.assert_called_with(name="foo", install_packages=expected_value)
+        mock_lookup.assert_called_with(
+            name="foo",
+            install_packages=expected_value,
+            allow_native_libraries=PypiOption.NO,
+        )
 
     @staticmethod
     def mocked_anaconda_response(response: dict):

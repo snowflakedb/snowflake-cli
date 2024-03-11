@@ -6,6 +6,7 @@ from pathlib import Path
 import typer
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MessageResult
+from snowflake.cli.plugins.snowpark.models import PypiOption
 from snowflake.cli.plugins.snowpark.package.manager import (
     cleanup_after_install,
     create,
@@ -17,6 +18,7 @@ from snowflake.cli.plugins.snowpark.package.utils import (
     NotInAnaconda,
     RequiresPackages,
 )
+from snowflake.cli.plugins.snowpark.snowpark_shared import PackageNativeLibrariesOption
 
 app = SnowTyper(
     name="package",
@@ -45,6 +47,7 @@ def package_lookup(
     name: str = typer.Argument(..., help="Name of the package."),
     install_packages: bool = install_option,
     deprecated_install_option: bool = deprecated_install_option,
+    allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
     **options,
 ) -> CommandResult:
     """
@@ -55,7 +58,11 @@ def package_lookup(
     if deprecated_install_option:
         install_packages = deprecated_install_option
 
-    lookup_result = lookup(name=name, install_packages=install_packages)
+    lookup_result = lookup(
+        name=name,
+        install_packages=install_packages,
+        allow_native_libraries=allow_native_libraries,
+    )
     return MessageResult(lookup_result.message)
 
 
@@ -97,6 +104,7 @@ def package_create(
     ),
     install_packages: bool = install_option,
     deprecated_install_option: bool = deprecated_install_option,
+    allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
     **options,
 ) -> CommandResult:
     """
@@ -105,13 +113,14 @@ def package_create(
     if deprecated_install_option:
         install_packages = deprecated_install_option
 
-    if (
-        type(lookup_result := lookup(name=name, install_packages=install_packages))
-        in [
-            NotInAnaconda,
-            RequiresPackages,
-        ]
-        and type(creation_result := create(name)) == CreatedSuccessfully
+    lookup_result = lookup(
+        name=name,
+        install_packages=install_packages,
+        allow_native_libraries=allow_native_libraries,
+    )
+
+    if isinstance(lookup_result, (NotInAnaconda, RequiresPackages)) and isinstance(
+        creation_result := create(name), CreatedSuccessfully
     ):
         message = creation_result.message
         if type(lookup_result) == RequiresPackages:
