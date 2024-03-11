@@ -125,7 +125,8 @@ class Venv:
 
     def get_pip_inspect(self) -> Dict:
         result = self.run_python(["-m", "pip", "inspect"])
-
+        log.warning("Result of pip inspect:")
+        log.warning(result)  # TODO: remove this calls
         if result.returncode == 0:
             return json.loads(result.stdout)
         else:
