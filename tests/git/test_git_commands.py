@@ -1,7 +1,11 @@
 from pathlib import Path
+from textwrap import dedent
 from unittest import mock
 
 import pytest
+from snowflake.connector import ProgrammingError
+
+EXAMPLE_URL = "https://github.com/an-example-repo.git"
 
 
 @pytest.mark.skip(reason="Command is hidden")
@@ -97,6 +101,248 @@ def test_copy_not_a_stage_error(runner):
     result = runner.invoke(["git", "copy", "repo_name", "@stage_path/dir_in_stage"])
     assert result.exit_code == 1
     _assert_invalid_repo_path_error_message(result.output)
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+def test_setup_already_exists_error(mock_om_describe, mock_connector, runner, mock_ctx):
+    mock_om_describe.return_value = {"object_details": "something"}
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(["git", "setup", "repo_name"])
+    assert result.exit_code == 1, result.output
+    assert "Error" in result.output
+    assert "Repository 'repo_name' already exists" in result.output
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+def test_setup_invalid_url_error(mock_om_describe, mock_connector, runner, mock_ctx):
+    mock_om_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    communication = "http://invalid_url.git\ns"
+    result = runner.invoke(["git", "setup", "repo_name"], input=communication)
+
+    assert result.exit_code == 1, result.output
+    assert "Error" in result.output
+    assert "Url address should start with 'https'" in result.output
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+def test_setup_no_secret_existing_api(
+    mock_om_describe, mock_connector, runner, mock_ctx
+):
+    mock_om_describe.side_effect = [
+        ProgrammingError("does not exist or not authorized"),
+        None,
+    ]
+    mock_om_describe.return_value = [None, {"object_details": "something"}]
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    communication = "\n".join([EXAMPLE_URL, "n", "existing_api_integration", ""])
+    result = runner.invoke(["git", "setup", "repo_name"], input=communication)
+
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith(
+        "\n".join(
+            [
+                "Origin url: https://github.com/an-example-repo.git",
+                "Use secret for authentication? [y/N]: n",
+                "API integration identifier (will be created if not exists) [repo_name_api_integration]: existing_api_integration",
+                "Using existing API integration 'existing_api_integration'.",
+            ]
+        )
+    )
+    assert ctx.get_query() == dedent(
+        """
+        create git repository repo_name
+        api_integration = existing_api_integration
+        origin = 'https://github.com/an-example-repo.git'
+        """
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+def test_setup_no_secret_create_api(mock_om_describe, mock_connector, runner, mock_ctx):
+    mock_om_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    communication = "\n".join([EXAMPLE_URL, "n", "", ""])
+    result = runner.invoke(["git", "setup", "repo_name"], input=communication)
+
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith(
+        "\n".join(
+            [
+                "Origin url: https://github.com/an-example-repo.git",
+                "Use secret for authentication? [y/N]: n",
+                "API integration identifier (will be created if not exists) [repo_name_api_integration]: ",
+                "API integration 'repo_name_api_integration' successfully created.",
+            ]
+        )
+    )
+    assert ctx.get_query() == dedent(
+        """
+        create api integration repo_name_api_integration
+        api_provider = git_https_api
+        api_allowed_prefixes = ('https://github.com/an-example-repo.git')
+        allowed_authentication_secrets = ()
+        enabled = true
+        
+        
+        create git repository repo_name
+        api_integration = repo_name_api_integration
+        origin = 'https://github.com/an-example-repo.git'
+        """
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+def test_setup_existing_secret_existing_api(
+    mock_om_describe, mock_connector, runner, mock_ctx
+):
+    mock_om_describe.side_effect = [
+        ProgrammingError("does not exist or not authorized"),
+        None,
+        None,
+    ]
+    mock_om_describe.return_value = [None, "integration_details", "secret_details"]
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    communication = "\n".join(
+        [EXAMPLE_URL, "y", "existing_secret", "existing_api_integration", ""]
+    )
+    result = runner.invoke(["git", "setup", "repo_name"], input=communication)
+
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith(
+        "\n".join(
+            [
+                "Origin url: https://github.com/an-example-repo.git",
+                "Use secret for authentication? [y/N]: y",
+                "Secret identifier (will be created if not exists) [repo_name_secret]: existing_secret",
+                "Using existing secret 'existing_secret'",
+                "API integration identifier (will be created if not exists) [repo_name_api_integration]: existing_api_integration",
+                "Using existing API integration 'existing_api_integration'.",
+            ]
+        )
+    )
+    assert ctx.get_query() == dedent(
+        """
+        create git repository repo_name
+        api_integration = existing_api_integration
+        origin = 'https://github.com/an-example-repo.git'
+        git_credentials = existing_secret
+        """
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+def test_setup_existing_secret_create_api(
+    mock_om_describe, mock_connector, runner, mock_ctx
+):
+    mock_om_describe.side_effect = [
+        ProgrammingError("does not exist or not authorized"),
+        None,
+        ProgrammingError("does not exist or not authorized"),
+    ]
+    mock_om_describe.return_value = [None, "secret_details", None]
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    communication = "\n".join([EXAMPLE_URL, "y", "existing_secret", "", ""])
+    result = runner.invoke(["git", "setup", "repo_name"], input=communication)
+
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith(
+        "\n".join(
+            [
+                "Origin url: https://github.com/an-example-repo.git",
+                "Use secret for authentication? [y/N]: y",
+                "Secret identifier (will be created if not exists) [repo_name_secret]: existing_secret",
+                "Using existing secret 'existing_secret'",
+                "API integration identifier (will be created if not exists) [repo_name_api_integration]: ",
+                "API integration 'repo_name_api_integration' successfully created.",
+            ]
+        )
+    )
+    assert ctx.get_query() == dedent(
+        """
+        create api integration repo_name_api_integration
+        api_provider = git_https_api
+        api_allowed_prefixes = ('https://github.com/an-example-repo.git')
+        allowed_authentication_secrets = (existing_secret)
+        enabled = true
+
+
+        create git repository repo_name
+        api_integration = repo_name_api_integration
+        origin = 'https://github.com/an-example-repo.git'
+        git_credentials = existing_secret
+        """
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+def test_setup_create_secret_create_api(
+    mock_om_describe, mock_connector, runner, mock_ctx
+):
+    mock_om_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    communication = "\n".join(
+        [EXAMPLE_URL, "y", "", "john_doe", "admin123", "new_integration", ""]
+    )
+    result = runner.invoke(["git", "setup", "repo_name"], input=communication)
+
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith(
+        "\n".join(
+            [
+                "Origin url: https://github.com/an-example-repo.git",
+                "Use secret for authentication? [y/N]: y",
+                "Secret identifier (will be created if not exists) [repo_name_secret]: ",
+                "Secret 'repo_name_secret' will be created",
+                "username: john_doe",
+                "password/token: ",
+                "API integration identifier (will be created if not exists) [repo_name_api_integration]: new_integration",
+                "Secret 'repo_name_secret' successfully created.",
+                "API integration 'new_integration' successfully created.",
+            ]
+        )
+    )
+    assert ctx.get_query() == dedent(
+        """
+        create secret repo_name_secret
+        type = password
+        username = 'john_doe'
+        password = 'admin123'
+        
+        
+        create api integration new_integration
+        api_provider = git_https_api
+        api_allowed_prefixes = ('https://github.com/an-example-repo.git')
+        allowed_authentication_secrets = (repo_name_secret)
+        enabled = true
+        
+        
+        create git repository repo_name
+        api_integration = new_integration
+        origin = 'https://github.com/an-example-repo.git'
+        git_credentials = repo_name_secret
+        """
+    )
 
 
 def _assert_invalid_repo_path_error_message(output):
