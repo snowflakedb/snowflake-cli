@@ -10,6 +10,10 @@ on:
     branches:
       - main
 
+env:
+  TERM: unknown  # Disables colors in rich
+
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -31,7 +35,7 @@ jobs:
           pip install -U hatch
           hatch env create default
       - name: Test with hatch
-        env:
-         TERM: unknown
         run: hatch run test-cov
+      - name: Run performance tests
+        run: hatch run performance:test
       - uses: codecov/codecov-action@54bcd8715eee62d40e33596ef5e8f0f48dbbccab
