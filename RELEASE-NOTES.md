@@ -29,6 +29,9 @@
   * Added `create` command for `image-repository`.
   * Added `status`, `set (property)`, `unset (property)`, `suspend` and `resume` commands for `compute-pool`.
   * Added `set (property)`, `unset (property)`,`upgrade` and `list-endpoints` commands for `service`.
+* You can now use github repo link in `snow snowpark package create` to prepare your code for upload
+* Added `allow-native-libraries` option to `snow snowpark package create` command
+* Added alias `--install-from-pip` for `-y` option in `snow snowpark package create` command
 * Connections parameters are also supported by generic environment variables:
   * `SNOWFLAKE_ACCOUNT`
   * `SNOWFLAKE_USER`
@@ -50,6 +53,7 @@
 ## Fixes and improvements
 * Restricted permissions of automatically created files
 * Fixed bug where `spcs service create` would not throw error if service with specified name already exists.
+* Improved package lookup, to avoid unnecessary uploads
 * Logging into the file by default (INFO level)
 * Added validation that service, compute pool, and image repository names are unqualified identifiers.
 * `spcs service` commands now accept qualified names.

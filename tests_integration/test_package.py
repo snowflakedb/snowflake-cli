@@ -1,4 +1,5 @@
 import os
+import sys
 import tempfile
 from pathlib import Path
 from typing import List
@@ -47,17 +48,23 @@ class TestPackage:
     @pytest.mark.integration
     def test_package_create_with_non_anaconda_package(self, directory_for_test, runner):
         result = runner.invoke_with_connection_json(
-            ["snowpark", "package", "create", "dummy_pkg_for_tests_with_deps", "-y"]
+            [
+                "snowpark",
+                "package",
+                "create",
+                "dummy-pkg-for-tests-with-deps",
+                "--pypi-download",
+            ]
         )
 
         assert result.exit_code == 0
-        assert os.path.isfile("dummy_pkg_for_tests_with_deps.zip")
+        assert Path("dummy-pkg-for-tests-with-deps.zip").is_file()
         assert "dummy_pkg_for_tests/shrubbery.py" in self._get_filenames_from_zip(
-            "dummy_pkg_for_tests_with_deps.zip"
+            "dummy-pkg-for-tests-with-deps.zip"
         )
         assert (
             "dummy_pkg_for_tests_with_deps/shrubbery.py"
-            in self._get_filenames_from_zip("dummy_pkg_for_tests_with_deps.zip")
+            in self._get_filenames_from_zip("dummy-pkg-for-tests-with-deps.zip")
         )
 
     @pytest.mark.integration
@@ -75,7 +82,13 @@ class TestPackage:
     @pytest.mark.integration
     def test_create_package_with_deps(self, directory_for_test, runner):
         result = runner.invoke_with_connection_json(
-            ["snowpark", "package", "create", "dummy_pkg_for_tests_with_deps", "-y"]
+            [
+                "snowpark",
+                "package",
+                "create",
+                "dummy_pkg_for_tests_with_deps",
+                "--pypi-download",
+            ]
         )
 
         assert result.exit_code == 0
@@ -85,7 +98,80 @@ class TestPackage:
         )
 
         files = self._get_filenames_from_zip("dummy_pkg_for_tests_with_deps.zip")
-        assert "dummy_pkg_for_tests/shrubbery.py" in files
+        assert any(["shrubbery.py" in file for file in files])
+
+    @pytest.mark.integration
+    def test_package_with_conda_dependencies(
+        self, directory_for_test, runner
+    ):  # TODO think how to make this test with packages controlled by us
+        # test case is: We have a non-conda package, that has a dependency present on conda
+        # but not in latest version - here the case is matplotlib.
+        result = runner.invoke_with_connection_json(
+            [
+                "snowpark",
+                "package",
+                "create",
+                "july",
+                "--pypi-download",
+                "--allow-native-libraries",
+                "yes",
+            ]
+        )
+
+        assert result.exit_code == 0
+        assert Path("july.zip").exists()
+
+        files = self._get_filenames_from_zip("july.zip")
+        assert any(["colormaps.py" in name for name in files])
+        assert not any(["matplotlib" in name for name in files])
+
+    @pytest.mark.integration
+    def test_package_from_github(self, directory_for_test, runner):
+        result = runner.invoke_with_connection_json(
+            [
+                "snowpark",
+                "package",
+                "create",
+                "git+https://github.com/sfc-gh-turbaszek/dummy-pkg-for-tests-with-deps.git",
+                "--pypi-download",
+            ]
+        )
+
+        assert result.exit_code == 0
+        assert Path("dummy-pkg-for-tests-with-deps.zip").exists()
+
+        files = self._get_filenames_from_zip("dummy-pkg-for-tests-with-deps.zip")
+
+        assert any(
+            ["dummy_pkg_for_tests_with_deps-1.0.dist-info" in file for file in files]
+        )
+        assert any(["dummy_pkg_for_tests-1.0.dist-info" in file for file in files])
+
+    @pytest.mark.integration
+    @pytest.mark.skipif(
+        sys.platform.startswith("win"),
+        reason="Windows version of PyGame has no native libraries",
+    )
+    def test_package_with_native_libraries(self, directory_for_test, runner):
+        """
+        We use PyGame in this test for two reasons:
+        1. We need a package with native libraries to trigger warning
+        2. This package should not be avaiable on Snowflake Conda channel.
+        As it is highly unlikely, that PyGame will be included in the channel, it's probably ok to leave it for now,
+        but we may reconsider switch to a package controlled by us.
+        """
+        result = runner.invoke_with_connection(
+            [
+                "snowpark",
+                "package",
+                "create",
+                "pygame",
+                "--pypi-download",
+            ]
+        )
+
+        assert result.exit_code == 0
+        assert "at https://support.anaconda.com/" in result.output
 
     @pytest.fixture(scope="function")
     def directory_for_test(self):

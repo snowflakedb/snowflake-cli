@@ -222,7 +222,7 @@ class SnowparkTestSteps:
 
     def package_should_build_proper_artifact(self, package_name: str, file_name: str):
         result = self._setup.runner.invoke_with_connection_json(
-            ["snowpark", "package", "create", package_name, "-y"]
+            ["snowpark", "package", "create", package_name, "--pypi-download"]
         )
 
         assert result.exit_code == 0
