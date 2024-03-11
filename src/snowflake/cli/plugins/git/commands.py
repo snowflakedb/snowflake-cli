@@ -3,7 +3,11 @@ from pathlib import Path
 
 import typer
 from click import ClickException
-from snowflake.cli.api.commands.flags import identifier_argument, pattern_option
+from snowflake.cli.api.commands.flags import (
+    identifier_argument,
+    like_option,
+    pattern_option,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
@@ -41,17 +45,8 @@ RepoPathArgument = typer.Argument(
     callback=_repo_path_argument_callback,
 )
 PatternOption = pattern_option(
-    help_example='list-files --pattern ".*\.txt" lists all files with .txt extension',
+    help_example='`list-files --pattern ".*\.txt"` lists all files with .txt extension',
 )
-
-
-def like_option(help_example: str):
-    return typer.Option(
-        "%%",
-        "--like",
-        "-l",
-        help=f"SQL LIKE pattern for filtering objects by name. For example, {help_example}",
-    )
 
 
 def _object_exists(object_type, identifier):
@@ -152,7 +147,7 @@ def setup(
 def list_branches(
     repository_name: str = RepoNameArgument,
     like=like_option(
-        help_example='list-branches --like "%_test" lists all branches that end with "_test"'
+        help_example='`list-branches --like "%_test"` lists all branches that end with "_test"'
     ),
     **options,
 ) -> CommandResult:
@@ -169,7 +164,7 @@ def list_branches(
 def list_tags(
     repository_name: str = RepoNameArgument,
     like=like_option(
-        help_example='list-tags --like "v2.0%" lists all tags that start with "v2.0"'
+        help_example='`list-tags --like "v2.0%"` lists all tags that start with "v2.0"'
     ),
     **options,
 ) -> CommandResult:

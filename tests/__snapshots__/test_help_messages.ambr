@@ -944,8 +944,8 @@
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    │
-  │                       example, list-branches --like "%_test" lists all       │
-  │                       branches that end with "_test"                         │
+  │                       example, `list-branches --like "%_test"` lists all     │
+  │                       branches that end with "_test".                        │
   │                       [default: %%]                                          │
   │ --help  -h            Show this message and exit.                            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -1017,8 +1017,8 @@
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --pattern  -p      TEXT  Regex pattern for filtering files by name. Git      │
   │                          repository scope prefix is not included in regex    │
-  │                          matching. For example list-files --pattern          │
-  │                          ".*\.txt" lists all files with .txt extension.      │
+  │                          matching. For example `list-files --pattern         │
+  │                          ".*\.txt"` lists all files with .txt extension.     │
   │                          [default: .*]                                       │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -1087,8 +1087,8 @@
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    │
-  │                       example, list-tags --like "v2.0%" lists all tags that  │
-  │                       start with "v2.0"                                      │
+  │                       example, `list-tags --like "v2.0%"` lists all tags     │
+  │                       that start with "v2.0".                                │
   │                       [default: %%]                                          │
   │ --help  -h            Show this message and exit.                            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
