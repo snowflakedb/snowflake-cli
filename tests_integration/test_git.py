@@ -2,11 +2,26 @@ import pytest
 from snowflake.connector.errors import ProgrammingError
 from pathlib import Path
 import tempfile
-
-from tests.git.utils import enable_snowgit_fixture  # noqa: F401
-
+from textwrap import dedent
 
 FILE_IN_REPO = "RELEASE-NOTES.md"
+
+
+@pytest.fixture(autouse=True)
+def enable_snowgit_config(snowflake_home, runner):
+    config = snowflake_home / "enable_snowgit_config.toml"
+    config.write_text(
+        dedent(
+            """
+            [cli.features]
+            enable_snowgit = true
+            
+            [connections.integration]
+        """
+        )
+    )
+    runner.use_config(config)
+    yield
 
 
 @pytest.fixture
