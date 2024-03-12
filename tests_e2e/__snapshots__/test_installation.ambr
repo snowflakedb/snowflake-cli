@@ -32,7 +32,7 @@
   │ spcs        Manages Snowpark Container Services compute pools, services,     │
   │             image registries, and image repositories.                        │
   │ sql         Executes Snowflake query.                                        │
-  │ streamlit   Manages Streamlit in Snowflake.                                  │
+  │ streamlit   Manages a Streamlit app in Snowflake.                            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   

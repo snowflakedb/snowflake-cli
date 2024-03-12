@@ -399,11 +399,18 @@ def project_definition_option(project_name: str):
         cli_context_manager.set_project_root(project_root)
         return project_definition
 
+    if project_name == "native_app":
+        project_name_help = "Snowflake Native App"
+    elif project_name == "streamlit":
+        project_name_help = "Streamlit app"
+    else:
+        project_name_help = project_name.replace("_", " ").capitalize()
+
     return typer.Option(
         None,
         "-p",
         "--project",
-        help=f"Path where the {'Snowflake Native App' if project_name == 'native_app' else project_name.replace('_', ' ').capitalize()} project resides. "
+        help=f"Path where the {project_name_help} project resides. "
         f"Defaults to current working directory.",
         callback=_callback,
         show_default=False,
