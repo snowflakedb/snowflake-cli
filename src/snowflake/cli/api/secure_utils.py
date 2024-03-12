@@ -1,6 +1,8 @@
 import stat
 from pathlib import Path
 
+import oschmod
+
 
 def file_permissions_are_strict(file_path: Path) -> bool:
     accessible_by_others = (
@@ -12,4 +14,4 @@ def file_permissions_are_strict(file_path: Path) -> bool:
         | stat.S_IXGRP  # executable by group
         | stat.S_IXOTH  # executable by others
     )
-    return (file_path.stat().st_mode & accessible_by_others) == 0
+    return (oschmod.get_mode(str(file_path)) & accessible_by_others) == 0

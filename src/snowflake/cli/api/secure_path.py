@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional, Union
 
+import oschmod
 from snowflake.cli.api.exceptions import DirectoryIsNotEmptyError, FileTooLargeError
 
 log = logging.getLogger(__name__)
@@ -69,7 +70,7 @@ class SecurePath:
         log.info(
             "Update permissions of file %s to %s", self._path, oct(permissions_mask)
         )
-        self._path.chmod(permissions_mask)
+        oschmod.set_mode(str(self._path), permissions_mask)
 
     def touch(self, permissions_mask: int = 0o600, exist_ok: bool = True) -> None:
         """

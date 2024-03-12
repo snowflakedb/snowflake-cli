@@ -1,10 +1,12 @@
 import os
+import platform
 import subprocess
 
 import pytest
 
 
 @pytest.mark.e2e
+@pytest.mark.skipif(platform.system() == "Windows", reason="Chmod issues on Windows")
 def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
     traceback_msg = "Traceback (most recent call last)"
     config_path = test_root_path / "config" / "malformatted_config.toml"

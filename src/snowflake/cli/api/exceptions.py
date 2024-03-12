@@ -5,6 +5,7 @@ from typing import Optional
 
 from click.exceptions import ClickException
 from snowflake.cli.api.constants import ObjectType
+from snowflake.connector.compat import IS_WINDOWS
 
 
 class EnvironmentVariableNotFoundError(ClickException):
@@ -111,8 +112,14 @@ class DirectoryIsNotEmptyError(ClickException):
 
 class ConfigFileTooWidePermissionsError(ClickException):
     def __init__(self, path: Path):
+        change_permission_message = (
+            "set read and write access only to the current user."
+            if IS_WINDOWS
+            else f'run `chmod 0600 "{path}"`.'
+        )
+
         super().__init__(
-            f'Configuration file {path} has too wide permissions, run `chmod 0600 "{path}"`'
+            f"Configuration file {path} has too wide permissions, {change_permission_message}"
         )
 
 

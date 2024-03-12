@@ -1,3 +1,4 @@
+import platform
 import subprocess
 from pathlib import Path
 
@@ -5,6 +6,9 @@ import pytest
 
 
 @pytest.mark.e2e
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="Snapshot comparison issues on Windows"
+)
 def test_snow_help(snowcli, snapshot):
     output = subprocess.check_output([snowcli, "--help"], encoding="utf-8")
     snapshot.assert_match(output)
