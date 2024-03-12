@@ -120,7 +120,8 @@
                                                                                   
    Usage: default app list-templates [OPTIONS]                                    
                                                                                   
-   Prints information regarding templates that can be used with snow app init.    
+   Prints information regarding the official templates that can be used with snow 
+   app init.                                                                      
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
