@@ -3,6 +3,9 @@ from snowflake.connector.errors import ProgrammingError
 from pathlib import Path
 import tempfile
 
+from tests.git.utils import enable_snowgit_fixture  # noqa: F401
+
+
 FILE_IN_REPO = "RELEASE-NOTES.md"
 
 
