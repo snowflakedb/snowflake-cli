@@ -2,20 +2,19 @@ from pathlib import Path
 from textwrap import dedent
 from unittest import mock
 
-import pytest
 from snowflake.connector import ProgrammingError
+
+from tests.git.utils import enable_snowgit_fixture  # noqa: F401
 
 EXAMPLE_URL = "https://github.com/an-example-repo.git"
 
 
-@pytest.mark.skip(reason="Command is hidden")
 def test_toplevel_help(runner):
     result = runner.invoke(["--help"])
     assert (
         result.exit_code == 0
         and "Manages git repositories in Snowflake." in result.output
     )
-
     result = runner.invoke(["git", "--help"])
     assert result.exit_code == 0, result.output
 

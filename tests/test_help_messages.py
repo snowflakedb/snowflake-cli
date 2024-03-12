@@ -3,6 +3,8 @@ from snowflake.cli.app.commands_registration.command_plugins_loader import (
     load_only_builtin_command_plugins,
 )
 
+from tests.git.utils import reload_config_to_enable_snowgit
+
 
 def iter_through_all_commands_paths():
     """
@@ -19,6 +21,7 @@ def iter_through_all_commands_paths():
             path.pop()
 
     yield []  # "snow" with no commands
+    reload_config_to_enable_snowgit()
     builtin_plugins = load_only_builtin_command_plugins()
     for plugin in builtin_plugins:
         spec = plugin.command_spec
