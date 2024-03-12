@@ -97,8 +97,8 @@ def test_exception_handling_if_single_command_has_multiple_commands(
 
 
 @mock.patch(
-    "snowflake.cli.app.commands_registration.command_plugins_loader.builtin_plugin_name_to_plugin_spec",
-    {
+    "snowflake.cli.app.commands_registration.command_plugins_loader.get_builtin_plugin_name_to_plugin_spec",
+    lambda: {
         "connection": connection_plugin_spec,
         "connection2": connection_plugin_spec,
     },

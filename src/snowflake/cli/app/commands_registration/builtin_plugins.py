@@ -9,18 +9,20 @@ from snowflake.cli.plugins.spcs import plugin_spec as spcs_plugin_spec
 from snowflake.cli.plugins.sql import plugin_spec as sql_plugin_spec
 from snowflake.cli.plugins.streamlit import plugin_spec as streamlit_plugin_spec
 
-# plugin name to plugin spec
-builtin_plugin_name_to_plugin_spec = {
-    "connection": connection_plugin_spec,
-    "spcs": spcs_plugin_spec,
-    "nativeapp": nativeapp_plugin_spec,
-    "object": object_plugin_spec,
-    "render": render_plugin_spec,
-    "snowpark": snowpark_plugin_spec,
-    "sql": sql_plugin_spec,
-    "streamlit": streamlit_plugin_spec,
-    "git": git_plugin_spec,
-}
 
-if FeatureFlag.ENABLE_SNOWGIT.is_disabled():
-    del builtin_plugin_name_to_plugin_spec["git"]
+# plugin name to plugin spec
+def get_builtin_plugin_name_to_plugin_spec():
+    plugin_specs = {
+        "connection": connection_plugin_spec,
+        "spcs": spcs_plugin_spec,
+        "nativeapp": nativeapp_plugin_spec,
+        "object": object_plugin_spec,
+        "render": render_plugin_spec,
+        "snowpark": snowpark_plugin_spec,
+        "sql": sql_plugin_spec,
+        "streamlit": streamlit_plugin_spec,
+    }
+    if FeatureFlag.ENABLE_SNOWGIT.is_enabled():
+        plugin_specs["git"] = git_plugin_spec
+
+    return plugin_specs
