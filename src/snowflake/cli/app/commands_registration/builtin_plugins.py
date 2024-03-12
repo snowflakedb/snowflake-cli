@@ -1,3 +1,4 @@
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.plugins.connection import plugin_spec as connection_plugin_spec
 from snowflake.cli.plugins.git import plugin_spec as git_plugin_spec
 from snowflake.cli.plugins.nativeapp import plugin_spec as nativeapp_plugin_spec
@@ -20,3 +21,6 @@ builtin_plugin_name_to_plugin_spec = {
     "streamlit": streamlit_plugin_spec,
     "git": git_plugin_spec,
 }
+
+if FeatureFlag.ENABLE_SNOWGIT.is_disabled():
+    del builtin_plugin_name_to_plugin_spec["git"]
