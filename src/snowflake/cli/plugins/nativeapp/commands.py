@@ -84,7 +84,7 @@ def app_init(
 @app.command("list-templates", hidden=True)
 def app_list_templates(**options) -> CommandResult:
     """
-    Prints information regarding templates that can be used with snow app init.
+    Prints information regarding the official templates that can be used with snow app init.
     """
     with SecurePath.temporary_directory() as temp_path:
         repo = shallow_git_clone(OFFICIAL_TEMPLATES_GITHUB_URL, temp_path.path)
