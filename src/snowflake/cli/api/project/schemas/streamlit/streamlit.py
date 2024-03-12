@@ -15,7 +15,7 @@ class Streamlit(UpdatableModel):
         title="Snowflake warehouse to host the app", default="streamlit"
     )
     main_file: Optional[str] = Field(
-        title="Entrypoint file of the streamlit app", default="streamlit_app.py"
+        title="Entrypoint file of the Streamlit app", default="streamlit_app.py"
     )
     env_file: Optional[str] = Field(
         title="File defining additional configurations for the app, such as external dependencies",
