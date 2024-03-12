@@ -1,19 +1,18 @@
 import json
 import logging
 import os
-from distutils.dir_util import copy_tree
 from pathlib import Path, PosixPath
 from unittest import mock
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
+import snowflake.cli.plugins.snowpark.models
 import snowflake.cli.plugins.snowpark.package.utils
 import typer
-from requirements.requirement import Requirement
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
 from snowflake.cli.plugins.snowpark import package_utils
-from snowflake.cli.plugins.snowpark.models import PypiOption
+from snowflake.cli.plugins.snowpark.models import PypiOption, Requirement
 from snowflake.cli.plugins.streamlit import streamlit_utils
 
 from tests.test_data import test_data
@@ -152,13 +151,6 @@ def test_generate_streamlit_package_wrapper():
     result.unlink()
 
 
-def test_get_package_name_from_metadata_using_correct_data(
-    correct_metadata_file: str, tmp_path
-):
-    result = package_utils.get_package_name_from_metadata(correct_metadata_file)
-    assert result == Requirement.parse_line("my-awesome-package==0.0.1")
-
-
 @pytest.mark.parametrize(
     "contents, expected",
     [
@@ -229,51 +221,6 @@ def test_parse_anaconda_packages(mock_get):
     assert split_requirements.other[0].specs == [(">=", "0.9.3")]
     assert split_requirements.other[1].name == "Pamela"
     assert split_requirements.other[1].specs == [("==", "1.0.1")]
-
-
-def test_get_downloaded_packages(test_root_path, temp_dir):
-    # In this test, we parse some real package metadata downloaded by pip
-    # only the dist-info directories are available, we don't need the actual files
-    copy_tree(
-        os.path.join(test_root_path, "test_data", "local_packages"),
-        temp_dir,
-    )
-    requirements_with_files = package_utils.get_downloaded_packages()
-
-    assert len(requirements_with_files) == 4
-
-    assert "httplib2" in requirements_with_files
-    httplib_req = requirements_with_files["httplib2"]
-    assert httplib_req.requirement.name == "httplib2"
-    assert httplib_req.requirement.specifier is True
-    assert httplib_req.requirement.specs == [("==", "0.22.0")]
-    # there are 19 files listed in the RECORD file, but we only get the
-    # first part of the path. All 19 files fall under these two directories
-    assert sorted(httplib_req.files) == ["httplib2", "httplib2-0.22.0.dist-info"]
-
-    assert "Zendesk" in requirements_with_files
-    zendesk_req = requirements_with_files["Zendesk"]
-    assert zendesk_req.requirement.name == "Zendesk"
-    assert zendesk_req.requirement.specifier is True
-    assert zendesk_req.requirement.specs == [("==", "1.1.1")]
-    assert sorted(zendesk_req.files) == ["Zendesk-1.1.1.dist-info", "zendesk"]
-
-    assert "azure-core" in requirements_with_files
-    azcore_req = requirements_with_files["azure-core"]
-    assert azcore_req.requirement.name == "azure-core"
-    assert azcore_req.requirement.specifier is True
-    assert azcore_req.requirement.specs == [("==", "1.29.5")]
-    assert sorted(azcore_req.files) == ["azure/core", "azure_core-1.29.5.dist-info"]
-
-    assert "azure-eventhub" in requirements_with_files
-    azehub_req = requirements_with_files["azure-eventhub"]
-    assert azehub_req.requirement.name == "azure-eventhub"
-    assert azehub_req.requirement.specifier is True
-    assert azehub_req.requirement.specs == [("==", "5.11.5")]
-    assert sorted(azehub_req.files) == [
-        "azure/eventhub",
-        "azure_eventhub-5.11.5.dist-info",
-    ]
 
 
 def test_deduplicate_and_sort_reqs():

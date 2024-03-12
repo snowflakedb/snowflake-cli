@@ -2078,9 +2078,14 @@
   │                      [required]                                              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --pypi-download            Installs packages that are not available on the   │
-  │                            Snowflake Anaconda channel.                       │
-  │ --help           -h        Show this message and exit.                       │
+  │ --pypi-download                                 Installs packages that are   │
+  │                                                 not available on the         │
+  │                                                 Snowflake Anaconda channel.  │
+  │ --allow-native-libraries          [yes|no|ask]  Allows native libraries,     │
+  │                                                 when using packages          │
+  │                                                 installed through PIP        │
+  │                                                 [default: no]                │
+  │ --help                    -h                    Show this message and exit.  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
@@ -2145,9 +2150,14 @@
   │ *    name      TEXT  Name of the package. [default: None] [required]         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --pypi-download            Installs packages that are not available on the   │
-  │                            Snowflake Anaconda channel.                       │
-  │ --help           -h        Show this message and exit.                       │
+  │ --pypi-download                                 Installs packages that are   │
+  │                                                 not available on the         │
+  │                                                 Snowflake Anaconda channel.  │
+  │ --allow-native-libraries          [yes|no|ask]  Allows native libraries,     │
+  │                                                 when using packages          │
+  │                                                 installed through PIP        │
+  │                                                 [default: no]                │
+  │ --help                    -h                    Show this message and exit.  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
