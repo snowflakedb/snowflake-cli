@@ -52,8 +52,8 @@ def test_help_messages(runner, enable_snowgit_config, snapshot, command):
 
 @contextmanager
 def _enable_snowgit():
-    with tempfile.NamedTemporaryFile("w+", suffix=".toml") as tmpconfig:
-        tmpconfig.write("[cli.features]\nenable_snowgit = true")
-        tmpconfig.flush()
-        config_init(Path(tmpconfig.name))
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpconfig = Path(tmpdir) / "tmp_config.toml"
+        tmpconfig.write_text("[cli.features]\nenable_snowgit = true")
+        config_init(tmpconfig)
         yield
