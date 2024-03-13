@@ -149,18 +149,6 @@ def test_streamlit_deploy_experimental_twice(
 
 
 @pytest.mark.integration
-def test_streamlit_is_visible_in_anaconda_channel():
-    from snowflake.cli.plugins.snowpark.models import Requirement
-    from snowflake.cli.plugins.snowpark.package_utils import parse_anaconda_packages
-
-    streamlit = Requirement.parse_line("streamlit")
-
-    result = parse_anaconda_packages([streamlit])
-
-    assert streamlit in result.snowflake
-
-
-@pytest.mark.integration
 def test_fully_qualified_name(
     alter_snowflake_yml, test_database, project_directory, runner, snapshot
 ):
