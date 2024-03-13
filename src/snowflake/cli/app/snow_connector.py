@@ -27,6 +27,9 @@ UNENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN PRIVATE KEY-----"
 def connect_to_snowflake(
     temporary_connection: bool = False,
     mfa_passcode: Optional[str] = None,
+    enable_diag: Optional[bool] = False,
+    diag_log_path: Optional[str] = None,
+    diag_allowlist_path: Optional[str] = None,
     connection_name: Optional[str] = None,
     **overrides,
 ) -> SnowflakeConnection:
@@ -64,6 +67,15 @@ def connect_to_snowflake(
 
     if mfa_passcode:
         connection_parameters["passcode"] = mfa_passcode
+
+    if enable_diag:
+        connection_parameters["enable_connection_diag"] = enable_diag
+        if diag_log_path:
+            connection_parameters["connection_diag_log_path"] = diag_log_path
+        if diag_allowlist_path:
+            connection_parameters[
+                "connection_diag_allowlist_path"
+            ] = diag_allowlist_path
 
     try:
         # Whatever output is generated when creating connection,
