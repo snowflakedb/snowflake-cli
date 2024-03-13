@@ -17,6 +17,17 @@ def test_toplevel_help(runner):
     assert result.exit_code == 0, result.output
 
 
+def test_not_visible_if_disabled(runner, monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_FEATURES_ENABLE_SNOWGIT", False)
+    result = runner.invoke(["--help"])
+    assert (
+        result.exit_code == 0
+        and "Manages git repositories in Snowflake." not in result.output
+    )
+    result = runner.invoke(["git", "--help"])
+    assert result.exit_code == 2 and "No such command 'git'" in result.output
+
+
 @mock.patch("snowflake.connector.connect")
 def test_list_branches(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
