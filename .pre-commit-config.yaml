@@ -55,3 +55,8 @@ repos:
         pass_filenames: true
         files: ^src/.*\.py$
         exclude: ^src/snowflake/cli/app/telemetry.py$
+      - id: dependencies-sync
+        name: "Copy dependencies from pyproject.toml to requirements.txt"
+        language: system
+        entry: python .snyk/dependency-sync.py
+        files: ^pyproject.toml$

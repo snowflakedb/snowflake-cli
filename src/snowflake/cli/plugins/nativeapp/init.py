@@ -15,8 +15,7 @@ from snowflake.cli.api.project.util import (
 )
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.rendering import generic_render_template
-from strictyaml import as_document, load
-from yaml import dump
+from yaml import dump, safe_dump, safe_load
 
 log = logging.getLogger(__name__)
 
@@ -154,17 +153,20 @@ def _replace_snowflake_yml_name_with_project(
     path_to_snowflake_yml = SecurePath(target_directory) / "snowflake.yml"
     contents = None
 
-    with path_to_snowflake_yml.open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as f:
-        contents = load(f.read()).data
+    with path_to_snowflake_yml.open(
+        "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
+    ) as file:
+        contents = safe_load(file)
 
     if (
-        ("native_app" in contents)
+        (contents is not None)
+        and ("native_app" in contents)
         and ("name" in contents["native_app"])
         and (contents["native_app"]["name"] != project_identifier)
     ):
         contents["native_app"]["name"] = project_identifier
-        with path_to_snowflake_yml.open("w") as f:
-            f.write(as_document(contents).as_yaml())
+        with path_to_snowflake_yml.open("w") as file:
+            safe_dump(contents, file, sort_keys=False)
 
 
 def _validate_and_update_snowflake_yml(target_directory: Path, project_identifier: str):

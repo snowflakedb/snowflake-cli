@@ -12,6 +12,9 @@ from snowflake.cli.api.commands.flags import (
     ConnectionOption,
     DatabaseOption,
     DebugOption,
+    DiagAllowlistPathOption,
+    DiagLogPathOption,
+    EnableDiagOption,
     MfaPasscodeOption,
     OutputFormatOption,
     PasswordOption,
@@ -241,6 +244,24 @@ GLOBAL_CONNECTION_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[str],
         default=MfaPasscodeOption,
+    ),
+    inspect.Parameter(
+        "enable_diag",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[bool],
+        default=EnableDiagOption,
+    ),
+    inspect.Parameter(
+        "diag_log_path",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=DiagLogPathOption,
+    ),
+    inspect.Parameter(
+        "diag_allowlist_path",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=DiagAllowlistPathOption,
     ),
 ]
 
