@@ -13,7 +13,6 @@ def test_toplevel_help(runner):
         result.exit_code == 0
         and "Manages git repositories in Snowflake." in result.output
     )
-    print(runner.test_snowcli_config.read_text())
     result = runner.invoke(["git", "--help"])
     assert result.exit_code == 0, result.output
 
@@ -32,9 +31,7 @@ def test_list_branches(mock_connector, runner, mock_ctx):
 def test_list_branches_like(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    result = runner.invoke(
-        ["git", "list-branches", "repo_name", "--like", "PATTERN"],
-    )
+    result = runner.invoke(["git", "list-branches", "repo_name", "--like", "PATTERN"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "show git branches like 'PATTERN' in repo_name"
@@ -75,7 +72,7 @@ def test_list_files_pattern(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     result = runner.invoke(
-        ["git", "list-files", "@repo_name/branches/main/", "--pattern", "REGEX"],
+        ["git", "list-files", "@repo_name/branches/main/", "--pattern", "REGEX"]
     )
 
     assert result.exit_code == 0, result.output
@@ -104,9 +101,7 @@ def test_copy_to_local_file_system(mock_connector, runner, mock_ctx, temp_dir):
     mock_connector.return_value = ctx
     local_path = Path(temp_dir) / "local_dir"
     assert not local_path.exists()
-    result = runner.invoke(
-        ["git", "copy", "@repo_name/branches/main", str(local_path)],
-    )
+    result = runner.invoke(["git", "copy", "@repo_name/branches/main", str(local_path)])
 
     assert result.exit_code == 0, result.output
     assert local_path.exists()
@@ -121,7 +116,7 @@ def test_copy_to_remote_dir(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     result = runner.invoke(
-        ["git", "copy", "@repo_name/branches/main", "@stage_path/dir_in_stage"],
+        ["git", "copy", "@repo_name/branches/main", "@stage_path/dir_in_stage"]
     )
 
     assert result.exit_code == 0, result.output
