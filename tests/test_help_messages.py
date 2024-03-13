@@ -1,9 +1,13 @@
+import tempfile
+from pathlib import Path
+
 import pytest
+from snowflake.cli.api.config import config_init
 from snowflake.cli.app.commands_registration.command_plugins_loader import (
     load_only_builtin_command_plugins,
 )
 
-from tests.git.utils import reload_config_to_enable_snowgit
+from tests.git.fixtures import enable_snowgit_config  # noqa: F401
 
 
 def iter_through_all_commands_paths():
@@ -21,7 +25,7 @@ def iter_through_all_commands_paths():
             path.pop()
 
     yield []  # "snow" with no commands
-    reload_config_to_enable_snowgit()
+    _enable_snowgit()
     builtin_plugins = load_only_builtin_command_plugins()
     for plugin in builtin_plugins:
         spec = plugin.command_spec
@@ -36,10 +40,17 @@ def iter_through_all_commands_paths():
     iter_through_all_commands_paths(),
     ids=(".".join(cmd) for cmd in iter_through_all_commands_paths()),
 )
-def test_help_messages(runner, snapshot, command):
+def test_help_messages(runner, enable_snowgit_config, snapshot, command):
     """
     Check help messages against the snapshot
     """
-    result = runner.invoke(command + ["--help"])
+    result = runner.invoke_with_config_file(enable_snowgit_config, command + ["--help"])
     assert result.exit_code == 0
     assert result.output == snapshot
+
+
+def _enable_snowgit():
+    with tempfile.NamedTemporaryFile("w+", suffix=".toml") as tmpconfig:
+        tmpconfig.write("[cli.features]\nenable_snowgit = true")
+        tmpconfig.flush()
+        config_init(Path(tmpconfig.name))

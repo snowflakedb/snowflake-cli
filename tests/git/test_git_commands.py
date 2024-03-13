@@ -2,23 +2,11 @@ from pathlib import Path
 from textwrap import dedent
 from unittest import mock
 
-import pytest
 from snowflake.connector import ProgrammingError
 
+from tests.git.fixtures import enable_snowgit_config  # noqa: F401
+
 EXAMPLE_URL = "https://github.com/an-example-repo.git"
-
-
-@pytest.fixture(scope="module")
-def enable_snowgit_config(test_snowcli_config):
-    test_snowcli_config.write_text(
-        f"""
-{test_snowcli_config.read_text()}
-            
-[cli.features]
-enable_snowgit = true
-"""
-    )
-    yield test_snowcli_config
 
 
 def test_toplevel_help(runner, enable_snowgit_config):
