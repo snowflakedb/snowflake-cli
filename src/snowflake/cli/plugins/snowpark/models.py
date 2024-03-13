@@ -14,11 +14,6 @@ class PypiOption(Enum):
     ASK = "ask"
 
 
-class RequirementType(Enum):
-    FILE = "file"
-    PACKAGE = "package"
-
-
 class Requirement(requirement.Requirement):
     extra_pattern = re.compile("'([^']*)'")
 

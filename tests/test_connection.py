@@ -234,7 +234,9 @@ def test_second_connection_not_update_default_connection(runner, snapshot):
 @mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
 @mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
 def test_connection_test(mock_connect, mock_om, runner):
-    result = runner.invoke(["connection", "test", "-c", "full"])
+    result = runner.invoke(
+        ["connection", "test", "-c", "full", "--diag-log-path", "/tmp"]
+    )
     assert result.exit_code == 0, result.output
     assert "Host" in result.output
     assert "Password" not in result.output
@@ -243,6 +245,9 @@ def test_connection_test(mock_connect, mock_om, runner):
     mock_connect.assert_called_with(
         temporary_connection=False,
         mfa_passcode=None,
+        enable_diag=False,
+        diag_log_path="/tmp",
+        diag_allowlist_path=None,
         connection_name="full",
         account=None,
         user=None,
@@ -672,3 +677,32 @@ def test_set_default_connection(runner):
 
         config = _change_connection(tmp_file, "conn2")
         assert config["default_connection_name"] == "conn2"
+
+
+@mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
+def test_connection_test_diag_report(mock_connect, mock_om, runner):
+    result = runner.invoke(
+        ["connection", "test", "-c", "full", "--enable-diag", "--diag-log-path", "/tmp"]
+    )
+    assert result.exit_code == 0, result.output
+    print(result.output)
+    assert "Host" in result.output
+    assert "Diag Report" in result.output
+    mock_connect.assert_called_once_with(
+        temporary_connection=False,
+        mfa_passcode=None,
+        enable_diag=True,
+        diag_log_path="/tmp",
+        diag_allowlist_path=None,
+        connection_name="full",
+        account=None,
+        user=None,
+        password=None,
+        authenticator=None,
+        private_key_path=None,
+        database=None,
+        schema=None,
+        role=None,
+        warehouse=None,
+    )

@@ -20,7 +20,7 @@ class TestPackage:
         "argument",
         ["snowflake-connector-python", "some-weird-package-we-dont-know"],
     )
-    @patch("snowflake.cli.plugins.snowpark.package_utils.requests")
+    @patch("snowflake.cli.plugins.snowpark.package.anaconda.requests")
     def test_package_lookup(
         self, mock_requests, argument, monkeypatch, runner, snapshot
     ) -> None:
@@ -34,7 +34,9 @@ class TestPackage:
         assert result.output == snapshot
 
     @patch("snowflake.cli.plugins.snowpark.package_utils.install_packages")
-    @patch("snowflake.cli.plugins.snowpark.package_utils.parse_anaconda_packages")
+    @patch(
+        "snowflake.cli.plugins.snowpark.package.anaconda.AnacondaChannel.parse_anaconda_packages"
+    )
     def test_package_lookup_with_install_packages(
         self, mock_package, mock_install, runner, capfd, snapshot
     ) -> None:

@@ -24,6 +24,9 @@ class _ConnectionContext:
         self._private_key_path: Optional[str] = None
         self._warehouse: Optional[str] = None
         self._mfa_passcode: Optional[str] = None
+        self._enable_diag: Optional[bool] = False
+        self._diag_log_path: Optional[Path] = None
+        self._diag_allowlist_path: Optional[Path] = None
         self._temporary_connection: bool = False
 
     def __setattr__(self, key, value):
@@ -119,6 +122,27 @@ class _ConnectionContext:
         self._mfa_passcode = value
 
     @property
+    def enable_diag(self) -> Optional[bool]:
+        return self._enable_diag
+
+    def set_enable_diag(self, value: Optional[bool]):
+        self._enable_diag = value
+
+    @property
+    def diag_log_path(self) -> Optional[Path]:
+        return self._diag_log_path
+
+    def set_diag_log_path(self, value: Optional[Path]):
+        self._diag_log_path = value
+
+    @property
+    def diag_allowlist_path(self) -> Optional[Path]:
+        return self._diag_allowlist_path
+
+    def set_diag_allowlist_path(self, value: Optional[Path]):
+        self._diag_allowlist_path = value
+
+    @property
     def temporary_connection(self) -> bool:
         return self._temporary_connection
 
@@ -150,6 +174,9 @@ class _ConnectionContext:
         return connect_to_snowflake(
             temporary_connection=self.temporary_connection,
             mfa_passcode=self._mfa_passcode,
+            enable_diag=self._enable_diag,
+            diag_log_path=self._diag_log_path,
+            diag_allowlist_path=self._diag_allowlist_path,
             connection_name=self.connection_name,
             **self._collect_not_empty_connection_attributes(),
         )

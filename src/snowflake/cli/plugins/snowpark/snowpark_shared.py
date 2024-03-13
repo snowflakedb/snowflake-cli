@@ -9,6 +9,7 @@ import typer
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.models import PypiOption, Requirement
+from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
 
 PyPiDownloadOption: PypiOption = typer.Option(
@@ -57,8 +58,9 @@ def snowpark_package(
     log.info("Resolving any requirements from requirements.txt...")
     requirements = package_utils.parse_requirements()
     if requirements:
+        anaconda = AnacondaChannel.from_snowflake()
         log.info("Comparing provided packages from Snowflake Anaconda...")
-        split_requirements = package_utils.parse_anaconda_packages(requirements)
+        split_requirements = anaconda.parse_anaconda_packages(packages=requirements)
         if not split_requirements.other:
             log.info("No packages to manually resolve")
         else:
@@ -74,6 +76,7 @@ def snowpark_package(
             if do_download:
                 log.info("Installing non-Anaconda packages...")
                 should_continue, second_chance_results = package_utils.install_packages(
+                    anaconda,
                     REQUIREMENTS_OTHER,
                     check_anaconda_for_pypi_deps,
                     allow_native_libraries=package_native_libraries,

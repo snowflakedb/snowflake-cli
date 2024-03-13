@@ -13,7 +13,6 @@ from typing import Dict, List
 
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
-    RequirementType,
     RequirementWithFilesAndDeps,
 )
 
@@ -55,11 +54,14 @@ class Venv:
 
         return process
 
-    def pip_install(self, name: str, req_type: RequirementType):
-        arguments = ["-m", "pip", "install"]
-        arguments += ["-r", name] if req_type == RequirementType.FILE else [name]
-        process = self.run_python(arguments)
+    def pip_install(self, requirements_files):
+        process = self.run_python(["-m", "pip", "install", "-r", requirements_files])
+        return process.returncode
 
+    def pip_download(self, requirements_files, download_dir):
+        process = self.run_python(
+            ["-m", "pip", "download", "-r", requirements_files, "-d", download_dir]
+        )
         return process.returncode
 
     def _create_venv(self):
@@ -77,7 +79,7 @@ class Venv:
         ][0]
 
     def get_package_dependencies(
-        self, name: str, req_type: RequirementType
+        self, requirements_file: str
     ) -> List[RequirementWithFilesAndDeps]:
         installed_packages = self._get_installed_packages_metadata()
         dependencies: Dict = {}
@@ -103,14 +105,9 @@ class Venv:
                 for package in requires:
                     _get_dependencies(Requirement.parse_line(package))
 
-        if req_type == RequirementType.PACKAGE:
-            _get_dependencies(Requirement.parse_line(name))
-
-        elif req_type == RequirementType.FILE:
-            if Path(name).exists():
-                with open(name, "r") as req_file:
-                    for line in req_file:
-                        _get_dependencies(Requirement.parse_line(line))
+        with open(requirements_file, "r") as req_file:
+            for line in req_file:
+                _get_dependencies(Requirement.parse_line(line))
 
         return [dep for dep in dependencies.values()]
 

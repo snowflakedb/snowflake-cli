@@ -10,6 +10,9 @@ from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import (
     PLAIN_PASSWORD_MSG,
     ConnectionOption,
+    DiagAllowlistPathOption,
+    DiagLogPathOption,
+    EnableDiagOption,
     MfaPasscodeOption,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyper
@@ -227,7 +230,12 @@ def add(
 
 @app.command(requires_connection=False)
 def test(
-    connection: str = ConnectionOption, mfa_passcode: str = MfaPasscodeOption, **options
+    connection: str = ConnectionOption,
+    mfa_passcode: str = MfaPasscodeOption,
+    enable_diag: bool = EnableDiagOption,
+    diag_log_path: str = DiagLogPathOption,
+    diag_allowlist_path: str = DiagAllowlistPathOption,
+    **options,
 ) -> CommandResult:
     """
     Tests the connection to Snowflake.
@@ -264,6 +272,11 @@ def test(
         "Database": f'{conn.database or "not set"}',
         "Warehouse": f'{conn.warehouse or "not set"}',
     }
+
+    if enable_diag:
+        result[
+            "Diag Report Location"
+        ] = f"{diag_log_path}/SnowflakeConnectionTestReport.txt"
 
     return ObjectResult(result)
 

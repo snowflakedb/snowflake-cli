@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from textwrap import dedent
 
 import typer
 from snowflake.cli.api.commands.snow_typer import SnowTyper
@@ -9,12 +10,11 @@ from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.plugins.snowpark.models import PypiOption
 from snowflake.cli.plugins.snowpark.package.manager import (
     cleanup_after_install,
-    create,
+    create_packages_zip,
     lookup,
     upload,
 )
 from snowflake.cli.plugins.snowpark.package.utils import (
-    CreatedSuccessfully,
     NotInAnaconda,
     RequiresPackages,
 )
@@ -46,7 +46,7 @@ deprecated_install_option = typer.Option(
 def package_lookup(
     name: str = typer.Argument(..., help="Name of the package."),
     install_packages: bool = install_option,
-    deprecated_install_option: bool = deprecated_install_option,
+    _deprecated_install_option: bool = deprecated_install_option,
     allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
     **options,
 ) -> CommandResult:
@@ -55,8 +55,8 @@ def package_lookup(
     If the `--pypi-download` flag is provided, this command checks all dependencies of the packages
     outside Snowflake channel.
     """
-    if deprecated_install_option:
-        install_packages = deprecated_install_option
+    if _deprecated_install_option:
+        install_packages = _deprecated_install_option
 
     lookup_result = lookup(
         name=name,
@@ -103,15 +103,15 @@ def package_create(
         help="Name of the package to create.",
     ),
     install_packages: bool = install_option,
-    deprecated_install_option: bool = deprecated_install_option,
+    _deprecated_install_option: bool = deprecated_install_option,
     allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
     **options,
 ) -> CommandResult:
     """
     Creates a Python package as a zip file that can be uploaded to a stage and imported for a Snowpark Python app.
     """
-    if deprecated_install_option:
-        install_packages = deprecated_install_option
+    if _deprecated_install_option:
+        install_packages = _deprecated_install_option
 
     lookup_result = lookup(
         name=name,
@@ -119,12 +119,19 @@ def package_create(
         allow_native_libraries=allow_native_libraries,
     )
 
-    if isinstance(lookup_result, (NotInAnaconda, RequiresPackages)) and isinstance(
-        creation_result := create(name), CreatedSuccessfully
-    ):
-        message = creation_result.message
-        if type(lookup_result) == RequiresPackages:
-            message += "\n" + lookup_result.message
-    else:
-        message = lookup_result.message
+    if not isinstance(lookup_result, (NotInAnaconda, RequiresPackages)):
+        return MessageResult(lookup_result.message)
+
+    # The package is not in anaconda so we have to pack it
+    zip_file = create_packages_zip(name)
+    message = dedent(
+        f"""
+    Package {zip_file} created. You can now upload it to a stage using
+    snow snowpark package upload -f {zip_file} -s <stage-name>`
+    and reference it in your procedure or function.
+    """
+    )
+    if isinstance(lookup_result, RequiresPackages):
+        message += "\n" + lookup_result.message
+
     return MessageResult(message)
