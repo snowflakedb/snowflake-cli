@@ -207,9 +207,7 @@ def build_udf_sproc_identifier(
     return f"{name}({arguments})"
 
 
-def _get_import_from_resource(
-    resource_json: dict, source_name: str = "app.zip"
-) -> Set[str] | None:
+def _get_import_from_resource(resource_json: dict, source_name: str) -> Set[str] | None:
     pattern = re.compile(r"@\w+\.\w+\.([^,]+)")
     if "imports" in resource_json.keys():
         return {
