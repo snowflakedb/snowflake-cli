@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os.path
 from functools import wraps
 from pathlib import Path
 
@@ -15,8 +14,8 @@ from snowflake.cli.plugins.snowpark.models import (
     SplitRequirements,
     get_package_name,
 )
+from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 from snowflake.cli.plugins.snowpark.package.utils import (
-    CreatedSuccessfully,
     InAnaconda,
     LookupResult,
     NothingFound,
@@ -33,12 +32,16 @@ def lookup(
     name: str, install_packages: bool, allow_native_libraries: PypiOption
 ) -> LookupResult:
 
-    package_response = package_utils.parse_anaconda_packages([Requirement.parse(name)])
+    anaconda = AnacondaChannel.from_snowflake()
+    package_response = anaconda.parse_anaconda_packages(
+        packages=[Requirement.parse(name)]
+    )
 
     if package_response.snowflake and not package_response.other:
         return InAnaconda(package_response, name)
     elif install_packages:
         status, result = package_utils.install_packages(
+            anaconda=anaconda,
             perform_anaconda_check=True,
             package_name=name,
             file_name=None,
@@ -73,12 +76,10 @@ def upload(file: Path, stage: str, overwrite: bool):
     return message
 
 
-def create(zip_name: str):
+def create_packages_zip(zip_name: str) -> str:
     file_name = f"{get_package_name(zip_name)}.zip"
     zip_dir(dest_zip=Path(file_name), source=Path.cwd() / ".packages")
-
-    if os.path.exists(file_name):
-        return CreatedSuccessfully(zip_name, Path(file_name))
+    return file_name
 
 
 def cleanup_after_install(func):

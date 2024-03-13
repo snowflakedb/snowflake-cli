@@ -3,11 +3,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
-import strictyaml
 from click import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
+from yaml import safe_load
 
 
 class DeployRootError(ClickException):
@@ -271,7 +271,7 @@ def find_version_info_in_manifest_file(
     with SecurePath(manifest_file).open(
         "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
     ) as file:
-        manifest_content = strictyaml.load(file.read())
+        manifest_content = safe_load(file.read())
 
     version_name: Optional[str] = None
     patch_name: Optional[str] = None

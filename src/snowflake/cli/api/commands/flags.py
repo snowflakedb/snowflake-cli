@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import tempfile
 from inspect import signature
+from pathlib import Path
 from typing import Any, Callable, List, Optional, Tuple
 
 import click
@@ -263,6 +265,42 @@ MfaPasscodeOption = typer.Option(
     prompt_required=False,
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
+)
+
+EnableDiagOption = typer.Option(
+    False,
+    "--enable-diag",
+    help="Run python connector diagnostic test",
+    callback=_callback(lambda: cli_context_manager.connection_context.set_enable_diag),
+    show_default=False,
+    is_flag=True,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+DiagLogPathOption: Path = typer.Option(
+    tempfile.gettempdir(),
+    "--diag-log-path",
+    help="Diagnostic report path",
+    callback=_callback(
+        lambda: cli_context_manager.connection_context.set_diag_log_path
+    ),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+    exists=True,
+    writable=True,
+)
+
+DiagAllowlistPathOption: Path = typer.Option(
+    None,
+    "--diag-allowlist-path",
+    help="Diagnostic report path to optional allowlist",
+    callback=_callback(
+        lambda: cli_context_manager.connection_context.set_diag_allowlist_path
+    ),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+    exists=True,
+    file_okay=True,
 )
 
 OutputFormatOption = typer.Option(

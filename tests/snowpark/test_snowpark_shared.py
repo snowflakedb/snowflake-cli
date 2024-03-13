@@ -7,7 +7,9 @@ import snowflake.cli.plugins.snowpark.snowpark_shared as shared
 from snowflake.cli.plugins.snowpark.models import Requirement, SplitRequirements
 
 
-@mock.patch("snowflake.cli.plugins.snowpark.package_utils.parse_anaconda_packages")
+@mock.patch(
+    "snowflake.cli.plugins.snowpark.package.anaconda.AnacondaChannel.parse_anaconda_packages"
+)
 @mock.patch("snowflake.cli.plugins.snowpark.package_utils.install_packages")
 def test_snowpark_package(
     mock_install, mock_parse, temp_dir, correct_requirements_txt, dot_packages_directory
