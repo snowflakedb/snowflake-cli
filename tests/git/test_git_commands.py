@@ -2,22 +2,30 @@ from pathlib import Path
 from textwrap import dedent
 from unittest import mock
 
-import pytest
 from snowflake.connector import ProgrammingError
 
 EXAMPLE_URL = "https://github.com/an-example-repo.git"
 
 
-@pytest.mark.skip(reason="Command is hidden")
 def test_toplevel_help(runner):
     result = runner.invoke(["--help"])
     assert (
         result.exit_code == 0
         and "Manages git repositories in Snowflake." in result.output
     )
-
     result = runner.invoke(["git", "--help"])
     assert result.exit_code == 0, result.output
+
+
+@mock.patch.dict("os.environ", {"SNOWFLAKE_CLI_FEATURES_ENABLE_SNOWGIT": "false"})
+def test_not_visible_if_disabled(runner, monkeypatch):
+    result = runner.invoke(["--help"])
+    assert (
+        result.exit_code == 0
+        and "Manages git repositories in Snowflake." not in result.output
+    )
+    result = runner.invoke(["git", "--help"])
+    assert result.exit_code == 2 and "No such command 'git'" in result.output
 
 
 @mock.patch("snowflake.connector.connect")

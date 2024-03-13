@@ -20,7 +20,6 @@ from snowflake.connector import ProgrammingError
 app = SnowTyper(
     name="git",
     help="Manages git repositories in Snowflake.",
-    hidden=True,
 )
 log = logging.getLogger(__name__)
 
