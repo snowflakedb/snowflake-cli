@@ -296,7 +296,10 @@ def alter_snowflake_yml():
             evaluated_part = int(part) if part.isdigit() else part
 
             if parts:
-                current_object = current_object[evaluated_part]
+                if isinstance(current_object, dict):
+                    current_object = current_object.setdefault(evaluated_part, {})
+                else:
+                    current_object = current_object[evaluated_part]
             else:
                 current_object[evaluated_part] = value
 

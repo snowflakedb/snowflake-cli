@@ -5,7 +5,7 @@ import os
 import re
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 from zipfile import ZipFile
 
 from syrupy import SnapshotAssertion
@@ -147,7 +147,10 @@ class SnowparkTestSteps:
         )
         assert result.json is not None
 
-    def snowpark_build_should_zip_files(self, *args) -> None:
+    def snowpark_build_should_zip_files(self, *args, additional_files=None) -> None:
+        if not additional_files:
+            additional_files = [Path("requirements.other.txt")]
+
         current_files = set(Path(".").glob("**/*"))
         result = self._setup.runner.invoke_json(
             ["snowpark", "build", "--pypi-download", "yes", "--format", "JSON", *args]
@@ -161,8 +164,8 @@ class SnowparkTestSteps:
         assert_that_current_working_directory_contains_only_following_files(
             *current_files,
             Path("app.zip"),
+            *additional_files,
             Path("requirements.snowflake.txt"),
-            Path("requirements.other.txt"),
             excluded_paths=[".packages"],
         )
 
@@ -181,7 +184,7 @@ class SnowparkTestSteps:
     def _run_deploy(
         self,
         expected_result: List[Dict[str, str]],
-        additional_arguments: List[str] = [],
+        additional_arguments: Optional[List[str]] = None,
     ):
         arguments = [
             "snowpark",

@@ -144,7 +144,6 @@ def test_snowpark_flow(
             "HELLO_FUNCTION(VARCHAR) RETURN VARIANT"
         )
 
-        # Same file should be present
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(
             *expected_files, stage_name=STAGE_NAME
         )
@@ -170,6 +169,48 @@ def test_snowpark_flow(
             object_type="function",
             identifier="hello_function('foo')",
             expected_value='"Hello foo!"',
+        )
+
+        # Check if adding import triggers replace
+        _test_steps.package_should_build_proper_artifact(
+            "dummy_pkg_for_tests", "dummy_pkg_for_tests/shrubbery.py"
+        )
+        _test_steps.package_should_upload_artifact_to_stage(
+            "dummy_pkg_for_tests.zip", STAGE_NAME
+        )
+
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.functions.0.imports",
+            value=["@dev_deployment/dummy_pkg_for_tests.zip"],
+        )
+
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            additional_arguments=["--replace"],
+            expected_result=[
+                {
+                    "object": f"{database}.PUBLIC.HELLO_PROCEDURE(name string)",
+                    "status": "packages updated",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{database}.PUBLIC.TEST()",
+                    "status": "packages updated",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{database}.PUBLIC.HELLO_FUNCTION(name string)",
+                    "status": "definition updated",
+                    "type": "function",
+                },
+            ],
+        )
+
+        # Same file should be present, with addition of uploaded package
+        expected_files.append(f"{STAGE_NAME}/dummy_pkg_for_tests.zip")
+
+        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+            *expected_files, stage_name=STAGE_NAME
         )
 
         # Check if objects can be dropped
@@ -207,8 +248,9 @@ def test_snowpark_with_separately_created_package(
         "dummy_pkg_for_tests.zip"
     )
 
-    with project_directory("snowpark_with_single_requirements_having_no_other_deps"):
-        _test_steps.snowpark_build_should_zip_files()
+    with project_directory("snowpark_with_import") as p_dir:
+
+        _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [

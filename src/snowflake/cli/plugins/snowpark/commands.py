@@ -255,15 +255,13 @@ def _deploy_single_object(
 
     handler = object_definition.handler
     returns = object_definition.returns
+    imports = object_definition.imports
     replace_object = False
 
     object_exists = identifier in existing_objects
     if object_exists:
         replace_object = check_if_replace_is_required(
-            object_type,
-            existing_objects[identifier],
-            handler,
-            returns,
+            object_type, existing_objects[identifier], handler, returns, imports
         )
 
     if object_exists and not replace_object:
@@ -282,7 +280,7 @@ def _deploy_single_object(
         "runtime": object_definition.runtime,
         "external_access_integrations": object_definition.external_access_integrations,
         "secrets": object_definition.secrets,
-        "imports": object_definition.imports,
+        "imports": imports,
     }
     if object_type == ObjectType.PROCEDURE:
         create_or_replace_kwargs[
