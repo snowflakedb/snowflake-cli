@@ -77,7 +77,7 @@ def package_lookup(
     if anaconda.is_package_available(package=package):
         msg = f"Package `{package_name}` is available in Anaconda."
         if version := anaconda.package_version(package=package):
-            msg += f" Available version: {version}."
+            msg += f" Latest available version: {version}."
         return MessageResult(msg)
 
     return MessageResult(

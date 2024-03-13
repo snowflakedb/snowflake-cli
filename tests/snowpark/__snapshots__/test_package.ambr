@@ -1,7 +1,7 @@
 # serializer version: 1
 # name: TestPackage.test_package_lookup[snowflake-connector-python]
   '''
-  Package `snowflake-connector-python` is available in Anaconda. Available version: 2.7.12.
+  Package `snowflake-connector-python` is available in Anaconda. Latest available version: 2.7.12.
   
   '''
 # ---
