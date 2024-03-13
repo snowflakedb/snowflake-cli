@@ -143,6 +143,7 @@ def deploy(
             existing_objects=existing_procedures,
             packages=packages,
             stage_artifact_path=artifact_stage_target,
+            source_name=snowpark.src,
         )
         deploy_status.append(operation_result)
 
@@ -155,6 +156,7 @@ def deploy(
             existing_objects=existing_functions,
             packages=packages,
             stage_artifact_path=artifact_stage_target,
+            source_name=snowpark.src,
         )
         deploy_status.append(operation_result)
 
@@ -241,6 +243,7 @@ def _deploy_single_object(
     existing_objects: Dict[str, Dict],
     packages: List[str],
     stage_artifact_path: str,
+    source_name: str,
 ):
     identifier = build_udf_sproc_identifier(
         object_definition, manager, include_parameter_names=False
@@ -261,7 +264,12 @@ def _deploy_single_object(
     object_exists = identifier in existing_objects
     if object_exists:
         replace_object = check_if_replace_is_required(
-            object_type, existing_objects[identifier], handler, returns, imports
+            object_type,
+            existing_objects[identifier],
+            handler,
+            returns,
+            imports,
+            source_name,
         )
 
     if object_exists and not replace_object:

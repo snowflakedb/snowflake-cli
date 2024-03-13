@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
@@ -19,6 +19,7 @@ def check_if_replace_is_required(
     handler: str,
     return_type: str,
     imports: List[str],
+    source: str,
 ) -> bool:
     import logging
 
@@ -52,7 +53,7 @@ def check_if_replace_is_required(
         )
         return True
 
-    if [imp.lower() for imp in imports] != _get_import_from_resource(resource_json):
+    if {imp.lower() for imp in imports} != _get_import_from_resource(resource_json):
         return True
 
     return False
@@ -204,13 +205,15 @@ def build_udf_sproc_identifier(
     return f"{name}({arguments})"
 
 
-def _get_import_from_resource(resource_json: dict) -> List[str] | None:
+def _get_import_from_resource(
+    resource_json: dict, source_name: str = "app"
+) -> Set[str] | None:
     pattern = re.compile(r"@\w+\.\w+\.([^,]+)")
     if "imports" in resource_json.keys():
-        return [
+        return {
             imp.lower()
             for imp in pattern.findall(resource_json["imports"])
-            if "app.zip" not in imp
-        ]
+            if f"{source_name}.zip" not in imp
+        }
     else:
-        return []
+        return set()
