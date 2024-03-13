@@ -15,7 +15,7 @@ def test_builtin_plugins_registration(runner):
     result = runner.invoke(["-h"])
     assert result.exit_code == 0
     assert result.output.count("Manages connections to Snowflake") == 1
-    assert result.output.count("Manages Streamlit in Snowflake") == 1
+    assert result.output.count("Manages a Streamlit app in Snowflake") == 1
     assert result.output.count("Executes Snowflake query") == 1
 
 
@@ -23,7 +23,7 @@ def test_multiple_use_of_test_runner(runner):
     def assert_result_is_correct(result):
         assert result.exit_code == 0
         assert result.output.count("Manages connections to Snowflake") == 1
-        assert result.output.count("Manages Streamlit in Snowflake") == 1
+        assert result.output.count("Manages a Streamlit app in Snowflake") == 1
         assert result.output.count("Manages Snowflake objects") == 1
         assert result.output.count("Executes Snowflake query") == 1
 
@@ -75,7 +75,7 @@ def test_exception_handling_if_single_command_has_callback(
 
     result = runner.invoke(["-h"])
     assert result.output.count("Manages connections to Snowflake") == 0
-    assert result.output.count("Manages Streamlit in Snowflake") == 1
+    assert result.output.count("Manages a Streamlit app in Snowflake") == 1
 
 
 @mock.patch("snowflake.cli.plugins.connection.plugin_spec.command_spec")
@@ -93,7 +93,7 @@ def test_exception_handling_if_single_command_has_multiple_commands(
 
     result = runner.invoke(["-h"])
     assert result.output.count("Manages connections to Snowflake") == 0
-    assert result.output.count("Manages Streamlit in Snowflake") == 1
+    assert result.output.count("Manages a Streamlit app in Snowflake") == 1
 
 
 @mock.patch(
@@ -119,7 +119,7 @@ def test_conflicting_command_plugin_paths_handling(
     result = runner.invoke(["-h"])
     assert result.exit_code == 0
     assert result.output.count("Manages connections to Snowflake") == 0
-    assert result.output.count("Manages Streamlit in Snowflake") == 1
+    assert result.output.count("Manages a Streamlit app in Snowflake") == 1
 
 
 @mock.patch("snowflake.cli.plugins.streamlit.plugin_spec.command_spec")
@@ -155,7 +155,7 @@ def test_not_existing_command_group_handling(connection_command_spec_mock, runne
     assert result.exit_code == 0
     assert result.output.count("xyz123") == 0
     assert result.output.count("Manages connections to Snowflake") == 0
-    assert result.output.count("Manages Streamlit in Snowflake") == 1
+    assert result.output.count("Manages a Streamlit app in Snowflake") == 1
 
 
 @mock.patch("snowflake.cli.plugins.connection.plugin_spec.command_spec")
@@ -165,7 +165,7 @@ def test_broken_command_spec_handling(connection_command_spec_mock, runner):
     result = runner.invoke(["-h"])
     assert result.exit_code == 0
     assert result.output.count("Manages connections to Snowflake") == 0
-    assert result.output.count("Manages Streamlit in Snowflake") == 1
+    assert result.output.count("Manages a Streamlit app in Snowflake") == 1
 
 
 @mock.patch(
@@ -177,7 +177,7 @@ def test_not_existing_external_entrypoint_handling(enabled_plugin_names_mock, ru
     result = runner.invoke(["-h"])
     assert result.exit_code == 0
     assert result.output.count("Manages connections to Snowflake") == 1
-    assert result.output.count("Manages Streamlit in Snowflake") == 1
+    assert result.output.count("Manages a Streamlit app in Snowflake") == 1
 
 
 @mock.patch("pluggy.PluginManager.load_setuptools_entrypoints")
@@ -193,4 +193,4 @@ def test_broken_external_entrypoint_handling(
     result = runner.invoke(["-h"])
     assert result.exit_code == 0
     assert result.output.count("Manages connections to Snowflake") == 1
-    assert result.output.count("Manages Streamlit in Snowflake") == 1
+    assert result.output.count("Manages a Streamlit app in Snowflake") == 1
