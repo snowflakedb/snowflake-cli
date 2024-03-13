@@ -17,8 +17,8 @@ def test_toplevel_help(runner):
     assert result.exit_code == 0, result.output
 
 
+@mock.patch.dict("os.environ", {"SNOWFLAKE_CLI_FEATURES_ENABLE_SNOWGIT": "false"})
 def test_not_visible_if_disabled(runner, monkeypatch):
-    monkeypatch.setenv("SNOWFLAKE_CLI_FEATURES_ENABLE_SNOWGIT", False)
     result = runner.invoke(["--help"])
     assert (
         result.exit_code == 0
