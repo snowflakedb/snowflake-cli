@@ -1777,7 +1777,7 @@
    Checks if a package is available on the Snowflake Anaconda channel.            
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    package_name      TEXT  Name of the package. [default: None] [required] │
+  │ *    package_name      TEXT  Name of the package. [required]                 │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
