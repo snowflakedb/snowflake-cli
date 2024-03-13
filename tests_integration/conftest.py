@@ -11,11 +11,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pytest
-import strictyaml
+import yaml
+
 from snowflake.cli.api.cli_global_context import cli_context_manager
 from snowflake.cli.api.project.definition import merge_left
 from snowflake.cli.app.cli_app import app_factory
-from strictyaml import as_document
 from typer import Typer
 from typer.testing import CliRunner
 
@@ -134,10 +134,11 @@ def project_directory(temporary_working_directory, test_root_path):
         test_data_file = test_root_path / "test_data" / "projects" / project_name
         shutil.copytree(test_data_file, temporary_working_directory, dirs_exist_ok=True)
         if merge_project_definition:
-            project_definition = strictyaml.load(Path("snowflake.yml").read_text()).data
+            with Path("snowflake.yml").open("r") as fh:
+                project_definition = yaml.safe_load(fh)
             merge_left(project_definition, merge_project_definition)
             with open(Path(temporary_working_directory) / "snowflake.yml", "w") as file:
-                file.write(as_document(project_definition).as_yaml())
+                yaml.dump(project_definition, file)
 
         yield temporary_working_directory
 
