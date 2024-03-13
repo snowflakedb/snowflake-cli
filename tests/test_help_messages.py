@@ -1,4 +1,5 @@
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -25,14 +26,14 @@ def iter_through_all_commands_paths():
             path.pop()
 
     yield []  # "snow" with no commands
-    _enable_snowgit()
-    builtin_plugins = load_only_builtin_command_plugins()
-    for plugin in builtin_plugins:
-        spec = plugin.command_spec
-        if not plugin.plugin_name in ignore_plugins:
-            yield from _iter_through_commands(
-                spec.command, spec.full_command_path.path_segments
-            )
+    with _enable_snowgit():
+        builtin_plugins = load_only_builtin_command_plugins()
+        for plugin in builtin_plugins:
+            spec = plugin.command_spec
+            if not plugin.plugin_name in ignore_plugins:
+                yield from _iter_through_commands(
+                    spec.command, spec.full_command_path.path_segments
+                )
 
 
 @pytest.mark.parametrize(
@@ -49,8 +50,10 @@ def test_help_messages(runner, enable_snowgit_config, snapshot, command):
     assert result.output == snapshot
 
 
+@contextmanager
 def _enable_snowgit():
     with tempfile.NamedTemporaryFile("w+", suffix=".toml") as tmpconfig:
         tmpconfig.write("[cli.features]\nenable_snowgit = true")
         tmpconfig.flush()
         config_init(Path(tmpconfig.name))
+        yield
