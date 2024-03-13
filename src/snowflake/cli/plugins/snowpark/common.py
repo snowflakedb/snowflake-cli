@@ -53,7 +53,9 @@ def check_if_replace_is_required(
         )
         return True
 
-    if {imp.lower() for imp in imports} != _get_import_from_resource(resource_json):
+    if {imp.lower() for imp in imports} != _get_import_from_resource(
+        resource_json, source
+    ):
         return True
 
     return False
@@ -206,14 +208,14 @@ def build_udf_sproc_identifier(
 
 
 def _get_import_from_resource(
-    resource_json: dict, source_name: str = "app"
+    resource_json: dict, source_name: str = "app.zip"
 ) -> Set[str] | None:
     pattern = re.compile(r"@\w+\.\w+\.([^,]+)")
     if "imports" in resource_json.keys():
         return {
             imp.lower()
             for imp in pattern.findall(resource_json["imports"])
-            if f"{source_name}.zip" not in imp
+            if source_name not in imp
         }
     else:
         return set()

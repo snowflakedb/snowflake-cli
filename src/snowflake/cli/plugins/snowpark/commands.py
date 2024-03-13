@@ -143,7 +143,7 @@ def deploy(
             existing_objects=existing_procedures,
             packages=packages,
             stage_artifact_path=artifact_stage_target,
-            source_name=snowpark.src,
+            source_name=build_artifact_path.name,
         )
         deploy_status.append(operation_result)
 
@@ -156,7 +156,7 @@ def deploy(
             existing_objects=existing_functions,
             packages=packages,
             stage_artifact_path=artifact_stage_target,
-            source_name=snowpark.src,
+            source_name=build_artifact_path.name,
         )
         deploy_status.append(operation_result)
 
