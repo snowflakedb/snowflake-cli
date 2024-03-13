@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 from typing import List
 
 import click
@@ -96,11 +95,12 @@ def install_packages(
     if file_name and not Path(file_name).exists():
         raise ClickException(f"File {file_name} does not exists.")
 
-    with Venv() as v, NamedTemporaryFile(mode="w") as tmp_requirements:
+    with Venv() as v:
         if package_name:
-            tmp_requirements.write(str(package_name))
-            tmp_requirements.flush()
-            file_name = tmp_requirements.name
+            # This is a Windows workaround where use TemporaryDirectory instead of NamedTemporaryFile
+            tmp_requirements = Path(v.directory.name) / "requirements.txt"
+            tmp_requirements.write_text(str(package_name))
+            file_name = str(tmp_requirements)
 
         pip_install_result = v.pip_install(file_name)
         dependencies = v.get_package_dependencies(file_name)
