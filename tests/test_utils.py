@@ -1,21 +1,21 @@
 import json
 import logging
 import os
-from pathlib import Path, PosixPath
+from pathlib import Path
 from unittest import mock
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 import snowflake.cli.plugins.snowpark.models
 import snowflake.cli.plugins.snowpark.package.utils
-import typer
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.models import PypiOption, Requirement
-from snowflake.cli.plugins.streamlit import streamlit_utils
+from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 
 from tests.test_data import test_data
+from tests.testing_utils.fixtures import TEST_DIR
 
 
 def test_prepare_app_zip(
@@ -68,14 +68,15 @@ def test_parse_requirements_with_nonexistent_file(temp_dir):
     assert result == []
 
 
-@patch("snowflake.cli.plugins.snowpark.package_utils.requests")
+@patch("snowflake.cli.plugins.snowpark.package.anaconda.requests")
 def test_anaconda_packages(mock_requests):
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = test_data.anaconda_response
     mock_requests.get.return_value = mock_response
 
-    anaconda_packages = package_utils.parse_anaconda_packages(test_data.packages)
+    anaconda = AnacondaChannel.from_snowflake()
+    anaconda_packages = anaconda.parse_anaconda_packages(test_data.packages)
     assert (
         Requirement.parse_line("snowflake-connector-python")
         in anaconda_packages.snowflake
@@ -85,7 +86,7 @@ def test_anaconda_packages(mock_requests):
     )
 
 
-@patch("snowflake.cli.plugins.snowpark.package_utils.requests")
+@patch("snowflake.cli.plugins.snowpark.package.anaconda.requests")
 def test_anaconda_packages_streamlit(mock_requests):
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -93,62 +94,11 @@ def test_anaconda_packages_streamlit(mock_requests):
     mock_requests.get.return_value = mock_response
 
     test_data.packages.append(Requirement.parse_line("streamlit"))
-    anaconda_packages = package_utils.parse_anaconda_packages(test_data.packages)
+
+    anaconda = AnacondaChannel.from_snowflake()
+    anaconda_packages = anaconda.parse_anaconda_packages(test_data.packages)
 
     assert Requirement.parse_line("streamlit") not in anaconda_packages.other
-
-
-@patch("snowflake.cli.plugins.snowpark.package_utils.requests")
-def test_anaconda_packages_with_incorrect_response(mock_requests):
-    mock_response = MagicMock()
-    mock_response.status_code = 404
-    mock_response.json.return_value = {}
-    mock_requests.get.return_value = mock_response
-
-    with pytest.raises(typer.Abort):
-        result = package_utils.parse_anaconda_packages(test_data.packages)
-
-
-def test_generate_streamlit_environment_file_with_no_requirements(temp_dir):
-    result = streamlit_utils.generate_streamlit_environment_file(
-        [],
-    )
-    assert result is None
-
-
-def test_generate_streamlit_file(correct_requirements_snowflake_txt: str, temp_dir):
-    result = streamlit_utils.generate_streamlit_environment_file(
-        [], correct_requirements_snowflake_txt
-    )
-
-    assert result == PosixPath("environment.yml")
-    assert os.path.isfile(os.path.join(temp_dir, "environment.yml"))
-
-
-def test_generate_streamlit_environment_file_with_excluded_dependencies(
-    correct_requirements_snowflake_txt: str, temp_dir
-):
-    result = streamlit_utils.generate_streamlit_environment_file(
-        test_data.excluded_anaconda_deps, correct_requirements_snowflake_txt
-    )
-
-    env_file = os.path.join(temp_dir, "environment.yml")
-    assert result == PosixPath("environment.yml")
-    assert os.path.isfile(env_file)
-    with open(env_file, "r") as f:
-        for dep in test_data.excluded_anaconda_deps:
-            assert dep not in f.read()
-
-
-def test_generate_streamlit_package_wrapper():
-    result = streamlit_utils.generate_streamlit_package_wrapper(
-        "example_stage", "example_module", False
-    )
-
-    assert result.exists()
-    with result.open("r", read_file_limit_mb=100) as f:
-        assert 'importlib.reload(sys.modules["example_module"])' in f.read()
-    result.unlink()
 
 
 @pytest.mark.parametrize(
@@ -198,19 +148,18 @@ def test_parse_anaconda_packages(mock_get):
     mock_response = mock.Mock()
     mock_response.status_code = 200
     # load the contents of the local json file under test_data/anaconda_channel_data.json
-    mock_response.json.return_value = json.loads(
-        Path(
-            os.path.join(Path(__file__).parent, "test_data/anaconda_channel_data.json")
-        ).read_text(encoding="utf-8")
-    )
+    with open(TEST_DIR / "test_data/anaconda_channel_data.json") as fh:
+        mock_response.json.return_value = json.load(fh)
+
     mock_get.return_value = mock_response
+    anaconda = AnacondaChannel.from_snowflake()
 
     packages = [
         Requirement.parse("pandas==1.0.0"),
         Requirement.parse("FuelSDK>=0.9.3"),
         Requirement.parse("Pamela==1.0.1"),
     ]
-    split_requirements = package_utils.parse_anaconda_packages(packages=packages)
+    split_requirements = anaconda.parse_anaconda_packages(packages=packages)
     assert len(split_requirements.snowflake) == 1
     assert len(split_requirements.other) == 2
     assert split_requirements.snowflake[0].name == "pandas"
@@ -260,8 +209,11 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
     mock_installer.return_value.__enter__.return_value.pip_install.return_value = 42
 
     with caplog.at_level(logging.INFO, "snowflake.cli.plugins.snowpark.package_utils"):
-        result = package_utils.install_packages(
-            correct_requirements_txt, True, PypiOption.YES
+        package_utils.install_packages(
+            anaconda=AnacondaChannel([]),
+            file_name=correct_requirements_txt,
+            perform_anaconda_check=True,
+            allow_native_libraries=PypiOption.YES,
         )
 
     assert "pip failed with return code 42" in caplog.text
@@ -279,9 +231,5 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
     ],
 )
 def test_check_if_package_is_avaiable_in_conda(argument, expected):
-    assert (
-        package_utils.check_if_package_is_avaiable_in_conda(
-            argument, test_data.anaconda_response["packages"]
-        )
-        == expected
-    )
+    anaconda = AnacondaChannel(packages=test_data.anaconda_response["packages"])
+    assert anaconda.is_package_available(argument) == expected
