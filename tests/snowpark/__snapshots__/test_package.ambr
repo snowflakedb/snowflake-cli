@@ -1,15 +1,15 @@
 # serializer version: 1
 # name: TestPackage.test_package_lookup[snowflake-connector-python]
   '''
-  Package snowflake-connector-python is available on the Snowflake Anaconda channel.
+  Package `snowflake-connector-python` is available in Anaconda. Available version: 2.7.12.
   
   '''
 # ---
 # name: TestPackage.test_package_lookup[some-weird-package-we-dont-know]
   '''
   
-  Nothing found for some-weird-package-we-dont-know. Most probably, package is not available on Snowflake Anaconda channel.
-  Please check the package name or try again with --pypi-download option.
+  Package `some-weird-package-we-dont-know` is not available in Anaconda. To prepare Snowpark compatible package run:
+  snow snowpark package create some-weird-package-we-dont-know
   
   
   '''
@@ -17,10 +17,8 @@
 # name: TestPackage.test_package_lookup_with_install_packages
   '''
   
-  The package some-other-package is supported, but does depend on the
-  following Snowflake supported libraries. You should include the
-  following dependencies in you function or procedure packages list:
-  snowflake-snowpark-python
+  Package `some-other-package` is not available in Anaconda. To prepare Snowpark compatible package run:
+  snow snowpark package create some-other-package
   
   
   '''
