@@ -209,11 +209,11 @@ def build_udf_sproc_identifier(
 
 def _get_import_from_resource(resource_json: dict, source_name: str) -> Set[str] | None:
     pattern = re.compile(r"@\w+\.\w+\.([^,]+)")
-    if "imports" in resource_json.keys():
-        return {
-            imp.lower()
-            for imp in pattern.findall(resource_json["imports"])
-            if source_name not in imp
-        }
-    else:
+
+    if "imports" not in resource_json.keys():
         return set()
+    return {
+        imp.lower()
+        for imp in pattern.findall(resource_json["imports"])
+        if source_name not in imp
+    }
