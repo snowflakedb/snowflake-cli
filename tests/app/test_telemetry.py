@@ -34,7 +34,7 @@ def test_executing_command_sends_telemetry_data(
             "version_python": "2.3.4",
             "command": ["connection", "test"],
             "command_group": "connection",
-            "command_flags": {"format": "DEFAULT"},
+            "command_flags": {"diag_log_path": "DEFAULT", "format": "DEFAULT"},
             "command_output_type": "TABLE",
             "type": "executing_command",
         },
