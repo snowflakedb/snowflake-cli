@@ -1,14 +1,7 @@
-import tempfile
-from contextlib import contextmanager
-from pathlib import Path
-
 import pytest
-from snowflake.cli.api.config import config_init
 from snowflake.cli.app.commands_registration.command_plugins_loader import (
     load_only_builtin_command_plugins,
 )
-
-from tests.git.fixtures import enable_snowgit_config  # noqa: F401
 
 
 def iter_through_all_commands_paths():
@@ -26,14 +19,13 @@ def iter_through_all_commands_paths():
             path.pop()
 
     yield []  # "snow" with no commands
-    with _enable_snowgit():
-        builtin_plugins = load_only_builtin_command_plugins()
-        for plugin in builtin_plugins:
-            spec = plugin.command_spec
-            if not plugin.plugin_name in ignore_plugins:
-                yield from _iter_through_commands(
-                    spec.command, spec.full_command_path.path_segments
-                )
+    builtin_plugins = load_only_builtin_command_plugins()
+    for plugin in builtin_plugins:
+        spec = plugin.command_spec
+        if not plugin.plugin_name in ignore_plugins:
+            yield from _iter_through_commands(
+                spec.command, spec.full_command_path.path_segments
+            )
 
 
 @pytest.mark.parametrize(
@@ -41,19 +33,10 @@ def iter_through_all_commands_paths():
     iter_through_all_commands_paths(),
     ids=(".".join(cmd) for cmd in iter_through_all_commands_paths()),
 )
-def test_help_messages(runner, enable_snowgit_config, snapshot, command):
+def test_help_messages(runner, snapshot, command):
     """
     Check help messages against the snapshot
     """
-    result = runner.invoke_with_config_file(enable_snowgit_config, command + ["--help"])
+    result = runner.invoke(command + ["--help"])
     assert result.exit_code == 0
     assert result.output == snapshot
-
-
-@contextmanager
-def _enable_snowgit():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpconfig = Path(tmpdir) / "tmp_config.toml"
-        tmpconfig.write_text("[cli.features]\nenable_snowgit = true")
-        config_init(tmpconfig)
-        yield
