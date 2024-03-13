@@ -58,6 +58,12 @@ class Venv:
         process = self.run_python(["-m", "pip", "install", "-r", requirements_files])
         return process.returncode
 
+    def pip_download(self, requirements_files, download_dir):
+        process = self.run_python(
+            ["-m", "pip", "download", "-r", requirements_files, "-d", download_dir]
+        )
+        return process.returncode
+
     def _create_venv(self):
         venv.create(self.directory.name, self.with_pip)
 

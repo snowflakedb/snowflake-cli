@@ -14,6 +14,7 @@ from snowflake.cli.plugins.snowpark.models import (
     SplitRequirements,
     get_package_name,
 )
+from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 from snowflake.cli.plugins.snowpark.package.utils import (
     InAnaconda,
     LookupResult,
@@ -31,12 +32,16 @@ def lookup(
     name: str, install_packages: bool, allow_native_libraries: PypiOption
 ) -> LookupResult:
 
-    package_response = package_utils.parse_anaconda_packages([Requirement.parse(name)])
+    anaconda = AnacondaChannel.from_snowflake()
+    package_response = anaconda.parse_anaconda_packages(
+        packages=[Requirement.parse(name)]
+    )
 
     if package_response.snowflake and not package_response.other:
         return InAnaconda(package_response, name)
     elif install_packages:
         status, result = package_utils.install_packages(
+            anaconda=anaconda,
             perform_anaconda_check=True,
             package_name=name,
             file_name=None,

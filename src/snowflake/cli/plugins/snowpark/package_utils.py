@@ -7,11 +7,8 @@ from tempfile import NamedTemporaryFile
 from typing import List
 
 import click
-import requests
 import requirements
-import typer
 from click import ClickException
-from packaging.version import parse
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
@@ -22,11 +19,10 @@ from snowflake.cli.plugins.snowpark.models import (
     pip_failed_msg,
     second_chance_msg,
 )
+from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 from snowflake.cli.plugins.snowpark.venv import Venv
 
 log = logging.getLogger(__name__)
-
-ANACONDA_CHANNEL_DATA = "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
 
 PIP_PATH = os.environ.get("SNOWCLI_PIP_PATH", "pip")
 
@@ -74,47 +70,8 @@ def deduplicate_and_sort_reqs(
     return deduped
 
 
-def parse_anaconda_packages(packages: List[Requirement]) -> SplitRequirements:
-    """
-    Checks if a list of packages are available in the Snowflake Anaconda channel.
-    Returns a dict with two keys: 'snowflake' and 'other'.
-    Each key contains a list of Requirement object.
-
-    As snowflake currently doesn't support extra syntax (ex. `jinja2[diagrams]`), if such
-    extra is present in the dependency, we mark it as unavailable.
-
-    Parameters:
-        packages (List[Requirement]) - list of requirements to be checked
-
-    Returns:
-        result (SplitRequirements) - required packages split to those avaiable in conda, and others, that need to be
-                                     installed using pip
-
-    """
-    result = SplitRequirements([], [])
-    channel_data = _get_anaconda_channel_contents()
-
-    for package in packages:
-        if package.extras:
-            result.other.append(package)
-        elif check_if_package_is_avaiable_in_conda(package, channel_data["packages"]):
-            result.snowflake.append(package)
-        else:
-            log.info("'%s' not found in Snowflake Anaconda channel...", package.name)
-            result.other.append(package)
-    return result
-
-
-def _get_anaconda_channel_contents():
-    response = requests.get(ANACONDA_CHANNEL_DATA)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        log.error("Error reading Anaconda channel data: %s", response.status_code)
-        raise typer.Abort()
-
-
 def install_packages(
+    anaconda: AnacondaChannel,
     file_name: str | None,
     perform_anaconda_check: bool = True,
     package_name: str | None = None,
@@ -159,8 +116,8 @@ def install_packages(
                 "Downloaded packages: %s",
                 ",".join([d.name for d in dependency_requirements]),
             )
-            second_chance_results: SplitRequirements = parse_anaconda_packages(
-                dependency_requirements
+            second_chance_results: SplitRequirements = anaconda.parse_anaconda_packages(
+                packages=dependency_requirements
             )
 
             if len(second_chance_results.snowflake) > 0:
@@ -239,16 +196,6 @@ def generate_deploy_stage_name(identifier: str) -> str:
             "",
         )
     )
-
-
-def check_if_package_is_avaiable_in_conda(package: Requirement, packages: dict) -> bool:
-    package_name = package.name.lower()
-    if package_name not in packages:
-        return False
-    if package.specs:
-        latest_ver = parse(packages[package_name]["version"])
-        return all([parse(spec[1]) <= latest_ver for spec in package.specs])
-    return True
 
 
 def _perform_native_libraries_check(deps: List[RequirementWithFilesAndDeps]):
