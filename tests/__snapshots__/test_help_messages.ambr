@@ -22,7 +22,7 @@
   │ spcs        Manages Snowpark Container Services compute pools, services,     │
   │             image registries, and image repositories.                        │
   │ sql         Executes Snowflake query.                                        │
-  │ streamlit   Manages Streamlit in Snowflake.                                  │
+  │ streamlit   Manages a Streamlit app in Snowflake.                            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -163,6 +163,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -266,6 +271,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -334,6 +344,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -424,6 +439,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -503,6 +523,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -565,6 +590,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -749,6 +779,11 @@
   │                                           `default`.                         │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -839,6 +874,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -909,6 +949,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -989,6 +1034,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -1067,6 +1117,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -1130,6 +1185,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -1195,6 +1255,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -1258,6 +1323,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -1323,6 +1393,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -1488,6 +1563,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -1562,6 +1642,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -1664,6 +1749,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -1736,6 +1826,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -1804,6 +1899,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -1971,6 +2071,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -2034,6 +2139,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -2122,6 +2232,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -2186,6 +2301,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -2249,6 +2369,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -2313,6 +2438,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -2385,6 +2515,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -2474,6 +2609,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -2536,6 +2676,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -2605,6 +2750,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -2693,6 +2843,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -2757,6 +2912,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -2826,6 +2986,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -2890,6 +3055,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -2977,6 +3147,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -3042,6 +3217,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -3105,6 +3285,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -3251,6 +3436,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -3314,6 +3504,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -3385,6 +3580,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -3448,6 +3648,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -3540,6 +3745,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -3603,6 +3813,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -3666,6 +3881,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -3742,6 +3962,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -3808,6 +4033,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -3923,6 +4153,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -3943,17 +4178,17 @@
                                                                                   
    Usage: default streamlit deploy [OPTIONS]                                      
                                                                                   
-   Deploys a Streamlit dashboard defined in project definition file               
-   (snowflake.yml). By default, the command will upload environment.yml and       
-   pages/ folder if present. If stage name is not specified then 'streamlit'      
-   stage will be used. If stage does not exist it will be created by this         
-   command.                                                                       
+   Deploys a Streamlit app defined in the project definition file                 
+   (snowflake.yml). By default, the command uploads environment.yml and any other 
+   pages or folders, if present. If you don’t specify a stage name, the           
+   `streamlit` stage is used. If the specified stage does not exist, the command  
+   creates it.                                                                    
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --replace                Replace the Streamlit if it already exists.         │
-  │ --open                   Whether to open Streamlit in a browser.             │
-  │ --project  -p      TEXT  Path where the Streamlit project resides. Defaults  │
-  │                          to current working directory.                       │
+  │ --replace                Replace the Streamlit app if it already exists.     │
+  │ --open                   Whether to open the Streamlit app in a browser.     │
+  │ --project  -p      TEXT  Path where the Streamlit app project resides.       │
+  │                          Defaults to current working directory.              │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -3991,6 +4226,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -4011,13 +4251,13 @@
                                                                                   
    Usage: default streamlit get-url [OPTIONS] NAME                                
                                                                                   
-   Returns url to provided streamlit app                                          
+   Returns a URL to the specified Streamlit app                                   
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    name      TEXT  Name of the Streamlit app. [default: None] [required]   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --open            Whether to open Streamlit in a browser.                    │
+  │ --open            Whether to open the Streamlit app in a browser.            │
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -4055,6 +4295,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -4076,11 +4321,12 @@
    Usage: default streamlit init [OPTIONS] [PROJECT_NAME]                         
                                                                                   
    Initializes this directory with a sample set of files for creating a Streamlit 
-   project.                                                                       
+   app project.                                                                   
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │   project_name      [PROJECT_NAME]  Name of the Streamlit project you want   │
-  │                                     to create.                               │
+  │   project_name      [PROJECT_NAME]  Name of the Streamlit app project        │
+  │                                     directory you want to create. Defaults   │
+  │                                     to `example_streamlit`.                  │
   │                                     [default: example_streamlit]             │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
@@ -4108,9 +4354,9 @@
    Shares a Streamlit app with another role.                                      
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    name         TEXT  Name of streamlit to share. [default: None]          │
+  │ *    name         TEXT  Name of the Streamlit app to share. [default: None]  │
   │                         [required]                                           │
-  │ *    to_role      TEXT  Role that streamlit should be shared with.           │
+  │ *    to_role      TEXT  Role with which to share the Streamlit app.          │
   │                         [default: None]                                      │
   │                         [required]                                           │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -4152,6 +4398,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -4172,20 +4423,20 @@
                                                                                   
    Usage: default streamlit [OPTIONS] COMMAND [ARGS]...                           
                                                                                   
-   Manages Streamlit in Snowflake.                                                
+   Manages a Streamlit app in Snowflake.                                          
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ deploy   Deploys a Streamlit dashboard defined in project definition file    │
-  │          (snowflake.yml). By default, the command will upload                │
-  │          environment.yml and pages/ folder if present. If stage name is not  │
-  │          specified then 'streamlit' stage will be used. If stage does not    │
-  │          exist it will be created by this command.                           │
-  │ get-url  Returns url to provided streamlit app                               │
+  │ deploy   Deploys a Streamlit app defined in the project definition file      │
+  │          (snowflake.yml). By default, the command uploads environment.yml    │
+  │          and any other pages or folders, if present. If you don’t specify a  │
+  │          stage name, the `streamlit` stage is used. If the specified stage   │
+  │          does not exist, the command creates it.                             │
+  │ get-url  Returns a URL to the specified Streamlit app                        │
   │ init     Initializes this directory with a sample set of files for creating  │
-  │          a Streamlit project.                                                │
+  │          a Streamlit app project.                                            │
   │ share    Shares a Streamlit app with another role.                           │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   

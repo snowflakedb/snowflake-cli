@@ -59,6 +59,9 @@ def test_connection_caching(mock_connect):
             call(
                 temporary_connection=False,
                 mfa_passcode=None,
+                enable_diag=False,
+                diag_log_path=None,
+                diag_allowlist_path=None,
                 connection_name=None,
                 account=None,
                 user=None,
@@ -73,6 +76,9 @@ def test_connection_caching(mock_connect):
             call(
                 temporary_connection=False,
                 mfa_passcode=None,
+                enable_diag=False,
+                diag_log_path=None,
+                diag_allowlist_path=None,
                 connection_name=None,
                 account=None,
                 user="newValue3",

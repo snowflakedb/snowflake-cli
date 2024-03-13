@@ -19,8 +19,11 @@ from strictyaml import as_document
 from typer import Typer
 from typer.testing import CliRunner
 
-from tests.conftest import clean_logging_handlers_fixture
-from tests.testing_utils.fixtures import alter_snowflake_yml, snowflake_home
+from tests.conftest import clean_logging_handlers_fixture  # noqa: F401
+from tests.testing_utils.fixtures import (
+    alter_snowflake_yml,  # noqa: F401
+    snowflake_home,
+)
 
 pytest_plugins = [
     "tests_integration.testing_utils",
@@ -152,6 +155,3 @@ def reset_global_context_after_each_test(request):
 @pytest.fixture(autouse=True)
 def isolate_snowflake_home(snowflake_home):
     yield snowflake_home
-
-
-__all__ = ["alter_snowflake_yml", "snowflake_home", "clean_logging_handlers_fixture"]

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import tempfile
 from inspect import signature
+from pathlib import Path
 from typing import Any, Callable, List, Optional, Tuple
 
 import click
@@ -265,6 +267,42 @@ MfaPasscodeOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+EnableDiagOption = typer.Option(
+    False,
+    "--enable-diag",
+    help="Run python connector diagnostic test",
+    callback=_callback(lambda: cli_context_manager.connection_context.set_enable_diag),
+    show_default=False,
+    is_flag=True,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+DiagLogPathOption: Path = typer.Option(
+    tempfile.gettempdir(),
+    "--diag-log-path",
+    help="Diagnostic report path",
+    callback=_callback(
+        lambda: cli_context_manager.connection_context.set_diag_log_path
+    ),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+    exists=True,
+    writable=True,
+)
+
+DiagAllowlistPathOption: Path = typer.Option(
+    None,
+    "--diag-allowlist-path",
+    help="Diagnostic report path to optional allowlist",
+    callback=_callback(
+        lambda: cli_context_manager.connection_context.set_diag_allowlist_path
+    ),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+    exists=True,
+    file_okay=True,
+)
+
 OutputFormatOption = typer.Option(
     OutputFormat.TABLE.value,
     "--format",
@@ -389,11 +427,18 @@ def project_definition_option(project_name: str):
         cli_context_manager.set_project_root(project_root)
         return project_definition
 
+    if project_name == "native_app":
+        project_name_help = "Snowflake Native App"
+    elif project_name == "streamlit":
+        project_name_help = "Streamlit app"
+    else:
+        project_name_help = project_name.replace("_", " ").capitalize()
+
     return typer.Option(
         None,
         "-p",
         "--project",
-        help=f"Path where the {'Snowflake Native App' if project_name == 'native_app' else project_name.replace('_', ' ').capitalize()} project resides. "
+        help=f"Path where the {project_name_help} project resides. "
         f"Defaults to current working directory.",
         callback=_callback,
         show_default=False,
