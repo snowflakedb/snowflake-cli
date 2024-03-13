@@ -11,7 +11,9 @@ log = logging.getLogger(__name__)
 
 
 class AnacondaChannel:
-    url: str = "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
+    snowflake_channel_url: str = (
+        "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
+    )
 
     def __init__(self, packages):
         self._packages = packages
@@ -27,7 +29,7 @@ class AnacondaChannel:
 
     @classmethod
     def from_snowflake(cls):
-        response = requests.get(AnacondaChannel.url)
+        response = requests.get(AnacondaChannel.snowflake_channel_url)
         response.raise_for_status()
         return cls(packages=response.json()["packages"])
 
