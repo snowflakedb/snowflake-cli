@@ -6,11 +6,10 @@ from zipfile import ZipFile
 
 import pytest
 from snowflake.cli.plugins.snowpark.models import (
-    PypiOption,
     Requirement,
     SplitRequirements,
 )
-from snowflake.cli.plugins.snowpark.package.utils import NothingFound, NotInAnaconda
+from snowflake.cli.plugins.snowpark.package.utils import NotInAnaconda
 
 from tests.test_data import test_data
 
@@ -28,7 +27,7 @@ class TestPackage:
             test_data.anaconda_response
         )
 
-        result = runner.invoke(["snowpark", "package", "lookup", argument, "--yes"])
+        result = runner.invoke(["snowpark", "package", "lookup", argument])
 
         assert result.exit_code == 0
         assert result.output == snapshot
@@ -52,9 +51,7 @@ class TestPackage:
             ),
         )
 
-        result = runner.invoke(
-            ["snowpark", "package", "lookup", "some-other-package", "--yes"]
-        )
+        result = runner.invoke(["snowpark", "package", "lookup", "some-other-package"])
         assert result.exit_code == 0
         assert result.output == snapshot
 
@@ -71,7 +68,7 @@ class TestPackage:
             logging.DEBUG, logger="snowflake.cli.plugins.snowpark.package"
         ):
             result = runner.invoke(
-                ["snowpark", "package", "create", "totally-awesome-package", "--yes"]
+                ["snowpark", "package", "create", "totally-awesome-package"]
             )
 
         assert result.exit_code == 0
@@ -139,26 +136,29 @@ class TestPackage:
         assert create.args[0] == "create stage if not exists db.schema.stage"
         assert "db.schema.stage/path/to/file" in put.args[0]
 
-    @pytest.mark.parametrize("command", ["lookup", "create"])
     @pytest.mark.parametrize(
-        "flags,expected_value",
+        "flags",
         [
-            (["--pypi-download"], True),
-            (["-y"], True),
-            (["--yes"], True),
-            (["--pypi-download", "-y"], True),
-            ([], False),
+            ["--pypi-download"],
+            ["-y"],
+            ["--yes"],
+            ["--pypi-download", "-y"],
         ],
     )
-    @mock.patch("snowflake.cli.plugins.snowpark.package.commands.lookup")
-    def test_install_flag(self, mock_lookup, command, flags, expected_value, runner):
-        mock_lookup.return_value = NothingFound
+    @mock.patch("snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel")
+    def test_lookup_install_flag_are_deprecated(self, _, flags, runner):
         result = runner.invoke(["snowpark", "package", "lookup", "foo", *flags])
+        assert (
+            "is deprecated. Lookup command no longer checks for package in PyPi"
+            in result.output
+        )
 
-        mock_lookup.assert_called_with(
-            name="foo",
-            install_packages=expected_value,
-            allow_native_libraries=PypiOption.NO,
+    @mock.patch("snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel")
+    def test_lookup_install_with_out_flags_does_not_warn(self, _, runner):
+        result = runner.invoke(["snowpark", "package", "lookup", "foo"])
+        assert (
+            "is deprecated. Lookup command no longer checks for package in PyPi"
+            not in result.output
         )
 
     @staticmethod
