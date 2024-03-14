@@ -116,13 +116,15 @@ def test_copy_to_local_file_system(mock_connector, runner, mock_ctx, temp_dir):
     mock_connector.return_value = ctx
     local_path = Path(temp_dir) / "local_dir"
     assert not local_path.exists()
-    result = runner.invoke(["git", "copy", "@repo_name/branches/main", str(local_path)])
+    result = runner.invoke(
+        ["git", "copy", "@repo_name/branches/main/", str(local_path)]
+    )
 
     assert result.exit_code == 0, result.output
     assert local_path.exists()
     assert (
         ctx.get_query()
-        == f"get @repo_name/branches/main file://{local_path.resolve()}/ parallel=4"
+        == f"get @repo_name/branches/main/ file://{local_path.resolve()}/ parallel=4"
     )
 
 
@@ -131,13 +133,13 @@ def test_copy_to_remote_dir(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     result = runner.invoke(
-        ["git", "copy", "@repo_name/branches/main", "@stage_path/dir_in_stage"]
+        ["git", "copy", "@repo_name/branches/main/", "@stage_path/dir_in_stage"]
     )
 
     assert result.exit_code == 0, result.output
     assert (
         ctx.get_query()
-        == "copy files into @stage_path/dir_in_stage/ from @repo_name/branches/main"
+        == "copy files into @stage_path/dir_in_stage/ from @repo_name/branches/main/"
     )
 
 
