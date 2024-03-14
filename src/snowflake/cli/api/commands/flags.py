@@ -378,6 +378,25 @@ def like_option(help_example: str):
     )
 
 
+def _pattern_option_callback(value):
+    if value and value.count("'") != value.count("\\'"):
+        raise ClickException('All "\'" characters in PATTERN must be escaped: "\\\'"')
+    return value
+
+
+PatternOption = typer.Option(
+    None,
+    "--pattern",
+    "-p",
+    help=(
+        "Regex pattern for filtering files by name."
+        ' For example --pattern ".*\.txt" will filter only files with .txt extension.'
+    ),
+    show_default=False,
+    callback=_pattern_option_callback,
+)
+
+
 def experimental_option(
     experimental_behaviour_description: Optional[str] = None,
 ) -> typer.Option:

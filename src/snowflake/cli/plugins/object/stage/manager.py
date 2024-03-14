@@ -53,9 +53,14 @@ class StageManager(SqlExecutionMixin):
             return uri
         return to_string_literal(uri)
 
-    def list_files(self, stage_name: str) -> SnowflakeCursor:
+    def list_files(
+        self, stage_name: str, pattern: str | None = None
+    ) -> SnowflakeCursor:
         stage_name = self.get_standard_stage_name(stage_name)
-        return self._execute_query(f"ls {self.quote_stage_name(stage_name)}")
+        query = f"ls {self.quote_stage_name(stage_name)}"
+        if pattern is not None:
+            query += f" pattern = '{pattern}'"
+        return self._execute_query(query)
 
     def get(
         self, stage_name: str, dest_path: Path, parallel: int = 4

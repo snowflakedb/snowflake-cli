@@ -18,6 +18,25 @@ def test_stage_list(mock_execute, runner, mock_cursor):
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_stage_list_pattern(mock_execute, runner, mock_cursor):
+    mock_execute.return_value = mock_cursor(["row"], [])
+    result = runner.invoke(
+        ["object", "stage", "list", "-c", "empty", "--pattern", "REGEX", "stageName"]
+    )
+    assert result.exit_code == 0, result.output
+    mock_execute.assert_called_once_with("ls @stageName pattern = 'REGEX'")
+
+
+def test_stage_list_pattern_error(runner):
+    result = runner.invoke(
+        ["object", "stage", "list", "--pattern", "REGEX without escaped '", "stageName"]
+    )
+    assert result.exit_code == 1, result.output
+    assert "Error" in result.output
+    assert 'All "\'" characters in PATTERN must be escaped: "\\\'"' in result.output
+
+
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_list_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "stage", "list", "-c", "empty", '"stage name"'])
