@@ -27,6 +27,9 @@ class AnacondaChannel:
             return all([parse(spec[1]) <= latest_ver for spec in package.specs])
         return True
 
+    def package_version(self, package: Requirement):
+        return self._packages[package.name.lower()].get("version")
+
     @classmethod
     def from_snowflake(cls):
         response = requests.get(AnacondaChannel.snowflake_channel_url)

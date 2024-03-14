@@ -453,3 +453,12 @@ def project_definition_option(project_name: str):
         callback=_callback,
         show_default=False,
     )
+
+
+def deprecated_flag_callback(msg: str):
+    def _warning_callback(ctx: click.Context, param: click.Parameter, value: Any):
+        if ctx.get_parameter_source(param.name) != click.core.ParameterSource.DEFAULT:  # type: ignore[attr-defined]
+            cli_console.warning(message=msg)
+        return value
+
+    return _warning_callback
