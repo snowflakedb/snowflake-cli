@@ -4,7 +4,6 @@ from textwrap import dedent
 from unittest.mock import Mock, patch
 
 import pytest
-import strictyaml
 from click import ClickException
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.project.util import to_string_literal
@@ -13,6 +12,7 @@ from snowflake.cli.plugins.spcs.common import NoPropertiesProvidedError
 from snowflake.cli.plugins.spcs.services.commands import _service_name_callback
 from snowflake.cli.plugins.spcs.services.manager import ServiceManager
 from snowflake.connector.cursor import SnowflakeCursor
+from yaml import YAMLError
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
 
@@ -185,9 +185,9 @@ def test_create_service_with_invalid_spec(mock_read_yaml):
     max_instances = 42
     external_access_integrations = query_warehouse = tags = comment = None
     auto_resume = False
-    mock_read_yaml.side_effect = strictyaml.YAMLError("Invalid YAML")
+    mock_read_yaml.side_effect = YAMLError("Invalid YAML")
 
-    with pytest.raises(strictyaml.YAMLError):
+    with pytest.raises(YAMLError):
         ServiceManager().create(
             service_name=service_name,
             compute_pool=compute_pool,
