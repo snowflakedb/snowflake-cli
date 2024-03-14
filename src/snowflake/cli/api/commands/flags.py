@@ -384,7 +384,8 @@ PatternOption = typer.Option(
     "-p",
     help=(
         "Regex pattern for filtering files by name."
-        ' For example --pattern=".*\.txt" will filter only files with .txt extension.'
+        ' For example --pattern ".*\.txt" will filter only files with .txt extension.'
+        ' "\'" character needs to be escaped: "\\\'"'
     ),
     show_default=False,
 )

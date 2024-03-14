@@ -1287,8 +1287,9 @@
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --pattern  -p      TEXT  Regex pattern for filtering files by name. For      │
-  │                          example --pattern=".*\.txt" will filter only files  │
-  │                          with .txt extension.                                │
+  │                          example --pattern ".*\.txt" will filter only files  │
+  │                          with .txt extension. "'" character needs to be      │
+  │                          escaped: "\'"                                       │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
