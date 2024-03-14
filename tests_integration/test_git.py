@@ -111,14 +111,13 @@ def test_list_files(runner, sf_git_repository):
     _assert_invalid_repo_path_error_message(result.output)
 
     try:
-        repository_path = f"@{sf_git_repository}"
+        repository_path = f"@{sf_git_repository}/tags/no-such-tag/"
         runner.invoke_with_connection(["git", "list-files", repository_path])
         assert False, "Expected exception"
     except ProgrammingError as err:
         assert (
             err.raw_msg
-            == "Files paths in git repositories must specify a scope. For example, a branch name, "
-            "a tag name, or a valid commit hash. Commit hashes are between 6 and 40 characters long."
+            == "The specified tag 'no-such-tag' cannot be found in the Git Repository."
         )
 
     # list files with pattern
