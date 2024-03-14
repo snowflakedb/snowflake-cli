@@ -4,9 +4,9 @@ from pathlib import Path
 import typer
 from click import ClickException
 from snowflake.cli.api.commands.flags import (
+    PatternOption,
     identifier_argument,
     like_option,
-    pattern_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.console.console import cli_console
@@ -45,9 +45,6 @@ RepoPathArgument = typer.Argument(
         " For example: @my_repo/branches/main/"
     ),
     callback=_repo_path_argument_callback,
-)
-PatternOption = pattern_option(
-    help_example='`list-files --pattern ".*\.txt"` lists all files with .txt extension',
 )
 
 

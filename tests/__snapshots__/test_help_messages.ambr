@@ -909,6 +909,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -975,6 +980,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -1045,6 +1055,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -1076,11 +1091,9 @@
   │                                 [required]                                   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --pattern  -p      TEXT  Regex pattern for filtering files by name. Git      │
-  │                          repository scope prefix is not included in regex    │
-  │                          matching. For example `list-files --pattern         │
-  │                          ".*\.txt"` lists all files with .txt extension.     │
-  │                          [default: .*]                                       │
+  │ --pattern  -p      TEXT  Regex pattern for filtering files by name. For      │
+  │                          example --pattern ".*\.txt" will filter only files  │
+  │                          with .txt extension.                                │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -1118,6 +1131,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -1188,6 +1206,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -1260,6 +1283,11 @@
   │                                           of one defined in config           │
   │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
   │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │
@@ -1765,11 +1793,9 @@
   │ *    stage_name      TEXT  Name of the stage. [default: None] [required]     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --pattern  -p      TEXT  Regex pattern for filtering files by name. Git      │
-  │                          repository scope prefix is not included in regex    │
-  │                          matching. For example list --pattern=".*\.txt will  │
-  │                          list all files with .txt extension.                 │
-  │                          [default: .*]                                       │
+  │ --pattern  -p      TEXT  Regex pattern for filtering files by name. For      │
+  │                          example --pattern ".*\.txt" will filter only files  │
+  │                          with .txt extension.                                │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮

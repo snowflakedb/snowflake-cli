@@ -60,11 +60,14 @@ class StageManager(SqlExecutionMixin):
             return uri
         return to_string_literal(uri)
 
-    def list_files(self, stage_name: str, pattern: str = ".*") -> SnowflakeCursor:
+    def list_files(
+        self, stage_name: str, pattern: str | None = None
+    ) -> SnowflakeCursor:
         stage_name = self.get_standard_stage_prefix(stage_name)
-        return self._execute_query(
-            f"ls {self.quote_stage_name(stage_name)} pattern = '{pattern}'"
-        )
+        query = f"ls {self.quote_stage_name(stage_name)}"
+        if pattern is not None:
+            query += f" pattern = '{pattern}'"
+        return self._execute_query(query)
 
     @staticmethod
     def _assure_is_existing_directory(path: Path) -> None:
