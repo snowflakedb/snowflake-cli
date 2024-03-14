@@ -24,7 +24,9 @@ log = logging.getLogger(__name__)
 
 
 def _repo_path_argument_callback(path):
-    if not is_stage_path(path) or len(path.split("/")) < 4:
+    # All repository paths must start with repository scope:
+    # "@repo_name/tag/example_tag/*"
+    if not is_stage_path(path) or path.count("/") < 3:
         raise ClickException(
             "REPOSITORY_PATH should be a path to git repository stage with scope provided."
             " Path to the repository root must end with '/'."
