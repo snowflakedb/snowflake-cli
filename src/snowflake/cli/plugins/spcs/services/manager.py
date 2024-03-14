@@ -1,6 +1,8 @@
+import json
 from pathlib import Path
 from typing import List, Optional
 
+import yaml
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -69,10 +71,6 @@ class ServiceManager(SqlExecutionMixin):
 
     def _read_yaml(self, path: Path) -> str:
         # TODO(aivanou): Add validation towards schema
-        import json
-
-        import yaml
-
         with SecurePath(path).open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fh:
             data = yaml.safe_load(fh)
         return json.dumps(data)
