@@ -92,20 +92,21 @@ def setup(
     url = typer.prompt("Origin url")
     _validate_origin_url(url)
 
-    secret = {}
     secret_needed = typer.confirm("Use secret for authentication?")
+    should_create_secret = False
+    secret_name = None
     if secret_needed:
         secret_name = f"{repository_name}_secret"
         secret_name = typer.prompt(
             "Secret identifier (will be created if not exists)", default=secret_name
         )
-        secret = {"name": secret_name}
         if _object_exists(ObjectType.SECRET, secret_name):
             cli_console.step(f"Using existing secret '{secret_name}'")
         else:
+            should_create_secret = True
             cli_console.step(f"Secret '{secret_name}' will be created")
-            secret["username"] = typer.prompt("username")
-            secret["password"] = typer.prompt("password/token", hide_input=True)
+            secret_username = typer.prompt("username")
+            secret_password = typer.prompt("password/token", hide_input=True)
 
     api_integration = f"{repository_name}_api_integration"
     api_integration = typer.prompt(
@@ -113,9 +114,10 @@ def setup(
         default=api_integration,
     )
 
-    if "username" in secret:
-        manager.create_password_secret(**secret)
-        secret_name = secret["name"]
+    if should_create_secret:
+        manager.create_password_secret(
+            name=secret_name, username=secret_username, password=secret_password
+        )
         cli_console.step(f"Secret '{secret_name}' successfully created.")
 
     if not _object_exists(ObjectType.INTEGRATION, api_integration):
@@ -123,7 +125,7 @@ def setup(
             name=api_integration,
             api_provider="git_https_api",
             allowed_prefix=url,
-            secret=secret.get("name"),
+            secret=secret_name,
         )
         cli_console.step(f"API integration '{api_integration}' successfully created.")
     else:
@@ -134,7 +136,7 @@ def setup(
             repo_name=repository_name,
             url=url,
             api_integration=api_integration,
-            secret=secret.get("name"),
+            secret=secret_name,
         )
     )
 
