@@ -5,9 +5,13 @@ from pathlib import Path
 from textwrap import dedent
 
 import typer
+from click import ClickException
+from requests import HTTPError
+from snowflake.cli.api.commands.flags import deprecated_flag_callback
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MessageResult
-from snowflake.cli.plugins.snowpark.models import PypiOption
+from snowflake.cli.plugins.snowpark.models import PypiOption, Requirement
+from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 from snowflake.cli.plugins.snowpark.package.manager import (
     cleanup_after_install,
     create_packages_zip,
@@ -26,44 +30,64 @@ app = SnowTyper(
 )
 log = logging.getLogger(__name__)
 
-install_option = typer.Option(
+
+lookup_install_option = typer.Option(
     False,
     "--pypi-download",
+    hidden=True,
+    callback=deprecated_flag_callback(
+        "Using --pypi-download is deprecated. Lookup command no longer checks for package in PyPi."
+    ),
     help="Installs packages that are not available on the Snowflake Anaconda channel.",
 )
 
-deprecated_install_option = typer.Option(
+lookup_deprecated_install_option = typer.Option(
     False,
     "--yes",
     "-y",
     hidden=True,
+    callback=deprecated_flag_callback(
+        "Using --yes is deprecated. Lookup command no longer checks for package in PyPi."
+    ),
     help="Installs packages that are not available on the Snowflake Anaconda channel.",
 )
 
 
 @app.command("lookup", requires_connection=True)
-@cleanup_after_install
 def package_lookup(
-    name: str = typer.Argument(..., help="Name of the package."),
-    install_packages: bool = install_option,
-    _deprecated_install_option: bool = deprecated_install_option,
-    allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
+    package_name: str = typer.Argument(
+        ..., help="Name of the package.", show_default=False
+    ),
+    # todo: remove with 3.0
+    _: bool = lookup_install_option,
+    __: bool = lookup_deprecated_install_option,
     **options,
 ) -> CommandResult:
     """
     Checks if a package is available on the Snowflake Anaconda channel.
-    If the `--pypi-download` flag is provided, this command checks all dependencies of the packages
-    outside Snowflake channel.
     """
-    if _deprecated_install_option:
-        install_packages = _deprecated_install_option
+    try:
+        anaconda = AnacondaChannel.from_snowflake()
+    except HTTPError as err:
+        raise ClickException(
+            f"Accessing Snowflake Anaconda channel failed. Reason {err}"
+        )
 
-    lookup_result = lookup(
-        name=name,
-        install_packages=install_packages,
-        allow_native_libraries=allow_native_libraries,
+    package = Requirement.parse(package_name)
+    if anaconda.is_package_available(package=package):
+        msg = f"Package `{package_name}` is available in Anaconda."
+        if version := anaconda.package_version(package=package):
+            msg += f" Latest available version: {version}."
+        return MessageResult(msg)
+
+    return MessageResult(
+        dedent(
+            f"""
+        Package `{package_name}` is not available in Anaconda. To prepare Snowpark compatible package run:
+        snow snowpark package create {package_name}
+        """
+        )
     )
-    return MessageResult(lookup_result.message)
 
 
 @app.command("upload", requires_connection=True)
@@ -93,6 +117,21 @@ def package_upload(
     Uploads a Python package zip file to a Snowflake stage so it can be referenced in the imports of a procedure or function.
     """
     return MessageResult(upload(file=file, stage=stage, overwrite=overwrite))
+
+
+install_option = typer.Option(
+    False,
+    "--pypi-download",
+    help="Installs packages that are not available on the Snowflake Anaconda channel.",
+)
+
+deprecated_install_option = typer.Option(
+    False,
+    "--yes",
+    "-y",
+    hidden=True,
+    help="Installs packages that are not available on the Snowflake Anaconda channel.",
+)
 
 
 @app.command("create", requires_connection=True)
