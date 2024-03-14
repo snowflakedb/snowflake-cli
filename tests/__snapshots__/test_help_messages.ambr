@@ -1311,7 +1311,10 @@
   │ *    stage_name      TEXT  Name of the stage. [default: None] [required]     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --help  -h        Show this message and exit.                                │
+  │ --pattern  -p      TEXT  Regex pattern for filtering files by name. For      │
+  │                          example --pattern ".*\.txt" will filter only files  │
+  │                          with .txt extension.                                │
+  │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │

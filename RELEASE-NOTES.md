@@ -18,6 +18,7 @@
 * Fixed errors during `spcs image-registry login` not being formatted correctly.
 * Project definition no longer accept extra fields. Any extra field will cause an error.
 * Changing imports in function/procedure section in `snowflake.yml` will cause the definition update on replace
+* Adding `--pattern` flag to `stage list` command for filtering out results with regex.
 
 # v2.1.0
 
