@@ -15,7 +15,6 @@ from snowflake.cli.api.output.types import CommandResult, QueryResult
 from snowflake.cli.api.utils.path_utils import is_stage_path
 from snowflake.cli.plugins.git.manager import GitManager
 from snowflake.cli.plugins.object.manager import ObjectManager
-from snowflake.connector import ProgrammingError
 
 app = SnowTyper(
     name="git",
@@ -48,19 +47,10 @@ PatternOption = pattern_option(
 )
 
 
-def _object_exists(object_type, identifier):
-    try:
-        ObjectManager().describe(
-            object_type=object_type.value.cli_name,
-            name=identifier,
-        )
-        return True
-    except ProgrammingError:
-        return False
-
-
 def _assure_repository_does_not_exist(repository_name: str) -> None:
-    if _object_exists(ObjectType.GIT_REPOSITORY, repository_name):
+    if ObjectManager().object_exists(
+        object_type=ObjectType.GIT_REPOSITORY.value.cli_name, name=repository_name
+    ):
         raise ClickException(f"Repository '{repository_name}' already exists")
 
 
@@ -88,6 +78,7 @@ def setup(
     """
     _assure_repository_does_not_exist(repository_name)
     manager = GitManager()
+    om = ObjectManager()
 
     url = typer.prompt("Origin url")
     _validate_origin_url(url)
@@ -100,7 +91,9 @@ def setup(
         secret_name = typer.prompt(
             "Secret identifier (will be created if not exists)", default=secret_name
         )
-        if _object_exists(ObjectType.SECRET, secret_name):
+        if om.object_exists(
+            object_type=ObjectType.SECRET.value.cli_name, name=secret_name
+        ):
             cli_console.step(f"Using existing secret '{secret_name}'")
         else:
             should_create_secret = True
@@ -120,7 +113,9 @@ def setup(
         )
         cli_console.step(f"Secret '{secret_name}' successfully created.")
 
-    if not _object_exists(ObjectType.INTEGRATION, api_integration):
+    if not om.object_exists(
+        object_type=ObjectType.INTEGRATION.value.cli_name, name=api_integration
+    ):
         manager.create_api_integration(
             name=api_integration,
             api_provider="git_https_api",
