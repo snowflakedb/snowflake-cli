@@ -1,4 +1,5 @@
 import os
+import platform
 import subprocess
 import tempfile
 from pathlib import Path
@@ -8,6 +9,18 @@ import pytest
 from snowflake.cli import __about__
 
 TEST_DIR = Path(__file__).parent
+
+
+@pytest.fixture
+def snowflake_home(monkeypatch):
+    """
+    Set up the default location of config files to [temp_dir]/.snowflake
+    """
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        snowflake_home = Path(tmp_dir) / ".snowflake"
+        snowflake_home.mkdir()
+        monkeypatch.setenv("SNOWFLAKE_HOME", str(snowflake_home))
+        yield snowflake_home
 
 
 @pytest.fixture(scope="session")
@@ -41,7 +54,7 @@ def snowcli(test_root_path):
         _create_venv(tmp_dir_path)
         _build_snowcli(tmp_dir_path, test_root_path)
         _install_snowcli_with_external_plugin(tmp_dir_path, test_root_path)
-        yield tmp_dir_path / "bin" / "snow"
+        yield _snow_path(tmp_dir_path)
 
 
 @pytest.fixture(autouse=True)
@@ -58,7 +71,7 @@ def _build_snowcli(venv_path: Path, test_root_path: Path) -> None:
         [_python_path(venv_path), "-m", "pip", "install", "--upgrade", "build"]
     )
     subprocess.check_call(
-        [_python_path(venv_path), "-m", "build", test_root_path / ".."]
+        [_python_path(venv_path), "-m", "build", test_root_path.parent]
     )
 
 
@@ -73,7 +86,9 @@ def _install_snowcli_with_external_plugin(
     python = _python_path(venv_path)
     _pip_install(
         python,
-        test_root_path / f"../dist/snowflake_cli_labs-{version}-py3-none-any.whl",
+        test_root_path.parent
+        / "dist"
+        / f"snowflake_cli_labs-{version}-py3-none-any.whl",
     )
     _pip_install(
         python,
@@ -87,4 +102,15 @@ def _install_snowcli_with_external_plugin(
 
 
 def _python_path(venv_path: Path) -> Path:
-    return venv_path / "bin" / "python"
+    return _bin_in_venv_path(venv_path, "python")
+
+
+def _snow_path(venv_path: Path) -> Path:
+    return _bin_in_venv_path(venv_path, "snow")
+
+
+def _bin_in_venv_path(venv_path: Path, bin_name: str) -> Path:
+    if platform.system() == "Windows":
+        return venv_path / "Scripts" / bin_name
+    else:
+        return venv_path / "bin" / bin_name
