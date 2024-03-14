@@ -7,9 +7,17 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyper
-from snowflake.cli.api.output.types import CommandResult, MessageResult
+from snowflake.cli.api.output.types import (
+    CollectionResult,
+    CommandResult,
+    MessageResult,
+)
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.nativeapp.common_flags import ForceOption, InteractiveOption
-from snowflake.cli.plugins.nativeapp.init import nativeapp_init
+from snowflake.cli.plugins.nativeapp.init import (
+    OFFICIAL_TEMPLATES_GITHUB_URL,
+    nativeapp_init,
+)
 from snowflake.cli.plugins.nativeapp.manager import NativeAppManager
 from snowflake.cli.plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
@@ -20,7 +28,11 @@ from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli.plugins.nativeapp.teardown_processor import (
     NativeAppTeardownProcessor,
 )
-from snowflake.cli.plugins.nativeapp.utils import is_tty_interactive
+from snowflake.cli.plugins.nativeapp.utils import (
+    get_first_paragraph_from_markdown_file,
+    is_tty_interactive,
+    shallow_git_clone,
+)
 from snowflake.cli.plugins.nativeapp.version.commands import app as versions_app
 
 app = SnowTyper(
@@ -67,6 +79,39 @@ def app_init(
     return MessageResult(
         f"Snowflake Native App project {project.name} has been created at: {path}"
     )
+
+
+@app.command("list-templates", hidden=True)
+def app_list_templates(**options) -> CommandResult:
+    """
+    Prints information regarding the official templates that can be used with snow app init.
+    """
+    with SecurePath.temporary_directory() as temp_path:
+        repo = shallow_git_clone(OFFICIAL_TEMPLATES_GITHUB_URL, temp_path.path)
+
+        # Mark a directory as a template if a project definition jinja template is inside
+        template_directories = [
+            entry.name
+            for entry in repo.head.commit.tree
+            if (temp_path / entry.name / "snowflake.yml.jinja").exists()
+        ]
+
+        # get the template descriptions from the README.md in its directory
+        template_descriptions = [
+            get_first_paragraph_from_markdown_file(
+                (temp_path / directory / "README.md").path
+            )
+            for directory in template_directories
+        ]
+
+        result = (
+            {"template": directory, "description": description}
+            for directory, description in zip(
+                template_directories, template_descriptions
+            )
+        )
+
+        return CollectionResult(result)
 
 
 @app.command("bundle", hidden=True)
