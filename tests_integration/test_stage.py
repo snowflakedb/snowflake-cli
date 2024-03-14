@@ -28,22 +28,31 @@ def test_stage(runner, snowflake_session, test_database, tmp_path):
     assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
 
     filename = "test.txt"
+    another_filename = "another.md"
     with tempfile.TemporaryDirectory() as td:
-        file_path = os.path.join(td, filename)
-        Path(file_path).touch()
+        file_path = Path(td) / filename
+        another_file_path = Path(td) / another_filename
 
-        result = runner.invoke_with_connection_json(
-            ["object", "stage", "copy", file_path, f"@{stage_name}"]
-        )
-        assert result.exit_code == 0, result.output
-        assert contains_row_with(
-            result.json,
-            {"source": filename, "target": filename, "status": "UPLOADED"},
-        )
+        for path in [file_path, another_file_path]:
+            path.touch()
+            result = runner.invoke_with_connection_json(
+                ["object", "stage", "copy", str(path), f"@{stage_name}"]
+            )
+            assert result.exit_code == 0, result.output
+            assert contains_row_with(
+                result.json,
+                {"source": path.name, "target": path.name, "status": "UPLOADED"},
+            )
 
     result = runner.invoke_with_connection_json(["object", "stage", "list", stage_name])
     expect = snowflake_session.execute_string(f"list @{stage_name}")
     assert result.json == row_from_snowflake_session(expect)
+
+    result = runner.invoke_with_connection_json(
+        ["object", "stage", "list", stage_name, "--pattern", ".*md"]
+    )
+    assert contains_row_with(result.json, {"name": f"{stage_name}/{another_filename}"})
+    assert not_contains_row_with(result.json, {"name": f"{stage_name}/{filename}"})
 
     # Operation fails because directory exists
     result = runner.invoke_with_connection_json(
