@@ -379,8 +379,9 @@ def like_option(help_example: str):
 
 
 def _pattern_option_callback(value):
-    if value.count("'") != value.count("\\'"):
+    if value and value.count("'") != value.count("\\'"):
         raise ClickException('All "\'" characters in PATTERN must be escaped: "\\\'"')
+    return value
 
 
 PatternOption = typer.Option(
