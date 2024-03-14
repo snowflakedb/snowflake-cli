@@ -1797,24 +1797,15 @@
 # name: test_help_messages[snowpark.package.lookup]
   '''
                                                                                   
-   Usage: default snowpark package lookup [OPTIONS] NAME                          
+   Usage: default snowpark package lookup [OPTIONS] PACKAGE_NAME                  
                                                                                   
-   Checks if a package is available on the Snowflake Anaconda channel. If the     
-   `--pypi-download` flag is provided, this command checks all dependencies of    
-   the packages outside Snowflake channel.                                        
+   Checks if a package is available on the Snowflake Anaconda channel.            
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    name      TEXT  Name of the package. [default: None] [required]         │
+  │ *    package_name      TEXT  Name of the package. [required]                 │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --pypi-download                                 Installs packages that are   │
-  │                                                 not available on the         │
-  │                                                 Snowflake Anaconda channel.  │
-  │ --allow-native-libraries          [yes|no|ask]  Allows native libraries,     │
-  │                                                 when using packages          │
-  │                                                 installed through PIP        │
-  │                                                 [default: no]                │
-  │ --help                    -h                    Show this message and exit.  │
+  │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
@@ -1958,8 +1949,6 @@
   │ create  Creates a Python package as a zip file that can be uploaded to a     │
   │         stage and imported for a Snowpark Python app.                        │
   │ lookup  Checks if a package is available on the Snowflake Anaconda channel.  │
-  │         If the `--pypi-download` flag is provided, this command checks all   │
-  │         dependencies of the packages outside Snowflake channel.              │
   │ upload  Uploads a Python package zip file to a Snowflake stage so it can be  │
   │         referenced in the imports of a procedure or function.                │
   ╰──────────────────────────────────────────────────────────────────────────────╯

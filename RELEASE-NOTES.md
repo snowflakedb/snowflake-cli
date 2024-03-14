@@ -2,6 +2,11 @@
 
 ## Backward incompatibility
 
+## Deprecations
+* `snow snowpark package lookup` no longer performs check against PyPi. Using `--pypi-download` or `--yes`
+  has no effect and will cause a warning. In this way the command has single responsibility - check if package is
+  available in Snowflake Anaconda channel.
+
 ## New additions
 * Added support for fully qualified name (`database.schema.name`) in `name` parameter in streamlit project definition
 * Added support for fully qualified image repository names in `spcs image-repository` commands.
