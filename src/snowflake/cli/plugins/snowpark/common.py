@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
@@ -19,7 +19,7 @@ def check_if_replace_is_required(
     handler: str,
     return_type: str,
     imports: List[str],
-    source: str,
+    stage_artifact_file: str,
 ) -> bool:
     import logging
 
@@ -53,9 +53,7 @@ def check_if_replace_is_required(
         )
         return True
 
-    if {imp.lower() for imp in imports} != _get_import_from_resource(
-        resource_json, source
-    ):
+    if _compare_imports(resource_json, imports, stage_artifact_file):
         return True
 
     return False
@@ -207,13 +205,23 @@ def build_udf_sproc_identifier(
     return f"{name}({arguments})"
 
 
-def _get_import_from_resource(resource_json: dict, source_name: str) -> Set[str] | None:
-    pattern = re.compile(r"@\w+\.\w+\.([^,]+)")
+def _compare_imports(
+    resource_json: dict, imports: List[str], artifact_file: str
+) -> bool:
+    pattern = re.compile(r"(?:\[@?\w+_\w+\.)?(\w+(?:/\w+)+\.\w+)(?:\])?")
+
+    project_imports = {
+        imp
+        for import_string in [*imports, artifact_file]
+        for imp in pattern.findall(import_string.lower())
+    }
 
     if "imports" not in resource_json.keys():
-        return set()
-    return {
-        imp.lower()
-        for imp in pattern.findall(resource_json["imports"])
-        if source_name not in imp
-    }
+        object_imports = set()
+    else:
+        object_imports = {
+            imp.lower()
+            for imp in pattern.findall(resource_json.get("imports", "").lower())
+        }
+
+    return project_imports != object_imports

@@ -269,7 +269,7 @@ def _deploy_single_object(
             handler,
             returns,
             imports,
-            source_name,
+            stage_artifact_path,
         )
 
     if object_exists and not replace_object:
