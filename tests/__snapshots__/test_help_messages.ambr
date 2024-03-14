@@ -1286,11 +1286,9 @@
   │ *    stage_name      TEXT  Name of the stage. [default: None] [required]     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --pattern  -p      TEXT  Regex pattern for filtering files by name. Git      │
-  │                          repository scope prefix is not included in regex    │
-  │                          matching. For example list --pattern=".*\.txt will  │
-  │                          list all files with .txt extension.                 │
-  │                          [default: .*]                                       │
+  │ --pattern  -p      TEXT  Regex pattern for filtering files by name. For      │
+  │                          example --pattern=".*\.txt" will filter only files  │
+  │                          with .txt extension.                                │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮

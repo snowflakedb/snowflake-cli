@@ -378,14 +378,16 @@ def like_option(help_example: str):
     )
 
 
-def pattern_option(help_example: str) -> typer.Option:
-    return typer.Option(
-        ".*",
-        "--pattern",
-        "-p",
-        help="Regex pattern for filtering files by name. Git repository scope prefix is not included in regex matching."
-        f" For example {help_example}.",
-    )
+PatternOption = typer.Option(
+    None,
+    "--pattern",
+    "-p",
+    help=(
+        "Regex pattern for filtering files by name."
+        ' For example --pattern=".*\.txt" will filter only files with .txt extension.'
+    ),
+    show_default=False,
+)
 
 
 def experimental_option(
