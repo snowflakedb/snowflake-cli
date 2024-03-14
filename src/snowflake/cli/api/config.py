@@ -135,6 +135,11 @@ def get_connection(connection_name: str) -> dict:
 
 def get_default_connection() -> dict:
     def_connection_name = CONFIG_MANAGER["default_connection_name"]
+    if not connection_exists(def_connection_name):
+        raise MissingConfiguration(
+            f"Couldn't find connection for default connection `{def_connection_name}`. "
+            f"Specify connection name or configure default connection."
+        )
     return get_connection(def_connection_name)
 
 
