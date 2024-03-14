@@ -106,6 +106,10 @@ def test_list_files(runner, sf_git_repository):
     result = runner.invoke_with_connection(["git", "list-files", sf_git_repository])
     _assert_invalid_repo_path_error_message(result.output)
 
+    repository_path = f"@{sf_git_repository}/branches/missing_slash"
+    result = runner.invoke_with_connection(["git", "list-files", repository_path])
+    _assert_invalid_repo_path_error_message(result.output)
+
     try:
         repository_path = f"@{sf_git_repository}"
         runner.invoke_with_connection(["git", "list-files", repository_path])
@@ -239,7 +243,11 @@ def _assert_invalid_repo_path_error_message(output):
     assert (
         "REPOSITORY_PATH should be a path to git repository stage with scope" in output
     )
-    assert "provided. For example: @my_repo/branches/main" in output
+    assert (
+        "provided. Path to the repository root must end with '/'. For example:"
+        in output
+    )
+    assert "@my_repo/branches/main/" in output
 
 
 def _integration_exists(runner, integration_name):

@@ -24,11 +24,13 @@ log = logging.getLogger(__name__)
 
 
 def _repo_path_argument_callback(path):
-    if not is_stage_path(path):
+    if not is_stage_path(path) or len(path.split("/")) < 4:
         raise ClickException(
             "REPOSITORY_PATH should be a path to git repository stage with scope provided."
+            " Path to the repository root must end with '/'."
             " For example: @my_repo/branches/main/"
         )
+
     return path
 
 
@@ -47,8 +49,8 @@ PatternOption = pattern_option(
 )
 
 
-def _assure_repository_does_not_exist(repository_name: str) -> None:
-    if ObjectManager().object_exists(
+def _assure_repository_does_not_exist(om: ObjectManager, repository_name: str) -> None:
+    if om.object_exists(
         object_type=ObjectType.GIT_REPOSITORY.value.cli_name, name=repository_name
     ):
         raise ClickException(f"Repository '{repository_name}' already exists")
@@ -76,9 +78,9 @@ def setup(
 
     * API integration - object allowing Snowflake to interact with git repository.
     """
-    _assure_repository_does_not_exist(repository_name)
     manager = GitManager()
     om = ObjectManager()
+    _assure_repository_does_not_exist(om, repository_name)
 
     url = typer.prompt("Origin url")
     _validate_origin_url(url)
