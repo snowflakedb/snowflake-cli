@@ -143,6 +143,7 @@ def deploy(
             existing_objects=existing_procedures,
             packages=packages,
             stage_artifact_path=artifact_stage_target,
+            source_name=build_artifact_path.name,
         )
         deploy_status.append(operation_result)
 
@@ -155,6 +156,7 @@ def deploy(
             existing_objects=existing_functions,
             packages=packages,
             stage_artifact_path=artifact_stage_target,
+            source_name=build_artifact_path.name,
         )
         deploy_status.append(operation_result)
 
@@ -241,6 +243,7 @@ def _deploy_single_object(
     existing_objects: Dict[str, Dict],
     packages: List[str],
     stage_artifact_path: str,
+    source_name: str,
 ):
     identifier = build_udf_sproc_identifier(
         object_definition, manager, include_parameter_names=False
@@ -255,6 +258,7 @@ def _deploy_single_object(
 
     handler = object_definition.handler
     returns = object_definition.returns
+    imports = object_definition.imports
     replace_object = False
 
     object_exists = identifier in existing_objects
@@ -264,6 +268,8 @@ def _deploy_single_object(
             existing_objects[identifier],
             handler,
             returns,
+            imports,
+            stage_artifact_path,
         )
 
     if object_exists and not replace_object:
@@ -282,7 +288,7 @@ def _deploy_single_object(
         "runtime": object_definition.runtime,
         "external_access_integrations": object_definition.external_access_integrations,
         "secrets": object_definition.secrets,
-        "imports": object_definition.imports,
+        "imports": imports,
     }
     if object_type == ObjectType.PROCEDURE:
         create_or_replace_kwargs[

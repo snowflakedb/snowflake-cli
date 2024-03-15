@@ -138,6 +138,7 @@ def test_deploy_function_no_changes(
         ("packages", '["foo=1.2.3", "bar>=3.0.0"]'),
         ("handler", "app.func1_handler"),
         ("returns", "string"),
+        ("imports", "DEV_DEPLOYMENT/my_snowpark_project/app.zip"),
     ]
 
     queries, result, project_dir = _deploy_function(
