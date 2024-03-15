@@ -1,10 +1,10 @@
 from pathlib import Path
 
-import tomllib
+import tomlkit
 
 
 def sync():
-    pyproject = tomllib.loads(Path("pyproject.toml").read_text())
+    pyproject = tomlkit.loads(Path("pyproject.toml").read_text())
     dependencies = pyproject["project"]["dependencies"]
     dev_dependencies = pyproject["project"]["optional-dependencies"]["development"]
     with open(".snyk/req-auto-generated.txt", "w") as req:
