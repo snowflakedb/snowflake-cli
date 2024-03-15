@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import typer
 from snowflake.cli.api.commands.snow_typer import SnowTyper
@@ -8,6 +8,14 @@ from snowflake.cli.plugins.sql.manager import SqlManager
 
 # simple Typer with defaults because it won't become a command group as it contains only one command
 app = SnowTyper()
+
+
+def _parse_key_value(key_value_str: str):
+    parts = key_value_str.split("=")
+    if len(parts) < 2:
+        raise ValueError("Passed key-value pair does not comform with key=value format")
+
+    return parts[0], "=".join(parts[1:])
 
 
 @app.command(name="sql", requires_connection=True)
@@ -34,6 +42,13 @@ def execute_sql(
         "-i",
         help="Read the query from standard input. Use it when piping input to this command.",
     ),
+    data_override: List[str] = typer.Option(
+        None,
+        "--data",
+        "-D",
+        help="String in format of key=value. If provided the SQL content will "
+        "be treated and rendered using provided data.",
+    ),
     **options
 ) -> CommandResult:
     """
@@ -42,7 +57,13 @@ def execute_sql(
     Query to execute can be specified using query option, filename option (all queries from file will be executed)
     or via stdin by piping output from other command. For example `cat my.sql | snow sql -i`.
     """
-    single_statement, cursors = SqlManager().execute(query, file, std_in)
+    data = {}
+    if data_override:
+        for key_value_str in data_override:
+            key, value = _parse_key_value(key_value_str)
+            data[key] = value
+
+    single_statement, cursors = SqlManager().execute(query, file, std_in, data=data)
     if single_statement:
         return QueryResult(next(cursors))
     return MultipleResults((QueryResult(c) for c in cursors))
