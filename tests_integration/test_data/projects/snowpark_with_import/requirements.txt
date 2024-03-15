@@ -1,0 +1,5 @@
+snowflake-snowpark-python
+
+# Package below should not be in snowflake anaconda
+# To assure we have full control over it we use out own dummy pkg
+# https://pypi.org/project/dummy-pkg-for-tests/

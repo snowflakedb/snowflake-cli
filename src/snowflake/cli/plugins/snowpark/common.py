@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Dict, List, Optional
 
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
@@ -17,6 +18,8 @@ def check_if_replace_is_required(
     current_state,
     handler: str,
     return_type: str,
+    imports: List[str],
+    stage_artifact_file: str,
 ) -> bool:
     import logging
 
@@ -48,6 +51,9 @@ def check_if_replace_is_required(
         log.info(
             "Return type or handler types do not match. Replacing the %s.", object_type
         )
+        return True
+
+    if _compare_imports(resource_json, imports, stage_artifact_file):
         return True
 
     return False
@@ -197,3 +203,25 @@ def build_udf_sproc_identifier(
         schema=udf_sproc.schema_name,
     )
     return f"{name}({arguments})"
+
+
+def _compare_imports(
+    resource_json: dict, imports: List[str], artifact_file: str
+) -> bool:
+    pattern = re.compile(r"(?:\[@?\w+_\w+\.)?(\w+(?:/\w+)+\.\w+)(?:\])?")
+
+    project_imports = {
+        imp
+        for import_string in [*imports, artifact_file]
+        for imp in pattern.findall(import_string.lower())
+    }
+
+    if "imports" not in resource_json.keys():
+        object_imports = set()
+    else:
+        object_imports = {
+            imp.lower()
+            for imp in pattern.findall(resource_json.get("imports", "").lower())
+        }
+
+    return project_imports != object_imports
