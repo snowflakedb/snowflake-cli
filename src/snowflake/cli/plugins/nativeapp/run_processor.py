@@ -356,6 +356,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         patch: Optional[str] = None,
         from_release_directive: bool = False,
         is_interactive: bool = False,
+        skip_app_update: bool = True,
         *args,
         **kwargs,
     ):
@@ -395,5 +396,6 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             # 3. Upload files from deploy root local folder to the above stage
             diff = self.sync_deploy_root_with_stage(self.package_role)
 
-        # 4. Create an application if none exists, else upgrade the application
-        self._create_dev_app(diff)
+        if not skip_app_update:
+            # 4. Create an application if none exists, else upgrade the application
+            self._create_dev_app(diff)

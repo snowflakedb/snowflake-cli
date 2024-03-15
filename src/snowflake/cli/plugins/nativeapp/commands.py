@@ -224,3 +224,26 @@ def app_teardown(
     )
     processor.process(force)
     return MessageResult(f"Teardown is now complete.")
+
+
+@app.command("deploy", requires_connection=True)
+@with_project_definition("native_app")
+def app_deploy(
+    **options,
+) -> CommandResult:
+    """
+    Syncs the local changes to the stage without creating or updating the application.
+    """
+
+    processor = NativeAppRunProcessor(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+
+    processor.build_bundle()
+    processor.process(
+        policy=DenyAlwaysPolicy(),
+        skip_app_update=True,
+    )
+
+    return MessageResult(f"Deployed successfully.")
