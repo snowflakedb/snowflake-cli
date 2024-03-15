@@ -14,7 +14,7 @@ from snowflake.cli.app.commands_registration import (
     LoadedExternalCommandPlugin,
 )
 from snowflake.cli.app.commands_registration.builtin_plugins import (
-    builtin_plugin_name_to_plugin_spec,
+    get_builtin_plugin_name_to_plugin_spec,
 )
 from snowflake.cli.app.commands_registration.exception_logging import exception_logging
 
@@ -31,7 +31,7 @@ class CommandPluginsLoader:
         self._loaded_command_paths: Dict[CommandPath, LoadedCommandPlugin] = {}
 
     def register_builtin_plugins(self) -> None:
-        for (plugin_name, plugin) in builtin_plugin_name_to_plugin_spec.items():
+        for plugin_name, plugin in get_builtin_plugin_name_to_plugin_spec().items():
             try:
                 self._plugin_manager.register(plugin=plugin, name=plugin_name)
             except Exception as ex:
@@ -51,7 +51,7 @@ class CommandPluginsLoader:
                 )
 
     def load_all_registered_plugins(self) -> List[LoadedCommandPlugin]:
-        for (plugin_name, plugin) in self._plugin_manager.list_name_plugin():
+        for plugin_name, plugin in self._plugin_manager.list_name_plugin():
             self._load_plugin(plugin_name, plugin)
         return list(self._loaded_plugins.values())
 
@@ -89,7 +89,7 @@ class CommandPluginsLoader:
     def _load_plugin_spec(
         self, plugin_name: str, plugin
     ) -> Optional[LoadedCommandPlugin]:
-        if plugin_name in builtin_plugin_name_to_plugin_spec.keys():
+        if plugin_name in get_builtin_plugin_name_to_plugin_spec().keys():
             return self._load_builtin_plugin_spec(plugin_name, plugin)
         else:
             return self._load_external_plugin_spec(plugin_name, plugin)

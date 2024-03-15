@@ -21,3 +21,6 @@ password = "dummy_password"
 
 [connections.test_connections]
 user = "python"
+
+[cli.features]
+enable_snowgit = true

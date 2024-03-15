@@ -5,6 +5,7 @@ from typing import Optional, Tuple, Union
 from click import ClickException
 from snowflake.cli.api.constants import OBJECT_TO_NAMES, ObjectNames
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 
 
@@ -44,3 +45,10 @@ class ObjectManager(SqlExecutionMixin):
             )
         object_name = _get_object_names(object_type).sf_name
         return self._execute_query(f"describe {object_name} {name}")
+
+    def object_exists(self, *, object_type: str, name: str):
+        try:
+            self.describe(object_type=object_type, name=name)
+            return True
+        except ProgrammingError:
+            return False
