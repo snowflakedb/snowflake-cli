@@ -7,6 +7,7 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.util import identifier_to_show_like_pattern
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -272,22 +273,55 @@ def test_use_command(mock_execute_query, _object):
     mock_execute_query.assert_called_once_with(f"use {_object.value.sf_name} foo_name")
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "select &{ aaa }.&{ bbb }",
+        "select &aaa.&bbb",
+        "select &aaa.&{ bbb }",
+    ],
+)
 @mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
-def test_rendering_of_sql(mock_execute_query, runner):
-    result = runner.invoke(
-        ["sql", "-q", "select %{ aaa }.%{ bbb }", "-D", "aaa=foo", "-D", "bbb=bar"]
-    )
+def test_rendering_of_sql(mock_execute_query, query, runner):
+    result = runner.invoke(["sql", "-q", query, "-D", "aaa=foo", "-D", "bbb=bar"])
     assert result.exit_code == 0, result.output
     mock_execute_query.assert_called_once_with("select foo.bar")
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "select &{ aaa }.&{ bbb }",
+        "select &aaa.&bbb",
+        "select &aaa.&{ bbb }",
+    ],
+)
 @mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
-def test_no_rendering_of_sql_if_no_data(mock_execute_query, runner):
-    result = runner.invoke(["sql", "-q", "select %{ aaa }.%{ bbb }"])
+def test_no_rendering_of_sql_if_no_data(mock_execute_query, query, runner):
+    result = runner.invoke(["sql", "-q", query])
     assert result.exit_code == 0, result.output
-    mock_execute_query.assert_called_once_with("select %{ aaa }.%{ bbb }")
+    mock_execute_query.assert_called_once_with(query)
 
 
-def test_execution_fails_if_unknown_variable(runner):
-    result = runner.invoke(["sql", "-q", "select %{ foo }", "-D", "bbb=1"])
+@pytest.mark.parametrize("query", ["select &{ foo }", "select &foo"])
+def test_execution_fails_if_unknown_variable(runner, query):
+    result = runner.invoke(["sql", "-q", query, "-D", "bbb=1"])
     assert "SQL template rendering error: 'foo' is undefined" in result.output
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        # Test escaping
+        ("&&foo", "&foo"),
+        ("select *  from &&foo join bar", "select *  from &foo join bar"),
+        # Test basic usage
+        ("&foo", "&{ foo }"),
+        ("select *  from &foo join bar", "select *  from &{ foo } join bar"),
+        # Test templating is ignored
+        ("&{ foo }", "&{ foo }"),
+        ("select *  from &{ foo } join bar", "select *  from &{ foo } join bar"),
+    ],
+)
+def test_snowsql_compatibility(text, expected):
+    assert transpile_snowsql_templates(text) == expected

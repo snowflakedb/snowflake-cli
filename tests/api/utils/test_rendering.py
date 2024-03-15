@@ -4,20 +4,20 @@ from snowflake.cli.api.utils.rendering import snowflake_cli_jinja_render
 
 
 def test_rendering_with_data():
-    assert snowflake_cli_jinja_render("%{ foo }", data={"foo": "bar"}) == "bar"
+    assert snowflake_cli_jinja_render("&{ foo }", data={"foo": "bar"}) == "bar"
 
 
 @pytest.mark.parametrize(
     "text, output",
     [
         # Green path
-        ("%{ foo }", "bar"),
+        ("&{ foo }", "bar"),
         # Using $ as sf variable and basic jinja for server side
         ("${{ foo }}", "${{ foo }}"),
-        ("$%{ foo }{{ var }}", "$bar{{ var }}"),
-        ("${{ %{ foo } }}", "${{ bar }}"),
+        ("$&{ foo }{{ var }}", "$bar{{ var }}"),
+        ("${{ &{ foo } }}", "${{ bar }}"),
         # Using $ as sf variable and client side rendering
-        ("$%{ foo }", "$bar"),
+        ("$&{ foo }", "$bar"),
     ],
 )
 def test_rendering(text, output):
@@ -45,13 +45,13 @@ def test_that_common_logic_block_are_ignored(text):
 
 
 def test_that_common_comments_are_respected():
-    assert snowflake_cli_jinja_render("{# note a comment %{ foo } #}") == ""
+    assert snowflake_cli_jinja_render("{# note a comment &{ foo } #}") == ""
     assert (
-        snowflake_cli_jinja_render("{# note a comment #}%{ foo }", data={"foo": "bar"})
+        snowflake_cli_jinja_render("{# note a comment #}&{ foo }", data={"foo": "bar"})
         == "bar"
     )
 
 
 def test_that_undefined_variables_raise_error():
     with pytest.raises(UndefinedError):
-        snowflake_cli_jinja_render("%{ foo }")
+        snowflake_cli_jinja_render("&{ foo }")

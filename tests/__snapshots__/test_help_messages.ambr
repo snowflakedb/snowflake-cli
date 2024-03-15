@@ -4826,6 +4826,10 @@
   │ --filename  -f      FILE  File to execute. [default: None]                   │
   │ --stdin     -i            Read the query from standard input. Use it when    │
   │                           piping input to this command.                      │
+  │ --data      -D      TEXT  String in format of key=value. If provided the SQL │
+  │                           content will be treated and rendered using         │
+  │                           provided data.                                     │
+  │                           [default: None]                                    │
   │ --help      -h            Show this message and exit.                        │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮

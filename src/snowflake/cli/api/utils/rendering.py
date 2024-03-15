@@ -108,7 +108,7 @@ def get_snowflake_cli_jinja_env():
         Environment(
             loader=loaders.BaseLoader(),
             keep_trailing_newline=True,
-            variable_start_string="%{",
+            variable_start_string="&{",
             variable_end_string="}",
             block_start_string=_random_block,
             block_end_string=_random_block,
