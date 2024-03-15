@@ -47,7 +47,7 @@ def execute_sql(
         "--data",
         "-D",
         help="String in format of key=value. If provided the SQL content will "
-        "be treated and rendered using provided data.",
+        "be treated as template and rendered using provided data.",
     ),
     **options,
 ) -> CommandResult:
@@ -56,6 +56,9 @@ def execute_sql(
 
     Query to execute can be specified using query option, filename option (all queries from file will be executed)
     or via stdin by piping output from other command. For example `cat my.sql | snow sql -i`.
+
+    The command supports variable substitution that happens on client-side. Both $VARIABLE or ${ VARIABLE }
+    syntax are supported.
     """
     data = {}
     if data_override:

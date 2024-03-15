@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from textwrap import dedent
 from typing import Dict, Optional
@@ -34,65 +33,7 @@ def procedure_from_js_file(env: jinja2.Environment, file_name: str):
     )
 
 
-PROCEDURE_TEMPLATE = dedent(
-    """\
-    CREATE OR REPLACE {{ object_type | upper }} {{ name | upper }}(\
-    {% for arg in signature %}
-    {{ arg['name'] | upper }} {{ arg['type'] }}{{ "," if not loop.last -}}
-    {% endfor %}
-    )
-    RETURNS {{ returns }}
-    LANGUAGE {{ language }}
-    {% if runtime_version is defined -%}
-    RUNTIME_VERSION = '{{ runtime_version }}'
-    {% endif -%}
-    {% if packages is defined -%}
-    PACKAGES = ('{{ packages }}')
-    {% endif -%}
-    {% if imports is defined -%}
-    IMPORTS = ({% for import in imports %}'{{ import }}'{{ ", " if not loop.last }}{% endfor %})
-    {% endif -%}
-    {% if handler is defined -%}
-    HANDLER = '{{ handler }}'
-    {% endif -%}
-    {% if code is defined -%}
-    AS
-    $$
-    {{ code }}
-    $$
-    {%- endif -%}
-    ;
-
-    {%- if grants is defined -%}
-    {%- for grant in grants %}
-    GRANT USAGE ON {{ object_type | upper }} {{ name | upper }}({% for arg in signature %}{{ arg['type'] }}{{ ", " if not loop.last }}{% endfor %})
-    TO DATABASE ROLE {{ grant['role'] }};
-    {% endfor -%}
-    {% endif -%}\
-"""
-)
-
-
-@jinja2.pass_environment  # type: ignore
-def render_metadata(env: jinja2.Environment, file_name: str):
-    metadata = json.loads(
-        SecurePath(file_name).absolute().read_text(file_size_limit_mb=UNLIMITED)
-    )
-    template = env.from_string(PROCEDURE_TEMPLATE)
-
-    rendered = []
-    known_objects = {
-        "procedures": "procedure",
-        "udfs": "function",
-        "udtfs": "function",
-    }
-    for object_key, object_type in known_objects.items():
-        for obj in metadata.get(object_key, []):
-            rendered.append(template.render(object_type=object_type, **obj))
-    return "\n".join(rendered)
-
-
-_CUSTOM_FILTERS = [render_metadata, read_file_content, procedure_from_js_file]
+_CUSTOM_FILTERS = [read_file_content, procedure_from_js_file]
 
 
 def _env_bootstrap(env: Environment) -> Environment:
