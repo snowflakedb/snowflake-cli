@@ -157,7 +157,7 @@ class StreamlitManager(SqlExecutionMixin):
 
             stage_manager.create(stage_name=stage_name)
 
-            root_location = stage_manager.get_standard_stage_name(
+            root_location = stage_manager.get_standard_stage_prefix(
                 f"{stage_name}/{streamlit_name_for_root_location}"
             )
 

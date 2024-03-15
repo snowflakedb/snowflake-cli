@@ -16,3 +16,7 @@ def path_resolver(path_to_file: str) -> str:
         if 0 < return_value <= BUFFER_SIZE:
             return buffer.value
     return path_to_file
+
+
+def is_stage_path(path: str) -> bool:
+    return path.startswith("@") or path.startswith("snow://")

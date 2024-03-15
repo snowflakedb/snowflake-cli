@@ -29,6 +29,7 @@ from snowflake.cli.plugins.object.commands import _scope_validate
         ("warehouse", "warehouses"),
         ("view", "views"),
         ("image-repository", "image repositories"),
+        ("git-repository", "git repositories"),
     ],
 )
 def test_show(
@@ -62,6 +63,7 @@ DESCRIBE_TEST_OBJECTS = [
     ("user", "user_example"),
     ("warehouse", "warehouse_example"),
     ("view", "view_example"),
+    ("git-repository", "git_repository_example"),
 ]
 
 

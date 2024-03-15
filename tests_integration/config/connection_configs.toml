@@ -2,3 +2,6 @@
 [connections.integration]
 schema = "public"
 role = "INTEGRATION_TESTS"
+
+[cli.features]
+enable_snowgit = true
