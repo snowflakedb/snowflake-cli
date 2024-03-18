@@ -5,18 +5,23 @@ from zipfile import ZipFile
 
 import snowflake.cli.plugins.snowpark.snowpark_shared as shared
 from snowflake.cli.plugins.snowpark.models import Requirement, SplitRequirements
+from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 
 
 @mock.patch(
-    "snowflake.cli.plugins.snowpark.package.anaconda.AnacondaChannel.parse_anaconda_packages"
+    "snowflake.cli.plugins.snowpark.package.anaconda.AnacondaChannel.from_snowflake"
 )
 @mock.patch("snowflake.cli.plugins.snowpark.package_utils.install_packages")
 def test_snowpark_package(
-    mock_install, mock_parse, temp_dir, correct_requirements_txt, dot_packages_directory
+    mock_install,
+    mock_anaconda,
+    temp_dir,
+    correct_requirements_txt,
+    dot_packages_directory,
 ):
 
-    mock_parse.return_value = SplitRequirements(
-        [], [Requirement.parse("totally-awesome-package")]
+    mock_anaconda.return_value = AnacondaChannel(
+        packages={"totally-awesome-package": {}}
     )
 
     mock_install.return_value = (

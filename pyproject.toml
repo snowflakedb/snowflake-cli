@@ -44,6 +44,7 @@ development = [
   "pytest==8.1.1",
   "pytest-randomly==3.15.0",
   "syrupy==4.6.1",
+  "hatchling"  # For running unit tests of external plugins
 ]
 
 [project.urls]
