@@ -52,7 +52,7 @@ CONFIG_MANAGER.add_option(
 class ConnectionConfig:
     account: Optional[str] = None
     user: Optional[str] = None
-    password: Optional[str] = None
+    password: Optional[str] = field(default=None, repr=False)
     host: Optional[str] = None
     region: Optional[str] = None
     port: Optional[int] = None
