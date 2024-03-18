@@ -7,7 +7,7 @@ from typing import Dict, Optional
 
 import snowflake.connector
 from click.exceptions import ClickException
-from snowflake.cli.api.config import get_connection, get_default_connection
+from snowflake.cli.api.config import get_connection_dict, get_default_connection_dict
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import (
     InvalidConnectionConfiguration,
@@ -37,11 +37,11 @@ def connect_to_snowflake(
         raise ClickException("Can't use connection name and temporary connection.")
 
     if connection_name:
-        connection_parameters = get_connection(connection_name)
+        connection_parameters = get_connection_dict(connection_name)
     elif temporary_connection:
         connection_parameters = {}  # we will apply overrides in next step
     else:
-        connection_parameters = get_default_connection()
+        connection_parameters = get_default_connection_dict()
 
     # Apply overrides to connection details
     for key, value in overrides.items():

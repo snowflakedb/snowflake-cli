@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import contextmanager
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
@@ -47,6 +48,50 @@ CONFIG_MANAGER.add_option(
 )
 
 
+@dataclass
+class ConnectionConfig:
+    account: Optional[str] = None
+    user: Optional[str] = None
+    password: Optional[str] = None
+    host: Optional[str] = None
+    region: Optional[str] = None
+    port: Optional[int] = None
+    database: Optional[str] = None
+    schema: Optional[str] = None
+    warehouse: Optional[str] = None
+    role: Optional[str] = None
+    authenticator: Optional[str] = None
+    private_key_path: Optional[str] = None
+
+    _other_settings: dict = field(default_factory=lambda: {})
+
+    @classmethod
+    def from_dict(cls, config_dict: dict) -> ConnectionConfig:
+        self = cls()
+        for key, value in config_dict.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+            else:
+                self._other_settings[key] = value
+        return self
+
+    def to_dict_of_known_non_empty_values(self) -> dict:
+        return {
+            k: v
+            for k, v in asdict(self).items()
+            if k != "_other_settings" and v is not None
+        }
+
+    def _non_empty_other_values(self) -> dict:
+        return {k: v for k, v in self._other_settings.items() if v is not None}
+
+    def to_dict_of_all_non_empty_values(self) -> dict:
+        return {
+            **self.to_dict_of_known_non_empty_values(),
+            **self._non_empty_other_values(),
+        }
+
+
 def config_init(config_file: Optional[Path]):
     """
     Initializes the app configuration. Config provided via cli flag takes precedence.
@@ -61,8 +106,12 @@ def config_init(config_file: Optional[Path]):
     CONFIG_MANAGER.read_config()
 
 
-def add_connection(name: str, parameters: dict):
-    set_config_value(section=CONNECTIONS_SECTION, key=name, value=parameters)
+def add_connection(name: str, connection_config: ConnectionConfig):
+    set_config_value(
+        section=CONNECTIONS_SECTION,
+        key=name,
+        value=connection_config.to_dict_of_all_non_empty_values(),
+    )
 
 
 _DEFAULT_LOGS_CONFIG = {
@@ -126,16 +175,23 @@ def config_section_exists(*path) -> bool:
         return False
 
 
-def get_connection(connection_name: str) -> dict:
+def get_all_connections() -> dict[str, ConnectionConfig]:
+    return {
+        k: ConnectionConfig.from_dict(connection_dict)
+        for k, connection_dict in get_config_section("connections").items()
+    }
+
+
+def get_connection_dict(connection_name: str) -> dict:
     try:
         return get_config_section(CONNECTIONS_SECTION, connection_name)
     except KeyError:
         raise MissingConfiguration(f"Connection {connection_name} is not configured")
 
 
-def get_default_connection() -> dict:
+def get_default_connection_dict() -> dict:
     def_connection_name = CONFIG_MANAGER["default_connection_name"]
-    return get_connection(def_connection_name)
+    return get_connection_dict(def_connection_name)
 
 
 def get_config_section(*path) -> dict:
@@ -215,9 +271,9 @@ def _merge_section_with_env(section: Union[Table, Any], *path) -> Dict[str, str]
 
 
 def _get_envs_for_path(*path) -> dict:
-    env_variables_prefix = "SNOWFLAKE_" + "_".join(p.upper() for p in path)
+    env_variables_prefix = "_".join(["SNOWFLAKE"] + [p.upper() for p in path]) + "_"
     return {
-        k.replace(f"{env_variables_prefix}_", "").lower(): os.environ[k]
+        k.replace(env_variables_prefix, "").lower(): os.environ[k]
         for k in os.environ.keys()
         if k.startswith(env_variables_prefix)
     }
