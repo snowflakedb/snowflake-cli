@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from textwrap import dedent
 from typing import Dict, Optional
@@ -87,6 +88,24 @@ def jinja_render_from_file(
         print(rendered_result)
 
 
+class _AttrGetter:
+    def __init__(self, data_dict):
+        self._data_dict = data_dict
+
+    def __getattr__(self, item):
+        if item not in self._data_dict:
+            raise AttributeError(f"No attribute {item}")
+        return self._data_dict[item]
+
+
+def _add_project_context(data: Dict):
+    context_key = "ctx"
+    if context_key in data:
+        raise ValueError(f"{context_key} in user defined data")
+    context_data = {context_key: {"env": _AttrGetter(os.environ)}}
+    return {**data, **context_data}
+
+
 def snowflake_cli_jinja_render(content: str, data: Dict | None = None) -> str:
-    data = data or dict()
+    data = _add_project_context(data or dict())
     return get_snowflake_cli_jinja_env().from_string(content).render(**data)

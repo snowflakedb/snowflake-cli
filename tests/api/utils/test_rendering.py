@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from jinja2 import UndefinedError
 from snowflake.cli.api.utils.rendering import snowflake_cli_jinja_render
@@ -55,3 +57,7 @@ def test_that_common_comments_are_respected():
 def test_that_undefined_variables_raise_error():
     with pytest.raises(UndefinedError):
         snowflake_cli_jinja_render("&{ foo }")
+
+
+def test_contex_can_access_environment_variable():
+    assert snowflake_cli_jinja_render("&{ ctx.env.USER }") == os.environ.get("USER")
