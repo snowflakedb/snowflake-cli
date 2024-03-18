@@ -46,16 +46,20 @@ class TestPackage:
         snowflake_session.execute_string(f"DROP STAGE IF EXISTS {self.STAGE_NAME};")
 
     @pytest.mark.integration
-    def test_package_create_with_non_anaconda_package(self, directory_for_test, runner):
-        result = runner.invoke_with_connection_json(
-            [
-                "snowpark",
-                "package",
-                "create",
-                "dummy-pkg-for-tests-with-deps",
-                "--pypi-download",
-            ]
-        )
+    @pytest.mark.parametrize("ignore_anaconda", (True, False))
+    def test_package_create_with_non_anaconda_package(
+        self, directory_for_test, runner, ignore_anaconda
+    ):
+        command = [
+            "snowpark",
+            "package",
+            "create",
+            "dummy-pkg-for-tests-with-deps",
+            "--pypi-download",
+        ]
+        if ignore_anaconda:
+            command.append("--ignore-anaconda")
+        result = runner.invoke_with_connection_json(command)
 
         assert result.exit_code == 0
         assert Path("dummy-pkg-for-tests-with-deps.zip").is_file()
@@ -80,16 +84,20 @@ class TestPackage:
         assert not os.path.exists("dummy_pkg_for_tests_with_deps.zip")
 
     @pytest.mark.integration
-    def test_create_package_with_deps(self, directory_for_test, runner):
-        result = runner.invoke_with_connection_json(
-            [
-                "snowpark",
-                "package",
-                "create",
-                "dummy_pkg_for_tests_with_deps",
-                "--pypi-download",
-            ]
-        )
+    @pytest.mark.parametrize("ignore_anaconda", (True, False))
+    def test_create_package_with_deps(
+        self, directory_for_test, runner, ignore_anaconda
+    ):
+        command = [
+            "snowpark",
+            "package",
+            "create",
+            "dummy_pkg_for_tests_with_deps",
+            "--pypi-download",
+        ]
+        if ignore_anaconda:
+            command.append("--ignore-anaconda")
+        result = runner.invoke_with_connection_json(command)
 
         assert result.exit_code == 0
         assert (

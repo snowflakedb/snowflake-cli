@@ -29,20 +29,26 @@ log = logging.getLogger(__name__)
 
 
 def lookup(
-    name: str, install_packages: bool, allow_native_libraries: PypiOption
+    name: str,
+    install_packages: bool,
+    allow_native_libraries: PypiOption,
+    ignore_anaconda: bool,
 ) -> LookupResult:
 
-    anaconda = AnacondaChannel.from_snowflake()
-    package_response = anaconda.parse_anaconda_packages(
-        packages=[Requirement.parse(name)]
-    )
+    package = Requirement.parse(name)
+    anaconda = None
+    if ignore_anaconda:
+        package_response = SplitRequirements([], other=[package])
+    else:
+        anaconda = AnacondaChannel.from_snowflake()
+        package_response = anaconda.parse_anaconda_packages(packages=[package])
 
     if package_response.snowflake and not package_response.other:
         return InAnaconda(package_response, name)
     elif install_packages:
         status, result = package_utils.install_packages(
             anaconda=anaconda,
-            perform_anaconda_check=True,
+            perform_anaconda_check=not ignore_anaconda,
             package_name=name,
             file_name=None,
             allow_native_libraries=allow_native_libraries,

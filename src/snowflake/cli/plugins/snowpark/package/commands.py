@@ -133,6 +133,12 @@ deprecated_install_option = typer.Option(
     help="Installs packages that are not available on the Snowflake Anaconda channel.",
 )
 
+ignore_anaconda_option = typer.Option(
+    False,
+    "--ignore-anaconda",
+    help="Does not lookup packages on Snowflake Anaconda channel.",
+)
+
 
 @app.command("create", requires_connection=True)
 @cleanup_after_install
@@ -142,6 +148,7 @@ def package_create(
         help="Name of the package to create.",
     ),
     install_packages: bool = install_option,
+    ignore_anaconda: bool = ignore_anaconda_option,
     _deprecated_install_option: bool = deprecated_install_option,
     allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
     **options,
@@ -156,6 +163,7 @@ def package_create(
         name=name,
         install_packages=install_packages,
         allow_native_libraries=allow_native_libraries,
+        ignore_anaconda=ignore_anaconda,
     )
 
     if not isinstance(lookup_result, (NotInAnaconda, RequiresPackages)):

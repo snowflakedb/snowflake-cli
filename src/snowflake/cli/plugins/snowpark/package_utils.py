@@ -69,8 +69,11 @@ def deduplicate_and_sort_reqs(
     return deduped
 
 
+from typing import Optional
+
+
 def install_packages(
-    anaconda: AnacondaChannel,
+    anaconda: Optional[AnacondaChannel],
     file_name: str | None,
     perform_anaconda_check: bool = True,
     package_name: str | None = None,
@@ -95,6 +98,11 @@ def install_packages(
     if file_name and not Path(file_name).exists():
         raise ClickException(f"File {file_name} does not exists.")
 
+    if perform_anaconda_check and not anaconda:
+        raise ClickException(
+            "Cannot perform anaconda checks if anaconda channel is not specified."
+        )
+
     with Venv() as v:
         if package_name:
             # This is a Windows workaround where use TemporaryDirectory instead of NamedTemporaryFile
@@ -109,14 +117,18 @@ def install_packages(
             log.info(pip_failed_msg.format(pip_install_result))
             return False, None
 
-        if perform_anaconda_check:
+        dependency_requirements = [dep.requirement for dep in dependencies]
+        if not perform_anaconda_check:
+            dependencies_to_be_packed = dependencies
+            second_chance_results = SplitRequirements([], other=dependency_requirements)
+        else:
             log.info("Checking for dependencies available in Anaconda...")
-            dependency_requirements = [dep.requirement for dep in dependencies]
             log.info(
                 "Downloaded packages: %s",
                 ",".join([d.name for d in dependency_requirements]),
             )
-            second_chance_results: SplitRequirements = anaconda.parse_anaconda_packages(
+            assert anaconda is not None
+            second_chance_results = anaconda.parse_anaconda_packages(
                 packages=dependency_requirements
             )
 
@@ -125,10 +137,10 @@ def install_packages(
             else:
                 log.info("None of the package dependencies were found on Anaconda")
 
-        dependencies_to_be_packed = _get_dependencies_not_avaiable_in_conda(
-            dependencies,
-            second_chance_results.snowflake if second_chance_results else None,
-        )
+            dependencies_to_be_packed = _get_dependencies_not_avaiable_in_conda(
+                dependencies,
+                second_chance_results.snowflake if second_chance_results else None,
+            )
 
         log.info("Checking to see if packages have native libraries...")
 
