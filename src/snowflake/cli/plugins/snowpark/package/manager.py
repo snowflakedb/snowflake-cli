@@ -46,7 +46,7 @@ def lookup(
     if package_response.snowflake and not package_response.other:
         return InAnaconda(package_response, name)
     elif install_packages:
-        status, result = package_utils.install_packages(
+        status, result = package_utils.download_packages(
             anaconda=anaconda,
             perform_anaconda_check=not ignore_anaconda,
             package_name=name,

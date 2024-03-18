@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import zipfile
 from pathlib import Path
 from typing import List
 
@@ -13,6 +14,7 @@ from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
     PypiOption,
     Requirement,
+    RequirementWithFiles,
     RequirementWithFilesAndDeps,
     SplitRequirements,
     pip_failed_msg,
@@ -69,21 +71,33 @@ def deduplicate_and_sort_reqs(
     return deduped
 
 
-from typing import Optional
+def _requirement_of_wheel_name(wheel_name: str) -> Requirement:
+    # wheel name format is {name}-{version}[-{extras}]*.whl
+    parts = wheel_name.split("-")
+    name, version = parts[:2]
+    return Requirement.parse(f"{name}=={version}")
 
 
-def install_packages(
-    anaconda: Optional[AnacondaChannel],
+def _unpack_wheel(wheel_path: Path) -> List[str]:
+    with zipfile.ZipFile(wheel_path, "r") as whl:
+        dest = wheel_path.parent
+        whl.extractall(dest)
+        return [str(dest / file) for file in whl.namelist()]
+
+
+def download_packages(
+    anaconda: AnacondaChannel | None,
     file_name: str | None,
     perform_anaconda_check: bool = True,
     package_name: str | None = None,
     allow_native_libraries: PypiOption = PypiOption.ASK,
 ) -> tuple[bool, SplitRequirements | None]:
     """
-    Install packages from a requirements.txt file or a single package name,
+    Downloads packages from a requirements.txt file or a single package name,
     into a local folder named '.packages'.
-    If a requirements.txt file is provided, they will be installed using pip.
-    If a package name is provided, it will be installed using pip.
+    If perform_anaconda_check is set to True, packages available in Snowflake Anaconda
+    channel will be omitted, otherwise all packages will be downloaded using pip.
+
     Returns a tuple of:
     1) a boolean indicating whether the installation was successful
     2) a SplitRequirements object containing any installed dependencies
@@ -103,30 +117,36 @@ def install_packages(
             "Cannot perform anaconda checks if anaconda channel is not specified."
         )
 
-    with Venv() as v:
+    with Venv() as v, SecurePath.temporary_directory() as downloaded_whl:
         if package_name:
             # This is a Windows workaround where use TemporaryDirectory instead of NamedTemporaryFile
             tmp_requirements = Path(v.directory.name) / "requirements.txt"
             tmp_requirements.write_text(str(package_name))
             file_name = str(tmp_requirements)
 
-        pip_install_result = v.pip_install(file_name)
-        dependencies = v.get_package_dependencies(file_name)
-
-        if pip_install_result != 0:
-            log.info(pip_failed_msg.format(pip_install_result))
+        pip_download_result = v.pip_download(
+            file_name, download_dir=downloaded_whl.path
+        )
+        if pip_download_result != 0:
+            log.info(pip_failed_msg.format(pip_download_result))
             return False, None
 
-        dependency_requirements = [dep.requirement for dep in dependencies]
+        dependency_requirements = []
+        name_to_wheel = {}
+        for whl in downloaded_whl.path.glob("*.whl"):
+            requirement = _requirement_of_wheel_name(whl.name)
+            dependency_requirements.append(requirement)
+            name_to_wheel[requirement.name] = whl
+
+        log.info(
+            "Downloaded packages: %s",
+            ",".join([d.name for d in dependency_requirements]),
+        )
+
         if not perform_anaconda_check:
-            dependencies_to_be_packed = dependencies
             second_chance_results = SplitRequirements([], other=dependency_requirements)
         else:
             log.info("Checking for dependencies available in Anaconda...")
-            log.info(
-                "Downloaded packages: %s",
-                ",".join([d.name for d in dependency_requirements]),
-            )
             assert anaconda is not None
             second_chance_results = anaconda.parse_anaconda_packages(
                 packages=dependency_requirements
@@ -137,26 +157,36 @@ def install_packages(
             else:
                 log.info("None of the package dependencies were found on Anaconda")
 
-            dependencies_to_be_packed = _get_dependencies_not_avaiable_in_conda(
-                dependencies,
-                second_chance_results.snowflake if second_chance_results else None,
+        dependencies_to_be_packed = [
+            RequirementWithFiles(
+                requirement, files=_unpack_wheel(name_to_wheel[requirement.name])
             )
+            for requirement in second_chance_results.other
+        ]
 
         log.info("Checking to see if packages have native libraries...")
-
         if _perform_native_libraries_check(
             dependencies_to_be_packed
         ) and not _confirm_native_libraries(allow_native_libraries):
             return False, second_chance_results
         else:
-            v.copy_files_to_packages_dir(
-                [Path(file) for dep in dependencies_to_be_packed for file in dep.files]
-            )
+            packages_dest = SecurePath(".packages")
+            packages_dest.mkdir()
+            for file in [
+                SecurePath(file)
+                for dep in dependencies_to_be_packed
+                for file in dep.files
+            ]:
+                destination = packages_dest / file.path.relative_to(downloaded_whl.path)
+                if not destination.parent.exists():
+                    destination.parent.mkdir(parents=True)
+                file.copy(destination.path)
+
             return True, second_chance_results
 
 
 def _check_for_native_libraries(
-    dependencies: List[RequirementWithFilesAndDeps],
+    dependencies: List[RequirementWithFiles],
 ) -> List[str]:
     return [
         dependency.requirement.name
@@ -210,7 +240,7 @@ def generate_deploy_stage_name(identifier: str) -> str:
     )
 
 
-def _perform_native_libraries_check(deps: List[RequirementWithFilesAndDeps]):
+def _perform_native_libraries_check(deps: List[RequirementWithFiles]):
     if native_libraries := _check_for_native_libraries(deps):
         _log_native_libraries(native_libraries)
         return True
@@ -223,10 +253,10 @@ def _log_native_libraries(
     native_libraries: List[str],
 ) -> None:
     log.error(
-        "Following dependencies utilise native libraries, not supported by Conda:"
+        "Following dependencies utilise shared libraries, not supported by Conda:"
     )
     log.error("\n".join(set(native_libraries)))
-    log.error("You may still try to create your package, but it probably won`t work")
+    log.error("You may still try to create your package, but it probably won't work")
     log.error("You may also request adding the package to Snowflake Conda channel")
     log.error("at https://support.anaconda.com/")
 
