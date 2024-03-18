@@ -36,8 +36,12 @@ from tests.nativeapp.utils import (
     NATIVEAPP_MANAGER_EXECUTE_QUERIES,
     NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME,
     RUN_MODULE,
+    RUN_PROCESSOR_APPLY_PACKAGE_SCRIPTS,
+    RUN_PROCESSOR_CREATE_APP_PACKAGE,
+    RUN_PROCESSOR_CREATE_DEV_APP,
     RUN_PROCESSOR_GET_EXISTING_APP_INFO,
     RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO,
+    RUN_PROCESSOR_SYNC_DEPLOY_ROOT_WITH_STAGE,
     TYPER_CONFIRM,
     mock_execute_helper,
     mock_snowflake_yml_file,
@@ -1462,3 +1466,46 @@ def test_get_existing_version_info(mock_execute, temp_dir, mock_cursor):
     result = processor.get_existing_version_info(version)
     assert mock_execute.mock_calls == expected
     assert result["version"] == version
+
+
+# Test process doesn't invoke create_dev_app when skip_app_update=true
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(RUN_PROCESSOR_CREATE_APP_PACKAGE)
+@mock.patch(RUN_PROCESSOR_APPLY_PACKAGE_SCRIPTS)
+@mock.patch(RUN_PROCESSOR_SYNC_DEPLOY_ROOT_WITH_STAGE)
+@mock.patch(RUN_PROCESSOR_CREATE_DEV_APP)
+def test_process_no_skip_app_update(
+    mock_create_dev_app,
+    mock_sync_deploy_root_with_stage,
+    mock_apply_package_scripts,
+    mock_create_app_package,
+    mock_execute,
+    mock_cursor,
+):
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role package_role")),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    run_processor = _get_na_run_processor()
+    run_processor.process(policy=deny_always_policy, skip_app_update=True)
+
+    assert mock_execute.mock_calls == expected
+    mock_create_app_package.assert_called()
+    mock_apply_package_scripts.assert_called()
+    mock_sync_deploy_root_with_stage.assert_called()
+    mock_create_dev_app.assert_not_called()
