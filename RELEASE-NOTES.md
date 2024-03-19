@@ -7,6 +7,11 @@
 ## Fixes and improvements
 
 
+# v2.1.1
+
+## Fixes and improvements
+* Improved security of printing connection details in `snow connection list`.
+
 # v2.1.0
 
 ## Backward incompatibility
