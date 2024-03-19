@@ -1,9 +1,10 @@
 from textwrap import dedent
 
-import pytest
+from tests.plugin.fixtures import install_plugin  # noqa
 
 
-def test_failing_plugin(runner, test_root_path, _install_plugin, caplog):
+def test_failing_plugin(runner, test_root_path, install_plugin, caplog):
+    install_plugin("failing_plugin")
     config_path = (
         test_root_path / "test_data" / "configs" / "failing_plugin_config.toml"
     )
@@ -22,11 +23,3 @@ def test_failing_plugin(runner, test_root_path, _install_plugin, caplog):
 +---------------------------------------+
     """
     )
-
-
-@pytest.fixture(scope="module")
-def _install_plugin(test_root_path):
-    import subprocess
-
-    path = test_root_path / ".." / "test_external_plugins" / "failing_plugin"
-    subprocess.check_call(["pip", "install", path])

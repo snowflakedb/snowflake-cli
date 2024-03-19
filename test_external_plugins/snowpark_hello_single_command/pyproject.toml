@@ -12,3 +12,6 @@ version = "0.0.1"
 
 [project.entry-points."snowflake.cli.plugin.command"]
 snowpark-hello = "snowflakecli.test_plugins.snowpark_hello.plugin_spec"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/snowflakecli"]

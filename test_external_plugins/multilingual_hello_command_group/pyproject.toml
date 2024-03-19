@@ -12,3 +12,6 @@ version = "0.0.1"
 
 [project.entry-points."snowflake.cli.plugin.command"]
 multilingual-hello = "snowflakecli.test_plugins.multilingual_hello.plugin_spec"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/snowflakecli"]

@@ -12,3 +12,6 @@ version = "0.0.1"
 
 [project.entry-points."snowflake.cli.plugin.command"]
 broken_plugin = "snowflakecli.test_plugins.broken_plugin.plugin_spec"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/snowflakecli"]

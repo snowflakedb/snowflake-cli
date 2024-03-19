@@ -12,3 +12,6 @@ version = "0.0.1"
 
 [project.entry-points."snowflake.cli.plugin.command"]
 override = "snowflakecli.test_plugins.override_build_in_command.plugin_spec"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/snowflakecli"]
