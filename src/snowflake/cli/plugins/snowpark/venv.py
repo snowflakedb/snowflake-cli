@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import venv
+import zipfile
 from enum import Enum
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -13,7 +14,7 @@ from typing import Dict, List
 
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
-    RequirementWithFilesAndDeps,
+    RequirementWithWheelAndDeps,
 )
 
 log = logging.getLogger(__name__)
@@ -79,23 +80,26 @@ class Venv:
         ][0]
 
     def get_package_dependencies(
-        self, requirements_file: str
-    ) -> List[RequirementWithFilesAndDeps]:
-        installed_packages = self._get_installed_packages_metadata()
+        self, requirements_file: str, downloads_dir: Path
+    ) -> List[RequirementWithWheelAndDeps]:
+        wheel_files = {
+            self._package_name_from_wheel_filename(wheel_path): wheel_path
+            for wheel_path in downloads_dir.glob("*.whl")
+        }
         dependencies: Dict = {}
 
         def _get_dependencies(package: Requirement):
-            if package.name not in dependencies.keys():
-                requires = installed_packages.get(package.name, {}).get(
-                    "requires_dist", []
+            if package.name not in dependencies:
+                wheel_path = wheel_files.get(package.name)
+                requires = (
+                    self._get_dependencies_from_wheel_metadata(wheel_path)
+                    if wheel_path
+                    else []
                 )
-                files = self._parse_file_list(
-                    self._get_library_path(),
-                    self._parse_info(package.name, PackageInfoType.FILES),
-                )
-
-                dependencies[package.name] = RequirementWithFilesAndDeps(
-                    requirement=package, files=files, dependencies=requires
+                dependencies[package.name] = RequirementWithWheelAndDeps(
+                    requirement=package,
+                    wheel_path=wheel_path,
+                    dependencies=requires,
                 )
 
                 log.debug(
@@ -109,7 +113,30 @@ class Venv:
             for line in req_file:
                 _get_dependencies(Requirement.parse_line(line))
 
-        return [dep for dep in dependencies.values()]
+        return list(dependencies.values())
+
+    @staticmethod
+    def _package_name_from_wheel_filename(wheel_path: Path) -> str:
+        # wheel file name is in format {name}-{version}[-{extra info}].whl*
+        return wheel_path.name.split("-")[0]
+
+    @staticmethod
+    def _get_dependencies_from_wheel_metadata(wheel_path: Path) -> List[str]:
+        with zipfile.ZipFile(wheel_path, "r") as whl:
+            metadata_file = [
+                path for path in whl.namelist() if path.endswith(".dist-info/METADATA")
+            ]
+            if len(metadata_file) != 1:
+                return []
+
+            root = zipfile.Path(whl)
+            metadata = (root / metadata_file[0]).read_text()
+            keyword = "Requires-Dist:"
+            return [
+                line[len(keyword) :].strip()
+                for line in metadata.splitlines()
+                if line.startswith(keyword)
+            ]
 
     def _get_installed_packages_metadata(self):
         if inspect := self.get_pip_inspect():

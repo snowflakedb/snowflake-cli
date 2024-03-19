@@ -68,25 +68,22 @@ class RequirementWithFilesAndDeps(RequirementWithFiles):
 
 
 @dataclass
-class RequirementWithWheel:
+class RequirementWithWheelAndDeps:
     """A dataclass to hold a requirement and corresponding .whl file."""
 
     requirement: Requirement
-    wheel: Path
-
-    @classmethod
-    def from_wheel(cls, wheel: Path):
-        # wheel name format is {name}-{version}[-{extras}]*.whl
-        parts = wheel.name.split("-")
-        name, version = parts[:2]
-        return cls(requirement=Requirement.parse(f"{name}=={version}"), wheel=wheel)
+    wheel_path: Path | None
+    dependencies: List[str]
 
     def extract_files(self, destination: Path) -> None:
-        with zipfile.ZipFile(self.wheel, "r") as whl:
-            whl.extractall(destination)
+        if self.wheel_path is not None:
+            with zipfile.ZipFile(self.wheel_path, "r") as whl:
+                whl.extractall(destination)
 
     def namelist(self) -> List[str]:
-        with zipfile.ZipFile(self.wheel, "r") as whl:
+        if self.wheel_path is None:
+            return []
+        with zipfile.ZipFile(self.wheel_path, "r") as whl:
             return whl.namelist()
 
 

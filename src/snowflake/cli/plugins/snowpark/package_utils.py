@@ -14,7 +14,7 @@ from snowflake.cli.plugins.snowpark.models import (
     PypiOption,
     Requirement,
     RequirementWithFilesAndDeps,
-    RequirementWithWheel,
+    RequirementWithWheelAndDeps,
     SplitRequirements,
     pip_failed_msg,
     second_chance_msg,
@@ -116,10 +116,9 @@ def download_packages(
             log.info(pip_failed_msg.format(pip_download_result))
             return False, None
 
-        dependencies = [
-            RequirementWithWheel.from_wheel(path)
-            for path in downloaded_whl.path.glob("*.whl")
-        ]
+        dependencies = v.get_package_dependencies(
+            file_name, downloads_dir=downloaded_whl.path
+        )
         dependency_requirements = [d.requirement for d in dependencies]
 
         log.info(
@@ -158,9 +157,9 @@ def download_packages(
 
 
 def _filter_dependencies_not_available_in_conda(
-    dependencies: List[RequirementWithWheel],
+    dependencies: List[RequirementWithWheelAndDeps],
     available_in_conda: List[Requirement],
-) -> List[RequirementWithWheel]:
+) -> List[RequirementWithWheelAndDeps]:
     in_conda = set(package.name for package in available_in_conda)
     return [dep for dep in dependencies if dep.requirement.name not in in_conda]
 
@@ -199,7 +198,7 @@ def generate_deploy_stage_name(identifier: str) -> str:
 
 
 def _check_for_native_libraries(
-    dependencies: List[RequirementWithWheel],
+    dependencies: List[RequirementWithWheelAndDeps],
 ) -> List[str]:
     return [
         dependency.requirement.name
@@ -208,7 +207,7 @@ def _check_for_native_libraries(
     ]
 
 
-def _perform_native_libraries_check(deps: List[RequirementWithWheel]):
+def _perform_native_libraries_check(deps: List[RequirementWithWheelAndDeps]):
     if native_libraries := _check_for_native_libraries(deps):
         _log_native_libraries(native_libraries)
         return True
