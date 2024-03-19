@@ -6,7 +6,6 @@ import shutil
 import subprocess
 import sys
 import venv
-import zipfile
 from enum import Enum
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -15,6 +14,7 @@ from typing import Dict, List
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
     RequirementWithWheelAndDeps,
+    WheelMetadata,
 )
 
 log = logging.getLogger(__name__)
@@ -82,20 +82,21 @@ class Venv:
     def get_package_dependencies(
         self, requirements_file: str, downloads_dir: Path
     ) -> List[RequirementWithWheelAndDeps]:
-        wheel_files = {
-            self._package_name_from_wheel_filename(wheel_path): wheel_path
-            for wheel_path in downloads_dir.glob("*.whl")
+        packages_metadata: Dict[str, WheelMetadata] = {
+            meta.name: meta
+            for meta in (
+                WheelMetadata.from_wheel(wheel_path)
+                for wheel_path in downloads_dir.glob("*.whl")
+            )
+            if meta is not None
         }
         dependencies: Dict = {}
 
         def _get_dependencies(package: Requirement):
             if package.name not in dependencies:
-                wheel_path = wheel_files.get(package.name)
-                requires = (
-                    self._get_dependencies_from_wheel_metadata(wheel_path)
-                    if wheel_path
-                    else []
-                )
+                meta = packages_metadata.get(package.name)
+                wheel_path = meta.wheel_path if meta else None
+                requires = meta.dependencies if meta else []
                 dependencies[package.name] = RequirementWithWheelAndDeps(
                     requirement=package,
                     wheel_path=wheel_path,
@@ -114,29 +115,6 @@ class Venv:
                 _get_dependencies(Requirement.parse_line(line))
 
         return list(dependencies.values())
-
-    @staticmethod
-    def _package_name_from_wheel_filename(wheel_path: Path) -> str:
-        # wheel file name is in format {name}-{version}[-{extra info}].whl*
-        return wheel_path.name.split("-")[0]
-
-    @staticmethod
-    def _get_dependencies_from_wheel_metadata(wheel_path: Path) -> List[str]:
-        with zipfile.ZipFile(wheel_path, "r") as whl:
-            metadata_file = [
-                path for path in whl.namelist() if path.endswith(".dist-info/METADATA")
-            ]
-            if len(metadata_file) != 1:
-                return []
-
-            root = zipfile.Path(whl)
-            metadata = (root / metadata_file[0]).read_text()
-            keyword = "Requires-Dist:"
-            return [
-                line[len(keyword) :].strip()
-                for line in metadata.splitlines()
-                if line.startswith(keyword)
-            ]
 
     def _get_installed_packages_metadata(self):
         if inspect := self.get_pip_inspect():

@@ -102,22 +102,20 @@ def download_packages(
             "Cannot perform anaconda checks if anaconda channel is not specified."
         )
 
-    with Venv() as v, SecurePath.temporary_directory() as downloaded_whl:
+    with Venv() as v, SecurePath.temporary_directory() as downloads_dir:
         if package_name:
             # This is a Windows workaround where use TemporaryDirectory instead of NamedTemporaryFile
             tmp_requirements = Path(v.directory.name) / "requirements.txt"
             tmp_requirements.write_text(str(package_name))
             file_name = str(tmp_requirements)
 
-        pip_download_result = v.pip_download(
-            file_name, download_dir=downloaded_whl.path
-        )
+        pip_download_result = v.pip_download(file_name, download_dir=downloads_dir.path)
         if pip_download_result != 0:
             log.info(pip_failed_msg.format(pip_download_result))
             return False, None
 
         dependencies = v.get_package_dependencies(
-            file_name, downloads_dir=downloaded_whl.path
+            file_name, downloads_dir=downloads_dir.path
         )
         dependency_requirements = [d.requirement for d in dependencies]
 

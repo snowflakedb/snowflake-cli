@@ -87,6 +87,44 @@ class RequirementWithWheelAndDeps:
             return whl.namelist()
 
 
+@dataclass
+class WheelMetadata:
+    """A dataclass to hold metadata from .whl file"""
+
+    name: str
+    wheel_path: Path
+    dependencies: List[str]
+
+    @classmethod
+    def from_wheel(cls, wheel_path: Path):
+        with zipfile.ZipFile(wheel_path, "r") as whl:
+            metadata_path = [
+                path for path in whl.namelist() if path.endswith(".dist-info/METADATA")
+            ]
+            if len(metadata_path) != 1:
+                # malformatted wheel package
+                return None
+
+            root = zipfile.Path(whl)
+            metadata = (root / metadata_path[0]).read_text()
+
+            dep_keyword = "Requires-Dist:"
+            name_keyword = "Name:"
+            dependencies = []
+            name = None
+            for line in metadata.splitlines():
+                if line.startswith(dep_keyword):
+                    dependencies.append(line[len(dep_keyword) :].strip())
+                if line.startswith(name_keyword):
+                    if name is not None:
+                        return None
+                    name = line[len(name_keyword) :].strip()
+
+            if name is None:
+                return None
+            return cls(name=name, wheel_path=wheel_path, dependencies=dependencies)
+
+
 def get_package_name(name: str) -> str:
     if name.lower().startswith(("git+", "http")):
         pattern = re.compile(r"github\.com\/[^\/]+\/([^\/][^.@$/]+)")
