@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import re
+import zipfile
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import List
 
 from requirements import requirement
@@ -63,6 +65,29 @@ class RequirementWithFilesAndDeps(RequirementWithFiles):
 
     def to_requirement_with_files(self):
         return RequirementWithFiles(self.requirement, self.files)
+
+
+@dataclass
+class RequirementWithWheel:
+    """A dataclass to hold a requirement and corresponding .whl file."""
+
+    requirement: Requirement
+    wheel: Path
+
+    @classmethod
+    def from_wheel(cls, wheel: Path):
+        # wheel name format is {name}-{version}[-{extras}]*.whl
+        parts = wheel.name.split("-")
+        name, version = parts[:2]
+        return cls(requirement=Requirement.parse(f"{name}=={version}"), wheel=wheel)
+
+    def extract_files(self, destination: Path) -> None:
+        with zipfile.ZipFile(self.wheel, "r") as whl:
+            whl.extractall(destination)
+
+    def namelist(self) -> List[str]:
+        with zipfile.ZipFile(self.wheel, "r") as whl:
+            return whl.namelist()
 
 
 def get_package_name(name: str) -> str:

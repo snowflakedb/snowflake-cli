@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import os
-import zipfile
 from pathlib import Path
 from typing import List
 
@@ -14,8 +13,8 @@ from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
     PypiOption,
     Requirement,
-    RequirementWithFiles,
     RequirementWithFilesAndDeps,
+    RequirementWithWheel,
     SplitRequirements,
     pip_failed_msg,
     second_chance_msg,
@@ -71,20 +70,6 @@ def deduplicate_and_sort_reqs(
     return deduped
 
 
-def _requirement_of_wheel_name(wheel_name: str) -> Requirement:
-    # wheel name format is {name}-{version}[-{extras}]*.whl
-    parts = wheel_name.split("-")
-    name, version = parts[:2]
-    return Requirement.parse(f"{name}=={version}")
-
-
-def _unpack_wheel(wheel_path: Path) -> List[str]:
-    with zipfile.ZipFile(wheel_path, "r") as whl:
-        dest = wheel_path.parent
-        whl.extractall(dest)
-        return [str(dest / file) for file in whl.namelist()]
-
-
 def download_packages(
     anaconda: AnacondaChannel | None,
     file_name: str | None,
@@ -131,12 +116,11 @@ def download_packages(
             log.info(pip_failed_msg.format(pip_download_result))
             return False, None
 
-        dependency_requirements = []
-        name_to_wheel = {}
-        for whl in downloaded_whl.path.glob("*.whl"):
-            requirement = _requirement_of_wheel_name(whl.name)
-            dependency_requirements.append(requirement)
-            name_to_wheel[requirement.name] = whl
+        dependencies = [
+            RequirementWithWheel.from_wheel(path)
+            for path in downloaded_whl.path.glob("*.whl")
+        ]
+        dependency_requirements = [d.requirement for d in dependencies]
 
         log.info(
             "Downloaded packages: %s",
@@ -144,56 +128,41 @@ def download_packages(
         )
 
         if not perform_anaconda_check:
-            second_chance_results = SplitRequirements([], other=dependency_requirements)
+            split_requirements = SplitRequirements([], other=dependency_requirements)
         else:
             log.info("Checking for dependencies available in Anaconda...")
             assert anaconda is not None
-            second_chance_results = anaconda.parse_anaconda_packages(
+            split_requirements = anaconda.parse_anaconda_packages(
                 packages=dependency_requirements
             )
-
-            if len(second_chance_results.snowflake) > 0:
-                log.info(second_chance_msg.format(second_chance_results.snowflake))
+            if len(split_requirements.snowflake) > 0:
+                log.info(second_chance_msg.format(split_requirements.snowflake))
             else:
                 log.info("None of the package dependencies were found on Anaconda")
-
-        dependencies_to_be_packed = [
-            RequirementWithFiles(
-                requirement, files=_unpack_wheel(name_to_wheel[requirement.name])
-            )
-            for requirement in second_chance_results.other
-        ]
+        dependencies_to_be_packed = _filter_dependencies_not_available_in_conda(
+            dependencies, split_requirements.snowflake
+        )
 
         log.info("Checking to see if packages have native libraries...")
         if _perform_native_libraries_check(
             dependencies_to_be_packed
         ) and not _confirm_native_libraries(allow_native_libraries):
-            return False, second_chance_results
+            return False, split_requirements
         else:
             packages_dest = SecurePath(".packages")
             packages_dest.mkdir()
-            for file in [
-                SecurePath(file)
-                for dep in dependencies_to_be_packed
-                for file in dep.files
-            ]:
-                destination = packages_dest / file.path.relative_to(downloaded_whl.path)
-                if not destination.parent.exists():
-                    destination.parent.mkdir(parents=True)
-                file.copy(destination.path)
+            for package in dependencies_to_be_packed:
+                package.extract_files(packages_dest.path)
 
-            return True, second_chance_results
+            return True, split_requirements
 
 
-def _check_for_native_libraries(
-    dependencies: List[RequirementWithFiles],
-) -> List[str]:
-    return [
-        dependency.requirement.name
-        for dependency in dependencies
-        for file in dependency.files
-        if file.endswith(".so")
-    ]
+def _filter_dependencies_not_available_in_conda(
+    dependencies: List[RequirementWithWheel],
+    available_in_conda: List[Requirement],
+) -> List[RequirementWithWheel]:
+    in_conda = set(package.name for package in available_in_conda)
+    return [dep for dep in dependencies if dep.requirement.name not in in_conda]
 
 
 def get_snowflake_packages() -> List[str]:
@@ -205,17 +174,6 @@ def get_snowflake_packages() -> List[str]:
             return [req for line in f if (req := line.split("#")[0].strip())]
     else:
         return []
-
-
-def _get_dependencies_not_avaiable_in_conda(
-    dependencies: List[RequirementWithFilesAndDeps],
-    avaiable_in_conda: List[Requirement],
-) -> List[RequirementWithFilesAndDeps]:
-    return [
-        dep
-        for dep in dependencies
-        if dep.requirement.name not in [package.name for package in avaiable_in_conda]
-    ]
 
 
 def generate_deploy_stage_name(identifier: str) -> str:
@@ -240,7 +198,17 @@ def generate_deploy_stage_name(identifier: str) -> str:
     )
 
 
-def _perform_native_libraries_check(deps: List[RequirementWithFiles]):
+def _check_for_native_libraries(
+    dependencies: List[RequirementWithWheel],
+) -> List[str]:
+    return [
+        dependency.requirement.name
+        for dependency in dependencies
+        if any(file.endswith(".so") for file in dependency.namelist())
+    ]
+
+
+def _perform_native_libraries_check(deps: List[RequirementWithWheel]):
     if native_libraries := _check_for_native_libraries(deps):
         _log_native_libraries(native_libraries)
         return True
