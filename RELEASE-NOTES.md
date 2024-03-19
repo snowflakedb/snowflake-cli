@@ -11,6 +11,7 @@
 
 ## Fixes and improvements
 * Improved security of printing connection details in `snow connection list`.
+* Improved parsing of non-quoted scalar values within square brackets in `manifest.yml` in Native App projects.
 
 # v2.1.0
 
