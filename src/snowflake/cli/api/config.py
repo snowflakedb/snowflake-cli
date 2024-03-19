@@ -67,13 +67,14 @@ class ConnectionConfig:
 
     @classmethod
     def from_dict(cls, config_dict: dict) -> ConnectionConfig:
-        self = cls()
+        known_settings = {}
+        other_settings = {}
         for key, value in config_dict.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
+            if key in cls.__dict__:
+                known_settings[key] = value
             else:
-                self._other_settings[key] = value
-        return self
+                other_settings[key] = value
+        return cls(**known_settings, _other_settings=other_settings)
 
     def to_dict_of_known_non_empty_values(self) -> dict:
         return {
