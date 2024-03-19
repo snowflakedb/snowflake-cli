@@ -22,7 +22,7 @@ def hello_function(name: str) -> str:
 if __name__ == "__main__":
     from snowflake.cli.api.config import cli_config
 
-    session = Session.builder.configs(cli_config.get_connection("dev")).create()
+    session = Session.builder.configs(cli_config.get_connection_dict("dev")).create()
     if len(sys.argv) > 1:
         print(hello_procedure(session, *sys.argv[1:]))  # type: ignore
     else:
