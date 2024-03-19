@@ -14,10 +14,11 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.config import (
+    ConnectionConfig,
     add_connection,
     connection_exists,
-    get_config_section,
-    get_connection,
+    get_all_connections,
+    get_connection_dict,
     set_config_value,
 )
 from snowflake.cli.api.console import cli_console
@@ -60,10 +61,15 @@ def list_connections(**options) -> CommandResult:
     """
     Lists configured connections.
     """
-    connections = get_config_section("connections")
+    connections = get_all_connections()
     result = (
-        {"connection_name": k, "parameters": _mask_password(v)}
-        for k, v in connections.items()
+        {
+            "connection_name": connection_name,
+            "parameters": _mask_password(
+                connection_config.to_dict_of_known_non_empty_values()
+            ),
+        }
+        for connection_name, connection_config in connections.items()
     )
     return CollectionResult(result)
 
@@ -200,26 +206,26 @@ def add(
     **options,
 ) -> CommandResult:
     """Adds a connection to configuration file."""
-    connection_entry = {
-        "account": account,
-        "user": user,
-        "password": password,
-        "host": host,
-        "region": region,
-        "port": port,
-        "database": database,
-        "schema": schema,
-        "warehouse": warehouse,
-        "role": role,
-        "authenticator": authenticator,
-        "private_key_path": private_key_path,
-    }
-    connection_entry = {k: v for k, v in connection_entry.items() if v is not None}
-
     if connection_exists(connection_name):
         raise ClickException(f"Connection {connection_name} already exists")
 
-    add_connection(connection_name, connection_entry)
+    add_connection(
+        connection_name,
+        ConnectionConfig(
+            account=account,
+            user=user,
+            password=password,
+            host=host,
+            region=region,
+            port=port,
+            database=database,
+            schema=schema,
+            warehouse=warehouse,
+            role=role,
+            authenticator=authenticator,
+            private_key_path=private_key_path,
+        ),
+    )
     return MessageResult(
         f"Wrote new connection {connection_name} to {CONFIG_MANAGER.file_path}"
     )
@@ -276,6 +282,6 @@ def set_default(
     **options,
 ):
     """Changes default connection to provided value."""
-    get_connection(connection_name=name)
+    get_connection_dict(connection_name=name)
     set_config_value(section=None, key="default_connection_name", value=name)
     return MessageResult(f"Default connection set to: {name}")
