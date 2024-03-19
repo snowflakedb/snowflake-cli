@@ -1481,6 +1481,7 @@ def test_process_no_skip_app_update(
     mock_create_app_package,
     mock_execute,
     mock_cursor,
+    temp_dir,
 ):
     side_effects, expected = mock_execute_helper(
         [
