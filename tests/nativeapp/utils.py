@@ -5,10 +5,12 @@ TEARDOWN_MODULE = "snowflake.cli.plugins.nativeapp.teardown_processor"
 TYPER_CONFIRM = "typer.confirm"
 RUN_MODULE = "snowflake.cli.plugins.nativeapp.run_processor"
 VERSION_MODULE = "snowflake.cli.plugins.nativeapp.version.version_processor"
+DEPLOY_MODULE = "snowflake.cli.plugins.nativeapp.deploy_processor"
 
 TEARDOWN_PROCESSOR = f"{TEARDOWN_MODULE}.NativeAppTeardownProcessor"
 NATIVEAPP_MANAGER = f"{NATIVEAPP_MODULE}.NativeAppManager"
 RUN_PROCESSOR = f"{RUN_MODULE}.NativeAppRunProcessor"
+DEPLOY_PROCESSOR = f"{DEPLOY_MODULE}.NativeAppDeployProcessor"
 
 NATIVEAPP_MANAGER_EXECUTE = f"{NATIVEAPP_MANAGER}._execute_query"
 NATIVEAPP_MANAGER_EXECUTE_QUERIES = f"{NATIVEAPP_MANAGER}._execute_queries"
@@ -27,13 +29,16 @@ TEARDOWN_PROCESSOR_IS_CORRECT_OWNER = f"{TEARDOWN_MODULE}.ensure_correct_owner"
 TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT = f"{TEARDOWN_PROCESSOR}.drop_generic_object"
 
 RUN_PROCESSOR_GET_EXISTING_APP_INFO = f"{RUN_PROCESSOR}.get_existing_app_info"
-RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO = f"{RUN_PROCESSOR}.get_existing_app_pkg_info"
 RUN_PROCESSOR_CREATE_APP_PACKAGE = f"{RUN_PROCESSOR}.create_app_package"
 RUN_PROCESSOR_APPLY_PACKAGE_SCRIPTS = f"{RUN_PROCESSOR}._apply_package_scripts"
 RUN_PROCESSOR_SYNC_DEPLOY_ROOT_WITH_STAGE = (
     f"{RUN_PROCESSOR}.sync_deploy_root_with_stage"
 )
 RUN_PROCESSOR_CREATE_DEV_APP = f"{RUN_PROCESSOR}._create_dev_app"
+
+DEPLOY_PROCESSOR_GET_EXISTING_APP_PKG_INFO = (
+    f"{DEPLOY_PROCESSOR}.get_existing_app_pkg_info"
+)
 
 FIND_VERSION_FROM_MANIFEST = f"{VERSION_MODULE}.find_version_info_in_manifest_file"
 
