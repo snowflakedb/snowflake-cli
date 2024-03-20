@@ -421,7 +421,7 @@ class NativeAppManager(SqlExecutionMixin):
                 err, role=self.package_role, warehouse=self.package_warehouse
             )
 
-    def deploy(self) -> None:
+    def deploy(self) -> DiffResult:
         """app deploy process"""
 
         # 1. Create an empty application package, if none exists
@@ -433,3 +433,5 @@ class NativeAppManager(SqlExecutionMixin):
 
             # 3. Upload files from deploy root local folder to the above stage
             diff = self.sync_deploy_root_with_stage(self.package_role)
+
+        return diff

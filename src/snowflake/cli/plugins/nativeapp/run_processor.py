@@ -385,15 +385,5 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             )
             return
 
-        # 1. Create an empty application package, if none exists
-        self.create_app_package()
-
-        with self.use_role(self.package_role):
-            # 2. now that the application package exists, create shared data
-            self._apply_package_scripts()
-
-            # 3. Upload files from deploy root local folder to the above stage
-            diff = self.sync_deploy_root_with_stage(self.package_role)
-
-        # 4. Create an application if none exists, else upgrade the application
+        diff = self.deploy()
         self._create_dev_app(diff)
