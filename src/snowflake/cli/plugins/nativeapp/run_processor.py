@@ -8,10 +8,14 @@ from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.plugins.nativeapp.constants import (
+    ALLOWED_SPECIAL_COMMENTS,
+    COMMENT_COL,
+    LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
     VERSION_COL,
 )
 from snowflake.cli.plugins.nativeapp.exceptions import (
+    ApplicationAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
 )
 from snowflake.cli.plugins.nativeapp.manager import (
@@ -21,6 +25,8 @@ from snowflake.cli.plugins.nativeapp.manager import (
     generic_sql_error_handler,
 )
 from snowflake.cli.plugins.nativeapp.policy import PolicyBase
+from snowflake.cli.plugins.object.stage.diff import DiffResult
+from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -30,6 +36,90 @@ UPGRADE_RESTRICTION_CODES = {93044, 93055, 93045, 93046}
 class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
     def __init__(self, project_definition: NativeApp, project_root: Path):
         super().__init__(project_definition, project_root)
+
+    def _create_dev_app(self, diff: DiffResult) -> None:
+        """
+        (Re-)creates the application object with our up-to-date stage.
+        """
+        with self.use_role(self.app_role):
+
+            # 1. Need to use a warehouse to create an application object
+            try:
+                if self.application_warehouse:
+                    self._execute_query(f"use warehouse {self.application_warehouse}")
+            except ProgrammingError as err:
+                generic_sql_error_handler(
+                    err=err, role=self.app_role, warehouse=self.application_warehouse
+                )
+
+            # 2. Check for an existing application object by the same name
+            show_app_row = self.get_existing_app_info()
+
+            # 3. If existing application object is found, perform a few validations and upgrade the application object.
+            if show_app_row:
+
+                # Check if not created by Snowflake CLI or not created using "files on a named stage" / stage dev mode.
+                if show_app_row[COMMENT_COL] not in ALLOWED_SPECIAL_COMMENTS or (
+                    show_app_row[VERSION_COL] != LOOSE_FILES_MAGIC_VERSION
+                ):
+                    raise ApplicationAlreadyExistsError(self.app_name)
+
+                # Check for the right owner
+                ensure_correct_owner(
+                    row=show_app_row, role=self.app_role, obj_name=self.app_name
+                )
+
+                # If all the above checks are in order, proceed to upgrade
+                try:
+                    if diff.has_changes():
+                        cc.step(
+                            f"Upgrading existing application object {self.app_name}."
+                        )
+                        self._execute_query(
+                            f"alter application {self.app_name} upgrade using @{self.stage_fqn}"
+                        )
+
+                    # ensure debug_mode is up-to-date
+                    self._execute_query(
+                        f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
+                    )
+
+                    return
+
+                except ProgrammingError as err:
+                    generic_sql_error_handler(err)
+
+            # 4. If no existing application object is found, create an application object using "files on a named stage" / stage dev mode.
+            cc.step(f"Creating new application {self.app_name} in account.")
+
+            if self.app_role != self.package_role:
+                with self.use_role(new_role=self.package_role):
+                    self._execute_queries(
+                        dedent(
+                            f"""\
+                        grant install, develop on application package {self.package_name} to role {self.app_role};
+                        grant usage on schema {self.package_name}.{self.stage_schema} to role {self.app_role};
+                        grant read on stage {self.stage_fqn} to role {self.app_role};
+                        """
+                        )
+                    )
+
+            stage_name = StageManager.quote_stage_name(self.stage_fqn)
+
+            try:
+                self._execute_query(
+                    dedent(
+                        f"""\
+                    create application {self.app_name}
+                        from application package {self.package_name}
+                        using {stage_name}
+                        debug_mode = {self.debug_mode}
+                        comment = {SPECIAL_COMMENT}
+                    """
+                    )
+                )
+            except ProgrammingError as err:
+                generic_sql_error_handler(err)
 
     def get_all_existing_versions(self) -> SnowflakeCursor:
         """

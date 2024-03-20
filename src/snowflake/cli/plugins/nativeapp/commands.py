@@ -240,6 +240,6 @@ def app_deploy(
     )
 
     manager.build_bundle()
-    manager.process()
+    manager.deploy()
 
     return MessageResult(f"Deployed successfully.")
