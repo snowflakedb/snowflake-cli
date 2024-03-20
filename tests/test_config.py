@@ -8,8 +8,8 @@ from snowflake.cli.api.config import (
     ConfigFileTooWidePermissionsError,
     config_init,
     get_config_section,
-    get_connection,
-    get_default_connection,
+    get_connection_dict,
+    get_default_connection_dict,
 )
 from snowflake.cli.api.exceptions import MissingConfiguration
 
@@ -31,7 +31,7 @@ def test_empty_config_file_is_created_if_not_present():
 def test_get_connection_from_file(test_snowcli_config):
     config_init(test_snowcli_config)
 
-    assert get_connection("full") == {
+    assert get_connection_dict("full") == {
         "account": "dev_account",
         "user": "dev_user",
         "host": "dev_host",
@@ -57,7 +57,7 @@ def test_get_connection_from_file(test_snowcli_config):
 def test_environment_variables_override_configuration_value(test_snowcli_config):
     config_init(test_snowcli_config)
 
-    assert get_connection("default") == {
+    assert get_connection_dict("default") == {
         "database": "database_foo",
         "schema": "test_public",
         "role": "test_role",
@@ -79,7 +79,7 @@ def test_environment_variables_override_configuration_value(test_snowcli_config)
 def test_environment_variables_works_if_config_value_not_present(test_snowcli_config):
     config_init(test_snowcli_config)
 
-    assert get_connection("empty") == {
+    assert get_connection_dict("empty") == {
         "account": "some_account",
         "database": "test_database",
         "warehouse": "large",
@@ -144,7 +144,7 @@ def test_create_default_config_if_not_exists(mock_config_manager):
 def test_default_connection_with_overwritten_values(test_snowcli_config):
     config_init(test_snowcli_config)
 
-    assert get_default_connection() == {
+    assert get_default_connection_dict() == {
         "database": "db_for_test",
         "role": "test_role",
         "schema": "test_public",
@@ -157,7 +157,7 @@ def test_default_connection_with_overwritten_values(test_snowcli_config):
 def test_not_found_default_connection(test_root_path):
     config_init(Path(test_root_path / "empty_config.toml"))
     with pytest.raises(MissingConfiguration) as ex:
-        get_default_connection()
+        get_default_connection_dict()
 
     assert ex.value.message == "Connection default is not configured"
 
@@ -172,7 +172,7 @@ def test_not_found_default_connection(test_root_path):
 def test_not_found_default_connection_from_evn_variable(test_root_path):
     config_init(Path(test_root_path / "empty_config.toml"))
     with pytest.raises(MissingConfiguration) as ex:
-        get_default_connection()
+        get_default_connection_dict()
 
     assert ex.value.message == "Connection not_existed_connection is not configured"
 
@@ -188,7 +188,7 @@ def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_ho
     )
     config_init(test_snowcli_config)
 
-    assert get_default_connection() == {"database": "overridden_database"}
+    assert get_default_connection_dict() == {"database": "overridden_database"}
     assert CONFIG_MANAGER["connections"] == {
         "default": {"database": "overridden_database"}
     }

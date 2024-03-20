@@ -172,7 +172,49 @@ def test_lists_connection_information(runner):
                 "database": "dev_database",
                 "host": "dev_host",
                 "port": 8000,
-                "protocol": "dev_protocol",
+                "role": "dev_role",
+                "schema": "dev_schema",
+                "user": "dev_user",
+                "warehouse": "dev_warehouse",
+            },
+        },
+        {
+            "connection_name": "default",
+            "parameters": {
+                "database": "db_for_test",
+                "password": "****",  # masked
+                "role": "test_role",
+                "schema": "test_public",
+                "warehouse": "xs",
+            },
+        },
+        {"connection_name": "empty", "parameters": {}},
+        {"connection_name": "test_connections", "parameters": {"user": "python"}},
+    ]
+
+
+@mock.patch.dict(
+    os.environ,
+    {
+        # connection not existing in config.toml but with a name starting with connection from config.toml ("empty")
+        "SNOWFLAKE_CONNECTIONS_EMPTYABC_PASSWORD": "abc123",
+        # connection existing in config.toml but key not used by CLI
+        "SNOWFLAKE_CONNECTIONS_EMPTY_PW": "abc123",
+    },
+    clear=True,
+)
+def test_connection_list_does_not_print_too_many_env_variables(runner):
+    result = runner.invoke(["connection", "list", "--format", "json"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload == [
+        {
+            "connection_name": "full",
+            "parameters": {
+                "account": "dev_account",
+                "database": "dev_database",
+                "host": "dev_host",
+                "port": 8000,
                 "role": "dev_role",
                 "schema": "dev_schema",
                 "user": "dev_user",
