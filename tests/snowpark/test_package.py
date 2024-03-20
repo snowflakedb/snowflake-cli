@@ -32,18 +32,18 @@ class TestPackage:
         assert result.exit_code == 0
         assert result.output == snapshot
 
-    @patch("snowflake.cli.plugins.snowpark.package_utils.install_packages")
+    @patch("snowflake.cli.plugins.snowpark.package_utils.download_packages")
     @patch(
         "snowflake.cli.plugins.snowpark.package.anaconda.AnacondaChannel.parse_anaconda_packages"
     )
     def test_package_lookup_with_install_packages(
-        self, mock_package, mock_install, runner, capfd, snapshot
+        self, mock_package, mock_download, runner, capfd, snapshot
     ) -> None:
 
         mock_package.return_value = SplitRequirements(
             [], [Requirement("some-other-package")]
         )
-        mock_install.return_value = (
+        mock_download.return_value = (
             True,
             SplitRequirements(
                 [Requirement("snowflake-snowpark-python")],

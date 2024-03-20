@@ -109,29 +109,31 @@ class TestPackage:
         assert any(["shrubbery.py" in file for file in files])
 
     @pytest.mark.integration
+    @pytest.mark.parametrize("ignore_anaconda", (True, False))
     def test_package_with_conda_dependencies(
-        self, directory_for_test, runner
+        self, directory_for_test, runner, ignore_anaconda
     ):  # TODO think how to make this test with packages controlled by us
         # test case is: We have a non-conda package, that has a dependency present on conda
         # but not in latest version - here the case is matplotlib.
-        result = runner.invoke_with_connection_json(
-            [
-                "snowpark",
-                "package",
-                "create",
-                "july",
-                "--pypi-download",
-                "--allow-native-libraries",
-                "yes",
-            ]
-        )
+        command = [
+            "snowpark",
+            "package",
+            "create",
+            "july",
+            "--pypi-download",
+            "--allow-native-libraries",
+            "yes",
+        ]
+        if ignore_anaconda:
+            command.append("--ignore-anaconda")
+        result = runner.invoke_with_connection_json(command)
 
         assert result.exit_code == 0
         assert Path("july.zip").exists()
 
         files = self._get_filenames_from_zip("july.zip")
         assert any(["colormaps.py" in name for name in files])
-        assert not any(["matplotlib" in name for name in files])
+        assert any(["matplotlib" in name for name in files]) == ignore_anaconda
 
     @pytest.mark.integration
     def test_package_from_github(self, directory_for_test, runner):
