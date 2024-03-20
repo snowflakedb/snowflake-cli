@@ -14,7 +14,6 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.nativeapp.common_flags import ForceOption, InteractiveOption
-from snowflake.cli.plugins.nativeapp.deploy_processor import NativeAppDeployProcessor
 from snowflake.cli.plugins.nativeapp.init import (
     OFFICIAL_TEMPLATES_GITHUB_URL,
     nativeapp_init,
@@ -235,12 +234,12 @@ def app_deploy(
     """
     Syncs the local changes to the stage without creating or updating the application.
     """
-    processor = NativeAppDeployProcessor(
+    manager = NativeAppManager(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
 
-    processor.build_bundle()
-    processor.process()
+    manager.build_bundle()
+    manager.process()
 
     return MessageResult(f"Deployed successfully.")
