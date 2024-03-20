@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "override-build-in-commands"
@@ -12,3 +12,6 @@ version = "0.0.1"
 
 [project.entry-points."snowflake.cli.plugin.command"]
 failing_plugin = "snowflakecli.test_plugins.failing_plugin.plugin_spec"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/snowflakecli"]
