@@ -32,6 +32,7 @@ def lookup(
     name: str,
     index_url: str | None,
     allow_native_libraries: PypiOption,
+    skip_version_check: bool,
     ignore_anaconda: bool,
 ) -> LookupResult:
 
@@ -41,7 +42,9 @@ def lookup(
         package_response = SplitRequirements([], other=[package])
     else:
         anaconda = AnacondaChannel.from_snowflake()
-        package_response = anaconda.parse_anaconda_packages(packages=[package])
+        package_response = anaconda.parse_anaconda_packages(
+            packages=[package], skip_version_check=skip_version_check
+        )
 
     if package_response.snowflake and not package_response.other:
         return InAnaconda(package_response, name)
@@ -53,6 +56,7 @@ def lookup(
             file_name=None,
             index_url=index_url,
             allow_native_libraries=allow_native_libraries,
+            skip_version_check=skip_version_check,
         )
 
         if status:

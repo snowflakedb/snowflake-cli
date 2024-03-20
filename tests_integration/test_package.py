@@ -48,7 +48,12 @@ class TestPackage:
     @pytest.mark.integration
     @pytest.mark.parametrize(
         "extra_flags",
-        [[], ["--ignore-anaconda"], ["--index-url", "https://pypi.org/simple"]],
+        [
+            [],
+            ["--ignore-anaconda"],
+            ["--index-url", "https://pypi.org/simple"],
+            ["--skip-version-check"],
+        ],
     )
     def test_package_create_with_non_anaconda_package(
         self, directory_for_test, runner, extra_flags
@@ -122,6 +127,40 @@ class TestPackage:
         files = self._get_filenames_from_zip("july.zip")
         assert any(["colormaps.py" in name for name in files])
         assert any(["matplotlib" in name for name in files]) == ignore_anaconda
+
+    @pytest.mark.integration
+    def test_package_create_skip_version_check(self, directory_for_test, runner):
+        # test case: package is available in Anaconda, but not in required version
+        result = runner.invoke_with_connection(
+            [
+                "snowpark",
+                "package",
+                "create",
+                "matplotlib>=1000",
+                "--skip-version-check",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            "Package matplotlib>=1000 is available on the Snowflake Anaconda channel."
+            in result.output
+        )
+
+        # test case: all dependencies are available in Anaconda, but not in their latest version
+        result = runner.invoke_with_connection(
+            [
+                "snowpark",
+                "package",
+                "create",
+                "july",
+                "--skip-version-check",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert Path("july.zip").exists()
+        files = self._get_filenames_from_zip("july.zip")
+        assert all([name.startswith("july") for name in files])
 
     @pytest.mark.integration
     def test_package_from_github(self, directory_for_test, runner):

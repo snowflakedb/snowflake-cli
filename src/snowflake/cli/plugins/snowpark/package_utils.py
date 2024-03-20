@@ -77,6 +77,7 @@ def download_packages(
     package_name: str | None = None,
     index_url: str | None = None,
     allow_native_libraries: PypiOption = PypiOption.ASK,
+    skip_version_check: bool = False,
 ) -> tuple[bool, SplitRequirements | None]:
     """
     Downloads packages from a requirements.txt file or a single package name,
@@ -133,7 +134,7 @@ def download_packages(
             log.info("Checking for dependencies available in Anaconda...")
             assert anaconda is not None
             split_requirements = anaconda.parse_anaconda_packages(
-                packages=dependency_requirements
+                packages=dependency_requirements, skip_version_check=skip_version_check
             )
             if len(split_requirements.snowflake) > 0:
                 log.info(second_chance_msg.format(split_requirements.snowflake))

@@ -155,6 +155,12 @@ index_option = typer.Option(
     " out in the same format.",
 )
 
+skip_version_check_option = typer.Option(
+    False,
+    "--skip-version-check",
+    help="Skip comparing versions of dependencies between requirements and Anaconda.",
+)
+
 
 @app.command("create", requires_connection=True)
 @cleanup_after_install
@@ -166,6 +172,7 @@ def package_create(
     ignore_anaconda: bool = ignore_anaconda_option,
     index_url: Optional[str] = index_option,
     allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
+    skip_version_check: bool = skip_version_check_option,
     _deprecated_install_option: bool = deprecated_install_option,
     _install_packages: bool = deprecated_pypi_download_option,
     **options,
@@ -177,6 +184,7 @@ def package_create(
         name=name,
         index_url=index_url,
         allow_native_libraries=allow_native_libraries,
+        skip_version_check=skip_version_check,
         ignore_anaconda=ignore_anaconda,
     )
 
