@@ -1,8 +1,7 @@
 # Snowflake Developer CLI
 
-**Note**: Snowflake CLI is in Private Preview (PrPr). You must register for the PrPr to use Snowflake CLI by filling out the
-[Snowflake CLI  - PrPr Intake Form](https://forms.gle/HZNhPNbzn7oExjFu8). For more information, you can contact a
-Snowflake sales representative.
+For full documentation check:
+https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/index
 
 ## Install Snowflake CLI
 
