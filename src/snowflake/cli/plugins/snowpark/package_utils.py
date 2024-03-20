@@ -147,7 +147,7 @@ def download_packages(
             return False, split_requirements
         else:
             packages_dest = SecurePath(".packages")
-            packages_dest.mkdir()
+            packages_dest.mkdir(exist_ok=True)
             for package in dependencies_to_be_packed:
                 package.extract_files(packages_dest.path)
 
