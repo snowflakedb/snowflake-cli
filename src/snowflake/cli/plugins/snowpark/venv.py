@@ -94,7 +94,9 @@ class Venv:
 
         def _get_dependencies(package: Requirement):
             if package.name not in dependencies:
-                meta = packages_metadata.get(package.name)
+                meta = packages_metadata.get(
+                    WheelMetadata.to_wheel_name_format(package.name)
+                )
                 wheel_path = meta.wheel_path if meta else None
                 requires = meta.dependencies if meta else []
                 dependencies[package.name] = RequirementWithWheelAndDeps(

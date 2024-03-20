@@ -89,7 +89,10 @@ class RequirementWithWheelAndDeps:
 
 @dataclass
 class WheelMetadata:
-    """A dataclass to hold metadata from .whl file"""
+    """A dataclass to hold metadata from .whl file.
+    [name] is the name of the package standarized accroding to
+    https://peps.python.org/pep-0491/#escaping-and-unicode
+    """
 
     name: str
     wheel_path: Path
@@ -97,6 +100,8 @@ class WheelMetadata:
 
     @classmethod
     def from_wheel(cls, wheel_path: Path):
+        """Parses wheel metadata according to
+        https://peps.python.org/pep-0491/#file-contents"""
         with zipfile.ZipFile(wheel_path, "r") as whl:
             metadata_path = [
                 path for path in whl.namelist() if path.endswith(".dist-info/METADATA")
@@ -109,20 +114,24 @@ class WheelMetadata:
             metadata = (root / metadata_path[0]).read_text()
 
             dep_keyword = "Requires-Dist:"
-            name_keyword = "Name:"
-            dependencies = []
-            name = None
-            for line in metadata.splitlines():
-                if line.startswith(dep_keyword):
-                    dependencies.append(line[len(dep_keyword) :].strip())
-                if line.startswith(name_keyword):
-                    if name is not None:
-                        return None
-                    name = line[len(name_keyword) :].strip()
-
-            if name is None:
-                return None
+            dependencies = [
+                line[len(dep_keyword) :].strip()
+                for line in metadata.splitlines()
+                if line.startswith(dep_keyword)
+            ]
+            name = cls._get_name_from_wheel_filename(wheel_path.name)
             return cls(name=name, wheel_path=wheel_path, dependencies=dependencies)
+
+    @staticmethod
+    def _get_name_from_wheel_filename(wheel_filename: str) -> str:
+        # wheel filename is in format {name}-{version}[-{extra info}]
+        # https://peps.python.org/pep-0491/#file-name-convention
+        return wheel_filename.split("-")[0]
+
+    @staticmethod
+    def to_wheel_name_format(package_name: str) -> str:
+        # https://peps.python.org/pep-0491/#escaping-and-unicode
+        return re.sub("[^\w\d.]+", "_", package_name, re.UNICODE)
 
 
 def get_package_name(name: str) -> str:
