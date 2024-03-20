@@ -119,9 +119,13 @@ def package_upload(
     return MessageResult(upload(file=file, stage=stage, overwrite=overwrite))
 
 
-install_option = typer.Option(
+deprecated_pypi_download_option = typer.Option(
     False,
     "--pypi-download",
+    hidden=True,
+    callback=deprecated_flag_callback(
+        "Using --pypi-download is deprecated. Create command always checks for package in PyPi."
+    ),
     help="Installs packages that are not available on the Snowflake Anaconda channel.",
 )
 
@@ -131,6 +135,9 @@ deprecated_install_option = typer.Option(
     "-y",
     hidden=True,
     help="Installs packages that are not available on the Snowflake Anaconda channel.",
+    callback=deprecated_flag_callback(
+        "Using --yes is deprecated. Create command always checks for package in PyPi."
+    ),
 )
 
 ignore_anaconda_option = typer.Option(
@@ -147,21 +154,17 @@ def package_create(
         ...,
         help="Name of the package to create.",
     ),
-    install_packages: bool = install_option,
     ignore_anaconda: bool = ignore_anaconda_option,
-    _deprecated_install_option: bool = deprecated_install_option,
     allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
+    _deprecated_install_option: bool = deprecated_install_option,
+    _install_packages: bool = deprecated_pypi_download_option,
     **options,
 ) -> CommandResult:
     """
     Creates a Python package as a zip file that can be uploaded to a stage and imported for a Snowpark Python app.
     """
-    if _deprecated_install_option:
-        install_packages = _deprecated_install_option
-
     lookup_result = lookup(
         name=name,
-        install_packages=install_packages,
         allow_native_libraries=allow_native_libraries,
         ignore_anaconda=ignore_anaconda,
     )

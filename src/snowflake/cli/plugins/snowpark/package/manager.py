@@ -30,7 +30,6 @@ log = logging.getLogger(__name__)
 
 def lookup(
     name: str,
-    install_packages: bool,
     allow_native_libraries: PypiOption,
     ignore_anaconda: bool,
 ) -> LookupResult:
@@ -45,7 +44,7 @@ def lookup(
 
     if package_response.snowflake and not package_response.other:
         return InAnaconda(package_response, name)
-    elif install_packages:
+    else:
         status, result = package_utils.download_packages(
             anaconda=anaconda,
             perform_anaconda_check=not ignore_anaconda,

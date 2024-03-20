@@ -2215,9 +2215,6 @@
   │                      [required]                                              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --pypi-download                                 Installs packages that are   │
-  │                                                 not available on the         │
-  │                                                 Snowflake Anaconda channel.  │
   │ --ignore-anaconda                               Does not lookup packages on  │
   │                                                 Snowflake Anaconda channel.  │
   │ --allow-native-libraries          [yes|no|ask]  Allows native libraries,     │

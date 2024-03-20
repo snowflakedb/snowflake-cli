@@ -153,6 +153,23 @@ class TestPackage:
             in result.output
         )
 
+    @pytest.mark.parametrize(
+        "flags",
+        [
+            ["--pypi-download"],
+            ["-y"],
+            ["--yes"],
+            ["--pypi-download", "-y"],
+        ],
+    )
+    @mock.patch("snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel")
+    def test_create_install_flag_are_deprecated(self, _, flags, runner):
+        result = runner.invoke(["snowpark", "package", "create", "foo", *flags])
+        assert (
+            "is deprecated. Create command always checks for package in PyPi."
+            in result.output
+        )
+
     @mock.patch("snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel")
     def test_lookup_install_with_out_flags_does_not_warn(self, _, runner):
         result = runner.invoke(["snowpark", "package", "lookup", "foo"])

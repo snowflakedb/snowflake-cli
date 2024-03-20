@@ -27,13 +27,15 @@ class InAnaconda(LookupResult):
 class RequiresPackages(LookupResult):
     @property
     def message(self):
-        return dedent(
-            f"""
-        The package {self.name} is supported, but does depend on the
-        following Snowflake supported libraries. You should include the
-        following dependencies in you function or procedure packages list:
-        {get_readable_list_of_requirements(self.requirements.snowflake)}
-        """
+        return (
+            dedent(
+                f"""
+                The package {self.name} is supported, but does depend on the
+                following Snowflake supported libraries. You should include the
+                following dependencies in you function or procedure packages list:
+                """
+            )
+            + get_readable_list_of_requirements(self.requirements.snowflake)
         )
 
 

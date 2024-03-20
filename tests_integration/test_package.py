@@ -55,7 +55,6 @@ class TestPackage:
             "package",
             "create",
             "dummy-pkg-for-tests-with-deps",
-            "--pypi-download",
         ]
         if ignore_anaconda:
             command.append("--ignore-anaconda")
@@ -72,18 +71,6 @@ class TestPackage:
         )
 
     @pytest.mark.integration
-    def test_package_create_with_non_anaconda_package_without_install(
-        self, directory_for_test, runner, snapshot
-    ):
-        result = runner.invoke_with_connection_json(
-            ["snowpark", "package", "create", "dummy_pkg_for_tests_with_deps"]
-        )
-
-        assert_that_result_is_successful(result)
-        assert result.json == snapshot
-        assert not os.path.exists("dummy_pkg_for_tests_with_deps.zip")
-
-    @pytest.mark.integration
     @pytest.mark.parametrize("ignore_anaconda", (True, False))
     def test_create_package_with_deps(
         self, directory_for_test, runner, ignore_anaconda
@@ -93,7 +80,6 @@ class TestPackage:
             "package",
             "create",
             "dummy_pkg_for_tests_with_deps",
-            "--pypi-download",
         ]
         if ignore_anaconda:
             command.append("--ignore-anaconda")
@@ -120,7 +106,6 @@ class TestPackage:
             "package",
             "create",
             "july",
-            "--pypi-download",
             "--allow-native-libraries",
             "yes",
         ]
@@ -143,7 +128,6 @@ class TestPackage:
                 "package",
                 "create",
                 "git+https://github.com/sfc-gh-turbaszek/dummy-pkg-for-tests-with-deps.git",
-                "--pypi-download",
             ]
         )
 
@@ -176,7 +160,6 @@ class TestPackage:
                 "package",
                 "create",
                 "pygame",
-                "--pypi-download",
             ]
         )
 
