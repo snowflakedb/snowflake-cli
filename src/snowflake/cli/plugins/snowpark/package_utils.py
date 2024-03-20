@@ -75,6 +75,7 @@ def download_packages(
     file_name: str | None,
     perform_anaconda_check: bool = True,
     package_name: str | None = None,
+    index_url: str | None = None,
     allow_native_libraries: PypiOption = PypiOption.ASK,
 ) -> tuple[bool, SplitRequirements | None]:
     """
@@ -109,7 +110,9 @@ def download_packages(
             tmp_requirements.write_text(str(package_name))
             file_name = str(tmp_requirements)
 
-        pip_wheel_result = v.pip_wheel(file_name, download_dir=downloads_dir.path)
+        pip_wheel_result = v.pip_wheel(
+            file_name, download_dir=downloads_dir.path, index_url=index_url
+        )
         if pip_wheel_result != 0:
             log.info(pip_failed_msg.format(pip_wheel_result))
             return False, None

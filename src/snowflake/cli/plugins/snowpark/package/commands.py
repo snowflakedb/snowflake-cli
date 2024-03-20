@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from textwrap import dedent
+from typing import Optional
 
 import typer
 from click import ClickException
@@ -146,6 +147,14 @@ ignore_anaconda_option = typer.Option(
     help="Does not lookup packages on Snowflake Anaconda channel.",
 )
 
+index_option = typer.Option(
+    None,
+    "--index-url",
+    help="Base URL of the Python Package Index to use for package lookup. This should point to "
+    " a repository compliant with PEP 503 (the simple repository API) or a local directory laid"
+    " out in the same format.",
+)
+
 
 @app.command("create", requires_connection=True)
 @cleanup_after_install
@@ -155,6 +164,7 @@ def package_create(
         help="Name of the package to create.",
     ),
     ignore_anaconda: bool = ignore_anaconda_option,
+    index_url: Optional[str] = index_option,
     allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
     _deprecated_install_option: bool = deprecated_install_option,
     _install_packages: bool = deprecated_pypi_download_option,
@@ -165,6 +175,7 @@ def package_create(
     """
     lookup_result = lookup(
         name=name,
+        index_url=index_url,
         allow_native_libraries=allow_native_libraries,
         ignore_anaconda=ignore_anaconda,
     )

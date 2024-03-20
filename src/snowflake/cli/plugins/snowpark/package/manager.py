@@ -30,6 +30,7 @@ log = logging.getLogger(__name__)
 
 def lookup(
     name: str,
+    index_url: str | None,
     allow_native_libraries: PypiOption,
     ignore_anaconda: bool,
 ) -> LookupResult:
@@ -50,6 +51,7 @@ def lookup(
             perform_anaconda_check=not ignore_anaconda,
             package_name=name,
             file_name=None,
+            index_url=index_url,
             allow_native_libraries=allow_native_libraries,
         )
 

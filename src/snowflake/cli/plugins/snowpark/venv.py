@@ -59,10 +59,11 @@ class Venv:
         process = self.run_python(["-m", "pip", "install", "-r", requirements_files])
         return process.returncode
 
-    def pip_wheel(self, requirements_files, download_dir):
-        process = self.run_python(
-            ["-m", "pip", "wheel", "-r", requirements_files, "-w", download_dir]
-        )
+    def pip_wheel(self, requirements_files, download_dir, index_url):
+        command = ["-m", "pip", "wheel", "-r", requirements_files, "-w", download_dir]
+        if index_url is not None:
+            command += ["-i", index_url]
+        process = self.run_python(command)
         return process.returncode
 
     def _create_venv(self):

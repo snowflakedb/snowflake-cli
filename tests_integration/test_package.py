@@ -46,19 +46,22 @@ class TestPackage:
         snowflake_session.execute_string(f"DROP STAGE IF EXISTS {self.STAGE_NAME};")
 
     @pytest.mark.integration
-    @pytest.mark.parametrize("ignore_anaconda", (True, False))
+    @pytest.mark.parametrize(
+        "extra_flags",
+        [[], ["--ignore-anaconda"], ["--index-url", "https://pypi.org/simple"]],
+    )
     def test_package_create_with_non_anaconda_package(
-        self, directory_for_test, runner, ignore_anaconda
+        self, directory_for_test, runner, extra_flags
     ):
-        command = [
-            "snowpark",
-            "package",
-            "create",
-            "dummy-pkg-for-tests-with-deps",
-        ]
-        if ignore_anaconda:
-            command.append("--ignore-anaconda")
-        result = runner.invoke_with_connection_json(command)
+        result = runner.invoke_with_connection_json(
+            [
+                "snowpark",
+                "package",
+                "create",
+                "dummy-pkg-for-tests-with-deps",
+            ]
+            + extra_flags
+        )
 
         assert result.exit_code == 0
         assert Path("dummy-pkg-for-tests-with-deps.zip").is_file()
