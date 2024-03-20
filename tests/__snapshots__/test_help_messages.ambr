@@ -57,12 +57,12 @@
 # ---
 # name: test_help_messages[app.deploy]
   '''
-
+                                                                                  
    Usage: default app deploy [OPTIONS]                                            
-
+                                                                                  
    Syncs the local changes to the stage without creating or updating the          
    application.                                                                   
-
+                                                                                  
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --project  -p      TEXT  Path where the Snowflake Native App project         │
   │                          resides. Defaults to current working directory.     │
@@ -119,8 +119,8 @@
   │                                  information.                                │
   │ --silent                         Turns off intermediate output to console.   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-
-
+  
+  
   '''
 # ---
 # name: test_help_messages[app.init]
