@@ -109,9 +109,9 @@ def download_packages(
             tmp_requirements.write_text(str(package_name))
             file_name = str(tmp_requirements)
 
-        pip_download_result = v.pip_download(file_name, download_dir=downloads_dir.path)
-        if pip_download_result != 0:
-            log.info(pip_failed_msg.format(pip_download_result))
+        pip_wheel_result = v.pip_wheel(file_name, download_dir=downloads_dir.path)
+        if pip_wheel_result != 0:
+            log.info(pip_failed_msg.format(pip_wheel_result))
             return False, None
 
         dependencies = v.get_package_dependencies(

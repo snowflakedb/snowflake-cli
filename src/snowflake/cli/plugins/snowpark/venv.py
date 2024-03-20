@@ -59,9 +59,9 @@ class Venv:
         process = self.run_python(["-m", "pip", "install", "-r", requirements_files])
         return process.returncode
 
-    def pip_download(self, requirements_files, download_dir):
+    def pip_wheel(self, requirements_files, download_dir):
         process = self.run_python(
-            ["-m", "pip", "download", "-r", requirements_files, "-d", download_dir]
+            ["-m", "pip", "wheel", "-r", requirements_files, "-w", download_dir]
         )
         return process.returncode
 
