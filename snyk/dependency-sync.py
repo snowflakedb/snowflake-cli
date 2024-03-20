@@ -8,7 +8,6 @@ def sync():
     dependencies = pyproject["project"]["dependencies"]
     dev_dependencies = pyproject["project"]["optional-dependencies"]["development"]
     with open("snyk/requirements.txt", "w") as req:
-        req.write("# Auto generated\n")
         for dep in dependencies:
             req.write(f"{dep}\n")
         for dep in dev_dependencies:
