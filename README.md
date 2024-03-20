@@ -1,8 +1,12 @@
 # Snowflake Developer CLI
 
-**Note**: Snowflake CLI is in Private Preview (PrPr). You must register for the PrPr to use Snowflake CLI by filling out the
-[Snowflake CLI  - PrPr Intake Form](https://forms.gle/HZNhPNbzn7oExjFu8). For more information, you can contact a
-Snowflake sales representative.
+Snowflake CLI is an open-source command-line tool explicitly designed for developer-centric workloads in addition to SQL operations. It is a flexible and extensible tool that can accommodate modern development practices and technologies.
+
+With Snowflake CLI, developers can create, manage, update, and view apps running on Snowflake across workloads such as Streamlit in Snowflake, the Snowflake Native App Framework, Snowpark Container Services, and Snowpark. It supports a range of Snowflake features, including user-defined functions, stored procedures, Streamlit in Snowflake, and SQL execution.
+
+
+**Note**: Snowflake CLI is in Public Preview (PuPr). Docs at https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/index
+
 
 ## Install Snowflake CLI
 
