@@ -86,7 +86,7 @@ def download_packages(
     channel will be omitted, otherwise all packages will be downloaded using pip.
 
     Returns a tuple of:
-    1) a boolean indicating whether the installation was successful
+    1) a boolean indicating whether the download was successful
     2) a SplitRequirements object containing any installed dependencies
     which are available on the Snowflake Anaconda channel. These will have
     been deleted from the local packages folder.

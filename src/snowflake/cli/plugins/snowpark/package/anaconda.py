@@ -4,7 +4,9 @@ import logging
 from typing import List
 
 import requests
+from click import ClickException
 from packaging.version import parse
+from requests import HTTPError
 from snowflake.cli.plugins.snowpark.models import Requirement, SplitRequirements
 
 log = logging.getLogger(__name__)
@@ -72,3 +74,12 @@ class AnacondaChannel:
                 )
                 result.other.append(package)
         return result
+
+
+def get_anaconda_from_snowflake() -> AnacondaChannel:
+    try:
+        return AnacondaChannel.from_snowflake()
+    except HTTPError as err:
+        raise ClickException(
+            f"Accessing Snowflake Anaconda channel failed. Reason {err}"
+        )
