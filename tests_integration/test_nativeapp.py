@@ -532,12 +532,13 @@ def test_nativeapp_init_deploy(
                 dict(name=package_name),
             )
 
+            # manifest file exists
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
             stage_files = runner.invoke_with_connection_json(
                 ["object", "stage", "list", f"{package_name}.{stage_name}"],
                 env=TEST_ENV,
             )
-            assert contains_row_with(stage_files.json, {"name": "manifest.yml"})
+            assert contains_row_with(stage_files.json, {"name": "stage/manifest.yml"})
 
             # app does not exist
             assert not_contains_row_with(
