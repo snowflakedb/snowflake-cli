@@ -111,7 +111,7 @@ class WheelMetadata:
                 return None
 
             root = zipfile.Path(whl)
-            metadata = (root / metadata_path[0]).read_text()
+            metadata = (root / metadata_path[0]).read_text(encoding="utf-8")
 
             dep_keyword = "Requires-Dist:"
             dependencies = [
