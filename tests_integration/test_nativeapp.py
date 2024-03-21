@@ -532,6 +532,12 @@ def test_nativeapp_init_deploy(
                 dict(name=package_name),
             )
 
+            stage_files = runner.invoke_with_connection_json(
+                ["object", "list", "stage"],
+                env=TEST_ENV,
+            )
+            assert contains_row_with(stage_files.json, {"name": "manifest.yml"})
+
             # app does not exist
             assert not_contains_row_with(
                 row_from_snowflake_session(
