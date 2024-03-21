@@ -240,7 +240,7 @@ def package_create(
             The package {name} is supported, but does depend on the
             following Snowflake supported libraries. You should include the
             following dependencies in you function or procedure requirements:
-            ="""
+            """
         )
         message += "\n".join((req.line for req in dependencies.snowflake))
 
