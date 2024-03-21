@@ -82,7 +82,7 @@ def snowpark_package(
                     anaconda,
                     REQUIREMENTS_OTHER,
                     check_anaconda_for_pypi_deps,
-                    allow_native_libraries=package_native_libraries,
+                    allow_shared_libraries=package_native_libraries,
                 )
                 # add the Anaconda packages discovered as dependencies
                 if should_continue and second_chance_results:
