@@ -114,7 +114,7 @@ class TestPackage:
             "package",
             "create",
             "july",
-            "--allow-native-libraries",
+            "--allow-shared-libraries",
             "yes",
         ]
         if ignore_anaconda:

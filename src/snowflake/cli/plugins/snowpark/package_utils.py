@@ -76,7 +76,7 @@ def download_packages(
     perform_anaconda_check: bool = True,
     package_name: str | None = None,
     index_url: str | None = None,
-    allow_native_libraries: PypiOption = PypiOption.ASK,
+    allow_shared_libraries: PypiOption = PypiOption.ASK,
     skip_version_check: bool = False,
 ) -> tuple[bool, SplitRequirements | None]:
     """
@@ -144,10 +144,10 @@ def download_packages(
             dependencies, split_requirements.snowflake
         )
 
-        log.info("Checking to see if packages have native libraries...")
-        if _perform_native_libraries_check(
+        log.info("Checking to see if packages have shared (.so) libraries...")
+        if _perform_shared_libraries_check(
             dependencies_to_be_packed
-        ) and not _confirm_native_libraries(allow_native_libraries):
+        ) and not _confirm_shared_libraries(allow_shared_libraries):
             return False, split_requirements
         else:
             packages_dest = SecurePath(".packages")
@@ -199,7 +199,7 @@ def generate_deploy_stage_name(identifier: str) -> str:
     )
 
 
-def _check_for_native_libraries(
+def _check_for_shared_libraries(
     dependencies: List[RequirementWithWheelAndDeps],
 ) -> List[str]:
     return [
@@ -209,29 +209,30 @@ def _check_for_native_libraries(
     ]
 
 
-def _perform_native_libraries_check(deps: List[RequirementWithWheelAndDeps]):
-    if native_libraries := _check_for_native_libraries(deps):
-        _log_native_libraries(native_libraries)
+def _perform_shared_libraries_check(deps: List[RequirementWithWheelAndDeps]):
+    if native_libraries := _check_for_shared_libraries(deps):
+        _log_shared_libraries(native_libraries)
         return True
     else:
         log.info("Unsupported native libraries not found in packages (Good news!)...")
         return False
 
 
-def _log_native_libraries(
-    native_libraries: List[str],
+def _log_shared_libraries(
+    shared_libraries: List[str],
 ) -> None:
     log.error(
         "Following dependencies utilise shared libraries, not supported by Conda:"
     )
-    log.error("\n".join(set(native_libraries)))
+    log.error("\n".join(set(shared_libraries)))
+    # TODO: add "with --allow-shared-libraries" flag when refactoring snowpark build command
     log.error("You may still try to create your package, but it probably won't work")
     log.error("You may also request adding the package to Snowflake Conda channel")
     log.error("at https://support.anaconda.com/")
 
 
-def _confirm_native_libraries(allow_native_libraries: PypiOption) -> bool:
-    if allow_native_libraries == PypiOption.ASK:
+def _confirm_shared_libraries(allow_shared_libraries: PypiOption) -> bool:
+    if allow_shared_libraries == PypiOption.ASK:
         return click.confirm("Continue with package installation?", default=False)
     else:
-        return allow_native_libraries == PypiOption.YES
+        return allow_shared_libraries == PypiOption.YES

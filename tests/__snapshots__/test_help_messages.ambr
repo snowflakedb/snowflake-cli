@@ -2225,8 +2225,10 @@
   │                                                 simple repository API) or a  │
   │                                                 local directory laid out in  │
   │                                                 the same format.             │
-  │                                                 [default: None]              │
-  │ --allow-native-libraries          [yes|no|ask]  Allows native libraries,     │
+  │ --skip-version-check                            Skip comparing versions of   │
+  │                                                 dependencies between         │
+  │                                                 requirements and Anaconda.   │
+  │ --allow-shared-libraries          [yes|no|ask]  Allows native libraries,     │
   │                                                 when using packages          │
   │                                                 installed through PIP        │
   │                                                 [default: no]                │
