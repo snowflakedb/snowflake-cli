@@ -20,6 +20,11 @@
 * Changing imports in function/procedure section in `snowflake.yml` will cause the definition update on replace
 * Adding `--pattern` flag to `stage list` command for filtering out results with regex.
 
+# v2.1.1
+
+## Fixes and improvements
+* Improved security of printing connection details in `snow connection list`.
+
 # v2.1.0
 
 ## Backward incompatibility

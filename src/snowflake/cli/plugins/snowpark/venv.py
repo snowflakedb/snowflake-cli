@@ -67,7 +67,7 @@ class Venv:
         return process.returncode
 
     def _create_venv(self):
-        venv.create(self.directory.name, self.with_pip)
+        venv.create(self.directory.name, with_pip=self.with_pip)
 
     @staticmethod
     def _get_python_path(venv_dir: Path) -> Path:

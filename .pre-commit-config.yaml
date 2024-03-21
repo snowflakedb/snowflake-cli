@@ -58,5 +58,5 @@ repos:
       - id: dependencies-sync
         name: "Copy dependencies from pyproject.toml to requirements.txt"
         language: system
-        entry: python .snyk/dependency-sync.py
+        entry: python snyk/dependency-sync.py
         files: ^pyproject.toml$
