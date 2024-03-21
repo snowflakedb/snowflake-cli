@@ -496,3 +496,63 @@ def test_nativeapp_init_from_repo_with_single_template(
             assert result.exit_code == 0
         finally:
             single_template_repo.close()
+
+
+# Tests a simple flow of executing "snow app deploy", verifying that an application package was created, and an application was not
+@pytest.mark.integration
+def test_nativeapp_init_deploy(
+    runner,
+    snowflake_session,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    result = runner.invoke_json(
+        ["app", "init", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_name)):
+        result = runner.invoke_with_connection_json(
+            ["app", "deploy"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        try:
+            # package exist
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            app_name = f"{project_name}_{USER_NAME}".upper()
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show application packages like '{package_name}'",
+                    )
+                ),
+                dict(name=package_name),
+            )
+
+            # app does not exist
+            assert not_contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show applications like '{app_name}'",
+                    )
+                ),
+                dict(name=app_name),
+            )
+
+            # make sure we always delete the app
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
