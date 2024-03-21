@@ -14,7 +14,7 @@ from snowflake.cli.plugins.snowpark.models import (
     Requirement,
 )
 from snowflake.cli.plugins.snowpark.package.anaconda import (
-    get_anaconda_from_snowflake,
+    AnacondaChannel,
 )
 from snowflake.cli.plugins.snowpark.package.manager import (
     cleanup_packages_dir,
@@ -66,7 +66,7 @@ def package_lookup(
     """
     Checks if a package is available on the Snowflake Anaconda channel.
     """
-    anaconda = get_anaconda_from_snowflake()
+    anaconda = AnacondaChannel.from_snowflake()
 
     package = Requirement.parse(package_name)
     if anaconda.is_package_available(package=package):
@@ -195,7 +195,7 @@ def package_create(
     if ignore_anaconda:
         anaconda = None
     else:
-        anaconda = get_anaconda_from_snowflake()
+        anaconda = AnacondaChannel.from_snowflake()
         package = Requirement.parse(name)
         if anaconda.is_package_available(
             package, skip_version_check=skip_version_check

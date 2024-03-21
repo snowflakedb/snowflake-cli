@@ -36,9 +36,14 @@ class AnacondaChannel:
 
     @classmethod
     def from_snowflake(cls):
-        response = requests.get(AnacondaChannel.snowflake_channel_url)
-        response.raise_for_status()
-        return cls(packages=response.json()["packages"])
+        try:
+            response = requests.get(AnacondaChannel.snowflake_channel_url)
+            response.raise_for_status()
+            return cls(packages=response.json()["packages"])
+        except HTTPError as err:
+            raise ClickException(
+                f"Accessing Snowflake Anaconda channel failed. Reason {err}"
+            )
 
     def parse_anaconda_packages(
         self, packages: List[Requirement], skip_version_check: bool = False
@@ -74,12 +79,3 @@ class AnacondaChannel:
                 )
                 result.other.append(package)
         return result
-
-
-def get_anaconda_from_snowflake() -> AnacondaChannel:
-    try:
-        return AnacondaChannel.from_snowflake()
-    except HTTPError as err:
-        raise ClickException(
-            f"Accessing Snowflake Anaconda channel failed. Reason {err}"
-        )
