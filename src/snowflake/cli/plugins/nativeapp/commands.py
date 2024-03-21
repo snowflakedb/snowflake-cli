@@ -232,7 +232,7 @@ def app_deploy(
     **options,
 ) -> CommandResult:
     """
-    Syncs the local changes to the stage without creating or updating the application.
+    Creates an application package in your Snowflake account and syncs the local changes to the stage without creating or updating the application.
     """
     manager = NativeAppManager(
         project_definition=cli_context.project_definition,
