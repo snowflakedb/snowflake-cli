@@ -146,16 +146,3 @@ def get_package_name(name: str) -> str:
         return name.replace(".zip", "")
     else:
         return name
-
-
-pip_failed_msg = (
-    "pip failed with return code {}."
-    " If pip is installed correctly, this may mean you`re trying to install a package"
-    " that isn't compatible with the host architecture -"
-    " and generally means it has native libraries."
-)
-second_chance_msg = (
-    "Good news! The following package dependencies can be"
-    " imported directly from Anaconda, and will be excluded from"
-    " the zip: {}"
-)

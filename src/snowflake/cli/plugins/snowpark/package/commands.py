@@ -12,16 +12,16 @@ from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.plugins.snowpark.models import (
     PypiOption,
     Requirement,
-    SplitRequirements,
 )
 from snowflake.cli.plugins.snowpark.package.anaconda import (
     get_anaconda_from_snowflake,
 )
 from snowflake.cli.plugins.snowpark.package.manager import (
-    cleanup_after_install,
+    cleanup_packages_dir,
     create_packages_zip,
     upload,
 )
+from snowflake.cli.plugins.snowpark.package_utils import download_packages
 from snowflake.cli.plugins.snowpark.snowpark_shared import PackageNativeLibrariesOption
 
 app = SnowTyper(
@@ -169,14 +169,9 @@ allow_shared_libraries_option = typer.Option(
     help="Allows shared (.so) libraries, when using packages installed through PIP",
 )
 
-from snowflake.cli.plugins.snowpark.package.utils import (
-    get_readable_list_of_requirements,
-)
-from snowflake.cli.plugins.snowpark.package_utils import download_packages
-
 
 @app.command("create", requires_connection=True)
-@cleanup_after_install
+@cleanup_packages_dir
 def package_create(
     name: str = typer.Argument(
         ...,
@@ -197,24 +192,21 @@ def package_create(
     if _allow_native_libraries != PypiOption.NO:
         allow_shared_libraries = _allow_native_libraries
 
-    package = Requirement.parse(name)
     if ignore_anaconda:
         anaconda = None
-        anaconda_result = SplitRequirements([], other=[package])
     else:
         anaconda = get_anaconda_from_snowflake()
-        anaconda_result = anaconda.parse_anaconda_packages(
-            [package], skip_version_check=skip_version_check
-        )
-
-    if not anaconda_result.other:
-        return MessageResult(
-            f"Package {name} is already available in Snowflake Anaconda Channel"
-        )
+        package = Requirement.parse(name)
+        if anaconda.is_package_available(
+            package, skip_version_check=skip_version_check
+        ):
+            return MessageResult(
+                f"Package {name} is already available in Snowflake Anaconda Channel."
+            )
 
     packages_are_downloaded, dependencies = download_packages(
         anaconda=anaconda,
-        perform_anaconda_check=not ignore_anaconda,
+        perform_anaconda_check_for_dependencies=not ignore_anaconda,
         package_name=name,
         file_name=None,
         index_url=index_url,
@@ -222,36 +214,34 @@ def package_create(
         skip_version_check=skip_version_check,
     )
 
-    if packages_are_downloaded:
-        # The package is not in anaconda, so we have to pack it
-        zip_file = create_packages_zip(name)
-        message = dedent(
-            f"""
-            Package {zip_file} created. You can now upload it to a stage using
-            snow snowpark package upload -f {zip_file} -s <stage-name>`
-            and reference it in your procedure or function.
-            Remember to add it to imports in the procedure or function definition.
-            """
-        )
-
-        if dependencies.snowflake:
-            message += dedent(
+    if not packages_are_downloaded:
+        return MessageResult(
+            dedent(
                 f"""
-                The package {name} is supported, but does depend on the
-                following Snowflake supported libraries. You should include the
-                following dependencies in you function or procedure requirements:
+                Cannot create package for {name}. Please check the package name
+                or try again with --allow-shared-libraries option.
                 """
             )
-            message += get_readable_list_of_requirements(dependencies.snowflake)
-
-        return MessageResult(message)
-
-    # package download failed
-    return MessageResult(
-        dedent(
-            f"""
-        Cannot create package for {name}. Please check the package name
-        or try again with --allow-shared-libraries option.
-        """
         )
+
+    # The package is not in anaconda, so we have to pack it
+    zip_file = create_packages_zip(name)
+    message = dedent(
+        f"""
+        Package {zip_file} created. You can now upload it to a stage using
+        snow snowpark package upload -f {zip_file} -s <stage-name>`
+        and reference it in your procedure or function.
+        Remember to add it to imports in the procedure or function definition.
+        """
     )
+    if dependencies.snowflake:
+        message += dedent(
+            f"""
+            The package {name} is supported, but does depend on the
+            following Snowflake supported libraries. You should include the
+            following dependencies in you function or procedure requirements:
+            ="""
+        )
+        message += "\n".join((req.line for req in dependencies.snowflake))
+
+    return MessageResult(message)

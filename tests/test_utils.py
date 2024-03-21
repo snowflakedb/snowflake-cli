@@ -212,7 +212,7 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
         package_utils.download_packages(
             anaconda=AnacondaChannel([]),
             file_name=correct_requirements_txt,
-            perform_anaconda_check=True,
+            perform_anaconda_check_for_dependencies=True,
             allow_native_libraries=PypiOption.YES,
         )
 
