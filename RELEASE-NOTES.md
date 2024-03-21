@@ -6,6 +6,14 @@
 * `snow snowpark package lookup` no longer performs check against PyPi. Using `--pypi-download` or `--yes`
   has no effect and will cause a warning. In this way the command has single responsibility - check if package is
   available in Snowflake Anaconda channel.
+* `snow snowpark package create`:
+  * `--pypi-download` or `--yes` flags have no effect and will cause a warning.
+    `create` command always checks against PyPi.
+  * `--allow-native-libraries` is renamed to `--allow-shared-libraries`. Old name of the flag is still supported.
+  * new `--ignore-anaconda` flag disables package lookup in Snowflake Anaconda channel.
+    All dependencies will be downloaded from PyPi.
+  * new `--skip-version-check` skips comparing versions of dependencies between requirements and Anaconda.
+  * new `--index-url` flag sets up Base URL of the Python Package Index to use for package lookup.
 
 ## New additions
 * Added support for fully qualified name (`database.schema.name`) in `name` parameter in streamlit project definition
