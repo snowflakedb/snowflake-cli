@@ -213,7 +213,7 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
             anaconda=AnacondaChannel([]),
             file_name=correct_requirements_txt,
             perform_anaconda_check_for_dependencies=True,
-            allow_native_libraries=PypiOption.YES,
+            allow_shared_libraries=PypiOption.YES,
         )
 
     assert "pip failed with return code 42" in caplog.text
