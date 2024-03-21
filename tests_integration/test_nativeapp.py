@@ -504,7 +504,6 @@ def test_nativeapp_init_deploy(
     runner,
     snowflake_session,
     temporary_working_directory,
-    test_database,
 ):
     project_name = "myapp"
     result = runner.invoke_json(
@@ -535,7 +534,7 @@ def test_nativeapp_init_deploy(
 
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
             stage_files = runner.invoke_with_connection_json(
-                ["object", "stage", "list", stage_name],
+                ["object", "stage", "list", f"{package_name}.{stage_name}"],
                 env=TEST_ENV,
             )
             assert contains_row_with(stage_files.json, {"name": "manifest.yml"})
