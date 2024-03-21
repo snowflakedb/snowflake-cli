@@ -532,8 +532,9 @@ def test_nativeapp_init_deploy(
                 dict(name=package_name),
             )
 
+            stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
             stage_files = runner.invoke_with_connection_json(
-                ["object", "list", "stage"],
+                ["object", "stage", "list", stage_name],
                 env=TEST_ENV,
             )
             assert contains_row_with(stage_files.json, {"name": "manifest.yml"})
