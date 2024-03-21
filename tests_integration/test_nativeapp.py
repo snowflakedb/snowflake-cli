@@ -504,6 +504,7 @@ def test_nativeapp_init_deploy(
     runner,
     snowflake_session,
     temporary_working_directory,
+    test_database,
 ):
     project_name = "myapp"
     result = runner.invoke_json(
