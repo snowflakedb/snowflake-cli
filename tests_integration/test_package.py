@@ -140,10 +140,9 @@ class TestPackage:
                 "--skip-version-check",
             ]
         )
-
         assert result.exit_code == 0, result.output
         assert (
-            "Package matplotlib>=1000 is available on the Snowflake Anaconda channel."
+            "Package matplotlib>=1000 is already available in Snowflake Anaconda Channel."
             in result.output
         )
 
