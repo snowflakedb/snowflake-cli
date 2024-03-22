@@ -12,6 +12,7 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MessageResult
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
     PypiOption,
     Requirement,
@@ -213,11 +214,13 @@ def package_create(
                 f"Package {name} is already available in Snowflake Anaconda Channel."
             )
 
+    packages_dir = SecurePath(".packages")
     packages_are_downloaded, dependencies = download_packages(
         anaconda=anaconda,
         perform_anaconda_check_for_dependencies=not ignore_anaconda,
         package_name=name,
-        file_name=None,
+        requirements_file=None,
+        packages_dir=packages_dir,
         index_url=index_url,
         allow_shared_libraries=allow_shared_libraries_pypi_option,
         skip_version_check=skip_version_check,

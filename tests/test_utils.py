@@ -53,17 +53,19 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_dst(app_zip):
     assert expected_error.type == FileNotFoundError
 
 
-def test_parse_requierements_with_correct_file(
+def test_parse_requirements_with_correct_file(
     correct_requirements_snowflake_txt: str, temp_dir
 ):
-    result = package_utils.parse_requirements(correct_requirements_snowflake_txt)
+    result = package_utils.parse_requirements(
+        SecurePath(correct_requirements_snowflake_txt)
+    )
 
     assert len(result) == len(test_data.requirements)
 
 
 def test_parse_requirements_with_nonexistent_file(temp_dir):
     path = os.path.join(temp_dir, "non_existent.file")
-    result = package_utils.parse_requirements(path)
+    result = package_utils.parse_requirements(SecurePath(path))
 
     assert result == []
 
@@ -129,7 +131,7 @@ def test_get_packages(contents, expected, correct_requirements_snowflake_txt):
 
 
 def test_parse_requirements(correct_requirements_txt: str):
-    result = package_utils.parse_requirements(correct_requirements_txt)
+    result = package_utils.parse_requirements(SecurePath(correct_requirements_txt))
 
     assert len(result) == 3
     assert result[0].name == "Django"
@@ -211,7 +213,8 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
     with caplog.at_level(logging.INFO, "snowflake.cli.plugins.snowpark.package_utils"):
         package_utils.download_packages(
             anaconda=AnacondaChannel([]),
-            file_name=correct_requirements_txt,
+            requirements_file=SecurePath(correct_requirements_txt),
+            packages_dir=SecurePath(".packages"),
             perform_anaconda_check_for_dependencies=True,
             allow_shared_libraries=PypiOption.YES,
         )

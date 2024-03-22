@@ -11,6 +11,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, List
 
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
     RequirementWithWheelAndDeps,
@@ -55,12 +56,12 @@ class Venv:
 
         return process
 
-    def pip_install(self, requirements_files):
-        process = self.run_python(["-m", "pip", "install", "-r", requirements_files])
+    def pip_install(self, requirements_file):
+        process = self.run_python(["-m", "pip", "install", "-r", requirements_file])
         return process.returncode
 
-    def pip_wheel(self, requirements_files, download_dir, index_url):
-        command = ["-m", "pip", "wheel", "-r", requirements_files, "-w", download_dir]
+    def pip_wheel(self, requirements_file, download_dir, index_url):
+        command = ["-m", "pip", "wheel", "-r", requirements_file, "-w", download_dir]
         if index_url is not None:
             command += ["-i", index_url]
         process = self.run_python(command)
@@ -81,7 +82,7 @@ class Venv:
         ][0]
 
     def get_package_dependencies(
-        self, requirements_file: str, downloads_dir: Path
+        self, requirements_file: SecurePath, downloads_dir: Path
     ) -> List[RequirementWithWheelAndDeps]:
         packages_metadata: Dict[str, WheelMetadata] = {
             meta.name: meta
@@ -113,7 +114,7 @@ class Venv:
                 for package in requires:
                     _get_dependencies(Requirement.parse_line(package))
 
-        with open(requirements_file, "r") as req_file:
+        with requirements_file.open("r", read_file_limit_mb=512) as req_file:
             for line in req_file:
                 _get_dependencies(Requirement.parse_line(line))
 

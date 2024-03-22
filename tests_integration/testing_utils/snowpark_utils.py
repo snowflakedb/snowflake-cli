@@ -192,7 +192,7 @@ class SnowparkTestSteps:
         ]
 
         if additional_arguments:
-            arguments.append(*additional_arguments)
+            arguments.extend(additional_arguments)
 
         result = self._setup.runner.invoke_with_connection_json(arguments)
         assert_that_result_is_successful(result)

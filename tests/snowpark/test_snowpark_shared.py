@@ -4,7 +4,9 @@ from unittest import mock
 from zipfile import ZipFile
 
 import snowflake.cli.plugins.snowpark.snowpark_shared as shared
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import Requirement, SplitRequirements
+from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 
 
 @mock.patch(
@@ -31,7 +33,15 @@ def test_snowpark_package(
     app_root.mkdir()
     app_root.joinpath(Path("app.py")).touch()
 
-    shared.snowpark_package(app_root, Path("app.zip"), "yes", False, "yes")
+    shared.snowpark_package(
+        SnowparkPackagePaths(
+            source=SecurePath(app_root),
+            artifact_file=SecurePath("app.zip"),
+        ),
+        pypi_download="yes",
+        check_anaconda_for_pypi_deps=False,
+        package_native_libraries="yes",
+    )
 
     zip_path = os.path.join(temp_dir, "app.zip")
     assert os.path.isfile(zip_path)

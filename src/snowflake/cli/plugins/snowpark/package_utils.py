@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
 from typing import List
 
 import click
@@ -26,7 +25,7 @@ PIP_PATH = os.environ.get("SNOWCLI_PIP_PATH", "pip")
 
 
 def parse_requirements(
-    requirements_file: str = "requirements.txt",
+    requirements_file: SecurePath = SecurePath("requirements.txt"),
 ) -> List[Requirement]:
     """Reads and parses a Python requirements.txt file.
 
@@ -38,15 +37,14 @@ def parse_requirements(
         list[str]: A flat list of package names, without versions
     """
     reqs: List[Requirement] = []
-    requirements_file_spath = SecurePath(requirements_file)
-    if requirements_file_spath.exists():
-        with requirements_file_spath.open(
+    if requirements_file.exists():
+        with requirements_file.open(
             "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
         ) as f:
             for req in requirements.parse(f):
                 reqs.append(req)
     else:
-        log.info("No %s found", requirements_file)
+        log.info("No %s found", requirements_file.path)
 
     return deduplicate_and_sort_reqs(reqs)
 
@@ -103,7 +101,8 @@ def generate_deploy_stage_name(identifier: str) -> str:
 
 def download_packages(
     anaconda: AnacondaChannel | None,
-    file_name: str | None,
+    requirements_file: SecurePath | None,
+    packages_dir: SecurePath,
     perform_anaconda_check_for_dependencies: bool = True,
     package_name: str | None = None,
     index_url: str | None = None,
@@ -122,12 +121,12 @@ def download_packages(
         which are available on the Snowflake Anaconda channel.
         They will not be downloaded into '.packages' directory.
     """
-    if file_name and package_name:
+    if requirements_file and package_name:
         raise ClickException(
             "Could not use package name and requirements file simultaneously"
         )
-    if file_name and not Path(file_name).exists():
-        raise ClickException(f"File {file_name} does not exists.")
+    if requirements_file and not requirements_file.exists():
+        raise ClickException(f"File {requirements_file.path} does not exists.")
     if perform_anaconda_check_for_dependencies and not anaconda:
         raise ClickException(
             "Cannot perform anaconda checks if anaconda channel is not specified."
@@ -136,19 +135,18 @@ def download_packages(
     with Venv() as v, SecurePath.temporary_directory() as downloads_dir:
         if package_name:
             # This is a Windows workaround where use TemporaryDirectory instead of NamedTemporaryFile
-            tmp_requirements = Path(v.directory.name) / "requirements.txt"
-            tmp_requirements.write_text(str(package_name))
-            file_name = str(tmp_requirements)
+            requirements_file = SecurePath(v.directory.name) / "requirements.txt"
+            requirements_file.write_text(str(package_name))
 
         pip_wheel_result = v.pip_wheel(
-            file_name, download_dir=downloads_dir.path, index_url=index_url
+            requirements_file.path, download_dir=downloads_dir.path, index_url=index_url  # type: ignore
         )
         if pip_wheel_result != 0:
             log.info(pip_failed_log_msg, pip_wheel_result)
             return False, None
 
         dependencies = v.get_package_dependencies(
-            file_name, downloads_dir=downloads_dir.path
+            requirements_file, downloads_dir=downloads_dir.path
         )
         dependency_requirements = [d.requirement for d in dependencies]
 
@@ -177,10 +175,9 @@ def download_packages(
         ) and not _confirm_shared_libraries(allow_shared_libraries):
             return False, split_dependencies
         else:
-            packages_dest = SecurePath(".packages")
-            packages_dest.mkdir(exist_ok=True)
+            packages_dir.mkdir(exist_ok=True)
             for package in dependencies_to_be_packed:
-                package.extract_files(packages_dest.path)
+                package.extract_files(packages_dir.path)
             return True, split_dependencies
 
 

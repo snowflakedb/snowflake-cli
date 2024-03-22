@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import List
 
 import click
@@ -10,6 +9,7 @@ from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.models import PypiOption, Requirement
 from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
+from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
 
 PyPiDownloadOption: PypiOption = typer.Option(
@@ -44,19 +44,17 @@ OverwriteOption = typer.Option(
 
 log = logging.getLogger(__name__)
 
-REQUIREMENTS_SNOWFLAKE = "requirements.snowflake.txt"
-REQUIREMENTS_OTHER = "requirements.other.txt"
-
 
 def snowpark_package(
-    source: Path,
-    artifact_file: Path,
+    paths: SnowparkPackagePaths,
     pypi_download: PypiOption,
     check_anaconda_for_pypi_deps: bool,
     package_native_libraries: PypiOption,
 ):
     log.info("Resolving any requirements from requirements.txt...")
-    requirements = package_utils.parse_requirements()
+    requirements = package_utils.parse_requirements(
+        requirements_file=paths.defined_requirements_file
+    )
     if requirements:
         anaconda = AnacondaChannel.from_snowflake()
         log.info("Comparing provided packages from Snowflake Anaconda...")
@@ -64,7 +62,9 @@ def snowpark_package(
         if not split_requirements.other:
             log.info("No packages to manually resolve")
         else:
-            _write_requirements_file(REQUIREMENTS_OTHER, split_requirements.other)
+            _write_requirements_file(
+                paths.other_requirements_file, split_requirements.other
+            )
             do_download = (
                 click.confirm(
                     "Do you want to try to download non-Anaconda packages?",
@@ -75,13 +75,15 @@ def snowpark_package(
             )
             if do_download:
                 log.info("Installing non-Anaconda packages...")
+
                 (
                     should_continue,
                     second_chance_results,
                 ) = package_utils.download_packages(
-                    anaconda,
-                    REQUIREMENTS_OTHER,
-                    check_anaconda_for_pypi_deps,
+                    anaconda=anaconda,
+                    requirements_file=paths.other_requirements_file,
+                    packages_dir=paths.downloaded_packages_dir,
+                    perform_anaconda_check_for_dependencies=check_anaconda_for_pypi_deps,
                     allow_shared_libraries=package_native_libraries,
                 )
                 # add the Anaconda packages discovered as dependencies
@@ -93,19 +95,23 @@ def snowpark_package(
         # write requirements.snowflake.txt file
         if split_requirements.snowflake:
             _write_requirements_file(
-                REQUIREMENTS_SNOWFLAKE,
+                paths.snowflake_requirements_file,
                 package_utils.deduplicate_and_sort_reqs(split_requirements.snowflake),
             )
 
-    zip_dir(source=source, dest_zip=artifact_file)
+    zip_dir(source=paths.source.path, dest_zip=paths.artifact_file.path)
 
-    if Path(".packages").exists():
-        zip_dir(source=Path(".packages"), dest_zip=artifact_file, mode="a")
-    log.info("Deployment package now ready: %s", artifact_file)
+    if paths.downloaded_packages_dir.exists():
+        zip_dir(
+            source=paths.downloaded_packages_dir.path,
+            dest_zip=paths.artifact_file.path,
+            mode="a",
+        )
+    log.info("Deployment package now ready: %s", paths.artifact_file.path)
 
 
-def _write_requirements_file(file_name: str, requirements: List[Requirement]):
-    log.info("Writing %s file", file_name)
-    with SecurePath(file_name).open("w", encoding="utf-8") as f:
+def _write_requirements_file(file_path: SecurePath, requirements: List[Requirement]):
+    log.info("Writing %s file", file_path.path)
+    with file_path.open("w", encoding="utf-8") as f:
         for req in requirements:
             f.write(f"{req.line}\n")
