@@ -390,15 +390,24 @@ def test_snowpark_commands_executed_outside_project_dir(
         ["--pypi-download", "yes"],
         ["--pypi-download", "no"],
         ["--pypi-download", "ask"],
+        ["--check-anaconda-for-pypi-deps"],
+        ["-a"],
+        ["--no-check-anaconda-for-pypi-deps"],
     ],
 )
-def test_snowpark_build_deprecated_flags(
-    flags, runner, _test_steps, project_directory, alter_snowflake_yml, test_database
-):
+def test_snowpark_build_deprecated_flags_warning(flags, runner, project_directory):
     with project_directory("snowpark"):
         result = runner.invoke(["snowpark", "build", *flags])
         assert result.exit_code == 0, result.output
         assert "flag is deprecated" in result.output
+
+
+@pytest.mark.integration
+def test_snowpark_build_no_deprecated_warnings_by_default(runner, project_directory):
+    with project_directory("snowpark"):
+        result = runner.invoke(["snowpark", "build"])
+        assert result.exit_code == 0, result.output
+        assert "flag is deprecated" not in result.output
 
 
 @pytest.mark.integration

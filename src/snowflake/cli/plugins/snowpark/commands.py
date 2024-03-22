@@ -44,7 +44,8 @@ from snowflake.cli.plugins.snowpark.models import PypiOption
 from snowflake.cli.plugins.snowpark.package_utils import get_snowflake_packages
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
-    CheckAnacondaForPyPiDependencies,
+    DeprecatedCheckAnacondaForPyPiDependencies,
+    IgnoreAnacondaOption,
     PackageNativeLibrariesOption,
     snowpark_package,
 )
@@ -323,8 +324,9 @@ deprecated_pypi_download_option = typer.Option(
 @app.command("build")
 @with_project_definition("snowpark")
 def build(
-    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
+    ignore_anaconda: bool = IgnoreAnacondaOption,
     package_native_libraries: PypiOption = PackageNativeLibrariesOption,
+    deprecated_check_anaconda_for_pypi_deps: bool = DeprecatedCheckAnacondaForPyPiDependencies,
     _deprecated_pypi_download: PypiOption = deprecated_pypi_download_option,
     **options,
 ) -> CommandResult:
@@ -332,6 +334,9 @@ def build(
     Builds the Snowpark project as a `.zip` archive that can be used by `deploy` command.
     The archive is built using only the `src` directory specified in the project file.
     """
+    if not deprecated_check_anaconda_for_pypi_deps:
+        ignore_anaconda = True
+
     paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
         snowpark_project_definition=cli_context.project_definition,
@@ -340,7 +345,7 @@ def build(
 
     snowpark_package(
         paths=paths,
-        check_anaconda_for_pypi_deps=check_anaconda_for_pypi_deps,
+        check_anaconda_for_pypi_deps=not ignore_anaconda,
         package_native_libraries=package_native_libraries,  # type: ignore[arg-type]
     )
     return MessageResult(f"Build done. Artifact path: {paths.artifact_file.path}")

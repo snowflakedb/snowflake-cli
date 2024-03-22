@@ -1974,32 +1974,19 @@
    project file.                                                                  
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --check-anaconda-…  -a  --no-check-anaco…                  Checks if any of  │
-  │                                                            missing Anaconda  │
-  │                                                            packages          │
-  │                                                            dependencies can  │
-  │                                                            be imported       │
-  │                                                            directly from     │
-  │                                                            Anaconda. Valid   │
-  │                                                            values include:   │
-  │                                                            `true`, `false`,  │
-  │                                                            Default: `true`.  │
-  │                                                            [default:         │
-  │                                                            check-anaconda-f… │
-  │ --package-native-…                           [yes|no|ask]  Allows native     │
-  │                                                            libraries, when   │
-  │                                                            using packages    │
-  │                                                            installed through │
-  │                                                            PIP               │
-  │                                                            [default: no]     │
-  │ --project           -p                       TEXT          Path where the    │
-  │                                                            Snowpark project  │
-  │                                                            resides. Defaults │
-  │                                                            to current        │
-  │                                                            working           │
-  │                                                            directory.        │
-  │ --help              -h                                     Show this message │
-  │                                                            and exit.         │
+  │ --ignore-anaconda                                 Does not lookup packages   │
+  │                                                   on Snowflake Anaconda      │
+  │                                                   channel.                   │
+  │ --package-native-libraries          [yes|no|ask]  Allows native libraries,   │
+  │                                                   when using packages        │
+  │                                                   installed through PIP      │
+  │                                                   [default: no]              │
+  │ --project                   -p      TEXT          Path where the Snowpark    │
+  │                                                   project resides. Defaults  │
+  │                                                   to current working         │
+  │                                                   directory.                 │
+  │ --help                      -h                    Show this message and      │
+  │                                                   exit.                      │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │

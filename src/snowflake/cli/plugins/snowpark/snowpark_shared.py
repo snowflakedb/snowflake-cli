@@ -4,6 +4,7 @@ import logging
 from typing import List
 
 import typer
+from snowflake.cli.api.commands.flags import deprecated_flag_callback
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.models import PypiOption, Requirement
@@ -20,11 +21,21 @@ PackageNativeLibrariesOption: PypiOption = typer.Option(
     help="Allows native libraries, when using packages installed through PIP",
 )
 
-CheckAnacondaForPyPiDependencies: bool = typer.Option(
+DeprecatedCheckAnacondaForPyPiDependencies: bool = typer.Option(
     True,
     "--check-anaconda-for-pypi-deps/--no-check-anaconda-for-pypi-deps",
     "-a",
     help="""Checks if any of missing Anaconda packages dependencies can be imported directly from Anaconda. Valid values include: `true`, `false`, Default: `true`.""",
+    hidden=True,
+    callback=deprecated_flag_callback(
+        "--check-anaconda-for-pypi-deps flag is deprecated. Use --ignore-anaconda flag instead."
+    ),
+)
+
+IgnoreAnacondaOption = typer.Option(
+    False,
+    "--ignore-anaconda",
+    help="Does not lookup packages on Snowflake Anaconda channel.",
 )
 
 ReturnsOption = typer.Option(

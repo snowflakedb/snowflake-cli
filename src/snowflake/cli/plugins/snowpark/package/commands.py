@@ -26,6 +26,7 @@ from snowflake.cli.plugins.snowpark.package.manager import (
     upload,
 )
 from snowflake.cli.plugins.snowpark.package_utils import download_packages
+from snowflake.cli.plugins.snowpark.snowpark_shared import IgnoreAnacondaOption
 
 app = SnowTyper(
     name="package",
@@ -148,12 +149,6 @@ deprecated_allow_native_libraries_option = typer.Option(
     ),
 )
 
-ignore_anaconda_option = typer.Option(
-    False,
-    "--ignore-anaconda",
-    help="Does not lookup packages on Snowflake Anaconda channel.",
-)
-
 index_option = typer.Option(
     None,
     "--index-url",
@@ -183,7 +178,7 @@ def package_create(
         ...,
         help="Name of the package to create.",
     ),
-    ignore_anaconda: bool = ignore_anaconda_option,
+    ignore_anaconda: bool = IgnoreAnacondaOption,
     index_url: Optional[str] = index_option,
     skip_version_check: bool = skip_version_check_option,
     allow_shared_libraries: bool = allow_shared_libraries_option,
