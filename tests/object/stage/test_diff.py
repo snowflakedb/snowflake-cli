@@ -185,7 +185,7 @@ def test_put_files_on_stage(mock_put, overwrite_param):
         expected = [
             mock.call(
                 local_path=local_path / "ui/nested/environment.yml",
-                stage_path=f"{stage_name}/ui/nested",  # TODO: verify if trailing slash is needed, doesnt seem so from regression tests
+                stage_path=f"{stage_name}/ui/nested",  # TODO: verify if trailing slash is needed, doesn't seem so from regression tests
                 role="some_role",
                 overwrite=overwrite_param,
             ),

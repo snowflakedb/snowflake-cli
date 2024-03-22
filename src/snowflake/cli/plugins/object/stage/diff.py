@@ -47,9 +47,7 @@ class DiffResult:
         """
         Method override for the standard behavior of string representation for this class.
         """
-        components: List[
-            str
-        ] = (
+        components: List[str] = (
             []
         )  # py3.8 does not support subscriptions for builtin list, hence using List
 
@@ -94,7 +92,7 @@ def is_valid_md5sum(checksum: str) -> bool:
 
 def compute_md5sum(file: Path) -> str:
     """
-    Returns a hexidecimal checksum for the file located at the given path.
+    Returns a hexadecimal checksum for the file located at the given path.
     """
     if not file.is_file():
         raise ValueError(
