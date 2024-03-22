@@ -344,6 +344,52 @@ def test_snowpark_with_single_requirement_having_transient_deps(
 
 
 @pytest.mark.integration
+def test_snowpark_commands_executed_outside_project_dir(
+    runner, _test_steps, project_directory, alter_snowflake_yml, test_database
+):
+    project_subpath = "my_snowpark_project"
+    with project_directory(
+        "snowpark_with_single_requirements_having_transient_deps",
+        subpath=project_subpath,
+    ):
+        result = runner.invoke_json(
+            [
+                "snowpark",
+                "build",
+                "--project",
+                project_subpath,
+                "--pypi-download",
+                "yes",
+                "--check-anaconda-for-pypi-deps",
+            ]
+        )
+        assert result.exit_code == 0
+
+        packages_dir = Path(f"{project_subpath}/.packages")
+
+        assert packages_dir.exists()
+        assert (packages_dir / "dummy_pkg_for_tests_with_deps").exists()
+        assert (packages_dir / "dummy_pkg_for_tests").exists()  # as transient dep
+
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            additional_arguments=["--project", project_subpath],
+            expected_result=[
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.TEST_FUNC(name string)",
+                    "type": "function",
+                    "status": "created",
+                }
+            ],
+        )
+
+        _test_steps.snowpark_execute_should_return_expected_value(
+            object_type="function",
+            identifier="test_func('foo')",
+            expected_value="['We want... a shrubbery!', 'fishy, fishy, fish!']",
+        )
+
+
+@pytest.mark.integration
 def test_snowpark_default_arguments(
     _test_steps, project_directory, alter_snowflake_yml, test_database
 ):
