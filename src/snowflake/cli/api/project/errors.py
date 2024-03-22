@@ -13,7 +13,7 @@ class SchemaValidationError(Exception):
 
     def __init__(self, error: ValidationError):
         errors = error.errors()
-        message = f"During evaluation of {error.title} schema following errors were encoutered:\n"
+        message = f"During evaluation of {error.title} schema following errors were encountered:\n"
         message += "\n".join(
             [
                 self.message_templates.get(e["type"], self.generic_message).format(**e)
