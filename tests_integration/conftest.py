@@ -129,18 +129,24 @@ class QueryResultJsonEncoderError(RuntimeError):
 def project_directory(temporary_working_directory, test_root_path):
     @contextmanager
     def _temporary_project_directory(
-        project_name, merge_project_definition: Optional[dict] = None
+        project_name,
+        merge_project_definition: Optional[dict] = None,
+        subpath: Optional[Path] = None,
     ):
         test_data_file = test_root_path / "test_data" / "projects" / project_name
-        shutil.copytree(test_data_file, temporary_working_directory, dirs_exist_ok=True)
+        project_dir = temporary_working_directory
+        if subpath:
+            project_dir = temporary_working_directory / subpath
+            project_dir.mkdir(parents=True)
+        shutil.copytree(test_data_file, project_dir, dirs_exist_ok=True)
         if merge_project_definition:
             with Path("snowflake.yml").open("r") as fh:
                 project_definition = yaml.safe_load(fh)
             merge_left(project_definition, merge_project_definition)
-            with open(Path(temporary_working_directory) / "snowflake.yml", "w") as file:
+            with open(Path(project_dir) / "snowflake.yml", "w") as file:
                 yaml.dump(project_definition, file)
 
-        yield temporary_working_directory
+        yield project_dir
 
     return _temporary_project_directory
 

@@ -27,7 +27,7 @@ PIP_PATH = os.environ.get("SNOWCLI_PIP_PATH", "pip")
 
 
 def parse_requirements(
-    requirements_file: str = "requirements.txt",
+    requirements_file: SecurePath = SecurePath("requirements.txt"),
 ) -> List[Requirement]:
     """Reads and parses a Python requirements.txt file.
 
@@ -39,15 +39,14 @@ def parse_requirements(
         list[str]: A flat list of package names, without versions
     """
     reqs: List[Requirement] = []
-    requirements_file_spath = SecurePath(requirements_file)
-    if requirements_file_spath.exists():
-        with requirements_file_spath.open(
+    if requirements_file.exists():
+        with requirements_file.open(
             "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
         ) as f:
             for req in requirements.parse(f):
                 reqs.append(req)
     else:
-        log.info("No %s found", requirements_file)
+        log.info("No %s found", requirements_file.path)
 
     return deduplicate_and_sort_reqs(reqs)
 
@@ -71,7 +70,8 @@ def deduplicate_and_sort_reqs(
 
 def install_packages(
     anaconda: AnacondaChannel,
-    file_name: str | None,
+    requirements_file: SecurePath | None,
+    packages_dir: SecurePath,
     perform_anaconda_check: bool = True,
     package_name: str | None = None,
     allow_native_libraries: PypiOption = PypiOption.ASK,
@@ -87,23 +87,24 @@ def install_packages(
     which are available on the Snowflake Anaconda channel. These will have
     been deleted from the local packages folder.
     """
-    if file_name and package_name:
+    if requirements_file and package_name:
         raise ClickException(
             "Could not use package name and requirements file simultaneously"
         )
 
-    if file_name and not Path(file_name).exists():
-        raise ClickException(f"File {file_name} does not exists.")
+    if requirements_file and not requirements_file.exists():
+        raise ClickException(f"File {requirements_file.path} does not exists.")
 
     with Venv() as v:
         if package_name:
             # This is a Windows workaround where use TemporaryDirectory instead of NamedTemporaryFile
-            tmp_requirements = Path(v.directory.name) / "requirements.txt"
+            tmp_requirements = SecurePath(v.directory.name) / "requirements.txt"
             tmp_requirements.write_text(str(package_name))
-            file_name = str(tmp_requirements)
+            requirements_file = tmp_requirements
 
-        pip_install_result = v.pip_install(file_name)
-        dependencies = v.get_package_dependencies(file_name)
+        assert type(requirements_file) is SecurePath
+        pip_install_result = v.pip_install(str(requirements_file.path))
+        dependencies = v.get_package_dependencies(str(requirements_file.path))
 
         if pip_install_result != 0:
             log.info(pip_failed_msg.format(pip_install_result))
@@ -138,7 +139,12 @@ def install_packages(
             return False, second_chance_results
         else:
             v.copy_files_to_packages_dir(
-                [Path(file) for dep in dependencies_to_be_packed for file in dep.files]
+                files_to_be_copied=[
+                    Path(file)
+                    for dep in dependencies_to_be_packed
+                    for file in dep.files
+                ],
+                destination=packages_dir.path,
             )
             return True, second_chance_results
 

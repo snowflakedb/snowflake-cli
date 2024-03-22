@@ -44,7 +44,8 @@ def lookup(
             anaconda=anaconda,
             perform_anaconda_check=True,
             package_name=name,
-            file_name=None,
+            requirements_file=None,
+            packages_dir=SecurePath(PACKAGES_DIR),
             allow_native_libraries=allow_native_libraries,
         )
 

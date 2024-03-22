@@ -20,6 +20,7 @@
 * Project definition no longer accept extra fields. Any extra field will cause an error.
 * Changing imports in function/procedure section in `snowflake.yml` will cause the definition update on replace
 * Adding `--pattern` flag to `stage list` command for filtering out results with regex.
+* Fixed snowpark build paths for builds with --project option (fixed empty zip issue).
 
 # v2.1.1
 
