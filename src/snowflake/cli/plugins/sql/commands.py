@@ -34,7 +34,7 @@ def execute_sql(
         "-i",
         help="Read the query from standard input. Use it when piping input to this command.",
     ),
-    **options
+    **options,
 ) -> CommandResult:
     """
     Executes Snowflake query.

@@ -115,9 +115,11 @@ class SnowparkTestSteps:
         assert_that_result_contains_row_with(
             result,
             {
-                identifier.upper()
-                if object_type == TestType.FUNCTION.value
-                else entity_name.upper(): expected_value
+                (
+                    identifier.upper()
+                    if object_type == TestType.FUNCTION.value
+                    else entity_name.upper()
+                ): expected_value
             },
         )
 

@@ -47,7 +47,9 @@ class DiffResult:
         """
         Method override for the standard behavior of string representation for this class.
         """
-        components: List[str] = (
+        components: List[
+            str
+        ] = (
             []
         )  # py3.8 does not support subscriptions for builtin list, hence using List
 

@@ -37,9 +37,11 @@ def setup_config_and_logs(snowflake_home):
                     "",
                     "[cli.logs]",
                     f'path = "{logs_path}"' if use_custom_logs_path else None,
-                    f"save_logs = {str(save_logs).lower()}"
-                    if save_logs is not None
-                    else None,
+                    (
+                        f"save_logs = {str(save_logs).lower()}"
+                        if save_logs is not None
+                        else None
+                    ),
                     f'level = "{level}"' if level else None,
                 ]
                 if x is not None
