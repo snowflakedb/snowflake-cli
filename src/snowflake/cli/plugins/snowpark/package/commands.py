@@ -197,11 +197,11 @@ def package_create(
     if deprecated_allow_native_libraries != PypiOption.NO:
         allow_shared_libraries_pypi_option = deprecated_allow_native_libraries
 
+    package = Requirement.parse(name)
     if ignore_anaconda:
         anaconda = None
     else:
         anaconda = AnacondaChannel.from_snowflake()
-        package = Requirement.parse(name)
         if anaconda.is_package_available(
             package, skip_version_check=skip_version_check
         ):
@@ -213,8 +213,7 @@ def package_create(
     packages_are_downloaded, dependencies = download_packages(
         anaconda=anaconda,
         perform_anaconda_check_for_dependencies=not ignore_anaconda,
-        package_name=name,
-        requirements_file=None,
+        requirements=[package],
         packages_dir=packages_dir,
         index_url=index_url,
         allow_shared_libraries=allow_shared_libraries_pypi_option,

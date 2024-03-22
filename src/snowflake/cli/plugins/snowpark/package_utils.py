@@ -110,16 +110,14 @@ def download_packages(
     anaconda: AnacondaChannel | None,
     packages_dir: SecurePath,
     perform_anaconda_check_for_dependencies: bool = True,
-    package_name: str | None = None,
     requirements: List[Requirement] | None = None,
     index_url: str | None = None,
     allow_shared_libraries: PypiOption = PypiOption.ASK,
     skip_version_check: bool = False,
 ) -> tuple[bool, SplitRequirements | None]:
     """
-    Downloads packages from a requirements.txt file or a single package name,
-    into a local directory named '.packages'.
-    If perform_anaconda_check_for_dependencies is set to True, dependencies available in Snowflake Anaconda
+    Downloads all packages described in [requirements] list into [packages_dir] directory.
+    If [perform_anaconda_check_for_dependencies] is set to True, dependencies available in Snowflake Anaconda
     channel will be omitted, otherwise all packages will be downloaded using pip.
 
     Returns a tuple of:
@@ -128,18 +126,12 @@ def download_packages(
         which are available on the Snowflake Anaconda channel.
         They will not be downloaded into '.packages' directory.
     """
-    if requirements and package_name:
-        raise ClickException(
-            "Could not use package name and requirements simultaneously"
-        )
     if perform_anaconda_check_for_dependencies and not anaconda:
         raise ClickException(
             "Cannot perform anaconda checks if anaconda channel is not specified."
         )
 
     with Venv() as v, SecurePath.temporary_directory() as downloads_dir:
-        if package_name:
-            requirements = [Requirement.parse(package_name)]
         # This is a Windows workaround where use TemporaryDirectory instead of NamedTemporaryFile
         requirements_file = SecurePath(v.directory.name) / "requirements.txt"
         _write_requirements_file(requirements_file, requirements)  # type: ignore
