@@ -94,7 +94,7 @@ def is_valid_md5sum(checksum: str) -> bool:
 
 def compute_md5sum(file: Path) -> str:
     """
-    Returns a hexidecimal checksum for the file located at the given path.
+    Returns a hexadecimal checksum for the file located at the given path.
     """
     if not file.is_file():
         raise ValueError(

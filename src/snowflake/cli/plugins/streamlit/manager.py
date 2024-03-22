@@ -127,7 +127,7 @@ class StreamlitManager(SqlExecutionMixin):
             try:
                 self._execute_query(f"ALTER streamlit {fully_qualified_name} CHECKOUT")
             except ProgrammingError as e:
-                # If an error is raised because a CHECKOUT has already occured,
+                # If an error is raised because a CHECKOUT has already occurred,
                 # simply skip it and continue
                 if "Checkout already exists" in str(e):
                     log.info("Checkout already exists, continuing")

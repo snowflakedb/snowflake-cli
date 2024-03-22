@@ -22,9 +22,11 @@ def add_init_command(
     def init(
         project_name: str = Argument(
             f"example_{project_type.lower()}",
-            help=help_message
-            if help_message is not None
-            else f"Name of the {project_type} project you want to create.",
+            help=(
+                help_message
+                if help_message is not None
+                else f"Name of the {project_type} project you want to create."
+            ),
         ),
         **options,
     ) -> CommandResult:
