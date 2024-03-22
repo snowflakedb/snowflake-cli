@@ -1,19 +1,22 @@
 # serializer version: 1
-# name: test_corrupted_config_raises_human_friendly_error[[corrupted0]
+# name: test_disabled_plugin_is_not_executed
   '''
-  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ Configuration file seems to be corrupted. Unexpected end of file at line 1   │
-  │ col 10                                                                       │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
+  +----------------------------------------------------+
+  | connection_name | parameters          | is_default |
+  |-----------------+---------------------+------------|
+  | test            | {'account': 'test'} | False      |
+  +----------------------------------------------------+
   
   '''
 # ---
-# name: test_corrupted_config_raises_human_friendly_error[[corrupted1]
+# name: test_override_build_in_commands
   '''
-  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ Configuration file seems to be corrupted. Unexpected end of file at line 1   │
-  │ col 10                                                                       │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
+  Outside command code
+  +----------------------------------------------------+
+  | connection_name | parameters          | is_default |
+  |-----------------+---------------------+------------|
+  | test            | {'account': 'test'} | False      |
+  +----------------------------------------------------+
   
   '''
 # ---

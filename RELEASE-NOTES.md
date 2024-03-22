@@ -12,6 +12,7 @@
 * Added support for fully qualified image repository names in `spcs image-repository` commands.
 * Added `--if-not-exists` option to `create` commands for `service`, and `compute-pool`. Added `--replace` and `--if-not-exists` options for `image-repository create`.
 * Added support for python connector diagnostic report.
+* Added `is_default` column to `snow connection list` output to highlight default connection.
 
 ## Fixes and improvements
 * Adding `--image-name` option for image name argument in `spcs image-repository list-tags` for consistency with other commands.

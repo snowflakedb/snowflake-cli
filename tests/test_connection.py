@@ -160,7 +160,9 @@ def test_fails_if_existing_connection(runner):
     assert "Connection conn2 already exists  " in result.output
 
 
-def test_lists_connection_information(runner):
+@mock.patch("snowflake.cli.plugins.connection.commands.get_default_connection_name")
+def test_lists_connection_information(mock_get_default_conn_name, runner):
+    mock_get_default_conn_name.return_value = "empty"
     result = runner.invoke(["connection", "list", "--format", "json"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
@@ -177,6 +179,7 @@ def test_lists_connection_information(runner):
                 "user": "dev_user",
                 "warehouse": "dev_warehouse",
             },
+            "is_default": False,
         },
         {
             "connection_name": "default",
@@ -187,9 +190,14 @@ def test_lists_connection_information(runner):
                 "schema": "test_public",
                 "warehouse": "xs",
             },
+            "is_default": False,
         },
-        {"connection_name": "empty", "parameters": {}},
-        {"connection_name": "test_connections", "parameters": {"user": "python"}},
+        {"connection_name": "empty", "parameters": {}, "is_default": True},
+        {
+            "connection_name": "test_connections",
+            "parameters": {"user": "python"},
+            "is_default": False,
+        },
     ]
 
 
@@ -203,7 +211,11 @@ def test_lists_connection_information(runner):
     },
     clear=True,
 )
-def test_connection_list_does_not_print_too_many_env_variables(runner):
+@mock.patch("snowflake.cli.plugins.connection.commands.get_default_connection_name")
+def test_connection_list_does_not_print_too_many_env_variables(
+    mock_get_default_conn_name, runner
+):
+    mock_get_default_conn_name.return_value = "empty"
     result = runner.invoke(["connection", "list", "--format", "json"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
@@ -220,6 +232,7 @@ def test_connection_list_does_not_print_too_many_env_variables(runner):
                 "user": "dev_user",
                 "warehouse": "dev_warehouse",
             },
+            "is_default": False,
         },
         {
             "connection_name": "default",
@@ -230,9 +243,14 @@ def test_connection_list_does_not_print_too_many_env_variables(runner):
                 "schema": "test_public",
                 "warehouse": "xs",
             },
+            "is_default": False,
         },
-        {"connection_name": "empty", "parameters": {}},
-        {"connection_name": "test_connections", "parameters": {"user": "python"}},
+        {"connection_name": "empty", "parameters": {}, "is_default": True},
+        {
+            "connection_name": "test_connections",
+            "parameters": {"user": "python"},
+            "is_default": False,
+        },
     ]
 
 
