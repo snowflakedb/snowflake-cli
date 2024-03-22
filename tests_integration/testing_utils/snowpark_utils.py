@@ -115,9 +115,11 @@ class SnowparkTestSteps:
         assert_that_result_contains_row_with(
             result,
             {
-                identifier.upper()
-                if object_type == TestType.FUNCTION.value
-                else entity_name.upper(): expected_value
+                (
+                    identifier.upper()
+                    if object_type == TestType.FUNCTION.value
+                    else entity_name.upper()
+                ): expected_value
             },
         )
 
@@ -149,11 +151,11 @@ class SnowparkTestSteps:
 
     def snowpark_build_should_zip_files(self, *args, additional_files=None) -> None:
         if not additional_files:
-            additional_files = [Path("requirements.other.txt")]
+            additional_files = []
 
         current_files = set(Path(".").glob("**/*"))
         result = self._setup.runner.invoke_json(
-            ["snowpark", "build", "--pypi-download", "yes", "--format", "JSON", *args]
+            ["snowpark", "build", "--format", "JSON", *args]
         )
 
         assert result.exit_code == 0, result.output

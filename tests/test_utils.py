@@ -206,14 +206,17 @@ def test_path_resolver(mock_system, argument, expected):
     assert path_utils.path_resolver(argument) == expected
 
 
-@patch("snowflake.cli.plugins.snowpark.package_utils.Venv")
+@patch("snowflake.cli.plugins.snowpark.package_utils.Venv.pip_wheel")
 def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
-    mock_installer.return_value.__enter__.return_value.pip_wheel.return_value = 42
+    mock_installer.return_value = 42
 
     with caplog.at_level(logging.INFO, "snowflake.cli.plugins.snowpark.package_utils"):
+        requirements = package_utils.parse_requirements(
+            SecurePath(correct_requirements_txt)
+        )
         package_utils.download_packages(
             anaconda=AnacondaChannel([]),
-            requirements_file=SecurePath(correct_requirements_txt),
+            requirements=requirements,
             packages_dir=SecurePath(".packages"),
             perform_anaconda_check_for_dependencies=True,
             allow_shared_libraries=PypiOption.YES,

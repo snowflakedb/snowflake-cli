@@ -38,7 +38,6 @@ def test_snowpark_package(
             source=SecurePath(app_root),
             artifact_file=SecurePath("app.zip"),
         ),
-        pypi_download="yes",
         check_anaconda_for_pypi_deps=False,
         package_native_libraries="yes",
     )

@@ -99,12 +99,19 @@ def generate_deploy_stage_name(identifier: str) -> str:
     )
 
 
+def _write_requirements_file(file_path: SecurePath, requirements: List[Requirement]):
+    log.info("Writing %s file", file_path.path)
+    with file_path.open("w", encoding="utf-8") as f:
+        for req in requirements:
+            f.write(f"{req.line}\n")
+
+
 def download_packages(
     anaconda: AnacondaChannel | None,
-    requirements_file: SecurePath | None,
     packages_dir: SecurePath,
     perform_anaconda_check_for_dependencies: bool = True,
     package_name: str | None = None,
+    requirements: List[Requirement] | None = None,
     index_url: str | None = None,
     allow_shared_libraries: PypiOption = PypiOption.ASK,
     skip_version_check: bool = False,
@@ -121,12 +128,10 @@ def download_packages(
         which are available on the Snowflake Anaconda channel.
         They will not be downloaded into '.packages' directory.
     """
-    if requirements_file and package_name:
+    if requirements and package_name:
         raise ClickException(
-            "Could not use package name and requirements file simultaneously"
+            "Could not use package name and requirements simultaneously"
         )
-    if requirements_file and not requirements_file.exists():
-        raise ClickException(f"File {requirements_file.path} does not exists.")
     if perform_anaconda_check_for_dependencies and not anaconda:
         raise ClickException(
             "Cannot perform anaconda checks if anaconda channel is not specified."
@@ -134,9 +139,10 @@ def download_packages(
 
     with Venv() as v, SecurePath.temporary_directory() as downloads_dir:
         if package_name:
-            # This is a Windows workaround where use TemporaryDirectory instead of NamedTemporaryFile
-            requirements_file = SecurePath(v.directory.name) / "requirements.txt"
-            requirements_file.write_text(str(package_name))
+            requirements = [Requirement.parse(package_name)]
+        # This is a Windows workaround where use TemporaryDirectory instead of NamedTemporaryFile
+        requirements_file = SecurePath(v.directory.name) / "requirements.txt"
+        _write_requirements_file(requirements_file, requirements)  # type: ignore
 
         pip_wheel_result = v.pip_wheel(
             requirements_file.path, download_dir=downloads_dir.path, index_url=index_url  # type: ignore

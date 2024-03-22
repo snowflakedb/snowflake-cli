@@ -71,14 +71,10 @@ def snowpark_package(
         if not split_requirements.other:
             log.info("No packages to manually resolve")
         else:
-            _write_requirements_file(
-                paths.other_requirements_file, split_requirements.other
-            )
             log.info("Installing non-Anaconda packages...")
-
             (should_continue, second_chance_results,) = package_utils.download_packages(
                 anaconda=anaconda,
-                requirements_file=paths.other_requirements_file,
+                requirements=split_requirements.other,
                 packages_dir=paths.downloaded_packages_dir,
                 perform_anaconda_check_for_dependencies=check_anaconda_for_pypi_deps,
                 allow_shared_libraries=package_native_libraries,

@@ -35,20 +35,22 @@ from snowflake.cli.api.project.schemas.snowpark.callable import (
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.object.stage.manager import StageManager
+from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.common import (
     build_udf_sproc_identifier,
     check_if_replace_is_required,
 )
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
-from snowflake.cli.plugins.snowpark.models import PypiOption
+from snowflake.cli.plugins.snowpark.models import PypiOption, Requirement
+from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 from snowflake.cli.plugins.snowpark.package_utils import get_snowflake_packages
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     DeprecatedCheckAnacondaForPyPiDependencies,
     IgnoreAnacondaOption,
     PackageNativeLibrariesOption,
-    snowpark_package,
 )
+from snowflake.cli.plugins.snowpark.zipper import zip_dir
 from snowflake.connector import DictCursor, ProgrammingError
 
 log = logging.getLogger(__name__)
@@ -321,6 +323,13 @@ deprecated_pypi_download_option = typer.Option(
 )
 
 
+def _write_requirements_file(file_path: SecurePath, requirements: List[Requirement]):
+    log.info("Writing %s file", file_path.path)
+    with file_path.open("w", encoding="utf-8") as f:
+        for req in requirements:
+            f.write(f"{req.line}\n")
+
+
 @app.command("build")
 @with_project_definition("snowpark")
 def build(
@@ -343,11 +352,60 @@ def build(
     )
     log.info("Building package using sources from: %s", paths.source.path)
 
-    snowpark_package(
-        paths=paths,
-        check_anaconda_for_pypi_deps=not ignore_anaconda,
-        package_native_libraries=package_native_libraries,  # type: ignore[arg-type]
-    )
+    if paths.defined_requirements_file.exists():
+        log.info("Resolving any requirements from requirements.txt...")
+        anaconda = AnacondaChannel.from_snowflake() if not ignore_anaconda else None
+        requirements = package_utils.parse_requirements(
+            requirements_file=paths.defined_requirements_file
+        )
+
+        if ignore_anaconda:
+            dependencies_to_download = requirements
+            anaconda_dependencies = []
+        else:
+            # check whether some of original requirements are available on Anaconda
+            log.info("Comparing provided packages from Snowflake Anaconda...")
+            dependencies = anaconda.parse_anaconda_packages(requirements)
+            anaconda_dependencies = dependencies.snowflake
+            dependencies_to_download = dependencies.other
+
+        if not dependencies_to_download:
+            log.info("No packages to manually resolve")
+        else:
+            # download dependencies which cannot be found on Anaconda
+            log.info("Downloading non-Anaconda packages...")
+            packages_are_downloaded, dependencies = package_utils.download_packages(
+                anaconda=anaconda,
+                perform_anaconda_check_for_dependencies=not ignore_anaconda,
+                requirements=dependencies_to_download,
+                packages_dir=paths.downloaded_packages_dir,
+                allow_shared_libraries=package_native_libraries,
+            )
+            if not packages_are_downloaded:
+                return MessageResult(
+                    "Some requirements cannot be downloaded. Check requirements.txt file"
+                    " or try again with --allow-shared-libraries."
+                )
+
+            anaconda_dependencies += dependencies.snowflake
+
+        # write requirements.snowflake.txt file if some dependencies were found in Anaconda
+        if anaconda_dependencies:
+            _write_requirements_file(
+                paths.snowflake_requirements_file,
+                package_utils.deduplicate_and_sort_reqs(anaconda_dependencies),
+            )
+
+    zip_dir(source=paths.source.path, dest_zip=paths.artifact_file.path)
+    if paths.downloaded_packages_dir.exists():
+        zip_dir(
+            source=paths.downloaded_packages_dir.path,
+            dest_zip=paths.artifact_file.path,
+            mode="a",
+        )
+
+    log.info("Deployment package now ready: %s", paths.artifact_file.path)
+
     return MessageResult(f"Build done. Artifact path: {paths.artifact_file.path}")
 
 
