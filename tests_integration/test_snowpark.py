@@ -275,8 +275,6 @@ def test_snowpark_with_single_dependency_having_no_other_deps(
             [
                 "snowpark",
                 "build",
-                "--pypi-download",
-                "yes",
                 "--check-anaconda-for-pypi-deps",
             ]
         )
@@ -313,8 +311,6 @@ def test_snowpark_with_single_requirement_having_transient_deps(
             [
                 "snowpark",
                 "build",
-                "--pypi-download",
-                "yes",
                 "--check-anaconda-for-pypi-deps",
             ]
         )
@@ -358,8 +354,6 @@ def test_snowpark_commands_executed_outside_project_dir(
                 "build",
                 "--project",
                 project_subpath,
-                "--pypi-download",
-                "yes",
                 "--check-anaconda-for-pypi-deps",
             ]
         )
@@ -387,6 +381,24 @@ def test_snowpark_commands_executed_outside_project_dir(
             identifier="test_func('foo')",
             expected_value="['We want... a shrubbery!', 'fishy, fishy, fish!']",
         )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ["--pypi-download", "yes"],
+        ["--pypi-download", "no"],
+        ["--pypi-download", "ask"],
+    ],
+)
+def test_snowpark_build_deprecated_flags(
+    flags, runner, _test_steps, project_directory, alter_snowflake_yml, test_database
+):
+    with project_directory("snowpark"):
+        result = runner.invoke(["snowpark", "build", *flags])
+        assert result.exit_code == 0, result.output
+        assert "flag is deprecated" in result.output
 
 
 @pytest.mark.integration

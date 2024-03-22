@@ -12,6 +12,7 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import (
     ReplaceOption,
+    deprecated_flag_callback_enum,
     execution_identifier_argument,
 )
 from snowflake.cli.api.commands.project_initialisation import add_init_command
@@ -45,7 +46,6 @@ from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackag
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     CheckAnacondaForPyPiDependencies,
     PackageNativeLibrariesOption,
-    PyPiDownloadOption,
     snowpark_package,
 )
 from snowflake.connector import DictCursor, ProgrammingError
@@ -308,12 +308,24 @@ def _deploy_single_object(
     }
 
 
+deprecated_pypi_download_option = typer.Option(
+    PypiOption.NO.value,
+    "--pypi-download",
+    help="Whether to download non-Anaconda packages from PyPi.",
+    hidden=True,
+    callback=deprecated_flag_callback_enum(
+        "--pypi-download flag is deprecated. Snowpark build command"
+        " always tries to download non-Anaconda packages from PyPi."
+    ),
+)
+
+
 @app.command("build")
 @with_project_definition("snowpark")
 def build(
-    pypi_download: PypiOption = PyPiDownloadOption,
     check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
     package_native_libraries: PypiOption = PackageNativeLibrariesOption,
+    _deprecated_pypi_download: PypiOption = deprecated_pypi_download_option,
     **options,
 ) -> CommandResult:
     """
@@ -328,7 +340,6 @@ def build(
 
     snowpark_package(
         paths=paths,
-        pypi_download=pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps=check_anaconda_for_pypi_deps,
         package_native_libraries=package_native_libraries,  # type: ignore[arg-type]
     )

@@ -1974,12 +1974,6 @@
    project file.                                                                  
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --pypi-download                              [yes|no|ask]  Whether to        │
-  │                                                            download          │
-  │                                                            non-Anaconda      │
-  │                                                            packages from     │
-  │                                                            PyPi.             │
-  │                                                            [default: ask]    │
   │ --check-anaconda-…  -a  --no-check-anaco…                  Checks if any of  │
   │                                                            missing Anaconda  │
   │                                                            packages          │

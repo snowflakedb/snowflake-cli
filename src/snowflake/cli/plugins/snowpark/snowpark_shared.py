@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from typing import List
 
-import click
 import typer
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark import package_utils
@@ -47,7 +46,6 @@ log = logging.getLogger(__name__)
 
 def snowpark_package(
     paths: SnowparkPackagePaths,
-    pypi_download: PypiOption,
     check_anaconda_for_pypi_deps: bool,
     package_native_libraries: PypiOption,
 ):
@@ -65,32 +63,20 @@ def snowpark_package(
             _write_requirements_file(
                 paths.other_requirements_file, split_requirements.other
             )
-            do_download = (
-                click.confirm(
-                    "Do you want to try to download non-Anaconda packages?",
-                    default=True,
-                )
-                if pypi_download == PypiOption.ASK
-                else pypi_download == PypiOption.YES
-            )
-            if do_download:
-                log.info("Installing non-Anaconda packages...")
+            log.info("Installing non-Anaconda packages...")
 
-                (
-                    should_continue,
-                    second_chance_results,
-                ) = package_utils.download_packages(
-                    anaconda=anaconda,
-                    requirements_file=paths.other_requirements_file,
-                    packages_dir=paths.downloaded_packages_dir,
-                    perform_anaconda_check_for_dependencies=check_anaconda_for_pypi_deps,
-                    allow_shared_libraries=package_native_libraries,
+            (should_continue, second_chance_results,) = package_utils.download_packages(
+                anaconda=anaconda,
+                requirements_file=paths.other_requirements_file,
+                packages_dir=paths.downloaded_packages_dir,
+                perform_anaconda_check_for_dependencies=check_anaconda_for_pypi_deps,
+                allow_shared_libraries=package_native_libraries,
+            )
+            # add the Anaconda packages discovered as dependencies
+            if should_continue and second_chance_results:
+                split_requirements.snowflake = (
+                    split_requirements.snowflake + second_chance_results.snowflake
                 )
-                # add the Anaconda packages discovered as dependencies
-                if should_continue and second_chance_results:
-                    split_requirements.snowflake = (
-                        split_requirements.snowflake + second_chance_results.snowflake
-                    )
 
         # write requirements.snowflake.txt file
         if split_requirements.snowflake:
