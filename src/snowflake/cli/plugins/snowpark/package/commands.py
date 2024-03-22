@@ -6,7 +6,6 @@ from textwrap import dedent
 from typing import Optional
 
 import typer
-from click import ClickException
 from snowflake.cli.api.commands.flags import (
     deprecated_flag_callback,
     deprecated_flag_callback_enum,
@@ -144,7 +143,7 @@ deprecated_allow_native_libraries_option = typer.Option(
     help="Allows native libraries, when using packages installed through PIP",
     hidden=True,
     callback=deprecated_flag_callback_enum(
-        "--allow-native-libraries flag is no longer supported. Use --allow-shared-libraries flag instead."
+        "--allow-native-libraries flag is deprecated. Use --allow-shared-libraries flag instead."
     ),
 )
 
@@ -172,7 +171,7 @@ skip_version_check_option = typer.Option(
 allow_shared_libraries_option = typer.Option(
     False,
     "--allow-shared-libraries",
-    help="Allows shared (.so) libraries, when using packages installed through PIP",
+    help="Allows shared (.so) libraries, when using packages installed through PIP.",
 )
 
 
@@ -187,7 +186,7 @@ def package_create(
     index_url: Optional[str] = index_option,
     skip_version_check: bool = skip_version_check_option,
     allow_shared_libraries: bool = allow_shared_libraries_option,
-    _deprecated_allow_native_libraries: PypiOption = deprecated_allow_native_libraries_option,
+    deprecated_allow_native_libraries: PypiOption = deprecated_allow_native_libraries_option,
     _deprecated_install_option: bool = deprecated_install_option,
     _deprecated_install_packages: bool = deprecated_pypi_download_option,
     **options,
@@ -195,13 +194,12 @@ def package_create(
     """
     Creates a Python package as a zip file that can be uploaded to a stage and imported for a Snowpark Python app.
     """
-    if _deprecated_allow_native_libraries == PypiOption.YES:
-        allow_shared_libraries = True
-    if _deprecated_allow_native_libraries == PypiOption.ASK:
-        raise ClickException(
-            "'ask' option of --allow-native-libraries is no longer supported."
-            " Use --allow-shared-libraries flag instead."
-        )
+    allow_shared_libraries_pypi_option = {
+        True: PypiOption.YES,
+        False: PypiOption.NO,
+    }[allow_shared_libraries]
+    if deprecated_allow_native_libraries != PypiOption.NO:
+        allow_shared_libraries_pypi_option = deprecated_allow_native_libraries
 
     if ignore_anaconda:
         anaconda = None
@@ -221,11 +219,7 @@ def package_create(
         package_name=name,
         file_name=None,
         index_url=index_url,
-        # TODO: convert to boolean while refactoring "snowpark build"
-        allow_shared_libraries={
-            True: PypiOption.YES,
-            False: PypiOption.NO,
-        }[allow_shared_libraries],
+        allow_shared_libraries=allow_shared_libraries_pypi_option,
         skip_version_check=skip_version_check,
     )
 

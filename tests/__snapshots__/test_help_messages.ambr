@@ -2215,24 +2215,21 @@
   │                      [required]                                              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --ignore-anaconda                               Does not lookup packages on  │
-  │                                                 Snowflake Anaconda channel.  │
-  │ --index-url                       TEXT          Base URL of the Python       │
-  │                                                 Package Index to use for     │
-  │                                                 package lookup. This should  │
-  │                                                 point to  a repository       │
-  │                                                 compliant with PEP 503 (the  │
-  │                                                 simple repository API) or a  │
-  │                                                 local directory laid out in  │
-  │                                                 the same format.             │
-  │ --skip-version-check                            Skip comparing versions of   │
-  │                                                 dependencies between         │
-  │                                                 requirements and Anaconda.   │
-  │ --allow-shared-libraries          [yes|no|ask]  Allows native libraries,     │
-  │                                                 when using packages          │
-  │                                                 installed through PIP        │
-  │                                                 [default: no]                │
-  │ --help                    -h                    Show this message and exit.  │
+  │ --ignore-anaconda                       Does not lookup packages on          │
+  │                                         Snowflake Anaconda channel.          │
+  │ --index-url                       TEXT  Base URL of the Python Package Index │
+  │                                         to use for package lookup. This      │
+  │                                         should point to  a repository        │
+  │                                         compliant with PEP 503 (the simple   │
+  │                                         repository API) or a local directory │
+  │                                         laid out in the same format.         │
+  │ --skip-version-check                    Skip comparing versions of           │
+  │                                         dependencies between requirements    │
+  │                                         and Anaconda.                        │
+  │ --allow-shared-libraries                Allows shared (.so) libraries, when  │
+  │                                         using packages installed through     │
+  │                                         PIP.                                 │
+  │ --help                    -h            Show this message and exit.          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │

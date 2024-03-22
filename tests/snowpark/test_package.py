@@ -191,6 +191,16 @@ class TestPackage:
             in result.output
         )
 
+    @mock.patch(
+        "snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel.from_snowflake"
+    )
+    def test_lookup_install_with_out_flags_does_not_warn(self, _, runner):
+        result = runner.invoke(["snowpark", "package", "lookup", "foo"])
+        assert (
+            "is deprecated. Lookup command no longer checks for package in PyPi"
+            not in result.output
+        )
+
     @pytest.mark.parametrize(
         "flags",
         [
@@ -210,15 +220,27 @@ class TestPackage:
             in result.output
         )
 
+    @pytest.mark.parametrize(
+        "flags",
+        [
+            ["--allow-native-libraries", "yes"],
+            ["--allow-native-libraries", "no"],
+            ["--allow-native-libraries", "ask"],
+        ],
+    )
     @mock.patch(
         "snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel.from_snowflake"
     )
-    def test_lookup_install_with_out_flags_does_not_warn(self, _, runner):
-        result = runner.invoke(["snowpark", "package", "lookup", "foo"])
-        assert (
-            "is deprecated. Lookup command no longer checks for package in PyPi"
-            not in result.output
-        )
+    def test_create_deprecated_flags_throw_warning(self, _, flags, runner):
+        result = runner.invoke(["snowpark", "package", "create", "foo", *flags])
+        assert "is deprecated." in result.output
+
+    @mock.patch(
+        "snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel.from_snowflake"
+    )
+    def test_create_with_out_flags_does_not_warn(self, _, runner):
+        result = runner.invoke(["snowpark", "package", "create", "foo"])
+        assert "is deprecated" not in result.output
 
     @staticmethod
     def mocked_anaconda_response(response: dict):

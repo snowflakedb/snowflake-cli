@@ -103,30 +103,31 @@ class TestPackage:
         assert any(["shrubbery.py" in file for file in files])
 
     @pytest.mark.integration
-    @pytest.mark.parametrize("ignore_anaconda", (True, False))
+    @pytest.mark.parametrize(
+        "flags",
+        [
+            ["--allow-shared-libraries"],
+            ["--allow-native-libraries", "yes"],
+            ["--allow-shared-libraries", "--ignore-anaconda"],
+        ],
+    )
     def test_package_with_conda_dependencies(
-        self, directory_for_test, runner, ignore_anaconda
+        self, directory_for_test, runner, flags
     ):  # TODO think how to make this test with packages controlled by us
         # test case is: We have a non-conda package, that has a dependency present on conda
         # but not in latest version - here the case is matplotlib.
-        command = [
-            "snowpark",
-            "package",
-            "create",
-            "july",
-            "--allow-shared-libraries",
-            "yes",
-        ]
-        if ignore_anaconda:
-            command.append("--ignore-anaconda")
-        result = runner.invoke_with_connection_json(command)
+        result = runner.invoke_with_connection(
+            ["snowpark", "package", "create", "july", *flags]
+        )
 
         assert result.exit_code == 0
-        assert Path("july.zip").exists()
+        assert Path("july.zip").exists(), result.output
 
         files = self._get_filenames_from_zip("july.zip")
         assert any(["colormaps.py" in name for name in files])
-        assert any(["matplotlib" in name for name in files]) == ignore_anaconda
+        assert any(["matplotlib" in name for name in files]) == (
+            "--ignore-anaconda" in flags
+        )
 
     @pytest.mark.integration
     def test_package_create_skip_version_check(self, directory_for_test, runner):
