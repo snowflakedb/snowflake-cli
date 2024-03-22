@@ -4,9 +4,13 @@ from typing import Dict, List, Tuple, Union
 from unittest import mock
 
 import pytest
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.exceptions import (
+    FileDoesNotExistError,
+    SnowflakeSQLExecutionError,
+)
 from snowflake.cli.plugins.object.stage.diff import (
     DiffResult,
+    assert_files_exist,
     delete_only_on_stage_files,
     enumerate_files,
     get_stage_path_from_file,
@@ -215,3 +219,22 @@ def test_sync_local_diff_with_stage(mock_remove, other_directory):
             diff_result=diff,
             stage_path=stage_name,
         )
+
+
+@pytest.mark.parametrize(
+    "local_files,files_to_stage,is_valid",
+    [
+        [["/a", "/b"], ["/a"], True],
+        [["/a", "/b"], ["/a", "/b"], True],
+        [["/a", "/b"], ["/c"], False],
+        [["/a", "/b"], ["/a", "/c"], False],
+    ],
+)
+def test_assert_files_exist(
+    local_files: List[Path], files_to_stage: List[Path], is_valid: bool
+):
+    if is_valid:
+        assert_files_exist(local_files, files_to_stage)
+    else:
+        with pytest.raises(FileDoesNotExistError):
+            assert_files_exist(local_files, files_to_stage)

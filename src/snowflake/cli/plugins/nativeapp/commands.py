@@ -1,5 +1,6 @@
 import logging
-from typing import Optional
+from pathlib import Path
+from typing import List, Optional
 
 import typer
 from snowflake.cli.api.cli_global_context import cli_context
@@ -229,6 +230,11 @@ def app_teardown(
 @app.command("deploy", requires_connection=True)
 @with_project_definition("native_app")
 def app_deploy(
+    files: Optional[List[Path]] = typer.Argument(
+        default=None,
+        show_default=False,
+        help="Files to stage. [default: all local changes]",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -240,6 +246,6 @@ def app_deploy(
     )
 
     manager.build_bundle()
-    manager.deploy()
+    manager.deploy(files)
 
     return MessageResult(f"Deployed successfully.")

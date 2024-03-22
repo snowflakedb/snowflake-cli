@@ -58,11 +58,14 @@
 # name: test_help_messages[app.deploy]
   '''
                                                                                   
-   Usage: default app deploy [OPTIONS]                                            
+   Usage: default app deploy [OPTIONS] [FILES]...                                 
                                                                                   
    Creates an application package in your Snowflake account and syncs the local   
    changes to the stage without creating or updating the application.             
                                                                                   
+  ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+  │   files      [FILES]...  Files to stage. [default: all local changes]        │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --project  -p      TEXT  Path where the Snowflake Native App project         │
   │                          resides. Defaults to current working directory.     │

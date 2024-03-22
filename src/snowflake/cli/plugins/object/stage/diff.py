@@ -5,7 +5,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.exceptions import (
+    FileDoesNotExistError,
+    SnowflakeSQLExecutionError,
+)
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -154,12 +157,25 @@ def build_md5_map(list_stage_cursor: SnowflakeCursor) -> Dict[str, str]:
     }
 
 
-def stage_diff(local_path: Path, stage_fqn: str) -> DiffResult:
+def assert_files_exist(local_files: List[Path], files_to_stage: List[Path]) -> None:
+    for file in files_to_stage:
+        if file not in local_files:
+            raise FileDoesNotExistError(file)
+
+
+def stage_diff(
+    local_path: Path,
+    stage_fqn: str,
+    files_to_stage: Optional[List[Path]] = None,
+) -> DiffResult:
     """
     Diffs the files in a stage with a local folder.
     """
     stage_manager = StageManager()
     local_files = enumerate_files(local_path)
+    if files_to_stage is not None:
+        assert_files_exist(local_files, files_to_stage)
+        local_files = files_to_stage
     remote_md5 = build_md5_map(stage_manager.list_files(stage_fqn))
 
     result: DiffResult = DiffResult()
