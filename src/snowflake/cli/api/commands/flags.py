@@ -471,3 +471,14 @@ def deprecated_flag_callback(msg: str):
         return value
 
     return _warning_callback
+
+
+def deprecated_flag_callback_enum(msg: str):
+    def _warning_callback(ctx: click.Context, param: click.Parameter, value: Any):
+        if ctx.get_parameter_source(param.name) != click.core.ParameterSource.DEFAULT:  # type: ignore[attr-defined]
+            cli_console.warning(message=msg)
+        # Typer bug: enums passed through callback are turning into None,
+        # unless their explicit value is returned ¯\_(ツ)_/¯
+        return value.value
+
+    return _warning_callback
