@@ -44,7 +44,7 @@ def _print_summary_performance_descending(
 ) -> None:
     commits_with_diffs: List[Tuple[Commit, Decimal]] = []
     last_result: Optional[Decimal] = None
-    for (commit, result) in reversed(commits_with_results):
+    for commit, result in reversed(commits_with_results):
         if last_result:
             result_diff = Decimal(result) - last_result
             if result_diff > 0:
@@ -54,7 +54,7 @@ def _print_summary_performance_descending(
         commits_with_diffs, key=lambda e: e[1], reverse=True
     )
     print("\nCommits causing performance descending:")
-    for (commit, diff) in sorted_list_of_diffs:
+    for commit, diff in sorted_list_of_diffs:
         print(
             f"Diff [{diff}] after commit {commit} ({commit.authored_datetime}) -> {commit.message.splitlines()[0]}"
         )

@@ -5,7 +5,7 @@ import typer
 
 
 class PolicyBase(ABC):
-    """Abtract Class for various policies that govern if a Snowflake CLI command can continue execution when it asks for a decision."""
+    """Abstract Class for various policies that govern if a Snowflake CLI command can continue execution when it asks for a decision."""
 
     @abstractmethod
     def should_proceed(self, user_prompt: Optional[str]) -> bool:
