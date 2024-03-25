@@ -371,7 +371,7 @@ def build(
         log.info("Resolving any requirements from requirements.txt...")
         anaconda = AnacondaChannel.from_snowflake() if not ignore_anaconda else None
         requirements = package_utils.parse_requirements(
-            requirements_file=paths.defined_requirements_file
+            requirements_file=paths.defined_requirements_file,
         )
 
         if ignore_anaconda:
@@ -380,7 +380,9 @@ def build(
         else:
             # check whether some of original requirements are available on Anaconda
             log.info("Comparing provided packages from Snowflake Anaconda...")
-            dependencies = anaconda.parse_anaconda_packages(requirements)
+            dependencies = anaconda.parse_anaconda_packages(
+                requirements, skip_version_check=skip_version_check
+            )
             anaconda_dependencies = dependencies.snowflake
             dependencies_to_download = dependencies.other
 
