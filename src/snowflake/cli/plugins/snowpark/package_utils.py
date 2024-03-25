@@ -152,7 +152,7 @@ def download_packages(
 
         log.info(
             "Downloaded packages: %s",
-            ",".join([d.name for d in dependency_requirements]),
+            ", ".join([d.name for d in dependency_requirements]),
         )
 
         if not perform_anaconda_check_for_dependencies:
