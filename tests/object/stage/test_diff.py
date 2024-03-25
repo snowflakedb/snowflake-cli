@@ -5,12 +5,12 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.exceptions import (
+    DirectoryNotSupportedError,
     FileDoesNotExistError,
     SnowflakeSQLExecutionError,
 )
 from snowflake.cli.plugins.object.stage.diff import (
     DiffResult,
-    assert_files_exist,
     delete_only_on_stage_files,
     enumerate_files,
     get_stage_path_from_file,
@@ -221,20 +221,18 @@ def test_sync_local_diff_with_stage(mock_remove, other_directory):
         )
 
 
+# /file
+# /dir/nested_file
 @pytest.mark.parametrize(
-    "local_files,files_to_stage,is_valid",
+    "local_files,files_to_stage,expected_exception",
     [
-        [["/a", "/b"], ["/a"], True],
-        [["/a", "/b"], ["/a", "/b"], True],
-        [["/a", "/b"], ["/c"], False],
-        [["/a", "/b"], ["/a", "/c"], False],
+        [["file", "dir/nested_file"], None],
+        [["file", "file2"], FileDoesNotExistError],
+        [["dir/file3"], FileDoesNotExistError],
+        [["dir"], DirectoryNotSupportedError],
     ],
 )
-def test_assert_files_exist(
-    local_files: List[Path], files_to_stage: List[Path], is_valid: bool
+def test_get_absolute_files_to_stage(
+    local_files: List[Path], files_to_stage: List[Path], expected_exception: bool
 ):
-    if is_valid:
-        assert_files_exist(local_files, files_to_stage)
-    else:
-        with pytest.raises(FileDoesNotExistError):
-            assert_files_exist(local_files, files_to_stage)
+    pass

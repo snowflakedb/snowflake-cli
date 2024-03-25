@@ -133,3 +133,8 @@ class SchemaNotProvidedError(ClickException):
 class FileDoesNotExistError(ClickException):
     def __init__(self, path: Path):
         super().__init__(f"The file in '{path}' does not exist")
+
+
+class DirectoryNotSupportedError(ClickException):
+    def __init__(self, path: Path):
+        super().__init__(f"Specifying directories is not supported: '{path}'")

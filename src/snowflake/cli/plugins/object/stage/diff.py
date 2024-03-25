@@ -1,11 +1,13 @@
 import hashlib
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from snowflake.cli.api.exceptions import (
+    DirectoryNotSupportedError,
     FileDoesNotExistError,
     SnowflakeSQLExecutionError,
 )
@@ -157,17 +159,23 @@ def build_md5_map(list_stage_cursor: SnowflakeCursor) -> Dict[str, str]:
     }
 
 
-def assert_files_exist(local_files: List[Path], files_to_stage: List[Path]) -> None:
-    local_files_set = set(local_files)
-    for file in files_to_stage:
-        if file not in local_files_set:
+def get_absolute_files_to_stage(relative_files_to_stage, local_path) -> List[Path]:
+    paths = []
+    for file in relative_files_to_stage:
+        absolute_path = Path(os.path.join(local_path, file))
+        if not absolute_path.exists():
             raise FileDoesNotExistError(file)
+        elif absolute_path.is_dir():
+            raise DirectoryNotSupportedError(file)
+        else:
+            paths.append(absolute_path)
+    return paths
 
 
 def stage_diff(
     local_path: Path,
     stage_fqn: str,
-    files_to_stage: Optional[List[Path]] = None,
+    files_to_stage: Optional[List[Path]] = None,  # relative to local_path
 ) -> DiffResult:
     """
     Diffs the files in a stage with a local folder.
@@ -175,8 +183,7 @@ def stage_diff(
     stage_manager = StageManager()
     local_files = enumerate_files(local_path)
     if files_to_stage is not None:
-        assert_files_exist(local_files, files_to_stage)
-        local_files = files_to_stage
+        local_files = get_absolute_files_to_stage(files_to_stage, local_path)
     remote_md5 = build_md5_map(stage_manager.list_files(stage_fqn))
 
     result: DiffResult = DiffResult()
