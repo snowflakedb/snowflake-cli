@@ -11,6 +11,7 @@ from tests_integration.testing_utils import (
 from tests_integration.testing_utils.snowpark_utils import (
     SnowparkTestSetup,
 )
+from typing import List
 
 STAGE_NAME = "dev_deployment"
 
@@ -637,6 +638,67 @@ def test_snowpark_vector_function(
         assert [r for r in result[0]] == [(4.14,), (3.59,), (2.5,)]
 
 
+@pytest.mark.integration
+def test_build_skip_version_check(runner, project_directory, alter_requirements_txt):
+    # test case: package is available in Anaconda, but not in required version
+    with project_directory("snowpark") as tmp_dir:
+        alter_requirements_txt(tmp_dir / "requirements.txt", ["matplotlib>=1000"])
+        result = runner.invoke(["snowpark", "build"])
+        assert result.exit_code == 0, result.output
+        assert (
+            "Some requirements cannot be downloaded. Check requirements.txt"
+            " file or try again with --allow-shared-libraries"
+        ) in result.output
+
+        result = runner.invoke(["snowpark", "build", "--skip-version-check"])
+        assert result.exit_code == 0, result.output
+        assert "Build done. Artifact path: " in result.output
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ["--allow-shared-libraries"],
+        # ["--package-native-libraries", "yes"],
+        # ["--allow-shared-libraries", "--ignore-anaconda"],
+    ],
+)
+def test_build_with_conda_dependencies(
+    flags, runner, project_directory, alter_requirements_txt
+):
+    with project_directory("snowpark") as tmp_dir:
+        alter_requirements_txt(tmp_dir / "requirements.txt", ["july"])
+        result = runner.invoke(["snowpark", "build", *flags])
+        assert result.exit_code == 7, result.output
+    # @pytest.mark.integration
+    # @pytest.mark.parametrize(
+    #     "flags",
+    #     [
+    #         ["--allow-shared-libraries"],
+    #         ["--allow-native-libraries", "yes"],
+    #         ["--allow-shared-libraries", "--ignore-anaconda"],
+    #     ],
+    # )
+    # def test_package_with_conda_dependencies(
+    #     self, directory_for_test, runner, flags
+    # ):  # TODO think how to make this test with packages controlled by us
+    #     # test case is: We have a non-conda package, that has a dependency present on conda
+    #     # but not in latest version - here the case is matplotlib.
+    #     result = runner.invoke_with_connection(
+    #         ["snowpark", "package", "create", "july", *flags]
+    #     )
+    #
+    #     assert result.exit_code == 0
+    #     assert Path("july.zip").exists(), result.output
+    #
+    #     files = self._get_filenames_from_zip("july.zip")
+    #     assert any(["colormaps.py" in name for name in files])
+    #     assert any(["matplotlib" in name for name in files]) == (
+    #         "--ignore-anaconda" in flags
+    #     )
+
+
 @pytest.fixture
 def _test_setup(
     runner,
@@ -657,3 +719,12 @@ def _test_setup(
 @pytest.fixture
 def _test_steps(_test_setup):
     yield SnowparkTestSteps(_test_setup)
+
+
+@pytest.fixture
+def alter_requirements_txt():
+    def update(requirements_path: Path, requirements: List[str]):
+        requirements.append("snowflake-snowpark-python")
+        requirements_path.write_text("\n".join(requirements))
+
+    yield update
