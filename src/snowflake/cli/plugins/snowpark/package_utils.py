@@ -10,11 +10,11 @@ from click import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
-    PypiOption,
     Requirement,
     RequirementWithFilesAndDeps,
     RequirementWithWheelAndDeps,
     SplitRequirements,
+    YesNoAsk,
 )
 from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 from snowflake.cli.plugins.snowpark.venv import Venv
@@ -109,10 +109,10 @@ def _write_requirements_file(file_path: SecurePath, requirements: List[Requireme
 def download_packages(
     anaconda: AnacondaChannel | None,
     packages_dir: SecurePath,
-    perform_anaconda_check_for_dependencies: bool = True,
+    ignore_anaconda: bool = False,
     requirements: List[Requirement] | None = None,
     index_url: str | None = None,
-    allow_shared_libraries: PypiOption = PypiOption.ASK,
+    allow_shared_libraries: YesNoAsk = YesNoAsk.ASK,
     skip_version_check: bool = False,
 ) -> tuple[bool, SplitRequirements | None]:
     """
@@ -126,7 +126,7 @@ def download_packages(
         which are available on the Snowflake Anaconda channel.
         They will not be downloaded into '.packages' directory.
     """
-    if perform_anaconda_check_for_dependencies and not anaconda:
+    if anaconda is None and not ignore_anaconda:
         raise ClickException(
             "Cannot perform anaconda checks if anaconda channel is not specified."
         )
@@ -150,16 +150,15 @@ def download_packages(
 
         log.info(
             "Downloaded packages: %s",
-            ",".join([d.name for d in dependency_requirements]),
+            ", ".join([d.name for d in dependency_requirements]),
         )
 
-        if not perform_anaconda_check_for_dependencies:
+        if ignore_anaconda:
             dependencies_to_be_packed = dependencies
             split_dependencies = SplitRequirements([], other=dependency_requirements)
         else:
             log.info("Checking for dependencies available in Anaconda...")
-            assert anaconda is not None
-            split_dependencies = anaconda.parse_anaconda_packages(
+            split_dependencies = anaconda.parse_anaconda_packages(  # type: ignore
                 packages=dependency_requirements, skip_version_check=skip_version_check
             )
             _log_dependencies_found_in_conda(split_dependencies.snowflake)
@@ -168,15 +167,14 @@ def download_packages(
             )
 
         log.info("Checking to see if packages have shared (.so) libraries...")
-        if _perform_shared_libraries_check(
-            dependencies_to_be_packed
-        ) and not _confirm_shared_libraries(allow_shared_libraries):
-            return False, split_dependencies
-        else:
-            packages_dir.mkdir(exist_ok=True)
-            for package in dependencies_to_be_packed:
-                package.extract_files(packages_dir.path)
-            return True, split_dependencies
+        if _perform_shared_libraries_check(dependencies_to_be_packed):
+            if not _confirm_shared_libraries(allow_shared_libraries):
+                return False, split_dependencies
+
+        packages_dir.mkdir(exist_ok=True)
+        for package in dependencies_to_be_packed:
+            package.extract_files(packages_dir.path)
+        return True, split_dependencies
 
 
 def _filter_dependencies_not_available_in_conda(
@@ -187,11 +185,11 @@ def _filter_dependencies_not_available_in_conda(
     return [dep for dep in dependencies if dep.requirement.name not in in_conda]
 
 
-def _confirm_shared_libraries(allow_shared_libraries: PypiOption) -> bool:
-    if allow_shared_libraries == PypiOption.ASK:
+def _confirm_shared_libraries(allow_shared_libraries: YesNoAsk) -> bool:
+    if allow_shared_libraries == YesNoAsk.ASK:
         return click.confirm("Continue with package installation?", default=False)
     else:
-        return allow_shared_libraries == PypiOption.YES
+        return allow_shared_libraries == YesNoAsk.YES
 
 
 def _check_for_shared_libraries(
@@ -229,9 +227,7 @@ def _log_shared_libraries(
 def _log_dependencies_found_in_conda(available_dependencies: List[Requirement]) -> None:
     if len(available_dependencies) > 0:
         log.info(
-            "Good news! The following package dependencies can be"
-            " imported directly from Anaconda, and will be excluded from"
-            " the zip: %s",
+            "Good news! Packages available in Anaconda and excluded from the zip archive: %s",
             format(", ".join(dep.name for dep in available_dependencies)),
         )
     else:

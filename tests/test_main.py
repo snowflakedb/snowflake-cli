@@ -1,4 +1,5 @@
 """These tests verify that the CLI runs work as expected."""
+
 from __future__ import annotations
 
 import json

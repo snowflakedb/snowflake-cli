@@ -41,7 +41,7 @@ from snowflake.cli.plugins.snowpark.common import (
     check_if_replace_is_required,
 )
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
-from snowflake.cli.plugins.snowpark.models import PypiOption, Requirement
+from snowflake.cli.plugins.snowpark.models import Requirement, YesNoAsk
 from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 from snowflake.cli.plugins.snowpark.package_utils import get_snowflake_packages
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
@@ -312,7 +312,7 @@ def _deploy_single_object(
 
 
 deprecated_pypi_download_option = typer.Option(
-    PypiOption.NO.value,
+    YesNoAsk.NO.value,
     "--pypi-download",
     help="Whether to download non-Anaconda packages from PyPi.",
     hidden=True,
@@ -334,9 +334,9 @@ def _write_requirements_file(file_path: SecurePath, requirements: List[Requireme
 @with_project_definition("snowpark")
 def build(
     ignore_anaconda: bool = IgnoreAnacondaOption,
-    package_native_libraries: PypiOption = PackageNativeLibrariesOption,
+    package_native_libraries: YesNoAsk = PackageNativeLibrariesOption,
     deprecated_check_anaconda_for_pypi_deps: bool = DeprecatedCheckAnacondaForPyPiDependencies,
-    _deprecated_pypi_download: PypiOption = deprecated_pypi_download_option,
+    _deprecated_pypi_download: YesNoAsk = deprecated_pypi_download_option,
     **options,
 ) -> CommandResult:
     """
@@ -376,7 +376,7 @@ def build(
             log.info("Downloading non-Anaconda packages...")
             packages_are_downloaded, dependencies = package_utils.download_packages(
                 anaconda=anaconda,
-                perform_anaconda_check_for_dependencies=not ignore_anaconda,
+                ignore_anaconda=ignore_anaconda,
                 requirements=dependencies_to_download,
                 packages_dir=paths.downloaded_packages_dir,
                 allow_shared_libraries=package_native_libraries,

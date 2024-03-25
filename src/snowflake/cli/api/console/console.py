@@ -22,8 +22,8 @@ class CliConsoleNestingProhibitedError(RuntimeError):
 class CliConsole(AbstractConsole):
     """An utility for displaying intermediate output.
 
-    Provides following methods for handling displying messages:
-    - `step` - for more detailed informations on steps
+    Provides following methods for handling displaying messages:
+    - `step` - for more detailed information on steps
     - `warning` - for displaying messages in a style that makes it
       visually stand out from other output
     - `phase` a context manager for organising steps into logical group
@@ -39,7 +39,7 @@ class CliConsole(AbstractConsole):
     }
 
     def _format_message(self, message: str, output: Output) -> Text:
-        """Wraps message in rich Text object and applys formatting."""
+        """Wraps message in rich Text object and applies formatting."""
         style = self._styles.get(output, "default")
         text = Text(message, style=style)
 

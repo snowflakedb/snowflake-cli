@@ -12,7 +12,6 @@ from snowflake.cli.plugins.nativeapp.constants import (
 )
 from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationAlreadyExistsError,
-    ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
     UnexpectedOwnerError,
 )
@@ -29,15 +28,11 @@ from snowflake.connector.cursor import DictCursor
 from src.snowflake.cli.plugins.nativeapp.constants import SPECIAL_COMMENT_OLD
 from tests.nativeapp.patch_utils import (
     mock_connection,
-    mock_get_app_pkg_distribution_in_sf,
 )
 from tests.nativeapp.utils import (
     NATIVEAPP_MANAGER_EXECUTE,
     NATIVEAPP_MANAGER_EXECUTE_QUERIES,
-    NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME,
-    RUN_MODULE,
     RUN_PROCESSOR_GET_EXISTING_APP_INFO,
-    RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO,
     TYPER_CONFIRM,
     mock_execute_helper,
     mock_snowflake_yml_file,
@@ -70,202 +65,6 @@ def _get_na_run_processor():
         project_definition=dm.project_definition.native_app,
         project_root=dm.project_root,
     )
-
-
-# Test create_app_package() with no existing package available
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO, return_value=None)
-def test_create_app_pkg_no_existing_package(
-    mock_get_existing_app_pkg_info, mock_execute, temp_dir, mock_cursor
-):
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
-            ),
-            (None, mock.call("use role package_role")),
-            (
-                None,
-                mock.call(
-                    dedent(
-                        f"""\
-                        create application package app_pkg
-                            comment = {SPECIAL_COMMENT}
-                            distribution = internal
-                    """
-                    )
-                ),
-            ),
-            (None, mock.call("use role old_role")),
-        ]
-    )
-    mock_execute.side_effect = side_effects
-
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
-    )
-
-    run_processor = _get_na_run_processor()
-    run_processor.create_app_package()
-    assert mock_execute.mock_calls == expected
-    mock_get_existing_app_pkg_info.assert_called_once()
-
-
-# Test create_app_package() with incorrect owner
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-def test_create_app_pkg_incorrect_owner(mock_get_existing_app_pkg_info, temp_dir):
-    mock_get_existing_app_pkg_info.return_value = {
-        "name": "APP_PKG",
-        "comment": SPECIAL_COMMENT,
-        "version": LOOSE_FILES_MAGIC_VERSION,
-        "owner": "wrong_owner",
-    }
-
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
-    )
-
-    with pytest.raises(UnexpectedOwnerError):
-        run_processor = _get_na_run_processor()
-        run_processor.create_app_package()
-
-
-# Test create_app_package() with distribution external AND variable mismatch
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock_get_app_pkg_distribution_in_sf()
-@mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
-@mock.patch(f"{RUN_MODULE}.cc.warning")
-@pytest.mark.parametrize(
-    "is_pkg_distribution_same",
-    [False, True],
-)
-def test_create_app_pkg_external_distribution(
-    mock_warning,
-    mock_is_distribution_same,
-    mock_get_distribution,
-    mock_get_existing_app_pkg_info,
-    is_pkg_distribution_same,
-    temp_dir,
-):
-    mock_is_distribution_same.return_value = is_pkg_distribution_same
-    mock_get_distribution.return_value = "external"
-    mock_get_existing_app_pkg_info.return_value = {
-        "name": "APP_PKG",
-        "comment": "random",
-        "version": LOOSE_FILES_MAGIC_VERSION,
-        "owner": "PACKAGE_ROLE",
-    }
-
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
-    )
-
-    run_processor = _get_na_run_processor()
-    run_processor.create_app_package()
-    if not is_pkg_distribution_same:
-        mock_warning.assert_called_once_with(
-            "Continuing to execute `snow app run` on application package app_pkg with distribution 'external'."
-        )
-
-
-# Test create_app_package() with distribution internal AND variable mismatch AND special comment is True
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock_get_app_pkg_distribution_in_sf()
-@mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
-@mock.patch(f"{RUN_MODULE}.cc.warning")
-@pytest.mark.parametrize(
-    "is_pkg_distribution_same, special_comment",
-    [
-        (False, SPECIAL_COMMENT),
-        (False, SPECIAL_COMMENT_OLD),
-        (True, SPECIAL_COMMENT),
-        (True, SPECIAL_COMMENT_OLD),
-    ],
-)
-def test_create_app_pkg_internal_distribution_special_comment(
-    mock_warning,
-    mock_is_distribution_same,
-    mock_get_distribution,
-    mock_get_existing_app_pkg_info,
-    is_pkg_distribution_same,
-    special_comment,
-    temp_dir,
-):
-    mock_is_distribution_same.return_value = is_pkg_distribution_same
-    mock_get_distribution.return_value = "internal"
-    mock_get_existing_app_pkg_info.return_value = {
-        "name": "APP_PKG",
-        "comment": special_comment,
-        "version": LOOSE_FILES_MAGIC_VERSION,
-        "owner": "PACKAGE_ROLE",
-    }
-
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
-    )
-
-    run_processor = _get_na_run_processor()
-    run_processor.create_app_package()
-    if not is_pkg_distribution_same:
-        mock_warning.assert_called_once_with(
-            "Continuing to execute `snow app run` on application package app_pkg with distribution 'internal'."
-        )
-
-
-# Test create_app_package() with distribution internal AND variable mismatch AND special comment is False
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock_get_app_pkg_distribution_in_sf()
-@mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
-@mock.patch(f"{RUN_MODULE}.cc.warning")
-@pytest.mark.parametrize(
-    "is_pkg_distribution_same",
-    [False, True],
-)
-def test_create_app_pkg_internal_distribution_no_special_comment(
-    mock_warning,
-    mock_is_distribution_same,
-    mock_get_distribution,
-    mock_get_existing_app_pkg_info,
-    is_pkg_distribution_same,
-    temp_dir,
-):
-    mock_is_distribution_same.return_value = is_pkg_distribution_same
-    mock_get_distribution.return_value = "internal"
-    mock_get_existing_app_pkg_info.return_value = {
-        "name": "APP_PKG",
-        "comment": "dummy",
-        "version": LOOSE_FILES_MAGIC_VERSION,
-        "owner": "PACKAGE_ROLE",
-    }
-
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
-    )
-
-    run_processor = _get_na_run_processor()
-    with pytest.raises(ApplicationPackageAlreadyExistsError):
-        run_processor.create_app_package()
-
-    if not is_pkg_distribution_same:
-        mock_warning.assert_called_once_with(
-            "Continuing to execute `snow app run` on application package app_pkg with distribution 'internal'."
-        )
 
 
 # Test create_dev_app with exception thrown trying to use the warehouse

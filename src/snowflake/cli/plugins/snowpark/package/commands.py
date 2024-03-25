@@ -14,8 +14,8 @@ from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
-    PypiOption,
     Requirement,
+    YesNoAsk,
 )
 from snowflake.cli.plugins.snowpark.package.anaconda import (
     AnacondaChannel,
@@ -140,7 +140,7 @@ deprecated_install_option = typer.Option(
 )
 
 deprecated_allow_native_libraries_option = typer.Option(
-    PypiOption.NO.value,
+    YesNoAsk.NO.value,
     "--allow-native-libraries",
     help="Allows native libraries, when using packages installed through PIP",
     hidden=True,
@@ -182,7 +182,7 @@ def package_create(
     index_url: Optional[str] = index_option,
     skip_version_check: bool = skip_version_check_option,
     allow_shared_libraries: bool = allow_shared_libraries_option,
-    deprecated_allow_native_libraries: PypiOption = deprecated_allow_native_libraries_option,
+    deprecated_allow_native_libraries: YesNoAsk = deprecated_allow_native_libraries_option,
     _deprecated_install_option: bool = deprecated_install_option,
     _deprecated_install_packages: bool = deprecated_pypi_download_option,
     **options,
@@ -190,12 +190,13 @@ def package_create(
     """
     Creates a Python package as a zip file that can be uploaded to a stage and imported for a Snowpark Python app.
     """
-    allow_shared_libraries_pypi_option = {
-        True: PypiOption.YES,
-        False: PypiOption.NO,
+    # TODO: yes/no/ask logic should be removed in 3.0
+    allow_shared_libraries_yesnoask = {
+        True: YesNoAsk.YES,
+        False: YesNoAsk.NO,
     }[allow_shared_libraries]
-    if deprecated_allow_native_libraries != PypiOption.NO:
-        allow_shared_libraries_pypi_option = deprecated_allow_native_libraries
+    if deprecated_allow_native_libraries != YesNoAsk.NO:
+        allow_shared_libraries_yesnoask = deprecated_allow_native_libraries
 
     package = Requirement.parse(name)
     if ignore_anaconda:
@@ -212,11 +213,11 @@ def package_create(
     packages_dir = SecurePath(".packages")
     packages_are_downloaded, dependencies = download_packages(
         anaconda=anaconda,
-        perform_anaconda_check_for_dependencies=not ignore_anaconda,
+        ignore_anaconda=ignore_anaconda,
         requirements=[package],
         packages_dir=packages_dir,
         index_url=index_url,
-        allow_shared_libraries=allow_shared_libraries_pypi_option,
+        allow_shared_libraries=allow_shared_libraries_yesnoask,
         skip_version_check=skip_version_check,
     )
 
@@ -243,9 +244,9 @@ def package_create(
     if dependencies.snowflake:
         message += dedent(
             f"""
-            The package {name} is supported, but does depend on the
-            following Snowflake supported libraries. You should include the
-            following dependencies in you function or procedure requirements:
+            The package {name} is successfully created, but depends on the following
+            Anaconda libraries. They need to be included in project requirements,
+            as their are not included in .zip.
             """
         )
         message += "\n".join((req.line for req in dependencies.snowflake))

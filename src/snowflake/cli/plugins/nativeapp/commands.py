@@ -224,3 +224,22 @@ def app_teardown(
     )
     processor.process(force)
     return MessageResult(f"Teardown is now complete.")
+
+
+@app.command("deploy", requires_connection=True)
+@with_project_definition("native_app")
+def app_deploy(
+    **options,
+) -> CommandResult:
+    """
+    Creates an application package in your Snowflake account and syncs the local changes to the stage without creating or updating the application.
+    """
+    manager = NativeAppManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+
+    manager.build_bundle()
+    manager.deploy()
+
+    return MessageResult(f"Deployed successfully.")
