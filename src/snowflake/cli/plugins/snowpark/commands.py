@@ -49,6 +49,8 @@ from snowflake.cli.plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
     DeprecatedCheckAnacondaForPyPiDependencies,
     IgnoreAnacondaOption,
+    IndexUrlOption,
+    SkipVersionCheckOption,
     deprecated_allow_native_libraries_option,
 )
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
@@ -336,6 +338,8 @@ def _write_requirements_file(file_path: SecurePath, requirements: List[Requireme
 def build(
     ignore_anaconda: bool = IgnoreAnacondaOption,
     allow_shared_libraries: bool = AllowSharedLibrariesOption,
+    index_url: Optional[str] = IndexUrlOption,
+    skip_version_check: bool = SkipVersionCheckOption,
     deprecated_package_native_libraries: YesNoAsk = deprecated_allow_native_libraries_option(
         "--package-native-libraries"
     ),
@@ -391,6 +395,8 @@ def build(
                 requirements=dependencies_to_download,
                 packages_dir=paths.downloaded_packages_dir,
                 allow_shared_libraries=allow_shared_libraries_yesnoask,
+                index_url=index_url,
+                skip_version_check=skip_version_check,
             )
             if not packages_are_downloaded:
                 return MessageResult(

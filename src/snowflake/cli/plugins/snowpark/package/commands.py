@@ -28,6 +28,8 @@ from snowflake.cli.plugins.snowpark.package_utils import download_packages
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
     IgnoreAnacondaOption,
+    IndexUrlOption,
+    SkipVersionCheckOption,
     deprecated_allow_native_libraries_option,
 )
 
@@ -143,22 +145,6 @@ deprecated_install_option = typer.Option(
 )
 
 
-index_option = typer.Option(
-    None,
-    "--index-url",
-    help="Base URL of the Python Package Index to use for package lookup. This should point to "
-    " a repository compliant with PEP 503 (the simple repository API) or a local directory laid"
-    " out in the same format.",
-    show_default=False,
-)
-
-skip_version_check_option = typer.Option(
-    False,
-    "--skip-version-check",
-    help="Skip comparing versions of dependencies between requirements and Anaconda.",
-)
-
-
 @app.command("create", requires_connection=True)
 @cleanup_packages_dir
 def package_create(
@@ -167,8 +153,8 @@ def package_create(
         help="Name of the package to create.",
     ),
     ignore_anaconda: bool = IgnoreAnacondaOption,
-    index_url: Optional[str] = index_option,
-    skip_version_check: bool = skip_version_check_option,
+    index_url: Optional[str] = IndexUrlOption,
+    skip_version_check: bool = SkipVersionCheckOption,
     allow_shared_libraries: bool = AllowSharedLibrariesOption,
     deprecated_allow_native_libraries: YesNoAsk = deprecated_allow_native_libraries_option(
         "--allow-native-libraries"

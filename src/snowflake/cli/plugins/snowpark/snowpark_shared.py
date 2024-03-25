@@ -45,20 +45,35 @@ DeprecatedCheckAnacondaForPyPiDependencies: bool = typer.Option(
     ),
 )
 
-IgnoreAnacondaOption = typer.Option(
+IgnoreAnacondaOption: bool = typer.Option(
     False,
     "--ignore-anaconda",
     help="Does not lookup packages on Snowflake Anaconda channel.",
 )
 
-ReturnsOption = typer.Option(
+SkipVersionCheckOption: bool = typer.Option(
+    False,
+    "--skip-version-check",
+    help="Skip comparing versions of dependencies between requirements and Anaconda.",
+)
+
+IndexUrlOption: str | None = typer.Option(
+    None,
+    "--index-url",
+    help="Base URL of the Python Package Index to use for package lookup. This should point to "
+    " a repository compliant with PEP 503 (the simple repository API) or a local directory laid"
+    " out in the same format.",
+    show_default=False,
+)
+
+ReturnsOption: str = typer.Option(
     ...,
     "--returns",
     "-r",
     help="Data type for the procedure to return.",
 )
 
-OverwriteOption = typer.Option(
+OverwriteOption: bool = typer.Option(
     False,
     "--overwrite",
     "-o",

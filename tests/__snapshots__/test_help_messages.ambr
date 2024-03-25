@@ -2050,6 +2050,15 @@
   │ --allow-shared-libraries                Allows shared (.so) libraries, when  │
   │                                         using packages installed through     │
   │                                         PIP.                                 │
+  │ --index-url                       TEXT  Base URL of the Python Package Index │
+  │                                         to use for package lookup. This      │
+  │                                         should point to  a repository        │
+  │                                         compliant with PEP 503 (the simple   │
+  │                                         repository API) or a local directory │
+  │                                         laid out in the same format.         │
+  │ --skip-version-check                    Skip comparing versions of           │
+  │                                         dependencies between requirements    │
+  │                                         and Anaconda.                        │
   │ --project                 -p      TEXT  Path where the Snowpark project      │
   │                                         resides. Defaults to current working │
   │                                         directory.                           │
