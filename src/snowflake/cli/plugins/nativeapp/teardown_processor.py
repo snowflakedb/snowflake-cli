@@ -97,7 +97,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
 
     def drop_package(self, auto_yes: bool):
         """
-        Attemps to drop application package unless user specifies otherwise.
+        Attempts to drop application package unless user specifies otherwise.
         """
         needs_confirm = True
 

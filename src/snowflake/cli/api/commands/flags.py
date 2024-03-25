@@ -21,7 +21,7 @@ _CLI_BEHAVIOUR = "Global configuration"
 class OverrideableOption:
     """
     Class that allows you to generate instances of typer.models.OptionInfo with some default properties while allowing
-    specific values to be overriden.
+    specific values to be overridden.
 
     Custom parameters:
     - mutually_exclusive (Tuple[str]|List[str]): A list of parameter names that this Option is not compatible with. If this Option has
