@@ -158,8 +158,9 @@ def build_md5_map(list_stage_cursor: SnowflakeCursor) -> Dict[str, str]:
 
 
 def assert_files_exist(local_files: List[Path], files_to_stage: List[Path]) -> None:
+    local_files_set = set(local_files)
     for file in files_to_stage:
-        if file not in local_files:
+        if file not in local_files_set:
             raise FileDoesNotExistError(file)
 
 

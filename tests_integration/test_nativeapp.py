@@ -564,3 +564,54 @@ def test_nativeapp_init_deploy(
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+
+
+# Tests a simple flow of executing "snow app deploy [files]", verifying that only the specified files are synced to the stage
+@pytest.mark.integration
+def test_nativeapp_init_deploy_files(
+    runner,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    result = runner.invoke_json(
+        ["app", "init", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_name)):
+        # sync only two specific files to stage
+        result = runner.invoke_with_connection_json(
+            ["app", "deploy", "manifest.yml", "setup_script.sql"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        try:
+            # manifest and script files exist, readme doesn't exist
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
+            stage_files = runner.invoke_with_connection_json(
+                ["object", "stage", "list", f"{package_name}.{stage_name}"],
+                env=TEST_ENV,
+            )
+            assert contains_row_with(stage_files.json, {"name": "stage/manifest.yml"})
+            assert contains_row_with(
+                stage_files.json, {"name": "stage/setup_script.sql"}
+            )
+            assert not_contains_row_with(stage_files.json, {"name": "stage/README.md"})
+
+            # make sure we always delete the app
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
