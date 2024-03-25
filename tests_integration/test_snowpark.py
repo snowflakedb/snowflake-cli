@@ -393,6 +393,9 @@ def test_snowpark_commands_executed_outside_project_dir(
         ["--check-anaconda-for-pypi-deps"],
         ["-a"],
         ["--no-check-anaconda-for-pypi-deps"],
+        ["--package-native-libraries", "yes"],
+        ["--package-native-libraries", "no"],
+        ["--package-native-libraries", "ask"],
     ],
 )
 def test_snowpark_build_deprecated_flags_warning(flags, runner, project_directory):

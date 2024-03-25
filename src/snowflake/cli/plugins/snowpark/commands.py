@@ -46,9 +46,10 @@ from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 from snowflake.cli.plugins.snowpark.package_utils import get_snowflake_packages
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
+    AllowSharedLibrariesOption,
     DeprecatedCheckAnacondaForPyPiDependencies,
     IgnoreAnacondaOption,
-    PackageNativeLibrariesOption,
+    deprecated_allow_native_libraries_option,
 )
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
 from snowflake.connector import DictCursor, ProgrammingError
@@ -334,7 +335,10 @@ def _write_requirements_file(file_path: SecurePath, requirements: List[Requireme
 @with_project_definition("snowpark")
 def build(
     ignore_anaconda: bool = IgnoreAnacondaOption,
-    package_native_libraries: YesNoAsk = PackageNativeLibrariesOption,
+    allow_shared_libraries: bool = AllowSharedLibrariesOption,
+    deprecated_package_native_libraries: YesNoAsk = deprecated_allow_native_libraries_option(
+        "--package-native-libraries"
+    ),
     deprecated_check_anaconda_for_pypi_deps: bool = DeprecatedCheckAnacondaForPyPiDependencies,
     _deprecated_pypi_download: YesNoAsk = deprecated_pypi_download_option,
     **options,
@@ -345,6 +349,13 @@ def build(
     """
     if not deprecated_check_anaconda_for_pypi_deps:
         ignore_anaconda = True
+    # TODO: yes/no/ask logic should be removed in 3.0
+    allow_shared_libraries_yesnoask = {
+        True: YesNoAsk.YES,
+        False: YesNoAsk.NO,
+    }[allow_shared_libraries]
+    if deprecated_package_native_libraries != YesNoAsk.NO:
+        allow_shared_libraries_yesnoask = deprecated_package_native_libraries
 
     paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
@@ -379,7 +390,7 @@ def build(
                 ignore_anaconda=ignore_anaconda,
                 requirements=dependencies_to_download,
                 packages_dir=paths.downloaded_packages_dir,
-                allow_shared_libraries=package_native_libraries,
+                allow_shared_libraries=allow_shared_libraries_yesnoask,
             )
             if not packages_are_downloaded:
                 return MessageResult(

@@ -2045,19 +2045,15 @@
    project file.                                                                  
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --ignore-anaconda                                 Does not lookup packages   │
-  │                                                   on Snowflake Anaconda      │
-  │                                                   channel.                   │
-  │ --package-native-libraries          [yes|no|ask]  Allows native libraries,   │
-  │                                                   when using packages        │
-  │                                                   installed through PIP      │
-  │                                                   [default: no]              │
-  │ --project                   -p      TEXT          Path where the Snowpark    │
-  │                                                   project resides. Defaults  │
-  │                                                   to current working         │
-  │                                                   directory.                 │
-  │ --help                      -h                    Show this message and      │
-  │                                                   exit.                      │
+  │ --ignore-anaconda                       Does not lookup packages on          │
+  │                                         Snowflake Anaconda channel.          │
+  │ --allow-shared-libraries                Allows shared (.so) libraries, when  │
+  │                                         using packages installed through     │
+  │                                         PIP.                                 │
+  │ --project                 -p      TEXT  Path where the Snowpark project      │
+  │                                         resides. Defaults to current working │
+  │                                         directory.                           │
+  │ --help                    -h            Show this message and exit.          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │

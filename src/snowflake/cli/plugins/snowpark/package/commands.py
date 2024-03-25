@@ -8,7 +8,6 @@ from typing import Optional
 import typer
 from snowflake.cli.api.commands.flags import (
     deprecated_flag_callback,
-    deprecated_flag_callback_enum,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MessageResult
@@ -26,7 +25,11 @@ from snowflake.cli.plugins.snowpark.package.manager import (
     upload,
 )
 from snowflake.cli.plugins.snowpark.package_utils import download_packages
-from snowflake.cli.plugins.snowpark.snowpark_shared import IgnoreAnacondaOption
+from snowflake.cli.plugins.snowpark.snowpark_shared import (
+    AllowSharedLibrariesOption,
+    IgnoreAnacondaOption,
+    deprecated_allow_native_libraries_option,
+)
 
 app = SnowTyper(
     name="package",
@@ -139,15 +142,6 @@ deprecated_install_option = typer.Option(
     ),
 )
 
-deprecated_allow_native_libraries_option = typer.Option(
-    YesNoAsk.NO.value,
-    "--allow-native-libraries",
-    help="Allows native libraries, when using packages installed through PIP",
-    hidden=True,
-    callback=deprecated_flag_callback_enum(
-        "--allow-native-libraries flag is deprecated. Use --allow-shared-libraries flag instead."
-    ),
-)
 
 index_option = typer.Option(
     None,
@@ -164,12 +158,6 @@ skip_version_check_option = typer.Option(
     help="Skip comparing versions of dependencies between requirements and Anaconda.",
 )
 
-allow_shared_libraries_option = typer.Option(
-    False,
-    "--allow-shared-libraries",
-    help="Allows shared (.so) libraries, when using packages installed through PIP.",
-)
-
 
 @app.command("create", requires_connection=True)
 @cleanup_packages_dir
@@ -181,8 +169,10 @@ def package_create(
     ignore_anaconda: bool = IgnoreAnacondaOption,
     index_url: Optional[str] = index_option,
     skip_version_check: bool = skip_version_check_option,
-    allow_shared_libraries: bool = allow_shared_libraries_option,
-    deprecated_allow_native_libraries: YesNoAsk = deprecated_allow_native_libraries_option,
+    allow_shared_libraries: bool = AllowSharedLibrariesOption,
+    deprecated_allow_native_libraries: YesNoAsk = deprecated_allow_native_libraries_option(
+        "--allow-native-libraries"
+    ),
     _deprecated_install_option: bool = deprecated_install_option,
     _deprecated_install_packages: bool = deprecated_pypi_download_option,
     **options,
