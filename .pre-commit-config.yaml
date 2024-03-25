@@ -25,6 +25,12 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [types-all]
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.2.4
+    hooks:
+      - id: codespell
+        additional_dependencies:
+          - tomli
   - repo: local
     hooks:
       - id: check-print-in-code
