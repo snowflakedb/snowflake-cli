@@ -9,7 +9,8 @@
 * `snow snowpark package create`:
   * `--pypi-download` or `--yes` flags have no effect and will cause a warning.
     `create` command always checks against PyPi.
-  * `--allow-native-libraries` is renamed to `--allow-shared-libraries`. Old name of the flag is still supported.
+  * `--allow-native-libraries` is replaced with boolean flag `--allow-shared-libraries`.
+    Using old flag will cause a waring.
   * new `--ignore-anaconda` flag disables package lookup in Snowflake Anaconda channel.
     All dependencies will be downloaded from PyPi.
   * new `--skip-version-check` skips comparing versions of dependencies between requirements and Anaconda.

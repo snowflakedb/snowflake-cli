@@ -11,7 +11,7 @@ import snowflake.cli.plugins.snowpark.package.utils
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
 from snowflake.cli.plugins.snowpark import package_utils
-from snowflake.cli.plugins.snowpark.models import PypiOption, Requirement
+from snowflake.cli.plugins.snowpark.models import Requirement, YesNoAsk
 from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 
 from tests.test_data import test_data
@@ -215,8 +215,8 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
             anaconda=AnacondaChannel([]),
             requirements_file=SecurePath(correct_requirements_txt),
             packages_dir=SecurePath(".packages"),
-            perform_anaconda_check_for_dependencies=True,
-            allow_shared_libraries=PypiOption.YES,
+            ignore_anaconda=False,
+            allow_shared_libraries=YesNoAsk.YES,
         )
 
     assert "pip failed with return code 42" in caplog.text
