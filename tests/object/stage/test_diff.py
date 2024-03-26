@@ -24,6 +24,7 @@ from snowflake.cli.plugins.object.stage.manager import StageManager
 from tests.testing_utils.files_and_dirs import temp_local_dir
 
 STAGE_MANAGER = "snowflake.cli.plugins.object.stage.manager.StageManager"
+STAGE_DIFF = "snowflake.cli.plugins.object.stage.diff"
 
 FILE_CONTENTS = {
     "README.md": "This is a README\n",
@@ -236,11 +237,11 @@ def is_dir_mock(path: Path):
         return False
 
 
-# Mocking the following directory structure:
+# Mocking Path to mimic the following directory structure:
 # /file
 # /dir/nested_file
-@mock.patch("snowflake.cli.plugins.object.stage.diff.Path.is_dir", autospec=True)
-@mock.patch("snowflake.cli.plugins.object.stage.diff.Path.exists", autospec=True)
+@mock.patch(f"{STAGE_DIFF}.Path.is_dir", autospec=True)
+@mock.patch(f"{STAGE_DIFF}.Path.exists", autospec=True)
 @pytest.mark.parametrize(
     "files_to_stage,expected_exception",
     [
