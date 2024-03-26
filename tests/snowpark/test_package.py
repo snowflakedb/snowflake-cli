@@ -48,7 +48,7 @@ class TestPackage:
     ) -> None:
 
         mock_download.return_value = DownloadUnavailablePackagesResult(
-            download_successful=True,
+            succeeded=True,
             packages_available_in_anaconda=[
                 Requirement.parse("in-anaconda-package>=2")
             ],

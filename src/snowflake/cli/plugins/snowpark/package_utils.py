@@ -85,7 +85,7 @@ def _write_requirements_file(file_path: SecurePath, requirements: List[Requireme
 
 @dataclasses.dataclass
 class DownloadUnavailablePackagesResult:
-    download_successful: bool
+    succeeded: bool
     error_message: str | None = None
     packages_available_in_anaconda: List[Requirement] = dataclasses.field(
         default_factory=list
@@ -122,7 +122,7 @@ def download_unavailable_packages(
         if not requirements:
             # all packages are available in Anaconda
             return DownloadUnavailablePackagesResult(
-                download_successful=True,
+                succeeded=True,
                 packages_available_in_anaconda=omitted_packages,
             )
 
@@ -137,7 +137,7 @@ def download_unavailable_packages(
         if pip_wheel_result != 0:
             log.info(_pip_failed_log_msg(pip_wheel_result))
             return DownloadUnavailablePackagesResult(
-                download_successful=False,
+                succeeded=False,
                 error_message=_pip_failed_log_msg(pip_wheel_result),
             )
 
@@ -170,7 +170,7 @@ def download_unavailable_packages(
         if _perform_shared_libraries_check(dependencies_to_be_packed):
             if not _confirm_shared_libraries(allow_shared_libraries):
                 return DownloadUnavailablePackagesResult(
-                    download_successful=False,
+                    succeeded=False,
                     error_message=(
                         "Some packages contain shared (.so) libraries. "
                         "Try again with --allow-shared-libraries."
@@ -182,7 +182,7 @@ def download_unavailable_packages(
         for package in dependencies_to_be_packed:
             package.extract_files(target_dir.path)
         return DownloadUnavailablePackagesResult(
-            download_successful=True, packages_available_in_anaconda=omitted_packages
+            succeeded=True, packages_available_in_anaconda=omitted_packages
         )
 
 

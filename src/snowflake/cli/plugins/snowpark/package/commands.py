@@ -6,6 +6,7 @@ from textwrap import dedent
 from typing import Optional
 
 import typer
+from click import ClickException
 from snowflake.cli.api.commands.flags import (
     deprecated_flag_callback,
 )
@@ -181,8 +182,8 @@ def package_create(
             skip_version_check=skip_version_check,
             pip_index_url=index_url,
         )
-        if not download_result.download_successful:
-            return MessageResult(download_result.error_message)
+        if not download_result.succeeded:
+            raise ClickException(download_result.error_message)
 
         package_available_in_conda = any(
             p.line == package.line

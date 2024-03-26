@@ -24,9 +24,7 @@ from snowflake.cli.plugins.snowpark.package_utils import (
 def test_snowpark_build_deprecated_flags_warning(
     mock_download, flags, runner, project_directory
 ):
-    mock_download.return_value = DownloadUnavailablePackagesResult(
-        download_successful=True
-    )
+    mock_download.return_value = DownloadUnavailablePackagesResult(succeeded=True)
     with project_directory("snowpark_functions"):
         result = runner.invoke(["snowpark", "build", "--ignore-anaconda", *flags])
         assert result.exit_code == 0, result.output
@@ -37,9 +35,7 @@ def test_snowpark_build_deprecated_flags_warning(
 def test_snowpark_build_no_deprecated_warnings_by_default(
     mock_download, runner, project_directory
 ):
-    mock_download.return_value = DownloadUnavailablePackagesResult(
-        download_successful=True
-    )
+    mock_download.return_value = DownloadUnavailablePackagesResult(succeeded=True)
     with project_directory("snowpark_functions"):
         result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
         assert result.exit_code == 0, result.output

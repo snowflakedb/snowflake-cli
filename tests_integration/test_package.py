@@ -205,7 +205,7 @@ class TestPackage:
             ]
         )
 
-        assert result.exit_code == 0
+        assert result.exit_code == 1
         assert "at https://support.anaconda.com/" in result.output
 
     @pytest.fixture(scope="function")

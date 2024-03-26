@@ -326,10 +326,8 @@ deprecated_pypi_download_option = typer.Option(
 
 
 def _write_requirements_file(file_path: SecurePath, requirements: List[Requirement]):
-    log.info("Writing %s file", file_path.path)
-    with file_path.open("w", encoding="utf-8") as f:
-        for req in requirements:
-            f.write(f"{req.line}\n")
+    log.info("Writing requirements into file %s", file_path.path)
+    file_path.write_text("\n".join(req.line for req in requirements))
 
 
 @app.command("build")
@@ -360,17 +358,17 @@ def build(
     if deprecated_package_native_libraries != YesNoAsk.NO:
         allow_shared_libraries_yesnoask = deprecated_package_native_libraries
 
-    paths = SnowparkPackagePaths.for_snowpark_project(
+    snowpark_paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
         snowpark_project_definition=cli_context.project_definition,
     )
-    log.info("Building package using sources from: %s", paths.source.path)
+    log.info("Building package using sources from: %s", snowpark_paths.source.path)
 
     with SecurePath.temporary_directory() as packages_dir:
-        if paths.defined_requirements_file.exists():
+        if snowpark_paths.defined_requirements_file.exists():
             log.info("Resolving any requirements from requirements.txt...")
             requirements = package_utils.parse_requirements(
-                requirements_file=paths.defined_requirements_file,
+                requirements_file=snowpark_paths.defined_requirements_file,
             )
 
             download_result = package_utils.download_unavailable_packages(
@@ -381,25 +379,30 @@ def build(
                 pip_index_url=index_url,
                 allow_shared_libraries=allow_shared_libraries_yesnoask,
             )
-            if not download_result.download_successful:
-                return MessageResult(download_result.error_message)
+            if not download_result.succeeded:
+                raise ClickException(download_result.error_message)
             if download_result.packages_available_in_anaconda:
                 _write_requirements_file(
-                    paths.snowflake_requirements_file,
+                    snowpark_paths.snowflake_requirements_file,
                     download_result.packages_available_in_anaconda,
                 )
 
-        zip_dir(source=paths.source.path, dest_zip=paths.artifact_file.path)
+        zip_dir(
+            source=snowpark_paths.source.path,
+            dest_zip=snowpark_paths.artifact_file.path,
+        )
         if any(packages_dir.iterdir()):
             zip_dir(
                 source=packages_dir.path,
-                dest_zip=paths.artifact_file.path,
+                dest_zip=snowpark_paths.artifact_file.path,
                 mode="a",
             )
 
-    log.info("Deployment package now ready: %s", paths.artifact_file.path)
+    log.info("Package now ready: %s", snowpark_paths.artifact_file.path)
 
-    return MessageResult(f"Build done. Artifact path: {paths.artifact_file.path}")
+    return MessageResult(
+        f"Build done. Artifact path: {snowpark_paths.artifact_file.path}"
+    )
 
 
 class _SnowparkObject(Enum):
