@@ -12,6 +12,8 @@ from tests_integration.testing_utils.snowpark_utils import (
     SnowparkTestSetup,
 )
 from typing import List
+from zipfile import ZipFile
+
 
 STAGE_NAME = "dev_deployment"
 
@@ -660,43 +662,73 @@ def test_build_skip_version_check(runner, project_directory, alter_requirements_
     "flags",
     [
         ["--allow-shared-libraries"],
-        # ["--package-native-libraries", "yes"],
-        # ["--allow-shared-libraries", "--ignore-anaconda"],
+        ["--package-native-libraries", "yes"],
+        ["--allow-shared-libraries", "--ignore-anaconda"],
     ],
 )
-def test_build_with_conda_dependencies(
+def test_build_with_anaconda_dependencies(
     flags, runner, project_directory, alter_requirements_txt
 ):
     with project_directory("snowpark") as tmp_dir:
         alter_requirements_txt(tmp_dir / "requirements.txt", ["july"])
         result = runner.invoke(["snowpark", "build", *flags])
+        assert result.exit_code == 0, result.output
+        assert "Build done. Artifact path:" in result.output
+
+        requirements_snowflake = tmp_dir / "requirements.snowflake.txt"
+        if "--ignore-anaconda" in flags:
+            assert not requirements_snowflake.exists()
+        else:
+            assert requirements_snowflake.exists()
+            assert "matplotlib" in requirements_snowflake.read_text()
+            assert "numpy" not in requirements_snowflake.read_text()
+
+
+@pytest.mark.integration
+def test_build_with_non_anaconda_dependencies(
+    runner, project_directory, alter_requirements_txt
+):
+    with project_directory("snowpark") as tmp_dir:
+        alter_requirements_txt(
+            tmp_dir / "requirements.txt", ["dummy-pkg-for-tests-with-deps"]
+        )
+        result = runner.invoke(["snowpark", "build"])
+        assert result.exit_code == 0, result.output
+        assert "Build done. Artifact path:" in result.output
+
+        files = ZipFile(tmp_dir / "app.zip").namelist()
+        assert "dummy_pkg_for_tests/shrubbery.py" in files
+        assert "dummy_pkg_for_tests_with_deps/shrubbery.py" in files
+
+
+@pytest.mark.integration
+def test_build_shared_libraries_error(
+    runner, project_directory, alter_requirements_txt
+):
+    with project_directory("snowpark") as tmp_dir:
+        alter_requirements_txt(tmp_dir / "requirements.txt", ["pygame"])
+        result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
+        assert result.exit_code == 0, result.output
+        assert (
+            "Some requirements cannot be downloaded."
+            " Check requirements.txt file or try again with --allow-shared-libraries."
+        ) in result.output
+        assert "Build done." not in result.output
+
+
+@pytest.mark.skip(reason="debug")
+@pytest.mark.integration
+def test_build_package_from_github(runner, project_directory, alter_requirements_txt):
+    with project_directory("snowpark") as tmp_dir:
+        alter_requirements_txt(
+            tmp_dir / "requirements.txt",
+            [
+                "git+https://github.com/sfc-gh-turbaszek/dummy-pkg-for-tests-with-deps.git"
+            ],
+        )
+        result = runner.invoke(["snowpark", "build"])
         assert result.exit_code == 7, result.output
-    # @pytest.mark.integration
-    # @pytest.mark.parametrize(
-    #     "flags",
-    #     [
-    #         ["--allow-shared-libraries"],
-    #         ["--allow-native-libraries", "yes"],
-    #         ["--allow-shared-libraries", "--ignore-anaconda"],
-    #     ],
-    # )
-    # def test_package_with_conda_dependencies(
-    #     self, directory_for_test, runner, flags
-    # ):  # TODO think how to make this test with packages controlled by us
-    #     # test case is: We have a non-conda package, that has a dependency present on conda
-    #     # but not in latest version - here the case is matplotlib.
-    #     result = runner.invoke_with_connection(
-    #         ["snowpark", "package", "create", "july", *flags]
-    #     )
-    #
-    #     assert result.exit_code == 0
-    #     assert Path("july.zip").exists(), result.output
-    #
-    #     files = self._get_filenames_from_zip("july.zip")
-    #     assert any(["colormaps.py" in name for name in files])
-    #     assert any(["matplotlib" in name for name in files]) == (
-    #         "--ignore-anaconda" in flags
-    #     )
+        assert "Build done. Artifact path:" in result.output
 
 
 @pytest.fixture
