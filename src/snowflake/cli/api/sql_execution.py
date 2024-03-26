@@ -9,6 +9,7 @@ from typing import Iterable, Optional
 
 from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
     DatabaseNotProvidedError,
     SchemaNotProvidedError,
@@ -61,6 +62,9 @@ class SqlExecutionMixin:
 
     def _execute_queries(self, queries: str, **kwargs):
         return list(self._execute_string(dedent(queries), **kwargs))
+
+    def use(self, object_type: ObjectType, name: str):
+        return self._execute_query(f"use {object_type.value.sf_name} {name}")
 
     @contextmanager
     def use_role(self, new_role: str):
