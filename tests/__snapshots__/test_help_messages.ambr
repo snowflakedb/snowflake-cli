@@ -64,7 +64,8 @@
    changes to the stage without creating or updating the application.             
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │   files      [FILES]...  Files to stage. [default: all local changes]        │
+  │   files      [FILES]...  Files to stage, relative to deploy root. [default:  │
+  │                          all local changes]                                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --project  -p      TEXT  Path where the Snowflake Native App project         │

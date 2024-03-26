@@ -233,7 +233,7 @@ def app_deploy(
     files: Optional[List[Path]] = typer.Argument(
         default=None,
         show_default=False,
-        help="Files to stage. [default: all local changes]",
+        help="Files to stage, relative to deploy root. [default: all local changes]",
     ),
     **options,
 ) -> CommandResult:
