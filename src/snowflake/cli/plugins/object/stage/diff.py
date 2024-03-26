@@ -161,12 +161,14 @@ def build_md5_map(list_stage_cursor: SnowflakeCursor) -> Dict[str, str]:
     }
 
 
-def get_absolute_files_to_stage(relative_files_to_stage, local_path) -> List[Path]:
+def get_absolute_files_to_stage(
+    relative_files_to_stage: List[Path], local_path: Path
+) -> List[Path]:
     paths = []
     for file in relative_files_to_stage:
         absolute_path = Path(os.path.join(local_path, file))
         if not absolute_path.exists():
-            raise FileError(file, "This file does not exist")
+            raise FileError(str(file), "This file does not exist")
         elif absolute_path.is_dir():
             raise ClickException(f"Specifying directories is not supported: '{file}'")
         else:
