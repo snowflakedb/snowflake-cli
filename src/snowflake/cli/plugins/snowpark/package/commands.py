@@ -15,15 +15,12 @@ from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
     YesNoAsk,
+    get_package_name,
 )
 from snowflake.cli.plugins.snowpark.package.anaconda import (
     AnacondaChannel,
 )
-from snowflake.cli.plugins.snowpark.package.manager import (
-    cleanup_packages_dir,
-    create_packages_zip,
-    upload,
-)
+from snowflake.cli.plugins.snowpark.package.manager import upload
 from snowflake.cli.plugins.snowpark.package_utils import download_unavailable_packages
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
@@ -32,6 +29,7 @@ from snowflake.cli.plugins.snowpark.snowpark_shared import (
     SkipVersionCheckOption,
     deprecated_allow_native_libraries_option,
 )
+from snowflake.cli.plugins.snowpark.zipper import zip_dir
 
 app = SnowTyper(
     name="package",
@@ -146,7 +144,6 @@ deprecated_install_option = typer.Option(
 
 
 @app.command("create", requires_connection=True)
-@cleanup_packages_dir
 def package_create(
     name: str = typer.Argument(
         ...,
@@ -174,47 +171,49 @@ def package_create(
     if deprecated_allow_native_libraries != YesNoAsk.NO:
         allow_shared_libraries_yesnoask = deprecated_allow_native_libraries
 
-    package = Requirement.parse(name)
-    packages_dir = SecurePath(".packages")
-    download_result = download_unavailable_packages(
-        requirements=[package],
-        target_dir=packages_dir,
-        ignore_anaconda=ignore_anaconda,
-        allow_shared_libraries=allow_shared_libraries_yesnoask,
-        skip_version_check=skip_version_check,
-        pip_index_url=index_url,
-    )
-    if not download_result.download_successful:
-        return MessageResult(download_result.error_message)
-
-    package_available_in_conda = any(
-        p.line == package.line for p in download_result.packages_available_in_anaconda
-    )
-    if package_available_in_conda:
-        return MessageResult(
-            f"Package {name} is already available in Snowflake Anaconda Channel."
+    with SecurePath.temporary_directory() as packages_dir:
+        package = Requirement.parse(name)
+        download_result = download_unavailable_packages(
+            requirements=[package],
+            target_dir=packages_dir,
+            ignore_anaconda=ignore_anaconda,
+            allow_shared_libraries=allow_shared_libraries_yesnoask,
+            skip_version_check=skip_version_check,
+            pip_index_url=index_url,
         )
+        if not download_result.download_successful:
+            return MessageResult(download_result.error_message)
 
-    # The package is not in anaconda, so we have to pack it
-    zip_file = create_packages_zip(name)
-    message = dedent(
-        f"""
-        Package {zip_file} created. You can now upload it to a stage using
-        snow snowpark package upload -f {zip_file} -s <stage-name>`
-        and reference it in your procedure or function.
-        Remember to add it to imports in the procedure or function definition.
-        """
-    )
-    if download_result.packages_available_in_anaconda:
-        message += dedent(
+        package_available_in_conda = any(
+            p.line == package.line
+            for p in download_result.packages_available_in_anaconda
+        )
+        if package_available_in_conda:
+            return MessageResult(
+                f"Package {name} is already available in Snowflake Anaconda Channel."
+            )
+
+        # The package is not in anaconda, so we have to pack it
+        zip_file = f"{get_package_name(name)}.zip"
+        zip_dir(dest_zip=Path(zip_file), source=packages_dir.path)
+        message = dedent(
             f"""
-            The package {name} is successfully created, but depends on the following
-            Anaconda libraries. They need to be included in project requirements,
-            as their are not included in .zip.
+            Package {zip_file} created. You can now upload it to a stage using
+            snow snowpark package upload -f {zip_file} -s <stage-name>`
+            and reference it in your procedure or function.
+            Remember to add it to imports in the procedure or function definition.
             """
         )
-        message += "\n".join(
-            (req.line for req in download_result.packages_available_in_anaconda)
-        )
+        if download_result.packages_available_in_anaconda:
+            message += dedent(
+                f"""
+                The package {name} is successfully created, but depends on the following
+                Anaconda libraries. They need to be included in project requirements,
+                as their are not included in .zip.
+                """
+            )
+            message += "\n".join(
+                (req.line for req in download_result.packages_available_in_anaconda)
+            )
 
-    return MessageResult(message)
+        return MessageResult(message)

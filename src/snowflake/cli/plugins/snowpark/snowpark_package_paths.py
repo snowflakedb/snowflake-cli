@@ -5,7 +5,6 @@ from snowflake.cli.api.secure_path import SecurePath
 
 _DEFINED_REQUIREMENTS = "requirements.txt"
 _REQUIREMENTS_SNOWFLAKE = "requirements.snowflake.txt"
-_PACKAGES_DIR = ".packages"
 
 
 @dataclass
@@ -14,7 +13,6 @@ class SnowparkPackagePaths:
     artifact_file: SecurePath
     defined_requirements_file: SecurePath = SecurePath(_DEFINED_REQUIREMENTS)
     snowflake_requirements_file: SecurePath = SecurePath(_REQUIREMENTS_SNOWFLAKE)
-    downloaded_packages_dir: SecurePath = SecurePath(_PACKAGES_DIR)
 
     @classmethod
     def for_snowpark_project(
@@ -32,7 +30,6 @@ class SnowparkPackagePaths:
             ),
             defined_requirements_file=project_root / _DEFINED_REQUIREMENTS,
             snowflake_requirements_file=project_root / _REQUIREMENTS_SNOWFLAKE,
-            downloaded_packages_dir=project_root / _PACKAGES_DIR,
         )
 
     @classmethod

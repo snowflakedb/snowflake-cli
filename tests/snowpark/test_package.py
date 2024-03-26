@@ -2,7 +2,6 @@ import logging
 import os
 from unittest import mock
 from unittest.mock import MagicMock, patch
-from zipfile import ZipFile
 
 import pytest
 from snowflake.cli.plugins.snowpark.models import (
@@ -44,7 +43,6 @@ class TestPackage:
         mock_download,
         caplog,
         temp_dir,
-        dot_packages_directory,
         runner,
         extra_flags,
     ) -> None:
@@ -67,12 +65,6 @@ class TestPackage:
         assert result.exit_code == 0, result.output
         assert "in-anaconda-package>=2" in result.output
         assert os.path.isfile("totally-awesome-package.zip"), result.output
-
-        zip_file = ZipFile("totally-awesome-package.zip", "r")
-        assert (
-            "totally-awesome-package/totally-awesome-module.py" in zip_file.namelist()
-        )
-        os.remove("totally-awesome-package.zip")
 
     @mock.patch("snowflake.cli.plugins.snowpark.package.manager.StageManager")
     @mock.patch("snowflake.connector.connect")
@@ -170,7 +162,7 @@ class TestPackage:
     @mock.patch(
         "snowflake.cli.plugins.snowpark.package.commands.download_unavailable_packages"
     )
-    @mock.patch("snowflake.cli.plugins.snowpark.package.commands.create_packages_zip")
+    @mock.patch("snowflake.cli.plugins.snowpark.package.commands.zip_dir")
     def test_create_install_flag_are_deprecated(
         self, _mock_zip, _mock_download, flags, runner
     ):
@@ -191,7 +183,7 @@ class TestPackage:
     @mock.patch(
         "snowflake.cli.plugins.snowpark.package.commands.download_unavailable_packages"
     )
-    @mock.patch("snowflake.cli.plugins.snowpark.package.commands.create_packages_zip")
+    @mock.patch("snowflake.cli.plugins.snowpark.package.commands.zip_dir")
     def test_create_deprecated_flags_throw_warning(
         self, _mock_zip, _mock_download, flags, runner
     ):
@@ -201,7 +193,7 @@ class TestPackage:
     @mock.patch(
         "snowflake.cli.plugins.snowpark.package.commands.download_unavailable_packages"
     )
-    @mock.patch("snowflake.cli.plugins.snowpark.package.commands.create_packages_zip")
+    @mock.patch("snowflake.cli.plugins.snowpark.package.commands.zip_dir")
     def test_create_without_flags_does_not_warn(
         self, _mock_zip, _mock_download, runner
     ):

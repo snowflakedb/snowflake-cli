@@ -366,35 +366,36 @@ def build(
     )
     log.info("Building package using sources from: %s", paths.source.path)
 
-    if paths.defined_requirements_file.exists():
-        log.info("Resolving any requirements from requirements.txt...")
-        requirements = package_utils.parse_requirements(
-            requirements_file=paths.defined_requirements_file,
-        )
-
-        download_result = package_utils.download_unavailable_packages(
-            requirements=requirements,
-            target_dir=paths.downloaded_packages_dir,
-            ignore_anaconda=ignore_anaconda,
-            skip_version_check=skip_version_check,
-            pip_index_url=index_url,
-            allow_shared_libraries=allow_shared_libraries_yesnoask,
-        )
-        if not download_result.download_successful:
-            return MessageResult(download_result.error_message)
-        if download_result.packages_available_in_anaconda:
-            _write_requirements_file(
-                paths.snowflake_requirements_file,
-                download_result.packages_available_in_anaconda,
+    with SecurePath.temporary_directory() as packages_dir:
+        if paths.defined_requirements_file.exists():
+            log.info("Resolving any requirements from requirements.txt...")
+            requirements = package_utils.parse_requirements(
+                requirements_file=paths.defined_requirements_file,
             )
 
-    zip_dir(source=paths.source.path, dest_zip=paths.artifact_file.path)
-    if paths.downloaded_packages_dir.exists():
-        zip_dir(
-            source=paths.downloaded_packages_dir.path,
-            dest_zip=paths.artifact_file.path,
-            mode="a",
-        )
+            download_result = package_utils.download_unavailable_packages(
+                requirements=requirements,
+                target_dir=packages_dir,
+                ignore_anaconda=ignore_anaconda,
+                skip_version_check=skip_version_check,
+                pip_index_url=index_url,
+                allow_shared_libraries=allow_shared_libraries_yesnoask,
+            )
+            if not download_result.download_successful:
+                return MessageResult(download_result.error_message)
+            if download_result.packages_available_in_anaconda:
+                _write_requirements_file(
+                    paths.snowflake_requirements_file,
+                    download_result.packages_available_in_anaconda,
+                )
+
+        zip_dir(source=paths.source.path, dest_zip=paths.artifact_file.path)
+        if any(packages_dir.iterdir()):
+            zip_dir(
+                source=packages_dir.path,
+                dest_zip=paths.artifact_file.path,
+                mode="a",
+            )
 
     log.info("Deployment package now ready: %s", paths.artifact_file.path)
 
