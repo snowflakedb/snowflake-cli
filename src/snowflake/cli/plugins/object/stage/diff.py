@@ -6,9 +6,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from click.exceptions import (
+    ClickException,
+    FileError,
+)
 from snowflake.cli.api.exceptions import (
-    DirectoryNotSupportedError,
-    FileDoesNotExistError,
     SnowflakeSQLExecutionError,
 )
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
@@ -164,9 +166,9 @@ def get_absolute_files_to_stage(relative_files_to_stage, local_path) -> List[Pat
     for file in relative_files_to_stage:
         absolute_path = Path(os.path.join(local_path, file))
         if not absolute_path.exists():
-            raise FileDoesNotExistError(file)
+            raise FileError(file, "This file does not exist")
         elif absolute_path.is_dir():
-            raise DirectoryNotSupportedError(file)
+            raise ClickException(f"Specifying directories is not supported: '{file}'")
         else:
             paths.append(absolute_path)
     return paths

@@ -4,9 +4,11 @@ from typing import Dict, List, Tuple, Union
 from unittest import mock
 
 import pytest
+from click.exceptions import (
+    ClickException,
+    FileError,
+)
 from snowflake.cli.api.exceptions import (
-    DirectoryNotSupportedError,
-    FileDoesNotExistError,
     SnowflakeSQLExecutionError,
 )
 from snowflake.cli.plugins.object.stage.diff import (
@@ -246,9 +248,9 @@ def is_dir_mock(path: Path):
     "files_to_stage,expected_exception",
     [
         [["file", "dir/nested_file"], None],
-        [["file", "file2"], FileDoesNotExistError],
-        [["dir/file3"], FileDoesNotExistError],
-        [["dir"], DirectoryNotSupportedError],
+        [["file", "file2"], FileError],
+        [["dir/file3"], FileError],
+        [["dir"], ClickException],
     ],
 )
 def test_get_absolute_files_to_stage(

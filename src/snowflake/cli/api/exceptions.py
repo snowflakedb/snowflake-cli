@@ -128,13 +128,3 @@ class SchemaNotProvidedError(ClickException):
         super().__init__(
             "Schema not specified. Please update connection to add `schema` parameter, or re-run command using `--schema` option. Use `snow connection list` to list existing connections."
         )
-
-
-class FileDoesNotExistError(ClickException):
-    def __init__(self, path: Path):
-        super().__init__(f"The file in '{path}' does not exist")
-
-
-class DirectoryNotSupportedError(ClickException):
-    def __init__(self, path: Path):
-        super().__init__(f"Specifying directories is not supported: '{path}'")
