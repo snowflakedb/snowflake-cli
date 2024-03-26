@@ -182,7 +182,7 @@ def stage_diff(
     """
     stage_manager = StageManager()
     local_files = enumerate_files(local_path)
-    if files_to_stage is not None:
+    if files_to_stage is not None and len(files_to_stage) > 0:
         local_files = get_absolute_files_to_stage(files_to_stage, local_path)
     remote_md5 = build_md5_map(stage_manager.list_files(stage_fqn))
 
