@@ -1,4 +1,7 @@
+from unittest.mock import patch
+
 import pytest
+from snowflake.cli.plugins.snowpark.models import SplitRequirements
 
 
 @pytest.mark.parametrize(
@@ -15,15 +18,23 @@ import pytest
         ["--package-native-libraries", "ask"],
     ],
 )
-def test_snowpark_build_deprecated_flags_warning(flags, runner, project_directory):
+@patch("snowflake.cli.plugins.snowpark.package_utils.download_packages")
+def test_snowpark_build_deprecated_flags_warning(
+    mock_download, flags, runner, project_directory
+):
+    mock_download.return_value = True, SplitRequirements([], [])
     with project_directory("snowpark_functions"):
-        result = runner.invoke(["snowpark", "build", *flags])
+        result = runner.invoke(["snowpark", "build", "--ignore-anaconda", *flags])
         assert result.exit_code == 0, result.output
         assert "flag is deprecated" in result.output
 
 
-def test_snowpark_build_no_deprecated_warnings_by_default(runner, project_directory):
+@patch("snowflake.cli.plugins.snowpark.package_utils.download_packages")
+def test_snowpark_build_no_deprecated_warnings_by_default(
+    mock_download, runner, project_directory
+):
+    mock_download.return_value = True, SplitRequirements([], [])
     with project_directory("snowpark_functions"):
-        result = runner.invoke(["snowpark", "build"])
+        result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
         assert result.exit_code == 0, result.output
         assert "flag is deprecated" not in result.output
