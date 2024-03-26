@@ -24,7 +24,7 @@ from snowflake.cli.plugins.snowpark.package.manager import (
     create_packages_zip,
     upload,
 )
-from snowflake.cli.plugins.snowpark.package_utils import download_packages
+from snowflake.cli.plugins.snowpark.package_utils import download_unavailable_packages
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
     IgnoreAnacondaOption,
@@ -175,36 +175,24 @@ def package_create(
         allow_shared_libraries_yesnoask = deprecated_allow_native_libraries
 
     package = Requirement.parse(name)
-    if ignore_anaconda:
-        anaconda = None
-    else:
-        anaconda = AnacondaChannel.from_snowflake()
-        if anaconda.is_package_available(
-            package, skip_version_check=skip_version_check
-        ):
-            return MessageResult(
-                f"Package {name} is already available in Snowflake Anaconda Channel."
-            )
-
     packages_dir = SecurePath(".packages")
-    packages_are_downloaded, dependencies = download_packages(
-        anaconda=anaconda,
-        ignore_anaconda=ignore_anaconda,
+    download_result = download_unavailable_packages(
         requirements=[package],
-        packages_dir=packages_dir,
-        index_url=index_url,
+        target_dir=packages_dir,
+        ignore_anaconda=ignore_anaconda,
         allow_shared_libraries=allow_shared_libraries_yesnoask,
         skip_version_check=skip_version_check,
+        pip_index_url=index_url,
     )
+    if not download_result.download_successful:
+        return MessageResult(download_result.error_message)
 
-    if not packages_are_downloaded:
+    package_available_in_conda = any(
+        p.line == package.line for p in download_result.packages_available_in_anaconda
+    )
+    if package_available_in_conda:
         return MessageResult(
-            dedent(
-                f"""
-                Cannot create package for {name}. Please check the package name
-                or try again with --allow-shared-libraries option.
-                """
-            )
+            f"Package {name} is already available in Snowflake Anaconda Channel."
         )
 
     # The package is not in anaconda, so we have to pack it
@@ -217,7 +205,7 @@ def package_create(
         Remember to add it to imports in the procedure or function definition.
         """
     )
-    if dependencies.snowflake:
+    if download_result.packages_available_in_anaconda:
         message += dedent(
             f"""
             The package {name} is successfully created, but depends on the following
@@ -225,6 +213,8 @@ def package_create(
             as their are not included in .zip.
             """
         )
-        message += "\n".join((req.line for req in dependencies.snowflake))
+        message += "\n".join(
+            (req.line for req in download_result.packages_available_in_anaconda)
+        )
 
     return MessageResult(message)

@@ -1,18 +1,18 @@
 from __future__ import annotations
 
+import dataclasses
 import logging
 import os
+from textwrap import dedent
 from typing import List
 
 import click
 import requirements
-from click import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
     RequirementWithWheelAndDeps,
-    SplitRequirements,
     YesNoAsk,
 )
 from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
@@ -83,75 +83,107 @@ def _write_requirements_file(file_path: SecurePath, requirements: List[Requireme
             f.write(f"{req.line}\n")
 
 
-def download_packages(
-    anaconda: AnacondaChannel | None,
-    packages_dir: SecurePath,
+@dataclasses.dataclass
+class DownloadUnavailablePackagesResult:
+    download_successful: bool
+    error_message: str | None = None
+    packages_available_in_anaconda: List[Requirement] = dataclasses.field(
+        default_factory=list
+    )
+
+
+def download_unavailable_packages(
+    requirements: List[Requirement],
+    target_dir: SecurePath,
+    # anaconda lookup specs
     ignore_anaconda: bool = False,
-    requirements: List[Requirement] | None = None,
-    index_url: str | None = None,
-    allow_shared_libraries: YesNoAsk = YesNoAsk.ASK,
     skip_version_check: bool = False,
-) -> tuple[bool, SplitRequirements | None]:
-    """
-    Downloads all packages described in [requirements] list into [packages_dir] directory.
-    If [perform_anaconda_check_for_dependencies] is set to True, dependencies available in Snowflake Anaconda
-    channel will be omitted, otherwise all packages will be downloaded using pip.
+    # pip lookup specs
+    pip_index_url: str | None = None,
+    allow_shared_libraries: YesNoAsk = YesNoAsk.ASK,
+) -> DownloadUnavailablePackagesResult:
+    """Download packages unavailable on Snowflake Anaconda Channel to target directory.
+    If [ignore_anaconda] is set to True, all packages from [requirements] will be downloaded.
 
-    Returns a tuple of:
-    1) a boolean indicating whether the download was successful
-    2) a SplitRequirements object containing any installed dependencies
-        which are available on the Snowflake Anaconda channel.
-        They will not be downloaded into '.packages' directory.
+    Returns an object with fields:
+    - download_successful - whether packages were successfully downloaded
+    - error_message - error message if download was not successful
+    - packages_available_in_anaconda - list of omitted packages
     """
-    if anaconda is None and not ignore_anaconda:
-        raise ClickException(
-            "Cannot perform anaconda checks if anaconda channel is not specified."
+    # pre-check on Anaconda to avoid potentially heavy downloads
+    omitted_packages = []
+    if not ignore_anaconda:
+        anaconda = AnacondaChannel.from_snowflake()
+        split_requirements = anaconda.parse_anaconda_packages(
+            requirements, skip_version_check=skip_version_check
         )
+        omitted_packages = split_requirements.snowflake
+        requirements = split_requirements.other
+        if not requirements:
+            # all packages are available in Anaconda
+            return DownloadUnavailablePackagesResult(
+                download_successful=True,
+                packages_available_in_anaconda=omitted_packages,
+            )
 
+    # download all packages with their dependencies
     with Venv() as v, SecurePath.temporary_directory() as downloads_dir:
         # This is a Windows workaround where use TemporaryDirectory instead of NamedTemporaryFile
         requirements_file = SecurePath(v.directory.name) / "requirements.txt"
         _write_requirements_file(requirements_file, requirements)  # type: ignore
-
         pip_wheel_result = v.pip_wheel(
-            requirements_file.path, download_dir=downloads_dir.path, index_url=index_url  # type: ignore
+            requirements_file.path, download_dir=downloads_dir.path, index_url=pip_index_url  # type: ignore
         )
         if pip_wheel_result != 0:
-            log.info(pip_failed_log_msg, pip_wheel_result)
-            return False, None
+            log.info(_pip_failed_log_msg(pip_wheel_result))
+            return DownloadUnavailablePackagesResult(
+                download_successful=False,
+                error_message=_pip_failed_log_msg(pip_wheel_result),
+            )
 
+        # detect all downloaded packages
         dependencies = v.get_package_dependencies(
             requirements_file, downloads_dir=downloads_dir.path
         )
         dependency_requirements = [d.requirement for d in dependencies]
-
         log.info(
             "Downloaded packages: %s",
             ", ".join([d.name for d in dependency_requirements]),
         )
 
+        # check whether some dependencies are available on Snowflake Anaconda Channel
         if ignore_anaconda:
             dependencies_to_be_packed = dependencies
-            split_dependencies = SplitRequirements([], other=dependency_requirements)
         else:
             log.info("Checking for dependencies available in Anaconda...")
             split_dependencies = anaconda.parse_anaconda_packages(  # type: ignore
                 packages=dependency_requirements, skip_version_check=skip_version_check
             )
             _log_dependencies_found_in_conda(split_dependencies.snowflake)
+            omitted_packages += split_dependencies.snowflake
             dependencies_to_be_packed = _filter_dependencies_not_available_in_conda(
                 dependencies, split_dependencies.snowflake
             )
 
+        # check for shared (.so) libraries in dependencies to packages
         log.info("Checking to see if packages have shared (.so) libraries...")
         if _perform_shared_libraries_check(dependencies_to_be_packed):
             if not _confirm_shared_libraries(allow_shared_libraries):
-                return False, split_dependencies
+                return DownloadUnavailablePackagesResult(
+                    download_successful=False,
+                    error_message=(
+                        "Some packages contain shared (.so) libraries. "
+                        "Try again with --allow-shared-libraries."
+                    ),
+                )
 
-        packages_dir.mkdir(exist_ok=True)
+        # move filtered packages to target directory
+        target_dir.mkdir(exist_ok=True)
         for package in dependencies_to_be_packed:
-            package.extract_files(packages_dir.path)
-        return True, split_dependencies
+            package.extract_files(target_dir.path)
+        return DownloadUnavailablePackagesResult(
+            download_successful=True, packages_available_in_anaconda=omitted_packages
+        )
 
 
 def _filter_dependencies_not_available_in_conda(
@@ -195,8 +227,9 @@ def _log_shared_libraries(
         "Following dependencies utilise shared libraries, not supported by Conda:"
     )
     log.error("\n".join(set(shared_libraries)))
-    # TODO: add "with --allow-shared-libraries" flag when refactoring snowpark build command
-    log.error("You may still try to create your package, but it probably won't work")
+    log.error(
+        "You may still try to create your package with --allow-shared-libraries, but the might not work."
+    )
     log.error("You may also request adding the package to Snowflake Conda channel")
     log.error("at https://support.anaconda.com/")
 
@@ -211,9 +244,12 @@ def _log_dependencies_found_in_conda(available_dependencies: List[Requirement]) 
         log.info("None of the package dependencies were found on Anaconda")
 
 
-pip_failed_log_msg = (
-    "pip failed with return code %d."
-    " If pip is installed correctly, this may mean you're trying to install a package"
-    " that isn't compatible with the host architecture -"
-    " and generally means it has shared (.so) libraries."
-)
+def _pip_failed_log_msg(return_code: int) -> str:
+    return dedent(
+        f"""
+        pip failed with return code {return_code}. Most likely reasons:
+         * incorrect package name or version
+         * package isn't compatible with host architecture (most probably due to .so libraries)
+         * pip is not installed correctly
+        """
+    )

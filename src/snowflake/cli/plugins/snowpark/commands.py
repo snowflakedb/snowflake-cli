@@ -42,7 +42,6 @@ from snowflake.cli.plugins.snowpark.common import (
 )
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
 from snowflake.cli.plugins.snowpark.models import Requirement, YesNoAsk
-from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 from snowflake.cli.plugins.snowpark.package_utils import get_snowflake_packages
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
@@ -369,50 +368,24 @@ def build(
 
     if paths.defined_requirements_file.exists():
         log.info("Resolving any requirements from requirements.txt...")
-        anaconda = AnacondaChannel.from_snowflake() if not ignore_anaconda else None
         requirements = package_utils.parse_requirements(
             requirements_file=paths.defined_requirements_file,
         )
 
-        if ignore_anaconda:
-            dependencies_to_download = requirements
-            anaconda_dependencies = []
-        else:
-            # check whether some of original requirements are available on Anaconda
-            log.info("Comparing provided packages from Snowflake Anaconda...")
-            dependencies = anaconda.parse_anaconda_packages(
-                requirements, skip_version_check=skip_version_check
-            )
-            anaconda_dependencies = dependencies.snowflake
-            dependencies_to_download = dependencies.other
-
-        if not dependencies_to_download:
-            log.info("No packages to manually resolve")
-        else:
-            # download dependencies which cannot be found on Anaconda
-            log.info("Downloading non-Anaconda packages...")
-            packages_are_downloaded, dependencies = package_utils.download_packages(
-                anaconda=anaconda,
-                ignore_anaconda=ignore_anaconda,
-                requirements=dependencies_to_download,
-                packages_dir=paths.downloaded_packages_dir,
-                allow_shared_libraries=allow_shared_libraries_yesnoask,
-                index_url=index_url,
-                skip_version_check=skip_version_check,
-            )
-            if not packages_are_downloaded:
-                return MessageResult(
-                    "Some requirements cannot be downloaded. Check requirements.txt file"
-                    " or try again with --allow-shared-libraries."
-                )
-
-            anaconda_dependencies += dependencies.snowflake
-
-        # write requirements.snowflake.txt file if some dependencies were found in Anaconda
-        if anaconda_dependencies:
+        download_result = package_utils.download_unavailable_packages(
+            requirements=requirements,
+            target_dir=paths.downloaded_packages_dir,
+            ignore_anaconda=ignore_anaconda,
+            skip_version_check=skip_version_check,
+            pip_index_url=index_url,
+            allow_shared_libraries=allow_shared_libraries_yesnoask,
+        )
+        if not download_result.download_successful:
+            return MessageResult(download_result.error_message)
+        if download_result.packages_available_in_anaconda:
             _write_requirements_file(
                 paths.snowflake_requirements_file,
-                sorted(anaconda_dependencies),
+                download_result.packages_available_in_anaconda,
             )
 
     zip_dir(source=paths.source.path, dest_zip=paths.artifact_file.path)
