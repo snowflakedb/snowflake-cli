@@ -132,6 +132,7 @@ def test_get_packages(contents, expected, correct_requirements_snowflake_txt):
 
 def test_parse_requirements(correct_requirements_txt: str):
     result = package_utils.parse_requirements(SecurePath(correct_requirements_txt))
+    result.sort(key=lambda r: r.name)
 
     assert len(result) == 3
     assert result[0].name == "Django"
@@ -199,11 +200,10 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
         requirements = package_utils.parse_requirements(
             SecurePath(correct_requirements_txt)
         )
-        package_utils.download_packages(
-            anaconda=AnacondaChannel([]),
+        package_utils.download_unavailable_packages(
             requirements=requirements,
-            packages_dir=SecurePath(".packages"),
-            ignore_anaconda=False,
+            target_dir=SecurePath(".packages"),
+            ignore_anaconda=True,
             allow_shared_libraries=YesNoAsk.YES,
         )
 
