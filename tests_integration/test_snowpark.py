@@ -283,10 +283,7 @@ def test_snowpark_with_single_dependency_having_no_other_deps(
         )
         assert result.exit_code == 0
 
-        packages_dir = Path(".packages")
-
-        assert packages_dir.exists()
-        assert (packages_dir / "dummy_pkg_for_tests").exists()
+        assert "dummy_pkg_for_tests/shrubbery.py" in ZipFile("app.zip").namelist()
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
@@ -319,11 +316,9 @@ def test_snowpark_with_single_requirement_having_transient_deps(
         )
         assert result.exit_code == 0
 
-        packages_dir = Path(".packages")
-
-        assert packages_dir.exists()
-        assert (packages_dir / "dummy_pkg_for_tests_with_deps").exists()
-        assert (packages_dir / "dummy_pkg_for_tests").exists()  # as transient dep
+        files = ZipFile("app.zip").namelist()
+        assert "dummy_pkg_for_tests_with_deps/shrubbery.py" in files
+        assert "dummy_pkg_for_tests/shrubbery.py" in files  # as transient dep
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
@@ -362,11 +357,9 @@ def test_snowpark_commands_executed_outside_project_dir(
         )
         assert result.exit_code == 0
 
-        packages_dir = Path(f"{project_subpath}/.packages")
-
-        assert packages_dir.exists()
-        assert (packages_dir / "dummy_pkg_for_tests_with_deps").exists()
-        assert (packages_dir / "dummy_pkg_for_tests").exists()  # as transient dep
+        files = ZipFile(Path(project_subpath) / "app.zip").namelist()
+        assert "dummy_pkg_for_tests_with_deps/shrubbery.py" in files
+        assert "dummy_pkg_for_tests/shrubbery.py" in files  # as transient dep
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             additional_arguments=["--project", project_subpath],
