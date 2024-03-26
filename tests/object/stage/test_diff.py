@@ -13,6 +13,7 @@ from snowflake.cli.plugins.object.stage.diff import (
     DiffResult,
     delete_only_on_stage_files,
     enumerate_files,
+    get_absolute_files_to_stage,
     get_stage_path_from_file,
     put_files_on_stage,
     stage_diff,
@@ -221,10 +222,27 @@ def test_sync_local_diff_with_stage(mock_remove, other_directory):
         )
 
 
+def exists_mock(path: Path):
+    if str(path) in ["/file", "/dir", "/dir/nested_file"]:
+        return True
+    else:
+        return False
+
+
+def is_dir_mock(path: Path):
+    if str(path) == "/dir":
+        return True
+    else:
+        return False
+
+
+# Mocking the following directory structure:
 # /file
 # /dir/nested_file
+@mock.patch("snowflake.cli.plugins.object.stage.diff.Path.is_dir", autospec=True)
+@mock.patch("snowflake.cli.plugins.object.stage.diff.Path.exists", autospec=True)
 @pytest.mark.parametrize(
-    "local_files,files_to_stage,expected_exception",
+    "files_to_stage,expected_exception",
     [
         [["file", "dir/nested_file"], None],
         [["file", "file2"], FileDoesNotExistError],
@@ -233,6 +251,16 @@ def test_sync_local_diff_with_stage(mock_remove, other_directory):
     ],
 )
 def test_get_absolute_files_to_stage(
-    local_files: List[Path], files_to_stage: List[Path], expected_exception: bool
+    path_mock_exists,
+    path_mock_is_dir,
+    files_to_stage: List[Path],
+    expected_exception: Exception,
 ):
-    pass
+    path_mock_exists.side_effect = exists_mock
+    path_mock_is_dir.side_effect = is_dir_mock
+    if expected_exception is None:
+        result = get_absolute_files_to_stage(files_to_stage, "/")
+        assert len(result) == len(files_to_stage)
+    else:
+        with pytest.raises(expected_exception):
+            get_absolute_files_to_stage(files_to_stage, "/")
