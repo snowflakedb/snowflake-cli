@@ -13,6 +13,7 @@
 * Added `--if-not-exists` option to `create` commands for `service`, and `compute-pool`. Added `--replace` and `--if-not-exists` options for `image-repository create`.
 * Added support for python connector diagnostic report.
 * Added `snow app deploy` command that creates an application package and syncs the local changes to the stage without creating or updating the application.
+* Added `snow app deploy [files]` option to sync only specific files to the stage.
 
 ## Fixes and improvements
 * Adding `--image-name` option for image name argument in `spcs image-repository list-tags` for consistency with other commands.
