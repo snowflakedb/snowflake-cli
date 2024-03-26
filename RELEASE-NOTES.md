@@ -19,6 +19,8 @@
   * `--pypi-download` flag have no effect and will cause a warning. Create command always check against PyPi.
   * `--check-anaconda-for-pypi-depts` is replaced with `--ignore-anaconda`
   * `--package-native-libraries` is replaced with boolean flag `--allow-shared-libraries`
+  * new `--skip-version-check` skips comparing versions of dependencies between requirements and Anaconda.
+  * new `--index-url` flag sets up Base URL of the Python Package Index to use for package lookup.
   * more clear error messages
 
 ## New additions
