@@ -11,7 +11,6 @@ from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
-    RequirementWithFilesAndDeps,
     RequirementWithWheelAndDeps,
     SplitRequirements,
     YesNoAsk,
@@ -36,34 +35,12 @@ def parse_requirements(
     Returns:
         list[str]: A flat list of package names, without versions
     """
-    reqs: List[Requirement] = []
-    if requirements_file.exists():
-        with requirements_file.open(
-            "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
-        ) as f:
-            for req in requirements.parse(f):
-                reqs.append(req)
-    else:
-        log.info("No %s found", requirements_file.path)
-
-    return deduplicate_and_sort_reqs(reqs)
-
-
-def deduplicate_and_sort_reqs(
-    packages: List[Requirement],
-) -> List[Requirement]:
-    """
-    Deduplicates a list of requirements, keeping the first occurrence of each package.
-    """
-    seen = set()
-    deduped: List[RequirementWithFilesAndDeps] = []
-    for package in packages:
-        if package.name not in seen:
-            deduped.append(package)
-            seen.add(package.name)
-    # sort by package name
-    deduped.sort(key=lambda x: x.name)
-    return deduped
+    if not requirements_file.exists():
+        return []
+    with requirements_file.open(
+        "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
+    ) as f:
+        return list(requirements.parse(f))
 
 
 def get_snowflake_packages() -> List[str]:

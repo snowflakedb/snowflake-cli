@@ -716,7 +716,6 @@ def test_build_shared_libraries_error(
         assert "Build done." not in result.output
 
 
-@pytest.mark.skip(reason="debug")
 @pytest.mark.integration
 def test_build_package_from_github(runner, project_directory, alter_requirements_txt):
     with project_directory("snowpark") as tmp_dir:
@@ -727,8 +726,13 @@ def test_build_package_from_github(runner, project_directory, alter_requirements
             ],
         )
         result = runner.invoke(["snowpark", "build"])
-        assert result.exit_code == 7, result.output
+        assert result.exit_code == 0, result.output
         assert "Build done. Artifact path:" in result.output
+
+        assert (
+            "dummy_pkg_for_tests/shrubbery.py"
+            in ZipFile(tmp_dir / "app.zip").namelist()
+        )
 
 
 @pytest.fixture

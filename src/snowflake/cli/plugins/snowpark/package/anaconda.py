@@ -23,6 +23,8 @@ class AnacondaChannel:
     def is_package_available(
         self, package: Requirement, skip_version_check: bool = False
     ) -> bool:
+        if package.name is None:
+            return False
         package_name = package.name.lower()
         if package_name not in self._packages:
             return False

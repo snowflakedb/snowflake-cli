@@ -412,7 +412,7 @@ def build(
         if anaconda_dependencies:
             _write_requirements_file(
                 paths.snowflake_requirements_file,
-                package_utils.deduplicate_and_sort_reqs(anaconda_dependencies),
+                sorted(anaconda_dependencies),
             )
 
     zip_dir(source=paths.source.path, dest_zip=paths.artifact_file.path)
