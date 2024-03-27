@@ -698,7 +698,7 @@ def test_build_shared_libraries_error(
     runner, project_directory, alter_requirements_txt
 ):
     with project_directory("snowpark") as tmp_dir:
-        alter_requirements_txt(tmp_dir / "requirements.txt", ["pygame"])
+        alter_requirements_txt(tmp_dir / "requirements.txt", ["numpy"])
         result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
         assert result.exit_code == 1, result.output
         assert (
