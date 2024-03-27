@@ -8,6 +8,7 @@ from snowflake.cli.api.commands.flags import PatternOption
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import (
     CommandResult,
+    MultipleResults,
     ObjectResult,
     QueryResult,
     SingleQueryResult,
@@ -51,6 +52,10 @@ def copy(
         4,
         help="Number of parallel threads to use when uploading files.",
     ),
+    recursive: bool = typer.Option(
+        False,
+        help="Copy files recursively with directory structure.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -68,12 +73,20 @@ def copy(
         raise click.ClickException(
             "Both source and target path are local. This operation is not supported."
         )
+    if is_put and recursive:
+        raise click.ClickException("Recursive for PUT is not supported.")
 
     if is_get:
         target = Path(destination_path).resolve()
-        cursor = StageManager().get(
-            stage_path=source_path, dest_path=target, parallel=parallel
-        )
+        if recursive:
+            cursors = StageManager().get_recursive(
+                stage_path=source_path, dest_path=target, parallel=parallel
+            )
+            return MultipleResults([QueryResult(c) for c in cursors])
+        else:
+            cursor = StageManager().get(
+                stage_path=source_path, dest_path=target, parallel=parallel
+            )
     else:
         source = Path(source_path).resolve()
         local_path = str(source) + "/*" if source.is_dir() else str(source)

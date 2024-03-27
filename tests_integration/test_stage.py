@@ -1,3 +1,4 @@
+import glob
 import os
 import tempfile
 from pathlib import Path
@@ -81,3 +82,49 @@ def test_stage(runner, snowflake_session, test_database, tmp_path):
     )
     expect = snowflake_session.execute_string(f"show stages like '%{stage_name}%'")
     assert row_from_snowflake_session(expect) == []
+
+
+@pytest.mark.integration
+def test_stage_get_recursive(
+    runner,
+    snowflake_session,
+    test_database,
+    test_root_path,
+    temporary_working_directory,
+):
+    project_path = test_root_path / "test_data/projects/stage_get_directory_structure"
+    stage_name = "stage_directory_structure"
+
+    result = runner.invoke_with_connection_json(
+        ["object", "stage", "create", stage_name]
+    )
+    assert contains_row_with(
+        result.json,
+        {"status": f"Stage area {stage_name.upper()} successfully created."},
+    )
+
+    file_paths = glob.glob(f"{project_path}/**/*.sql", recursive=True)
+    project_path_parts_length = len(project_path.parts)
+    for path in file_paths:
+        dest_path = "/".join(Path(path).parts[project_path_parts_length:-1])
+        result = runner.invoke_with_connection_json(
+            ["object", "stage", "copy", path, f"@{stage_name}/{dest_path}"]
+        )
+        assert result.exit_code == 0, result.output
+        assert contains_row_with(result.json, {"status": "UPLOADED"})
+
+    runner.invoke_with_connection_json(
+        [
+            "object",
+            "stage",
+            "copy",
+            f"@{stage_name}",
+            str(temporary_working_directory),
+            "--recursive",
+        ]
+    )
+
+    downloaded_file_paths = glob.glob("**/*.sql", recursive=True)
+    assert downloaded_file_paths == [
+        os.path.join(*Path(f).parts[project_path_parts_length:]) for f in file_paths
+    ]
