@@ -11,10 +11,6 @@
     `create` command always checks against PyPi.
   * `--allow-native-libraries` is replaced with boolean flag `--allow-shared-libraries`.
     Using old flag will cause a waring.
-  * new `--ignore-anaconda` flag disables package lookup in Snowflake Anaconda channel.
-    All dependencies will be downloaded from PyPi.
-  * new `--skip-version-check` skips comparing versions of dependencies between requirements and Anaconda.
-  * new `--index-url` flag sets up Base URL of the Python Package Index to use for package lookup.
 
 ## New additions
 * Added support for fully qualified name (`database.schema.name`) in `name` parameter in streamlit project definition
@@ -22,6 +18,11 @@
 * Added `--if-not-exists` option to `create` commands for `service`, and `compute-pool`. Added `--replace` and `--if-not-exists` options for `image-repository create`.
 * Added support for python connector diagnostic report.
 * Added `snow app deploy` command that creates an application package and syncs the local changes to the stage without creating or updating the application.
+* `snow snowpark package create`:
+  * new `--ignore-anaconda` flag disables package lookup in Snowflake Anaconda channel.
+    All dependencies will be downloaded from PyPi.
+  * new `--skip-version-check` skips comparing versions of dependencies between requirements and Anaconda.
+  * new `--index-url` flag sets up Base URL of the Python Package Index to use for package lookup.
 
 ## Fixes and improvements
 * Adding `--image-name` option for image name argument in `spcs image-repository list-tags` for consistency with other commands.
