@@ -4,7 +4,7 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from click.exceptions import (
     ClickException,
@@ -176,7 +176,7 @@ def _get_full_file_paths_to_sync(
     return paths
 
 
-def _filter_from_diff(result: DiffResult, full_paths_to_keep: set[Path]) -> DiffResult:
+def _filter_from_diff(result: DiffResult, full_paths_to_keep: Set[Path]) -> DiffResult:
     result.different = [i for i in result.different if i in full_paths_to_keep]
     result.only_local = [i for i in result.only_local if i in full_paths_to_keep]
     result.only_on_stage = [i for i in result.only_on_stage if i in full_paths_to_keep]
