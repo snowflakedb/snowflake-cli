@@ -11,9 +11,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, List
 
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
-    RequirementWithFilesAndDeps,
+    RequirementWithWheelAndDeps,
+    WheelMetadata,
 )
 
 log = logging.getLogger(__name__)
@@ -54,14 +56,15 @@ class Venv:
 
         return process
 
-    def pip_install(self, requirements_files):
-        process = self.run_python(["-m", "pip", "install", "-r", requirements_files])
+    def pip_install(self, requirements_file):
+        process = self.run_python(["-m", "pip", "install", "-r", requirements_file])
         return process.returncode
 
-    def pip_download(self, requirements_files, download_dir):
-        process = self.run_python(
-            ["-m", "pip", "download", "-r", requirements_files, "-d", download_dir]
-        )
+    def pip_wheel(self, requirements_file, download_dir, index_url):
+        command = ["-m", "pip", "wheel", "-r", requirements_file, "-w", download_dir]
+        if index_url is not None:
+            command += ["-i", index_url]
+        process = self.run_python(command)
         return process.returncode
 
     def _create_venv(self):
@@ -79,23 +82,29 @@ class Venv:
         ][0]
 
     def get_package_dependencies(
-        self, requirements_file: str
-    ) -> List[RequirementWithFilesAndDeps]:
-        installed_packages = self._get_installed_packages_metadata()
+        self, requirements_file: SecurePath, downloads_dir: Path
+    ) -> List[RequirementWithWheelAndDeps]:
+        packages_metadata: Dict[str, WheelMetadata] = {
+            meta.name: meta
+            for meta in (
+                WheelMetadata.from_wheel(wheel_path)
+                for wheel_path in downloads_dir.glob("*.whl")
+            )
+            if meta is not None
+        }
         dependencies: Dict = {}
 
         def _get_dependencies(package: Requirement):
-            if package.name not in dependencies.keys():
-                requires = installed_packages.get(package.name, {}).get(
-                    "requires_dist", []
+            if package.name not in dependencies:
+                meta = packages_metadata.get(
+                    WheelMetadata.to_wheel_name_format(package.name)
                 )
-                files = self._parse_file_list(
-                    self._get_library_path(),
-                    self._parse_info(package.name, PackageInfoType.FILES),
-                )
-
-                dependencies[package.name] = RequirementWithFilesAndDeps(
-                    requirement=package, files=files, dependencies=requires
+                wheel_path = meta.wheel_path if meta else None
+                requires = meta.dependencies if meta else []
+                dependencies[package.name] = RequirementWithWheelAndDeps(
+                    requirement=package,
+                    wheel_path=wheel_path,
+                    dependencies=requires,
                 )
 
                 log.debug(
@@ -105,11 +114,11 @@ class Venv:
                 for package in requires:
                     _get_dependencies(Requirement.parse_line(package))
 
-        with open(requirements_file, "r") as req_file:
+        with requirements_file.open("r", read_file_limit_mb=512) as req_file:
             for line in req_file:
                 _get_dependencies(Requirement.parse_line(line))
 
-        return [dep for dep in dependencies.values()]
+        return list(dependencies.values())
 
     def _get_installed_packages_metadata(self):
         if inspect := self.get_pip_inspect():

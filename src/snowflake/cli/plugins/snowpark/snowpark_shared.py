@@ -7,17 +7,17 @@ import click
 import typer
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark import package_utils
-from snowflake.cli.plugins.snowpark.models import PypiOption, Requirement
+from snowflake.cli.plugins.snowpark.models import Requirement, YesNoAsk
 from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
 
-PyPiDownloadOption: PypiOption = typer.Option(
-    PypiOption.ASK.value, help="Whether to download non-Anaconda packages from PyPi."
+PyPiDownloadOption: YesNoAsk = typer.Option(
+    YesNoAsk.ASK.value, help="Whether to download non-Anaconda packages from PyPi."
 )
 
-PackageNativeLibrariesOption: PypiOption = typer.Option(
-    PypiOption.NO.value,
+PackageNativeLibrariesOption: YesNoAsk = typer.Option(
+    YesNoAsk.NO.value,
     help="Allows native libraries, when using packages installed through PIP",
 )
 
@@ -47,9 +47,9 @@ log = logging.getLogger(__name__)
 
 def snowpark_package(
     paths: SnowparkPackagePaths,
-    pypi_download: PypiOption,
+    pypi_download: YesNoAsk,
     check_anaconda_for_pypi_deps: bool,
-    package_native_libraries: PypiOption,
+    package_native_libraries: YesNoAsk,
 ):
     log.info("Resolving any requirements from requirements.txt...")
     requirements = package_utils.parse_requirements(
@@ -70,17 +70,21 @@ def snowpark_package(
                     "Do you want to try to download non-Anaconda packages?",
                     default=True,
                 )
-                if pypi_download == PypiOption.ASK
-                else pypi_download == PypiOption.YES
+                if pypi_download == YesNoAsk.ASK
+                else pypi_download == YesNoAsk.YES
             )
             if do_download:
                 log.info("Installing non-Anaconda packages...")
-                should_continue, second_chance_results = package_utils.install_packages(
+
+                (
+                    should_continue,
+                    second_chance_results,
+                ) = package_utils.download_packages(
                     anaconda=anaconda,
                     requirements_file=paths.other_requirements_file,
                     packages_dir=paths.downloaded_packages_dir,
-                    perform_anaconda_check=check_anaconda_for_pypi_deps,
-                    allow_native_libraries=package_native_libraries,
+                    ignore_anaconda=not check_anaconda_for_pypi_deps,
+                    allow_shared_libraries=package_native_libraries,
                 )
                 # add the Anaconda packages discovered as dependencies
                 if should_continue and second_chance_results:

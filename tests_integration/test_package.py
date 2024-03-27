@@ -46,15 +46,26 @@ class TestPackage:
         snowflake_session.execute_string(f"DROP STAGE IF EXISTS {self.STAGE_NAME};")
 
     @pytest.mark.integration
-    def test_package_create_with_non_anaconda_package(self, directory_for_test, runner):
+    @pytest.mark.parametrize(
+        "extra_flags",
+        [
+            [],
+            ["--ignore-anaconda"],
+            ["--index-url", "https://pypi.org/simple"],
+            ["--skip-version-check"],
+        ],
+    )
+    def test_package_create_with_non_anaconda_package(
+        self, directory_for_test, runner, extra_flags
+    ):
         result = runner.invoke_with_connection_json(
             [
                 "snowpark",
                 "package",
                 "create",
                 "dummy-pkg-for-tests-with-deps",
-                "--pypi-download",
             ]
+            + extra_flags
         )
 
         assert result.exit_code == 0
@@ -68,28 +79,19 @@ class TestPackage:
         )
 
     @pytest.mark.integration
-    def test_package_create_with_non_anaconda_package_without_install(
-        self, directory_for_test, runner, snapshot
+    @pytest.mark.parametrize("ignore_anaconda", (True, False))
+    def test_create_package_with_deps(
+        self, directory_for_test, runner, ignore_anaconda
     ):
-        result = runner.invoke_with_connection_json(
-            ["snowpark", "package", "create", "dummy_pkg_for_tests_with_deps"]
-        )
-
-        assert_that_result_is_successful(result)
-        assert result.json == snapshot
-        assert not os.path.exists("dummy_pkg_for_tests_with_deps.zip")
-
-    @pytest.mark.integration
-    def test_create_package_with_deps(self, directory_for_test, runner):
-        result = runner.invoke_with_connection_json(
-            [
-                "snowpark",
-                "package",
-                "create",
-                "dummy_pkg_for_tests_with_deps",
-                "--pypi-download",
-            ]
-        )
+        command = [
+            "snowpark",
+            "package",
+            "create",
+            "dummy_pkg_for_tests_with_deps",
+        ]
+        if ignore_anaconda:
+            command.append("--ignore-anaconda")
+        result = runner.invoke_with_connection_json(command)
 
         assert result.exit_code == 0
         assert (
@@ -101,29 +103,64 @@ class TestPackage:
         assert any(["shrubbery.py" in file for file in files])
 
     @pytest.mark.integration
+    @pytest.mark.parametrize(
+        "flags",
+        [
+            ["--allow-shared-libraries"],
+            ["--allow-native-libraries", "yes"],
+            ["--allow-shared-libraries", "--ignore-anaconda"],
+        ],
+    )
     def test_package_with_conda_dependencies(
-        self, directory_for_test, runner
+        self, directory_for_test, runner, flags
     ):  # TODO think how to make this test with packages controlled by us
         # test case is: We have a non-conda package, that has a dependency present on conda
         # but not in latest version - here the case is matplotlib.
-        result = runner.invoke_with_connection_json(
+        result = runner.invoke_with_connection(
+            ["snowpark", "package", "create", "july", *flags]
+        )
+
+        assert result.exit_code == 0
+        assert Path("july.zip").exists(), result.output
+
+        files = self._get_filenames_from_zip("july.zip")
+        assert any(["colormaps.py" in name for name in files])
+        assert any(["matplotlib" in name for name in files]) == (
+            "--ignore-anaconda" in flags
+        )
+
+    @pytest.mark.integration
+    def test_package_create_skip_version_check(self, directory_for_test, runner):
+        # test case: package is available in Anaconda, but not in required version
+        result = runner.invoke_with_connection(
+            [
+                "snowpark",
+                "package",
+                "create",
+                "matplotlib>=1000",
+                "--skip-version-check",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert (
+            "Package matplotlib>=1000 is already available in Snowflake Anaconda Channel."
+            in result.output
+        )
+
+        # test case: all dependencies are available in Anaconda, but not in their latest version
+        result = runner.invoke_with_connection(
             [
                 "snowpark",
                 "package",
                 "create",
                 "july",
-                "--pypi-download",
-                "--allow-native-libraries",
-                "yes",
+                "--skip-version-check",
             ]
         )
-
-        assert result.exit_code == 0
+        assert result.exit_code == 0, result.output
         assert Path("july.zip").exists()
-
         files = self._get_filenames_from_zip("july.zip")
-        assert any(["colormaps.py" in name for name in files])
-        assert not any(["matplotlib" in name for name in files])
+        assert all([name.startswith("july") for name in files])
 
     @pytest.mark.integration
     def test_package_from_github(self, directory_for_test, runner):
@@ -133,7 +170,6 @@ class TestPackage:
                 "package",
                 "create",
                 "git+https://github.com/sfc-gh-turbaszek/dummy-pkg-for-tests-with-deps.git",
-                "--pypi-download",
             ]
         )
 
@@ -166,7 +202,6 @@ class TestPackage:
                 "package",
                 "create",
                 "pygame",
-                "--pypi-download",
             ]
         )
 
