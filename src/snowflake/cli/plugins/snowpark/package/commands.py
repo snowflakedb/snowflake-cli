@@ -22,13 +22,17 @@ from snowflake.cli.plugins.snowpark.package.anaconda import (
     AnacondaChannel,
 )
 from snowflake.cli.plugins.snowpark.package.manager import upload
-from snowflake.cli.plugins.snowpark.package_utils import download_unavailable_packages
+from snowflake.cli.plugins.snowpark.package_utils import (
+    detect_and_log_shared_libraries,
+    download_unavailable_packages,
+)
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
     IgnoreAnacondaOption,
     IndexUrlOption,
     SkipVersionCheckOption,
     deprecated_allow_native_libraries_option,
+    resolve_allow_shared_libraries_yes_no_ask,
 )
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
 
@@ -185,6 +189,7 @@ def package_create(
         if not download_result.succeeded:
             raise ClickException(download_result.error_message)
 
+        # check if package was detected as available
         package_available_in_conda = any(
             p.line == package.line
             for p in download_result.packages_available_in_anaconda
@@ -195,6 +200,16 @@ def package_create(
             )
 
         # The package is not in anaconda, so we have to pack it
+        log.info("Checking to see if packages have shared (.so) libraries...")
+        if detect_and_log_shared_libraries(download_result.downloaded_packages_details):
+            if not resolve_allow_shared_libraries_yes_no_ask(
+                allow_shared_libraries_yesnoask
+            ):
+                raise ClickException(
+                    "Some packages contain shared (.so) libraries. "
+                    "Try again with --allow-shared-libraries."
+                )
+
         zip_file = f"{get_package_name(name)}.zip"
         zip_dir(dest_zip=Path(zip_file), source=packages_dir.path)
         message = dedent(

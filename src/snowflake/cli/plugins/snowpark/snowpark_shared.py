@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import click
 import typer
 from snowflake.cli.api.commands.flags import (
     deprecated_flag_callback,
@@ -18,6 +19,13 @@ def deprecated_allow_native_libraries_option(old_flag_name: str):
             f"{old_flag_name} flag is deprecated. Use --allow-shared-libraries flag instead."
         ),
     )
+
+
+def resolve_allow_shared_libraries_yes_no_ask(allow_shared_libraries: YesNoAsk) -> bool:
+    if allow_shared_libraries == YesNoAsk.ASK:
+        return click.confirm("Continue with package installation?", default=False)
+    else:
+        return allow_shared_libraries == YesNoAsk.YES
 
 
 AllowSharedLibrariesOption: bool = typer.Option(

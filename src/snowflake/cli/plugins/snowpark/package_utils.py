@@ -6,12 +6,12 @@ import os
 from textwrap import dedent
 from typing import List
 
-import click
 import requirements
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
+    RequirementWithFiles,
     RequirementWithWheelAndDeps,
     YesNoAsk,
 )
@@ -90,6 +90,9 @@ class DownloadUnavailablePackagesResult:
     packages_available_in_anaconda: List[Requirement] = dataclasses.field(
         default_factory=list
     )
+    downloaded_packages_details: List[RequirementWithFiles] = dataclasses.field(
+        default_factory=list
+    )
 
 
 def download_unavailable_packages(
@@ -109,6 +112,7 @@ def download_unavailable_packages(
     - download_successful - whether packages were successfully downloaded
     - error_message - error message if download was not successful
     - packages_available_in_anaconda - list of omitted packages
+    - downloaded_packages - list of downloaded packages details
     """
     # pre-check on Anaconda to avoid potentially heavy downloads
     omitted_packages = []
@@ -165,24 +169,17 @@ def download_unavailable_packages(
                 dependencies, split_dependencies.snowflake
             )
 
-        # check for shared (.so) libraries in dependencies to packages
-        log.info("Checking to see if packages have shared (.so) libraries...")
-        if _perform_shared_libraries_check(dependencies_to_be_packed):
-            if not _confirm_shared_libraries(allow_shared_libraries):
-                return DownloadUnavailablePackagesResult(
-                    succeeded=False,
-                    error_message=(
-                        "Some packages contain shared (.so) libraries. "
-                        "Try again with --allow-shared-libraries."
-                    ),
-                )
-
         # move filtered packages to target directory
         target_dir.mkdir(exist_ok=True)
         for package in dependencies_to_be_packed:
             package.extract_files(target_dir.path)
         return DownloadUnavailablePackagesResult(
-            succeeded=True, packages_available_in_anaconda=omitted_packages
+            succeeded=True,
+            packages_available_in_anaconda=omitted_packages,
+            downloaded_packages_details=[
+                RequirementWithFiles(requirement=dep.requirement, files=dep.namelist())
+                for dep in dependencies_to_be_packed
+            ],
         )
 
 
@@ -194,26 +191,14 @@ def _filter_dependencies_not_available_in_conda(
     return [dep for dep in dependencies if dep.requirement.name not in in_conda]
 
 
-def _confirm_shared_libraries(allow_shared_libraries: YesNoAsk) -> bool:
-    if allow_shared_libraries == YesNoAsk.ASK:
-        return click.confirm("Continue with package installation?", default=False)
-    else:
-        return allow_shared_libraries == YesNoAsk.YES
-
-
-def _check_for_shared_libraries(
-    dependencies: List[RequirementWithWheelAndDeps],
-) -> List[str]:
-    return [
+def detect_and_log_shared_libraries(dependencies: List[RequirementWithFiles]):
+    shared_libraries = [
         dependency.requirement.name
         for dependency in dependencies
-        if any(file.endswith(".so") for file in dependency.namelist())
+        if any(file.endswith(".so") for file in dependency.files)
     ]
-
-
-def _perform_shared_libraries_check(deps: List[RequirementWithWheelAndDeps]):
-    if native_libraries := _check_for_shared_libraries(deps):
-        _log_shared_libraries(native_libraries)
+    if shared_libraries:
+        _log_shared_libraries(shared_libraries)
         return True
     else:
         log.info("Unsupported native libraries not found in packages (Good news!)...")

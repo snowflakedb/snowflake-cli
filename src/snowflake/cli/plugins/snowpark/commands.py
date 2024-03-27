@@ -51,6 +51,7 @@ from snowflake.cli.plugins.snowpark.snowpark_shared import (
     IndexUrlOption,
     SkipVersionCheckOption,
     deprecated_allow_native_libraries_option,
+    resolve_allow_shared_libraries_yes_no_ask,
 )
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
 from snowflake.connector import DictCursor, ProgrammingError
@@ -381,6 +382,17 @@ def build(
             )
             if not download_result.succeeded:
                 raise ClickException(download_result.error_message)
+            log.info("Checking to see if packages have shared (.so) libraries...")
+            if package_utils.detect_and_log_shared_libraries(
+                download_result.downloaded_packages_details
+            ):
+                if not resolve_allow_shared_libraries_yes_no_ask(
+                    allow_shared_libraries_yesnoask
+                ):
+                    raise ClickException(
+                        "Some packages contain shared (.so) libraries. "
+                        "Try again with --allow-shared-libraries."
+                    )
             if download_result.packages_available_in_anaconda:
                 _write_requirements_file(
                     snowpark_paths.snowflake_requirements_file,
@@ -392,6 +404,7 @@ def build(
             dest_zip=snowpark_paths.artifact_file.path,
         )
         if any(packages_dir.iterdir()):
+            # if any packages were generated, append them to the .zip
             zip_dir(
                 source=packages_dir.path,
                 dest_zip=snowpark_paths.artifact_file.path,
