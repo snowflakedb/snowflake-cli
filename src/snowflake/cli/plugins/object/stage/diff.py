@@ -162,13 +162,15 @@ def build_md5_map(list_stage_cursor: SnowflakeCursor) -> Dict[str, str]:
 
 
 def _get_full_file_paths_to_sync(
-    relative_files_to_sync: List[Path], local_path: Path
+    relative_files_to_sync: List[Path], local_path: Path, remote_paths: Set[str]
 ) -> List[Path]:
     paths = []
     for file in relative_files_to_sync:
         absolute_path = Path(os.path.join(local_path, file))
-        if not absolute_path.exists():
-            raise FileError(str(file), "This file does not exist")
+        if not absolute_path.exists() and str(absolute_path) not in remote_paths:
+            raise FileError(
+                str(file), "This file does not exist either locally or remotely"
+            )
         elif absolute_path.is_dir():
             raise ClickException(f"Specifying directories is not supported: '{file}'")
         else:
@@ -225,7 +227,9 @@ def stage_diff(
 
     if files_to_sync is not None and len(files_to_sync) > 0:
         full_paths_to_keep = set(
-            _get_full_file_paths_to_sync(files_to_sync, local_path)
+            _get_full_file_paths_to_sync(
+                files_to_sync, local_path, set(result.only_on_stage)
+            )
         )
         return _filter_from_diff(result, full_paths_to_keep)
 

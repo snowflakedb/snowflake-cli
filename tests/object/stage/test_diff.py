@@ -1,6 +1,6 @@
 import hashlib
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Set, Tuple, Union
 from unittest import mock
 
 import pytest
@@ -246,28 +246,30 @@ def is_dir_mock(path: Path):
 @mock.patch(f"{STAGE_DIFF}.Path.is_dir", autospec=True)
 @mock.patch(f"{STAGE_DIFF}.Path.exists", autospec=True)
 @pytest.mark.parametrize(
-    "files_to_sync,expected_exception",
+    "files_to_sync,remote_paths,expected_exception",
     [
-        [["file", "dir/nested_file"], None],
-        [["file", "file2"], FileError],
-        [["dir/file3"], FileError],
-        [["dir"], ClickException],
+        [["file", "dir/nested_file"], set(), None],
+        [["file", "file2", "dir/file3"], set(["/file2", "/dir/file3"]), None],
+        [["file", "file2"], set(), FileError],
+        [["dir/file3"], set(), FileError],
+        [["dir"], set(), ClickException],
     ],
 )
 def test_get_full_file_paths_to_sync(
     path_mock_exists,
     path_mock_is_dir,
     files_to_sync: List[Path],
+    remote_paths: Set[str],
     expected_exception: Exception,
 ):
     path_mock_exists.side_effect = exists_mock
     path_mock_is_dir.side_effect = is_dir_mock
     if expected_exception is None:
-        result = _get_full_file_paths_to_sync(files_to_sync, "/")
+        result = _get_full_file_paths_to_sync(files_to_sync, "/", remote_paths)
         assert len(result) == len(files_to_sync)
     else:
         with pytest.raises(expected_exception):
-            _get_full_file_paths_to_sync(files_to_sync, "/")
+            _get_full_file_paths_to_sync(files_to_sync, "/", remote_paths)
 
 
 def test_filter_from_diff():
