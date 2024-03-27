@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-from pathlib import Path
 from typing import Dict, List, Optional, Set
 
 import typer
@@ -32,7 +31,7 @@ from snowflake.cli.api.project.schemas.snowpark.callable import (
     FunctionSchema,
     ProcedureSchema,
 )
-from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.cli.plugins.snowpark.common import (
@@ -42,6 +41,7 @@ from snowflake.cli.plugins.snowpark.common import (
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
 from snowflake.cli.plugins.snowpark.models import PypiOption
 from snowflake.cli.plugins.snowpark.package_utils import get_snowflake_packages
+from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     CheckAnacondaForPyPiDependencies,
     PackageNativeLibrariesOption,
@@ -79,6 +79,10 @@ def deploy(
     All deployed objects use the same artifact which is deployed only once.
     """
     snowpark = cli_context.project_definition
+    paths = SnowparkPackagePaths.for_snowpark_project(
+        project_root=SecurePath(cli_context.project_root),
+        snowpark_project_definition=snowpark,
+    )
 
     procedures = snowpark.procedures
     functions = snowpark.functions
@@ -88,9 +92,7 @@ def deploy(
             "No procedures or functions were specified in the project definition."
         )
 
-    build_artifact_path = _get_snowpark_artifact_path(snowpark)
-
-    if not build_artifact_path.exists():
+    if not paths.artifact_file.exists():
         raise ClickException(
             "Artifact required for deploying the project does not exist in this directory. "
             "Please use build command to create it."
@@ -125,10 +127,12 @@ def deploy(
     packages = get_snowflake_packages()
 
     artifact_stage_directory = get_app_stage_path(stage_name, snowpark.project_name)
-    artifact_stage_target = f"{artifact_stage_directory}/{build_artifact_path.name}"
+    artifact_stage_target = (
+        f"{artifact_stage_directory}/{paths.artifact_file.path.name}"
+    )
 
     stage_manager.put(
-        local_path=build_artifact_path,
+        local_path=paths.artifact_file.path,
         stage_path=artifact_stage_directory,
         overwrite=True,
     )
@@ -143,7 +147,7 @@ def deploy(
             existing_objects=existing_procedures,
             packages=packages,
             stage_artifact_path=artifact_stage_target,
-            source_name=build_artifact_path.name,
+            source_name=paths.artifact_file.path.name,
         )
         deploy_status.append(operation_result)
 
@@ -156,7 +160,7 @@ def deploy(
             existing_objects=existing_functions,
             packages=packages,
             stage_artifact_path=artifact_stage_target,
-            source_name=build_artifact_path.name,
+            source_name=paths.artifact_file.path.name,
         )
         deploy_status.append(operation_result)
 
@@ -304,12 +308,6 @@ def _deploy_single_object(
     }
 
 
-def _get_snowpark_artifact_path(snowpark_definition: Snowpark):
-    source = Path(snowpark_definition.src)
-    artifact_file = Path.cwd() / (source.name + ".zip")
-    return artifact_file
-
-
 @app.command("build")
 @with_project_definition("snowpark")
 def build(
@@ -322,19 +320,19 @@ def build(
     Builds the Snowpark project as a `.zip` archive that can be used by `deploy` command.
     The archive is built using only the `src` directory specified in the project file.
     """
-    snowpark = cli_context.project_definition
-    source = Path(snowpark.src)
-    artifact_file = _get_snowpark_artifact_path(snowpark)
-    log.info("Building package using sources from: %s", source.resolve())
+    paths = SnowparkPackagePaths.for_snowpark_project(
+        project_root=SecurePath(cli_context.project_root),
+        snowpark_project_definition=cli_context.project_definition,
+    )
+    log.info("Building package using sources from: %s", paths.source.path)
 
     snowpark_package(
-        source=source,
-        artifact_file=artifact_file,
+        paths=paths,
         pypi_download=pypi_download,  # type: ignore[arg-type]
         check_anaconda_for_pypi_deps=check_anaconda_for_pypi_deps,
         package_native_libraries=package_native_libraries,  # type: ignore[arg-type]
     )
-    return MessageResult(f"Build done. Artifact path: {artifact_file}")
+    return MessageResult(f"Build done. Artifact path: {paths.artifact_file.path}")
 
 
 class _SnowparkObject(Enum):

@@ -12,6 +12,7 @@
 * Added support for fully qualified image repository names in `spcs image-repository` commands.
 * Added `--if-not-exists` option to `create` commands for `service`, and `compute-pool`. Added `--replace` and `--if-not-exists` options for `image-repository create`.
 * Added support for python connector diagnostic report.
+* Added `snow app deploy` command that creates an application package and syncs the local changes to the stage without creating or updating the application.
 
 ## Fixes and improvements
 * Adding `--image-name` option for image name argument in `spcs image-repository list-tags` for consistency with other commands.
@@ -19,6 +20,7 @@
 * Project definition no longer accept extra fields. Any extra field will cause an error.
 * Changing imports in function/procedure section in `snowflake.yml` will cause the definition update on replace
 * Adding `--pattern` flag to `stage list` command for filtering out results with regex.
+* Fixed snowpark build paths for builds with --project option (fixed empty zip issue).
 
 # v2.1.1
 
@@ -170,7 +172,7 @@
 # v1.2.0
 
 ## Backward incompatibility
-* Removed `snow streamlit create` command. Streamlit can be deployd using `snow streamlit deploy`
+* Removed `snow streamlit create` command. Streamlit can be deployed using `snow streamlit deploy`
 * Removed short option names in compute pool commands:
   * `-n` for `--name`, name of compute pool
   * `-d` for `--num`, number of pool's instances

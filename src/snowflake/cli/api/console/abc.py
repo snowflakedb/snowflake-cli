@@ -11,7 +11,7 @@ class AbstractConsole(ABC):
     """Interface for cli console implementation.
 
     Each console should have three methods implemented:
-    - `step` - for more detailed informations on steps
+    - `step` - for more detailed information on steps
     - `warning` - for displaying messages in a style that makes it
       visually stand out from other output
     - `phase` a context manager for organising steps into logical group
@@ -62,4 +62,4 @@ class AbstractConsole(ABC):
     def warning(self, message: str):
         """Displays message in a style that makes it visually stand out from other output.
 
-        Intended for diplaying messeges related to important messages."""
+        Intended for displaying messages related to important messages."""

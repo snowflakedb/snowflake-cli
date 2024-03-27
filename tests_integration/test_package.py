@@ -156,7 +156,7 @@ class TestPackage:
         """
         We use PyGame in this test for two reasons:
         1. We need a package with native libraries to trigger warning
-        2. This package should not be avaiable on Snowflake Conda channel.
+        2. This package should not be available on Snowflake Conda channel.
         As it is highly unlikely, that PyGame will be included in the channel, it's probably ok to leave it for now,
         but we may reconsider switch to a package controlled by us.
         """

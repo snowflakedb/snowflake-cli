@@ -115,9 +115,11 @@ class SnowparkTestSteps:
         assert_that_result_contains_row_with(
             result,
             {
-                identifier.upper()
-                if object_type == TestType.FUNCTION.value
-                else entity_name.upper(): expected_value
+                (
+                    identifier.upper()
+                    if object_type == TestType.FUNCTION.value
+                    else entity_name.upper()
+                ): expected_value
             },
         )
 
@@ -192,7 +194,7 @@ class SnowparkTestSteps:
         ]
 
         if additional_arguments:
-            arguments.append(*additional_arguments)
+            arguments.extend(additional_arguments)
 
         result = self._setup.runner.invoke_with_connection_json(arguments)
         assert_that_result_is_successful(result)

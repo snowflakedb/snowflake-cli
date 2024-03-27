@@ -12,4 +12,4 @@ print("Outside command code")
 @app.command("list")
 @with_output
 def connection_list() -> CommandResult:
-    return MessageResult("Overriden command")
+    return MessageResult("Overridden command")
