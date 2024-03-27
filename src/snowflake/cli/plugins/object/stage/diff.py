@@ -161,11 +161,11 @@ def build_md5_map(list_stage_cursor: SnowflakeCursor) -> Dict[str, str]:
     }
 
 
-def get_absolute_files_to_stage(
-    relative_files_to_stage: List[Path], local_path: Path
+def _get_full_file_paths_to_sync(
+    relative_files_to_sync: List[Path], local_path: Path
 ) -> List[Path]:
     paths = []
-    for file in relative_files_to_stage:
+    for file in relative_files_to_sync:
         absolute_path = Path(os.path.join(local_path, file))
         if not absolute_path.exists():
             raise FileError(str(file), "This file does not exist")
@@ -176,18 +176,23 @@ def get_absolute_files_to_stage(
     return paths
 
 
+def _filter_from_diff(result: DiffResult, full_paths_to_keep: set[Path]) -> DiffResult:
+    result.different = [i for i in result.different if i in full_paths_to_keep]
+    result.only_local = [i for i in result.only_local if i in full_paths_to_keep]
+    result.only_on_stage = [i for i in result.only_on_stage if i in full_paths_to_keep]
+    return result
+
+
 def stage_diff(
     local_path: Path,
     stage_fqn: str,
-    files_to_stage: Optional[List[Path]] = None,  # relative to local_path
+    files_to_sync: Optional[List[Path]] = None,  # relative to local_path
 ) -> DiffResult:
     """
     Diffs the files in a stage with a local folder.
     """
     stage_manager = StageManager()
     local_files = enumerate_files(local_path)
-    if files_to_stage is not None and len(files_to_stage) > 0:
-        local_files = get_absolute_files_to_stage(files_to_stage, local_path)
     remote_md5 = build_md5_map(stage_manager.list_files(stage_fqn))
 
     result: DiffResult = DiffResult()
@@ -217,6 +222,12 @@ def stage_diff(
     # every entry here is a file we never saw locally
     for relpath in remote_md5.keys():
         result.only_on_stage.append(relpath)
+
+    if files_to_sync is not None and len(files_to_sync) > 0:
+        full_paths_to_keep = set(
+            _get_full_file_paths_to_sync(files_to_sync, local_path)
+        )
+        return _filter_from_diff(result, full_paths_to_keep)
 
     return result
 
