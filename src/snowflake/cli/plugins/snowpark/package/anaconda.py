@@ -4,7 +4,9 @@ import logging
 from typing import List
 
 import requests
+from click import ClickException
 from packaging.version import parse
+from requests import HTTPError
 from snowflake.cli.plugins.snowpark.models import Requirement, SplitRequirements
 
 log = logging.getLogger(__name__)
@@ -18,11 +20,13 @@ class AnacondaChannel:
     def __init__(self, packages):
         self._packages = packages
 
-    def is_package_available(self, package: Requirement):
+    def is_package_available(
+        self, package: Requirement, skip_version_check: bool = False
+    ) -> bool:
         package_name = package.name.lower()
         if package_name not in self._packages:
             return False
-        if package.specs:
+        if package.specs and not skip_version_check:
             latest_ver = parse(self._packages[package_name]["version"])
             return all([parse(spec[1]) <= latest_ver for spec in package.specs])
         return True
@@ -32,11 +36,18 @@ class AnacondaChannel:
 
     @classmethod
     def from_snowflake(cls):
-        response = requests.get(AnacondaChannel.snowflake_channel_url)
-        response.raise_for_status()
-        return cls(packages=response.json()["packages"])
+        try:
+            response = requests.get(AnacondaChannel.snowflake_channel_url)
+            response.raise_for_status()
+            return cls(packages=response.json()["packages"])
+        except HTTPError as err:
+            raise ClickException(
+                f"Accessing Snowflake Anaconda channel failed. Reason {err}"
+            )
 
-    def parse_anaconda_packages(self, packages: List[Requirement]) -> SplitRequirements:
+    def parse_anaconda_packages(
+        self, packages: List[Requirement], skip_version_check: bool = False
+    ) -> SplitRequirements:
         """
         Checks if a list of packages are available in the Snowflake Anaconda channel.
         Returns a dict with two keys: 'snowflake' and 'other'.
@@ -47,6 +58,7 @@ class AnacondaChannel:
 
         Parameters:
             packages (List[Requirement]) - list of requirements to be checked
+            skip_version_check (bool) - skip comparing versions of packages
 
         Returns:
             result (SplitRequirements) - required packages split to those available in conda, and others, that need to be
@@ -57,7 +69,9 @@ class AnacondaChannel:
         for package in packages:
             if package.extras:
                 result.other.append(package)
-            elif self.is_package_available(package):
+            elif self.is_package_available(
+                package, skip_version_check=skip_version_check
+            ):
                 result.snowflake.append(package)
             else:
                 log.info(
