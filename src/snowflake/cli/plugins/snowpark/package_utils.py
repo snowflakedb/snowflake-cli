@@ -195,7 +195,9 @@ def detect_and_log_shared_libraries(dependencies: List[RequirementWithFiles]):
     shared_libraries = [
         dependency.requirement.name
         for dependency in dependencies
-        if any(file.endswith(".so") for file in dependency.files)
+        if any(
+            file.endswith(".so") or file.endswith(".dll") for file in dependency.files
+        )
     ]
     if shared_libraries:
         _log_shared_libraries(shared_libraries)
