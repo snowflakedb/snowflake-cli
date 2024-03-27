@@ -3,26 +3,29 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from textwrap import dedent
+from typing import Optional
 
 import typer
-from click import ClickException
-from requests import HTTPError
-from snowflake.cli.api.commands.flags import deprecated_flag_callback
+from snowflake.cli.api.commands.flags import (
+    deprecated_flag_callback,
+    deprecated_flag_callback_enum,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MessageResult
-from snowflake.cli.plugins.snowpark.models import PypiOption, Requirement
-from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
+from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.plugins.snowpark.models import (
+    Requirement,
+    YesNoAsk,
+)
+from snowflake.cli.plugins.snowpark.package.anaconda import (
+    AnacondaChannel,
+)
 from snowflake.cli.plugins.snowpark.package.manager import (
-    cleanup_after_install,
+    cleanup_packages_dir,
     create_packages_zip,
-    lookup,
     upload,
 )
-from snowflake.cli.plugins.snowpark.package.utils import (
-    NotInAnaconda,
-    RequiresPackages,
-)
-from snowflake.cli.plugins.snowpark.snowpark_shared import PackageNativeLibrariesOption
+from snowflake.cli.plugins.snowpark.package_utils import download_packages
 
 app = SnowTyper(
     name="package",
@@ -66,12 +69,7 @@ def package_lookup(
     """
     Checks if a package is available on the Snowflake Anaconda channel.
     """
-    try:
-        anaconda = AnacondaChannel.from_snowflake()
-    except HTTPError as err:
-        raise ClickException(
-            f"Accessing Snowflake Anaconda channel failed. Reason {err}"
-        )
+    anaconda = AnacondaChannel.from_snowflake()
 
     package = Requirement.parse(package_name)
     if anaconda.is_package_available(package=package):
@@ -119,9 +117,13 @@ def package_upload(
     return MessageResult(upload(file=file, stage=stage, overwrite=overwrite))
 
 
-install_option = typer.Option(
+deprecated_pypi_download_option = typer.Option(
     False,
     "--pypi-download",
+    hidden=True,
+    callback=deprecated_flag_callback(
+        "Using --pypi-download is deprecated. Create command always checks for package in PyPi."
+    ),
     help="Installs packages that are not available on the Snowflake Anaconda channel.",
 )
 
@@ -131,46 +133,128 @@ deprecated_install_option = typer.Option(
     "-y",
     hidden=True,
     help="Installs packages that are not available on the Snowflake Anaconda channel.",
+    callback=deprecated_flag_callback(
+        "Using --yes is deprecated. Create command always checks for package in PyPi."
+    ),
+)
+
+deprecated_allow_native_libraries_option = typer.Option(
+    YesNoAsk.NO.value,
+    "--allow-native-libraries",
+    help="Allows native libraries, when using packages installed through PIP",
+    hidden=True,
+    callback=deprecated_flag_callback_enum(
+        "--allow-native-libraries flag is deprecated. Use --allow-shared-libraries flag instead."
+    ),
+)
+
+ignore_anaconda_option = typer.Option(
+    False,
+    "--ignore-anaconda",
+    help="Does not lookup packages on Snowflake Anaconda channel.",
+)
+
+index_option = typer.Option(
+    None,
+    "--index-url",
+    help="Base URL of the Python Package Index to use for package lookup. This should point to "
+    " a repository compliant with PEP 503 (the simple repository API) or a local directory laid"
+    " out in the same format.",
+    show_default=False,
+)
+
+skip_version_check_option = typer.Option(
+    False,
+    "--skip-version-check",
+    help="Skip comparing versions of dependencies between requirements and Anaconda.",
+)
+
+allow_shared_libraries_option = typer.Option(
+    False,
+    "--allow-shared-libraries",
+    help="Allows shared (.so) libraries, when using packages installed through PIP.",
 )
 
 
 @app.command("create", requires_connection=True)
-@cleanup_after_install
+@cleanup_packages_dir
 def package_create(
     name: str = typer.Argument(
         ...,
         help="Name of the package to create.",
     ),
-    install_packages: bool = install_option,
+    ignore_anaconda: bool = ignore_anaconda_option,
+    index_url: Optional[str] = index_option,
+    skip_version_check: bool = skip_version_check_option,
+    allow_shared_libraries: bool = allow_shared_libraries_option,
+    deprecated_allow_native_libraries: YesNoAsk = deprecated_allow_native_libraries_option,
     _deprecated_install_option: bool = deprecated_install_option,
-    allow_native_libraries: PypiOption = PackageNativeLibrariesOption,
+    _deprecated_install_packages: bool = deprecated_pypi_download_option,
     **options,
 ) -> CommandResult:
     """
     Creates a Python package as a zip file that can be uploaded to a stage and imported for a Snowpark Python app.
     """
-    if _deprecated_install_option:
-        install_packages = _deprecated_install_option
+    # TODO: yes/no/ask logic should be removed in 3.0
+    allow_shared_libraries_yesnoask = {
+        True: YesNoAsk.YES,
+        False: YesNoAsk.NO,
+    }[allow_shared_libraries]
+    if deprecated_allow_native_libraries != YesNoAsk.NO:
+        allow_shared_libraries_yesnoask = deprecated_allow_native_libraries
 
-    lookup_result = lookup(
-        name=name,
-        install_packages=install_packages,
-        allow_native_libraries=allow_native_libraries,
+    if ignore_anaconda:
+        anaconda = None
+    else:
+        anaconda = AnacondaChannel.from_snowflake()
+        package = Requirement.parse(name)
+        if anaconda.is_package_available(
+            package, skip_version_check=skip_version_check
+        ):
+            return MessageResult(
+                f"Package {name} is already available in Snowflake Anaconda Channel."
+            )
+
+    packages_dir = SecurePath(".packages")
+    packages_are_downloaded, dependencies = download_packages(
+        anaconda=anaconda,
+        ignore_anaconda=ignore_anaconda,
+        package_name=name,
+        requirements_file=None,
+        packages_dir=packages_dir,
+        index_url=index_url,
+        allow_shared_libraries=allow_shared_libraries_yesnoask,
+        skip_version_check=skip_version_check,
     )
 
-    if not isinstance(lookup_result, (NotInAnaconda, RequiresPackages)):
-        return MessageResult(lookup_result.message)
+    if not packages_are_downloaded:
+        return MessageResult(
+            dedent(
+                f"""
+                Cannot create package for {name}. Please check the package name
+                or try again with --allow-shared-libraries option.
+                """
+            )
+        )
 
-    # The package is not in anaconda so we have to pack it
+    # The package is not in anaconda, so we have to pack it
     zip_file = create_packages_zip(name)
     message = dedent(
         f"""
-    Package {zip_file} created. You can now upload it to a stage using
-    snow snowpark package upload -f {zip_file} -s <stage-name>`
-    and reference it in your procedure or function.
-    """
+        Package {zip_file} created. You can now upload it to a stage using
+        snow snowpark package upload -f {zip_file} -s <stage-name>`
+        and reference it in your procedure or function.
+        Remember to add it to imports in the procedure or function definition.
+        """
     )
-    if isinstance(lookup_result, RequiresPackages):
-        message += "\n" + lookup_result.message
+    if dependencies.snowflake:
+        message += dedent(
+            f"""
+            The package {name} is successfully created, but depends on the following
+            Anaconda libraries. They need to be included in project requirements,
+            as their are not included in .zip.
+            """
+        )
+        message += "\n".join((req.line for req in dependencies.snowflake))
 
     return MessageResult(message)

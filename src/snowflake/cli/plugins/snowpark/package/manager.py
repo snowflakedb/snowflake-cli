@@ -7,55 +7,11 @@ from pathlib import Path
 from snowflake.cli.api.constants import PACKAGES_DIR
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.object.stage.manager import StageManager
-from snowflake.cli.plugins.snowpark import package_utils
-from snowflake.cli.plugins.snowpark.models import (
-    PypiOption,
-    Requirement,
-    SplitRequirements,
-    get_package_name,
-)
-from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
-from snowflake.cli.plugins.snowpark.package.utils import (
-    InAnaconda,
-    LookupResult,
-    NothingFound,
-    NotInAnaconda,
-    RequiresPackages,
-    prepare_app_zip,
-)
+from snowflake.cli.plugins.snowpark.models import get_package_name
+from snowflake.cli.plugins.snowpark.package.utils import prepare_app_zip
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
 
 log = logging.getLogger(__name__)
-
-
-def lookup(
-    name: str, install_packages: bool, allow_native_libraries: PypiOption
-) -> LookupResult:
-
-    anaconda = AnacondaChannel.from_snowflake()
-    package_response = anaconda.parse_anaconda_packages(
-        packages=[Requirement.parse(name)]
-    )
-
-    if package_response.snowflake and not package_response.other:
-        return InAnaconda(package_response, name)
-    elif install_packages:
-        status, result = package_utils.install_packages(
-            anaconda=anaconda,
-            perform_anaconda_check=True,
-            package_name=name,
-            requirements_file=None,
-            packages_dir=SecurePath(PACKAGES_DIR),
-            allow_native_libraries=allow_native_libraries,
-        )
-
-        if status:
-            if result.snowflake:
-                return RequiresPackages(result, name)
-            else:
-                return NotInAnaconda(result, name)
-
-    return NothingFound(SplitRequirements([], []), name)
 
 
 def upload(file: Path, stage: str, overwrite: bool):
@@ -83,7 +39,7 @@ def create_packages_zip(zip_name: str) -> str:
     return file_name
 
 
-def cleanup_after_install(func):
+def cleanup_packages_dir(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
