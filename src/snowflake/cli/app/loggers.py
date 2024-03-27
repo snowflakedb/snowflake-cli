@@ -61,6 +61,7 @@ class DefaultLoggingConfig:
         default_factory=lambda: {
             "snowflake.cli": LoggerConfig(handlers=["console", "file"]),
             "snowflake": LoggerConfig(),
+            "snowflake.connector.telemetry": LoggerConfig(level=logging.CRITICAL),
         }
     )
 
@@ -125,6 +126,8 @@ def create_loggers(verbose: bool, debug: bool):
             level=logging.DEBUG,
             formatter="detailed_formatter",
         )
+        # In debug mode we also want to get snowflake connector logs
+        config.loggers["snowflake"].handlers = ["file", "console"]
     elif verbose:
         config.handlers["console"].update(level=logging.INFO)
 
