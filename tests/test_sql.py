@@ -3,6 +3,7 @@ from tempfile import NamedTemporaryFile
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.util import identifier_to_show_like_pattern
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -253,3 +254,17 @@ def test_show_specific_object_multiple_rows(mock_execute_query):
     mock_execute_query.assert_called_once_with(
         r"show objects like 'NAME'", cursor_class=DictCursor
     )
+
+
+@pytest.mark.parametrize(
+    "_object",
+    [
+        ObjectType.WAREHOUSE,
+        ObjectType.ROLE,
+        ObjectType.DATABASE,
+    ],
+)
+@mock.patch("snowflake.cli.api.sql_execution.SqlExecutionMixin._execute_query")
+def test_use_command(mock_execute_query, _object):
+    SqlExecutionMixin().use(object_type=_object, name="foo_name")
+    mock_execute_query.assert_called_once_with(f"use {_object.value.sf_name} foo_name")

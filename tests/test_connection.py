@@ -7,6 +7,7 @@ from unittest import mock
 
 import pytest
 import tomlkit
+from snowflake.cli.api.constants import ObjectType
 
 
 def test_new_connection_can_be_added(runner, snapshot):
@@ -303,11 +304,11 @@ def test_connection_test(mock_connect, mock_om, runner):
     )
 
     conn = mock_connect.return_value
-    mock_om.return_value.use_role.assert_called_once_with(new_role=conn.role)
-    assert mock_om.return_value.describe.mock_calls == [
-        mock.call(object_type="database", name=conn.database),
-        mock.call(object_type="schema", name=conn.schema),
-        mock.call(object_type="warehouse", name=conn.warehouse),
+    assert mock_om.return_value.use.mock_calls == [
+        mock.call(object_type=ObjectType.ROLE, name=conn.role),
+        mock.call(object_type=ObjectType.DATABASE, name=conn.database),
+        mock.call(object_type=ObjectType.SCHEMA, name=conn.schema),
+        mock.call(object_type=ObjectType.WAREHOUSE, name=conn.warehouse),
     ]
 
 
