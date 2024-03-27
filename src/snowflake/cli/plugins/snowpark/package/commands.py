@@ -83,7 +83,7 @@ def package_lookup(
     package = Requirement.parse(package_name)
     if anaconda.is_package_available(package=package):
         msg = f"Package `{package_name}` is available in Anaconda."
-        if version := anaconda.package_version(package=package):
+        if version := anaconda.package_latest_version(package=package):
             msg += f" Latest available version: {version}."
         return MessageResult(msg)
 

@@ -5,8 +5,9 @@ from typing import Dict, List, Set
 
 import requests
 from click import ClickException
+from packaging.requirements import InvalidRequirement
 from packaging.requirements import Requirement as PkgRequirement
-from packaging.version import parse
+from packaging.version import InvalidVersion, parse
 from requests import HTTPError
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
@@ -29,7 +30,7 @@ class AnacondaChannel:
     def __init__(self, packages: Dict[str, Set[str]]):
         """[packages] should be a dictionary mapping package name to set of its available versions"""
         self._packages = {
-            _standarize_name(package_name): {parse(ver) for ver in versions}
+            _standarize_name(package_name): versions
             for package_name, versions in packages.items()
         }
 
@@ -44,13 +45,25 @@ class AnacondaChannel:
         if skip_version_check or not package.specs:
             return True
 
-        package_specifiers = PkgRequirement(package.line).specifier
-        return any(
-            version in package_specifiers for version in self._packages[package_name]
-        )
+        try:
+            package_specifiers = PkgRequirement(package.line).specifier
+            return any(
+                parse(version) in package_specifiers
+                for version in self._packages[package_name]
+            )
+        except InvalidVersion | InvalidRequirement:
+            # fail-safe for non-pep508 formats
+            return False
 
-    def package_latest_version(self, package: Requirement) -> str:
-        return str(max(self._packages[_standarize_name(package.name)]))
+    def package_latest_version(self, package: Requirement) -> str | None:
+        package_name = _standarize_name(package.name)
+        if package_name not in self._packages:
+            return None
+        try:
+            versions = {parse(v) for v in self._packages[package_name]}
+        except InvalidVersion:
+            versions = self._packages[package_name]
+        return str(max(versions))
 
     @classmethod
     def from_snowflake(cls):
@@ -59,8 +72,8 @@ class AnacondaChannel:
             response.raise_for_status()
             return cls(
                 packages={
-                    package["name"].lower(): {package["version"]}
-                    for package in response.json()["packages"]
+                    package["name"]: {package["version"]}
+                    for package in response.json()["packages"].values()
                 }
             )
         except HTTPError as err:
