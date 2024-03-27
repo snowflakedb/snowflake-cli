@@ -702,7 +702,7 @@ def test_build_shared_libraries_error(
         result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
         assert result.exit_code == 1, result.output
         assert (
-            "Some packages contain shared (.so) libraries. Try again with"
+            "Some packages contain shared (.so/.dll) libraries. Try again with"
             in result.output
         )
         assert "--allow-shared-libraries." in result.output

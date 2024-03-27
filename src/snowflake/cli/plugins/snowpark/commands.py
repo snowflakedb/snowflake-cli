@@ -382,7 +382,7 @@ def build(
             )
             if not download_result.succeeded:
                 raise ClickException(download_result.error_message)
-            log.info("Checking to see if packages have shared (.so) libraries...")
+            log.info("Checking to see if packages have shared (.so/.dll) libraries...")
             if package_utils.detect_and_log_shared_libraries(
                 download_result.downloaded_packages_details
             ):
@@ -390,7 +390,7 @@ def build(
                     allow_shared_libraries_yesnoask
                 ):
                     raise ClickException(
-                        "Some packages contain shared (.so) libraries. "
+                        "Some packages contain shared (.so/.dll) libraries. "
                         "Try again with --allow-shared-libraries."
                     )
             if download_result.packages_available_in_anaconda:

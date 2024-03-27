@@ -200,13 +200,13 @@ def package_create(
             )
 
         # The package is not in anaconda, so we have to pack it
-        log.info("Checking to see if packages have shared (.so) libraries...")
+        log.info("Checking to see if packages have shared (.so/.dll) libraries...")
         if detect_and_log_shared_libraries(download_result.downloaded_packages_details):
             if not resolve_allow_shared_libraries_yes_no_ask(
                 allow_shared_libraries_yesnoask
             ):
                 raise ClickException(
-                    "Some packages contain shared (.so) libraries. "
+                    "Some packages contain shared (.so/.dll) libraries. "
                     "Try again with --allow-shared-libraries."
                 )
 
