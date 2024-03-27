@@ -14,7 +14,7 @@ from snowflake.cli.api.exceptions import (
 from snowflake.cli.plugins.object.stage.diff import (
     DiffResult,
     _filter_from_diff,
-    _get_full_file_paths_to_sync,
+    _get_relative_paths_to_sync,
     delete_only_on_stage_files,
     enumerate_files,
     get_stage_path_from_file,
@@ -249,7 +249,7 @@ def is_dir_mock(path: Path):
     "files_to_sync,remote_paths,expected_exception",
     [
         [["file", "dir/nested_file"], set(), None],
-        [["file", "file2", "dir/file3"], set(["/file2", "/dir/file3"]), None],
+        [["file", "file2", "dir/file3"], set(["file2", "dir/file3"]), None],
         [["file", "file2"], set(), FileError],
         [["dir/file3"], set(), FileError],
         [["dir"], set(), ClickException],
@@ -265,42 +265,42 @@ def test_get_full_file_paths_to_sync(
     path_mock_exists.side_effect = exists_mock
     path_mock_is_dir.side_effect = is_dir_mock
     if expected_exception is None:
-        result = _get_full_file_paths_to_sync(files_to_sync, "/", remote_paths)
+        result = _get_relative_paths_to_sync(files_to_sync, "/", remote_paths)
         assert len(result) == len(files_to_sync)
     else:
         with pytest.raises(expected_exception):
-            _get_full_file_paths_to_sync(files_to_sync, "/", remote_paths)
+            _get_relative_paths_to_sync(files_to_sync, "/", remote_paths)
 
 
 def test_filter_from_diff():
     diff: DiffResult = DiffResult()
     diff.different = [
-        "/different",
-        "/different-2",
-        "/dir/different",
-        "/dir/different-2",
+        "different",
+        "different-2",
+        "dir/different",
+        "dir/different-2",
     ]
     diff.only_local = [
-        "/only_local",
-        "/only_local-2",
-        "/dir/only_local",
-        "/dir/only_local-2",
+        "only_local",
+        "only_local-2",
+        "dir/only_local",
+        "dir/only_local-2",
     ]
     diff.only_on_stage = [
-        "/only_on_stage",
-        "/only_on_stage-2",
-        "/dir/only_on_stage",
-        "/dir/only_on_stage-2",
+        "only_on_stage",
+        "only_on_stage-2",
+        "dir/only_on_stage",
+        "dir/only_on_stage-2",
     ]
 
     paths_to_keep = set(
         [
-            "/different",
-            "/only-local",
-            "/only-stage",
-            "/dir/different",
-            "/dir/only-local",
-            "/dir/only-stage",
+            "different",
+            "only-local",
+            "only-stage",
+            "dir/different",
+            "dir/only-local",
+            "dir/only-stage",
         ]
     )
     diff = _filter_from_diff(diff, paths_to_keep)
