@@ -31,7 +31,7 @@
 * Changing imports in function/procedure section in `snowflake.yml` will cause the definition update on replace
 * Adding `--pattern` flag to `stage list` command for filtering out results with regex.
 * Fixed snowpark build paths for builds with --project option (fixed empty zip issue).
-
+* Fixed version parsing for packages lookup on Snowflake Anaconda Channel
 # v2.1.1
 
 ## Fixes and improvements
