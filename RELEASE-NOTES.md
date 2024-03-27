@@ -40,6 +40,7 @@
 * Fixed snowpark build paths for builds with --project option (fixed empty zip issue).
 * More clear error messages in `snow snowpark build` command
 * Adding support for any source supported by `pip` in `snow snowpark`.
+* Fixed version parsing for packages lookup on Snowflake Anaconda Channel
 
 # v2.1.2
 
