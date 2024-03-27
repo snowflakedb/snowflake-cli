@@ -12,16 +12,20 @@ from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackag
 @mock.patch(
     "snowflake.cli.plugins.snowpark.package.anaconda.AnacondaChannel.parse_anaconda_packages"
 )
-@mock.patch("snowflake.cli.plugins.snowpark.package_utils.install_packages")
+@mock.patch("snowflake.cli.plugins.snowpark.package_utils.download_packages")
 def test_snowpark_package(
-    mock_install, mock_parse, temp_dir, correct_requirements_txt, dot_packages_directory
+    mock_download,
+    mock_parse,
+    temp_dir,
+    correct_requirements_txt,
+    dot_packages_directory,
 ):
 
     mock_parse.return_value = SplitRequirements(
         [], [Requirement.parse("totally-awesome-package")]
     )
 
-    mock_install.return_value = (
+    mock_download.return_value = (
         True,
         SplitRequirements([Requirement.parse("another-package-in-anaconda")], []),
     )

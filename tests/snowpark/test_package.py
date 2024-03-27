@@ -9,7 +9,6 @@ from snowflake.cli.plugins.snowpark.models import (
     Requirement,
     SplitRequirements,
 )
-from snowflake.cli.plugins.snowpark.package.utils import NotInAnaconda
 
 from tests.test_data import test_data
 
@@ -32,18 +31,18 @@ class TestPackage:
         assert result.exit_code == 0
         assert result.output == snapshot
 
-    @patch("snowflake.cli.plugins.snowpark.package_utils.install_packages")
+    @patch("snowflake.cli.plugins.snowpark.package_utils.download_packages")
     @patch(
         "snowflake.cli.plugins.snowpark.package.anaconda.AnacondaChannel.parse_anaconda_packages"
     )
     def test_package_lookup_with_install_packages(
-        self, mock_package, mock_install, runner, capfd, snapshot
+        self, mock_package, mock_download, runner, capfd, snapshot
     ) -> None:
 
         mock_package.return_value = SplitRequirements(
             [], [Requirement("some-other-package")]
         )
-        mock_install.return_value = (
+        mock_download.return_value = (
             True,
             SplitRequirements(
                 [Requirement("snowflake-snowpark-python")],
@@ -55,13 +54,33 @@ class TestPackage:
         assert result.exit_code == 0
         assert result.output == snapshot
 
-    @patch("snowflake.cli.plugins.snowpark.package.commands.lookup")
+    @patch("snowflake.cli.plugins.snowpark.package.commands.download_packages")
+    @patch(
+        "snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel.from_snowflake"
+    )
+    @pytest.mark.parametrize(
+        "extra_flags", [[], ["--skip-version-check"], ["--ignore-anaconda"]]
+    )
     def test_package_create(
-        self, mock_lookup, caplog, temp_dir, dot_packages_directory, runner
+        self,
+        mock_anaconda_from_snowflake,
+        mock_download,
+        caplog,
+        temp_dir,
+        dot_packages_directory,
+        runner,
+        extra_flags,
     ) -> None:
 
-        mock_lookup.return_value = NotInAnaconda(
-            SplitRequirements([], ["some-other-package"]), "totally-awesome-package"
+        mock_anaconda = MagicMock(name="anaconda")
+        mock_anaconda.is_package_available.return_value = False
+        mock_anaconda_from_snowflake.return_value = mock_anaconda
+        mock_download.return_value = (
+            True,
+            SplitRequirements(
+                [Requirement.parse("in-anaconda-package>=2")],
+                [Requirement.parse("some-other-package")],
+            ),
         )
 
         with caplog.at_level(
@@ -69,17 +88,34 @@ class TestPackage:
         ):
             result = runner.invoke(
                 ["snowpark", "package", "create", "totally-awesome-package"]
+                + extra_flags
             )
 
-        assert result.exit_code == 0
-        assert os.path.isfile("totally-awesome-package.zip")
+        assert result.exit_code == 0, result.output
+        assert "in-anaconda-package>=2" in result.output
+        assert "some-other-package" not in result.output
+        assert os.path.isfile("totally-awesome-package.zip"), result.output
 
         zip_file = ZipFile("totally-awesome-package.zip", "r")
-
         assert (
             "totally-awesome-package/totally-awesome-module.py" in zip_file.namelist()
         )
         os.remove("totally-awesome-package.zip")
+
+        if "--ignore-anaconda" in extra_flags:
+            expected_anaconda = expected_anaconda_from_snowfake = []
+        else:
+            expected_anaconda_from_snowfake = [mock.call()]
+            expected_anaconda = [
+                mock.call.is_package_available(
+                    Requirement.parse("totally-awesome-package"),
+                    skip_version_check="--skip-version-check" in extra_flags,
+                )
+            ]
+        assert mock_anaconda.mock_calls == expected_anaconda
+        assert (
+            mock_anaconda_from_snowflake.mock_calls == expected_anaconda_from_snowfake
+        )
 
     @mock.patch("snowflake.cli.plugins.snowpark.package.manager.StageManager")
     @mock.patch("snowflake.connector.connect")
@@ -145,7 +181,9 @@ class TestPackage:
             ["--pypi-download", "-y"],
         ],
     )
-    @mock.patch("snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel")
+    @mock.patch(
+        "snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel.from_snowflake"
+    )
     def test_lookup_install_flag_are_deprecated(self, _, flags, runner):
         result = runner.invoke(["snowpark", "package", "lookup", "foo", *flags])
         assert (
@@ -153,13 +191,56 @@ class TestPackage:
             in result.output
         )
 
-    @mock.patch("snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel")
+    @mock.patch(
+        "snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel.from_snowflake"
+    )
     def test_lookup_install_with_out_flags_does_not_warn(self, _, runner):
         result = runner.invoke(["snowpark", "package", "lookup", "foo"])
         assert (
             "is deprecated. Lookup command no longer checks for package in PyPi"
             not in result.output
         )
+
+    @pytest.mark.parametrize(
+        "flags",
+        [
+            ["--pypi-download"],
+            ["-y"],
+            ["--yes"],
+            ["--pypi-download", "-y"],
+        ],
+    )
+    @mock.patch(
+        "snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel.from_snowflake"
+    )
+    def test_create_install_flag_are_deprecated(self, _, flags, runner):
+        result = runner.invoke(["snowpark", "package", "create", "foo", *flags])
+        assert (
+            "is deprecated. Create command always checks for package in PyPi."
+            in result.output
+        )
+
+    @pytest.mark.parametrize(
+        "flags",
+        [
+            ["--allow-native-libraries", "yes"],
+            ["--allow-native-libraries", "no"],
+            ["--allow-native-libraries", "ask"],
+        ],
+    )
+    @mock.patch(
+        "snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel.from_snowflake"
+    )
+    def test_create_deprecated_flags_throw_warning(self, _, flags, runner):
+        result = runner.invoke(["snowpark", "package", "create", "foo", *flags])
+        assert "is deprecated." in result.output
+
+    @mock.patch(
+        "snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel.from_snowflake"
+    )
+    def test_create_with_out_flags_does_not_warn(self, _, runner):
+        result = runner.invoke(["snowpark", "package", "create", "foo"])
+        assert "is deprecated" not in result.output
 
     @staticmethod
     def mocked_anaconda_response(response: dict):
