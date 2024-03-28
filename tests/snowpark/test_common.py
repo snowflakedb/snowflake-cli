@@ -15,9 +15,9 @@ from tests.testing_utils.fixtures import (
 def test_get_snowflake_packages_delta(temp_dir, correct_requirements_snowflake_txt):
     anaconda_package = test_data.requirements[-1]
 
-    result = _get_snowflake_packages_delta(anaconda_package)
+    result = _get_snowflake_packages_delta([anaconda_package])
 
-    assert result == test_data.requirements[:-1]
+    assert sorted(result) == sorted(test_data.requirements[:-1])
 
 
 def test_convert_resource_details_to_dict():
