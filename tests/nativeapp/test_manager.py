@@ -94,7 +94,7 @@ def test_sync_deploy_root_with_stage(
     ]
     assert mock_execute.mock_calls == expected
     mock_stage_diff.assert_called_once_with(
-        native_app_manager.deploy_root, "app_pkg.app_src.stage"
+        native_app_manager.deploy_root, "app_pkg.app_src.stage", None
     )
     mock_local_diff_with_stage.assert_called_once_with(
         role="new_role",

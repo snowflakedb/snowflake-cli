@@ -1,11 +1,18 @@
 import hashlib
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from click.exceptions import (
+    ClickException,
+    FileError,
+)
+from snowflake.cli.api.exceptions import (
+    SnowflakeSQLExecutionError,
+)
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -154,7 +161,36 @@ def build_md5_map(list_stage_cursor: SnowflakeCursor) -> Dict[str, str]:
     }
 
 
-def stage_diff(local_path: Path, stage_fqn: str) -> DiffResult:
+def _get_relative_paths_to_sync(
+    relative_files_to_sync: List[Path], local_path: Path, remote_paths: Set[str]
+) -> List[str]:
+    paths = []
+    for file in relative_files_to_sync:
+        path = Path(os.path.join(local_path, file))
+        relpath = path.relative_to(local_path)
+        if not path.exists() and str(relpath) not in remote_paths:
+            raise FileError(
+                str(file), "This file does not exist either locally or remotely"
+            )
+        elif path.is_dir():
+            raise ClickException(f"Specifying directories is not supported: '{file}'")
+        else:
+            paths.append(str(relpath))
+    return paths
+
+
+def _filter_from_diff(result: DiffResult, paths_to_keep: Set[str]) -> DiffResult:
+    result.different = [i for i in result.different if i in paths_to_keep]
+    result.only_local = [i for i in result.only_local if i in paths_to_keep]
+    result.only_on_stage = [i for i in result.only_on_stage if i in paths_to_keep]
+    return result
+
+
+def stage_diff(
+    local_path: Path,
+    stage_fqn: str,
+    files_to_sync: Optional[List[Path]] = None,  # relative to local_path
+) -> DiffResult:
     """
     Diffs the files in a stage with a local folder.
     """
@@ -189,6 +225,14 @@ def stage_diff(local_path: Path, stage_fqn: str) -> DiffResult:
     # every entry here is a file we never saw locally
     for relpath in remote_md5.keys():
         result.only_on_stage.append(relpath)
+
+    if files_to_sync is not None and len(files_to_sync) > 0:
+        paths_to_keep = set(
+            _get_relative_paths_to_sync(
+                files_to_sync, local_path, set(result.only_on_stage)
+            )
+        )
+        return _filter_from_diff(result, paths_to_keep)
 
     return result
 
