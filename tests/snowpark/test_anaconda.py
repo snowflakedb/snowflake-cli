@@ -1,5 +1,13 @@
+import json
+from unittest import mock
+from unittest.mock import MagicMock, patch
+
+import pytest
 from snowflake.cli.plugins.snowpark.models import Requirement
 from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
+
+from tests.test_data import test_data
+from tests.testing_utils.fixtures import TEST_DIR
 
 ANACONDA = AnacondaChannel(
     packages={
@@ -10,29 +18,96 @@ ANACONDA = AnacondaChannel(
 )
 
 
-def _r(line):
-    return Requirement.parse(line)
-
-
 def test_latest_version():
-    assert ANACONDA.package_latest_version(_r("shrubbery")) == "1.2.2"
-    assert ANACONDA.package_latest_version(_r("dummy_pkg")) == "1.1.0"
-    assert ANACONDA.package_latest_version(_r("dummy-pkg")) == "1.1.0"
-    assert ANACONDA.package_latest_version(_r("jpeg")) == "9e"
-    assert ANACONDA.package_latest_version(_r("weird-pkg")) is None
+    assert ANACONDA.package_latest_version(Requirement.parse("shrubbery")) == "1.2.2"
+    assert ANACONDA.package_latest_version(Requirement.parse("dummy_pkg")) == "1.1.0"
+    assert ANACONDA.package_latest_version(Requirement.parse("dummy-pkg")) == "1.1.0"
+    assert ANACONDA.package_latest_version(Requirement.parse("jpeg")) == "9e"
+    assert ANACONDA.package_latest_version(Requirement.parse("weird-pkg")) is None
 
 
-def test_package_availability():
-    assert ANACONDA.is_package_available(_r("shrubbery"))
-    assert ANACONDA.is_package_available(_r("DUMMY_pkg"))
-    assert not ANACONDA.is_package_available(_r("shrubbery>=2"))
-    assert not ANACONDA.is_package_available(_r("shrubbery<=1.0.0"))
-    assert ANACONDA.is_package_available(_r("shrubbery==1.2.1"))
-    assert ANACONDA.is_package_available(_r("shrubbery>1,<4"))
-    assert not ANACONDA.is_package_available(_r("shrubbery!=1.2.*"))
-    assert ANACONDA.is_package_available(_r("dummy-pkg==0.*"))
-    assert not ANACONDA.is_package_available(_r("weird-package"))
-    assert ANACONDA.is_package_available(_r("jpeg"))
+@pytest.mark.parametrize(
+    "argument, expected",
+    [
+        ("shrubbery", True),
+        ("DUMMY_pkg", True),
+        ("dummy-PKG", True),
+        ("jpeg", True),
+        ("non-existing-pkg", False),
+        ("shrubbery>=2", False),
+        ("shrubbery>=1.2", True),
+        ("shrubbery<=1.2", False),
+        ("Shrubbery<=1.3", True),
+        ("shrubbery==1.2.*", True),
+        ("shrubbery!=1.2.*", False),
+        ("dummy-pkg!=1.0.*", True),
+        ("shrubbery>1,!=1.2.*", False),
+        ("shrubbery>1,<4", True),
+        # safe-fail for non-pep508 version formats
+        ("jpeg==9", False),
+    ],
+)
+def test_check_if_package_is_avaiable_in_conda(argument, expected):
+    assert ANACONDA.is_package_available(Requirement.parse(argument)) == expected
 
-    # safe-fail for non-pep508 version formats
-    assert not ANACONDA.is_package_available(_r("jpeg==9d"))
+
+@mock.patch("requests.get")
+def test_parse_anaconda_packages(mock_get):
+    mock_response = mock.Mock()
+    mock_response.status_code = 200
+    # load the contents of the local json file under test_data/anaconda_channel_data.json
+    with open(TEST_DIR / "test_data/anaconda_channel_data.json") as fh:
+        mock_response.json.return_value = json.load(fh)
+
+    mock_get.return_value = mock_response
+    anaconda = AnacondaChannel.from_snowflake()
+
+    packages = [
+        Requirement.parse("pandas==1.4.4"),
+        Requirement.parse("FuelSDK>=0.9.3"),
+        Requirement.parse("Pamela==1.0.1"),
+    ]
+    split_requirements = anaconda.parse_anaconda_packages(packages=packages)
+    assert len(split_requirements.snowflake) == 1
+    assert len(split_requirements.other) == 2
+    assert split_requirements.snowflake[0].name == "pandas"
+    assert split_requirements.snowflake[0].specifier is True
+    assert split_requirements.snowflake[0].specs == [("==", "1.4.4")]
+    assert split_requirements.other[0].name == "FuelSDK"
+    assert split_requirements.other[0].specifier is True
+    assert split_requirements.other[0].specs == [(">=", "0.9.3")]
+    assert split_requirements.other[1].name == "Pamela"
+    assert split_requirements.other[1].specs == [("==", "1.0.1")]
+
+
+@patch("snowflake.cli.plugins.snowpark.package.anaconda.requests")
+def test_anaconda_packages_streamlit(mock_requests):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = test_data.anaconda_response
+    mock_requests.get.return_value = mock_response
+
+    test_data.packages.append(Requirement.parse_line("streamlit"))
+
+    anaconda = AnacondaChannel.from_snowflake()
+    anaconda_packages = anaconda.parse_anaconda_packages(test_data.packages)
+
+    assert Requirement.parse_line("streamlit") not in anaconda_packages.other
+
+
+@patch("snowflake.cli.plugins.snowpark.package.anaconda.requests")
+def test_anaconda_packages(mock_requests):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = test_data.anaconda_response
+    mock_requests.get.return_value = mock_response
+
+    anaconda = AnacondaChannel.from_snowflake()
+    anaconda_packages = anaconda.parse_anaconda_packages(test_data.packages)
+    assert (
+        Requirement.parse_line("snowflake-connector-python")
+        in anaconda_packages.snowflake
+    )
+    assert (
+        Requirement.parse_line("my-totally-awesome-package") in anaconda_packages.other
+    )
