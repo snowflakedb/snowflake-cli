@@ -49,7 +49,11 @@ def get_snowflake_packages() -> List[str]:
         with requirements_file.open(
             "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
         ) as f:
-            return [req for line in f if (req := line.split("#")[0].strip())]
+            return [
+                Requirement.parse(req).to_name_and_version()
+                for line in f
+                if (req := line.split("#")[0].strip())
+            ]
     else:
         return []
 
