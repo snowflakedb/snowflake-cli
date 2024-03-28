@@ -7,6 +7,8 @@ from textwrap import dedent
 from typing import List
 
 import requirements
+import click
+from click import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
@@ -35,12 +37,20 @@ def parse_requirements(
     Returns:
         list[str]: A flat list of package names, without versions
     """
-    if not requirements_file.exists():
-        return []
-    with requirements_file.open(
-        "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
-    ) as f:
-        return list(requirements.parse(f))
+
+    reqs: List[Requirement] = []
+    if requirements_file.exists():
+        for line in requirements_file.read_text(
+            file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB
+        ).splitlines():
+            # remove comments
+            line = line.split("#")[0].strip()
+            if line:
+                reqs.append(Requirement.parse_line(line))
+    else:
+        log.info("No %s found", requirements_file.path)
+
+    return reqs
 
 
 def get_snowflake_packages() -> List[str]:

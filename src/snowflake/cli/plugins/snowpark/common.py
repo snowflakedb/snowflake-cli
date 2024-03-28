@@ -3,11 +3,15 @@ from __future__ import annotations
 import re
 from typing import Dict, List, Optional
 
-from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
-from snowflake.cli.plugins.snowpark.package_utils import generate_deploy_stage_name
+from snowflake.cli.plugins.snowpark.models import Requirement
+from snowflake.cli.plugins.snowpark.package_utils import (
+    generate_deploy_stage_name,
+    parse_requirements,
+)
 from snowflake.connector.cursor import SnowflakeCursor
 
 DEFAULT_RUNTIME = "3.8"
@@ -75,20 +79,15 @@ def _convert_resource_details_to_dict(function_details: SnowflakeCursor) -> dict
 
 
 def _get_snowflake_packages_delta(anaconda_packages) -> List[str]:
-    updated_package_list = []
+    anaconda_packages_names = set(
+        Requirement.parse(package).name for package in anaconda_packages
+    )
     requirements_file = SecurePath("requirements.snowflake.txt")
-    if requirements_file.exists():
-        with requirements_file.open(
-            "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
-        ) as f:
-            # for each line, check if it exists in anaconda_packages. If it
-            # doesn't, add it to the return string
-            for line in f:
-                if line.strip() not in anaconda_packages:
-                    updated_package_list.append(line.strip())
-        return updated_package_list
-    else:
-        return updated_package_list
+    return [
+        req.to_name_and_version()
+        for req in parse_requirements(requirements_file)
+        if req.name not in anaconda_packages_names
+    ]
 
 
 def _sql_to_python_return_type_mapper(resource_return_type: str) -> str:
