@@ -78,7 +78,7 @@ def _convert_resource_details_to_dict(function_details: SnowflakeCursor) -> dict
     return function_dict
 
 
-def _get_snowflake_packages_delta(anaconda_packages) -> List[str]:
+def _get_snowflake_packages_delta(anaconda_packages: List[str]) -> List[str]:
     anaconda_packages_names = set(
         Requirement.parse(package).name for package in anaconda_packages
     )
