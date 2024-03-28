@@ -32,10 +32,18 @@
 * Adding `--pattern` flag to `stage list` command for filtering out results with regex.
 * Fixed snowpark build paths for builds with --project option (fixed empty zip issue).
 
+# v2.1.2
+
+## Fixes and improvements
+* Add `pip` as Snowflake-cli dependency
+* Optimize `connection test` command
+* Fix venv creation issues in `snowpark package create` and `snowpark build` command
+
 # v2.1.1
 
 ## Fixes and improvements
 * Improved security of printing connection details in `snow connection list`.
+* Improved parsing of non-quoted scalar values within square brackets in `manifest.yml` in Native App projects.
 
 # v2.1.0
 
