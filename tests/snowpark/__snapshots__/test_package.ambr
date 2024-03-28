@@ -14,12 +14,3 @@
   
   '''
 # ---
-# name: TestPackage.test_package_lookup_with_install_packages
-  '''
-  
-  Package `some-other-package` is not available in Anaconda. To prepare Snowpark compatible package run:
-  snow snowpark package create some-other-package
-  
-  
-  '''
-# ---

@@ -2045,38 +2045,24 @@
    project file.                                                                  
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --pypi-download                              [yes|no|ask]  Whether to        │
-  │                                                            download          │
-  │                                                            non-Anaconda      │
-  │                                                            packages from     │
-  │                                                            PyPi.             │
-  │                                                            [default: ask]    │
-  │ --check-anaconda-…  -a  --no-check-anaco…                  Checks if any of  │
-  │                                                            missing Anaconda  │
-  │                                                            packages          │
-  │                                                            dependencies can  │
-  │                                                            be imported       │
-  │                                                            directly from     │
-  │                                                            Anaconda. Valid   │
-  │                                                            values include:   │
-  │                                                            `true`, `false`,  │
-  │                                                            Default: `true`.  │
-  │                                                            [default:         │
-  │                                                            check-anaconda-f… │
-  │ --package-native-…                           [yes|no|ask]  Allows native     │
-  │                                                            libraries, when   │
-  │                                                            using packages    │
-  │                                                            installed through │
-  │                                                            PIP               │
-  │                                                            [default: no]     │
-  │ --project           -p                       TEXT          Path where the    │
-  │                                                            Snowpark project  │
-  │                                                            resides. Defaults │
-  │                                                            to current        │
-  │                                                            working           │
-  │                                                            directory.        │
-  │ --help              -h                                     Show this message │
-  │                                                            and exit.         │
+  │ --ignore-anaconda                       Does not lookup packages on          │
+  │                                         Snowflake Anaconda channel.          │
+  │ --allow-shared-libraries                Allows shared (.so) libraries, when  │
+  │                                         using packages installed through     │
+  │                                         PIP.                                 │
+  │ --index-url                       TEXT  Base URL of the Python Package Index │
+  │                                         to use for package lookup. This      │
+  │                                         should point to  a repository        │
+  │                                         compliant with PEP 503 (the simple   │
+  │                                         repository API) or a local directory │
+  │                                         laid out in the same format.         │
+  │ --skip-version-check                    Skip comparing versions of           │
+  │                                         dependencies between requirements    │
+  │                                         and Anaconda.                        │
+  │ --project                 -p      TEXT  Path where the Snowpark project      │
+  │                                         resides. Defaults to current working │
+  │                                         directory.                           │
+  │ --help                    -h            Show this message and exit.          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
   │ --format           [TABLE|JSON]  Specifies the output format.                │

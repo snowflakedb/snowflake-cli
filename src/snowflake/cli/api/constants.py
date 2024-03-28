@@ -54,5 +54,4 @@ SUPPORTED_OBJECTS = sorted(OBJECT_TO_NAMES.keys())
 # Scope names here must replace spaces with '-'. For example 'compute pool' is 'compute-pool'.
 VALID_SCOPES = ["database", "schema", "compute-pool"]
 
-PACKAGES_DIR = Path(".packages")
 DEFAULT_SIZE_LIMIT_MB = 128
