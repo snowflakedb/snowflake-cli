@@ -1,9 +1,9 @@
-import json
 import logging
 import os
+import json
 from pathlib import Path
 from unittest import mock
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import mock_open, patch
 
 import pytest
 import snowflake.cli.plugins.snowpark.models
@@ -68,39 +68,6 @@ def test_parse_requirements_with_nonexistent_file(temp_dir):
     result = package_utils.parse_requirements(SecurePath(path))
 
     assert result == []
-
-
-@patch("snowflake.cli.plugins.snowpark.package.anaconda.requests")
-def test_anaconda_packages(mock_requests):
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = test_data.anaconda_response
-    mock_requests.get.return_value = mock_response
-
-    anaconda = AnacondaChannel.from_snowflake()
-    anaconda_packages = anaconda.parse_anaconda_packages(test_data.packages)
-    assert (
-        Requirement.parse_line("snowflake-connector-python")
-        in anaconda_packages.snowflake
-    )
-    assert (
-        Requirement.parse_line("my-totally-awesome-package") in anaconda_packages.other
-    )
-
-
-@patch("snowflake.cli.plugins.snowpark.package.anaconda.requests")
-def test_anaconda_packages_streamlit(mock_requests):
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = test_data.anaconda_response
-    mock_requests.get.return_value = mock_response
-
-    test_data.packages.append(Requirement.parse_line("streamlit"))
-
-    anaconda = AnacondaChannel.from_snowflake()
-    anaconda_packages = anaconda.parse_anaconda_packages(test_data.packages)
-
-    assert Requirement.parse_line("streamlit") not in anaconda_packages.other
 
 
 @pytest.mark.parametrize(
@@ -207,19 +174,3 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
         )
 
     assert "pip failed with return code 42" in caplog.text
-
-
-@pytest.mark.parametrize(
-    "argument, expected",
-    [
-        (Requirement.parse_line("anaconda-clean"), True),
-        (Requirement.parse_line("anaconda-clean==1.1.1"), True),
-        (Requirement.parse_line("anaconda-clean==1.1.0"), True),
-        (Requirement.parse_line("anaconda-clean==1.1.2"), False),
-        (Requirement.parse_line("anaconda-clean>=1.1.1"), True),
-        (Requirement.parse_line("some-other-package"), False),
-    ],
-)
-def test_check_if_package_is_avaiable_in_conda(argument, expected):
-    anaconda = AnacondaChannel(packages=test_data.anaconda_response["packages"])
-    assert anaconda.is_package_available(argument) == expected

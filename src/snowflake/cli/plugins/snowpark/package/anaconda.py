@@ -51,7 +51,7 @@ class AnacondaChannel:
                 parse(version) in package_specifiers
                 for version in self._packages[package_name]
             )
-        except InvalidVersion | InvalidRequirement:
+        except (InvalidVersion, InvalidRequirement):
             # fail-safe for non-pep508 formats
             return False
 
@@ -72,8 +72,8 @@ class AnacondaChannel:
             response.raise_for_status()
             return cls(
                 packages={
-                    package["name"]: {package["version"]}
-                    for package in response.json()["packages"].values()
+                    package.get("name", key): {package["version"]}
+                    for key, package in response.json()["packages"].items()
                 }
             )
         except HTTPError as err:
