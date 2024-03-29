@@ -28,11 +28,12 @@ class AnacondaChannel:
     )
 
     def __init__(self, packages: Dict[str, Set[str]]):
-        """[packages] should be a dictionary mapping package name to set of its available versions"""
-        self._packages = {
-            _standarize_name(package_name): versions
-            for package_name, versions in packages.items()
-        }
+        """
+        [packages] should be a dictionary mapping package name to set of its available versions.
+        All package names should be provided in wheel escape format:
+        https://peps.python.org/pep-0491/#escaping-and-unicode
+        """
+        self._packages = packages
 
     def is_package_available(
         self, package: Requirement, skip_version_check: bool = False
@@ -70,12 +71,12 @@ class AnacondaChannel:
         try:
             response = requests.get(AnacondaChannel.snowflake_channel_url)
             response.raise_for_status()
-            return cls(
-                packages={
-                    package.get("name", key): {package["version"]}
-                    for key, package in response.json()["packages"].items()
-                }
-            )
+            packages = {}
+            for key, package in response.json()["packages"].items():
+                standarized_name = _standarize_name(package.get("name", key))
+                packages[standarized_name] = {package["version"]}
+            return cls(packages)
+
         except HTTPError as err:
             raise ClickException(
                 f"Accessing Snowflake Anaconda channel failed. Reason {err}"

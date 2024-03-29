@@ -11,8 +11,8 @@ from tests.testing_utils.fixtures import TEST_DIR
 
 ANACONDA = AnacondaChannel(
     packages={
-        "SHRUBBERY": {"1.2.1", "1.2.2"},
-        "dummy-pkg": {"0.1.1", "1.0.0", "1.1.0"},
+        "shrubbery": {"1.2.1", "1.2.2"},
+        "dummy_pkg": {"0.1.1", "1.0.0", "1.1.0"},
         "jpeg": {"9e", "9d", "9b"},
     }
 )
@@ -81,21 +81,6 @@ def test_parse_anaconda_packages(mock_get):
 
 
 @patch("snowflake.cli.plugins.snowpark.package.anaconda.requests")
-def test_anaconda_packages_streamlit(mock_requests):
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = test_data.anaconda_response
-    mock_requests.get.return_value = mock_response
-
-    test_data.packages.append(Requirement.parse_line("streamlit"))
-
-    anaconda = AnacondaChannel.from_snowflake()
-    anaconda_packages = anaconda.parse_anaconda_packages(test_data.packages)
-
-    assert Requirement.parse_line("streamlit") not in anaconda_packages.other
-
-
-@patch("snowflake.cli.plugins.snowpark.package.anaconda.requests")
 def test_anaconda_packages(mock_requests):
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -103,6 +88,8 @@ def test_anaconda_packages(mock_requests):
     mock_requests.get.return_value = mock_response
 
     anaconda = AnacondaChannel.from_snowflake()
+    assert anaconda.is_package_available(Requirement.parse_line("streamlit"))
+
     anaconda_packages = anaconda.parse_anaconda_packages(test_data.packages)
     assert (
         Requirement.parse_line("snowflake-connector-python")
