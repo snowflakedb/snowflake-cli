@@ -111,12 +111,11 @@ def get_package_name_from_pip_wheel(package: str, index_url: str | None = None) 
             index_url=index_url,
             dependencies=False,
         )
-        if pip_result != 0:
-            raise ClickException(pip_failed_log_msg % pip_result)
         file_list = [
             f.path.name for f in tmp_dir.iterdir() if f.path.name.endswith(".whl")
         ]
-        if len(file_list) != 1:
+
+        if pip_result != 0 or len(file_list) != 1:
             # cannot determine package name
             return package
         return WheelMetadata.from_wheel(file_list[0]).name
