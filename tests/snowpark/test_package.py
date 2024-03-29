@@ -35,17 +35,22 @@ class TestPackage:
     @patch(
         "snowflake.cli.plugins.snowpark.package.commands.download_unavailable_packages"
     )
+    @patch(
+        "snowflake.cli.plugins.snowpark.package_utils.Venv.pip_wheel",
+    )
     @pytest.mark.parametrize(
         "extra_flags", [[], ["--skip-version-check"], ["--ignore-anaconda"]]
     )
     def test_package_create(
         self,
+        mock_pip_wheel,
         mock_download,
         caplog,
         temp_dir,
         runner,
         extra_flags,
     ) -> None:
+        mock_pip_wheel.return_value = 9
 
         mock_download.return_value = DownloadUnavailablePackagesResult(
             succeeded=True,
@@ -163,8 +168,11 @@ class TestPackage:
         "snowflake.cli.plugins.snowpark.package.commands.download_unavailable_packages"
     )
     @mock.patch("snowflake.cli.plugins.snowpark.package.commands.zip_dir")
+    @mock.patch(
+        "snowflake.cli.plugins.snowpark.package.commands.get_package_name_from_pip_wheel"
+    )
     def test_create_install_flag_are_deprecated(
-        self, _mock_zip, _mock_download, flags, runner
+        self, _mock_pip_wheel, _mock_zip, _mock_download, flags, runner
     ):
         result = runner.invoke(["snowpark", "package", "create", "foo", *flags])
         assert (
@@ -184,8 +192,11 @@ class TestPackage:
         "snowflake.cli.plugins.snowpark.package.commands.download_unavailable_packages"
     )
     @mock.patch("snowflake.cli.plugins.snowpark.package.commands.zip_dir")
+    @mock.patch(
+        "snowflake.cli.plugins.snowpark.package.commands.get_package_name_from_pip_wheel"
+    )
     def test_create_deprecated_flags_throw_warning(
-        self, _mock_zip, _mock_download, flags, runner
+        self, _mock_pip_wheel, _mock_zip, _mock_download, flags, runner
     ):
         result = runner.invoke(["snowpark", "package", "create", "foo", *flags])
         assert "is deprecated." in result.output
@@ -194,8 +205,11 @@ class TestPackage:
         "snowflake.cli.plugins.snowpark.package.commands.download_unavailable_packages"
     )
     @mock.patch("snowflake.cli.plugins.snowpark.package.commands.zip_dir")
+    @mock.patch(
+        "snowflake.cli.plugins.snowpark.package.commands.get_package_name_from_pip_wheel"
+    )
     def test_create_without_flags_does_not_warn(
-        self, _mock_zip, _mock_download, runner
+        self, _mock_pip_wheel, _mock_zip, _mock_download, runner
     ):
         result = runner.invoke(["snowpark", "package", "create", "foo"])
         assert "is deprecated" not in result.output

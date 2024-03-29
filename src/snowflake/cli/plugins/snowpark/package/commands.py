@@ -16,7 +16,6 @@ from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
     YesNoAsk,
-    get_package_name,
 )
 from snowflake.cli.plugins.snowpark.package.anaconda import (
     AnacondaChannel,
@@ -25,6 +24,7 @@ from snowflake.cli.plugins.snowpark.package.manager import upload
 from snowflake.cli.plugins.snowpark.package_utils import (
     detect_and_log_shared_libraries,
     download_unavailable_packages,
+    get_package_name_from_pip_wheel,
 )
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
@@ -205,15 +205,17 @@ def package_create(
                     "Try again with --allow-shared-libraries."
                 )
 
-        zip_file = f"{get_package_name(name)}.zip"
+        # The package is not in anaconda, so we have to pack it
+        # the package was downloaded once, pip wheel should use cache
+        zip_file = f"{get_package_name_from_pip_wheel(name, index_url=index_url)}.zip"
         zip_dir(dest_zip=Path(zip_file), source=packages_dir.path)
         message = dedent(
             f"""
-            Package {zip_file} created. You can now upload it to a stage using
-            snow snowpark package upload -f {zip_file} -s <stage-name>`
-            and reference it in your procedure or function.
-            Remember to add it to imports in the procedure or function definition.
-            """
+        Package {zip_file} created. You can now upload it to a stage using
+        snow snowpark package upload -f {zip_file} -s <stage-name>`
+        and reference it in your procedure or function.
+        Remember to add it to imports in the procedure or function definition.
+        """
         )
         if download_result.packages_available_in_anaconda:
             message += dedent(

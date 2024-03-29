@@ -69,13 +69,13 @@ class TestPackage:
         )
 
         assert result.exit_code == 0
-        assert Path("dummy-pkg-for-tests-with-deps.zip").is_file()
+        assert Path("dummy_pkg_for_tests_with_deps.zip").is_file()
         assert "dummy_pkg_for_tests/shrubbery.py" in self._get_filenames_from_zip(
-            "dummy-pkg-for-tests-with-deps.zip"
+            "dummy_pkg_for_tests_with_deps.zip"
         )
         assert (
             "dummy_pkg_for_tests_with_deps/shrubbery.py"
-            in self._get_filenames_from_zip("dummy-pkg-for-tests-with-deps.zip")
+            in self._get_filenames_from_zip("dummy_pkg_for_tests_with_deps.zip")
         )
 
     @pytest.mark.integration
@@ -174,9 +174,9 @@ class TestPackage:
         )
 
         assert result.exit_code == 0
-        assert Path("dummy-pkg-for-tests-with-deps.zip").exists()
+        assert Path("dummy_pkg_for_tests_with_deps.zip").exists()
 
-        files = self._get_filenames_from_zip("dummy-pkg-for-tests-with-deps.zip")
+        files = self._get_filenames_from_zip("dummy_pkg_for_tests_with_deps.zip")
 
         assert any(
             ["dummy_pkg_for_tests_with_deps-1.0.dist-info" in file for file in files]

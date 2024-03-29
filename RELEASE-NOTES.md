@@ -39,7 +39,7 @@
 * Adding `--pattern` flag to `stage list` command for filtering out results with regex.
 * Fixed snowpark build paths for builds with --project option (fixed empty zip issue).
 * More clear error messages in `snow snowpark build` command
-
+* Adding support for any source supported by `pip` in `snow snowpark`.
 
 # v2.1.2
 

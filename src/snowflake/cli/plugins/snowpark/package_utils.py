@@ -13,6 +13,7 @@ from snowflake.cli.plugins.snowpark.models import (
     Requirement,
     RequirementWithFiles,
     RequirementWithWheelAndDeps,
+    WheelMetadata,
 )
 from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 from snowflake.cli.plugins.snowpark.venv import Venv
@@ -75,6 +76,27 @@ def generate_deploy_stage_name(identifier: str) -> str:
     )
 
 
+def get_package_name_from_pip_wheel(package: str, index_url: str | None = None) -> str:
+    """Downloads the package using pip and returns the package name.
+    If the package name cannot be determined, it returns the [package]."""
+    with Venv() as v, SecurePath.temporary_directory() as tmp_dir:
+        pip_result = v.pip_wheel(
+            package_name=package,
+            requirements_file=None,
+            download_dir=tmp_dir.path,
+            index_url=index_url,
+            dependencies=False,
+        )
+        file_list = [
+            f.path.name for f in tmp_dir.iterdir() if f.path.name.endswith(".whl")
+        ]
+
+        if pip_result != 0 or len(file_list) != 1:
+            # cannot determine package name
+            return package
+        return WheelMetadata.from_wheel((tmp_dir / file_list[0]).path).name
+
+
 def _write_requirements_file(file_path: SecurePath, requirements: List[Requirement]):
     log.info("Writing %s file", file_path.path)
     with file_path.open("w", encoding="utf-8") as f:
@@ -134,7 +156,11 @@ def download_unavailable_packages(
         requirements_file = SecurePath(v.directory.name) / "requirements.txt"
         _write_requirements_file(requirements_file, requirements)  # type: ignore
         pip_wheel_result = v.pip_wheel(
-            requirements_file.path, download_dir=downloads_dir.path, index_url=pip_index_url  # type: ignore
+            package_name=None,
+            requirements_file=requirements_file.path,  # type: ignore
+            download_dir=downloads_dir.path,
+            index_url=pip_index_url,
+            dependencies=True,
         )
         if pip_wheel_result != 0:
             log.info(_pip_failed_log_msg(pip_wheel_result))
