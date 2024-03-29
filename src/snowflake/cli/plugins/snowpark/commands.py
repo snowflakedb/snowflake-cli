@@ -373,6 +373,7 @@ def build(
             )
             if not download_result.succeeded:
                 raise ClickException(download_result.error_message)
+
             log.info("Checking to see if packages have shared (.so/.dll) libraries...")
             if package_utils.detect_and_log_shared_libraries(
                 download_result.downloaded_packages_details
