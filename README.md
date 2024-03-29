@@ -25,7 +25,7 @@ Requires [Homebrew](https://brew.sh/).
 
 ```bash
 brew tap Snowflake-Labs/snowflake-cli
-brew install snowcli
+brew install snowflake-cli
 snow --help
 ```
 
@@ -34,8 +34,8 @@ snow --help
 Requires Python >= 3.8 and git
 
 ```bash
-git clone https://github.com/snowflake-labs/snowcli
-cd snowcli
+git clone https://github.com/snowflakedb/snowflake-cli
+cd snowflake-cli
 # you can also do the below in an active virtual environment:
 # python -m venv .venv
 # source .venv/bin/activate
