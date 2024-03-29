@@ -321,7 +321,7 @@ deprecated_pypi_download_option = typer.Option(
     hidden=True,
     callback=deprecated_flag_callback_enum(
         "--pypi-download flag is deprecated. Snowpark build command"
-        " always tries to download non-Anaconda packages from PyPi."
+        " always tries to download non-Anaconda packages from external index (PyPi by default)."
     ),
 )
 
