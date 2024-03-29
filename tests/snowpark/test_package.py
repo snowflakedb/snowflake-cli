@@ -58,11 +58,15 @@ class TestPackage:
     @patch(
         "snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel.from_snowflake"
     )
+    @patch(
+        "snowflake.cli.plugins.snowpark.package_utils.Venv.pip_wheel",
+    )
     @pytest.mark.parametrize(
         "extra_flags", [[], ["--skip-version-check"], ["--ignore-anaconda"]]
     )
     def test_package_create(
         self,
+        mock_pip_wheel,
         mock_anaconda_from_snowflake,
         mock_download,
         caplog,
@@ -71,6 +75,8 @@ class TestPackage:
         runner,
         extra_flags,
     ) -> None:
+
+        mock_pip_wheel.return_value = 9
 
         mock_anaconda = MagicMock(name="anaconda")
         mock_anaconda.is_package_available.return_value = False
@@ -213,7 +219,12 @@ class TestPackage:
     @mock.patch(
         "snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel.from_snowflake"
     )
-    def test_create_install_flag_are_deprecated(self, _, flags, runner):
+    @mock.patch(
+        "snowflake.cli.plugins.snowpark.package.commands.get_package_name_from_pip_wheel"
+    )
+    def test_create_install_flag_are_deprecated(
+        self, _mock_get_name, _mock_anaconda, flags, runner
+    ):
         result = runner.invoke(["snowpark", "package", "create", "foo", *flags])
         assert (
             "is deprecated. Create command always checks for package in PyPi."
@@ -231,14 +242,24 @@ class TestPackage:
     @mock.patch(
         "snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel.from_snowflake"
     )
-    def test_create_deprecated_flags_throw_warning(self, _, flags, runner):
+    @mock.patch(
+        "snowflake.cli.plugins.snowpark.package.commands.get_package_name_from_pip_wheel"
+    )
+    def test_create_deprecated_flags_throw_warning(
+        self, _mock_get_name, _mock_anaconda, flags, runner
+    ):
         result = runner.invoke(["snowpark", "package", "create", "foo", *flags])
         assert "is deprecated." in result.output
 
     @mock.patch(
         "snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel.from_snowflake"
     )
-    def test_create_with_out_flags_does_not_warn(self, _, runner):
+    @mock.patch(
+        "snowflake.cli.plugins.snowpark.package.commands.get_package_name_from_pip_wheel"
+    )
+    def test_create_with_out_flags_does_not_warn(
+        self, _mock_get_name, _mock_anaconda, runner
+    ):
         result = runner.invoke(["snowpark", "package", "create", "foo"])
         assert "is deprecated" not in result.output
 

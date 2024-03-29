@@ -25,7 +25,10 @@ from snowflake.cli.plugins.snowpark.package.manager import (
     create_packages_zip,
     upload,
 )
-from snowflake.cli.plugins.snowpark.package_utils import download_packages
+from snowflake.cli.plugins.snowpark.package_utils import (
+    download_packages,
+    get_package_name_from_pip_wheel,
+)
 
 app = SnowTyper(
     name="package",
@@ -238,7 +241,10 @@ def package_create(
         )
 
     # The package is not in anaconda, so we have to pack it
-    zip_file = create_packages_zip(name)
+    zip_file = create_packages_zip(
+        # the package was downloaded once, pip wheel should use cache
+        get_package_name_from_pip_wheel(name, index_url=index_url)
+    )
     message = dedent(
         f"""
         Package {zip_file} created. You can now upload it to a stage using
