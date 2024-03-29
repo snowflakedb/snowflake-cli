@@ -9,7 +9,7 @@ import venv
 from enum import Enum
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
@@ -60,10 +60,23 @@ class Venv:
         process = self.run_python(["-m", "pip", "install", "-r", requirements_file])
         return process.returncode
 
-    def pip_wheel(self, requirements_file, download_dir, index_url):
-        command = ["-m", "pip", "wheel", "-r", requirements_file, "-w", download_dir]
+    def pip_wheel(
+        self,
+        requirements_file: Optional[str],
+        package_name: Optional[str],
+        download_dir: Path,
+        index_url: Optional[str],
+        dependencies: bool = True,
+    ):
+        command = ["-m", "pip", "wheel", "-w", download_dir]
+        if package_name:
+            command.append(package_name)
+        if requirements_file:
+            command += ["-r", requirements_file]
         if index_url is not None:
             command += ["-i", index_url]
+        if not dependencies:
+            command += ["--no-deps"]
         process = self.run_python(command)
         return process.returncode
 
