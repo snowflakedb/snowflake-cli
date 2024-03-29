@@ -13,7 +13,6 @@ from snowflake.cli.plugins.snowpark.models import (
     Requirement,
     RequirementWithFiles,
     RequirementWithWheelAndDeps,
-    YesNoAsk,
 )
 from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 from snowflake.cli.plugins.snowpark.venv import Venv
@@ -103,7 +102,6 @@ def download_unavailable_packages(
     skip_version_check: bool = False,
     # pip lookup specs
     pip_index_url: str | None = None,
-    allow_shared_libraries: YesNoAsk = YesNoAsk.ASK,
 ) -> DownloadUnavailablePackagesResult:
     """Download packages unavailable on Snowflake Anaconda Channel to target directory.
     If [ignore_anaconda] is set to True, all packages from [requirements] will be downloaded.

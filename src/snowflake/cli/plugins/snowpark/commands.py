@@ -351,14 +351,6 @@ def build(
     """
     if not deprecated_check_anaconda_for_pypi_deps:
         ignore_anaconda = True
-    # TODO: yes/no/ask logic should be removed in 3.0
-    allow_shared_libraries_yesnoask = {
-        True: YesNoAsk.YES,
-        False: YesNoAsk.NO,
-    }[allow_shared_libraries]
-    if deprecated_package_native_libraries != YesNoAsk.NO:
-        allow_shared_libraries_yesnoask = deprecated_package_native_libraries
-
     snowpark_paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
         snowpark_project_definition=cli_context.project_definition,
@@ -378,7 +370,6 @@ def build(
                 ignore_anaconda=ignore_anaconda,
                 skip_version_check=skip_version_check,
                 pip_index_url=index_url,
-                allow_shared_libraries=allow_shared_libraries_yesnoask,
             )
             if not download_result.succeeded:
                 raise ClickException(download_result.error_message)
@@ -386,8 +377,12 @@ def build(
             if package_utils.detect_and_log_shared_libraries(
                 download_result.downloaded_packages_details
             ):
-                if not resolve_allow_shared_libraries_yes_no_ask(
-                    allow_shared_libraries_yesnoask
+                # TODO: yes/no/ask logic should be removed in 3.0
+                if not (
+                    allow_shared_libraries
+                    or resolve_allow_shared_libraries_yes_no_ask(
+                        deprecated_package_native_libraries
+                    )
                 ):
                     raise ClickException(
                         "Some packages contain shared (.so/.dll) libraries. "

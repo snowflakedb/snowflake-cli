@@ -168,21 +168,12 @@ def package_create(
     """
     Creates a Python package as a zip file that can be uploaded to a stage and imported for a Snowpark Python app.
     """
-    # TODO: yes/no/ask logic should be removed in 3.0
-    allow_shared_libraries_yesnoask = {
-        True: YesNoAsk.YES,
-        False: YesNoAsk.NO,
-    }[allow_shared_libraries]
-    if deprecated_allow_native_libraries != YesNoAsk.NO:
-        allow_shared_libraries_yesnoask = deprecated_allow_native_libraries
-
     with SecurePath.temporary_directory() as packages_dir:
         package = Requirement.parse(name)
         download_result = download_unavailable_packages(
             requirements=[package],
             target_dir=packages_dir,
             ignore_anaconda=ignore_anaconda,
-            allow_shared_libraries=allow_shared_libraries_yesnoask,
             skip_version_check=skip_version_check,
             pip_index_url=index_url,
         )
@@ -202,8 +193,12 @@ def package_create(
         # The package is not in anaconda, so we have to pack it
         log.info("Checking to see if packages have shared (.so/.dll) libraries...")
         if detect_and_log_shared_libraries(download_result.downloaded_packages_details):
-            if not resolve_allow_shared_libraries_yes_no_ask(
-                allow_shared_libraries_yesnoask
+            # TODO: yes/no/ask logic should be removed in 3.0
+            if not (
+                allow_shared_libraries
+                or resolve_allow_shared_libraries_yes_no_ask(
+                    deprecated_allow_native_libraries
+                )
             ):
                 raise ClickException(
                     "Some packages contain shared (.so/.dll) libraries. "
