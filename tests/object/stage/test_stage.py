@@ -4,6 +4,7 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.plugins.object.stage.manager import StageManager
+from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
 STAGE_MANAGER = "snowflake.cli.plugins.object.stage.manager.StageManager"
@@ -652,3 +653,178 @@ def test_stage_internal_put_quoted_path(
             mock.call("use role old_role"),
         ]
         assert mock_execute.mock_calls == expected
+
+
+@pytest.mark.parametrize(
+    "stage_path, expected_files",
+    [
+        ("@exe", ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe", ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe/", ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe/*", ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe/*.sql", ["exe/s1.sql", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe/a", ["exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe/a/", ["exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe/a/*", ["exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe/a/*.sql", ["exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe/a/b", ["exe/a/b/s4.sql"]),
+        ("exe/a/b/", ["exe/a/b/s4.sql"]),
+        ("exe/a/b/*", ["exe/a/b/s4.sql"]),
+        ("exe/a/b/*.sql", ["exe/a/b/s4.sql"]),
+        ("exe/s?.sql", ["exe/s1.sql"]),
+        ("exe/s1.sql", ["exe/s1.sql"]),
+        ("exe/s2", ["exe/s2"]),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_execute(mock_execute, mock_cursor, runner, stage_path, expected_files):
+    mock_execute.return_value = mock_cursor(
+        [
+            {"name": "exe/a/s3.sql"},
+            {"name": "exe/a/b/s4.sql"},
+            {"name": "exe/s1.sql"},
+            {"name": "exe/s2"},
+        ],
+        [],
+    )
+
+    result = runner.invoke(["object", "stage", "execute", stage_path])
+
+    assert result.exit_code == 0, result.output
+    ls_call, *execute_calls = mock_execute.mock_calls
+    assert ls_call == mock.call(f"ls @exe", cursor_class=DictCursor)
+    assert execute_calls == [
+        mock.call(f"execute immediate from @{p}") for p in expected_files
+    ]
+
+
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_execute_with_parameters(mock_execute, mock_cursor, runner):
+    mock_execute.return_value = mock_cursor([{"name": "exe/s1.sql"}], [])
+
+    result = runner.invoke(
+        [
+            "object",
+            "stage",
+            "execute",
+            "@exe",
+            "--parameters",
+            "key1='string'",
+            "--parameters",
+            "key2=1",
+            "--parameters",
+            "key3=TRUE",
+            "--parameters",
+            "key4=NULL",
+        ]
+    )
+
+    assert result.exit_code == 0
+    assert mock_execute.mock_calls == [
+        mock.call("ls @exe", cursor_class=DictCursor),
+        mock.call(
+            f"execute immediate from @exe/s1.sql using (key1=>'string', key2=>1, key3=>TRUE, key4=>NULL)"
+        ),
+    ]
+
+
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_execute_not_existing_stage(mock_execute, mock_cursor, runner):
+    stage_name = "not_existing_stage"
+    mock_execute.side_effect = [
+        ProgrammingError(f"Stage '{stage_name}' does not exist or not authorized.")
+    ]
+
+    with pytest.raises(ProgrammingError) as e:
+        runner.invoke(["object", "stage", "execute", stage_name])
+
+    assert mock_execute.mock_calls == [
+        mock.call(f"ls @{stage_name}", cursor_class=DictCursor)
+    ]
+    assert e.value.msg == f"Stage '{stage_name}' does not exist or not authorized."
+
+
+@pytest.mark.parametrize(
+    "stage_path,expected_message",
+    [
+        ("exe/*.txt", "No files matched pattern 'exe/*.txt'"),
+        ("exe/directory", "No files matched pattern 'exe/directory'"),
+        ("exe/some_file.sql", "No files matched pattern 'exe/some_file.sql'"),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_execute_no_files_for_stage_path(
+    mock_execute, mock_cursor, runner, snapshot, stage_path, expected_message
+):
+    mock_execute.return_value = mock_cursor(
+        [
+            {"name": "exe/a/s3.sql"},
+            {"name": "exe/a/b/s4.sql"},
+            {"name": "exe/s1.sql"},
+        ],
+        [],
+    )
+
+    result = runner.invoke(
+        ["object", "stage", "execute", stage_path, "--on-error", "continue"]
+    )
+
+    assert result.exit_code == 1
+    assert result.output == snapshot
+
+
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_execute_stop_on_error(mock_execute, mock_cursor, runner):
+    error_message = "Error"
+    mock_execute.side_effect = [
+        mock_cursor(
+            [
+                {"name": "exe/s1.sql"},
+                {"name": "exe/s2.sql"},
+                {"name": "exe/s3.sql"},
+            ],
+            [],
+        ),
+        mock_cursor([{"1": 1}], []),
+        ProgrammingError(error_message),
+    ]
+
+    with pytest.raises(ProgrammingError) as e:
+        runner.invoke(["object", "stage", "execute", "exe"])
+
+    assert mock_execute.mock_calls == [
+        mock.call("ls @exe", cursor_class=DictCursor),
+        mock.call(f"execute immediate from @exe/s1.sql"),
+        mock.call(f"execute immediate from @exe/s2.sql"),
+    ]
+    assert e.value.msg == error_message
+
+
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_execute_continue_on_error(mock_execute, mock_cursor, runner, snapshot):
+    mock_execute.side_effect = [
+        mock_cursor(
+            [
+                {"name": "exe/s1.sql"},
+                {"name": "exe/s2.sql"},
+                {"name": "exe/s3.sql"},
+            ],
+            [],
+        ),
+        mock_cursor([{"1": 1}], []),
+        ProgrammingError("Error"),
+        mock_cursor([{"3": 3}], []),
+    ]
+
+    result = runner.invoke(
+        ["object", "stage", "execute", "exe", "--on-error", "continue"]
+    )
+
+    assert result.exit_code == 0
+    assert result.output == snapshot
+    assert mock_execute.mock_calls == [
+        mock.call("ls @exe", cursor_class=DictCursor),
+        mock.call(f"execute immediate from @exe/s1.sql"),
+        mock.call(f"execute immediate from @exe/s2.sql"),
+        mock.call(f"execute immediate from @exe/s3.sql"),
+    ]

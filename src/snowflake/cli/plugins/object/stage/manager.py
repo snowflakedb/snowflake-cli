@@ -1,22 +1,33 @@
 from __future__ import annotations
 
+import fnmatch
 import logging
 import re
 from contextlib import nullcontext
+from enum import Enum
+from functools import cmp_to_key
+from glob import has_magic
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
+from click import ClickException
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.utils.path_utils import path_resolver
-from snowflake.connector import DictCursor
+from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
 
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
+
+
+class OnErrorType(Enum):
+    BREAK = "break"
+    CONTINUE = "continue"
 
 
 class StageManager(SqlExecutionMixin):
@@ -164,3 +175,97 @@ class StageManager(SqlExecutionMixin):
     def iter_stage(self, stage_path: str):
         for file in self.list_files(stage_path).fetchall():
             yield file["name"]
+
+    def execute(
+        self,
+        stage_path: str,
+        on_error: OnErrorType,
+        parameters: Optional[List[str]] = None,
+    ):
+        files_list = self._get_files_list_from_stage(stage_path)
+        filtered_list = self._filter_files_list(stage_path, files_list)
+        sorted_list = sorted(
+            filtered_list, key=cmp_to_key(self._stage_files_comparator)
+        )
+
+        sql_parameters = self._parse_execute_parameters(parameters)
+        results = []
+        for file in sorted_list:
+            results.append(self._call_execute_immediate(file, sql_parameters, on_error))
+
+        return results
+
+    def _get_files_list_from_stage(self, stage_path: str) -> List[str]:
+        stage_name = stage_path.split("/")[0]
+        files_list_result = self.list_files(stage_name).fetchall()
+
+        if len(files_list_result) == 0:
+            raise ClickException(f"No files found on stage '{stage_name}'")
+
+        return [f["name"] for f in files_list_result]
+
+    def _filter_files_list(
+        self, stage_path: str, files_on_stage: List[str]
+    ) -> List[str]:
+        if stage_path.startswith("@"):
+            stage_path = stage_path[1:]
+
+        if not stage_path.__contains__("/"):
+            filtered_list = files_on_stage
+        elif has_magic(stage_path):
+            filtered_list = fnmatch.filter(files_on_stage, stage_path)
+        else:
+            if files_on_stage.__contains__(stage_path):
+                filtered_list = [stage_path]
+            else:
+                filtered_list = fnmatch.filter(files_on_stage, f"{stage_path}*")
+
+        if len(filtered_list) == 0:
+            raise ClickException(f"No files matched pattern '{stage_path}'")
+
+        return filtered_list
+
+    def _stage_files_comparator(self, o1, o2):
+        o1_directories = o1.count("/")
+        o2_directories = o2.count("/")
+
+        if o1_directories > o2_directories:
+            return 1
+        elif o1_directories < o2_directories:
+            return -1
+        else:
+            if o1 >= o2:
+                return 1
+            else:
+                return -1
+
+    def _parse_execute_parameters(
+        self, parameters: Optional[List[str]]
+    ) -> Optional[str]:
+        if not parameters:
+            return None
+
+        query_parameters = []
+        for p in parameters:
+            key, value = p.split("=")
+            query_parameters.append(f"{key.strip()}=>{value.strip()}")
+        return f" using ({', '.join(query_parameters)})"
+
+    def _call_execute_immediate(
+        self, file: str, parameters: Optional[str], on_error: OnErrorType
+    ) -> Dict:
+        try:
+            stage_path_prefixed = self.get_standard_stage_prefix(file)
+            query = (
+                f"execute immediate from {self.quote_stage_name(stage_path_prefixed)}"
+            )
+            if parameters:
+                query += parameters
+            self._execute_query(query)
+            cli_console.step(f"{file} - SUCCESS")
+            return {"File": file, "Status": "SUCCESS", "Error": None}
+        except ProgrammingError as e:
+            cli_console.warning(f"{file} - FAILURE")
+            if on_error == OnErrorType.BREAK:
+                raise e
+            return {"File": file, "Status": "FAILURE", "Error": e.msg}

@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 from os import path
 from pathlib import Path
+from typing import List, Optional
 
 import click
 import typer
@@ -18,7 +19,7 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.utils.path_utils import is_stage_path
 from snowflake.cli.plugins.object.stage.diff import DiffResult
-from snowflake.cli.plugins.object.stage.manager import StageManager
+from snowflake.cli.plugins.object.stage.manager import OnErrorType, StageManager
 
 app = SnowTyper(
     name="stage",
@@ -127,6 +128,29 @@ def stage_diff(
     """
     diff: DiffResult = stage_diff(Path(folder_name), stage_name)
     return ObjectResult(str(diff))
+
+
+@app.command("execute", requires_connection=True)
+def execute(
+    stage_path: str = typer.Argument(
+        None, help="Execute immediate all files from the path."
+    ),
+    on_error: OnErrorType = typer.Option(
+        OnErrorType.BREAK.value,
+        "--on-error",
+        help="what to do when an error occurs. Defaults to break.",
+    ),
+    parameters: Optional[List[str]] = typer.Option(
+        None,
+        help='Parameters for the template. For example: `--parameters "<key>=<value>"`, string values should be in single quotes.',
+    ),
+    **options,
+):
+    """
+    Execute immediate all files from the stage path.
+    """
+    results = StageManager().execute(stage_path, on_error, parameters)
+    return CollectionResult(results)
 
 
 def _get(recursive: bool, source_path: str, destination_path: str, parallel: int):
