@@ -12,14 +12,9 @@ from requests import HTTPError
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
     SplitRequirements,
-    WheelMetadata,
 )
 
 log = logging.getLogger(__name__)
-
-
-def _standarize_name(name: str) -> str:
-    return WheelMetadata.to_wheel_name_format(name.lower())
 
 
 class AnacondaChannel:
@@ -40,8 +35,7 @@ class AnacondaChannel:
     ) -> bool:
         if not package.name:
             return False
-        package_name = _standarize_name(package.name)
-        if package_name not in self._packages:
+        if package.name not in self._packages:
             return False
         if skip_version_check or not package.specs:
             return True
@@ -50,20 +44,19 @@ class AnacondaChannel:
             package_specifiers = PkgRequirement(package.line).specifier
             return any(
                 parse(version) in package_specifiers
-                for version in self._packages[package_name]
+                for version in self._packages[package.name]
             )
         except (InvalidVersion, InvalidRequirement):
             # fail-safe for non-pep508 formats
             return False
 
     def package_latest_version(self, package: Requirement) -> str | None:
-        package_name = _standarize_name(package.name)
-        if package_name not in self._packages:
+        if package.name not in self._packages:
             return None
         try:
-            versions = {parse(v) for v in self._packages[package_name]}
+            versions = {parse(v) for v in self._packages[package.name]}
         except InvalidVersion:
-            versions = self._packages[package_name]
+            versions = self._packages[package.name]
         return str(max(versions))
 
     @classmethod
@@ -73,8 +66,7 @@ class AnacondaChannel:
             response.raise_for_status()
             packages = {}
             for key, package in response.json()["packages"].items():
-                standarized_name = _standarize_name(package.get("name", key))
-                packages[standarized_name] = {package["version"]}
+                packages[package.get("name", key)] = {package["version"]}
             return cls(packages)
 
         except HTTPError as err:

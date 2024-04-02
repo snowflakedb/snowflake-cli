@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 import os
+import re
 from textwrap import dedent
 from typing import List
 
@@ -32,37 +33,17 @@ def parse_requirements(
         Defaults to 'requirements.txt'.
 
     Returns:
-        list[str]: A flat list of package names, without versions
+        list[Requirement]: A flat list of necessary packages
     """
-
-    reqs: List[Requirement] = []
+    reqs = []
     if requirements_file.exists():
         for line in requirements_file.read_text(
             file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB
         ).splitlines():
-            # remove comments
-            line = line.split("#")[0].strip()
+            line = re.sub("\s*#.*", "", line).strip()
             if line:
-                reqs.append(Requirement.parse_line(line))
-    else:
-        log.info("No %s found", requirements_file.path)
-
+                reqs.append(Requirement.parse(line))
     return reqs
-
-
-def get_snowflake_packages() -> List[str]:
-    requirements_file = SecurePath("requirements.snowflake.txt")
-    if requirements_file.exists():
-        with requirements_file.open(
-            "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
-        ) as f:
-            return [
-                Requirement.parse(req).to_name_and_version()
-                for line in f
-                if (req := line.split("#")[0].strip())
-            ]
-    else:
-        return []
 
 
 def generate_deploy_stage_name(identifier: str) -> str:

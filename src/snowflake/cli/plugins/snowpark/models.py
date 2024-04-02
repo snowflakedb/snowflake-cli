@@ -16,6 +16,10 @@ class YesNoAsk(Enum):
     ASK = "ask"
 
 
+def _standarize_name(name: str) -> str:
+    return WheelMetadata.to_wheel_name_format(name.lower())
+
+
 class Requirement(requirement.Requirement):
     extra_pattern = re.compile("'([^']*)'")
 
@@ -32,12 +36,9 @@ class Requirement(requirement.Requirement):
 
         if result.uri and not result.name:
             result.name = get_package_name(result.uri)
+        result.name = _standarize_name(result.name)
 
         return result
-
-    @classmethod
-    def _look_for_specifier(cls, specifier: str, line: str):
-        return re.search(cls.specifier_pattern.format(specifier), line)
 
     def to_name_and_version(self):
         return f"{self.name}{','.join(spec[0] + spec[1] for spec in self.specs)}"

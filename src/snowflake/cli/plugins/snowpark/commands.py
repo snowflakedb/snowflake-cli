@@ -42,7 +42,9 @@ from snowflake.cli.plugins.snowpark.common import (
 )
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
 from snowflake.cli.plugins.snowpark.models import Requirement, YesNoAsk
-from snowflake.cli.plugins.snowpark.package_utils import get_snowflake_packages
+from snowflake.cli.plugins.snowpark.package_utils import (
+    parse_requirements,
+)
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
@@ -130,7 +132,7 @@ def deploy(
         stage_name=stage_name, comment="deployments managed by Snowflake CLI"
     )
 
-    packages = get_snowflake_packages()
+    packages = parse_requirements(paths.snowflake_requirements_file)
 
     artifact_stage_directory = get_app_stage_path(stage_name, snowpark.project_name)
     artifact_stage_target = (
@@ -251,7 +253,7 @@ def _deploy_single_object(
     object_type: ObjectType,
     object_definition: Callable,
     existing_objects: Dict[str, Dict],
-    packages: List[str],
+    packages: List[Requirement],
     stage_artifact_path: str,
     source_name: str,
 ):
@@ -294,7 +296,7 @@ def _deploy_single_object(
         "handler": handler,
         "return_type": returns,
         "artifact_file": stage_artifact_path,
-        "packages": packages,
+        "packages": [p.to_name_and_version() for p in packages],
         "runtime": object_definition.runtime,
         "external_access_integrations": object_definition.external_access_integrations,
         "secrets": object_definition.secrets,
