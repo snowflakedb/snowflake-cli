@@ -217,6 +217,34 @@ PrivateKeyPathOption = typer.Option(
     dir_okay=False,
 )
 
+SessionTokenOption = typer.Option(  # TODO: Review
+    None,
+    "--session-token",
+    help="Snowflake session token. Overrides the value specified for the connection.",
+    hide_input=True,
+    callback=_callback(
+        lambda: cli_context_manager.connection_context.set_session_token
+    ),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+    exists=True,
+    file_okay=True,
+    dir_okay=False,
+)
+
+MasterTokenOption = typer.Option(  # TODO: Review
+    None,
+    "--master-token",
+    help="Snowflake master token. Overrides the value specified for the connection.",
+    hide_input=True,
+    callback=_callback(lambda: cli_context_manager.connection_context.set_master_token),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+    exists=True,
+    file_okay=True,
+    dir_okay=False,
+)
+
 DatabaseOption = typer.Option(
     None,
     "--database",
