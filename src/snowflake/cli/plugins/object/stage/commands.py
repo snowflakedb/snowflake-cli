@@ -133,12 +133,13 @@ def stage_diff(
 @app.command("execute", requires_connection=True)
 def execute(
     stage_path: str = typer.Argument(
-        None, help="Execute immediate all files from the path."
+        None,
+        help="Execute immediate all files from the path. Files can be filtered with glob like pattern, e.g. `@stage/**/*.sql`.",
     ),
     on_error: OnErrorType = typer.Option(
         OnErrorType.BREAK.value,
         "--on-error",
-        help="what to do when an error occurs. Defaults to break.",
+        help="What to do when an error occurs. Defaults to break.",
     ),
     parameters: Optional[List[str]] = typer.Option(
         None,

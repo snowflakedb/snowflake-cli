@@ -130,7 +130,7 @@ def test_stage_get_recursive(
     ]
 
 
-# @pytest.mark.integration
+@pytest.mark.integration
 def test_stage_execute(runner, test_database, test_root_path, snapshot):
     project_path = test_root_path / "test_data/projects/stage_execute"
     stage_name = "test_stage_execute"
@@ -168,7 +168,7 @@ def test_stage_execute(runner, test_database, test_root_path, snapshot):
     assert result.json == snapshot
 
     #
-    # Templating is not available yet
+    # Templating is not available yet, unable to test
     #
     # result = runner.invoke_with_connection_json(
     #     ["object", "stage", "copy", f"{project_path}/script_template.sql", f"@{stage_name}/"]

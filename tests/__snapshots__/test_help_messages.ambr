@@ -1865,10 +1865,12 @@
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │   stage_path      [STAGE_PATH]  Execute immediate all files from the path.   │
+  │                                 Files can be filtered with glob like         │
+  │                                 pattern, e.g. `@stage/**/*.sql`.             │
   │                                 [default: None]                              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --on-error            [break|continue]  what to do when an error occurs.     │
+  │ --on-error            [break|continue]  What to do when an error occurs.     │
   │                                         Defaults to break.                   │
   │                                         [default: break]                     │
   │ --parameters          TEXT              Parameters for the template. For     │

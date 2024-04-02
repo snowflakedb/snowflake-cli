@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import fnmatch
+import glob
 import logging
 import re
 from contextlib import nullcontext
 from enum import Enum
 from functools import cmp_to_key
-from glob import has_magic
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
@@ -65,6 +65,12 @@ class StageManager(SqlExecutionMixin):
             return to_string_literal(standard_name)
 
         return standard_name
+
+    @staticmethod
+    def remove_stage_prefix(stage_path: str) -> str:
+        if stage_path.startswith("@"):
+            return stage_path[1:]
+        return stage_path
 
     def _to_uri(self, local_path: str):
         uri = f"file://{local_path}"
@@ -182,21 +188,23 @@ class StageManager(SqlExecutionMixin):
         on_error: OnErrorType,
         parameters: Optional[List[str]] = None,
     ):
-        files_list = self._get_files_list_from_stage(stage_path)
-        filtered_list = self._filter_files_list(stage_path, files_list)
-        sorted_list = sorted(
-            filtered_list, key=cmp_to_key(self._stage_files_comparator)
+        all_files_list = self._get_files_list_from_stage(stage_path)
+        # filter files from stage if match stage_path pattern
+        filtered_file_list = self._filter_files_list(stage_path, all_files_list)
+        # sort filtered files in alphabetical order with directories at the end
+        sorted_file_list = sorted(
+            filtered_file_list, key=cmp_to_key(self._stage_files_comparator)
         )
 
         sql_parameters = self._parse_execute_parameters(parameters)
         results = []
-        for file in sorted_list:
+        for file in sorted_file_list:
             results.append(self._call_execute_immediate(file, sql_parameters, on_error))
 
         return results
 
     def _get_files_list_from_stage(self, stage_path: str) -> List[str]:
-        stage_name = stage_path.split("/")[0]
+        stage_name = self.get_stage_name_from_path(stage_path)
         files_list_result = self.list_files(stage_name).fetchall()
 
         if len(files_list_result) == 0:
@@ -207,37 +215,34 @@ class StageManager(SqlExecutionMixin):
     def _filter_files_list(
         self, stage_path: str, files_on_stage: List[str]
     ) -> List[str]:
-        if stage_path.startswith("@"):
-            stage_path = stage_path[1:]
+        stage_path = self.remove_stage_prefix(stage_path)
 
         if not stage_path.__contains__("/"):
             filtered_list = files_on_stage
-        elif has_magic(stage_path):
+        elif glob.has_magic(stage_path):
             filtered_list = fnmatch.filter(files_on_stage, stage_path)
+        elif files_on_stage.__contains__(stage_path):
+            filtered_list = [stage_path]
         else:
-            if files_on_stage.__contains__(stage_path):
-                filtered_list = [stage_path]
-            else:
-                filtered_list = fnmatch.filter(files_on_stage, f"{stage_path}*")
+            filtered_list = fnmatch.filter(files_on_stage, f"{stage_path}*")
 
-        if len(filtered_list) == 0:
+        if not filtered_list:
             raise ClickException(f"No files matched pattern '{stage_path}'")
 
         return filtered_list
 
-    def _stage_files_comparator(self, o1, o2):
-        o1_directories = o1.count("/")
-        o2_directories = o2.count("/")
+    def _stage_files_comparator(self, file_path_1, file_path_2):
+        file_path_1_directories = file_path_1.count("/")
+        file_path_2_directories = file_path_2.count("/")
 
-        if o1_directories > o2_directories:
+        if file_path_1_directories > file_path_2_directories:
             return 1
-        elif o1_directories < o2_directories:
+        elif file_path_1_directories < file_path_2_directories:
             return -1
+        elif file_path_1 >= file_path_2:
+            return 1
         else:
-            if o1 >= o2:
-                return 1
-            else:
-                return -1
+            return -1
 
     def _parse_execute_parameters(
         self, parameters: Optional[List[str]]
