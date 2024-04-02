@@ -71,13 +71,6 @@ def correct_requirements_snowflake_txt(temp_dir) -> Generator:
     os.remove(req_txt)
 
 
-@pytest.fixture
-def dot_packages_directory(temp_dir):
-    dir_path = ".packages/totally-awesome-package"
-    os.makedirs(dir_path)
-    create_named_file("totally-awesome-module.py", dir_path, [])
-
-
 @pytest.fixture()
 def mock_ctx(mock_cursor):
     yield lambda cursor=mock_cursor(["row"], []): MockConnectionCtx(cursor)
