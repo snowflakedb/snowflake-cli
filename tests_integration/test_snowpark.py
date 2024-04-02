@@ -11,6 +11,9 @@ from tests_integration.testing_utils import (
 from tests_integration.testing_utils.snowpark_utils import (
     SnowparkTestSetup,
 )
+from typing import List
+from zipfile import ZipFile
+
 
 STAGE_NAME = "dev_deployment"
 
@@ -275,17 +278,12 @@ def test_snowpark_with_single_dependency_having_no_other_deps(
             [
                 "snowpark",
                 "build",
-                "--pypi-download",
-                "yes",
                 "--check-anaconda-for-pypi-deps",
             ]
         )
         assert result.exit_code == 0
 
-        packages_dir = Path(".packages")
-
-        assert packages_dir.exists()
-        assert (packages_dir / "dummy_pkg_for_tests").exists()
+        assert "dummy_pkg_for_tests/shrubbery.py" in ZipFile("app.zip").namelist()
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
@@ -313,18 +311,14 @@ def test_snowpark_with_single_requirement_having_transient_deps(
             [
                 "snowpark",
                 "build",
-                "--pypi-download",
-                "yes",
                 "--check-anaconda-for-pypi-deps",
             ]
         )
         assert result.exit_code == 0
 
-        packages_dir = Path(".packages")
-
-        assert packages_dir.exists()
-        assert (packages_dir / "dummy_pkg_for_tests_with_deps").exists()
-        assert (packages_dir / "dummy_pkg_for_tests").exists()  # as transient dep
+        files = ZipFile("app.zip").namelist()
+        assert "dummy_pkg_for_tests_with_deps/shrubbery.py" in files
+        assert "dummy_pkg_for_tests/shrubbery.py" in files  # as transient dep
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
@@ -358,18 +352,14 @@ def test_snowpark_commands_executed_outside_project_dir(
                 "build",
                 "--project",
                 project_subpath,
-                "--pypi-download",
-                "yes",
                 "--check-anaconda-for-pypi-deps",
             ]
         )
         assert result.exit_code == 0
 
-        packages_dir = Path(f"{project_subpath}/.packages")
-
-        assert packages_dir.exists()
-        assert (packages_dir / "dummy_pkg_for_tests_with_deps").exists()
-        assert (packages_dir / "dummy_pkg_for_tests").exists()  # as transient dep
+        files = ZipFile(Path(project_subpath) / "app.zip").namelist()
+        assert "dummy_pkg_for_tests_with_deps/shrubbery.py" in files
+        assert "dummy_pkg_for_tests/shrubbery.py" in files  # as transient dep
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             additional_arguments=["--project", project_subpath],
@@ -643,6 +633,101 @@ def test_snowpark_vector_function(
         assert [r for r in result[0]] == [(4.14,), (3.59,), (2.5,)]
 
 
+@pytest.mark.integration
+def test_build_skip_version_check(runner, project_directory, alter_requirements_txt):
+    # test case: package is available in Anaconda, but not in required version
+    with project_directory("snowpark") as tmp_dir:
+        alter_requirements_txt(tmp_dir / "requirements.txt", ["matplotlib>=1000"])
+        result = runner.invoke(["snowpark", "build"])
+        assert result.exit_code == 1, result.output
+        assert ("pip failed with return code") in result.output
+        assert (" Most likely reasons:") in result.output
+        assert (" * incorrect package name or version") in result.output
+
+        result = runner.invoke(["snowpark", "build", "--skip-version-check"])
+        assert result.exit_code == 0, result.output
+        assert "Build done. Artifact path: " in result.output
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ["--allow-shared-libraries"],
+        ["--package-native-libraries", "yes"],
+        ["--allow-shared-libraries", "--ignore-anaconda"],
+    ],
+)
+def test_build_with_anaconda_dependencies(
+    flags, runner, project_directory, alter_requirements_txt
+):
+    with project_directory("snowpark") as tmp_dir:
+        alter_requirements_txt(tmp_dir / "requirements.txt", ["july"])
+        result = runner.invoke(["snowpark", "build", *flags])
+        assert result.exit_code == 0, result.output
+        assert "Build done. Artifact path:" in result.output
+
+        requirements_snowflake = tmp_dir / "requirements.snowflake.txt"
+        if "--ignore-anaconda" in flags:
+            assert not requirements_snowflake.exists()
+        else:
+            assert requirements_snowflake.exists()
+            assert "matplotlib" in requirements_snowflake.read_text()
+            assert "numpy" not in requirements_snowflake.read_text()
+
+
+@pytest.mark.integration
+def test_build_with_non_anaconda_dependencies(
+    runner, project_directory, alter_requirements_txt
+):
+    with project_directory("snowpark") as tmp_dir:
+        alter_requirements_txt(
+            tmp_dir / "requirements.txt", ["dummy-pkg-for-tests-with-deps"]
+        )
+        result = runner.invoke(["snowpark", "build"])
+        assert result.exit_code == 0, result.output
+        assert "Build done. Artifact path:" in result.output
+
+        files = ZipFile(tmp_dir / "app.zip").namelist()
+        assert "dummy_pkg_for_tests/shrubbery.py" in files
+        assert "dummy_pkg_for_tests_with_deps/shrubbery.py" in files
+
+
+@pytest.mark.integration
+def test_build_shared_libraries_error(
+    runner, project_directory, alter_requirements_txt
+):
+    with project_directory("snowpark") as tmp_dir:
+        alter_requirements_txt(tmp_dir / "requirements.txt", ["numpy"])
+        result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
+        assert result.exit_code == 1, result.output
+        assert (
+            "Some packages contain shared (.so/.dll) libraries. Try again with"
+            in result.output
+        )
+        assert "--allow-shared-libraries." in result.output
+        assert "Build done." not in result.output
+
+
+@pytest.mark.integration
+def test_build_package_from_github(runner, project_directory, alter_requirements_txt):
+    with project_directory("snowpark") as tmp_dir:
+        alter_requirements_txt(
+            tmp_dir / "requirements.txt",
+            [
+                "git+https://github.com/sfc-gh-turbaszek/dummy-pkg-for-tests-with-deps.git"
+            ],
+        )
+        result = runner.invoke(["snowpark", "build"])
+        assert result.exit_code == 0, result.output
+        assert "Build done. Artifact path:" in result.output
+
+        assert (
+            "dummy_pkg_for_tests/shrubbery.py"
+            in ZipFile(tmp_dir / "app.zip").namelist()
+        )
+
+
 @pytest.fixture
 def _test_setup(
     runner,
@@ -663,3 +748,12 @@ def _test_setup(
 @pytest.fixture
 def _test_steps(_test_setup):
     yield SnowparkTestSteps(_test_setup)
+
+
+@pytest.fixture
+def alter_requirements_txt():
+    def update(requirements_path: Path, requirements: List[str]):
+        requirements.append("snowflake-snowpark-python")
+        requirements_path.write_text("\n".join(requirements))
+
+    yield update

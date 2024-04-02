@@ -60,14 +60,6 @@ class RequirementWithFiles:
 
 
 @dataclass
-class RequirementWithFilesAndDeps(RequirementWithFiles):
-    dependencies: List[str]
-
-    def to_requirement_with_files(self):
-        return RequirementWithFiles(self.requirement, self.files)
-
-
-@dataclass
 class RequirementWithWheelAndDeps:
     """A dataclass to hold a requirement and corresponding .whl file."""
 
@@ -77,14 +69,12 @@ class RequirementWithWheelAndDeps:
 
     def extract_files(self, destination: Path) -> None:
         if self.wheel_path is not None:
-            with zipfile.ZipFile(self.wheel_path, "r") as whl:
-                whl.extractall(destination)
+            zipfile.ZipFile(self.wheel_path).extractall(destination)
 
     def namelist(self) -> List[str]:
         if self.wheel_path is None:
             return []
-        with zipfile.ZipFile(self.wheel_path, "r") as whl:
-            return whl.namelist()
+        return zipfile.ZipFile(self.wheel_path).namelist()
 
 
 @dataclass

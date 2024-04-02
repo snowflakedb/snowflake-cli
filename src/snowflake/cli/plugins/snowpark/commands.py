@@ -12,6 +12,7 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import (
     ReplaceOption,
+    deprecated_flag_callback_enum,
     execution_identifier_argument,
 )
 from snowflake.cli.api.commands.project_initialisation import add_init_command
@@ -34,20 +35,25 @@ from snowflake.cli.api.project.schemas.snowpark.callable import (
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.object.stage.manager import StageManager
+from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.common import (
     build_udf_sproc_identifier,
     check_if_replace_is_required,
 )
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
-from snowflake.cli.plugins.snowpark.models import YesNoAsk
+from snowflake.cli.plugins.snowpark.models import Requirement, YesNoAsk
 from snowflake.cli.plugins.snowpark.package_utils import get_snowflake_packages
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
-    CheckAnacondaForPyPiDependencies,
-    PackageNativeLibrariesOption,
-    PyPiDownloadOption,
-    snowpark_package,
+    AllowSharedLibrariesOption,
+    DeprecatedCheckAnacondaForPyPiDependencies,
+    IgnoreAnacondaOption,
+    IndexUrlOption,
+    SkipVersionCheckOption,
+    deprecated_allow_native_libraries_option,
+    resolve_allow_shared_libraries_yes_no_ask,
 )
+from snowflake.cli.plugins.snowpark.zipper import zip_dir
 from snowflake.connector import DictCursor, ProgrammingError
 
 log = logging.getLogger(__name__)
@@ -308,31 +314,104 @@ def _deploy_single_object(
     }
 
 
+deprecated_pypi_download_option = typer.Option(
+    YesNoAsk.NO.value,
+    "--pypi-download",
+    help="Whether to download non-Anaconda packages from PyPi.",
+    hidden=True,
+    callback=deprecated_flag_callback_enum(
+        "--pypi-download flag is deprecated. Snowpark build command"
+        " always tries to download non-Anaconda packages from external index (PyPi by default)."
+    ),
+)
+
+
+def _write_requirements_file(file_path: SecurePath, requirements: List[Requirement]):
+    log.info("Writing requirements into file %s", file_path.path)
+    file_path.write_text("\n".join(req.line for req in requirements))
+
+
 @app.command("build")
 @with_project_definition("snowpark")
 def build(
-    pypi_download: YesNoAsk = PyPiDownloadOption,
-    check_anaconda_for_pypi_deps: bool = CheckAnacondaForPyPiDependencies,
-    package_native_libraries: YesNoAsk = PackageNativeLibrariesOption,
+    ignore_anaconda: bool = IgnoreAnacondaOption,
+    allow_shared_libraries: bool = AllowSharedLibrariesOption,
+    index_url: Optional[str] = IndexUrlOption,
+    skip_version_check: bool = SkipVersionCheckOption,
+    deprecated_package_native_libraries: YesNoAsk = deprecated_allow_native_libraries_option(
+        "--package-native-libraries"
+    ),
+    deprecated_check_anaconda_for_pypi_deps: bool = DeprecatedCheckAnacondaForPyPiDependencies,
+    _deprecated_pypi_download: YesNoAsk = deprecated_pypi_download_option,
     **options,
 ) -> CommandResult:
     """
     Builds the Snowpark project as a `.zip` archive that can be used by `deploy` command.
     The archive is built using only the `src` directory specified in the project file.
     """
-    paths = SnowparkPackagePaths.for_snowpark_project(
+    if not deprecated_check_anaconda_for_pypi_deps:
+        ignore_anaconda = True
+    snowpark_paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
         snowpark_project_definition=cli_context.project_definition,
     )
-    log.info("Building package using sources from: %s", paths.source.path)
+    log.info("Building package using sources from: %s", snowpark_paths.source.path)
 
-    snowpark_package(
-        paths=paths,
-        pypi_download=pypi_download,  # type: ignore[arg-type]
-        check_anaconda_for_pypi_deps=check_anaconda_for_pypi_deps,
-        package_native_libraries=package_native_libraries,  # type: ignore[arg-type]
+    with SecurePath.temporary_directory() as packages_dir:
+        if snowpark_paths.defined_requirements_file.exists():
+            log.info("Resolving any requirements from requirements.txt...")
+            requirements = package_utils.parse_requirements(
+                requirements_file=snowpark_paths.defined_requirements_file,
+            )
+
+            download_result = package_utils.download_unavailable_packages(
+                requirements=requirements,
+                target_dir=packages_dir,
+                ignore_anaconda=ignore_anaconda,
+                skip_version_check=skip_version_check,
+                pip_index_url=index_url,
+            )
+            if not download_result.succeeded:
+                raise ClickException(download_result.error_message)
+
+            log.info("Checking to see if packages have shared (.so/.dll) libraries...")
+            if package_utils.detect_and_log_shared_libraries(
+                download_result.downloaded_packages_details
+            ):
+                # TODO: yes/no/ask logic should be removed in 3.0
+                if not (
+                    allow_shared_libraries
+                    or resolve_allow_shared_libraries_yes_no_ask(
+                        deprecated_package_native_libraries
+                    )
+                ):
+                    raise ClickException(
+                        "Some packages contain shared (.so/.dll) libraries. "
+                        "Try again with --allow-shared-libraries."
+                    )
+            if download_result.packages_available_in_anaconda:
+                _write_requirements_file(
+                    snowpark_paths.snowflake_requirements_file,
+                    download_result.packages_available_in_anaconda,
+                )
+
+        zip_dir(
+            source=snowpark_paths.source.path,
+            dest_zip=snowpark_paths.artifact_file.path,
+        )
+        if any(packages_dir.iterdir()):
+            # if any packages were generated, append them to the .zip
+            zip_dir(
+                source=packages_dir.path,
+                dest_zip=snowpark_paths.artifact_file.path,
+                mode="a",
+            )
+
+    log.info("Package now ready: %s", snowpark_paths.artifact_file.path)
+
+    return MessageResult(
+        f"Build done. Artifact path: {snowpark_paths.artifact_file.path}"
     )
-    return MessageResult(f"Build done. Artifact path: {paths.artifact_file.path}")
 
 
 class _SnowparkObject(Enum):
