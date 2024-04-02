@@ -6,9 +6,6 @@ import os
 from textwrap import dedent
 from typing import List
 
-import requirements
-import click
-from click import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
