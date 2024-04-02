@@ -17,7 +17,7 @@ def test_get_snowflake_packages_delta(temp_dir, correct_requirements_snowflake_t
 
     result = _get_snowflake_packages_delta([anaconda_package])
 
-    assert sorted(result) == sorted(test_data.requirements[:-1])
+    assert sorted(result) == sorted(x.lower() for x in test_data.requirements[:-1])
 
 
 def test_convert_resource_details_to_dict():

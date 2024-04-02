@@ -3,7 +3,7 @@ import logging
 import os
 from pathlib import Path
 from unittest import mock
-from unittest.mock import mock_open, patch
+from unittest.mock import patch
 
 import pytest
 import snowflake.cli.plugins.snowpark.models
@@ -75,11 +75,11 @@ def test_parse_requirements_with_nonexistent_file(temp_dir):
     [
         (
             """pytest==1.0.0\nDjango==3.2.1\nawesome_lib==3.3.3""",
-            ["pytest==1.0.0", "Django==3.2.1", "awesome_lib==3.3.3"],
+            ["pytest==1.0.0", "django==3.2.1", "awesome_lib==3.3.3"],
         ),
         ("""toml # some-comment""", ["toml"]),
         ("", []),
-        ("""some-package==1.2.3#incorrect_comment""", ["some-package==1.2.3"]),
+        ("""some-package==1.2.3#incorrect_comment""", ["some_package==1.2.3"]),
         ("""#only comment here""", []),
         (
             """pytest==1.0\n# comment\nawesome_lib==3.3.3""",
@@ -87,13 +87,18 @@ def test_parse_requirements_with_nonexistent_file(temp_dir):
         ),
     ],
 )
-def test_get_packages(contents, expected, correct_requirements_snowflake_txt):
-    with patch.object(
-        snowflake.cli.api.secure_path.SecurePath, "open", mock_open(read_data=contents)
-    ) as mock_file:
-        mock_file.return_value.__iter__.return_value = contents.splitlines()
-        result = package_utils.get_snowflake_packages()
-    mock_file.assert_called_with("r", read_file_limit_mb=128, encoding="utf-8")
+@mock.patch("snowflake.cli.plugins.snowpark.package_utils.SecurePath.read_text")
+def test_parse_requirements_corner_cases(
+    mock_file, contents, expected, correct_requirements_snowflake_txt
+):
+    mock_file.return_value = contents
+    result = [
+        p.to_name_and_version()
+        for p in package_utils.parse_requirements(
+            SecurePath(correct_requirements_snowflake_txt)
+        )
+    ]
+    mock_file.assert_called_with(file_size_limit_mb=128)
     assert result == expected
 
 
@@ -102,12 +107,12 @@ def test_parse_requirements(correct_requirements_txt: str):
     result.sort(key=lambda r: r.name)
 
     assert len(result) == 3
-    assert result[0].name == "Django"
+    assert result[0].name == "awesome_lib"
     assert result[0].specifier is True
-    assert result[0].specs == [("==", "3.2.1")]
-    assert result[1].name == "awesome_lib"
+    assert result[0].specs == [("==", "3.3.3")]
+    assert result[1].name == "django"
     assert result[1].specifier is True
-    assert result[1].specs == [("==", "3.3.3")]
+    assert result[1].specs == [("==", "3.2.1")]
     assert result[2].name == "pytest"
     assert result[2].specifier is True
     assert result[2].specs == [("==", "1.0.0")]
@@ -125,7 +130,7 @@ def test_parse_anaconda_packages(mock_get):
     anaconda = AnacondaChannel.from_snowflake()
 
     packages = [
-        Requirement.parse("pandas==1.0.0"),
+        Requirement.parse("Pandas==1.4.4"),
         Requirement.parse("FuelSDK>=0.9.3"),
         Requirement.parse("Pamela==1.0.1"),
     ]
@@ -134,11 +139,11 @@ def test_parse_anaconda_packages(mock_get):
     assert len(split_requirements.other) == 2
     assert split_requirements.snowflake[0].name == "pandas"
     assert split_requirements.snowflake[0].specifier is True
-    assert split_requirements.snowflake[0].specs == [("==", "1.0.0")]
-    assert split_requirements.other[0].name == "FuelSDK"
+    assert split_requirements.snowflake[0].specs == [("==", "1.4.4")]
+    assert split_requirements.other[0].name == "fuelsdk"
     assert split_requirements.other[0].specifier is True
     assert split_requirements.other[0].specs == [(">=", "0.9.3")]
-    assert split_requirements.other[1].name == "Pamela"
+    assert split_requirements.other[1].name == "pamela"
     assert split_requirements.other[1].specs == [("==", "1.0.1")]
 
 
