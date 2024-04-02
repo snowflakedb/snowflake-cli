@@ -6,6 +6,7 @@ import click
 import typer
 from snowflake.cli.api.commands.flags import PatternOption
 from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import (
     CommandResult,
     MultipleResults,
@@ -73,8 +74,6 @@ def copy(
         raise click.ClickException(
             "Both source and target path are local. This operation is not supported."
         )
-    if is_put and recursive:
-        raise click.ClickException("Recursive for PUT is not supported.")
 
     if is_get:
         target = Path(destination_path).resolve()
@@ -84,20 +83,28 @@ def copy(
             )
             return MultipleResults([QueryResult(c) for c in cursors])
         else:
+            cli_console.warning(
+                "Use `--recursive` flag, which copy files recursively with directory structure. This will be the default behavior in the future."
+            )
             cursor = StageManager().get(
                 stage_path=source_path, dest_path=target, parallel=parallel
             )
-    else:
-        source = Path(source_path).resolve()
-        local_path = str(source) + "/*" if source.is_dir() else str(source)
+            return QueryResult(cursor)
 
-        cursor = StageManager().put(
-            local_path=local_path,
-            stage_path=destination_path,
-            overwrite=overwrite,
-            parallel=parallel,
-        )
-    return QueryResult(cursor)
+    if is_put:
+        if recursive:
+            raise click.ClickException("Recursive flag for upload is not supported.")
+        else:
+            source = Path(source_path).resolve()
+            local_path = str(source) + "/*" if source.is_dir() else str(source)
+
+            cursor = StageManager().put(
+                local_path=local_path,
+                stage_path=destination_path,
+                overwrite=overwrite,
+                parallel=parallel,
+            )
+            return QueryResult(cursor)
 
 
 @app.command("create", requires_connection=True)
