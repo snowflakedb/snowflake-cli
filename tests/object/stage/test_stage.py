@@ -656,28 +656,35 @@ def test_stage_internal_put_quoted_path(
 
 
 @pytest.mark.parametrize(
-    "stage_path, expected_files",
+    "stage_path, expected_files, expected_stage_name",
     [
-        ("@exe", ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe", ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe/", ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe/*", ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe/*.sql", ["exe/s1.sql", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe/a", ["exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe/a/", ["exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe/a/*", ["exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe/a/*.sql", ["exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe/a/b", ["exe/a/b/s4.sql"]),
-        ("exe/a/b/", ["exe/a/b/s4.sql"]),
-        ("exe/a/b/*", ["exe/a/b/s4.sql"]),
-        ("exe/a/b/*.sql", ["exe/a/b/s4.sql"]),
-        ("exe/s?.sql", ["exe/s1.sql"]),
-        ("exe/s1.sql", ["exe/s1.sql"]),
-        ("exe/s2", ["exe/s2"]),
+        ("@exe", ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
+        (
+            "snow://exe",
+            ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"],
+            "snow://exe",
+        ),
+        ("exe", ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
+        ("exe/", ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
+        ("exe/*", ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
+        ("exe/*.sql", ["exe/s1.sql", "exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
+        ("exe/a", ["exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
+        ("exe/a/", ["exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
+        ("exe/a/*", ["exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
+        ("exe/a/*.sql", ["exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
+        ("exe/a/b", ["exe/a/b/s4.sql"], "@exe"),
+        ("exe/a/b/", ["exe/a/b/s4.sql"], "@exe"),
+        ("exe/a/b/*", ["exe/a/b/s4.sql"], "@exe"),
+        ("exe/a/b/*.sql", ["exe/a/b/s4.sql"], "@exe"),
+        ("exe/s?.sql", ["exe/s1.sql"], "@exe"),
+        ("exe/s1.sql", ["exe/s1.sql"], "@exe"),
+        ("exe/s2", ["exe/s2"], "@exe"),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_execute(mock_execute, mock_cursor, runner, stage_path, expected_files):
+def test_execute(
+    mock_execute, mock_cursor, runner, stage_path, expected_files, expected_stage_name
+):
     mock_execute.return_value = mock_cursor(
         [
             {"name": "exe/a/s3.sql"},
@@ -692,7 +699,7 @@ def test_execute(mock_execute, mock_cursor, runner, stage_path, expected_files):
 
     assert result.exit_code == 0, result.output
     ls_call, *execute_calls = mock_execute.mock_calls
-    assert ls_call == mock.call(f"ls @exe", cursor_class=DictCursor)
+    assert ls_call == mock.call(f"ls {expected_stage_name}", cursor_class=DictCursor)
     assert execute_calls == [
         mock.call(f"execute immediate from @{p}") for p in expected_files
     ]

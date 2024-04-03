@@ -6,7 +6,7 @@ import logging
 import re
 from contextlib import nullcontext
 from enum import Enum
-from functools import cmp_to_key
+from os import path
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
@@ -49,8 +49,11 @@ class StageManager(SqlExecutionMixin):
     def get_stage_name_from_path(path: str):
         """
         Returns stage name from potential path on stage. For example
+        snow://db.schema.stage/foo/bar -> snow://db.schema.stage
         db.schema.stage/foo/bar  -> db.schema.stage
         """
+        if path.startswith("snow://"):
+            return f"snow://{Path(path[7:]).parts[0]}"
         return Path(path).parts[0]
 
     @staticmethod
@@ -68,6 +71,8 @@ class StageManager(SqlExecutionMixin):
 
     @staticmethod
     def remove_stage_prefix(stage_path: str) -> str:
+        if stage_path.startswith("snow://"):
+            return stage_path[7:]
         if stage_path.startswith("@"):
             return stage_path[1:]
         return stage_path
@@ -191,9 +196,13 @@ class StageManager(SqlExecutionMixin):
         all_files_list = self._get_files_list_from_stage(stage_path)
         # filter files from stage if match stage_path pattern
         filtered_file_list = self._filter_files_list(stage_path, all_files_list)
+
+        if not filtered_file_list:
+            raise ClickException(f"No files matched pattern '{stage_path}'")
+
         # sort filtered files in alphabetical order with directories at the end
         sorted_file_list = sorted(
-            filtered_file_list, key=cmp_to_key(self._stage_files_comparator)
+            filtered_file_list, key=lambda f: (path.dirname(f), path.basename(f))
         )
 
         sql_parameters = self._parse_execute_parameters(parameters)
@@ -217,32 +226,20 @@ class StageManager(SqlExecutionMixin):
     ) -> List[str]:
         stage_path = self.remove_stage_prefix(stage_path)
 
-        if not stage_path.__contains__("/"):
-            filtered_list = files_on_stage
-        elif glob.has_magic(stage_path):
-            filtered_list = fnmatch.filter(files_on_stage, stage_path)
-        elif files_on_stage.__contains__(stage_path):
-            filtered_list = [stage_path]
-        else:
-            filtered_list = fnmatch.filter(files_on_stage, f"{stage_path}*")
+        # Execute everything if only stage name was provided
+        if "/" not in stage_path:
+            return files_on_stage
 
-        if not filtered_list:
-            raise ClickException(f"No files matched pattern '{stage_path}'")
+        # Filter with fnmatch if contains `*` or `?`
+        if glob.has_magic(stage_path):
+            return fnmatch.filter(files_on_stage, stage_path)
 
-        return filtered_list
+        # Exact file path was provided if stage_path in file list
+        if stage_path in files_on_stage:
+            return [stage_path]
 
-    def _stage_files_comparator(self, file_path_1, file_path_2):
-        file_path_1_directories = file_path_1.count("/")
-        file_path_2_directories = file_path_2.count("/")
-
-        if file_path_1_directories > file_path_2_directories:
-            return 1
-        elif file_path_1_directories < file_path_2_directories:
-            return -1
-        elif file_path_1 >= file_path_2:
-            return 1
-        else:
-            return -1
+        # Path to directory was provided
+        return fnmatch.filter(files_on_stage, f"{stage_path}*")
 
     def _parse_execute_parameters(
         self, parameters: Optional[List[str]]

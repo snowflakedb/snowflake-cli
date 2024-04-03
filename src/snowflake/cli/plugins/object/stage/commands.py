@@ -133,8 +133,8 @@ def stage_diff(
 @app.command("execute", requires_connection=True)
 def execute(
     stage_path: str = typer.Argument(
-        None,
-        help="Execute immediate all files from the path. Files can be filtered with glob like pattern, e.g. `@stage/**/*.sql`.",
+        ...,
+        help="Stage path with files to be execute. For example `@stage/dev/*`.",
     ),
     on_error: OnErrorType = typer.Option(
         OnErrorType.BREAK.value,
@@ -144,13 +144,17 @@ def execute(
     parameters: Optional[List[str]] = typer.Option(
         None,
         help='Parameters for the template. For example: `--parameters "<key>=<value>"`, string values should be in single quotes.',
+        hidden=True,
+        show_default=False,
     ),
     **options,
 ):
     """
-    Execute immediate all files from the stage path.
+    Execute immediate all files from the stage path. Files can be filtered with glob like pattern, e.g. `@stage/*.sql`, `@stage/dev/*`.
     """
-    results = StageManager().execute(stage_path, on_error, parameters)
+    results = StageManager().execute(
+        stage_path=stage_path, on_error=on_error, parameters=parameters
+    )
     return CollectionResult(results)
 
 

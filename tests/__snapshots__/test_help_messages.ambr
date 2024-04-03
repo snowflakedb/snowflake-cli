@@ -1859,26 +1859,22 @@
 # name: test_help_messages[object.stage.execute]
   '''
                                                                                   
-   Usage: default object stage execute [OPTIONS] [STAGE_PATH]                     
+   Usage: default object stage execute [OPTIONS] STAGE_PATH                       
                                                                                   
-   Execute immediate all files from the stage path.                               
+   Execute immediate all files from the stage path. Files can be filtered with    
+   glob like pattern, e.g. `@stage/*.sql`, `@stage/dev/*`.                        
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │   stage_path      [STAGE_PATH]  Execute immediate all files from the path.   │
-  │                                 Files can be filtered with glob like         │
-  │                                 pattern, e.g. `@stage/**/*.sql`.             │
-  │                                 [default: None]                              │
+  │ *    stage_path      TEXT  Stage path with files to be execute. For example  │
+  │                            `@stage/dev/*`.                                   │
+  │                            [default: None]                                   │
+  │                            [required]                                        │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --on-error            [break|continue]  What to do when an error occurs.     │
-  │                                         Defaults to break.                   │
-  │                                         [default: break]                     │
-  │ --parameters          TEXT              Parameters for the template. For     │
-  │                                         example: `--parameters               │
-  │                                         "<key>=<value>"`, string values      │
-  │                                         should be in single quotes.          │
-  │                                         [default: None]                      │
-  │ --help        -h                        Show this message and exit.          │
+  │ --on-error          [break|continue]  What to do when an error occurs.       │
+  │                                       Defaults to break.                     │
+  │                                       [default: break]                       │
+  │ --help      -h                        Show this message and exit.            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
@@ -2090,7 +2086,9 @@
   │ copy     Copies all files from target path to target directory. This works   │
   │          for both uploading to and downloading files from the stage.         │
   │ create   Creates a named stage if it does not already exist.                 │
-  │ execute  Execute immediate all files from the stage path.                    │
+  │ execute  Execute immediate all files from the stage path. Files can be       │
+  │          filtered with glob like pattern, e.g. `@stage/*.sql`,               │
+  │          `@stage/dev/*`.                                                     │
   │ list     Lists the stage contents.                                           │
   │ remove   Removes a file from a stage.                                        │
   ╰──────────────────────────────────────────────────────────────────────────────╯
