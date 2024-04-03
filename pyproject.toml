@@ -132,3 +132,7 @@ markers = [
   "e2e: mark test to execute on SnowCLI installed in fresh virtual environment",
   "loaded_modules: checks loaded modules",
 ]
+
+
+[tool.codespell]
+skip = 'tests/*'
