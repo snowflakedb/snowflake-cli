@@ -643,7 +643,7 @@ def test_nativeapp_init_deploy_remove_remote_file(
 
         # deploy the locally-removed file
         result = runner.invoke_with_connection_json(
-            ["app", "deploy", "README.md"],
+            ["app", "deploy", "README.md", "--prune"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0
@@ -661,6 +661,63 @@ def test_nativeapp_init_deploy_remove_remote_file(
                 stage_files.json, {"name": "stage/setup_script.sql"}
             )
             assert not_contains_row_with(stage_files.json, {"name": "stage/README.md"})
+
+            # make sure we always delete the app
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
+# Tests that remote-only files are not removed without the --prune flag
+@pytest.mark.integration
+def test_nativeapp_init_deploy_no_prune(
+    runner,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    result = runner.invoke_json(
+        ["app", "init", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_name)):
+        # sync all files to the stage
+        result = runner.invoke_with_connection_json(
+            ["app", "deploy"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        # remove the file locally
+        os.remove(os.path.join("app", "README.md"))
+
+        # deploy the locally-removed file
+        result = runner.invoke_with_connection_json(
+            ["app", "deploy", "README.md"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        try:
+            # manifest and script files exist, readme doesn't exist
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
+            stage_files = runner.invoke_with_connection_json(
+                ["object", "stage", "list", f"{package_name}.{stage_name}"],
+                env=TEST_ENV,
+            )
+            assert contains_row_with(stage_files.json, {"name": "stage/README.md"})
 
             # make sure we always delete the app
             result = runner.invoke_with_connection_json(

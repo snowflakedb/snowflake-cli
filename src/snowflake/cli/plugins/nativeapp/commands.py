@@ -230,6 +230,10 @@ def app_teardown(
 @app.command("deploy", requires_connection=True)
 @with_project_definition("native_app")
 def app_deploy(
+    prune: Optional[bool] = typer.Option(
+        False,
+        help=f"""If set to true and the specified files exist only remotely, they will be deleted from the stage.""",
+    ),
     files: Optional[List[Path]] = typer.Argument(
         default=None,
         show_default=False,
@@ -246,6 +250,6 @@ def app_deploy(
     )
 
     manager.build_bundle()
-    manager.deploy(files)
+    manager.deploy(prune, files)
 
     return MessageResult(f"Deployed successfully.")

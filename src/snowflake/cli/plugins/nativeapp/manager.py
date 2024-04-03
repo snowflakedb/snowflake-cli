@@ -273,6 +273,7 @@ class NativeAppManager(SqlExecutionMixin):
     def sync_deploy_root_with_stage(
         self,
         role: str,
+        prune: bool = True,
         files_to_sync: Optional[List[Path]] = None,
     ) -> DiffResult:
         """
@@ -299,7 +300,9 @@ class NativeAppManager(SqlExecutionMixin):
             "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
             % self.deploy_root
         )
-        diff: DiffResult = stage_diff(self.deploy_root, self.stage_fqn, files_to_sync)
+        diff: DiffResult = stage_diff(
+            self.deploy_root, self.stage_fqn, prune, files_to_sync
+        )
         cc.message(str(diff))
 
         # Upload diff-ed files to application package stage
@@ -427,6 +430,7 @@ class NativeAppManager(SqlExecutionMixin):
 
     def deploy(
         self,
+        prune: bool,
         files_to_sync: Optional[List[Path]] = None,
     ) -> DiffResult:
         """app deploy process"""
@@ -439,6 +443,8 @@ class NativeAppManager(SqlExecutionMixin):
             self._apply_package_scripts()
 
             # 3. Upload files from deploy root local folder to the above stage
-            diff = self.sync_deploy_root_with_stage(self.package_role, files_to_sync)
+            diff = self.sync_deploy_root_with_stage(
+                self.package_role, prune, files_to_sync
+            )
 
         return diff

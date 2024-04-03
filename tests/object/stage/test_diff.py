@@ -213,7 +213,7 @@ def test_sync_local_diff_with_stage(mock_remove, other_directory):
     temp_dir = Path(other_directory)
     mock_remove.side_effect = Exception("Mock Exception")
     mock_remove.return_value = None
-    diff: DiffResult = DiffResult()
+    diff = DiffResult()
     diff.only_on_stage = ["some_file_on_stage"]
     stage_name = "some_stage_name"
 
@@ -273,7 +273,7 @@ def test_get_full_file_paths_to_sync(
 
 
 def test_filter_from_diff():
-    diff: DiffResult = DiffResult()
+    diff = DiffResult()
     diff.different = [
         "different",
         "different-2",
@@ -303,7 +303,7 @@ def test_filter_from_diff():
             "dir/only-stage",
         ]
     )
-    diff = _filter_from_diff(diff, paths_to_keep)
+    diff = _filter_from_diff(diff, paths_to_keep, True)
 
     for path in diff.different:
         assert path in paths_to_keep
@@ -311,3 +311,21 @@ def test_filter_from_diff():
         assert path in paths_to_keep
     for path in diff.only_on_stage:
         assert path in paths_to_keep
+
+
+# When prune flag is off, remote-only files are filtered out and a warning is printed
+@mock.patch(f"{STAGE_DIFF}.cc.warning")
+def test_filter_from_diff_no_prune(mock_warning):
+    diff = DiffResult()
+    diff.only_on_stage = [
+        "only-stage.txt",
+        "only-stage-2.txt",
+    ]
+
+    paths_to_keep = set(["only-stage.txt"])
+    diff = _filter_from_diff(diff, paths_to_keep, False)
+
+    assert len(diff.only_on_stage) == 0
+    mock_warning.assert_called_once_with(
+        "The following files exist only on the stage:\n['only-stage.txt']\nUse the --prune flag to delete them from the stage."
+    )

@@ -10,6 +10,7 @@ from click.exceptions import (
     ClickException,
     FileError,
 )
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )
@@ -179,16 +180,27 @@ def _get_relative_paths_to_sync(
     return paths
 
 
-def _filter_from_diff(result: DiffResult, paths_to_keep: Set[str]) -> DiffResult:
+def _filter_from_diff(
+    result: DiffResult, paths_to_keep: Set[str], prune: bool
+) -> DiffResult:
     result.different = [i for i in result.different if i in paths_to_keep]
     result.only_local = [i for i in result.only_local if i in paths_to_keep]
-    result.only_on_stage = [i for i in result.only_on_stage if i in paths_to_keep]
+    if prune:
+        result.only_on_stage = [i for i in result.only_on_stage if i in paths_to_keep]
+    else:
+        files_not_removed = [i for i in result.only_on_stage if i in paths_to_keep]
+        if len(files_not_removed) > 0:
+            cc.warning(
+                f"The following files exist only on the stage:\n{files_not_removed}\nUse the --prune flag to delete them from the stage."
+            )
+        result.only_on_stage = []
     return result
 
 
 def stage_diff(
     local_path: Path,
     stage_fqn: str,
+    prune: bool = True,
     files_to_sync: Optional[List[Path]] = None,  # relative to local_path
 ) -> DiffResult:
     """
@@ -232,7 +244,7 @@ def stage_diff(
                 files_to_sync, local_path, set(result.only_on_stage)
             )
         )
-        return _filter_from_diff(result, paths_to_keep)
+        return _filter_from_diff(result, paths_to_keep, prune)
 
     return result
 
