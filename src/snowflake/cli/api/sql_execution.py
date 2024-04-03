@@ -25,9 +25,7 @@ from snowflake.connector.errors import ProgrammingError
 
 
 class SqlExecutionMixin:
-    def __init__(
-        self, connection: SnowflakeConnection
-    ):  # TODO: Check calls to constructor and inheriting classes
+    def __init__(self, connection: SnowflakeConnection):
         self._conn = connection
 
     @cached_property
