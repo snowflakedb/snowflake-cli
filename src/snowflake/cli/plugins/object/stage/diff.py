@@ -156,7 +156,7 @@ def build_md5_map(list_stage_cursor: SnowflakeCursor) -> Dict[str, str]:
 
 def stage_diff(
     stage_manager: StageManager, local_path: Path, stage_fqn: str
-) -> DiffResult:  # TODO: Check all references
+) -> DiffResult:
     """
     Diffs the files in a stage with a local folder.
     """

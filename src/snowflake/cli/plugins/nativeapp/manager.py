@@ -108,9 +108,7 @@ class NativeAppCommandProcessor(ABC):
         pass
 
 
-class NativeAppManager(
-    SqlExecutionMixin
-):  # TODO: Review calls to constructor and inheriting classes
+class NativeAppManager(SqlExecutionMixin):
     """
     Base class with frequently used functionality already implemented and ready to be used by related subclasses.
     """
