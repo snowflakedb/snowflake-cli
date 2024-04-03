@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Dict, List
 
 import yaml.loader
-from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.cli.api.project.util import (
@@ -12,6 +11,7 @@ from snowflake.cli.api.project.util import (
     to_identifier,
 )
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.connector.connection import SnowflakeConnection
 from yaml import load
 
 DEFAULT_USERNAME = "unknown_user"
@@ -55,6 +55,7 @@ def load_project_definition(paths: List[Path]) -> ProjectDefinition:
 
 
 def generate_local_override_yml(
+    conn: SnowflakeConnection,
     project: ProjectDefinition,
 ) -> ProjectDefinition:
     """
@@ -62,7 +63,6 @@ def generate_local_override_yml(
     schema. The returned YAML object can be saved directly to a file, if desired.
     A connection is made using global context to resolve current role and warehouse.
     """
-    conn = cli_context.connection
     user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
     role = conn.role
     warehouse = conn.warehouse
@@ -95,8 +95,7 @@ def default_app_package(project_name: str):
     return append_to_identifier(to_identifier(project_name), f"_pkg_{user}")
 
 
-def default_role():
-    conn = cli_context.connection
+def default_role(conn: SnowflakeConnection):
     return conn.role
 
 

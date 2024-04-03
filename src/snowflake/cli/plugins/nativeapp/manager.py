@@ -191,7 +191,7 @@ class NativeAppManager(SqlExecutionMixin):
         if self.definition.package and self.definition.package.role:
             return self.definition.package.role
         else:
-            return default_role()
+            return default_role(self._conn)
 
     @cached_property
     def package_distribution(self) -> str:
@@ -212,7 +212,7 @@ class NativeAppManager(SqlExecutionMixin):
         if self.definition.application and self.definition.application.role:
             return self.definition.application.role
         else:
-            return default_role()
+            return default_role(self._conn)
 
     @cached_property
     def debug_mode(self) -> bool:

@@ -4,6 +4,7 @@ from unittest import mock
 from unittest.mock import PropertyMock
 
 import pytest
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.project.definition import (
     generate_local_override_yml,
     load_project_definition,
@@ -45,7 +46,7 @@ def test_na_minimal_project(project_definition_files: List[Path]):
             # TODO: probably a better way of going about this is to not generate
             # a definition structure for these values but directly return defaults
             # in "getter" functions (higher-level data structures).
-            local = generate_local_override_yml(project)
+            local = generate_local_override_yml(cli_context.connection, project)
             assert local.native_app.application.name == "minimal_jsmith"
             assert local.native_app.application.role == "resolved_role"
             assert local.native_app.application.warehouse == "resolved_warehouse"
