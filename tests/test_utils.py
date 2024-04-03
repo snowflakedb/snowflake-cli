@@ -11,7 +11,7 @@ import snowflake.cli.plugins.snowpark.package.utils
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
 from snowflake.cli.plugins.snowpark import package_utils
-from snowflake.cli.plugins.snowpark.models import Requirement, YesNoAsk
+from snowflake.cli.plugins.snowpark.models import Requirement
 from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 
 from tests.test_data import test_data
@@ -132,6 +132,7 @@ def test_get_packages(contents, expected, correct_requirements_snowflake_txt):
 
 def test_parse_requirements(correct_requirements_txt: str):
     result = package_utils.parse_requirements(SecurePath(correct_requirements_txt))
+    result.sort(key=lambda r: r.name)
 
     assert len(result) == 3
     assert result[0].name == "Django"
@@ -174,21 +175,6 @@ def test_parse_anaconda_packages(mock_get):
     assert split_requirements.other[1].specs == [("==", "1.0.1")]
 
 
-def test_deduplicate_and_sort_reqs():
-    packages = [
-        Requirement.parse("d"),
-        Requirement.parse("b==0.9.3"),
-        Requirement.parse("a==0.9.5"),
-        Requirement.parse("a==0.9.3"),
-        Requirement.parse("c>=0.9.5"),
-    ]
-    sorted_packages = package_utils.deduplicate_and_sort_reqs(packages)
-    assert len(sorted_packages) == 4
-    assert sorted_packages[0].name == "a"
-    assert sorted_packages[0].specifier is True
-    assert sorted_packages[0].specs == [("==", "0.9.5")]
-
-
 @patch("platform.system")
 @pytest.mark.parametrize(
     "argument, expected",
@@ -206,17 +192,18 @@ def test_path_resolver(mock_system, argument, expected):
     assert path_utils.path_resolver(argument) == expected
 
 
-@patch("snowflake.cli.plugins.snowpark.package_utils.Venv")
+@patch("snowflake.cli.plugins.snowpark.package_utils.Venv.pip_wheel")
 def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
-    mock_installer.return_value.__enter__.return_value.pip_wheel.return_value = 42
+    mock_installer.return_value = 42
 
     with caplog.at_level(logging.INFO, "snowflake.cli.plugins.snowpark.package_utils"):
-        package_utils.download_packages(
-            anaconda=AnacondaChannel([]),
-            requirements_file=SecurePath(correct_requirements_txt),
-            packages_dir=SecurePath(".packages"),
-            ignore_anaconda=False,
-            allow_shared_libraries=YesNoAsk.YES,
+        requirements = package_utils.parse_requirements(
+            SecurePath(correct_requirements_txt)
+        )
+        package_utils.download_unavailable_packages(
+            requirements=requirements,
+            target_dir=SecurePath(".packages"),
+            ignore_anaconda=True,
         )
 
     assert "pip failed with return code 42" in caplog.text

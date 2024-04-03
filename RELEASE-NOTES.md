@@ -10,7 +10,11 @@
   * `--pypi-download` or `--yes` flags have no effect and will cause a warning.
     `create` command always checks against PyPi.
   * `--allow-native-libraries` is replaced with boolean flag `--allow-shared-libraries`.
-    Using old flag will cause a waring.
+    Using old flag will cause a warning.
+* `snow snowpark build`:
+  * `--pypi-download` flag have no effect and will cause a warning. Create command always check against PyPi.
+  * `--check-anaconda-for-pypi-depts` is replaced with `--ignore-anaconda`
+  * `--package-native-libraries` is replaced with boolean flag `--allow-shared-libraries`
 
 ## New additions
 * Added support for fully qualified name (`database.schema.name`) in `name` parameter in streamlit project definition
@@ -24,6 +28,9 @@
     All dependencies will be downloaded from PyPi.
   * new `--skip-version-check` skips comparing versions of dependencies between requirements and Anaconda.
   * new `--index-url` flag sets up Base URL of the Python Package Index to use for package lookup.
+* `snow snowpark build`:
+  * new `--skip-version-check` skips comparing versions of dependencies between requirements and Anaconda.
+  * new `--index-url` flag sets up Base URL of the Python Package Index to use for package lookup.
 
 ## Fixes and improvements
 * Adding `--image-name` option for image name argument in `spcs image-repository list-tags` for consistency with other commands.
@@ -32,11 +39,21 @@
 * Changing imports in function/procedure section in `snowflake.yml` will cause the definition update on replace
 * Adding `--pattern` flag to `stage list` command for filtering out results with regex.
 * Fixed snowpark build paths for builds with --project option (fixed empty zip issue).
+* More clear error messages in `snow snowpark build` command
+* Adding support for any source supported by `pip` in `snow snowpark`.
+
+# v2.1.2
+
+## Fixes and improvements
+* Add `pip` as Snowflake-cli dependency
+* Optimize `connection test` command
+* Fix venv creation issues in `snowpark package create` and `snowpark build` command
 
 # v2.1.1
 
 ## Fixes and improvements
 * Improved security of printing connection details in `snow connection list`.
+* Improved parsing of non-quoted scalar values within square brackets in `manifest.yml` in Native App projects.
 
 # v2.1.0
 

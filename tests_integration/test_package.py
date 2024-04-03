@@ -69,13 +69,13 @@ class TestPackage:
         )
 
         assert result.exit_code == 0
-        assert Path("dummy-pkg-for-tests-with-deps.zip").is_file()
+        assert Path("dummy_pkg_for_tests_with_deps.zip").is_file()
         assert "dummy_pkg_for_tests/shrubbery.py" in self._get_filenames_from_zip(
-            "dummy-pkg-for-tests-with-deps.zip"
+            "dummy_pkg_for_tests_with_deps.zip"
         )
         assert (
             "dummy_pkg_for_tests_with_deps/shrubbery.py"
-            in self._get_filenames_from_zip("dummy-pkg-for-tests-with-deps.zip")
+            in self._get_filenames_from_zip("dummy_pkg_for_tests_with_deps.zip")
         )
 
     @pytest.mark.integration
@@ -174,9 +174,9 @@ class TestPackage:
         )
 
         assert result.exit_code == 0
-        assert Path("dummy-pkg-for-tests-with-deps.zip").exists()
+        assert Path("dummy_pkg_for_tests_with_deps.zip").exists()
 
-        files = self._get_filenames_from_zip("dummy-pkg-for-tests-with-deps.zip")
+        files = self._get_filenames_from_zip("dummy_pkg_for_tests_with_deps.zip")
 
         assert any(
             ["dummy_pkg_for_tests_with_deps-1.0.dist-info" in file for file in files]
@@ -184,28 +184,11 @@ class TestPackage:
         assert any(["dummy_pkg_for_tests-1.0.dist-info" in file for file in files])
 
     @pytest.mark.integration
-    @pytest.mark.skipif(
-        sys.platform.startswith("win"),
-        reason="Windows version of PyGame has no native libraries",
-    )
     def test_package_with_native_libraries(self, directory_for_test, runner):
-        """
-        We use PyGame in this test for two reasons:
-        1. We need a package with native libraries to trigger warning
-        2. This package should not be available on Snowflake Conda channel.
-        As it is highly unlikely, that PyGame will be included in the channel, it's probably ok to leave it for now,
-        but we may reconsider switch to a package controlled by us.
-        """
-        result = runner.invoke_with_connection(
-            [
-                "snowpark",
-                "package",
-                "create",
-                "pygame",
-            ]
+        result = runner.invoke(
+            ["snowpark", "package", "create", "numpy", "--ignore-anaconda"]
         )
-
-        assert result.exit_code == 0
+        assert result.exit_code == 1
         assert "at https://support.anaconda.com/" in result.output
 
     @pytest.fixture(scope="function")

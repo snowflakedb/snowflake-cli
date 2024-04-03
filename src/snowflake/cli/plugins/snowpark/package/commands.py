@@ -6,9 +6,9 @@ from textwrap import dedent
 from typing import Optional
 
 import typer
+from click import ClickException
 from snowflake.cli.api.commands.flags import (
     deprecated_flag_callback,
-    deprecated_flag_callback_enum,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MessageResult
@@ -20,12 +20,21 @@ from snowflake.cli.plugins.snowpark.models import (
 from snowflake.cli.plugins.snowpark.package.anaconda import (
     AnacondaChannel,
 )
-from snowflake.cli.plugins.snowpark.package.manager import (
-    cleanup_packages_dir,
-    create_packages_zip,
-    upload,
+from snowflake.cli.plugins.snowpark.package.manager import upload
+from snowflake.cli.plugins.snowpark.package_utils import (
+    detect_and_log_shared_libraries,
+    download_unavailable_packages,
+    get_package_name_from_pip_wheel,
 )
-from snowflake.cli.plugins.snowpark.package_utils import download_packages
+from snowflake.cli.plugins.snowpark.snowpark_shared import (
+    AllowSharedLibrariesOption,
+    IgnoreAnacondaOption,
+    IndexUrlOption,
+    SkipVersionCheckOption,
+    deprecated_allow_native_libraries_option,
+    resolve_allow_shared_libraries_yes_no_ask,
+)
+from snowflake.cli.plugins.snowpark.zipper import zip_dir
 
 app = SnowTyper(
     name="package",
@@ -138,56 +147,20 @@ deprecated_install_option = typer.Option(
     ),
 )
 
-deprecated_allow_native_libraries_option = typer.Option(
-    YesNoAsk.NO.value,
-    "--allow-native-libraries",
-    help="Allows native libraries, when using packages installed through PIP",
-    hidden=True,
-    callback=deprecated_flag_callback_enum(
-        "--allow-native-libraries flag is deprecated. Use --allow-shared-libraries flag instead."
-    ),
-)
-
-ignore_anaconda_option = typer.Option(
-    False,
-    "--ignore-anaconda",
-    help="Does not lookup packages on Snowflake Anaconda channel.",
-)
-
-index_option = typer.Option(
-    None,
-    "--index-url",
-    help="Base URL of the Python Package Index to use for package lookup. This should point to "
-    " a repository compliant with PEP 503 (the simple repository API) or a local directory laid"
-    " out in the same format.",
-    show_default=False,
-)
-
-skip_version_check_option = typer.Option(
-    False,
-    "--skip-version-check",
-    help="Skip comparing versions of dependencies between requirements and Anaconda.",
-)
-
-allow_shared_libraries_option = typer.Option(
-    False,
-    "--allow-shared-libraries",
-    help="Allows shared (.so) libraries, when using packages installed through PIP.",
-)
-
 
 @app.command("create", requires_connection=True)
-@cleanup_packages_dir
 def package_create(
     name: str = typer.Argument(
         ...,
         help="Name of the package to create.",
     ),
-    ignore_anaconda: bool = ignore_anaconda_option,
-    index_url: Optional[str] = index_option,
-    skip_version_check: bool = skip_version_check_option,
-    allow_shared_libraries: bool = allow_shared_libraries_option,
-    deprecated_allow_native_libraries: YesNoAsk = deprecated_allow_native_libraries_option,
+    ignore_anaconda: bool = IgnoreAnacondaOption,
+    index_url: Optional[str] = IndexUrlOption,
+    skip_version_check: bool = SkipVersionCheckOption,
+    allow_shared_libraries: bool = AllowSharedLibrariesOption,
+    deprecated_allow_native_libraries: YesNoAsk = deprecated_allow_native_libraries_option(
+        "--allow-native-libraries"
+    ),
     _deprecated_install_option: bool = deprecated_install_option,
     _deprecated_install_packages: bool = deprecated_pypi_download_option,
     **options,
@@ -195,66 +168,65 @@ def package_create(
     """
     Creates a Python package as a zip file that can be uploaded to a stage and imported for a Snowpark Python app.
     """
-    # TODO: yes/no/ask logic should be removed in 3.0
-    allow_shared_libraries_yesnoask = {
-        True: YesNoAsk.YES,
-        False: YesNoAsk.NO,
-    }[allow_shared_libraries]
-    if deprecated_allow_native_libraries != YesNoAsk.NO:
-        allow_shared_libraries_yesnoask = deprecated_allow_native_libraries
-
-    if ignore_anaconda:
-        anaconda = None
-    else:
-        anaconda = AnacondaChannel.from_snowflake()
+    with SecurePath.temporary_directory() as packages_dir:
         package = Requirement.parse(name)
-        if anaconda.is_package_available(
-            package, skip_version_check=skip_version_check
-        ):
+        download_result = download_unavailable_packages(
+            requirements=[package],
+            target_dir=packages_dir,
+            ignore_anaconda=ignore_anaconda,
+            skip_version_check=skip_version_check,
+            pip_index_url=index_url,
+        )
+        if not download_result.succeeded:
+            raise ClickException(download_result.error_message)
+
+        # check if package was detected as available
+        package_available_in_conda = any(
+            p.line == package.line
+            for p in download_result.packages_available_in_anaconda
+        )
+        if package_available_in_conda:
             return MessageResult(
                 f"Package {name} is already available in Snowflake Anaconda Channel."
             )
 
-    packages_dir = SecurePath(".packages")
-    packages_are_downloaded, dependencies = download_packages(
-        anaconda=anaconda,
-        ignore_anaconda=ignore_anaconda,
-        package_name=name,
-        requirements_file=None,
-        packages_dir=packages_dir,
-        index_url=index_url,
-        allow_shared_libraries=allow_shared_libraries_yesnoask,
-        skip_version_check=skip_version_check,
-    )
+        # The package is not in anaconda, so we have to pack it
+        log.info("Checking to see if packages have shared (.so/.dll) libraries...")
+        if detect_and_log_shared_libraries(download_result.downloaded_packages_details):
+            # TODO: yes/no/ask logic should be removed in 3.0
+            if not (
+                allow_shared_libraries
+                or resolve_allow_shared_libraries_yes_no_ask(
+                    deprecated_allow_native_libraries
+                )
+            ):
+                raise ClickException(
+                    "Some packages contain shared (.so/.dll) libraries. "
+                    "Try again with --allow-shared-libraries."
+                )
 
-    if not packages_are_downloaded:
-        return MessageResult(
-            dedent(
-                f"""
-                Cannot create package for {name}. Please check the package name
-                or try again with --allow-shared-libraries option.
-                """
-            )
-        )
-
-    # The package is not in anaconda, so we have to pack it
-    zip_file = create_packages_zip(name)
-    message = dedent(
-        f"""
+        # The package is not in anaconda, so we have to pack it
+        # the package was downloaded once, pip wheel should use cache
+        zip_file = f"{get_package_name_from_pip_wheel(name, index_url=index_url)}.zip"
+        zip_dir(dest_zip=Path(zip_file), source=packages_dir.path)
+        message = dedent(
+            f"""
         Package {zip_file} created. You can now upload it to a stage using
         snow snowpark package upload -f {zip_file} -s <stage-name>`
         and reference it in your procedure or function.
         Remember to add it to imports in the procedure or function definition.
         """
-    )
-    if dependencies.snowflake:
-        message += dedent(
-            f"""
-            The package {name} is successfully created, but depends on the following
-            Anaconda libraries. They need to be included in project requirements,
-            as their are not included in .zip.
-            """
         )
-        message += "\n".join((req.line for req in dependencies.snowflake))
+        if download_result.packages_available_in_anaconda:
+            message += dedent(
+                f"""
+                The package {name} is successfully created, but depends on the following
+                Anaconda libraries. They need to be included in project requirements,
+                as their are not included in .zip.
+                """
+            )
+            message += "\n".join(
+                (req.line for req in download_result.packages_available_in_anaconda)
+            )
 
-    return MessageResult(message)
+        return MessageResult(message)
