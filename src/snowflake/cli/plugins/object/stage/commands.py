@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import itertools
+from os import path
 from pathlib import Path
 
 import click
@@ -8,8 +10,8 @@ from snowflake.cli.api.commands.flags import PatternOption
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import (
+    CollectionResult,
     CommandResult,
-    MultipleResults,
     ObjectResult,
     QueryResult,
     SingleQueryResult,
@@ -76,35 +78,8 @@ def copy(
         )
 
     if is_get:
-        target = Path(destination_path).resolve()
-        if recursive:
-            cursors = StageManager().get_recursive(
-                stage_path=source_path, dest_path=target, parallel=parallel
-            )
-            return MultipleResults([QueryResult(c) for c in cursors])
-        else:
-            cli_console.warning(
-                "Use `--recursive` flag, which copy files recursively with directory structure. This will be the default behavior in the future."
-            )
-            cursor = StageManager().get(
-                stage_path=source_path, dest_path=target, parallel=parallel
-            )
-            return QueryResult(cursor)
-
-    if is_put:
-        if recursive:
-            raise click.ClickException("Recursive flag for upload is not supported.")
-        else:
-            source = Path(source_path).resolve()
-            local_path = str(source) + "/*" if source.is_dir() else str(source)
-
-            cursor = StageManager().put(
-                local_path=local_path,
-                stage_path=destination_path,
-                overwrite=overwrite,
-                parallel=parallel,
-            )
-            return QueryResult(cursor)
+        return _get(recursive, source_path, destination_path, parallel)
+    return _put(recursive, source_path, destination_path, parallel, overwrite)
 
 
 @app.command("create", requires_connection=True)
@@ -141,3 +116,48 @@ def stage_diff(
     """
     diff: DiffResult = stage_diff(Path(folder_name), stage_name)
     return ObjectResult(str(diff))
+
+
+def _get(recursive: bool, source_path: str, destination_path: str, parallel: int):
+    target = Path(destination_path).resolve()
+    if recursive:
+        cursors = StageManager().get_recursive(
+            stage_path=source_path, dest_path=target, parallel=parallel
+        )
+        results = [list(QueryResult(c).result) for c in cursors]
+        flattened_results = list(itertools.chain.from_iterable(results))
+        sorted_results = sorted(
+            flattened_results,
+            key=lambda e: (path.dirname(e["file"]), path.basename(e["file"])),
+        )
+        return CollectionResult(sorted_results)
+
+    cli_console.warning(
+        "Use `--recursive` flag, which copy files recursively with directory structure. This will be the default behavior in the future."
+    )
+    cursor = StageManager().get(
+        stage_path=source_path, dest_path=target, parallel=parallel
+    )
+    return QueryResult(cursor)
+
+
+def _put(
+    recursive: bool,
+    source_path: str,
+    destination_path: str,
+    parallel: int,
+    overwrite: bool,
+):
+    if recursive:
+        raise click.ClickException("Recursive flag for upload is not supported.")
+
+    source = Path(source_path).resolve()
+    local_path = str(source) + "/*" if source.is_dir() else str(source)
+
+    cursor = StageManager().put(
+        local_path=local_path,
+        stage_path=destination_path,
+        overwrite=overwrite,
+        parallel=parallel,
+    )
+    return QueryResult(cursor)

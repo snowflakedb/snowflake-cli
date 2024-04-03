@@ -80,7 +80,7 @@ def test_stage_copy_remote_to_local_quoted_stage_recursive(
 ):
     mock_execute.side_effect = [
         mock_cursor([{"name": '"stage name"/file'}], []),
-        mock_cursor(["row"], []),
+        mock_cursor([("file")], ["file"]),
     ]
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
@@ -158,7 +158,7 @@ def test_stage_copy_remote_to_local_quoted_uri_recursive(
 ):
     mock_execute.side_effect = [
         mock_cursor([{"name": "stageName/file"}], []),
-        mock_cursor(["row"], []),
+        mock_cursor([(raw_path)], ["file"]),
     ]
     with TemporaryDirectory() as tmp_dir:
         tmp_dir = Path(tmp_dir).resolve()

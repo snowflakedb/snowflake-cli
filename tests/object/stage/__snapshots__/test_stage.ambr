@@ -39,22 +39,11 @@
 # ---
 # name: test_stage_print_result_for_get_all_files_from_stage_recursive
   '''
-  SELECT A MOCK QUERY
   +-----------------------------------------+
   | file      | size | status     | message |
   |-----------+------+------------+---------|
   | file1.txt | 10   | DOWNLOADED |         |
-  +-----------------------------------------+
-  SELECT A MOCK QUERY
-  +-----------------------------------------+
-  | file      | size | status     | message |
-  |-----------+------+------------+---------|
   | file2.txt | 10   | DOWNLOADED |         |
-  +-----------------------------------------+
-  SELECT A MOCK QUERY
-  +-----------------------------------------+
-  | file      | size | status     | message |
-  |-----------+------+------------+---------|
   | file3.txt | 10   | DOWNLOADED |         |
   +-----------------------------------------+
   
