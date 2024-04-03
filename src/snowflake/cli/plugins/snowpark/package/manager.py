@@ -10,11 +10,10 @@ from snowflake.cli.plugins.snowpark.package.utils import prepare_app_zip
 log = logging.getLogger(__name__)
 
 
-def upload(file: Path, stage: str, overwrite: bool):
+def upload(sm: StageManager, file: Path, stage: str, overwrite: bool):
     log.info("Uploading %s to Snowflake @%s/%s...", file, stage, file)
     with SecurePath.temporary_directory() as temp_dir:
         temp_app_zip_path = prepare_app_zip(SecurePath(file), temp_dir)
-        sm = StageManager()
 
         sm.create(sm.get_stage_name_from_path(stage))
         put_response = sm.put(

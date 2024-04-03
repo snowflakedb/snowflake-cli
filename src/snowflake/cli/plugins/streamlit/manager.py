@@ -15,6 +15,7 @@ from snowflake.cli.plugins.connection.util import (
     make_snowsight_url,
 )
 from snowflake.cli.plugins.object.stage.manager import StageManager
+from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -22,6 +23,9 @@ log = logging.getLogger(__name__)
 
 
 class StreamlitManager(SqlExecutionMixin):
+    def __init__(self, conn: SnowflakeConnection):
+        super().__init__(conn)
+
     def share(self, streamlit_name: str, to_role: str) -> SnowflakeCursor:
         return self._execute_query(
             f"grant usage on streamlit {streamlit_name} to role {to_role}"
@@ -35,7 +39,7 @@ class StreamlitManager(SqlExecutionMixin):
         pages_dir: Optional[Path],
         additional_source_files: Optional[List[str]],
     ):
-        stage_manager = StageManager()
+        stage_manager = StageManager(self._conn)
 
         stage_manager.put(main_file, root_location, 4, True)
 
@@ -99,7 +103,7 @@ class StreamlitManager(SqlExecutionMixin):
         additional_source_files: Optional[List[str]] = None,
         **options,
     ):
-        stage_manager = StageManager()
+        stage_manager = StageManager(self._conn)
         # for backwards compatibility - quoted stage path might be case-sensitive
         # https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers
         streamlit_name_for_root_location = self.get_name_from_fully_qualified_name(
@@ -150,7 +154,7 @@ class StreamlitManager(SqlExecutionMixin):
             2. Upload files to created stage
             3. Create streamlit from stage
             """
-            stage_manager = StageManager()
+            stage_manager = StageManager(self._conn)
 
             stage_name = stage_name or "streamlit"
             stage_name = stage_manager.to_fully_qualified_name(stage_name)

@@ -1,10 +1,14 @@
 from textwrap import dedent
 
 from snowflake.cli.plugins.object.stage.manager import StageManager
+from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 
 
 class GitManager(StageManager):
+    def __init__(self, conn: SnowflakeConnection):
+        super().__init__(conn)
+
     def show_branches(self, repo_name: str, like: str) -> SnowflakeCursor:
         return self._execute_query(f"show git branches like '{like}' in {repo_name}")
 

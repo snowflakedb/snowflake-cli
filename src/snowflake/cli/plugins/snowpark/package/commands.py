@@ -7,6 +7,7 @@ from typing import Optional
 
 import typer
 from click import ClickException
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import (
     deprecated_flag_callback,
 )
@@ -35,6 +36,8 @@ from snowflake.cli.plugins.snowpark.snowpark_shared import (
     resolve_allow_shared_libraries_yes_no_ask,
 )
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
+
+from src.snowflake.cli.plugins.object.stage.manager import StageManager
 
 app = SnowTyper(
     name="package",
@@ -123,7 +126,10 @@ def package_upload(
     """
     Uploads a Python package zip file to a Snowflake stage so it can be referenced in the imports of a procedure or function.
     """
-    return MessageResult(upload(file=file, stage=stage, overwrite=overwrite))
+    return MessageResult(
+        StageManager(cli_context.connection),
+        upload(file=file, stage=stage, overwrite=overwrite),
+    )
 
 
 deprecated_pypi_download_option = typer.Option(

@@ -49,6 +49,9 @@ from snowflake.cli.plugins.object.stage.diff import (
     sync_local_diff_with_stage,
 )
 from snowflake.connector import ProgrammingError
+from snowflake.connector.connection import SnowflakeConnection
+
+from src.snowflake.cli.plugins.object.stage.manager import StageManager
 
 
 def generic_sql_error_handler(
@@ -105,13 +108,20 @@ class NativeAppCommandProcessor(ABC):
         pass
 
 
-class NativeAppManager(SqlExecutionMixin):
+class NativeAppManager(
+    SqlExecutionMixin
+):  # TODO: Review calls to constructor and inheriting classes
     """
     Base class with frequently used functionality already implemented and ready to be used by related subclasses.
     """
 
-    def __init__(self, project_definition: NativeApp, project_root: Path):
-        super().__init__()
+    def __init__(
+        self,
+        conn: SnowflakeConnection,
+        project_definition: NativeApp,
+        project_root: Path,
+    ):
+        super().__init__(conn)
         self._project_root = project_root
         self._project_definition = project_definition
 
@@ -295,7 +305,9 @@ class NativeAppManager(SqlExecutionMixin):
             "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
             % self.deploy_root
         )
-        diff: DiffResult = stage_diff(self.deploy_root, self.stage_fqn)
+        diff: DiffResult = stage_diff(
+            StageManager(self._conn), self.deploy_root, self.stage_fqn
+        )
         cc.message(str(diff))
 
         # Upload diff-ed files to application package stage
@@ -305,6 +317,7 @@ class NativeAppManager(SqlExecutionMixin):
                 % self.deploy_root,
             )
             sync_local_diff_with_stage(
+                stage_manager=StageManager(self._conn),
                 role=role,
                 deploy_root_path=self.deploy_root,
                 diff_result=diff,
