@@ -4,7 +4,6 @@ from typing import Dict, List, Optional
 
 import typer
 from click import BadOptionUsage, ClickException
-from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.util import unquote_identifier
@@ -28,9 +27,14 @@ from snowflake.connector import ProgrammingError
 from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 
+from src.snowflake.cli.api.console.abc import AbstractConsole
+
 
 def check_index_changes_in_git_repo(
-    project_root: Path, policy: PolicyBase, is_interactive: bool
+    console: AbstractConsole,
+    project_root: Path,
+    policy: PolicyBase,
+    is_interactive: bool,
 ) -> None:
     """
     Checks if the project root, i.e. the native apps project is a git repository. If it is a git repository,
@@ -45,7 +49,7 @@ def check_index_changes_in_git_repo(
 
         # Check if the repo has any changes, including untracked files
         if repo.is_dirty(untracked_files=True):
-            cc.warning(
+            console.warning(
                 "Changes detected in the git repository. (Rerun your command with --skip-git-check flag to ignore this check)"
             )
             repo.git.execute(["git", "status"])
@@ -55,10 +59,10 @@ def check_index_changes_in_git_repo(
             )
             if not policy.should_proceed(user_prompt):
                 if is_interactive:
-                    cc.message("Not creating a new version.")
+                    console.message("Not creating a new version.")
                     raise typer.Exit(0)
                 else:
-                    cc.message(
+                    console.message(
                         "Cannot create a new version non-interactively without --force."
                     )
                     raise typer.Exit(1)
@@ -69,9 +73,13 @@ def check_index_changes_in_git_repo(
 
 class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
     def __init__(
-        self, conn: SnowflakeConnection, project_definition: Dict, project_root: Path
+        self,
+        conn: SnowflakeConnection,
+        console: AbstractConsole,
+        project_definition: Dict,
+        project_root: Path,
     ):
-        super().__init__(conn, project_definition, project_root)
+        super().__init__(conn, console, project_definition, project_root)
 
     def get_existing_release_directive_info_for_version(
         self, version: str
@@ -103,7 +111,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         Defines a new version in an existing application package.
         """
         with self.use_role(self.package_role):
-            cc.step(
+            self._console.step(
                 f"Defining a new version {version} in application package {self.package_name}"
             )
             add_version_query = dedent(
@@ -114,7 +122,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 """
             )
             self._execute_query(add_version_query, cursor_class=DictCursor)
-            cc.message(
+            self._console.message(
                 f"Version {version} created for application package {self.package_name}."
             )
 
@@ -123,7 +131,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         Add a new patch, optionally a custom one, to an existing version in an application package.
         """
         with self.use_role(self.package_role):
-            cc.step(
+            self._console.step(
                 f"Adding new patch to version {version} defined in application package {self.package_name}"
             )
             add_version_query = dedent(
@@ -143,7 +151,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
             )
 
             new_patch = show_row["patch"]
-            cc.message(
+            self._console.message(
                 f"Patch {new_patch} created for version {version} defined in application package {self.package_name}."
             )
 
@@ -164,7 +172,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         # Make sure version is not None before proceeding any further.
         # This will raise an exception if version information is not found. Patch can be None.
         if not version:
-            cc.message(
+            self._console.message(
                 "Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead."
             )
 
@@ -190,6 +198,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
 
         if git_policy.should_proceed():
             check_index_changes_in_git_repo(
+                console=self._console,
                 project_root=self.project_root,
                 policy=policy,
                 is_interactive=is_interactive,
@@ -212,7 +221,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
             release_directive_names = ", ".join(
                 row["name"] for row in existing_release_directives
             )
-            cc.warning(
+            self._console.warning(
                 dedent(
                     f"""\
                     Version {version} already defined in application package {self.package_name} and in release directive(s): {release_directive_names}.
@@ -226,10 +235,10 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
             )
             if not policy.should_proceed(user_prompt):
                 if is_interactive:
-                    cc.message("Not creating a new patch.")
+                    self._console.message("Not creating a new patch.")
                     raise typer.Exit(0)
                 else:
-                    cc.message(
+                    self._console.message(
                         "Cannot create a new patch non-interactively without --force."
                     )
                     raise typer.Exit(1)
@@ -277,13 +286,13 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
         # 2. Check distribution of the existing application package
         actual_distribution = self.get_app_pkg_distribution_in_snowflake
         if not self.verify_project_distribution(actual_distribution):
-            cc.warning(
+            self._console.warning(
                 f"Continuing to execute `snow app version drop` on application package {self.package_name} with distribution '{actual_distribution}'."
             )
 
         # 3. If the user did not pass in a version string, determine from manifest.yml
         if not version:
-            cc.message(
+            self._console.message(
                 dedent(
                     f"""\
                         Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead.
@@ -298,7 +307,7 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
                     "Manifest.yml file does not contain a value for the version field."
                 )
 
-        cc.step(
+        self._console.step(
             dedent(
                 f"""\
                     About to drop version {version} in application package {self.package_name}.
@@ -312,10 +321,12 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
         )
         if not policy.should_proceed(user_prompt):
             if is_interactive:
-                cc.message("Not dropping version.")
+                self._console.message("Not dropping version.")
                 raise typer.Exit(0)
             else:
-                cc.message("Cannot drop version non-interactively without --force.")
+                self._console.message(
+                    "Cannot drop version non-interactively without --force."
+                )
                 raise typer.Exit(1)
 
         # Drop the version
@@ -327,6 +338,6 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
             except ProgrammingError as err:
                 raise err  # e.g. version is referenced in a release directive(s)
 
-        cc.message(
+        self._console.message(
             f"Version {version} in application package {self.package_name} dropped successfully."
         )

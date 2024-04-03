@@ -4,7 +4,6 @@ from typing import Optional
 
 import typer
 from click import UsageError
-from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.plugins.nativeapp.constants import (
@@ -31,6 +30,8 @@ from snowflake.connector import ProgrammingError
 from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 
+from src.snowflake.cli.api.console.abc import AbstractConsole
+
 UPGRADE_RESTRICTION_CODES = {93044, 93055, 93045, 93046}
 
 
@@ -38,10 +39,11 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
     def __init__(
         self,
         conn: SnowflakeConnection,
+        console: AbstractConsole,
         project_definition: NativeApp,
         project_root: Path,
     ):
-        super().__init__(conn, project_definition, project_root)
+        super().__init__(conn, console, project_definition, project_root)
 
     def _create_dev_app(self, diff: DiffResult) -> None:
         """
@@ -78,7 +80,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 # If all the above checks are in order, proceed to upgrade
                 try:
                     if diff.has_changes():
-                        cc.step(
+                        self._console.step(
                             f"Upgrading existing application object {self.app_name}."
                         )
                         self._execute_query(
@@ -96,7 +98,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     generic_sql_error_handler(err)
 
             # 4. If no existing application object is found, create an application object using "files on a named stage" / stage dev mode.
-            cc.step(f"Creating new application {self.app_name} in account.")
+            self._console.step(f"Creating new application {self.app_name} in account.")
 
             if self.app_role != self.package_role:
                 with self.use_role(new_role=self.package_role):
@@ -169,10 +171,10 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         user_prompt = "Do you want the Snowflake CLI to drop the existing application object and recreate it?"
         if not policy.should_proceed(user_prompt):
             if is_interactive:
-                cc.message("Not upgrading the application object.")
+                self._console.message("Not upgrading the application object.")
                 raise typer.Exit(0)
             else:
-                cc.message(
+                self._console.message(
                     "Cannot upgrade the application object non-interactively without --force."
                 )
                 raise typer.Exit(1)
@@ -232,11 +234,13 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     if err.errno not in UPGRADE_RESTRICTION_CODES:
                         generic_sql_error_handler(err=err)
                     else:  # The existing application object was created from a different process.
-                        cc.warning(err.msg)
+                        self._console.warning(err.msg)
                         self.drop_application_before_upgrade(policy, is_interactive)
 
             # 4. With no (more) existing application objects, create an application object using the release directives
-            cc.step(f"Creating new application object {self.app_name} in account.")
+            self._console.step(
+                f"Creating new application object {self.app_name} in account."
+            )
 
             if self.app_role != self.package_role:
                 with self.use_role(new_role=self.package_role):

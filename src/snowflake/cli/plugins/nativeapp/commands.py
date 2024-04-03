@@ -7,6 +7,7 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -124,6 +125,7 @@ def app_bundle(
     """
     manager = NativeAppManager(
         conn=cli_context.connection,
+        console=cli_console,
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
@@ -172,6 +174,7 @@ def app_run(
 
     processor = NativeAppRunProcessor(
         conn=cli_context.connection,
+        console=cli_console,
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
@@ -200,6 +203,7 @@ def app_open(
     """
     manager = NativeAppManager(
         conn=cli_context.connection,
+        console=cli_console,
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
@@ -223,6 +227,7 @@ def app_teardown(
     """
     processor = NativeAppTeardownProcessor(
         conn=cli_context.connection,
+        console=cli_console,
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
@@ -240,6 +245,7 @@ def app_deploy(
     """
     manager = NativeAppManager(
         conn=cli_context.connection,
+        console=cli_console,
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )

@@ -7,7 +7,6 @@ from textwrap import dedent
 from typing import List, Optional
 
 import jinja2
-from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.definition import (
     default_app_package,
@@ -51,6 +50,7 @@ from snowflake.cli.plugins.object.stage.diff import (
 from snowflake.connector import ProgrammingError
 from snowflake.connector.connection import SnowflakeConnection
 
+from src.snowflake.cli.api.console.abc import AbstractConsole
 from src.snowflake.cli.plugins.object.stage.manager import StageManager
 
 
@@ -116,10 +116,12 @@ class NativeAppManager(SqlExecutionMixin):
     def __init__(
         self,
         conn: SnowflakeConnection,
+        console: AbstractConsole,
         project_definition: NativeApp,
         project_root: Path,
     ):
         super().__init__(conn)
+        self._console = console
         self._project_root = project_root
         self._project_definition = project_definition
 
@@ -261,7 +263,7 @@ class NativeAppManager(SqlExecutionMixin):
         )
         project_def_distribution = self.package_distribution.lower()
         if actual_distribution != project_def_distribution:
-            cc.warning(
+            self._console.warning(
                 dedent(
                     f"""\
                     Application package {self.package_name} in your Snowflake account has distribution property {actual_distribution},
@@ -286,7 +288,9 @@ class NativeAppManager(SqlExecutionMixin):
 
         # Does a stage already exist within the application package, or we need to create one?
         # Using "if not exists" should take care of either case.
-        cc.step("Checking if stage exists, or creating a new one if none exists.")
+        self._console.step(
+            "Checking if stage exists, or creating a new one if none exists."
+        )
         with self.use_role(role):
             self._execute_query(
                 f"create schema if not exists {self.package_name}.{self.stage_schema}"
@@ -299,18 +303,18 @@ class NativeAppManager(SqlExecutionMixin):
             )
 
         # Perform a diff operation and display results to the user for informational purposes
-        cc.step(
+        self._console.step(
             "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
             % self.deploy_root
         )
         diff: DiffResult = stage_diff(
             StageManager(self._conn), self.deploy_root, self.stage_fqn
         )
-        cc.message(str(diff))
+        self._console.message(str(diff))
 
         # Upload diff-ed files to application package stage
         if diff.has_changes():
-            cc.step(
+            self._console.step(
                 "Uploading diff-ed files from your local %s directory to the Snowflake stage."
                 % self.deploy_root,
             )
@@ -366,7 +370,7 @@ class NativeAppManager(SqlExecutionMixin):
             # 2. Check distribution of the existing application package
             actual_distribution = self.get_app_pkg_distribution_in_snowflake
             if not self.verify_project_distribution(actual_distribution):
-                cc.warning(
+                self._console.warning(
                     f"Continuing to execute `snow app run` on application package {self.package_name} with distribution '{actual_distribution}'."
                 )
 
@@ -381,7 +385,9 @@ class NativeAppManager(SqlExecutionMixin):
 
         # If no application package pre-exists, create an application package, with the specified distribution in the project definition file.
         with self.use_role(self.package_role):
-            cc.step(f"Creating new application package {self.package_name} in account.")
+            self._console.step(
+                f"Creating new application package {self.package_name} in account."
+            )
             self._execute_query(
                 dedent(
                     f"""\
@@ -425,7 +431,9 @@ class NativeAppManager(SqlExecutionMixin):
                 self._execute_query(f"use warehouse {self.package_warehouse}")
 
             for i, queries in enumerate(queued_queries):
-                cc.step(f"Applying package script: {self.package_scripts[i]}")
+                self._console.step(
+                    f"Applying package script: {self.package_scripts[i]}"
+                )
                 self._execute_queries(queries)
         except ProgrammingError as err:
             generic_sql_error_handler(

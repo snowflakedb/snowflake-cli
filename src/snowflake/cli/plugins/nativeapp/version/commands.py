@@ -8,6 +8,7 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import CommandResult, MessageResult, QueryResult
 from snowflake.cli.plugins.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowflake.cli.plugins.nativeapp.policy import (
@@ -75,6 +76,7 @@ def create(
 
     processor = NativeAppVersionCreateProcessor(
         conn=cli_context.connection,
+        console=cli_console,
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
@@ -101,6 +103,7 @@ def version_list(
     """
     processor = NativeAppRunProcessor(
         conn=cli_context.connection,
+        console=cli_console,
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )

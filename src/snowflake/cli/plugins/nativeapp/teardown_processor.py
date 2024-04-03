@@ -3,7 +3,6 @@ from textwrap import dedent
 from typing import Dict
 
 import typer
-from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
@@ -24,26 +23,32 @@ from snowflake.cli.plugins.nativeapp.utils import needs_confirmation
 from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 
+from src.snowflake.cli.api.console.abc import AbstractConsole
+
 
 class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
     def __init__(
-        self, conn: SnowflakeConnection, project_definition: Dict, project_root: Path
+        self,
+        conn: SnowflakeConnection,
+        console: AbstractConsole,
+        project_definition: Dict,
+        project_root: Path,
     ):
-        super().__init__(conn, project_definition, project_root)
+        super().__init__(conn, console, project_definition, project_root)
 
     def drop_generic_object(self, object_type: str, object_name: str, role: str):
         """
         Drop object using the given role.
         """
         with self.use_role(role):
-            cc.step(f"Dropping {object_type} {object_name} now.")
+            self._console.step(f"Dropping {object_type} {object_name} now.")
             drop_query = f"drop {object_type} {object_name}"
             try:
                 self._execute_query(drop_query)
             except:
                 raise SnowflakeSQLExecutionError(drop_query)
 
-            cc.message(f"Dropped {object_type} {object_name} successfully.")
+            self._console.message(f"Dropped {object_type} {object_name} successfully.")
 
     def drop_application(self, auto_yes: bool):
         """
@@ -55,7 +60,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
         # 1. If existing application package is not found, exit gracefully
         show_obj_row = self.get_existing_app_info()
         if show_obj_row is None:
-            cc.warning(
+            self._console.warning(
                 f"Role {self.app_role} does not own any application object with the name {self.app_name}, or the application object does not exist."
             )
             return
@@ -89,7 +94,9 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                     )
                 )
                 if not should_drop_object:
-                    cc.message(f"Did not drop application object {self.app_name}.")
+                    self._console.message(
+                        f"Did not drop application object {self.app_name}."
+                    )
                     return  # The user desires to keep the app, therefore exit gracefully
 
         # 4. All validations have passed, drop object
@@ -107,7 +114,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
         # 1. If existing application package is not found, exit gracefully
         show_obj_row = self.get_existing_app_pkg_info()
         if show_obj_row is None:
-            cc.warning(
+            self._console.warning(
                 f"Role {self.package_role} does not own any application package with the name {self.package_name}, or the application package does not exist."
             )
             return
@@ -133,7 +140,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
         # 4. Check distribution of the existing application package
         actual_distribution = self.get_app_pkg_distribution_in_snowflake
         if not self.verify_project_distribution(actual_distribution):
-            cc.warning(
+            self._console.warning(
                 f"Continuing to execute `snow app teardown` on application package {self.package_name} with distribution '{actual_distribution}'."
             )
 
@@ -144,12 +151,12 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                 needs_confirm = False
             else:
                 if needs_confirmation(needs_confirm, auto_yes):
-                    cc.warning(
+                    self._console.warning(
                         f"Application package {self.package_name} was not created by Snowflake CLI."
                     )
         else:
             if needs_confirmation(needs_confirm, auto_yes):
-                cc.warning(
+                self._console.warning(
                     f"Application package {self.package_name} in your Snowflake account has distribution property '{EXTERNAL_DISTRIBUTION}' and could be associated with one or more of your listings on Snowflake Marketplace."
                 )
 
@@ -168,7 +175,9 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                 )
             )
             if not should_drop_object:
-                cc.message(f"Did not drop application package {self.package_name}.")
+                self._console.message(
+                    f"Did not drop application package {self.package_name}."
+                )
                 return  # The user desires to keep the application package, therefore exit gracefully
 
         # All validations have passed, drop object
