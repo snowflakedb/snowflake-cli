@@ -10,7 +10,7 @@
   * `--pypi-download` or `--yes` flags have no effect and will cause a warning.
     `create` command always checks against PyPi.
   * `--allow-native-libraries` is replaced with boolean flag `--allow-shared-libraries`.
-    Using old flag will cause a waring.
+    Using old flag will cause a warning.
 * `snow snowpark build`:
   * `--pypi-download` flag have no effect and will cause a warning. Create command always check against PyPi.
   * `--check-anaconda-for-pypi-depts` is replaced with `--ignore-anaconda`
