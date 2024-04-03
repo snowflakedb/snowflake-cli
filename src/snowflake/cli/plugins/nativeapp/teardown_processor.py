@@ -21,12 +21,15 @@ from snowflake.cli.plugins.nativeapp.manager import (
     ensure_correct_owner,
 )
 from snowflake.cli.plugins.nativeapp.utils import needs_confirmation
+from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 
 
 class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
-    def __init__(self, project_definition: Dict, project_root: Path):
-        super().__init__(project_definition, project_root)
+    def __init__(
+        self, conn: SnowflakeConnection, project_definition: Dict, project_root: Path
+    ):
+        super().__init__(conn, project_definition, project_root)
 
     def drop_generic_object(self, object_type: str, object_name: str, role: str):
         """

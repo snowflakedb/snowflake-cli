@@ -6,6 +6,7 @@ from pathlib import Path
 
 import click
 import typer
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import PatternOption
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.console import cli_console
@@ -35,7 +36,9 @@ def stage_list(
     """
     Lists the stage contents.
     """
-    cursor = StageManager().list_files(stage_name=stage_name, pattern=pattern)
+    cursor = StageManager(cli_context.connection).list_files(
+        stage_name=stage_name, pattern=pattern
+    )
     return QueryResult(cursor)
 
 
@@ -98,7 +101,7 @@ def stage_create(stage_name: str = StageNameArgument, **options) -> CommandResul
     """
     Creates a named stage if it does not already exist.
     """
-    cursor = StageManager().create(stage_name=stage_name)
+    cursor = StageManager(cli_context.connection).create(stage_name=stage_name)
     return SingleQueryResult(cursor)
 
 
@@ -112,7 +115,9 @@ def stage_remove(
     Removes a file from a stage.
     """
 
-    cursor = StageManager().remove(stage_name=stage_name, path=file_name)
+    cursor = StageManager(cli_context.connection).remove(
+        stage_name=stage_name, path=file_name
+    )
     return SingleQueryResult(cursor)
 
 
@@ -125,7 +130,9 @@ def stage_diff(
     """
     Diffs a stage with a local folder.
     """
-    diff: DiffResult = stage_diff(Path(folder_name), stage_name)
+    diff: DiffResult = stage_diff(
+        StageManager(cli_context.connection), Path(folder_name), stage_name
+    )
     return ObjectResult(str(diff))
 
 

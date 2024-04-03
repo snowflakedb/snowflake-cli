@@ -154,11 +154,12 @@ def build_md5_map(list_stage_cursor: SnowflakeCursor) -> Dict[str, str]:
     }
 
 
-def stage_diff(local_path: Path, stage_fqn: str) -> DiffResult:
+def stage_diff(
+    stage_manager: StageManager, local_path: Path, stage_fqn: str
+) -> DiffResult:  # TODO: Check all references
     """
     Diffs the files in a stage with a local folder.
     """
-    stage_manager = StageManager()
     local_files = enumerate_files(local_path)
     remote_md5 = build_md5_map(stage_manager.list_files(stage_fqn))
 
@@ -237,12 +238,15 @@ def put_files_on_stage(
 
 
 def sync_local_diff_with_stage(
-    role: str, deploy_root_path: Path, diff_result: DiffResult, stage_path: str
+    stage_manager: StageManager,
+    role: str,
+    deploy_root_path: Path,
+    diff_result: DiffResult,
+    stage_path: str,
 ):
     """
     Syncs a given local directory's contents with a Snowflake stage, including removing old files, and re-uploading modified and new files.
     """
-    stage_manager = StageManager()
     log.info(
         "Uploading diff-ed files from your local %s directory to the Snowflake stage.",
         deploy_root_path,

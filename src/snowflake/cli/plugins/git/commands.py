@@ -3,6 +3,7 @@ from pathlib import Path
 
 import typer
 from click import ClickException
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import (
     PatternOption,
     identifier_argument,
@@ -77,7 +78,7 @@ def setup(
 
     * API integration - object allowing Snowflake to interact with git repository.
     """
-    manager = GitManager()
+    manager = GitManager(cli_context.connection)
     om = ObjectManager()
     _assure_repository_does_not_exist(om, repository_name)
 
@@ -151,7 +152,11 @@ def list_branches(
     """
     List all branches in the repository.
     """
-    return QueryResult(GitManager().show_branches(repo_name=repository_name, like=like))
+    return QueryResult(
+        GitManager(cli_context.connection).show_branches(
+            repo_name=repository_name, like=like
+        )
+    )
 
 
 @app.command(
@@ -168,7 +173,11 @@ def list_tags(
     """
     List all tags in the repository.
     """
-    return QueryResult(GitManager().show_tags(repo_name=repository_name, like=like))
+    return QueryResult(
+        GitManager(cli_context.connection).show_tags(
+            repo_name=repository_name, like=like
+        )
+    )
 
 
 @app.command(
@@ -184,7 +193,9 @@ def list_files(
     List files from given state of git repository.
     """
     return QueryResult(
-        GitManager().list_files(stage_name=repository_path, pattern=pattern)
+        GitManager(cli_context.connection).list_files(
+            stage_name=repository_path, pattern=pattern
+        )
     )
 
 
@@ -199,7 +210,9 @@ def fetch(
     """
     Fetch changes from origin to snowflake repository.
     """
-    return QueryResult(GitManager().fetch(repo_name=repository_name))
+    return QueryResult(
+        GitManager(cli_context.connection).fetch(repo_name=repository_name)
+    )
 
 
 @app.command(
@@ -225,11 +238,11 @@ def copy(
     """
     is_copy = is_stage_path(destination_path)
     if is_copy:
-        cursor = GitManager().copy_files(
+        cursor = GitManager(cli_context.connection).copy_files(
             source_path=repository_path, destination_path=destination_path
         )
     else:
-        cursor = GitManager().get(
+        cursor = GitManager(cli_context.connection).get(
             stage_path=repository_path,
             dest_path=Path(destination_path).resolve(),
             parallel=parallel,

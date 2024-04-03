@@ -7,7 +7,6 @@ from io import StringIO
 from textwrap import dedent
 from typing import Iterable, Optional, Tuple
 
-from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
     DatabaseNotProvidedError,
@@ -20,17 +19,16 @@ from snowflake.cli.api.project.util import (
 )
 from snowflake.cli.api.utils.cursor import find_first_row
 from snowflake.cli.api.utils.naming_utils import from_qualified_name
+from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
 
 class SqlExecutionMixin:
-    def __init__(self):
-        pass
-
-    @property
-    def _conn(self):
-        return cli_context.connection
+    def __init__(
+        self, connection: SnowflakeConnection
+    ):  # TODO: Check calls to constructor and inheriting classes
+        self._conn = connection
 
     @cached_property
     def _log(self):

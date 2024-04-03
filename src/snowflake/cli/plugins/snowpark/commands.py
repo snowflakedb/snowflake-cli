@@ -124,7 +124,7 @@ def deploy(
 
     # Create stage
     stage_name = snowpark.stage_name
-    stage_manager = StageManager()
+    stage_manager = StageManager(cli_context.connection)
     stage_name = stage_manager.to_fully_qualified_name(stage_name)
     stage_manager.create(
         stage_name=stage_name, comment="deployments managed by Snowflake CLI"

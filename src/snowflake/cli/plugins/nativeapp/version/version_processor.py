@@ -25,6 +25,7 @@ from snowflake.cli.plugins.nativeapp.manager import (
 from snowflake.cli.plugins.nativeapp.policy import PolicyBase
 from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.connector import ProgrammingError
+from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 
 
@@ -67,8 +68,10 @@ def check_index_changes_in_git_repo(
 
 
 class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
-    def __init__(self, project_definition: Dict, project_root: Path):
-        super().__init__(project_definition, project_root)
+    def __init__(
+        self, conn: SnowflakeConnection, project_definition: Dict, project_root: Path
+    ):
+        super().__init__(conn, project_definition, project_root)
 
     def get_existing_release_directive_info_for_version(
         self, version: str
@@ -241,8 +244,13 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
 
 
 class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor):
-    def __init__(self, project_definition: NativeApp, project_root: Path):
-        super().__init__(project_definition, project_root)
+    def __init__(
+        self,
+        conn: SnowflakeConnection,
+        project_definition: NativeApp,
+        project_root: Path,
+    ):
+        super().__init__(conn, project_definition, project_root)
 
     def process(
         self,

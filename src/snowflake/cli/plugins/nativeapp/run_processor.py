@@ -28,14 +28,20 @@ from snowflake.cli.plugins.nativeapp.policy import PolicyBase
 from snowflake.cli.plugins.object.stage.diff import DiffResult
 from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
+from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 
 UPGRADE_RESTRICTION_CODES = {93044, 93055, 93045, 93046}
 
 
 class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
-    def __init__(self, project_definition: NativeApp, project_root: Path):
-        super().__init__(project_definition, project_root)
+    def __init__(
+        self,
+        conn: SnowflakeConnection,
+        project_definition: NativeApp,
+        project_root: Path,
+    ):
+        super().__init__(conn, project_definition, project_root)
 
     def _create_dev_app(self, diff: DiffResult) -> None:
         """

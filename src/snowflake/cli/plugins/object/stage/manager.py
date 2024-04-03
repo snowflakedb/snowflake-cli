@@ -11,6 +11,7 @@ from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.utils.path_utils import path_resolver
 from snowflake.connector import DictCursor
+from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
@@ -20,6 +21,9 @@ UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
 
 
 class StageManager(SqlExecutionMixin):
+    def __init__(self, conn: SnowflakeConnection):
+        super().__init__(conn)
+
     @staticmethod
     def get_standard_stage_prefix(name: str) -> str:
         # Handle embedded stages

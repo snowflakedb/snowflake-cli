@@ -123,6 +123,7 @@ def app_bundle(
     Prepares a local folder with configured app artifacts.
     """
     manager = NativeAppManager(
+        conn=cli_context.connection,
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
@@ -170,6 +171,7 @@ def app_run(
         policy = DenyAlwaysPolicy()
 
     processor = NativeAppRunProcessor(
+        conn=cli_context.connection,
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
@@ -197,6 +199,7 @@ def app_open(
     once it has been installed in your account.
     """
     manager = NativeAppManager(
+        conn=cli_context.connection,
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
@@ -219,6 +222,7 @@ def app_teardown(
     Attempts to drop both the application object and application package as defined in the project definition file.
     """
     processor = NativeAppTeardownProcessor(
+        conn=cli_context.connection,
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
@@ -235,6 +239,7 @@ def app_deploy(
     Creates an application package in your Snowflake account and syncs the local changes to the stage without creating or updating the application.
     """
     manager = NativeAppManager(
+        conn=cli_context.connection,
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )

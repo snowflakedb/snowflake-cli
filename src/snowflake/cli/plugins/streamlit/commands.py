@@ -60,7 +60,9 @@ def streamlit_share(
     """
     Shares a Streamlit app with another role.
     """
-    cursor = StreamlitManager().share(streamlit_name=name, to_role=to_role)
+    cursor = StreamlitManager(cli_context.connection).share(
+        streamlit_name=name, to_role=to_role
+    )
     return SingleQueryResult(cursor)
 
 
@@ -110,7 +112,7 @@ def streamlit_deploy(
     elif pages_dir is None:
         pages_dir = "pages"
 
-    url = StreamlitManager().deploy(
+    url = StreamlitManager(cli_context.connection).deploy(
         streamlit_name=streamlit.name,
         environment_file=Path(environment_file),
         pages_dir=Path(pages_dir),
@@ -135,7 +137,7 @@ def get_url(
     **options,
 ):
     """Returns a URL to the specified Streamlit app"""
-    url = StreamlitManager().get_url(streamlit_name=name)
+    url = StreamlitManager(cli_context.connection).get_url(streamlit_name=name)
     if open_:
         typer.launch(url)
     return MessageResult(url)
