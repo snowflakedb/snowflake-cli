@@ -1,5 +1,6 @@
 from snowflake.cli.api import api_provider
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 
 
@@ -9,6 +10,9 @@ class SnowparkHelloManager(SqlExecutionMixin):
     _greeting = _api.plugin_config_provider.get_config(
         "snowpark-hello"
     ).internal_config["greeting"]
+
+    def __init__(self, connection: SnowflakeConnection):
+        super().__init__(connection)
 
     def say_hello(self, name: str) -> SnowflakeCursor:
         return self._execute_query(

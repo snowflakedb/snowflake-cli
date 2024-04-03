@@ -1,4 +1,5 @@
 import typer
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.decorators import (
     global_options_with_connection,
     with_output,
@@ -21,7 +22,7 @@ def _hello(
     name: str,
     language: HelloLanguage,
 ) -> CommandResult:
-    hello_manager = MultilingualHelloManager()
+    hello_manager = MultilingualHelloManager(cli_context.connection)
     cursor = hello_manager.say_hello(name, language)
     return SingleQueryResult(cursor)
 

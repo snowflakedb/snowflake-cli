@@ -104,9 +104,9 @@ def deploy(
             "Please use build command to create it."
         )
 
-    pm = ProcedureManager()
-    fm = FunctionManager()
-    om = ObjectManager()
+    pm = ProcedureManager(cli_context.connection)
+    fm = FunctionManager(cli_context.connection)
+    om = ObjectManager(cli_context.connection)
 
     _assert_object_definitions_are_correct("function", functions)
     _assert_object_definitions_are_correct("procedure", procedures)
@@ -427,9 +427,9 @@ def _execute_object_method(
     **kwargs,
 ):
     if object_type == _SnowparkObject.PROCEDURE:
-        manager = ProcedureManager()
+        manager = ProcedureManager(cli_context.connection)
     elif object_type == _SnowparkObject.FUNCTION:
-        manager = FunctionManager()
+        manager = FunctionManager(cli_context.connection)
     else:
         raise ClickException(f"Unknown object type: {object_type}")
 

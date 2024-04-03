@@ -3,10 +3,14 @@ from pathlib import Path
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 
 
 class JobManager(SqlExecutionMixin):
+    def __init__(self, connection: SnowflakeConnection):
+        super().__init__(connection)
+
     def create(self, compute_pool: str, spec_path: Path) -> SnowflakeCursor:
         spec = self._read_yaml(spec_path)
         return self._execute_schema_query(

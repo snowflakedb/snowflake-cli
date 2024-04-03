@@ -1,9 +1,13 @@
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflakecli.test_plugins.multilingual_hello.hello_language import HelloLanguage
 
 
 class MultilingualHelloManager(SqlExecutionMixin):
+    def __init__(self, connection: SnowflakeConnection):
+        super().__init__(connection)
+
     def say_hello(self, name: str, language: HelloLanguage) -> SnowflakeCursor:
         prefix = "Hello"
         if language == HelloLanguage.en:

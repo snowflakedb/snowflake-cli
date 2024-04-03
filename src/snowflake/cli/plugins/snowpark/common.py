@@ -8,6 +8,7 @@ from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.snowpark.package_utils import generate_deploy_stage_name
+from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 
 DEFAULT_RUNTIME = "3.8"
@@ -112,6 +113,9 @@ def _sql_to_python_return_type_mapper(resource_return_type: str) -> str:
 
 
 class SnowparkObjectManager(SqlExecutionMixin):
+    def __init__(self, conn: SnowflakeConnection):
+        super().__init__(conn)
+
     @property
     def _object_type(self) -> ObjectType:
         raise NotImplementedError()

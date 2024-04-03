@@ -4,6 +4,7 @@ from typing import Optional
 import requests
 import typer
 from click import ClickException
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import IfNotExistsOption, ReplaceOption
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.console import cli_console
@@ -48,7 +49,7 @@ def create(
     Creates a new image repository in the current schema.
     """
     return SingleQueryResult(
-        ImageRepositoryManager().create(
+        ImageRepositoryManager(cli_context.connection).create(
             name=name, replace=replace, if_not_exists=if_not_exists
         )
     )
@@ -60,12 +61,12 @@ def list_images(
     **options,
 ) -> CollectionResult:
     """Lists images in the given repository."""
-    repository_manager = ImageRepositoryManager()
+    repository_manager = ImageRepositoryManager(cli_context.connection)
     database = repository_manager.get_database()
     schema = repository_manager.get_schema()
     url = repository_manager.get_repository_url(name)
     api_url = repository_manager.get_repository_api_url(url)
-    bearer_login = RegistryManager().login_to_registry(api_url)
+    bearer_login = RegistryManager(cli_context.connection).login_to_registry(api_url)
     repos = []
     query: Optional[str] = f"{api_url}/_catalog?n=10"
 
@@ -111,10 +112,10 @@ def list_tags(
 ) -> CollectionResult:
     """Lists tags for the given image in a repository."""
 
-    repository_manager = ImageRepositoryManager()
+    repository_manager = ImageRepositoryManager(cli_context.connection)
     url = repository_manager.get_repository_url(name)
     api_url = repository_manager.get_repository_api_url(url)
-    bearer_login = RegistryManager().login_to_registry(api_url)
+    bearer_login = RegistryManager(cli_context.connection).login_to_registry(api_url)
 
     image_realname = "/".join(image_name.split("/")[4:])
     tags = []
@@ -154,5 +155,9 @@ def repo_url(
 ):
     """Returns the URL for the given repository."""
     return MessageResult(
-        (ImageRepositoryManager().get_repository_url(repo_name=name, with_scheme=False))
+        (
+            ImageRepositoryManager(cli_context.connection).get_repository_url(
+                repo_name=name, with_scheme=False
+            )
+        )
     )

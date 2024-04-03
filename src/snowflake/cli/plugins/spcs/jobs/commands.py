@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 import typer
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
 from snowflake.cli.plugins.spcs.common import print_log_lines
@@ -32,7 +33,9 @@ def create(
     """
     Creates a job to run in a compute pool.
     """
-    cursor = JobManager().create(compute_pool=compute_pool, spec_path=spec_path)
+    cursor = JobManager(cli_context).create(
+        compute_pool=compute_pool, spec_path=spec_path
+    )
     return SingleQueryResult(cursor)
 
 
@@ -47,7 +50,9 @@ def logs(
     """
     Retrieves local logs from a job container.
     """
-    results = JobManager().logs(job_name=identifier, container_name=container_name)
+    results = JobManager(cli_context.connection).logs(
+        job_name=identifier, container_name=container_name
+    )
     cursor = results.fetchone()
     logs = next(iter(cursor)).split("\n")
     print_log_lines(sys.stdout, identifier, "0", logs)
@@ -60,5 +65,5 @@ def status(
     """
     Returns the status of a named Snowpark Container Services job.
     """
-    cursor = JobManager().status(job_name=identifier)
+    cursor = JobManager(cli_context.connection).status(job_name=identifier)
     return SingleQueryResult(cursor)

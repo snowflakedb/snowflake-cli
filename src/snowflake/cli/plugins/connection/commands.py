@@ -251,7 +251,7 @@ def test(
     conn = cli_context.connection
 
     # Test session attributes
-    om = ObjectManager()
+    om = ObjectManager(cli_context.connection)
     try:
         if conn.role:
             om.use(object_type=ObjectType.ROLE, name=conn.role)

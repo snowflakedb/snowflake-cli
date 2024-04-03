@@ -4,6 +4,7 @@ from typing import List, Optional
 
 import typer
 from click import ClickException
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import IfNotExistsOption, OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import (
@@ -102,7 +103,7 @@ def create(
     max_instances = validate_and_set_instances(
         min_instances, max_instances, "instances"
     )
-    cursor = ServiceManager().create(
+    cursor = ServiceManager(cli_context.connection).create(
         service_name=name,
         min_instances=min_instances,
         max_instances=max_instances,
@@ -123,7 +124,7 @@ def status(name: str = ServiceNameArgument, **options) -> CommandResult:
     """
     Retrieves the status of a service.
     """
-    cursor = ServiceManager().status(service_name=name)
+    cursor = ServiceManager(cli_context.connection).status(service_name=name)
     return QueryJsonValueResult(cursor)
 
 
@@ -144,7 +145,7 @@ def logs(
     """
     Retrieves local logs from a service container.
     """
-    results = ServiceManager().logs(
+    results = ServiceManager(cli_context.connection).logs(
         service_name=name,
         instance_id=instance_id,
         container_name=container_name,
@@ -165,7 +166,9 @@ def upgrade(
     Updates an existing service with a new specification file.
     """
     return SingleQueryResult(
-        ServiceManager().upgrade_spec(service_name=name, spec_path=spec_path)
+        ServiceManager(cli_context.connection).upgrade_spec(
+            service_name=name, spec_path=spec_path
+        )
     )
 
 
@@ -174,7 +177,9 @@ def list_endpoints(name: str = ServiceNameArgument, **options):
     """
     Lists the endpoints in a service.
     """
-    return QueryResult(ServiceManager().list_endpoints(service_name=name))
+    return QueryResult(
+        ServiceManager(cli_context.connection).list_endpoints(service_name=name)
+    )
 
 
 @app.command(requires_connection=True)
@@ -182,7 +187,7 @@ def suspend(name: str = ServiceNameArgument, **options) -> CommandResult:
     """
     Suspends the service, shutting down and deleting all its containers.
     """
-    return SingleQueryResult(ServiceManager().suspend(name))
+    return SingleQueryResult(ServiceManager(cli_context.connection).suspend(name))
 
 
 @app.command(requires_connection=True)
@@ -190,7 +195,7 @@ def resume(name: str = ServiceNameArgument, **options) -> CommandResult:
     """
     Resumes the service from a SUSPENDED state.
     """
-    return SingleQueryResult(ServiceManager().resume(name))
+    return SingleQueryResult(ServiceManager(cli_context.connection).resume(name))
 
 
 @app.command("set", requires_connection=True)
@@ -206,7 +211,7 @@ def set_property(
     """
     Sets one or more properties for the service.
     """
-    cursor = ServiceManager().set_property(
+    cursor = ServiceManager(cli_context.connection).set_property(
         service_name=name,
         min_instances=min_instances,
         max_instances=max_instances,
@@ -252,7 +257,7 @@ def unset_property(
     """
     Resets one or more properties for the service to their default value(s).
     """
-    cursor = ServiceManager().unset_property(
+    cursor = ServiceManager(cli_context.connection).unset_property(
         service_name=name,
         min_instances=min_instances,
         max_instances=max_instances,

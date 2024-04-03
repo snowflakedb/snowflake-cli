@@ -1,3 +1,4 @@
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import MessageResult, ObjectResult
 from snowflake.cli.plugins.spcs.image_registry.manager import (
@@ -28,7 +29,7 @@ def token(**options) -> ObjectResult:
 
 
     """
-    return ObjectResult(RegistryManager().get_token())
+    return ObjectResult(RegistryManager(cli_context.connection).get_token())
 
 
 @app.command(requires_connection=True)
@@ -38,7 +39,7 @@ def url(**options) -> MessageResult:
 
     Must be called from a role that can view at least one image repository in the image registry.
     """
-    return MessageResult(RegistryManager().get_registry_url())
+    return MessageResult(RegistryManager(cli_context.connection).get_registry_url())
 
 
 @app.command(requires_connection=True)
@@ -48,4 +49,6 @@ def login(**options) -> MessageResult:
 
     Must be called from a role that can view at least one image repository in the image registry.
     """
-    return MessageResult(RegistryManager().docker_registry_login().strip())
+    return MessageResult(
+        RegistryManager(cli_context.connection).docker_registry_login().strip()
+    )

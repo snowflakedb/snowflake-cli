@@ -2,6 +2,7 @@ from typing import Optional
 
 import typer
 from click import ClickException
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import IfNotExistsOption, OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
@@ -95,7 +96,7 @@ def create(
     Creates a new compute pool.
     """
     max_nodes = validate_and_set_instances(min_nodes, max_nodes, "nodes")
-    cursor = ComputePoolManager().create(
+    cursor = ComputePoolManager(cli_context.connection).create(
         pool_name=name,
         min_nodes=min_nodes,
         max_nodes=max_nodes,
@@ -114,7 +115,7 @@ def stop_all(name: str = ComputePoolNameArgument, **options) -> CommandResult:
     """
     Deletes all services running on the compute pool.
     """
-    cursor = ComputePoolManager().stop(pool_name=name)
+    cursor = ComputePoolManager(cli_context.connection).stop(pool_name=name)
     return SingleQueryResult(cursor)
 
 
@@ -123,7 +124,7 @@ def suspend(name: str = ComputePoolNameArgument, **options) -> CommandResult:
     """
     Suspends the compute pool by suspending all currently running services and then releasing compute pool nodes.
     """
-    return SingleQueryResult(ComputePoolManager().suspend(name))
+    return SingleQueryResult(ComputePoolManager(cli_context.connection).suspend(name))
 
 
 @app.command(requires_connection=True)
@@ -131,7 +132,7 @@ def resume(name: str = ComputePoolNameArgument, **options) -> CommandResult:
     """
     Resumes the compute pool from a SUSPENDED state.
     """
-    return SingleQueryResult(ComputePoolManager().resume(name))
+    return SingleQueryResult(ComputePoolManager(cli_context.connection).resume(name))
 
 
 @app.command("set", requires_connection=True)
@@ -151,7 +152,7 @@ def set_property(
     """
     Sets one or more properties for the compute pool.
     """
-    cursor = ComputePoolManager().set_property(
+    cursor = ComputePoolManager(cli_context.connection).set_property(
         pool_name=name,
         min_nodes=min_nodes,
         max_nodes=max_nodes,
@@ -187,7 +188,7 @@ def unset_property(
     """
     Resets one or more properties for the compute pool to their default value(s).
     """
-    cursor = ComputePoolManager().unset_property(
+    cursor = ComputePoolManager(cli_context.connection).unset_property(
         pool_name=name,
         auto_resume=auto_resume,
         auto_suspend_secs=auto_suspend_secs,
@@ -201,5 +202,5 @@ def status(pool_name: str = ComputePoolNameArgument, **options) -> CommandResult
     """
     Retrieves the status of a compute pool along with a relevant message, if one exists.
     """
-    cursor = ComputePoolManager().status(pool_name=pool_name)
+    cursor = ComputePoolManager(cli_context.connection).status(pool_name=pool_name)
     return SingleQueryResult(cursor)

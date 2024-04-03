@@ -12,11 +12,15 @@ from snowflake.cli.plugins.spcs.common import (
     handle_object_already_exists,
     strip_empty_lines,
 )
+from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
 
 class ServiceManager(SqlExecutionMixin):
+    def __init__(self, connection: SnowflakeConnection):
+        super().__init__(connection)
+
     def create(
         self,
         service_name: str,

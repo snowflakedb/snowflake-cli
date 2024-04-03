@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MultipleResults, QueryResult
 from snowflake.cli.plugins.sql.manager import SqlManager
@@ -42,7 +43,9 @@ def execute_sql(
     Query to execute can be specified using query option, filename option (all queries from file will be executed)
     or via stdin by piping output from other command. For example `cat my.sql | snow sql -i`.
     """
-    single_statement, cursors = SqlManager().execute(query, file, std_in)
+    single_statement, cursors = SqlManager(cli_context.connection).execute(
+        query, file, std_in
+    )
     if single_statement:
         return QueryResult(next(cursors))
     return MultipleResults((QueryResult(c) for c in cursors))

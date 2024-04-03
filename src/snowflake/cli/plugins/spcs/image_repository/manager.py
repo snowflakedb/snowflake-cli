@@ -3,10 +3,14 @@ from urllib.parse import urlparse
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.spcs.common import handle_object_already_exists
+from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.errors import ProgrammingError
 
 
 class ImageRepositoryManager(SqlExecutionMixin):
+    def __init__(self, connection: SnowflakeConnection):
+        super().__init__(connection)
+
     def get_database(self):
         return self._conn.database
 

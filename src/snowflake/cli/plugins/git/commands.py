@@ -79,7 +79,7 @@ def setup(
     * API integration - object allowing Snowflake to interact with git repository.
     """
     manager = GitManager(cli_context.connection)
-    om = ObjectManager()
+    om = ObjectManager(cli_context.connection)
     _assure_repository_does_not_exist(om, repository_name)
 
     url = typer.prompt("Origin url")

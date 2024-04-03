@@ -4,6 +4,7 @@ from typing import Tuple
 
 import typer
 from click import ClickException
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import like_option
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.constants import SUPPORTED_OBJECTS, VALID_SCOPES
@@ -62,7 +63,9 @@ def list_(
 ):
     _scope_validate(object_type, scope)
     return QueryResult(
-        ObjectManager().show(object_type=object_type, like=like, scope=scope)
+        ObjectManager(cli_context.connection).show(
+            object_type=object_type, like=like, scope=scope
+        )
     )
 
 
@@ -71,7 +74,11 @@ def list_(
     requires_connection=True,
 )
 def drop(object_type: str = ObjectArgument, object_name: str = NameArgument, **options):
-    return QueryResult(ObjectManager().drop(object_type=object_type, name=object_name))
+    return QueryResult(
+        ObjectManager(cli_context.connection).drop(
+            object_type=object_type, name=object_name
+        )
+    )
 
 
 # Image repository is the only supported object that does not have a DESCRIBE command.
@@ -86,5 +93,7 @@ def describe(
     object_type: str = ObjectArgument, object_name: str = NameArgument, **options
 ):
     return QueryResult(
-        ObjectManager().describe(object_type=object_type, name=object_name)
+        ObjectManager(cli_context.connection).describe(
+            object_type=object_type, name=object_name
+        )
     )

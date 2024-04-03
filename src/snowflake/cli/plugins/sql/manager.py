@@ -6,11 +6,15 @@ from typing import Iterable, Optional, Tuple
 from click import UsageError
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.util_text import split_statements
 
 
 class SqlManager(SqlExecutionMixin):
+    def __init__(self, connection: SnowflakeConnection):
+        super().__init__(connection)
+
     def execute(
         self, query: Optional[str], file: Optional[Path], std_in: bool
     ) -> Tuple[int, Iterable[SnowflakeCursor]]:

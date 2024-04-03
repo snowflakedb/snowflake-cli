@@ -5,12 +5,16 @@ from typing import Dict, List, Optional
 
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.plugins.snowpark.common import SnowparkObjectManager
+from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
 
 class FunctionManager(SnowparkObjectManager):
+    def __init__(self, conn: SnowflakeConnection):
+        super().__init__(conn)
+
     @property
     def _object_type(self):
         return ObjectType.FUNCTION

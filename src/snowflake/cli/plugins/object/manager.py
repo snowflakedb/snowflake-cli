@@ -6,6 +6,7 @@ from click import ClickException
 from snowflake.cli.api.constants import OBJECT_TO_NAMES, ObjectNames
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import ProgrammingError
+from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 
 
@@ -17,6 +18,9 @@ def _get_object_names(object_type: str) -> ObjectNames:
 
 
 class ObjectManager(SqlExecutionMixin):
+    def __init__(self, conn: SnowflakeConnection):
+        super().__init__(conn)
+
     def show(
         self,
         *,
