@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import typing as t
 
+from snowflake.connector import DictCursor
 from snowflake.connector.cursor import SnowflakeCursor
 
 
@@ -43,12 +44,14 @@ class MultipleResults(CommandResult):
 
 
 class QueryResult(CollectionResult):
-    def __init__(self, cursor: SnowflakeCursor):
+    def __init__(self, cursor: SnowflakeCursor | DictCursor):
         self.column_names = [col.name for col in cursor.description]
         super().__init__(elements=self._prepare_payload(cursor))
         self._query = cursor.query
 
-    def _prepare_payload(self, cursor):
+    def _prepare_payload(self, cursor: SnowflakeCursor | DictCursor):
+        if isinstance(cursor, DictCursor):
+            return (k for k in cursor)
         return ({k: v for k, v in zip(self.column_names, row)} for row in cursor)
 
     @property
