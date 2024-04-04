@@ -29,8 +29,27 @@ def test_latest_version():
     assert ANACONDA.package_latest_version(Requirement.parse("shrubbery")) == "1.2.2"
     assert ANACONDA.package_latest_version(Requirement.parse("dummy_pkg")) == "1.1.0"
     assert ANACONDA.package_latest_version(Requirement.parse("dummy-pkg")) == "1.1.0"
-    assert ANACONDA.package_latest_version(Requirement.parse("jpeg")) == "9e"
+    assert ANACONDA.package_latest_version(Requirement.parse("jpeg")) is None
     assert ANACONDA.package_latest_version(Requirement.parse("weird-pkg")) is None
+
+
+def test_versions():
+    assert ANACONDA.package_versions(Requirement.parse("shrubbery")) == [
+        "1.2.2",
+        "1.2.1",
+    ]
+    assert ANACONDA.package_versions(Requirement.parse("dummy_pkg")) == [
+        "1.1.0",
+        "1.0.0",
+        "0.1.1",
+    ]
+    assert ANACONDA.package_versions(Requirement.parse("dummy-pkg")) == [
+        "1.1.0",
+        "1.0.0",
+        "0.1.1",
+    ]
+    assert ANACONDA.package_versions(Requirement.parse("jpeg")) == ["9e", "9d", "9b"]
+    assert ANACONDA.package_versions(Requirement.parse("weird-pkg")) == []
 
 
 @pytest.mark.parametrize(

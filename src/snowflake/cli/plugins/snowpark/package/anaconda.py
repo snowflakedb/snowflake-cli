@@ -75,7 +75,12 @@ class AnacondaChannel:
             return str(max(self._packages[package.name].iter_versions()))
         except InvalidVersion:
             # fail-safe for non-pep8 versions
-            return max(self._packages[package.name].versions)
+            return None
+
+    def package_versions(self, package: Requirement) -> List[str]:
+        if package.name not in self._packages:
+            return []
+        return list(sorted(self._packages[package.name].versions, reverse=True))
 
     def to_anaconda_requirement_format(self, requirement: Requirement) -> str | None:
         """

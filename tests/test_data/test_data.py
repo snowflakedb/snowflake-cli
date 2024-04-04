@@ -74,6 +74,12 @@ anaconda_response = {
             "md5": "a6e6f90bb4d3fef3a2f5778ec7b5196c",
             "timestamp": 1701377760,
         },
+        "package-with-non-pep-version": {
+            "version": "4d",
+            "license": "Apache-2.0",
+            "md5": "0bb4d3fef3a4d3fef3a2f5778e345d77",
+            "timestamp": 1701393763,
+        },
     },
 }
 
