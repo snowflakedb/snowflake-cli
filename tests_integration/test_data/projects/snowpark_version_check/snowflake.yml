@@ -1,0 +1,10 @@
+definition_version: 1
+snowpark:
+  project_name: "my_snowpark_project"
+  stage_name: "dev_deployment"
+  src: "app/"
+  functions:
+    - name: check_mypy_version
+      handler: "app.check_mypy_version"
+      signature: ""
+      returns: string

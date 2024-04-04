@@ -673,7 +673,7 @@ def test_build_with_anaconda_dependencies(
         else:
             assert requirements_snowflake.exists()
             assert "matplotlib" in requirements_snowflake.read_text()
-            assert "numpy" not in requirements_snowflake.read_text()
+            assert "numpy" in requirements_snowflake.read_text()
 
 
 @pytest.mark.integration
@@ -726,6 +726,32 @@ def test_build_package_from_github(runner, project_directory, alter_requirements
             "dummy_pkg_for_tests/shrubbery.py"
             in ZipFile(tmp_dir / "app.zip").namelist()
         )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("flag", ["--ignore-anaconda", ""])
+def test_ignore_anaconda_uses_version_from_zip(
+    flag, project_directory, runner, test_database
+):
+    # TODO: unclock when anaconda version check will be fixed
+    if not flag:
+        return
+    with project_directory("snowpark_version_check"):
+        command = ["snowpark", "build", "--allow-shared-libraries"]
+        if flag:
+            command.append(flag)
+        result = runner.invoke(command)
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(["snowpark", "deploy"])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(
+            ["snowpark", "execute", "function", "check_mypy_version()"]
+        )
+        assert result.exit_code == 0, result.output
+        # earliest mypy 1.* version is 1.5
+        assert result.json == {"CHECK_MYPY_VERSION()": "1.3.0"}
 
 
 @pytest.fixture

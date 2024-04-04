@@ -84,7 +84,7 @@ class RequirementWithWheelAndDeps:
 @dataclass
 class WheelMetadata:
     """A dataclass to hold metadata from .whl file.
-    [name] is the name of the package standarized accroding to
+    [name] is the name of the package standardized according to
     https://peps.python.org/pep-0491/#escaping-and-unicode
     """
 
