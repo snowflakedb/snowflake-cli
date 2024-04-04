@@ -619,7 +619,7 @@ def test_nativeapp_init_deploy_files(
 
 # Tests a simple flow of removing a remote-only file from the stage with "snow app deploy remote-file --prune"
 @pytest.mark.integration
-def test_nativeapp_init_deploy_remove_remote_file(
+def test_nativeapp_init_deploy_remove_remote_file_with_prune(
     runner,
     temporary_working_directory,
 ):
@@ -680,7 +680,7 @@ def test_nativeapp_init_deploy_remove_remote_file(
 
 # Tests that remote-only files are not removed without the --prune flag
 @pytest.mark.integration
-def test_nativeapp_init_deploy_no_prune(
+def test_nativeapp_init_deploy_not_removing_remote_file_with_no_prune(
     runner,
     temporary_working_directory,
 ):

@@ -250,7 +250,7 @@ def app_deploy(
     )
 
     if prune is None:
-        prune = False if files is None else True
+        prune = False if files is None or len(files) > 0 else True
 
     manager.build_bundle()
     manager.deploy(prune, files)

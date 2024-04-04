@@ -326,6 +326,7 @@ class NativeAppManager(SqlExecutionMixin):
         )
         diff: DiffResult = stage_diff(self.deploy_root, self.stage_fqn)
 
+        # If we are syncing specific files, remove everything else from the diff
         if files_to_sync is not None and len(files_to_sync) > 0:
             paths_to_keep = set(
                 _get_relative_paths_to_sync(
