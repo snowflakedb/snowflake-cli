@@ -1162,7 +1162,7 @@
   │                                 [required]                                   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --pattern  -p      TEXT  Regex pattern for filtering files by name. For      │
+  │ --pattern          TEXT  Regex pattern for filtering files by name. For      │
   │                          example --pattern ".*\.txt" will filter only files  │
   │                          with .txt extension.                                │
   │ --help     -h            Show this message and exit.                         │
