@@ -8,7 +8,6 @@ from snowflake.cli.api.commands.experimental_behaviour import (
     experimental_behaviour_enabled,
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
-from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.connection.util import (
     MissingConnectionHostError,
@@ -188,9 +187,3 @@ class StreamlitManager(SqlExecutionMixin):
             )
         except MissingConnectionHostError as e:
             return "https://app.snowflake.com"
-
-    def qualified_name_for_url(self, object_name: str, database=None, schema=None):
-        fqn = self.to_fully_qualified_name(
-            object_name, database=database, schema=schema
-        )
-        return ".".join(unquote_identifier(part) for part in fqn.split("."))
