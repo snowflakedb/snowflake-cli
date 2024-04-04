@@ -30,6 +30,14 @@
 * `snow snowpark build`:
   * new `--skip-version-check` skips comparing versions of dependencies between requirements and Anaconda.
   * new `--index-url` flag sets up Base URL of the Python Package Index to use for package lookup.
+* Added `--recursive` flag for copy from stage, it will reproduce the directory structure locally.
+* Added support for snowgit. New commands:
+  * `snow git setup` - wizard setting up a git repository stage and creating all necessary objects
+  * `snow git fetch` - fetches latest changes from the origin repository into Snowflake repository
+  * `snow git list-brahces` - lists all branches in the repository
+  * `snow git list-tags` - lists all tags in the repository
+  * `snow git list-files` - lists all files on provided branch/tag/commit
+  * `snow git copy` - copies files from provided branch/tag/commit into stage or local directory
 
 ## Fixes and improvements
 * Adding `--image-name` option for image name argument in `spcs image-repository list-tags` for consistency with other commands.

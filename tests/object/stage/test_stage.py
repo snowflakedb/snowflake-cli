@@ -14,7 +14,7 @@ def test_stage_list(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "stage", "list", "-c", "empty", "stageName"])
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with("ls @stageName")
+    mock_execute.assert_called_once_with("ls @stageName", cursor_class=DictCursor)
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -24,7 +24,9 @@ def test_stage_list_pattern(mock_execute, runner, mock_cursor):
         ["object", "stage", "list", "-c", "empty", "--pattern", "REGEX", "stageName"]
     )
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with("ls @stageName pattern = 'REGEX'")
+    mock_execute.assert_called_once_with(
+        "ls @stageName pattern = 'REGEX'", cursor_class=DictCursor
+    )
 
 
 def test_stage_list_pattern_error(runner):
@@ -41,7 +43,9 @@ def test_stage_list_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "stage", "list", "-c", "empty", '"stage name"'])
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with("ls '@\"stage name\"'")
+    mock_execute.assert_called_once_with(
+        "ls '@\"stage name\"'", cursor_class=DictCursor
+    )
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -68,6 +72,36 @@ def test_stage_copy_remote_to_local_quoted_stage(mock_execute, runner, mock_curs
     mock_execute.assert_called_once_with(
         f"get '@\"stage name\"' file://{Path(tmp_dir).resolve()}/ parallel=4"
     )
+
+
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_stage_copy_remote_to_local_quoted_stage_recursive(
+    mock_execute, runner, mock_cursor
+):
+    mock_execute.side_effect = [
+        mock_cursor([{"name": '"stage name"/file'}], []),
+        mock_cursor([("file")], ["file"]),
+    ]
+    with TemporaryDirectory() as tmp_dir:
+        result = runner.invoke(
+            [
+                "object",
+                "stage",
+                "copy",
+                "-c",
+                "empty",
+                '@"stage name"',
+                str(tmp_dir),
+                "--recursive",
+            ]
+        )
+    assert result.exit_code == 0, result.output
+    assert mock_execute.mock_calls == [
+        mock.call("ls '@\"stage name\"'", cursor_class=DictCursor),
+        mock.call(
+            f"get '@\"stage name\"/file' file://{Path(tmp_dir).resolve()}/ parallel=4"
+        ),
+    ]
 
 
 @pytest.mark.parametrize(
@@ -100,6 +134,53 @@ def test_stage_copy_remote_to_local_quoted_uri(
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(f"get @stageName {file_uri} parallel=4")
+
+
+@pytest.mark.parametrize(
+    "raw_path,expected_uri",
+    [
+        ("{}/dest", "file://{}/dest/"),
+        ("{}/dest.dir", "file://{}/dest.dir/"),
+        ("{}/dest0", "file://{}/dest0/"),
+        ("{}/dest dir", "'file://{}/dest dir/'"),
+        ("{}/dest#dir", "file://{}/dest#dir/"),
+        ("{}/dest*dir", "file://{}/dest*dir/"),
+        ("{}/dest_?dir", "file://{}/dest_?dir/"),
+        ("{}/dest%dir", "file://{}/dest%dir/"),
+        ('{}/dest"dir', 'file://{}/dest"dir/'),
+        ("{}/dest'dir", r"'file://{}/dest\'dir/'"),
+        ("{}/dest\tdir", r"'file://{}/dest\tdir/'"),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_stage_copy_remote_to_local_quoted_uri_recursive(
+    mock_execute, runner, mock_cursor, raw_path, expected_uri
+):
+    mock_execute.side_effect = [
+        mock_cursor([{"name": "stageName/file"}], []),
+        mock_cursor([(raw_path)], ["file"]),
+    ]
+    with TemporaryDirectory() as tmp_dir:
+        tmp_dir = Path(tmp_dir).resolve()
+        local_path = raw_path.replace("{}", str(tmp_dir))
+        file_uri = expected_uri.replace("{}", str(tmp_dir))
+        result = runner.invoke(
+            [
+                "object",
+                "stage",
+                "copy",
+                "-c",
+                "empty",
+                "@stageName",
+                local_path,
+                "--recursive",
+            ]
+        )
+    assert result.exit_code == 0, result.output
+    assert mock_execute.mock_calls == [
+        mock.call("ls @stageName", cursor_class=DictCursor),
+        mock.call(f"get @stageName/file {file_uri} parallel=4"),
+    ]
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -233,6 +314,97 @@ def test_copy_throws_error_for_same_platform_operation(runner, source, dest, sna
     assert result.output == snapshot
 
 
+@pytest.mark.parametrize(
+    "stage_path, files_on_stage, expected_calls",
+    [
+        (
+            "@exe",
+            ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
+            [
+                "get @exe/a/s2.sql file://{}/a/ parallel=4",
+                "get @exe/a/b/s3.sql file://{}/a/b/ parallel=4",
+                "get @exe/s1.sql file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@exe/",
+            ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
+            [
+                "get @exe/a/s2.sql file://{}/a/ parallel=4",
+                "get @exe/a/b/s3.sql file://{}/a/b/ parallel=4",
+                "get @exe/s1.sql file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "snow://exe",
+            ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
+            [
+                "get @exe/a/s2.sql file://{}/a/ parallel=4",
+                "get @exe/a/b/s3.sql file://{}/a/b/ parallel=4",
+                "get @exe/s1.sql file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@exe/a",
+            ["a/s2.sql", "a/b/s3.sql"],
+            [
+                "get @exe/a/s2.sql file://{}/ parallel=4",
+                "get @exe/a/b/s3.sql file://{}/b/ parallel=4",
+            ],
+        ),
+        (
+            "@exe/a/",
+            ["a/s2.sql", "a/b/s3.sql"],
+            [
+                "get @exe/a/s2.sql file://{}/ parallel=4",
+                "get @exe/a/b/s3.sql file://{}/b/ parallel=4",
+            ],
+        ),
+        (
+            "@exe/a/b",
+            ["a/b/s3.sql"],
+            [
+                "get @exe/a/b/s3.sql file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@exe/a/b/",
+            ["a/b/s3.sql"],
+            [
+                "get @exe/a/b/s3.sql file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@exe/a/b/s3.sql",
+            ["a/b/s3.sql"],
+            [
+                "get @exe/a/b/s3.sql file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@exe/s1.sql",
+            ["s1.sql"],
+            [
+                "get @exe/s1.sql file://{}/ parallel=4",
+            ],
+        ),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_copy_get_recursive(
+    mock_execute, mock_cursor, temp_dir, stage_path, files_on_stage, expected_calls
+):
+    mock_execute.return_value = mock_cursor(
+        [{"name": f"exe/{file}"} for file in files_on_stage], []
+    )
+
+    StageManager().get_recursive(stage_path, Path(temp_dir))
+
+    ls_call, *copy_calls = mock_execute.mock_calls
+    assert ls_call == mock.call(f"ls {stage_path}", cursor_class=DictCursor)
+    assert copy_calls == [mock.call(c.format(temp_dir)) for c in expected_calls]
+
+
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_create(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
@@ -338,6 +510,34 @@ def test_stage_print_result_for_get_all_files_from_stage(
 
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(["object", "stage", "copy", "@stageName", tmp_dir])
+
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot
+
+
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_stage_print_result_for_get_all_files_from_stage_recursive(
+    mock_execute, mock_cursor, runner, snapshot
+):
+    columns = ["file", "size", "status", "message"]
+    mock_execute.side_effect = [
+        mock_cursor(
+            [
+                {"name": "file1.txt"},
+                {"name": "file2.txt"},
+                {"name": "file3.txt"},
+            ],
+            [],
+        ),
+        mock_cursor([("file1.txt", 10, "DOWNLOADED", "")], columns),
+        mock_cursor([("file2.txt", 10, "DOWNLOADED", "")], columns),
+        mock_cursor([("file3.txt", 10, "DOWNLOADED", "")], columns),
+    ]
+
+    with TemporaryDirectory() as tmp_dir:
+        result = runner.invoke(
+            ["object", "stage", "copy", "@stageName", tmp_dir, "--recursive"]
+        )
 
     assert result.exit_code == 0, result.output
     assert result.output == snapshot
