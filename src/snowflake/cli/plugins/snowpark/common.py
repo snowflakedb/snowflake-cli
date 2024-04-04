@@ -30,7 +30,7 @@ def check_if_replace_is_required(
     resource_json = _convert_resource_details_to_dict(current_state)
     deployed_packages = resource_json["packages"]
     log.info(
-        "Found %s defined Anaconda packages in deployed %s...",
+        "Found %d defined Anaconda packages in deployed %s...",
         len(deployed_packages),
         object_type,
     )
