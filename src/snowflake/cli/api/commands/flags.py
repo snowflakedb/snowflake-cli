@@ -223,7 +223,7 @@ PrivateKeyPathOption = typer.Option(
     dir_okay=False,
 )
 
-SessionTokenOption = typer.Option(  # TODO: Review
+SessionTokenOption = typer.Option(
     None,
     "--session-token",
     help="Snowflake session token. Overrides the value specified for the connection.",
@@ -236,9 +236,10 @@ SessionTokenOption = typer.Option(  # TODO: Review
     exists=True,
     file_okay=True,
     dir_okay=False,
+    hidden=True,
 )
 
-MasterTokenOption = typer.Option(  # TODO: Review
+MasterTokenOption = typer.Option(
     None,
     "--master-token",
     help="Snowflake master token. Overrides the value specified for the connection.",
@@ -249,6 +250,7 @@ MasterTokenOption = typer.Option(  # TODO: Review
     exists=True,
     file_okay=True,
     dir_okay=False,
+    hidden=True,
 )
 
 DatabaseOption = typer.Option(
