@@ -78,8 +78,19 @@ def copy(
         )
 
     if is_get:
-        return _get(recursive, source_path, destination_path, parallel)
-    return _put(recursive, source_path, destination_path, parallel, overwrite)
+        return _get(
+            recursive=recursive,
+            source_path=source_path,
+            destination_path=destination_path,
+            parallel=parallel,
+        )
+    return _put(
+        recursive=recursive,
+        source_path=source_path,
+        destination_path=destination_path,
+        parallel=parallel,
+        overwrite=overwrite,
+    )
 
 
 @app.command("create", requires_connection=True)
@@ -120,25 +131,25 @@ def stage_diff(
 
 def _get(recursive: bool, source_path: str, destination_path: str, parallel: int):
     target = Path(destination_path).resolve()
-    if recursive:
-        cursors = StageManager().get_recursive(
+    if not recursive:
+        cli_console.warning(
+            "Use `--recursive` flag, which copy files recursively with directory structure. This will be the default behavior in the future."
+        )
+        cursor = StageManager().get(
             stage_path=source_path, dest_path=target, parallel=parallel
         )
-        results = [list(QueryResult(c).result) for c in cursors]
-        flattened_results = list(itertools.chain.from_iterable(results))
-        sorted_results = sorted(
-            flattened_results,
-            key=lambda e: (path.dirname(e["file"]), path.basename(e["file"])),
-        )
-        return CollectionResult(sorted_results)
+        return QueryResult(cursor)
 
-    cli_console.warning(
-        "Use `--recursive` flag, which copy files recursively with directory structure. This will be the default behavior in the future."
-    )
-    cursor = StageManager().get(
+    cursors = StageManager().get_recursive(
         stage_path=source_path, dest_path=target, parallel=parallel
     )
-    return QueryResult(cursor)
+    results = [list(QueryResult(c).result) for c in cursors]
+    flattened_results = list(itertools.chain.from_iterable(results))
+    sorted_results = sorted(
+        flattened_results,
+        key=lambda e: (path.dirname(e["file"]), path.basename(e["file"])),
+    )
+    return CollectionResult(sorted_results)
 
 
 def _put(
