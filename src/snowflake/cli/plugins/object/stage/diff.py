@@ -1,6 +1,5 @@
 import hashlib
 import logging
-import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -163,12 +162,13 @@ def build_md5_map(list_stage_cursor: SnowflakeCursor) -> Dict[str, str]:
 
 
 def _get_relative_paths_to_sync(
-    relative_files_to_sync: List[Path], local_path: Path, remote_paths: Set[str]
+    relative_files_to_sync: List[Path], local_root: Path, remote_paths: Set[str]
 ) -> List[str]:
+    """Takes a list of paths that exist either locally or remotely, and returns a merged list of paths relative to the provided root path."""
     paths = []
     for file in relative_files_to_sync:
-        path = Path(os.path.join(local_path, file))
-        relpath = path.relative_to(local_path)
+        path = Path(local_root, file)
+        relpath = path.relative_to(local_root)
         if not path.exists() and str(relpath) not in remote_paths:
             raise FileError(
                 str(file), "This file does not exist either locally or remotely"
@@ -183,6 +183,7 @@ def _get_relative_paths_to_sync(
 def _filter_from_diff(
     result: DiffResult, paths_to_keep: Set[str], prune: bool
 ) -> DiffResult:
+    """Modifies the given diff, keeping only the provided paths. If prune is false, remote-only paths will be empty."""
     result.different = [i for i in result.different if i in paths_to_keep]
     result.only_local = [i for i in result.only_local if i in paths_to_keep]
     if prune:

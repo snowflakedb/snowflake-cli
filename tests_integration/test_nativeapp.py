@@ -617,7 +617,7 @@ def test_nativeapp_init_deploy_files(
             assert result.exit_code == 0
 
 
-# Tests a simple flow of removing a remote-only file from the stage with "snow app deploy remote-file"
+# Tests a simple flow of removing a remote-only file from the stage with "snow app deploy remote-file --prune"
 @pytest.mark.integration
 def test_nativeapp_init_deploy_remove_remote_file(
     runner,

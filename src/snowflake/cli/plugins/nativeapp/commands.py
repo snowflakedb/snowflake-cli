@@ -231,13 +231,13 @@ def app_teardown(
 @with_project_definition("native_app")
 def app_deploy(
     prune: Optional[bool] = typer.Option(
-        False,
-        help=f"""If set to true and the specified files exist only remotely, they will be deleted from the stage.""",
+        default=None,
+        help=f"""Controls whether files that exist only remotely will be deleted from the stage. When specific files are specified, the default is --no-prune. When no files are specified (sync all changes), the default is --prune.""",
     ),
     files: Optional[List[Path]] = typer.Argument(
         default=None,
         show_default=False,
-        help=f"""Paths of the files, relative to the deploy root, to be uploaded to a stage. If the path exists remotely but not locally, it will be deleted from the stage [default: sync all local changes to the stage]""",
+        help=f"""Paths of the files, relative to the deploy root, to be uploaded to a stage. [default: sync all local changes to the stage]""",
     ),
     **options,
 ) -> CommandResult:
@@ -248,6 +248,9 @@ def app_deploy(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
+
+    if prune is None:
+        prune = False if files is None else True
 
     manager.build_bundle()
     manager.deploy(prune, files)
