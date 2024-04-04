@@ -4,9 +4,13 @@ from abc import ABC, abstractmethod
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Optional
+from typing import List, Optional, Set
 
 import jinja2
+from click.exceptions import (
+    ClickException,
+    FileError,
+)
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.definition import (
@@ -45,6 +49,7 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
 )
 from snowflake.cli.plugins.object.stage.diff import (
     DiffResult,
+    filter_from_diff,
     stage_diff,
     sync_local_diff_with_stage,
 )
@@ -97,6 +102,25 @@ def ensure_correct_owner(row: dict, role: str, obj_name: str) -> None:
     ].upper()  # Because unquote_identifier() always returns uppercase str
     if actual_owner != unquote_identifier(role):
         raise UnexpectedOwnerError(obj_name, role, actual_owner)
+
+
+def _get_relative_paths_to_sync(
+    relative_files_to_sync: List[Path], local_root: Path, remote_paths: Set[str]
+) -> List[str]:
+    """Takes a list of paths that exist either locally or remotely, and returns a merged list of paths relative to the provided root path."""
+    paths = []
+    for file in relative_files_to_sync:
+        path = Path(local_root, file)
+        relpath = path.relative_to(local_root)
+        if not path.exists() and str(relpath) not in remote_paths:
+            raise FileError(
+                str(file), "This file does not exist either locally or remotely"
+            )
+        elif path.is_dir():
+            raise ClickException(f"Specifying directories is not supported: '{file}'")
+        else:
+            paths.append(str(relpath))
+    return paths
 
 
 class NativeAppCommandProcessor(ABC):
@@ -274,7 +298,7 @@ class NativeAppManager(SqlExecutionMixin):
         self,
         role: str,
         prune: bool = True,
-        files_to_sync: Optional[List[Path]] = None,
+        files_to_sync: Optional[List[Path]] = None,  # relative to deploy root
     ) -> DiffResult:
         """
         Ensures that the files on our remote stage match the artifacts we have in
@@ -300,9 +324,16 @@ class NativeAppManager(SqlExecutionMixin):
             "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
             % self.deploy_root
         )
-        diff: DiffResult = stage_diff(
-            self.deploy_root, self.stage_fqn, prune, files_to_sync
-        )
+        diff: DiffResult = stage_diff(self.deploy_root, self.stage_fqn)
+
+        if files_to_sync is not None and len(files_to_sync) > 0:
+            paths_to_keep = set(
+                _get_relative_paths_to_sync(
+                    files_to_sync, self.deploy_root, set(diff.only_on_stage)
+                )
+            )
+            filter_from_diff(diff, paths_to_keep, prune)
+
         cc.message(str(diff))
 
         # Upload diff-ed files to application package stage

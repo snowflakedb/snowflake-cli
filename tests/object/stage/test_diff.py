@@ -1,20 +1,14 @@
 import hashlib
 from pathlib import Path
-from typing import Dict, List, Set, Tuple, Union
+from typing import Dict, List, Tuple, Union
 from unittest import mock
 
 import pytest
-from click.exceptions import (
-    ClickException,
-    FileError,
-)
 from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )
 from snowflake.cli.plugins.object.stage.diff import (
     DiffResult,
-    _filter_from_diff,
-    _get_relative_paths_to_sync,
     delete_only_on_stage_files,
     enumerate_files,
     get_stage_path_from_file,
@@ -224,108 +218,3 @@ def test_sync_local_diff_with_stage(mock_remove, other_directory):
             diff_result=diff,
             stage_path=stage_name,
         )
-
-
-def exists_mock(path: Path):
-    if str(path) in ["/file", "/dir", "/dir/nested_file"]:
-        return True
-    else:
-        return False
-
-
-def is_dir_mock(path: Path):
-    if str(path) == "/dir":
-        return True
-    else:
-        return False
-
-
-# Mocking Path to mimic the following directory structure:
-# /file
-# /dir/nested_file
-@mock.patch(f"{STAGE_DIFF}.Path.is_dir", autospec=True)
-@mock.patch(f"{STAGE_DIFF}.Path.exists", autospec=True)
-@pytest.mark.parametrize(
-    "files_to_sync,remote_paths,expected_exception",
-    [
-        [["file", "dir/nested_file"], set(), None],
-        [["file", "file2", "dir/file3"], set(["file2", "dir/file3"]), None],
-        [["file", "file2"], set(), FileError],
-        [["dir/file3"], set(), FileError],
-        [["dir"], set(), ClickException],
-    ],
-)
-def test_get_full_file_paths_to_sync(
-    path_mock_exists,
-    path_mock_is_dir,
-    files_to_sync: List[Path],
-    remote_paths: Set[str],
-    expected_exception: Exception,
-):
-    path_mock_exists.side_effect = exists_mock
-    path_mock_is_dir.side_effect = is_dir_mock
-    if expected_exception is None:
-        result = _get_relative_paths_to_sync(files_to_sync, "/", remote_paths)
-        assert len(result) == len(files_to_sync)
-    else:
-        with pytest.raises(expected_exception):
-            _get_relative_paths_to_sync(files_to_sync, "/", remote_paths)
-
-
-def test_filter_from_diff():
-    diff = DiffResult()
-    diff.different = [
-        "different",
-        "different-2",
-        "dir/different",
-        "dir/different-2",
-    ]
-    diff.only_local = [
-        "only_local",
-        "only_local-2",
-        "dir/only_local",
-        "dir/only_local-2",
-    ]
-    diff.only_on_stage = [
-        "only_on_stage",
-        "only_on_stage-2",
-        "dir/only_on_stage",
-        "dir/only_on_stage-2",
-    ]
-
-    paths_to_keep = set(
-        [
-            "different",
-            "only-local",
-            "only-stage",
-            "dir/different",
-            "dir/only-local",
-            "dir/only-stage",
-        ]
-    )
-    diff = _filter_from_diff(diff, paths_to_keep, True)
-
-    for path in diff.different:
-        assert path in paths_to_keep
-    for path in diff.only_local:
-        assert path in paths_to_keep
-    for path in diff.only_on_stage:
-        assert path in paths_to_keep
-
-
-# When prune flag is off, remote-only files are filtered out and a warning is printed
-@mock.patch(f"{STAGE_DIFF}.cc.warning")
-def test_filter_from_diff_no_prune(mock_warning):
-    diff = DiffResult()
-    diff.only_on_stage = [
-        "only-stage.txt",
-        "only-stage-2.txt",
-    ]
-
-    paths_to_keep = set(["only-stage.txt"])
-    diff = _filter_from_diff(diff, paths_to_keep, False)
-
-    assert len(diff.only_on_stage) == 0
-    mock_warning.assert_called_once_with(
-        "The following files exist only on the stage:\n['only-stage.txt']\nUse the --prune flag to delete them from the stage."
-    )

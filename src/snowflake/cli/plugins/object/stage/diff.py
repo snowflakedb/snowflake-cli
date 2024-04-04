@@ -5,10 +5,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
-from click.exceptions import (
-    ClickException,
-    FileError,
-)
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
@@ -161,26 +157,7 @@ def build_md5_map(list_stage_cursor: SnowflakeCursor) -> Dict[str, str]:
     }
 
 
-def _get_relative_paths_to_sync(
-    relative_files_to_sync: List[Path], local_root: Path, remote_paths: Set[str]
-) -> List[str]:
-    """Takes a list of paths that exist either locally or remotely, and returns a merged list of paths relative to the provided root path."""
-    paths = []
-    for file in relative_files_to_sync:
-        path = Path(local_root, file)
-        relpath = path.relative_to(local_root)
-        if not path.exists() and str(relpath) not in remote_paths:
-            raise FileError(
-                str(file), "This file does not exist either locally or remotely"
-            )
-        elif path.is_dir():
-            raise ClickException(f"Specifying directories is not supported: '{file}'")
-        else:
-            paths.append(str(relpath))
-    return paths
-
-
-def _filter_from_diff(
+def filter_from_diff(
     result: DiffResult, paths_to_keep: Set[str], prune: bool
 ) -> DiffResult:
     """Modifies the given diff, keeping only the provided paths. If prune is false, remote-only paths will be empty."""
@@ -201,8 +178,6 @@ def _filter_from_diff(
 def stage_diff(
     local_path: Path,
     stage_fqn: str,
-    prune: bool = True,
-    files_to_sync: Optional[List[Path]] = None,  # relative to local_path
 ) -> DiffResult:
     """
     Diffs the files in a stage with a local folder.
@@ -238,14 +213,6 @@ def stage_diff(
     # every entry here is a file we never saw locally
     for relpath in remote_md5.keys():
         result.only_on_stage.append(relpath)
-
-    if files_to_sync is not None and len(files_to_sync) > 0:
-        paths_to_keep = set(
-            _get_relative_paths_to_sync(
-                files_to_sync, local_path, set(result.only_on_stage)
-            )
-        )
-        return _filter_from_diff(result, paths_to_keep, prune)
 
     return result
 
