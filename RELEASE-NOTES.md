@@ -30,6 +30,7 @@
 * `snow snowpark build`:
   * new `--skip-version-check` skips comparing versions of dependencies between requirements and Anaconda.
   * new `--index-url` flag sets up Base URL of the Python Package Index to use for package lookup.
+* Added `--recursive` flag for copy from stage, it will reproduce the directory structure locally.
 
 ## Fixes and improvements
 * Adding `--image-name` option for image name argument in `spcs image-repository list-tags` for consistency with other commands.

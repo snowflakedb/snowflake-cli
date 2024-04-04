@@ -25,7 +25,20 @@
 # ---
 # name: test_stage_print_result_for_get_all_files_from_stage
   '''
+  Use `--recursive` flag, which copy files recursively with directory structure. This will be the default behavior in the future.
   SELECT A MOCK QUERY
+  +-----------------------------------------+
+  | file      | size | status     | message |
+  |-----------+------+------------+---------|
+  | file1.txt | 10   | DOWNLOADED |         |
+  | file2.txt | 10   | DOWNLOADED |         |
+  | file3.txt | 10   | DOWNLOADED |         |
+  +-----------------------------------------+
+  
+  '''
+# ---
+# name: test_stage_print_result_for_get_all_files_from_stage_recursive
+  '''
   +-----------------------------------------+
   | file      | size | status     | message |
   |-----------+------+------------+---------|
