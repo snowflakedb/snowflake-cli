@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
-from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.snowpark.models import Requirement
 from snowflake.cli.plugins.snowpark.package_utils import (
     generate_deploy_stage_name,
-    parse_requirements,
 )
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -22,6 +20,7 @@ def check_if_replace_is_required(
     current_state,
     handler: str,
     return_type: str,
+    packages: List[str],
     imports: List[str],
     stage_artifact_file: str,
 ) -> bool:
@@ -29,21 +28,17 @@ def check_if_replace_is_required(
 
     log = logging.getLogger(__name__)
     resource_json = _convert_resource_details_to_dict(current_state)
-    anaconda_packages = resource_json["packages"]
+    deployed_packages = resource_json["packages"]
     log.info(
         "Found %s defined Anaconda packages in deployed %s...",
-        len(anaconda_packages),
+        len(deployed_packages),
         object_type,
     )
     log.info("Checking if app configuration has changed...")
-    updated_package_list = _get_snowflake_packages_delta(
-        anaconda_packages,
-    )
 
-    if updated_package_list:
-        diff = len(updated_package_list) - len(anaconda_packages)
+    if _snowflake_requirements_differ(deployed_packages, packages):
         log.info(
-            "Found difference of %s packages. Replacing the %s.", diff, object_type
+            "Found difference of package requirements. Replacing the %s.", object_type
         )
         return True
 
@@ -78,16 +73,15 @@ def _convert_resource_details_to_dict(function_details: SnowflakeCursor) -> dict
     return function_dict
 
 
-def _get_snowflake_packages_delta(anaconda_packages: List[str]) -> List[str]:
-    anaconda_packages_names = set(
-        Requirement.parse(package).name for package in anaconda_packages
-    )
-    requirements_file = SecurePath("requirements.snowflake.txt")
-    return [
-        req.to_name_and_version()
-        for req in parse_requirements(requirements_file)
-        if req.name not in anaconda_packages_names
-    ]
+def _snowflake_requirements_differ(
+    deployed_packages: List[str], new_packages: List[str]
+) -> bool:
+    def _format_requirements(packages: List[str]) -> Set[str]:
+        return set(
+            Requirement.parse_line(package).name_and_version for package in packages
+        )
+
+    return _format_requirements(deployed_packages) != _format_requirements(new_packages)
 
 
 def _sql_to_python_return_type_mapper(resource_return_type: str) -> str:

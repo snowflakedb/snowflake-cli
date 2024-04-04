@@ -17,7 +17,11 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyper
-from snowflake.cli.api.constants import DEPLOYMENT_STAGE, ObjectType
+from snowflake.cli.api.constants import (
+    DEFAULT_SIZE_LIMIT_MB,
+    DEPLOYMENT_STAGE,
+    ObjectType,
+)
 from snowflake.cli.api.exceptions import (
     SecretsWithoutExternalAccessIntegrationError,
 )
@@ -42,9 +46,7 @@ from snowflake.cli.plugins.snowpark.common import (
 )
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
 from snowflake.cli.plugins.snowpark.models import Requirement, YesNoAsk
-from snowflake.cli.plugins.snowpark.package_utils import (
-    parse_requirements,
-)
+from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
@@ -132,7 +134,7 @@ def deploy(
         stage_name=stage_name, comment="deployments managed by Snowflake CLI"
     )
 
-    packages = parse_requirements(paths.snowflake_requirements_file)
+    packages = _read_snowflake_requrements_file(paths.snowflake_requirements_file)
 
     artifact_stage_directory = get_app_stage_path(stage_name, snowpark.project_name)
     artifact_stage_target = (
@@ -253,7 +255,7 @@ def _deploy_single_object(
     object_type: ObjectType,
     object_definition: Callable,
     existing_objects: Dict[str, Dict],
-    packages: List[Requirement],
+    packages: List[str],
     stage_artifact_path: str,
     source_name: str,
 ):
@@ -276,12 +278,13 @@ def _deploy_single_object(
     object_exists = identifier in existing_objects
     if object_exists:
         replace_object = check_if_replace_is_required(
-            object_type,
-            existing_objects[identifier],
-            handler,
-            returns,
-            imports,
-            stage_artifact_path,
+            object_type=object_type,
+            current_state=existing_objects[identifier],
+            handler=handler,
+            return_type=returns,
+            packages=packages,
+            imports=imports,
+            stage_artifact_file=stage_artifact_path,
         )
 
     if object_exists and not replace_object:
@@ -296,7 +299,7 @@ def _deploy_single_object(
         "handler": handler,
         "return_type": returns,
         "artifact_file": stage_artifact_path,
-        "packages": [p.to_name_and_version() for p in packages],
+        "packages": packages,
         "runtime": object_definition.runtime,
         "external_access_integrations": object_definition.external_access_integrations,
         "secrets": object_definition.secrets,
@@ -328,9 +331,21 @@ deprecated_pypi_download_option = typer.Option(
 )
 
 
-def _write_requirements_file(file_path: SecurePath, requirements: List[Requirement]):
+def _read_snowflake_requrements_file(file_path: SecurePath):
+    if not file_path.exists():
+        return []
+    return file_path.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB).splitlines()
+
+
+def _write_snowflake_requirements_file(
+    file_path: SecurePath, anaconda: AnacondaChannel, requirements: List[Requirement]
+):
     log.info("Writing requirements into file %s", file_path.path)
-    file_path.write_text("\n".join(req.line for req in requirements))
+    formatted_requirements = [
+        anaconda.to_anaconda_requirement_format(requirement)
+        for requirement in requirements
+    ]
+    file_path.write_text("\n".join(req for req in formatted_requirements if req))
 
 
 @app.command("build")
@@ -365,11 +380,15 @@ def build(
             requirements = package_utils.parse_requirements(
                 requirements_file=snowpark_paths.defined_requirements_file,
             )
+            anaconda: Optional[AnacondaChannel] = (
+                None if ignore_anaconda else AnacondaChannel.from_snowflake()
+            )
 
             download_result = package_utils.download_unavailable_packages(
                 requirements=requirements,
                 target_dir=packages_dir,
                 ignore_anaconda=ignore_anaconda,
+                anaconda=anaconda,
                 skip_version_check=skip_version_check,
                 pip_index_url=index_url,
             )
@@ -392,9 +411,10 @@ def build(
                         "Try again with --allow-shared-libraries."
                     )
             if download_result.packages_available_in_anaconda:
-                _write_requirements_file(
-                    snowpark_paths.snowflake_requirements_file,
-                    download_result.packages_available_in_anaconda,
+                _write_snowflake_requirements_file(
+                    file_path=snowpark_paths.snowflake_requirements_file,
+                    anaconda=anaconda,
+                    requirements=download_result.packages_available_in_anaconda,
                 )
 
         zip_dir(

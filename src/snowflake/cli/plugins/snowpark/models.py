@@ -16,10 +16,6 @@ class YesNoAsk(Enum):
     ASK = "ask"
 
 
-def _standarize_name(name: str) -> str:
-    return WheelMetadata.to_wheel_name_format(name.lower())
-
-
 class Requirement(requirement.Requirement):
     extra_pattern = re.compile("'([^']*)'")
 
@@ -36,12 +32,21 @@ class Requirement(requirement.Requirement):
 
         if result.uri and not result.name:
             result.name = get_package_name(result.uri)
-        result.name = _standarize_name(result.name)
+        result.name = cls.standardize_name(result.name)
 
         return result
 
-    def to_name_and_version(self):
-        return f"{self.name}{','.join(spec[0] + spec[1] for spec in self.specs)}"
+    @staticmethod
+    def standardize_name(name: str) -> str:
+        return WheelMetadata.to_wheel_name_format(name.lower())
+
+    @property
+    def formatted_specs(self):
+        return ",".join(sorted(spec[0] + spec[1] for spec in self.specs))
+
+    @property
+    def name_and_version(self):
+        return self.name + self.formatted_specs
 
 
 @dataclass
@@ -50,8 +55,8 @@ class SplitRequirements:
     snowflake-supported vs other packages.
     """
 
-    snowflake: List[Requirement]
-    other: List[Requirement]
+    in_snowflake: List[Requirement]
+    unavailable: List[Requirement]
 
 
 @dataclass
