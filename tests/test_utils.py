@@ -93,7 +93,7 @@ def test_parse_requirements_corner_cases(
 ):
     mock_file.return_value = contents
     result = [
-        p.to_name_and_version()
+        p.name_and_version
         for p in package_utils.parse_requirements(
             SecurePath(correct_requirements_snowflake_txt)
         )
