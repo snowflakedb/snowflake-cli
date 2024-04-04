@@ -191,7 +191,7 @@ class StageManager(SqlExecutionMixin):
         self,
         stage_path: str,
         on_error: OnErrorType,
-        parameters: Optional[List[str]] = None,
+        variables: Optional[List[str]] = None,
     ):
         all_files_list = self._get_files_list_from_stage(stage_path)
         # filter files from stage if match stage_path pattern
@@ -205,10 +205,10 @@ class StageManager(SqlExecutionMixin):
             filtered_file_list, key=lambda f: (path.dirname(f), path.basename(f))
         )
 
-        sql_parameters = self._parse_execute_parameters(parameters)
+        sql_variables = self._parse_execute_variables(variables)
         results = []
         for file in sorted_file_list:
-            results.append(self._call_execute_immediate(file, sql_parameters, on_error))
+            results.append(self._call_execute_immediate(file, sql_variables, on_error))
 
         return results
 
@@ -241,14 +241,16 @@ class StageManager(SqlExecutionMixin):
         # Path to directory was provided
         return fnmatch.filter(files_on_stage, f"{stage_path}*")
 
-    def _parse_execute_parameters(
-        self, parameters: Optional[List[str]]
-    ) -> Optional[str]:
-        if not parameters:
+    @staticmethod
+    def _parse_execute_variables(variables: Optional[List[str]]) -> Optional[str]:
+        if not variables:
             return None
 
         query_parameters = []
-        for p in parameters:
+        for p in variables:
+            if "=" not in p:
+                raise ClickException(f"Invalid variable: '{p}'")
+
             key, value = p.split("=")
             query_parameters.append(f"{key.strip()}=>{value.strip()}")
         return f" using ({', '.join(query_parameters)})"

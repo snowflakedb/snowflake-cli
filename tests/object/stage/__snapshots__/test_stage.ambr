@@ -62,6 +62,14 @@
   
   '''
 # ---
+# name: test_execute_raise_invalid_variables_error
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Invalid variable: 'variable'                                                 │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
 # name: test_stage_print_result_for_get_all_files_from_stage
   '''
   Use `--recursive` flag, which copy files recursively with directory structure. This will be the default behavior in the future.

@@ -706,7 +706,7 @@ def test_execute(
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_execute_with_parameters(mock_execute, mock_cursor, runner):
+def test_execute_with_variables(mock_execute, mock_cursor, runner):
     mock_execute.return_value = mock_cursor([{"name": "exe/s1.sql"}], [])
 
     result = runner.invoke(
@@ -715,13 +715,13 @@ def test_execute_with_parameters(mock_execute, mock_cursor, runner):
             "stage",
             "execute",
             "@exe",
-            "--parameters",
-            "key1='string'",
-            "--parameters",
+            "-D",
+            "key1='string value'",
+            "-D",
             "key2=1",
-            "--parameters",
+            "-D",
             "key3=TRUE",
-            "--parameters",
+            "-D",
             "key4=NULL",
         ]
     )
@@ -730,9 +730,30 @@ def test_execute_with_parameters(mock_execute, mock_cursor, runner):
     assert mock_execute.mock_calls == [
         mock.call("ls @exe", cursor_class=DictCursor),
         mock.call(
-            f"execute immediate from @exe/s1.sql using (key1=>'string', key2=>1, key3=>TRUE, key4=>NULL)"
+            f"execute immediate from @exe/s1.sql using (key1=>'string value', key2=>1, key3=>TRUE, key4=>NULL)"
         ),
     ]
+
+
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_execute_raise_invalid_variables_error(
+    mock_execute, mock_cursor, runner, snapshot
+):
+    mock_execute.return_value = mock_cursor([{"name": "exe/s1.sql"}], [])
+
+    result = runner.invoke(
+        [
+            "object",
+            "stage",
+            "execute",
+            "@exe",
+            "-D",
+            "variable",
+        ]
+    )
+
+    assert result.exit_code == 1
+    assert result.output == snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")

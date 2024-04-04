@@ -141,9 +141,11 @@ def execute(
         "--on-error",
         help="What to do when an error occurs. Defaults to break.",
     ),
-    parameters: Optional[List[str]] = typer.Option(
+    variables: Optional[List[str]] = typer.Option(
         None,
-        help='Parameters for the template. For example: `--parameters "<key>=<value>"`, string values should be in single quotes.',
+        "--variable",
+        "-D",
+        help="Variables for the template. For example: `-D \"<key>=<value>\"`, string values must be in `''`.",
         hidden=True,
         show_default=False,
     ),
@@ -153,7 +155,7 @@ def execute(
     Execute immediate all files from the stage path. Files can be filtered with glob like pattern, e.g. `@stage/*.sql`, `@stage/dev/*`.
     """
     results = StageManager().execute(
-        stage_path=stage_path, on_error=on_error, parameters=parameters
+        stage_path=stage_path, on_error=on_error, variables=variables
     )
     return CollectionResult(results)
 
