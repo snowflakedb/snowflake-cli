@@ -4,16 +4,23 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from snowflake.cli.plugins.snowpark.models import Requirement
-from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
+from snowflake.cli.plugins.snowpark.package.anaconda import (
+    AnacondaChannel,
+    AnacondaPackageData,
+)
 
 from tests.test_data import test_data
 from tests.testing_utils.fixtures import TEST_DIR
 
 ANACONDA = AnacondaChannel(
     packages={
-        "shrubbery": {"1.2.1", "1.2.2"},
-        "dummy_pkg": {"0.1.1", "1.0.0", "1.1.0"},
-        "jpeg": {"9e", "9d", "9b"},
+        "shrubbery": AnacondaPackageData(
+            snowflake_name="shrubbery", versions={"1.2.1", "1.2.2"}
+        ),
+        "dummy_pkg": AnacondaPackageData(
+            snowflake_name="dummy-pkg", versions={"0.1.1", "1.0.0", "1.1.0"}
+        ),
+        "jpeg": AnacondaPackageData(snowflake_name="jpeg", versions={"9e", "9d", "9b"}),
     }
 )
 
@@ -68,16 +75,16 @@ def test_parse_anaconda_packages(mock_get):
         Requirement.parse("Pamela==1.0.1"),
     ]
     split_requirements = anaconda.parse_anaconda_packages(packages=packages)
-    assert len(split_requirements.snowflake) == 1
-    assert len(split_requirements.other) == 2
-    assert split_requirements.snowflake[0].name == "pandas"
-    assert split_requirements.snowflake[0].specifier is True
-    assert split_requirements.snowflake[0].specs == [("==", "1.4.4")]
-    assert split_requirements.other[0].name == "FuelSDK"
-    assert split_requirements.other[0].specifier is True
-    assert split_requirements.other[0].specs == [(">=", "0.9.3")]
-    assert split_requirements.other[1].name == "Pamela"
-    assert split_requirements.other[1].specs == [("==", "1.0.1")]
+    assert len(split_requirements.in_snowflake) == 1
+    assert len(split_requirements.unavailable) == 2
+    assert split_requirements.in_snowflake[0].name == "pandas"
+    assert split_requirements.in_snowflake[0].specifier is True
+    assert split_requirements.in_snowflake[0].specs == [("==", "1.4.4")]
+    assert split_requirements.unavailable[0].name == "fuelsdk"
+    assert split_requirements.unavailable[0].specifier is True
+    assert split_requirements.unavailable[0].specs == [(">=", "0.9.3")]
+    assert split_requirements.unavailable[1].name == "pamela"
+    assert split_requirements.unavailable[1].specs == [("==", "1.0.1")]
 
 
 @patch("snowflake.cli.plugins.snowpark.package.anaconda.requests")
@@ -93,8 +100,9 @@ def test_anaconda_packages(mock_requests):
     anaconda_packages = anaconda.parse_anaconda_packages(test_data.packages)
     assert (
         Requirement.parse_line("snowflake-connector-python")
-        in anaconda_packages.snowflake
+        in anaconda_packages.in_snowflake
     )
     assert (
-        Requirement.parse_line("my-totally-awesome-package") in anaconda_packages.other
+        Requirement.parse_line("my-totally-awesome-package")
+        in anaconda_packages.unavailable
     )

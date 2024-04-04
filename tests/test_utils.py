@@ -135,16 +135,16 @@ def test_parse_anaconda_packages(mock_get):
         Requirement.parse("Pamela==1.0.1"),
     ]
     split_requirements = anaconda.parse_anaconda_packages(packages=packages)
-    assert len(split_requirements.snowflake) == 1
-    assert len(split_requirements.other) == 2
-    assert split_requirements.snowflake[0].name == "pandas"
-    assert split_requirements.snowflake[0].specifier is True
-    assert split_requirements.snowflake[0].specs == [("==", "1.4.4")]
-    assert split_requirements.other[0].name == "fuelsdk"
-    assert split_requirements.other[0].specifier is True
-    assert split_requirements.other[0].specs == [(">=", "0.9.3")]
-    assert split_requirements.other[1].name == "pamela"
-    assert split_requirements.other[1].specs == [("==", "1.0.1")]
+    assert len(split_requirements.in_snowflake) == 1
+    assert len(split_requirements.unavailable) == 2
+    assert split_requirements.in_snowflake[0].name == "pandas"
+    assert split_requirements.in_snowflake[0].specifier is True
+    assert split_requirements.in_snowflake[0].specs == [("==", "1.4.4")]
+    assert split_requirements.unavailable[0].name == "fuelsdk"
+    assert split_requirements.unavailable[0].specifier is True
+    assert split_requirements.unavailable[0].specs == [(">=", "0.9.3")]
+    assert split_requirements.unavailable[1].name == "pamela"
+    assert split_requirements.unavailable[1].specs == [("==", "1.0.1")]
 
 
 @patch("platform.system")
