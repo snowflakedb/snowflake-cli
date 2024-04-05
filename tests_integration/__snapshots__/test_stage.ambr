@@ -1,0 +1,29 @@
+# serializer version: 1
+# name: test_stage_execute
+  list([
+    dict({
+      'Error': None,
+      'File': 'test_stage_execute/script1.sql',
+      'Status': 'SUCCESS',
+    }),
+    dict({
+      'Error': None,
+      'File': 'test_stage_execute/directory/script2.sql',
+      'Status': 'SUCCESS',
+    }),
+    dict({
+      'Error': None,
+      'File': 'test_stage_execute/directory/subdirectory/script3.sql',
+      'Status': 'SUCCESS',
+    }),
+  ])
+# ---
+# name: test_stage_execute.1
+  list([
+    dict({
+      'Error': None,
+      'File': 'test_stage_execute/script_template.sql',
+      'Status': 'SUCCESS',
+    }),
+  ])
+# ---

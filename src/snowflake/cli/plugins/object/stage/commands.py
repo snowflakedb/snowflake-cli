@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 from os import path
 from pathlib import Path
+from typing import List, Optional
 
 import click
 import typer
@@ -18,7 +19,7 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.utils.path_utils import is_stage_path
 from snowflake.cli.plugins.object.stage.diff import DiffResult
-from snowflake.cli.plugins.object.stage.manager import StageManager
+from snowflake.cli.plugins.object.stage.manager import OnErrorType, StageManager
 
 app = SnowTyper(
     name="stage",
@@ -127,6 +128,38 @@ def stage_diff(
     """
     diff: DiffResult = stage_diff(Path(folder_name), stage_name)
     return ObjectResult(str(diff))
+
+
+@app.command("execute", requires_connection=True)
+def execute(
+    stage_path: str = typer.Argument(
+        ...,
+        help="Stage path with files to be execute. For example `@stage/dev/*`.",
+        show_default=False,
+    ),
+    on_error: OnErrorType = typer.Option(
+        OnErrorType.BREAK.value,
+        "--on-error",
+        help="What to do when an error occurs. Defaults to break.",
+    ),
+    variables: Optional[List[str]] = typer.Option(
+        None,
+        "--variable",
+        "-D",
+        help="Variables for the template. For example: `-D \"<key>=<value>\"`, string values must be in `''`.",
+        hidden=True,
+        show_default=False,
+    ),
+    **options,
+):
+    """
+    Execute immediate all files from the stage path. Files can be filtered with glob like pattern,
+    e.g. `@stage/*.sql`, `@stage/dev/*`. Only files with `.sql` extension will be executed.
+    """
+    results = StageManager().execute(
+        stage_path=stage_path, on_error=on_error, variables=variables
+    )
+    return CollectionResult(results)
 
 
 def _get(recursive: bool, source_path: str, destination_path: str, parallel: int):
