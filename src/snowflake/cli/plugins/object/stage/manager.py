@@ -278,7 +278,7 @@ class StageManager(SqlExecutionMixin):
                 raise ClickException(f"Invalid variable: '{p}'")
 
             key, value = p.split("=", 1)
-            result.append(Variable(key, value))
+            result.append(Variable(key.strip(), value.strip()))
         return result
 
     def _call_execute_immediate(

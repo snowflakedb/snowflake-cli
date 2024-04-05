@@ -18,3 +18,12 @@
     }),
   ])
 # ---
+# name: test_stage_execute.1
+  list([
+    dict({
+      'Error': None,
+      'File': 'test_stage_execute/script_template.sql',
+      'Status': 'SUCCESS',
+    }),
+  ])
+# ---

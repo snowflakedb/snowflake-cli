@@ -130,7 +130,7 @@ def test_stage_get_recursive(
     ]
 
 
-@pytest.mark.integration
+# @pytest.mark.integration
 def test_stage_execute(runner, test_database, test_root_path, snapshot):
     project_path = test_root_path / "test_data/projects/stage_execute"
     stage_name = "test_stage_execute"
@@ -167,15 +167,33 @@ def test_stage_execute(runner, test_database, test_root_path, snapshot):
     assert result.exit_code == 0
     assert result.json == snapshot
 
-    #
-    # TODO: Uncomment when templating will be available on our account
-    #
-    # result = runner.invoke_with_connection_json(
-    #     ["object", "stage", "copy", f"{project_path}/script_template.sql", f"@{stage_name}/"]
-    # )
-    # assert result.exit_code == 0, result.output
-    # assert contains_row_with(result.json, {"status": "UPLOADED"})
-    #
-    # result = runner.invoke_with_connection_json(["object", "stage", "execute", f"{stage_name}/script_template.sql", "--parameters", " text = 'string' ", "--parameters", "value=1", "--parameters", "boolean=TRUE", "--parameters", "null_value= NULL"])
-    # assert result.exit_code == 0
-    # assert result.json == snapshot
+    result = runner.invoke_with_connection_json(
+        [
+            "object",
+            "stage",
+            "copy",
+            f"{project_path}/script_template.sql",
+            f"@{stage_name}/",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert contains_row_with(result.json, {"status": "UPLOADED"})
+
+    result = runner.invoke_with_connection_json(
+        [
+            "object",
+            "stage",
+            "execute",
+            f"{stage_name}/script_template.sql",
+            "-D",
+            " text = 'string' ",
+            "-D",
+            "value=1",
+            "-D",
+            "boolean=TRUE",
+            "-D",
+            "null_value= NULL",
+        ]
+    )
+    assert result.exit_code == 0
+    assert result.json == snapshot
