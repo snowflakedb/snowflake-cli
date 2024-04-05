@@ -3,7 +3,7 @@ from typing import Tuple
 import pytest
 from snowflake.cli.plugins.snowpark.common import (
     _convert_resource_details_to_dict,
-    _snowflake_requirements_differ,
+    _snowflake_dependencies_differ,
     _sql_to_python_return_type_mapper,
 )
 
@@ -25,7 +25,7 @@ def test_get_snowflake_packages_delta():
         (["package"], ["package", "added-package"], True),
         (["package", "removed-package"], ["package"], True),
     ]:
-        assert expected == _snowflake_requirements_differ(
+        assert expected == _snowflake_dependencies_differ(
             uploaded_packages, new_packages
         )
 

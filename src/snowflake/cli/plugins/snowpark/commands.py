@@ -134,7 +134,9 @@ def deploy(
         stage_name=stage_name, comment="deployments managed by Snowflake CLI"
     )
 
-    packages = _read_snowflake_requrements_file(paths.snowflake_requirements_file)
+    snowflake_dependencies = _read_snowflake_requrements_file(
+        paths.snowflake_requirements_file
+    )
 
     artifact_stage_directory = get_app_stage_path(stage_name, snowpark.project_name)
     artifact_stage_target = (
@@ -155,9 +157,8 @@ def deploy(
             object_type=ObjectType.PROCEDURE,
             object_definition=procedure,
             existing_objects=existing_procedures,
-            packages=packages,
+            snowflake_dependencies=snowflake_dependencies,
             stage_artifact_path=artifact_stage_target,
-            source_name=paths.artifact_file.path.name,
         )
         deploy_status.append(operation_result)
 
@@ -168,9 +169,8 @@ def deploy(
             object_type=ObjectType.FUNCTION,
             object_definition=function,
             existing_objects=existing_functions,
-            packages=packages,
+            snowflake_dependencies=snowflake_dependencies,
             stage_artifact_path=artifact_stage_target,
-            source_name=paths.artifact_file.path.name,
         )
         deploy_status.append(operation_result)
 
@@ -255,9 +255,8 @@ def _deploy_single_object(
     object_type: ObjectType,
     object_definition: Callable,
     existing_objects: Dict[str, Dict],
-    packages: List[str],
+    snowflake_dependencies: List[str],
     stage_artifact_path: str,
-    source_name: str,
 ):
     identifier = build_udf_sproc_identifier(
         object_definition, manager, include_parameter_names=False
@@ -282,7 +281,7 @@ def _deploy_single_object(
             current_state=existing_objects[identifier],
             handler=handler,
             return_type=returns,
-            packages=packages,
+            snowflake_dependencies=snowflake_dependencies,
             imports=imports,
             stage_artifact_file=stage_artifact_path,
         )
@@ -299,7 +298,7 @@ def _deploy_single_object(
         "handler": handler,
         "return_type": returns,
         "artifact_file": stage_artifact_path,
-        "packages": packages,
+        "packages": snowflake_dependencies,
         "runtime": object_definition.runtime,
         "external_access_integrations": object_definition.external_access_integrations,
         "secrets": object_definition.secrets,

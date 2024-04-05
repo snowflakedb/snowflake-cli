@@ -20,7 +20,7 @@ def check_if_replace_is_required(
     current_state,
     handler: str,
     return_type: str,
-    packages: List[str],
+    snowflake_dependencies: List[str],
     imports: List[str],
     stage_artifact_file: str,
 ) -> bool:
@@ -28,15 +28,15 @@ def check_if_replace_is_required(
 
     log = logging.getLogger(__name__)
     resource_json = _convert_resource_details_to_dict(current_state)
-    deployed_packages = resource_json["packages"]
+    old_dependencies = resource_json["packages"]
     log.info(
         "Found %d defined Anaconda packages in deployed %s...",
-        len(deployed_packages),
+        len(old_dependencies),
         object_type,
     )
     log.info("Checking if app configuration has changed...")
 
-    if _snowflake_requirements_differ(deployed_packages, packages):
+    if _snowflake_dependencies_differ(old_dependencies, snowflake_dependencies):
         log.info(
             "Found difference of package requirements. Replacing the %s.", object_type
         )
@@ -73,15 +73,15 @@ def _convert_resource_details_to_dict(function_details: SnowflakeCursor) -> dict
     return function_dict
 
 
-def _snowflake_requirements_differ(
-    deployed_packages: List[str], new_packages: List[str]
+def _snowflake_dependencies_differ(
+    old_dependencies: List[str], new_dependencies: List[str]
 ) -> bool:
-    def _format_requirements(packages: List[str]) -> Set[str]:
+    def _standardize(packages: List[str]) -> Set[str]:
         return set(
             Requirement.parse_line(package).name_and_version for package in packages
         )
 
-    return _format_requirements(deployed_packages) != _format_requirements(new_packages)
+    return _standardize(old_dependencies) != _standardize(new_dependencies)
 
 
 def _sql_to_python_return_type_mapper(resource_return_type: str) -> str:
