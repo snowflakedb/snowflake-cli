@@ -441,7 +441,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
         result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
     root_path = (
-        f"snow://streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
+        f"@streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
         "default_checkout"
     )
     assert result.exit_code == 0, result.output
@@ -506,7 +506,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
     assert result2.exit_code == 0, result2.output
 
     root_path = (
-        f"snow://streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
+        f"@streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
         "default_checkout"
     )
 
@@ -548,7 +548,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
         result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
     root_path = (
-        f"snow://streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
+        f"@streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
         "default_checkout"
     )
     assert result.exit_code == 0, result.output
@@ -590,7 +590,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
         result = runner.invoke(["streamlit", "deploy", "--experimental", "--replace"])
 
     root_path = (
-        f"snow://streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
+        f"@streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
         "default_checkout"
     )
     assert result.exit_code == 0, result.output

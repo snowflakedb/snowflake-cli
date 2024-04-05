@@ -128,3 +128,72 @@ def test_stage_get_recursive(
     assert downloaded_file_paths == [
         os.path.join(*Path(f).parts[project_path_parts_length:]) for f in file_paths
     ]
+
+
+# @pytest.mark.integration
+def test_stage_execute(runner, test_database, test_root_path, snapshot):
+    project_path = test_root_path / "test_data/projects/stage_execute"
+    stage_name = "test_stage_execute"
+
+    result = runner.invoke_with_connection_json(
+        ["object", "stage", "create", stage_name]
+    )
+    assert contains_row_with(
+        result.json,
+        {"status": f"Stage area {stage_name.upper()} successfully created."},
+    )
+
+    files = [
+        ("script1.sql", ""),
+        ("script2.sql", "directory"),
+        ("script3.sql", "directory/subdirectory"),
+    ]
+    for name, stage_path in files:
+        result = runner.invoke_with_connection_json(
+            [
+                "object",
+                "stage",
+                "copy",
+                f"{project_path}/{name}",
+                f"@{stage_name}/{stage_path}",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert contains_row_with(result.json, {"status": "UPLOADED"})
+
+    result = runner.invoke_with_connection_json(
+        ["object", "stage", "execute", stage_name]
+    )
+    assert result.exit_code == 0
+    assert result.json == snapshot
+
+    result = runner.invoke_with_connection_json(
+        [
+            "object",
+            "stage",
+            "copy",
+            f"{project_path}/script_template.sql",
+            f"@{stage_name}/",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert contains_row_with(result.json, {"status": "UPLOADED"})
+
+    result = runner.invoke_with_connection_json(
+        [
+            "object",
+            "stage",
+            "execute",
+            f"{stage_name}/script_template.sql",
+            "-D",
+            " text = 'string' ",
+            "-D",
+            "value=1",
+            "-D",
+            "boolean=TRUE",
+            "-D",
+            "null_value= NULL",
+        ]
+    )
+    assert result.exit_code == 0
+    assert result.json == snapshot

@@ -38,6 +38,7 @@
   * `snow git list-tags` - lists all tags in the repository
   * `snow git list-files` - lists all files on provided branch/tag/commit
   * `snow git copy` - copies files from provided branch/tag/commit into stage or local directory
+* Added command for execute immediate `snow object stage execute`
 
 ## Fixes and improvements
 * Adding `--image-name` option for image name argument in `spcs image-repository list-tags` for consistency with other commands.
