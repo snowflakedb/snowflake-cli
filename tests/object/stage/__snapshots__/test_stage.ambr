@@ -25,9 +25,9 @@
 # ---
 # name: test_execute_continue_on_error
   '''
-  exe/s1.sql - SUCCESS
-  exe/s2.sql - FAILURE
-  exe/s3.sql - SUCCESS
+  SUCCESS - exe/s1.sql
+  FAILURE - exe/s2.sql
+  SUCCESS - exe/s3.sql
   +------------------------------+
   | File       | Status  | Error |
   |------------+---------+-------|

@@ -275,10 +275,10 @@ class StageManager(SqlExecutionMixin):
             if variables:
                 query += variables
             self._execute_query(query)
-            cli_console.step(f"{file} - SUCCESS")
+            cli_console.step(f"SUCCESS - {file}")
             return {"File": file, "Status": "SUCCESS", "Error": None}
         except ProgrammingError as e:
-            cli_console.warning(f"{file} - FAILURE")
+            cli_console.warning(f"FAILURE - {file}")
             if on_error == OnErrorType.BREAK:
                 raise e
             return {"File": file, "Status": "FAILURE", "Error": e.msg}
