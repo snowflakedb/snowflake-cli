@@ -34,4 +34,4 @@ class FeatureFlag(FeatureFlagMixin):
     ENABLE_STREAMLIT_EMBEDDED_STAGE = BooleanFlag(
         "ENABLE_STREAMLIT_EMBEDDED_STAGE", False
     )
-    ENABLE_SNOWGIT = BooleanFlag("ENABLE_SNOWGIT", False)
+    ENABLE_SNOWGIT = BooleanFlag("ENABLE_SNOWGIT", True)
