@@ -168,7 +168,7 @@ def test_stage_execute(runner, test_database, test_root_path, snapshot):
     assert result.json == snapshot
 
     #
-    # Templating is not available yet, unable to test
+    # TODO: Uncomment when templating will be available on our account
     #
     # result = runner.invoke_with_connection_json(
     #     ["object", "stage", "copy", f"{project_path}/script_template.sql", f"@{stage_name}/"]

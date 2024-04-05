@@ -1862,12 +1862,12 @@
    Usage: default object stage execute [OPTIONS] STAGE_PATH                       
                                                                                   
    Execute immediate all files from the stage path. Files can be filtered with    
-   glob like pattern, e.g. `@stage/*.sql`, `@stage/dev/*`.                        
+   glob like pattern, e.g. `@stage/*.sql`, `@stage/dev/*`. Only files with `.sql` 
+   extension will be executed.                                                    
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    stage_path      TEXT  Stage path with files to be execute. For example  │
   │                            `@stage/dev/*`.                                   │
-  │                            [default: None]                                   │
   │                            [required]                                        │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
@@ -2088,7 +2088,7 @@
   │ create   Creates a named stage if it does not already exist.                 │
   │ execute  Execute immediate all files from the stage path. Files can be       │
   │          filtered with glob like pattern, e.g. `@stage/*.sql`,               │
-  │          `@stage/dev/*`.                                                     │
+  │          `@stage/dev/*`. Only files with `.sql` extension will be executed.  │
   │ list     Lists the stage contents.                                           │
   │ remove   Removes a file from a stage.                                        │
   ╰──────────────────────────────────────────────────────────────────────────────╯

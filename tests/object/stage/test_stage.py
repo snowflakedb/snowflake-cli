@@ -316,11 +316,12 @@ def test_copy_throws_error_for_same_platform_operation(runner, source, dest, sna
 
 
 @pytest.mark.parametrize(
-    "stage_path, files_on_stage, expected_calls",
+    "stage_path, files_on_stage, expected_stage_path, expected_calls",
     [
         (
             "@exe",
             ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
+            "@exe",
             [
                 "get @exe/a/s2.sql file://{}/a/ parallel=4",
                 "get @exe/a/b/s3.sql file://{}/a/b/ parallel=4",
@@ -330,6 +331,7 @@ def test_copy_throws_error_for_same_platform_operation(runner, source, dest, sna
         (
             "@exe/",
             ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
+            "@exe/",
             [
                 "get @exe/a/s2.sql file://{}/a/ parallel=4",
                 "get @exe/a/b/s3.sql file://{}/a/b/ parallel=4",
@@ -339,6 +341,7 @@ def test_copy_throws_error_for_same_platform_operation(runner, source, dest, sna
         (
             "snow://exe",
             ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
+            "@exe",
             [
                 "get @exe/a/s2.sql file://{}/a/ parallel=4",
                 "get @exe/a/b/s3.sql file://{}/a/b/ parallel=4",
@@ -348,6 +351,7 @@ def test_copy_throws_error_for_same_platform_operation(runner, source, dest, sna
         (
             "@exe/a",
             ["a/s2.sql", "a/b/s3.sql"],
+            "@exe/a",
             [
                 "get @exe/a/s2.sql file://{}/ parallel=4",
                 "get @exe/a/b/s3.sql file://{}/b/ parallel=4",
@@ -356,6 +360,7 @@ def test_copy_throws_error_for_same_platform_operation(runner, source, dest, sna
         (
             "@exe/a/",
             ["a/s2.sql", "a/b/s3.sql"],
+            "@exe/a/",
             [
                 "get @exe/a/s2.sql file://{}/ parallel=4",
                 "get @exe/a/b/s3.sql file://{}/b/ parallel=4",
@@ -364,6 +369,7 @@ def test_copy_throws_error_for_same_platform_operation(runner, source, dest, sna
         (
             "@exe/a/b",
             ["a/b/s3.sql"],
+            "@exe/a/b",
             [
                 "get @exe/a/b/s3.sql file://{}/ parallel=4",
             ],
@@ -371,6 +377,7 @@ def test_copy_throws_error_for_same_platform_operation(runner, source, dest, sna
         (
             "@exe/a/b/",
             ["a/b/s3.sql"],
+            "@exe/a/b/",
             [
                 "get @exe/a/b/s3.sql file://{}/ parallel=4",
             ],
@@ -378,6 +385,7 @@ def test_copy_throws_error_for_same_platform_operation(runner, source, dest, sna
         (
             "@exe/a/b/s3.sql",
             ["a/b/s3.sql"],
+            "@exe/a/b/s3.sql",
             [
                 "get @exe/a/b/s3.sql file://{}/ parallel=4",
             ],
@@ -385,6 +393,7 @@ def test_copy_throws_error_for_same_platform_operation(runner, source, dest, sna
         (
             "@exe/s1.sql",
             ["s1.sql"],
+            "@exe/s1.sql",
             [
                 "get @exe/s1.sql file://{}/ parallel=4",
             ],
@@ -393,7 +402,13 @@ def test_copy_throws_error_for_same_platform_operation(runner, source, dest, sna
 )
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_copy_get_recursive(
-    mock_execute, mock_cursor, temp_dir, stage_path, files_on_stage, expected_calls
+    mock_execute,
+    mock_cursor,
+    temp_dir,
+    stage_path,
+    files_on_stage,
+    expected_stage_path,
+    expected_calls,
 ):
     mock_execute.return_value = mock_cursor(
         [{"name": f"exe/{file}"} for file in files_on_stage], []
@@ -402,7 +417,7 @@ def test_copy_get_recursive(
     StageManager().get_recursive(stage_path, Path(temp_dir))
 
     ls_call, *copy_calls = mock_execute.mock_calls
-    assert ls_call == mock.call(f"ls {stage_path}", cursor_class=DictCursor)
+    assert ls_call == mock.call(f"ls {expected_stage_path}", cursor_class=DictCursor)
     assert copy_calls == [mock.call(c.format(temp_dir)) for c in expected_calls]
 
 
@@ -656,35 +671,31 @@ def test_stage_internal_put_quoted_path(
 
 
 @pytest.mark.parametrize(
-    "stage_path, expected_files, expected_stage_name",
+    "stage_path, expected_files",
     [
-        ("@exe", ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
+        ("@exe", ["exe/s1.sql", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
         (
             "snow://exe",
-            ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"],
-            "snow://exe",
+            ["exe/s1.sql", "exe/a/s3.sql", "exe/a/b/s4.sql"],
         ),
-        ("exe", ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
-        ("exe/", ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
-        ("exe/*", ["exe/s1.sql", "exe/s2", "exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
-        ("exe/*.sql", ["exe/s1.sql", "exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
-        ("exe/a", ["exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
-        ("exe/a/", ["exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
-        ("exe/a/*", ["exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
-        ("exe/a/*.sql", ["exe/a/s3.sql", "exe/a/b/s4.sql"], "@exe"),
-        ("exe/a/b", ["exe/a/b/s4.sql"], "@exe"),
-        ("exe/a/b/", ["exe/a/b/s4.sql"], "@exe"),
-        ("exe/a/b/*", ["exe/a/b/s4.sql"], "@exe"),
-        ("exe/a/b/*.sql", ["exe/a/b/s4.sql"], "@exe"),
-        ("exe/s?.sql", ["exe/s1.sql"], "@exe"),
-        ("exe/s1.sql", ["exe/s1.sql"], "@exe"),
-        ("exe/s2", ["exe/s2"], "@exe"),
+        ("exe", ["exe/s1.sql", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe/", ["exe/s1.sql", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe/*", ["exe/s1.sql", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe/*.sql", ["exe/s1.sql", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe/a", ["exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe/a/", ["exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe/a/*", ["exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe/a/*.sql", ["exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("exe/a/b", ["exe/a/b/s4.sql"]),
+        ("exe/a/b/", ["exe/a/b/s4.sql"]),
+        ("exe/a/b/*", ["exe/a/b/s4.sql"]),
+        ("exe/a/b/*.sql", ["exe/a/b/s4.sql"]),
+        ("exe/s?.sql", ["exe/s1.sql"]),
+        ("exe/s1.sql", ["exe/s1.sql"]),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_execute(
-    mock_execute, mock_cursor, runner, stage_path, expected_files, expected_stage_name
-):
+def test_execute(mock_execute, mock_cursor, runner, stage_path, expected_files):
     mock_execute.return_value = mock_cursor(
         [
             {"name": "exe/a/s3.sql"},
@@ -699,7 +710,7 @@ def test_execute(
 
     assert result.exit_code == 0, result.output
     ls_call, *execute_calls = mock_execute.mock_calls
-    assert ls_call == mock.call(f"ls {expected_stage_name}", cursor_class=DictCursor)
+    assert ls_call == mock.call(f"ls @exe", cursor_class=DictCursor)
     assert execute_calls == [
         mock.call(f"execute immediate from @{p}") for p in expected_files
     ]
@@ -735,9 +746,10 @@ def test_execute_with_variables(mock_execute, mock_cursor, runner):
     ]
 
 
+@pytest.mark.parametrize("variable", ["variable", "key=var=iable"])
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_execute_raise_invalid_variables_error(
-    mock_execute, mock_cursor, runner, snapshot
+    mock_execute, mock_cursor, runner, snapshot, variable
 ):
     mock_execute.return_value = mock_cursor([{"name": "exe/s1.sql"}], [])
 
@@ -748,7 +760,26 @@ def test_execute_raise_invalid_variables_error(
             "execute",
             "@exe",
             "-D",
-            "variable",
+            variable,
+        ]
+    )
+
+    assert result.exit_code == 1
+    assert result.output == snapshot
+
+
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_execute_raise_invalid_file_extension_error(
+    mock_execute, mock_cursor, runner, snapshot
+):
+    mock_execute.return_value = mock_cursor([{"name": "exe/s1.txt"}], [])
+
+    result = runner.invoke(
+        [
+            "object",
+            "stage",
+            "execute",
+            "@exe/s1.txt",
         ]
     )
 

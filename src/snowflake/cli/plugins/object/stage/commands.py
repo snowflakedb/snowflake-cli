@@ -135,6 +135,7 @@ def execute(
     stage_path: str = typer.Argument(
         ...,
         help="Stage path with files to be execute. For example `@stage/dev/*`.",
+        show_default=False,
     ),
     on_error: OnErrorType = typer.Option(
         OnErrorType.BREAK.value,
@@ -152,7 +153,8 @@ def execute(
     **options,
 ):
     """
-    Execute immediate all files from the stage path. Files can be filtered with glob like pattern, e.g. `@stage/*.sql`, `@stage/dev/*`.
+    Execute immediate all files from the stage path. Files can be filtered with glob like pattern,
+    e.g. `@stage/*.sql`, `@stage/dev/*`. Only files with `.sql` extension will be executed.
     """
     results = StageManager().execute(
         stage_path=stage_path, on_error=on_error, variables=variables
