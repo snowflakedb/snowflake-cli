@@ -59,6 +59,27 @@ class AnacondaChannel:
         """
         self._packages = packages
 
+    @classmethod
+    def from_snowflake(cls):
+        try:
+            response = requests.get(AnacondaChannel.snowflake_channel_url)
+            response.raise_for_status()
+            packages = {}
+            for key, package in response.json()["packages"].items():
+                if not (version := package.get("version")):
+                    continue
+                package_name = package.get("name", key)
+                standardized_name = Requirement.standardize_name(package_name)
+                packages[standardized_name] = AnacondaPackageData(
+                    snowflake_name=package_name, versions={version}
+                )
+            return cls(packages)
+
+        except HTTPError as err:
+            raise ClickException(
+                f"Accessing Snowflake Anaconda channel failed. Reason {err}"
+            )
+
     def is_package_available(
         self, package: Requirement, skip_version_check: bool = False
     ) -> bool:
@@ -90,28 +111,11 @@ class AnacondaChannel:
         """Returns list of available versions of the package."""
         if package.name not in self._packages:
             return []
-        return list(sorted(self._packages[package.name].versions, reverse=True))
-
-    @classmethod
-    def from_snowflake(cls):
+        package_data = self._packages[package.name]
         try:
-            response = requests.get(AnacondaChannel.snowflake_channel_url)
-            response.raise_for_status()
-            packages = {}
-            for key, package in response.json()["packages"].items():
-                if not (version := package.get("version")):
-                    continue
-                package_name = package.get("name", key)
-                standardized_name = Requirement.standardize_name(package_name)
-                packages[standardized_name] = AnacondaPackageData(
-                    snowflake_name=package_name, versions={version}
-                )
-            return cls(packages)
-
-        except HTTPError as err:
-            raise ClickException(
-                f"Accessing Snowflake Anaconda channel failed. Reason {err}"
-            )
+            return list(str(x) for x in sorted(package_data.iter_versions()))
+        except InvalidVersion:
+            return list(sorted(package_data.versions, reverse=True))
 
     def filter_anaconda_packages(
         self, packages: List[Requirement], skip_version_check: bool = False
