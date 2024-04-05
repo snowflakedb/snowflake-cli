@@ -113,7 +113,9 @@ class AnacondaChannel:
             return []
         package_data = self._packages[package.name]
         try:
-            return list(str(x) for x in sorted(package_data.iter_versions()))
+            return list(
+                str(x) for x in sorted(package_data.iter_versions(), reverse=True)
+            )
         except InvalidVersion:
             return list(sorted(package_data.versions, reverse=True))
 
