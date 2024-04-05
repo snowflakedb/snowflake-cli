@@ -45,7 +45,7 @@ from snowflake.cli.plugins.snowpark.common import (
     check_if_replace_is_required,
 )
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
-from snowflake.cli.plugins.snowpark.models import Requirement, YesNoAsk
+from snowflake.cli.plugins.snowpark.models import YesNoAsk
 from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
@@ -337,17 +337,6 @@ def _read_snowflake_requrements_file(file_path: SecurePath):
     return file_path.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB).splitlines()
 
 
-def _write_snowflake_requirements_file(
-    file_path: SecurePath, anaconda: AnacondaChannel, requirements: List[Requirement]
-):
-    log.info("Writing requirements into file %s", file_path.path)
-    formatted_requirements = [
-        anaconda.to_anaconda_requirement_format(requirement)
-        for requirement in requirements
-    ]
-    file_path.write_text("\n".join(req for req in formatted_requirements if req))
-
-
 @app.command("build")
 @with_project_definition("snowpark")
 def build(
@@ -411,9 +400,8 @@ def build(
                         "Try again with --allow-shared-libraries."
                     )
             if download_result.packages_available_in_anaconda:
-                _write_snowflake_requirements_file(
+                anaconda.write_requirements_file_in_snowflake_format(  # type: ignore
                     file_path=snowpark_paths.snowflake_requirements_file,
-                    anaconda=anaconda,
                     requirements=download_result.packages_available_in_anaconda,
                 )
 

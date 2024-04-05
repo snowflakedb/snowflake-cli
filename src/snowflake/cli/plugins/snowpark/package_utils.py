@@ -132,7 +132,7 @@ def download_unavailable_packages(
     if not ignore_anaconda:
         if not anaconda:
             anaconda = AnacondaChannel.from_snowflake()
-        split_requirements = anaconda.parse_anaconda_packages(
+        split_requirements = anaconda.filter_anaconda_packages(
             requirements, skip_version_check=skip_version_check
         )
         omitted_packages = split_requirements.in_snowflake
@@ -178,7 +178,7 @@ def download_unavailable_packages(
             dependencies_to_be_packed = dependencies
         else:
             log.info("Checking for dependencies available in Anaconda...")
-            split_dependencies = anaconda.parse_anaconda_packages(  # type: ignore
+            split_dependencies = anaconda.filter_anaconda_packages(  # type: ignore
                 packages=dependency_requirements, skip_version_check=skip_version_check
             )
             _log_dependencies_found_in_conda(split_dependencies.in_snowflake)

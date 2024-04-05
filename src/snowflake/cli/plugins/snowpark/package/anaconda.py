@@ -10,12 +10,20 @@ from packaging.requirements import InvalidRequirement
 from packaging.requirements import Requirement as PkgRequirement
 from packaging.version import InvalidVersion, parse
 from requests import HTTPError
-from snowflake.cli.plugins.snowpark.models import (
-    Requirement,
-    SplitRequirements,
-)
+from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.plugins.snowpark.models import Requirement
 
 log = logging.getLogger(__name__)
+
+
+@dataclass
+class FilterRequirementsResult:
+    """A dataclass to hold the results of parsing requirements files and dividing them into
+    snowflake-supported vs other packages.
+    """
+
+    in_snowflake: List[Requirement]
+    unavailable: List[Requirement]
 
 
 @dataclass
@@ -45,7 +53,7 @@ class AnacondaChannel:
 
     def __init__(self, packages: Dict[str, AnacondaPackageData]):
         """
-        [packages] should be a dictionary mapping package name to set of its available versions.
+        [packages] should be a dictionary mapping package name to AnacondaPackageData object.
         All package names should be provided in wheel escape format:
         https://peps.python.org/pep-0491/#escaping-and-unicode
         """
@@ -69,6 +77,7 @@ class AnacondaChannel:
         return self._packages[package.name].is_required_version_available(package)
 
     def package_latest_version(self, package: Requirement) -> str | None:
+        """Returns the latest version of the package or None if the latest version can't be determined."""
         if package.name not in self._packages:
             return None
         try:
@@ -78,19 +87,10 @@ class AnacondaChannel:
             return None
 
     def package_versions(self, package: Requirement) -> List[str]:
+        """Returns list of available versions of the package."""
         if package.name not in self._packages:
             return []
         return list(sorted(self._packages[package.name].versions, reverse=True))
-
-    def to_anaconda_requirement_format(self, requirement: Requirement) -> str | None:
-        """
-        Returns requirement in format ready to be passed to Snowflake commands.
-        If package name cannot be found in anaconda channel, returns None.
-        """
-        if not requirement.name or requirement.name not in self._packages:
-            return None
-        snowflake_name = self._packages[requirement.name].snowflake_name
-        return f"{snowflake_name}{','.join(spec[0] + spec[1] for spec in requirement.specs)}"
 
     @classmethod
     def from_snowflake(cls):
@@ -113,9 +113,9 @@ class AnacondaChannel:
                 f"Accessing Snowflake Anaconda channel failed. Reason {err}"
             )
 
-    def parse_anaconda_packages(
+    def filter_anaconda_packages(
         self, packages: List[Requirement], skip_version_check: bool = False
-    ) -> SplitRequirements:
+    ) -> FilterRequirementsResult:
         """
         Checks if a list of packages are available in the Snowflake Anaconda channel.
         Returns an object with two attributes: 'snowflake' and 'other'.
@@ -126,11 +126,11 @@ class AnacondaChannel:
             skip_version_check (bool) - skip comparing versions of packages
 
         Returns:
-            result (SplitRequirements) - required packages split to those available in conda, and others, that need to be
-                                         installed using pip
-
+            result (FilterRequirementsResult) - object containing two arguments:
+              - in_snowflake - packages available in conda
+              - unavailable - packages not available in conda
         """
-        result = SplitRequirements([], [])
+        result = FilterRequirementsResult([], [])
         for package in packages:
             if self.is_package_available(
                 package, skip_version_check=skip_version_check
@@ -142,3 +142,21 @@ class AnacondaChannel:
                 )
                 result.unavailable.append(package)
         return result
+
+    def write_requirements_file_in_snowflake_format(
+        self,
+        file_path: SecurePath,
+        requirements: List[Requirement],
+    ):
+        """Saves requirements to a file in format accepted by Snowflake SQL commands."""
+        log.info("Writing requirements into file %s", file_path.path)
+        formatted_requirements = []
+        for requirement in requirements:
+            if requirement.name and requirement.name in self._packages:
+                snowflake_name = self._packages[requirement.name].snowflake_name
+                formatted_requirements.append(
+                    snowflake_name + requirement.formatted_specs
+                )
+
+        if formatted_requirements:
+            file_path.write_text("\n".join(formatted_requirements))

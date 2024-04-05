@@ -50,16 +50,6 @@ class Requirement(requirement.Requirement):
 
 
 @dataclass
-class SplitRequirements:
-    """A dataclass to hold the results of parsing requirements files and dividing them into
-    snowflake-supported vs other packages.
-    """
-
-    in_snowflake: List[Requirement]
-    unavailable: List[Requirement]
-
-
-@dataclass
 class RequirementWithFiles:
     """A dataclass to hold a requirement and the path to the
     downloaded files/folders that belong to it"""

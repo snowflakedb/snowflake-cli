@@ -119,7 +119,7 @@ def test_parse_requirements(correct_requirements_txt: str):
 
 
 @mock.patch("requests.get")
-def test_parse_anaconda_packages(mock_get):
+def test_filter_anaconda_packages(mock_get):
     mock_response = mock.Mock()
     mock_response.status_code = 200
     # load the contents of the local json file under test_data/anaconda_channel_data.json
@@ -134,7 +134,7 @@ def test_parse_anaconda_packages(mock_get):
         Requirement.parse("FuelSDK>=0.9.3"),
         Requirement.parse("Pamela==1.0.1"),
     ]
-    split_requirements = anaconda.parse_anaconda_packages(packages=packages)
+    split_requirements = anaconda.filter_anaconda_packages(packages=packages)
     assert len(split_requirements.in_snowflake) == 1
     assert len(split_requirements.unavailable) == 2
     assert split_requirements.in_snowflake[0].name == "pandas"
