@@ -4,7 +4,7 @@ import typer
 from snowflake.cli.api.commands.flags import identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.feature_flags import FeatureFlag
-from snowflake.cli.api.output.types import MessageResult, QueryResult
+from snowflake.cli.api.output.types import MessageResult
 from snowflake.cli.plugins.notebook.manager import NotebookManager
 
 app = SnowTyper(
@@ -25,8 +25,9 @@ def execute(
     """
     Executes a notebook in a headless mode.
     """
-    cursor = NotebookManager().execute(notebook_name=identifier)
-    return QueryResult(cursor=cursor)
+    # Execution does not return any meaningful result
+    _ = NotebookManager().execute(notebook_name=identifier)
+    return MessageResult(f"Notebook {identifier} executed.")
 
 
 @app.command(requires_connection=True)

@@ -8,8 +8,7 @@ class NotebookManager(SqlExecutionMixin):
         return self._execute_query(query=query)
 
     def get_url(self, notebook_name: str):
-        fully_qualified_name = self.to_fully_qualified_name(notebook_name)
         return make_snowsight_url(
             self._conn,
-            f"/#/notebooks/{self.qualified_name_for_url(fully_qualified_name)}",
+            f"/#/notebooks/{self.qualified_name_for_url(notebook_name)}",
         )
