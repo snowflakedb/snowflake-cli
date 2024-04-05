@@ -62,12 +62,6 @@ class ConnectionConfig:
     role: Optional[str] = None
     authenticator: Optional[str] = None
     private_key_path: Optional[str] = None
-    session_token: Optional[
-        str
-    ] = None  # TODO (lmonteromarin): Consider if this might not be necessary
-    master_token: Optional[
-        str
-    ] = None  # TODO (lmonteromarin): Consider if this might not be necessary
 
     _other_settings: dict = field(default_factory=lambda: {})
 
