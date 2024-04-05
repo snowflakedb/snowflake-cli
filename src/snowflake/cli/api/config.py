@@ -62,6 +62,7 @@ class ConnectionConfig:
     role: Optional[str] = None
     authenticator: Optional[str] = None
     private_key_path: Optional[str] = None
+    session_token: Optional[str] = None
 
     _other_settings: dict = field(default_factory=lambda: {})
 

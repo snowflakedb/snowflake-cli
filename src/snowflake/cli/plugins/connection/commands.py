@@ -209,6 +209,22 @@ def add(
         prompt="Path to private key file",
         help="Path to file containing private key",
     ),
+    session_token: str = typer.Option(
+        EmptyInput(),
+        "--session-token",
+        "-S",  # TODO: Think about this
+        click_type=OptionalPrompt(),
+        prompt="Path to private key file",  # TODO
+        help="Path to file containing private key",  # TODO
+    ),
+    master_token: str = typer.Option(
+        EmptyInput(),
+        "--master-token",
+        "-M",  # TODO: Think about this
+        click_type=OptionalPrompt(),
+        prompt="Path to private key file",  # TODO
+        help="Path to file containing private key",  # TODO
+    ),
     **options,
 ) -> CommandResult:
     """Adds a connection to configuration file."""
@@ -230,6 +246,8 @@ def add(
             role=role,
             authenticator=authenticator,
             private_key_path=private_key_path,
+            session_token=session_token,
+            master_token=master_token,
         ),
     )
     return MessageResult(
