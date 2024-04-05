@@ -734,6 +734,8 @@ def test_execute_with_variables(mock_execute, mock_cursor, runner):
             "key3=TRUE",
             "-D",
             "key4=NULL",
+            "-D",
+            "key5='var=value'",
         ]
     )
 
@@ -741,15 +743,14 @@ def test_execute_with_variables(mock_execute, mock_cursor, runner):
     assert mock_execute.mock_calls == [
         mock.call("ls @exe", cursor_class=DictCursor),
         mock.call(
-            f"execute immediate from @exe/s1.sql using (key1=>'string value', key2=>1, key3=>TRUE, key4=>NULL)"
+            f"execute immediate from @exe/s1.sql using (key1=>'string value', key2=>1, key3=>TRUE, key4=>NULL, key5=>'var=value')"
         ),
     ]
 
 
-@pytest.mark.parametrize("variable", ["variable", "key=var=iable"])
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_execute_raise_invalid_variables_error(
-    mock_execute, mock_cursor, runner, snapshot, variable
+    mock_execute, mock_cursor, runner, snapshot
 ):
     mock_execute.return_value = mock_cursor([{"name": "exe/s1.sql"}], [])
 
@@ -760,7 +761,7 @@ def test_execute_raise_invalid_variables_error(
             "execute",
             "@exe",
             "-D",
-            variable,
+            "variable",
         ]
     )
 

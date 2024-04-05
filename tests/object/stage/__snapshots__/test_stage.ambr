@@ -70,15 +70,7 @@
   
   '''
 # ---
-# name: test_execute_raise_invalid_variables_error[key=var=iable]
-  '''
-  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ Invalid variable: 'key=var=iable'                                            │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  '''
-# ---
-# name: test_execute_raise_invalid_variables_error[variable]
+# name: test_execute_raise_invalid_variables_error
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
   │ Invalid variable: 'variable'                                                 │

@@ -5,6 +5,7 @@ import glob
 import logging
 import re
 from contextlib import nullcontext
+from dataclasses import dataclass
 from enum import Enum
 from os import path
 from pathlib import Path
@@ -29,6 +30,16 @@ EXECUTE_SUPPORTED_FILES_FORMATS = {".sql"}
 class OnErrorType(Enum):
     BREAK = "break"
     CONTINUE = "continue"
+
+
+@dataclass
+class Variable:
+    key: str
+    value: str
+
+    def __init__(self, key: str, value: str):
+        self.key = key
+        self.value = value
 
 
 class StageManager(SqlExecutionMixin):
@@ -255,14 +266,20 @@ class StageManager(SqlExecutionMixin):
         if not variables:
             return None
 
-        query_parameters = []
+        parsed_variables = StageManager._parse_variables(variables)
+        query_parameters = [f"{v.key}=>{v.value}" for v in parsed_variables]
+        return f" using ({', '.join(query_parameters)})"
+
+    @staticmethod
+    def _parse_variables(variables: List[str]) -> List[Variable]:
+        result = []
         for p in variables:
-            if "=" not in p or p.count("=") > 1:
+            if "=" not in p:
                 raise ClickException(f"Invalid variable: '{p}'")
 
-            key, value = p.split("=")
-            query_parameters.append(f"{key.strip()}=>{value.strip()}")
-        return f" using ({', '.join(query_parameters)})"
+            key, value = p.split("=", 1)
+            result.append(Variable(key, value))
+        return result
 
     def _call_execute_immediate(
         self, file: str, variables: Optional[str], on_error: OnErrorType
