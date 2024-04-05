@@ -23,6 +23,7 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
 from snowflake.cli.plugins.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
+    _get_default_deploy_prune_value,
     _get_relative_paths_to_sync,
     ensure_correct_owner,
 )
@@ -831,3 +832,16 @@ def test_filter_from_diff_no_prune(mock_warning):
     mock_warning.assert_called_once_with(
         "The following files exist only on the stage:\n['only-stage.txt']\nUse the --prune flag to delete them from the stage."
     )
+
+
+@pytest.mark.parametrize(
+    "files_argument,expected_prune_value",
+    [
+        [None, True],
+        [[], True],
+        [["file1", "file2"], False],
+    ],
+)
+def test_get_default_deploy_prune_value(files_argument, expected_prune_value):
+    prune = _get_default_deploy_prune_value(files_argument)
+    assert prune == expected_prune_value

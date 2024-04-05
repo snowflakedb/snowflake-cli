@@ -249,9 +249,6 @@ def app_deploy(
         project_root=cli_context.project_root,
     )
 
-    if prune is None:
-        prune = False if files is None or len(files) > 0 else True
-
     manager.build_bundle()
     manager.deploy(prune, files)
 

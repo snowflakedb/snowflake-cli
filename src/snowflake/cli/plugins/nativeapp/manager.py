@@ -123,6 +123,10 @@ def _get_relative_paths_to_sync(
     return paths
 
 
+def _get_default_deploy_prune_value(files_argument: Optional[List[Path]]) -> bool:
+    return False if files_argument is not None and len(files_argument) > 0 else True
+
+
 class NativeAppCommandProcessor(ABC):
     @abstractmethod
     def process(self, *args, **kwargs):
@@ -297,7 +301,7 @@ class NativeAppManager(SqlExecutionMixin):
     def sync_deploy_root_with_stage(
         self,
         role: str,
-        prune: bool = True,
+        prune: Optional[bool] = None,
         files_to_sync: Optional[List[Path]] = None,  # relative to deploy root
     ) -> DiffResult:
         """
@@ -326,6 +330,9 @@ class NativeAppManager(SqlExecutionMixin):
         )
         diff: DiffResult = stage_diff(self.deploy_root, self.stage_fqn)
 
+        if prune is None:
+            prune = _get_default_deploy_prune_value(files_to_sync)
+
         # If we are syncing specific files, remove everything else from the diff
         if files_to_sync is not None and len(files_to_sync) > 0:
             paths_to_keep = set(
@@ -334,6 +341,9 @@ class NativeAppManager(SqlExecutionMixin):
                 )
             )
             filter_from_diff(diff, paths_to_keep, prune)
+        # If we are syncing everything with no-prune, remove all remote-only files
+        elif prune is False:
+            diff.only_on_stage = []
 
         cc.message(str(diff))
 
@@ -462,7 +472,7 @@ class NativeAppManager(SqlExecutionMixin):
 
     def deploy(
         self,
-        prune: bool,
+        prune: Optional[bool] = None,
         files_to_sync: Optional[List[Path]] = None,
     ) -> DiffResult:
         """app deploy process"""

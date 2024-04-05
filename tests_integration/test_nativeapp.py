@@ -566,6 +566,63 @@ def test_nativeapp_init_deploy(
             assert result.exit_code == 0
 
 
+# Verifying that "snow app deploy --no-prune" does not delete remote-only files
+@pytest.mark.integration
+def test_nativeapp_init_deploy_no_prune(
+    runner,
+    snowflake_session,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    result = runner.invoke_json(
+        ["app", "init", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_name)):
+        result = runner.invoke_with_connection_json(
+            ["app", "deploy"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        try:
+            # delete a file locally
+            os.remove(os.path.join("app", "manifest.yml"))
+
+            # sync with no-prune
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy", "--no-prune"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # verify the file still exists on the stage
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
+            stage_files = runner.invoke_with_connection_json(
+                ["object", "stage", "list", f"{package_name}.{stage_name}"],
+                env=TEST_ENV,
+            )
+            assert contains_row_with(stage_files.json, {"name": "stage/manifest.yml"})
+
+            # make sure we always delete the app
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
 # Tests a simple flow of executing "snow app deploy [files]", verifying that only the specified files are synced to the stage
 @pytest.mark.integration
 def test_nativeapp_init_deploy_files(
