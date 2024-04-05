@@ -7,7 +7,6 @@ import tempfile
 from contextlib import contextmanager
 from io import StringIO
 from pathlib import Path
-from types import ModuleType
 from typing import Generator, List, NamedTuple, Optional, Union
 from unittest import mock
 
@@ -192,17 +191,6 @@ def package_file():
         yield create_named_file("app.zip", tmp, [])
 
 
-def _get_child_modules(module):
-    return [m for m in module.__dict__.values() if isinstance(m, ModuleType)]
-
-
-@pytest.fixture(autouse=True, scope="function")
-def _reload_snowflake_module():
-    for mod in list(sys.modules.keys()):
-        if mod == "snowflake" or mod.startswith("snowflake."):
-            importlib.reload(sys.modules[mod])
-
-
 @pytest.fixture(scope="function")
 def runner(test_snowcli_config):
     app = app_factory()
@@ -275,6 +263,12 @@ def snowflake_home(monkeypatch):
         snowflake_home = Path(tmp_dir) / ".snowflake"
         snowflake_home.mkdir()
         monkeypatch.setenv("SNOWFLAKE_HOME", str(snowflake_home))
+        for module in [
+            sys.modules["snowflake.connector.constants"],
+            sys.modules["snowflake.connector.config_manager"],
+            sys.modules["snowflake.cli.api.config"],
+        ]:
+            importlib.reload(module)
 
         yield snowflake_home
 

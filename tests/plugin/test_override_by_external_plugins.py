@@ -16,7 +16,7 @@ def test_corrupted_config_raises_human_friendly_error(
             ["sql", "-q", "foo"],
         )
     assert result.exit_code == 1, result.output
-    # assert result.output == snapshot
+    assert result.output == snapshot
 
 
 def test_override_build_in_commands(runner, test_root_path, _install_plugin, caplog):
