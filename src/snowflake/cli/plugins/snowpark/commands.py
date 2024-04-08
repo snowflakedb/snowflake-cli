@@ -368,14 +368,15 @@ def build(
             requirements = package_utils.parse_requirements(
                 requirements_file=snowpark_paths.defined_requirements_file,
             )
-            anaconda: Optional[AnacondaChannel] = (
-                None if ignore_anaconda else AnacondaChannel.from_snowflake()
+            anaconda: AnacondaChannel = (
+                AnacondaChannel.empty()
+                if ignore_anaconda
+                else AnacondaChannel.from_snowflake()
             )
 
             download_result = package_utils.download_unavailable_packages(
                 requirements=requirements,
                 target_dir=packages_dir,
-                ignore_anaconda=ignore_anaconda,
                 anaconda=anaconda,
                 skip_version_check=skip_version_check,
                 pip_index_url=index_url,

@@ -175,7 +175,11 @@ def package_create(
         download_result = download_unavailable_packages(
             requirements=[package],
             target_dir=packages_dir,
-            ignore_anaconda=ignore_anaconda,
+            anaconda=(
+                AnacondaChannel.empty()
+                if ignore_anaconda
+                else AnacondaChannel.from_snowflake()
+            ),
             skip_version_check=skip_version_check,
             pip_index_url=index_url,
         )

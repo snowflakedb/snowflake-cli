@@ -60,6 +60,10 @@ class AnacondaChannel:
         self._packages = packages
 
     @classmethod
+    def empty(cls):
+        return cls({})
+
+    @classmethod
     def from_snowflake(cls):
         try:
             response = requests.get(AnacondaChannel.snowflake_channel_url)
@@ -144,7 +148,8 @@ class AnacondaChannel:
                 result.in_snowflake.append(package)
             else:
                 log.info(
-                    "'%s' not found in Snowflake Anaconda channel...", package.name
+                    "'%s' not found in Snowflake Anaconda channel (or ignored)...",
+                    package.name,
                 )
                 result.unavailable.append(package)
         return result

@@ -112,14 +112,12 @@ def download_unavailable_packages(
     requirements: List[Requirement],
     target_dir: SecurePath,
     # anaconda lookup specs
-    anaconda: AnacondaChannel | None = None,
-    ignore_anaconda: bool = False,
+    anaconda: AnacondaChannel,
     skip_version_check: bool = False,
     # pip lookup specs
     pip_index_url: str | None = None,
 ) -> DownloadUnavailablePackagesResult:
     """Download packages unavailable on Snowflake Anaconda Channel to target directory.
-    If [ignore_anaconda] is set to True, all packages from [requirements] will be downloaded.
 
     Returns an object with fields:
     - download_successful - whether packages were successfully downloaded
@@ -128,21 +126,17 @@ def download_unavailable_packages(
     - downloaded_packages - list of downloaded packages details
     """
     # pre-check on Anaconda to avoid potentially heavy downloads
-    omitted_packages = []
-    if not ignore_anaconda:
-        if not anaconda:
-            anaconda = AnacondaChannel.from_snowflake()
-        split_requirements = anaconda.filter_anaconda_packages(
-            requirements, skip_version_check=skip_version_check
+    split_requirements = anaconda.filter_anaconda_packages(
+        requirements, skip_version_check=skip_version_check
+    )
+    omitted_packages = split_requirements.in_snowflake
+    requirements = split_requirements.unavailable
+    if not requirements:
+        # all packages are available in Anaconda
+        return DownloadUnavailablePackagesResult(
+            succeeded=True,
+            packages_available_in_anaconda=omitted_packages,
         )
-        omitted_packages = split_requirements.in_snowflake
-        requirements = split_requirements.unavailable
-        if not requirements:
-            # all packages are available in Anaconda
-            return DownloadUnavailablePackagesResult(
-                succeeded=True,
-                packages_available_in_anaconda=omitted_packages,
-            )
 
     # download all packages with their dependencies
     with Venv() as v, SecurePath.temporary_directory() as downloads_dir:
@@ -174,18 +168,15 @@ def download_unavailable_packages(
         )
 
         # check whether some dependencies are available on Snowflake Anaconda Channel
-        if ignore_anaconda:
-            dependencies_to_be_packed = dependencies
-        else:
-            log.info("Checking for dependencies available in Anaconda...")
-            split_dependencies = anaconda.filter_anaconda_packages(  # type: ignore
-                packages=dependency_requirements, skip_version_check=skip_version_check
-            )
-            _log_dependencies_found_in_conda(split_dependencies.in_snowflake)
-            omitted_packages += split_dependencies.in_snowflake
-            dependencies_to_be_packed = _filter_dependencies_not_available_in_conda(
-                dependencies, split_dependencies.in_snowflake
-            )
+        log.info("Checking for dependencies available in Anaconda...")
+        split_dependencies = anaconda.filter_anaconda_packages(
+            packages=dependency_requirements, skip_version_check=skip_version_check
+        )
+        _log_dependencies_found_in_conda(split_dependencies.in_snowflake)
+        omitted_packages += split_dependencies.in_snowflake
+        dependencies_to_be_packed = _filter_dependencies_not_available_in_conda(
+            dependencies, split_dependencies.in_snowflake
+        )
 
         # move filtered packages to target directory
         target_dir.mkdir(exist_ok=True)

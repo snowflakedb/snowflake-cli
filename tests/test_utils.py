@@ -175,7 +175,7 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
         package_utils.download_unavailable_packages(
             requirements=requirements,
             target_dir=SecurePath(".packages"),
-            ignore_anaconda=True,
+            anaconda=AnacondaChannel.empty(),
         )
 
     assert "pip failed with return code 42" in caplog.text
