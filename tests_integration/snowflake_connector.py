@@ -9,10 +9,19 @@ from snowflake.cli.api.exceptions import EnvironmentVariableNotFoundError
 from contextlib import contextmanager
 
 _ENV_PARAMETER_PREFIX = "SNOWFLAKE_CONNECTIONS_INTEGRATION"
+SCHEMA_ENV_PARAMETER = f"{_ENV_PARAMETER_PREFIX}_SCHEMA"
+DATABASE_ENV_PARAMETER = f"{_ENV_PARAMETER_PREFIX}_DATABASE"
 
 
 def add_uuid_to_name(name: str) -> str:
     return f"{name}_{uuid.uuid4().hex}"
+
+
+@contextmanager
+def set_env(env_name: str, value: str):
+    os.environ[env_name] = value
+    yield
+    del os.environ[env_name]
 
 
 @contextmanager
@@ -21,12 +30,9 @@ def setup_test_database(snowflake_session, database_name: str):
     snowflake_session.execute_string(
         f"create database {database_name}; use database {database_name}; use schema public;"
     )
-    os.environ[f"{_ENV_PARAMETER_PREFIX}_DATABASE"] = database_name
-
-    yield
-
+    with set_env(DATABASE_ENV_PARAMETER, value=database_name):
+        yield
     snowflake_session.execute_string(f"drop database {database_name}")
-    del os.environ[f"{_ENV_PARAMETER_PREFIX}_DATABASE"]
 
 
 @contextmanager
@@ -35,10 +41,9 @@ def setup_test_schema(snowflake_session, schema_name: str):
     snowflake_session.execute_string(
         f"create schema {schema_name}; use schema {schema_name};"
     )
-    os.environ[f"{_ENV_PARAMETER_PREFIX}_SCHEMA"] = schema_name
-    yield
+    with set_env(SCHEMA_ENV_PARAMETER, value=schema_name):
+        yield
     snowflake_session.execute_string(f"drop schema {schema_name}")
-    del os.environ[f"{_ENV_PARAMETER_PREFIX}_SCHEMA"]
 
 
 @pytest.fixture(scope="function")

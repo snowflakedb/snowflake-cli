@@ -256,14 +256,16 @@ def test(
     # Test session attributes
     om = ObjectManager()
     try:
+        schema = conn.schema
         if conn.role:
             om.use(object_type=ObjectType.ROLE, name=f'"{conn.role}"')
         if conn.database:
             om.use(object_type=ObjectType.DATABASE, name=f'"{conn.database}"')
-        if conn.schema:
-            om.use(object_type=ObjectType.SCHEMA, name=f'"{conn.schema}"')
+        if schema:
+            om.use(object_type=ObjectType.SCHEMA, name=f'"{schema}"')
         if conn.warehouse:
             om.use(object_type=ObjectType.WAREHOUSE, name=f'"{conn.warehouse}"')
+
     except ProgrammingError as err:
         raise ClickException(str(err))
 
@@ -279,9 +281,9 @@ def test(
     }
 
     if enable_diag:
-        result[
-            "Diag Report Location"
-        ] = f"{diag_log_path}/SnowflakeConnectionTestReport.txt"
+        result["Diag Report Location"] = (
+            f"{diag_log_path}/SnowflakeConnectionTestReport.txt"
+        )
 
     return ObjectResult(result)
 

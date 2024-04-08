@@ -52,6 +52,7 @@
 * Adding support for any source supported by `pip` in `snow snowpark`.
 * Fixed version parsing for packages lookup on Snowflake Anaconda Channel
 * Fix handling database/schema/role identifiers containing dashes
+* Fix schema override bug in `snow connection test`
 
 # v2.1.2
 
