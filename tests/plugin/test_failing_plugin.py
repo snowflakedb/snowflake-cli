@@ -15,11 +15,12 @@ def test_failing_plugin(runner, test_root_path, _install_plugin, caplog):
         == "Cannot register plugin [failing_plugin]: Some error in plugin"
     )
     assert result.output == dedent(
-        """+---------------------------------------+
-| connection_name | parameters          |
-|-----------------+---------------------|
-| test            | {'account': 'test'} |
-+---------------------------------------+
+        """\
+     +----------------------------------------------------+
+     | connection_name | parameters          | is_default |
+     |-----------------+---------------------+------------|
+     | test            | {'account': 'test'} | False      |
+     +----------------------------------------------------+
     """
     )
 

@@ -13,11 +13,12 @@ def test_broken_command_path_plugin(runner, test_root_path, _install_plugin, cap
         == "Cannot register plugin [broken_plugin]: Invalid command path [snow broken run]. Command group [broken] does not exist."
     )
     assert result.output == dedent(
-        """+---------------------------------------+
-| connection_name | parameters          |
-|-----------------+---------------------|
-| test            | {'account': 'test'} |
-+---------------------------------------+
+        """\
+     +----------------------------------------------------+
+     | connection_name | parameters          | is_default |
+     |-----------------+---------------------+------------|
+     | test            | {'account': 'test'} | False      |
+     +----------------------------------------------------+
     """
     )
 
