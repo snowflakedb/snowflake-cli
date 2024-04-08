@@ -77,6 +77,11 @@ def connect_to_snowflake(
                 "connection_diag_allowlist_path"
             ] = diag_allowlist_path
 
+    if (
+        overrides["session_token"] and overrides["master_token"]
+    ):  # TODO (lmonteromarin): Confirm this works as intended
+        connection_parameters["server_session_keep_alive"] = True
+
     try:
         # Whatever output is generated when creating connection,
         # we don't want it in our output. This is particularly important
