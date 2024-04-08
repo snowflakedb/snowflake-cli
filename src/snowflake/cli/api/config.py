@@ -190,9 +190,12 @@ def get_connection_dict(connection_name: str) -> dict:
         raise MissingConfiguration(f"Connection {connection_name} is not configured")
 
 
+def get_default_connection_name() -> str:
+    return CONFIG_MANAGER["default_connection_name"]
+
+
 def get_default_connection_dict() -> dict:
-    def_connection_name = CONFIG_MANAGER["default_connection_name"]
-    return get_connection_dict(def_connection_name)
+    return get_connection_dict(get_default_connection_name())
 
 
 def get_config_section(*path) -> dict:
