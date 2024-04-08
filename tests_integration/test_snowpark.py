@@ -733,9 +733,6 @@ def test_build_package_from_github(runner, project_directory, alter_requirements
 def test_ignore_anaconda_uses_version_from_zip(
     flag, project_directory, runner, test_database
 ):
-    # TODO: unclock when anaconda version check will be fixed
-    if not flag:
-        return
     with project_directory("snowpark_version_check"):
         command = ["snowpark", "build", "--allow-shared-libraries"]
         if flag:

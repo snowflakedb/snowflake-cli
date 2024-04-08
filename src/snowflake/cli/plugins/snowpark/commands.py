@@ -17,7 +17,11 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyper
-from snowflake.cli.api.constants import DEPLOYMENT_STAGE, ObjectType
+from snowflake.cli.api.constants import (
+    DEFAULT_SIZE_LIMIT_MB,
+    DEPLOYMENT_STAGE,
+    ObjectType,
+)
 from snowflake.cli.api.exceptions import (
     SecretsWithoutExternalAccessIntegrationError,
 )
@@ -41,8 +45,8 @@ from snowflake.cli.plugins.snowpark.common import (
     check_if_replace_is_required,
 )
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
-from snowflake.cli.plugins.snowpark.models import Requirement, YesNoAsk
-from snowflake.cli.plugins.snowpark.package_utils import get_snowflake_packages
+from snowflake.cli.plugins.snowpark.models import YesNoAsk
+from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
@@ -130,7 +134,9 @@ def deploy(
         stage_name=stage_name, comment="deployments managed by Snowflake CLI"
     )
 
-    packages = get_snowflake_packages()
+    snowflake_dependencies = _read_snowflake_requrements_file(
+        paths.snowflake_requirements_file
+    )
 
     artifact_stage_directory = get_app_stage_path(stage_name, snowpark.project_name)
     artifact_stage_target = (
@@ -151,9 +157,8 @@ def deploy(
             object_type=ObjectType.PROCEDURE,
             object_definition=procedure,
             existing_objects=existing_procedures,
-            packages=packages,
+            snowflake_dependencies=snowflake_dependencies,
             stage_artifact_path=artifact_stage_target,
-            source_name=paths.artifact_file.path.name,
         )
         deploy_status.append(operation_result)
 
@@ -164,9 +169,8 @@ def deploy(
             object_type=ObjectType.FUNCTION,
             object_definition=function,
             existing_objects=existing_functions,
-            packages=packages,
+            snowflake_dependencies=snowflake_dependencies,
             stage_artifact_path=artifact_stage_target,
-            source_name=paths.artifact_file.path.name,
         )
         deploy_status.append(operation_result)
 
@@ -251,9 +255,8 @@ def _deploy_single_object(
     object_type: ObjectType,
     object_definition: Callable,
     existing_objects: Dict[str, Dict],
-    packages: List[str],
+    snowflake_dependencies: List[str],
     stage_artifact_path: str,
-    source_name: str,
 ):
     identifier = build_udf_sproc_identifier(
         object_definition, manager, include_parameter_names=False
@@ -274,12 +277,13 @@ def _deploy_single_object(
     object_exists = identifier in existing_objects
     if object_exists:
         replace_object = check_if_replace_is_required(
-            object_type,
-            existing_objects[identifier],
-            handler,
-            returns,
-            imports,
-            stage_artifact_path,
+            object_type=object_type,
+            current_state=existing_objects[identifier],
+            handler=handler,
+            return_type=returns,
+            snowflake_dependencies=snowflake_dependencies,
+            imports=imports,
+            stage_artifact_file=stage_artifact_path,
         )
 
     if object_exists and not replace_object:
@@ -294,7 +298,7 @@ def _deploy_single_object(
         "handler": handler,
         "return_type": returns,
         "artifact_file": stage_artifact_path,
-        "packages": packages,
+        "packages": snowflake_dependencies,
         "runtime": object_definition.runtime,
         "external_access_integrations": object_definition.external_access_integrations,
         "secrets": object_definition.secrets,
@@ -326,9 +330,10 @@ deprecated_pypi_download_option = typer.Option(
 )
 
 
-def _write_requirements_file(file_path: SecurePath, requirements: List[Requirement]):
-    log.info("Writing requirements into file %s", file_path.path)
-    file_path.write_text("\n".join(req.line for req in requirements))
+def _read_snowflake_requrements_file(file_path: SecurePath):
+    if not file_path.exists():
+        return []
+    return file_path.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB).splitlines()
 
 
 @app.command("build")
@@ -363,11 +368,16 @@ def build(
             requirements = package_utils.parse_requirements(
                 requirements_file=snowpark_paths.defined_requirements_file,
             )
+            anaconda: AnacondaChannel = (
+                AnacondaChannel.empty()
+                if ignore_anaconda
+                else AnacondaChannel.from_snowflake()
+            )
 
             download_result = package_utils.download_unavailable_packages(
                 requirements=requirements,
                 target_dir=packages_dir,
-                ignore_anaconda=ignore_anaconda,
+                anaconda=anaconda,
                 skip_version_check=skip_version_check,
                 pip_index_url=index_url,
             )
@@ -390,9 +400,9 @@ def build(
                         "Try again with --allow-shared-libraries."
                     )
             if download_result.packages_available_in_anaconda:
-                _write_requirements_file(
-                    snowpark_paths.snowflake_requirements_file,
-                    download_result.packages_available_in_anaconda,
+                anaconda.write_requirements_file_in_snowflake_format(  # type: ignore
+                    file_path=snowpark_paths.snowflake_requirements_file,
+                    requirements=download_result.packages_available_in_anaconda,
                 )
 
         zip_dir(

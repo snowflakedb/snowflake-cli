@@ -32,22 +32,21 @@ class Requirement(requirement.Requirement):
 
         if result.uri and not result.name:
             result.name = get_package_name(result.uri)
+        result.name = cls.standardize_name(result.name)
 
         return result
 
-    @classmethod
-    def _look_for_specifier(cls, specifier: str, line: str):
-        return re.search(cls.specifier_pattern.format(specifier), line)
+    @staticmethod
+    def standardize_name(name: str) -> str:
+        return WheelMetadata.to_wheel_name_format(name.lower())
 
+    @property
+    def formatted_specs(self):
+        return ",".join(sorted(spec[0] + spec[1] for spec in self.specs))
 
-@dataclass
-class SplitRequirements:
-    """A dataclass to hold the results of parsing requirements files and dividing them into
-    snowflake-supported vs other packages.
-    """
-
-    snowflake: List[Requirement]
-    other: List[Requirement]
+    @property
+    def name_and_version(self):
+        return self.name + self.formatted_specs
 
 
 @dataclass

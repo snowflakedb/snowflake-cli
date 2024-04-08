@@ -66,3 +66,12 @@ repos:
         language: system
         entry: python snyk/dependency-sync.py
         files: ^pyproject.toml$
+      - id: use-local-requirements-model
+        language: pygrep
+        name: "Use snowflake.cli.plugins.snowpark.models.Requirement for requirements parsing"
+        files: ^src/snowflake/.*\.py$
+        entry: >
+          ^from requirements.* import|
+          ^import requirements.*
+        pass_filenames: true
+        exclude: ^src/snowflake/cli/plugins/snowpark/models.py$

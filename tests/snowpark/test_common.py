@@ -3,21 +3,31 @@ from typing import Tuple
 import pytest
 from snowflake.cli.plugins.snowpark.common import (
     _convert_resource_details_to_dict,
-    _get_snowflake_packages_delta,
+    _snowflake_dependencies_differ,
     _sql_to_python_return_type_mapper,
 )
 
-from tests.testing_utils.fixtures import (
-    test_data,
-)
 
-
-def test_get_snowflake_packages_delta(temp_dir, correct_requirements_snowflake_txt):
-    anaconda_package = test_data.requirements[-1]
-
-    result = _get_snowflake_packages_delta(anaconda_package)
-
-    assert result == test_data.requirements[:-1]
+def test_get_snowflake_packages_delta():
+    for uploaded_packages, new_packages, expected in [
+        ([], [], False),
+        (
+            ["package", "package_with_requirements>=2,<4"],
+            ["package-with-requirements <4,>=2", "PACKAGE"],
+            False,
+        ),
+        (
+            ["different-requirements<1.1,>0.9"],
+            ["different-requirements<1.0,>0.9"],
+            True,
+        ),
+        (["different-package"], ["another-package"], True),
+        (["package"], ["package", "added-package"], True),
+        (["package", "removed-package"], ["package"], True),
+    ]:
+        assert expected == _snowflake_dependencies_differ(
+            uploaded_packages, new_packages
+        )
 
 
 def test_convert_resource_details_to_dict():
