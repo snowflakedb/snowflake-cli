@@ -21,7 +21,7 @@ def setup_test_database(snowflake_session, database_name: str):
     snowflake_session.execute_string(
         f"create database {database_name}; use database {database_name}; use schema public;"
     )
-    os.environ[f"{_ENV_PARAMETER_PREFIX}_DATABASE"] = f"{database_name}"
+    os.environ[f"{_ENV_PARAMETER_PREFIX}_DATABASE"] = database_name
 
     yield
 
@@ -35,7 +35,7 @@ def setup_test_schema(snowflake_session, schema_name: str):
     snowflake_session.execute_string(
         f"create schema {schema_name}; use schema {schema_name};"
     )
-    os.environ[f"{_ENV_PARAMETER_PREFIX}_SCHEMA"] = f"{schema_name}"
+    os.environ[f"{_ENV_PARAMETER_PREFIX}_SCHEMA"] = schema_name
     yield
     snowflake_session.execute_string(f"drop schema {schema_name}")
     del os.environ[f"{_ENV_PARAMETER_PREFIX}_SCHEMA"]
