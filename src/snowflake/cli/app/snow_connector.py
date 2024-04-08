@@ -82,7 +82,7 @@ def connect_to_snowflake(
         and overrides["session_token"] is not None
         and "master_token" in overrides
         and overrides["master_token"] is not None
-    ):  # TODO (lmonteromarin): Confirm this works as intended
+    ):
         connection_parameters["server_session_keep_alive"] = True
 
     try:
