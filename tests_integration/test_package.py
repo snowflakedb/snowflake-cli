@@ -160,7 +160,11 @@ class TestPackage:
         assert result.exit_code == 0, result.output
         assert Path("july.zip").exists()
         files = self._get_filenames_from_zip("july.zip")
-        assert all([name.startswith("july") for name in files])
+        # july is not available on anaconda
+        # packaging dependency defines extras
+        assert all(
+            [name.startswith("july") or name.startswith("packaging") for name in files]
+        )
 
     @pytest.mark.integration
     def test_package_from_github(self, directory_for_test, runner):

@@ -135,7 +135,7 @@ def test_deploy_function_no_changes(
     project_directory,
 ):
     rows = [
-        ("packages", '["foo=1.2.3", "bar>=3.0.0"]'),
+        ("packages", '["foo==1.2.3", "bar>=3.0.0"]'),
         ("handler", "app.func1_handler"),
         ("returns", "string"),
         ("imports", "DEV_DEPLOYMENT/my_snowpark_project/app.zip"),
@@ -174,7 +174,7 @@ def test_deploy_function_needs_update_because_packages_changes(
     project_directory,
 ):
     rows = [
-        ("packages", '["foo=1.2.3"]'),
+        ("packages", '["foo==1.2.3"]'),
         ("handler", "main.py:app"),
         ("returns", "table(variant)"),
     ]
@@ -208,7 +208,7 @@ def test_deploy_function_needs_update_because_packages_changes(
             runtime_version=3.10
             imports=('@MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project/app.zip')
             handler='app.func1_handler'
-            packages=('foo=1.2.3','bar>=3.0.0')
+            packages=('foo==1.2.3','bar>=3.0.0')
             """
         ).strip(),
     ]
@@ -223,7 +223,7 @@ def test_deploy_function_needs_update_because_handler_changes(
     project_directory,
 ):
     rows = [
-        ("packages", '["foo=1.2.3", "bar>=3.0.0"]'),
+        ("packages", '["foo==1.2.3", "bar>=3.0.0"]'),
         ("handler", "main.py:oldApp"),
         ("returns", "table(variant)"),
     ]
@@ -258,7 +258,7 @@ def test_deploy_function_needs_update_because_handler_changes(
             runtime_version=3.10
             imports=('@MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project/app.zip')
             handler='app.func1_handler'
-            packages=('foo=1.2.3','bar>=3.0.0')
+            packages=('foo==1.2.3','bar>=3.0.0')
             """
         ).strip(),
     ]
@@ -343,7 +343,7 @@ def _deploy_function(
 
         with project_directory("snowpark_functions") as temp_dir:
             (Path(temp_dir) / "requirements.snowflake.txt").write_text(
-                "foo=1.2.3\nbar>=3.0.0"
+                "foo==1.2.3\nbar>=3.0.0"
             )
             result = runner.invoke(
                 [

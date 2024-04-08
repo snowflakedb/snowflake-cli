@@ -3,10 +3,10 @@ from __future__ import annotations
 import dataclasses
 import logging
 import os
+import re
 from textwrap import dedent
 from typing import List
 
-import requirements
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
@@ -33,25 +33,17 @@ def parse_requirements(
         Defaults to 'requirements.txt'.
 
     Returns:
-        list[str]: A flat list of package names, without versions
+        list[Requirement]: A flat list of necessary packages
     """
-    if not requirements_file.exists():
-        return []
-    with requirements_file.open(
-        "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
-    ) as f:
-        return list(requirements.parse(f))
-
-
-def get_snowflake_packages() -> List[str]:
-    requirements_file = SecurePath("requirements.snowflake.txt")
+    reqs = []
     if requirements_file.exists():
-        with requirements_file.open(
-            "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
-        ) as f:
-            return [req for line in f if (req := line.split("#")[0].strip())]
-    else:
-        return []
+        for line in requirements_file.read_text(
+            file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB
+        ).splitlines():
+            line = re.sub("\s*#.*", "", line).strip()
+            if line:
+                reqs.append(Requirement.parse(line))
+    return reqs
 
 
 def generate_deploy_stage_name(identifier: str) -> str:
@@ -120,13 +112,12 @@ def download_unavailable_packages(
     requirements: List[Requirement],
     target_dir: SecurePath,
     # anaconda lookup specs
-    ignore_anaconda: bool = False,
+    anaconda: AnacondaChannel,
     skip_version_check: bool = False,
     # pip lookup specs
     pip_index_url: str | None = None,
 ) -> DownloadUnavailablePackagesResult:
     """Download packages unavailable on Snowflake Anaconda Channel to target directory.
-    If [ignore_anaconda] is set to True, all packages from [requirements] will be downloaded.
 
     Returns an object with fields:
     - download_successful - whether packages were successfully downloaded
@@ -135,20 +126,17 @@ def download_unavailable_packages(
     - downloaded_packages - list of downloaded packages details
     """
     # pre-check on Anaconda to avoid potentially heavy downloads
-    omitted_packages = []
-    if not ignore_anaconda:
-        anaconda = AnacondaChannel.from_snowflake()
-        split_requirements = anaconda.parse_anaconda_packages(
-            requirements, skip_version_check=skip_version_check
+    split_requirements = anaconda.filter_anaconda_packages(
+        requirements, skip_version_check=skip_version_check
+    )
+    omitted_packages = split_requirements.in_snowflake
+    requirements = split_requirements.unavailable
+    if not requirements:
+        # all packages are available in Anaconda
+        return DownloadUnavailablePackagesResult(
+            succeeded=True,
+            packages_available_in_anaconda=omitted_packages,
         )
-        omitted_packages = split_requirements.snowflake
-        requirements = split_requirements.other
-        if not requirements:
-            # all packages are available in Anaconda
-            return DownloadUnavailablePackagesResult(
-                succeeded=True,
-                packages_available_in_anaconda=omitted_packages,
-            )
 
     # download all packages with their dependencies
     with Venv() as v, SecurePath.temporary_directory() as downloads_dir:
@@ -180,18 +168,15 @@ def download_unavailable_packages(
         )
 
         # check whether some dependencies are available on Snowflake Anaconda Channel
-        if ignore_anaconda:
-            dependencies_to_be_packed = dependencies
-        else:
-            log.info("Checking for dependencies available in Anaconda...")
-            split_dependencies = anaconda.parse_anaconda_packages(  # type: ignore
-                packages=dependency_requirements, skip_version_check=skip_version_check
-            )
-            _log_dependencies_found_in_conda(split_dependencies.snowflake)
-            omitted_packages += split_dependencies.snowflake
-            dependencies_to_be_packed = _filter_dependencies_not_available_in_conda(
-                dependencies, split_dependencies.snowflake
-            )
+        log.info("Checking for dependencies available in Anaconda...")
+        split_dependencies = anaconda.filter_anaconda_packages(
+            packages=dependency_requirements, skip_version_check=skip_version_check
+        )
+        _log_dependencies_found_in_conda(split_dependencies.in_snowflake)
+        omitted_packages += split_dependencies.in_snowflake
+        dependencies_to_be_packed = _filter_dependencies_not_available_in_conda(
+            dependencies, split_dependencies.in_snowflake
+        )
 
         # move filtered packages to target directory
         target_dir.mkdir(exist_ok=True)
