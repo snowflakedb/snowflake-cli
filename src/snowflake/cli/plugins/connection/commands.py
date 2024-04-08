@@ -256,7 +256,10 @@ def test(
     # Test session attributes
     om = ObjectManager()
     try:
+        # "use database" operation changes schema to default "public",
+        # so to test schema set up by user we need to copy it here:
         schema = conn.schema
+
         if conn.role:
             om.use(object_type=ObjectType.ROLE, name=f'"{conn.role}"')
         if conn.database:
