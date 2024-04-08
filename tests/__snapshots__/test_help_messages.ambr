@@ -1856,6 +1856,81 @@
   
   '''
 # ---
+# name: test_help_messages[object.stage.execute]
+  '''
+                                                                                  
+   Usage: default object stage execute [OPTIONS] STAGE_PATH                       
+                                                                                  
+   Execute immediate all files from the stage path. Files can be filtered with    
+   glob like pattern, e.g. `@stage/*.sql`, `@stage/dev/*`. Only files with `.sql` 
+   extension will be executed.                                                    
+                                                                                  
+  ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+  │ *    stage_path      TEXT  Stage path with files to be execute. For example  │
+  │                            `@stage/dev/*`.                                   │
+  │                            [required]                                        │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --on-error          [break|continue]  What to do when an error occurs.       │
+  │                                       Defaults to break.                     │
+  │                                       [default: break]                       │
+  │ --help      -h                        Show this message and exit.            │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Connection configuration ───────────────────────────────────────────────────╮
+  │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
+  │                                           in your `config.toml`. Default:    │
+  │                                           `default`.                         │
+  │ --account,--accountname             TEXT  Name assigned to your Snowflake    │
+  │                                           account. Overrides the value       │
+  │                                           specified for the connection.      │
+  │ --user,--username                   TEXT  Username to connect to Snowflake.  │
+  │                                           Overrides the value specified for  │
+  │                                           the connection.                    │
+  │ --password                          TEXT  Snowflake password. Overrides the  │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --authenticator                     TEXT  Snowflake authenticator. Overrides │
+  │                                           the value specified for the        │
+  │                                           connection.                        │
+  │ --private-key-path                  TEXT  Snowflake private key path.        │
+  │                                           Overrides the value specified for  │
+  │                                           the connection.                    │
+  │ --database,--dbname                 TEXT  Database to use. Overrides the     │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --schema,--schemaname               TEXT  Database schema to use. Overrides  │
+  │                                           the value specified for the        │
+  │                                           connection.                        │
+  │ --role,--rolename                   TEXT  Role to use. Overrides the value   │
+  │                                           specified for the connection.      │
+  │ --warehouse                         TEXT  Warehouse to use. Overrides the    │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --temporary-connection      -x            Uses connection defined with       │
+  │                                           command line parameters, instead   │
+  │                                           of one defined in config           │
+  │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
+  │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Global configuration ───────────────────────────────────────────────────────╮
+  │ --format           [TABLE|JSON]  Specifies the output format.                │
+  │                                  [default: TABLE]                            │
+  │ --verbose  -v                    Displays log entries for log levels `info`  │
+  │                                  and higher.                                 │
+  │ --debug                          Displays log entries for log levels `debug` │
+  │                                  and higher; debug logs contains additional  │
+  │                                  information.                                │
+  │ --silent                         Turns off intermediate output to console.   │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
 # name: test_help_messages[object.stage.list]
   '''
                                                                                   
@@ -2008,11 +2083,14 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ copy    Copies all files from target path to target directory. This works    │
-  │         for both uploading to and downloading files from the stage.          │
-  │ create  Creates a named stage if it does not already exist.                  │
-  │ list    Lists the stage contents.                                            │
-  │ remove  Removes a file from a stage.                                         │
+  │ copy     Copies all files from target path to target directory. This works   │
+  │          for both uploading to and downloading files from the stage.         │
+  │ create   Creates a named stage if it does not already exist.                 │
+  │ execute  Execute immediate all files from the stage path. Files can be       │
+  │          filtered with glob like pattern, e.g. `@stage/*.sql`,               │
+  │          `@stage/dev/*`. Only files with `.sql` extension will be executed.  │
+  │ list     Lists the stage contents.                                           │
+  │ remove   Removes a file from a stage.                                        │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
