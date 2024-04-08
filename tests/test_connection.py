@@ -492,6 +492,7 @@ def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
         database="test_dv",
         schema="PUBLIC",
         warehouse="xsmall",
+        server_session_keep_alive=True,
     )
 
 

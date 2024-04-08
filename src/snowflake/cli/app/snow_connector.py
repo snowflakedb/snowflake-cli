@@ -78,7 +78,10 @@ def connect_to_snowflake(
             ] = diag_allowlist_path
 
     if (
-        overrides["session_token"] and overrides["master_token"]
+        "session_token" in overrides
+        and overrides["session_token"] is not None
+        and "master_token" in overrides
+        and overrides["master_token"] is not None
     ):  # TODO (lmonteromarin): Confirm this works as intended
         connection_parameters["server_session_keep_alive"] = True
 
