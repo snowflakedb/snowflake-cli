@@ -22,6 +22,7 @@ from snowflake.cli.api.config import (
     connection_exists,
     get_all_connections,
     get_connection_dict,
+    get_default_connection_name,
     set_config_value,
 )
 from snowflake.cli.api.console import cli_console
@@ -65,12 +66,14 @@ def list_connections(**options) -> CommandResult:
     Lists configured connections.
     """
     connections = get_all_connections()
+    default_connection = get_default_connection_name()
     result = (
         {
             "connection_name": connection_name,
             "parameters": _mask_password(
                 connection_config.to_dict_of_known_non_empty_values()
             ),
+            "is_default": connection_name == default_connection,
         }
         for connection_name, connection_config in connections.items()
     )
