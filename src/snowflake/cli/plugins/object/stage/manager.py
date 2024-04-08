@@ -1,30 +1,56 @@
 from __future__ import annotations
 
+import fnmatch
+import glob
 import logging
 import re
 from contextlib import nullcontext
+from dataclasses import dataclass
+from enum import Enum
+from os import path
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
+from click import ClickException
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.utils.path_utils import path_resolver
-from snowflake.connector import DictCursor
+from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
 
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
+EXECUTE_SUPPORTED_FILES_FORMATS = {".sql"}
+
+
+class OnErrorType(Enum):
+    BREAK = "break"
+    CONTINUE = "continue"
+
+
+@dataclass
+class Variable:
+    key: str
+    value: str
+
+    def __init__(self, key: str, value: str):
+        self.key = key
+        self.value = value
 
 
 class StageManager(SqlExecutionMixin):
     @staticmethod
     def get_standard_stage_prefix(name: str) -> str:
         # Handle embedded stages
-        if name.startswith("snow://") or name.startswith("@"):
+        if name.startswith("@"):
             return name
+
+        if name.startswith("snow://"):
+            return f"@{name[7:]}"
 
         return f"@{name}"
 
@@ -54,6 +80,12 @@ class StageManager(SqlExecutionMixin):
             return to_string_literal(standard_name)
 
         return standard_name
+
+    @staticmethod
+    def remove_stage_prefix(stage_path: str) -> str:
+        if stage_path.startswith("@"):
+            return stage_path[1:]
+        return stage_path
 
     def _to_uri(self, local_path: str):
         uri = f"file://{local_path}"
@@ -88,10 +120,8 @@ class StageManager(SqlExecutionMixin):
     def get_recursive(
         self, stage_path: str, dest_path: Path, parallel: int = 4
     ) -> List[SnowflakeCursor]:
-        stage_path_only = stage_path
-        if stage_path_only.startswith("snow://"):
-            stage_path_only = stage_path_only[7:]
-        stage_parts_length = len(Path(stage_path_only).parts)
+        stage_path = self.get_standard_stage_prefix(stage_path)
+        stage_parts_length = len(Path(stage_path).parts)
 
         results = []
         for file in self.iter_stage(stage_path):
@@ -164,3 +194,108 @@ class StageManager(SqlExecutionMixin):
     def iter_stage(self, stage_path: str):
         for file in self.list_files(stage_path).fetchall():
             yield file["name"]
+
+    def execute(
+        self,
+        stage_path: str,
+        on_error: OnErrorType,
+        variables: Optional[List[str]] = None,
+    ):
+        stage_path = self.get_standard_stage_prefix(stage_path)
+        all_files_list = self._get_files_list_from_stage(stage_path)
+        # filter files from stage if match stage_path pattern
+        filtered_file_list = self._filter_files_list(stage_path, all_files_list)
+
+        if not filtered_file_list:
+            raise ClickException(f"No files matched pattern '{stage_path}'")
+
+        # sort filtered files in alphabetical order with directories at the end
+        sorted_file_list = sorted(
+            filtered_file_list, key=lambda f: (path.dirname(f), path.basename(f))
+        )
+
+        sql_variables = self._parse_execute_variables(variables)
+        results = []
+        for file in sorted_file_list:
+            results.append(
+                self._call_execute_immediate(
+                    file=file, variables=sql_variables, on_error=on_error
+                )
+            )
+
+        return results
+
+    def _get_files_list_from_stage(self, stage_path: str) -> List[str]:
+        stage_name = self.get_stage_name_from_path(stage_path)
+        files_list_result = self.list_files(stage_name).fetchall()
+
+        if not files_list_result:
+            raise ClickException(f"No files found on stage '{stage_name}'")
+
+        return [f["name"] for f in files_list_result]
+
+    def _filter_files_list(
+        self, stage_path: str, files_on_stage: List[str]
+    ) -> List[str]:
+        stage_path = self.remove_stage_prefix(stage_path)
+
+        # Exact file path was provided if stage_path in file list
+        if stage_path in files_on_stage:
+            filtered_files = self._filter_supported_files([stage_path])
+            if filtered_files:
+                return filtered_files
+            else:
+                raise ClickException(
+                    "Invalid file extension, only `.sql` files are allowed."
+                )
+
+        # Filter with fnmatch if contains `*` or `?`
+        if glob.has_magic(stage_path):
+            filtered_files = fnmatch.filter(files_on_stage, stage_path)
+        else:
+            # Path to directory was provided
+            filtered_files = fnmatch.filter(files_on_stage, f"{stage_path}*")
+        return self._filter_supported_files(filtered_files)
+
+    @staticmethod
+    def _filter_supported_files(files: List[str]) -> List[str]:
+        return [f for f in files if Path(f).suffix in EXECUTE_SUPPORTED_FILES_FORMATS]
+
+    @staticmethod
+    def _parse_execute_variables(variables: Optional[List[str]]) -> Optional[str]:
+        if not variables:
+            return None
+
+        parsed_variables = StageManager._parse_variables(variables)
+        query_parameters = [f"{v.key}=>{v.value}" for v in parsed_variables]
+        return f" using ({', '.join(query_parameters)})"
+
+    @staticmethod
+    def _parse_variables(variables: List[str]) -> List[Variable]:
+        result = []
+        for p in variables:
+            if "=" not in p:
+                raise ClickException(f"Invalid variable: '{p}'")
+
+            key, value = p.split("=", 1)
+            result.append(Variable(key.strip(), value.strip()))
+        return result
+
+    def _call_execute_immediate(
+        self, file: str, variables: Optional[str], on_error: OnErrorType
+    ) -> Dict:
+        try:
+            stage_path_prefixed = self.get_standard_stage_prefix(file)
+            query = (
+                f"execute immediate from {self.quote_stage_name(stage_path_prefixed)}"
+            )
+            if variables:
+                query += variables
+            self._execute_query(query)
+            cli_console.step(f"SUCCESS - {file}")
+            return {"File": file, "Status": "SUCCESS", "Error": None}
+        except ProgrammingError as e:
+            cli_console.warning(f"FAILURE - {file}")
+            if on_error == OnErrorType.BREAK:
+                raise e
+            return {"File": file, "Status": "FAILURE", "Error": e.msg}
