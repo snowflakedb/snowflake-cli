@@ -50,6 +50,7 @@
 * Fixed snowpark build paths for builds with --project option (fixed empty zip issue).
 * More clear error messages in `snow snowpark build` command
 * Adding support for any source supported by `pip` in `snow snowpark`.
+* Fix handling database/schema/role identifiers containing dashes
 
 # v2.1.2
 
