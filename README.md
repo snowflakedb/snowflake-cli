@@ -1,4 +1,4 @@
-# Snowflake Developer CLI
+# Snowflake CLI
 
 Snowflake CLI is an open-source command-line tool explicitly designed for developer-centric workloads in addition to SQL operations. It is a flexible and extensible tool that can accommodate modern development practices and technologies.
 
