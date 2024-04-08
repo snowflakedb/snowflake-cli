@@ -257,13 +257,13 @@ def test(
     om = ObjectManager()
     try:
         if conn.role:
-            om.use(object_type=ObjectType.ROLE, name=conn.role)
+            om.use(object_type=ObjectType.ROLE, name=f'"{conn.role}"')
         if conn.database:
-            om.use(object_type=ObjectType.DATABASE, name=conn.database)
+            om.use(object_type=ObjectType.DATABASE, name=f'"{conn.database}"')
         if conn.schema:
-            om.use(object_type=ObjectType.SCHEMA, name=conn.schema)
+            om.use(object_type=ObjectType.SCHEMA, name=f'"{conn.schema}"')
         if conn.warehouse:
-            om.use(object_type=ObjectType.WAREHOUSE, name=conn.warehouse)
+            om.use(object_type=ObjectType.WAREHOUSE, name=f'"{conn.warehouse}"')
     except ProgrammingError as err:
         raise ClickException(str(err))
 

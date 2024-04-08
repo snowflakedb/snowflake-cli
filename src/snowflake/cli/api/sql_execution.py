@@ -64,7 +64,7 @@ class SqlExecutionMixin:
         return list(self._execute_string(dedent(queries), **kwargs))
 
     def use(self, object_type: ObjectType, name: str):
-        return self._execute_query(f'use {object_type.value.sf_name} "{name}"')
+        return self._execute_query(f"use {object_type.value.sf_name} {name}")
 
     @contextmanager
     def use_role(self, new_role: str):
