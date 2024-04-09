@@ -1,3 +1,4 @@
+from pathlib import Path
 from textwrap import dedent
 
 from snowflake.cli.plugins.object.stage.manager import StageManager
@@ -27,3 +28,11 @@ class GitManager(StageManager):
         if secret is not None:
             query += f"git_credentials = {secret}\n"
         return self._execute_query(query)
+
+    @staticmethod
+    def get_stage_name_from_path(path: str):
+        """
+        Returns stage name from potential path on stage. For example
+        repo/branches/main/foo/bar -> repo/branches/main/
+        """
+        return f"{'/'.join(Path(path).parts[0:3])}/"

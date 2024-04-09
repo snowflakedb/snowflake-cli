@@ -1,0 +1,10 @@
+# serializer version: 1
+# name: test_execute
+  list([
+    dict({
+      'Error': None,
+      'File': 'snowcli_testing_repo/branches/main/tests_integration/test_data/projects/stage_execute/script_template.sql',
+      'Status': 'SUCCESS',
+    }),
+  ])
+# ---
