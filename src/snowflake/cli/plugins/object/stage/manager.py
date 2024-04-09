@@ -6,12 +6,12 @@ import logging
 import re
 from contextlib import nullcontext
 from dataclasses import dataclass
-from enum import Enum
 from os import path
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 from click import ClickException
+from snowflake.cli.api.commands.flags import OnErrorType
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
@@ -25,11 +25,6 @@ log = logging.getLogger(__name__)
 
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
 EXECUTE_SUPPORTED_FILES_FORMATS = {".sql"}
-
-
-class OnErrorType(Enum):
-    BREAK = "break"
-    CONTINUE = "continue"
 
 
 @dataclass
@@ -238,6 +233,7 @@ class StageManager(SqlExecutionMixin):
         self, stage_path: str, files_on_stage: List[str]
     ) -> List[str]:
         stage_path = self.remove_stage_prefix(stage_path)
+        stage_path = stage_path.lower()
 
         # Exact file path was provided if stage_path in file list
         if stage_path in files_on_stage:

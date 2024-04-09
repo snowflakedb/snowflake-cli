@@ -1,20 +1,24 @@
 import logging
 from pathlib import Path
+from typing import List, Optional
 
 import typer
 from click import ClickException
 from snowflake.cli.api.commands.flags import (
+    OnErrorOption,
     PatternOption,
+    VariablesOption,
     identifier_argument,
     like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.output.types import CommandResult, QueryResult
+from snowflake.cli.api.output.types import CollectionResult, CommandResult, QueryResult
 from snowflake.cli.api.utils.path_utils import is_stage_path
 from snowflake.cli.plugins.git.manager import GitManager
 from snowflake.cli.plugins.object.manager import ObjectManager
+from snowflake.cli.plugins.object.stage.manager import OnErrorType
 
 app = SnowTyper(
     name="git",
@@ -235,3 +239,21 @@ def copy(
             parallel=parallel,
         )
     return QueryResult(cursor)
+
+
+@app.command("execute", requires_connection=True)
+def execute(
+    repository_path: str = RepoPathArgument,
+    on_error: OnErrorType = OnErrorOption,
+    variables: Optional[List[str]] = VariablesOption,
+    **options,
+):
+    """
+    Execute immediate all files from the repository path. Files can be filtered with glob like pattern,
+    e.g. `@my_repo/branches/main/*.sql`, `@my_repo/branches/main/dev/*`. Only files with `.sql`
+    extension will be executed.
+    """
+    results = GitManager().execute(
+        stage_path=repository_path, on_error=on_error, variables=variables
+    )
+    return CollectionResult(results)

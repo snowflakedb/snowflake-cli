@@ -233,6 +233,28 @@ def test_copy_to_local_file_system(runner, sf_git_repository):
             )
 
 
+@pytest.mark.integration
+def test_execute(runner, sf_git_repository, snapshot):
+    result = runner.invoke_with_connection_json(
+        [
+            "git",
+            "execute",
+            f"@{sf_git_repository}/branches/main/tests_integration/test_data/projects/stage_execute/script_template.sql",
+            "-D",
+            "text='string'",
+            "-D",
+            "value=1",
+            "-D",
+            "boolean=TRUE",
+            "-D",
+            "null_value=NULL",
+        ]
+    )
+
+    assert result.exit_code == 0
+    assert result.json == snapshot
+
+
 def _filter_key(objects, *, key):
     return [o[key] for o in objects]
 
