@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tempfile
+from enum import Enum
 from inspect import signature
 from pathlib import Path
 from typing import Any, Callable, List, Optional, Tuple
@@ -16,6 +17,11 @@ DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
 _CONNECTION_SECTION = "Connection configuration"
 _CLI_BEHAVIOUR = "Global configuration"
+
+
+class OnErrorType(Enum):
+    BREAK = "break"
+    CONTINUE = "continue"
 
 
 class OverrideableOption:
@@ -366,6 +372,21 @@ ReplaceOption = OverrideableOption(
     "--replace",
     help="Replace this object if it already exists.",
     mutually_exclusive=CREATE_MODE_OPTION_NAMES,
+)
+
+OnErrorOption = typer.Option(
+    OnErrorType.BREAK.value,
+    "--on-error",
+    help="What to do when an error occurs. Defaults to break.",
+)
+
+VariablesOption = typer.Option(
+    None,
+    "--variable",
+    "-D",
+    help="Variables for the template. For example: `-D \"<key>=<value>\"`, string values must be in `''`.",
+    hidden=True,
+    show_default=False,
 )
 
 

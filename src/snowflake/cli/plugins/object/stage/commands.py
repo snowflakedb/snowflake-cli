@@ -7,7 +7,11 @@ from typing import List, Optional
 
 import click
 import typer
-from snowflake.cli.api.commands.flags import PatternOption
+from snowflake.cli.api.commands.flags import (
+    OnErrorOption,
+    PatternOption,
+    VariablesOption,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import (
@@ -137,19 +141,8 @@ def execute(
         help="Stage path with files to be execute. For example `@stage/dev/*`.",
         show_default=False,
     ),
-    on_error: OnErrorType = typer.Option(
-        OnErrorType.BREAK.value,
-        "--on-error",
-        help="What to do when an error occurs. Defaults to break.",
-    ),
-    variables: Optional[List[str]] = typer.Option(
-        None,
-        "--variable",
-        "-D",
-        help="Variables for the template. For example: `-D \"<key>=<value>\"`, string values must be in `''`.",
-        hidden=True,
-        show_default=False,
-    ),
+    on_error: OnErrorType = OnErrorOption,
+    variables: Optional[List[str]] = VariablesOption,
     **options,
 ):
     """
