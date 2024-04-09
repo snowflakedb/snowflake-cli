@@ -4,7 +4,6 @@ import subprocess
 import pytest
 
 
-@pytest.mark.skip("This test no longer make sense")
 @pytest.mark.e2e
 def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
     traceback_msg = "Traceback (most recent call last)"

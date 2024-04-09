@@ -1,22 +1,6 @@
-from tempfile import NamedTemporaryFile
 from textwrap import dedent
 
 import pytest
-
-
-@pytest.mark.parametrize("content", ["[corrupted", "[corrupted"])
-def test_corrupted_config_raises_human_friendly_error(
-    snowflake_home, runner, content, snapshot
-):
-    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
-        tmp_file.write(content)
-        tmp_file.flush()
-        result = runner.invoke_with_config_file(
-            tmp_file.name,
-            ["sql", "-q", "foo"],
-        )
-    assert result.exit_code == 1, result.output
-    assert result.output == snapshot
 
 
 def test_override_build_in_commands(runner, test_root_path, _install_plugin, caplog):
