@@ -38,7 +38,6 @@ from snowflake.cli.api.project.schemas.snowpark.callable import (
 )
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.object.manager import ObjectManager
-from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.common import (
     build_udf_sproc_identifier,
@@ -58,6 +57,7 @@ from snowflake.cli.plugins.snowpark.snowpark_shared import (
     resolve_allow_shared_libraries_yes_no_ask,
 )
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
+from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import DictCursor, ProgrammingError
 
 log = logging.getLogger(__name__)

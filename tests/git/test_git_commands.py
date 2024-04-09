@@ -6,7 +6,7 @@ import pytest
 from snowflake.connector import DictCursor, ProgrammingError
 
 EXAMPLE_URL = "https://github.com/an-example-repo.git"
-STAGE_MANAGER = "snowflake.cli.plugins.object.stage.manager.StageManager"
+STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
 
 
 def test_toplevel_help(runner):

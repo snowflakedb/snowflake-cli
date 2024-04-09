@@ -3,11 +3,11 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 import pytest
-from snowflake.cli.plugins.object.stage.manager import StageManager
+from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
-STAGE_MANAGER = "snowflake.cli.plugins.object.stage.manager.StageManager"
+STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")

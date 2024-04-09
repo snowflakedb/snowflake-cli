@@ -19,7 +19,7 @@ from snowflake.cli.plugins.nativeapp.manager import (
     SnowflakeSQLExecutionError,
     ensure_correct_owner,
 )
-from snowflake.cli.plugins.object.stage.diff import DiffResult
+from snowflake.cli.plugins.stage.diff import DiffResult
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 

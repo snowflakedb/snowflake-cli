@@ -14,7 +14,7 @@ from snowflake.cli.plugins.connection.util import (
     MissingConnectionHostError,
     make_snowsight_url,
 )
-from snowflake.cli.plugins.object.stage.manager import StageManager
+from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 

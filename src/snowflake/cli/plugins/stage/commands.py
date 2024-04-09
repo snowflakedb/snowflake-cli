@@ -22,8 +22,8 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
 )
 from snowflake.cli.api.utils.path_utils import is_stage_path
-from snowflake.cli.plugins.object.stage.diff import DiffResult
-from snowflake.cli.plugins.object.stage.manager import OnErrorType, StageManager
+from snowflake.cli.plugins.stage.diff import DiffResult
+from snowflake.cli.plugins.stage.manager import OnErrorType, StageManager
 
 app = SnowTyper(
     name="stage",
