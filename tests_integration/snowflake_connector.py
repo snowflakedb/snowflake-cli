@@ -38,7 +38,7 @@ def setup_test_database(snowflake_session, database_name: str):
     snowflake_session.execute_string(
         f"create database {database_name}; use database {database_name}; use schema public;"
     )
-    with mock_single_env_var(DATABASE_ENV_PARAMETER, database_name):
+    with mock_single_env_var(DATABASE_ENV_PARAMETER, value=database_name):
         yield
     snowflake_session.execute_string(f"drop database {database_name}")
 
@@ -49,7 +49,7 @@ def setup_test_schema(snowflake_session, schema_name: str):
     snowflake_session.execute_string(
         f"create schema {schema_name}; use schema {schema_name};"
     )
-    with mock_single_env_var(SCHEMA_ENV_PARAMETER, schema_name):
+    with mock_single_env_var(SCHEMA_ENV_PARAMETER, value=schema_name):
         yield
     snowflake_session.execute_string(f"drop schema {schema_name}")
 
