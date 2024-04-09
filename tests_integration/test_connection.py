@@ -3,6 +3,8 @@ from tests_integration.snowflake_connector import (
     setup_test_database,
     setup_test_schema,
     add_uuid_to_name,
+    mock_single_env_var,
+    SCHEMA_ENV_PARAMETER,
 )
 
 
@@ -23,9 +25,6 @@ def test_connection_dashed_database(runner, snowflake_session):
 
 
 @pytest.mark.integration
-@pytest.mark.skip(
-    reason="BUG: connections test command seem to override every setting with schema PUBLIC"
-)
 def test_connection_dashed_schema(
     runner, test_database, snowflake_session, snowflake_home
 ):
@@ -34,3 +33,14 @@ def test_connection_dashed_schema(
         result = runner.invoke_with_connection(["connection", "test", "--debug"])
         assert result.exit_code == 0, result.output
         assert f'use schema "{schema}"' in result.output
+
+
+@pytest.mark.integration
+def test_connection_not_existing_schema(
+    runner, test_database, snowflake_session, snowflake_home
+):
+    schema = "schema_which_does_not_exist"
+    with mock_single_env_var(SCHEMA_ENV_PARAMETER, value=schema):
+        result = runner.invoke_with_connection(["connection", "test"])
+        assert result.exit_code == 1, result.output
+        assert "Object does not exist" in result.output
