@@ -30,11 +30,11 @@ app = SnowTyper(
     help="Manages stages.",
 )
 
-StageNameArgument = typer.Argument(..., help="Name of the stage.")
+StageNameArgument = typer.Argument(..., help="Name of the stage.", show_default=False)
 
 
-@app.command("list", requires_connection=True)
-def stage_list(
+@app.command("list-files", requires_connection=True)
+def stage_list_files(
     stage_name: str = StageNameArgument, pattern=PatternOption, **options
 ) -> CommandResult:
     """
@@ -47,10 +47,12 @@ def stage_list(
 @app.command("copy", requires_connection=True)
 def copy(
     source_path: str = typer.Argument(
-        help="Source path for copy operation. Can be either stage path or local."
+        help="Source path for copy operation. Can be either stage path or local.",
+        show_default=False,
     ),
     destination_path: str = typer.Argument(
         help="Target directory path for copy operation. Should be stage if source is local or local if source is stage.",
+        show_default=False,
     ),
     overwrite: bool = typer.Option(
         False,
