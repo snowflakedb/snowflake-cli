@@ -22,6 +22,7 @@ from snowflake.cli.api.config import (
     connection_exists,
     get_all_connections,
     get_connection_dict,
+    get_default_connection_name,
     set_config_value,
 )
 from snowflake.cli.api.console import cli_console
@@ -65,12 +66,14 @@ def list_connections(**options) -> CommandResult:
     Lists configured connections.
     """
     connections = get_all_connections()
+    default_connection = get_default_connection_name()
     result = (
         {
             "connection_name": connection_name,
             "parameters": _mask_password(
                 connection_config.to_dict_of_known_non_empty_values()
             ),
+            "is_default": connection_name == default_connection,
         }
         for connection_name, connection_config in connections.items()
     )
@@ -253,14 +256,19 @@ def test(
     # Test session attributes
     om = ObjectManager()
     try:
+        # "use database" operation changes schema to default "public",
+        # so to test schema set up by user we need to copy it here:
+        schema = conn.schema
+
         if conn.role:
-            om.use(object_type=ObjectType.ROLE, name=conn.role)
+            om.use(object_type=ObjectType.ROLE, name=f'"{conn.role}"')
         if conn.database:
-            om.use(object_type=ObjectType.DATABASE, name=conn.database)
-        if conn.schema:
-            om.use(object_type=ObjectType.SCHEMA, name=conn.schema)
+            om.use(object_type=ObjectType.DATABASE, name=f'"{conn.database}"')
+        if schema:
+            om.use(object_type=ObjectType.SCHEMA, name=f'"{schema}"')
         if conn.warehouse:
-            om.use(object_type=ObjectType.WAREHOUSE, name=conn.warehouse)
+            om.use(object_type=ObjectType.WAREHOUSE, name=f'"{conn.warehouse}"')
+
     except ProgrammingError as err:
         raise ClickException(str(err))
 

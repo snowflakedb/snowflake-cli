@@ -2,9 +2,11 @@ from pathlib import Path
 from textwrap import dedent
 from unittest import mock
 
-from snowflake.connector import ProgrammingError
+import pytest
+from snowflake.connector import DictCursor, ProgrammingError
 
 EXAMPLE_URL = "https://github.com/an-example-repo.git"
+STAGE_MANAGER = "snowflake.cli.plugins.object.stage.manager.StageManager"
 
 
 def test_toplevel_help(runner):
@@ -15,17 +17,6 @@ def test_toplevel_help(runner):
     )
     result = runner.invoke(["git", "--help"])
     assert result.exit_code == 0, result.output
-
-
-@mock.patch.dict("os.environ", {"SNOWFLAKE_CLI_FEATURES_ENABLE_SNOWGIT": "false"})
-def test_not_visible_if_disabled(runner, monkeypatch):
-    result = runner.invoke(["--help"])
-    assert (
-        result.exit_code == 0
-        and "Manages git repositories in Snowflake." not in result.output
-    )
-    result = runner.invoke(["git", "--help"])
-    assert result.exit_code == 2 and "No such command 'git'" in result.output
 
 
 @mock.patch("snowflake.connector.connect")
@@ -395,6 +386,71 @@ def test_setup_create_secret_create_api(
         git_credentials = repo_name_secret
         """
     )
+
+
+@pytest.mark.parametrize(
+    "repository_path, expected_files",
+    [
+        (
+            "@repo/branches/main/",
+            ["repo/branches/main/s1.sql", "repo/branches/main/a/s3.sql"],
+        ),
+        (
+            "@repo/branches/main/a",
+            ["repo/branches/main/a/s3.sql"],
+        ),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_execute(mock_execute, mock_cursor, runner, repository_path, expected_files):
+    mock_execute.return_value = mock_cursor(
+        [
+            {"name": "repo/branches/main/a/s3.sql"},
+            {"name": "repo/branches/main/s1.sql"},
+            {"name": "repo/branches/main/s2"},
+        ],
+        [],
+    )
+
+    result = runner.invoke(["git", "execute", repository_path])
+
+    assert result.exit_code == 0, result.output
+    ls_call, *execute_calls = mock_execute.mock_calls
+    assert ls_call == mock.call(f"ls @repo/branches/main/", cursor_class=DictCursor)
+    assert execute_calls == [
+        mock.call(f"execute immediate from @{p}") for p in expected_files
+    ]
+
+
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_execute_with_variables(mock_execute, mock_cursor, runner):
+    mock_execute.return_value = mock_cursor([{"name": "repo/branches/main/s1.sql"}], [])
+
+    result = runner.invoke(
+        [
+            "git",
+            "execute",
+            "@repo/branches/main/",
+            "-D",
+            "key1='string value'",
+            "-D",
+            "key2=1",
+            "-D",
+            "key3=TRUE",
+            "-D",
+            "key4=NULL",
+            "-D",
+            "key5='var=value'",
+        ]
+    )
+
+    assert result.exit_code == 0
+    assert mock_execute.mock_calls == [
+        mock.call("ls @repo/branches/main/", cursor_class=DictCursor),
+        mock.call(
+            f"execute immediate from @repo/branches/main/s1.sql using (key1=>'string value', key2=>1, key3=>TRUE, key4=>NULL, key5=>'var=value')"
+        ),
+    ]
 
 
 def _assert_invalid_repo_path_error_message(output):

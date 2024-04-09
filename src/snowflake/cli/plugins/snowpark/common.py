@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
-from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
-from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
-from snowflake.cli.plugins.snowpark.package_utils import generate_deploy_stage_name
+from snowflake.cli.plugins.snowpark.models import Requirement
+from snowflake.cli.plugins.snowpark.package_utils import (
+    generate_deploy_stage_name,
+)
 from snowflake.connector.cursor import SnowflakeCursor
 
 DEFAULT_RUNTIME = "3.8"
@@ -18,6 +20,7 @@ def check_if_replace_is_required(
     current_state,
     handler: str,
     return_type: str,
+    snowflake_dependencies: List[str],
     imports: List[str],
     stage_artifact_file: str,
 ) -> bool:
@@ -25,21 +28,17 @@ def check_if_replace_is_required(
 
     log = logging.getLogger(__name__)
     resource_json = _convert_resource_details_to_dict(current_state)
-    anaconda_packages = resource_json["packages"]
+    old_dependencies = resource_json["packages"]
     log.info(
-        "Found %s defined Anaconda packages in deployed %s...",
-        len(anaconda_packages),
+        "Found %d defined Anaconda packages in deployed %s...",
+        len(old_dependencies),
         object_type,
     )
     log.info("Checking if app configuration has changed...")
-    updated_package_list = _get_snowflake_packages_delta(
-        anaconda_packages,
-    )
 
-    if updated_package_list:
-        diff = len(updated_package_list) - len(anaconda_packages)
+    if _snowflake_dependencies_differ(old_dependencies, snowflake_dependencies):
         log.info(
-            "Found difference of %s packages. Replacing the %s.", diff, object_type
+            "Found difference of package requirements. Replacing the %s.", object_type
         )
         return True
 
@@ -74,21 +73,15 @@ def _convert_resource_details_to_dict(function_details: SnowflakeCursor) -> dict
     return function_dict
 
 
-def _get_snowflake_packages_delta(anaconda_packages) -> List[str]:
-    updated_package_list = []
-    requirements_file = SecurePath("requirements.snowflake.txt")
-    if requirements_file.exists():
-        with requirements_file.open(
-            "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
-        ) as f:
-            # for each line, check if it exists in anaconda_packages. If it
-            # doesn't, add it to the return string
-            for line in f:
-                if line.strip() not in anaconda_packages:
-                    updated_package_list.append(line.strip())
-        return updated_package_list
-    else:
-        return updated_package_list
+def _snowflake_dependencies_differ(
+    old_dependencies: List[str], new_dependencies: List[str]
+) -> bool:
+    def _standardize(packages: List[str]) -> Set[str]:
+        return set(
+            Requirement.parse_line(package).name_and_version for package in packages
+        )
+
+    return _standardize(old_dependencies) != _standardize(new_dependencies)
 
 
 def _sql_to_python_return_type_mapper(resource_return_type: str) -> str:

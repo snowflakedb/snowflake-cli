@@ -17,7 +17,11 @@ from tests.test_data import test_data
 class TestPackage:
     @pytest.mark.parametrize(
         "argument",
-        ["snowflake-connector-python", "some-weird-package-we-dont-know"],
+        [
+            "snowflake-connector-python",
+            "some-weird-package-we-dont-know",
+            "package-with-non-pep-version",
+        ],
     )
     @patch("snowflake.cli.plugins.snowpark.package.anaconda.requests")
     def test_package_lookup(

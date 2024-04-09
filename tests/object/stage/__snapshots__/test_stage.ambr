@@ -23,6 +23,61 @@
   
   '''
 # ---
+# name: test_execute_continue_on_error
+  '''
+  SUCCESS - exe/s1.sql
+  FAILURE - exe/s2.sql
+  SUCCESS - exe/s3.sql
+  +------------------------------+
+  | File       | Status  | Error |
+  |------------+---------+-------|
+  | exe/s1.sql | SUCCESS | None  |
+  | exe/s2.sql | FAILURE | Error |
+  | exe/s3.sql | SUCCESS | None  |
+  +------------------------------+
+  
+  '''
+# ---
+# name: test_execute_no_files_for_stage_path[exe/*.txt-No files matched pattern 'exe/*.txt']
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ No files matched pattern '@exe/*.txt'                                        │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_execute_no_files_for_stage_path[exe/directory-No files matched pattern 'exe/directory']
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ No files matched pattern '@exe/directory'                                    │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_execute_no_files_for_stage_path[exe/some_file.sql-No files matched pattern 'exe/some_file.sql']
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ No files matched pattern '@exe/some_file.sql'                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_execute_raise_invalid_file_extension_error
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Invalid file extension, only `.sql` files are allowed.                       │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_execute_raise_invalid_variables_error
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Invalid variable: 'variable'                                                 │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
 # name: test_stage_print_result_for_get_all_files_from_stage
   '''
   Use `--recursive` flag, which copy files recursively with directory structure. This will be the default behavior in the future.

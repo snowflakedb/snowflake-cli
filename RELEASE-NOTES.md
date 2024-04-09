@@ -22,6 +22,7 @@
 * Added `--if-not-exists` option to `create` commands for `service`, and `compute-pool`. Added `--replace` and `--if-not-exists` options for `image-repository create`.
 * Added support for python connector diagnostic report.
 * Added `snow app deploy [files]` command that creates an application package and syncs the local changes to the stage without creating or updating the application. If specific files are not specified, all changes will be synced to the stage.
+* Added `is_default` column to `snow connection list` output to highlight default connection.
 * `snow snowpark package create`:
   * new `--ignore-anaconda` flag disables package lookup in Snowflake Anaconda channel.
     All dependencies will be downloaded from PyPi.
@@ -38,6 +39,8 @@
   * `snow git list-tags` - lists all tags in the repository
   * `snow git list-files` - lists all files on provided branch/tag/commit
   * `snow git copy` - copies files from provided branch/tag/commit into stage or local directory
+  * `snow git execute` - execute immediate files from repository
+* Added command for execute immediate `snow object stage execute`
 
 ## Fixes and improvements
 * Adding `--image-name` option for image name argument in `spcs image-repository list-tags` for consistency with other commands.
@@ -48,6 +51,9 @@
 * Fixed snowpark build paths for builds with --project option (fixed empty zip issue).
 * More clear error messages in `snow snowpark build` command
 * Adding support for any source supported by `pip` in `snow snowpark`.
+* Fixed version parsing for packages lookup on Snowflake Anaconda Channel
+* Fix handling database/schema/role identifiers containing dashes
+* Fix schema override bug in `snow connection test`
 
 # v2.1.2
 

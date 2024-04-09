@@ -6,22 +6,59 @@ import uuid
 import pytest
 from snowflake import connector
 from snowflake.cli.api.exceptions import EnvironmentVariableNotFoundError
+from contextlib import contextmanager
+from unittest import mock
 
 _ENV_PARAMETER_PREFIX = "SNOWFLAKE_CONNECTIONS_INTEGRATION"
+SCHEMA_ENV_PARAMETER = f"{_ENV_PARAMETER_PREFIX}_SCHEMA"
+DATABASE_ENV_PARAMETER = f"{_ENV_PARAMETER_PREFIX}_DATABASE"
+
+
+def add_uuid_to_name(name: str) -> str:
+    return f"{name}_{uuid.uuid4().hex}"
+
+
+@contextmanager
+def mock_single_env_var(name: str, value: str):
+    env = dict(os.environ)
+    env[name] = value
+    with mock.patch.dict(os.environ, env):
+        yield
+
+
+def _escape_name(name: str) -> str:
+    if "-" in name:
+        name = f'"{name}"'
+    return name
+
+
+@contextmanager
+def setup_test_database(snowflake_session, database_name: str):
+    database_name = _escape_name(database_name)
+    snowflake_session.execute_string(
+        f"create database {database_name}; use database {database_name}; use schema public;"
+    )
+    with mock_single_env_var(DATABASE_ENV_PARAMETER, value=database_name):
+        yield
+    snowflake_session.execute_string(f"drop database {database_name}")
+
+
+@contextmanager
+def setup_test_schema(snowflake_session, schema_name: str):
+    schema_name = _escape_name(schema_name)
+    snowflake_session.execute_string(
+        f"create schema {schema_name}; use schema {schema_name};"
+    )
+    with mock_single_env_var(SCHEMA_ENV_PARAMETER, value=schema_name):
+        yield
+    snowflake_session.execute_string(f"drop schema {schema_name}")
 
 
 @pytest.fixture(scope="function")
 def test_database(snowflake_session):
-    database_name = f"db_{uuid.uuid4().hex}"
-    snowflake_session.execute_string(
-        f"create database {database_name}; use database {database_name}; use schema public;"
-    )
-    os.environ[f"{_ENV_PARAMETER_PREFIX}_DATABASE"] = database_name
-
-    yield database_name
-
-    snowflake_session.execute_string(f"drop database {database_name}")
-    del os.environ[f"{_ENV_PARAMETER_PREFIX}_DATABASE"]
+    database_name = add_uuid_to_name("db")
+    with setup_test_database(snowflake_session, database_name):
+        yield database_name
 
 
 @pytest.fixture(scope="function")

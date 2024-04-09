@@ -82,9 +82,11 @@ def package_lookup(
 
     package = Requirement.parse(package_name)
     if anaconda.is_package_available(package=package):
-        msg = f"Package `{package_name}` is available in Anaconda."
-        if version := anaconda.package_version(package=package):
-            msg += f" Latest available version: {version}."
+        msg = f"Package `{package_name}` is available in Anaconda"
+        if version := anaconda.package_latest_version(package=package):
+            msg += f". Latest available version: {version}."
+        elif versions := anaconda.package_versions(package=package):
+            msg += f" in versions: {', '.join(versions)}."
         return MessageResult(msg)
 
     return MessageResult(
@@ -173,7 +175,11 @@ def package_create(
         download_result = download_unavailable_packages(
             requirements=[package],
             target_dir=packages_dir,
-            ignore_anaconda=ignore_anaconda,
+            anaconda=(
+                AnacondaChannel.empty()
+                if ignore_anaconda
+                else AnacondaChannel.from_snowflake()
+            ),
             skip_version_check=skip_version_check,
             pip_index_url=index_url,
         )

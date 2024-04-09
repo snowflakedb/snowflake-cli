@@ -81,7 +81,8 @@ def connect_to_snowflake(
         # Whatever output is generated when creating connection,
         # we don't want it in our output. This is particularly important
         # for cases when external browser and json format are used.
-        with contextlib.redirect_stdout(None):
+        # Redirecting both stdout and stderr for offline usage.
+        with contextlib.redirect_stdout(None), contextlib.redirect_stderr(None):
             return snowflake.connector.connect(
                 application=command_info(),
                 **connection_parameters,
