@@ -284,9 +284,9 @@ def test(
     }
 
     if enable_diag:
-        result["Diag Report Location"] = (
-            f"{diag_log_path}/SnowflakeConnectionTestReport.txt"
-        )
+        result[
+            "Diag Report Location"
+        ] = f"{diag_log_path}/SnowflakeConnectionTestReport.txt"
 
     return ObjectResult(result)
 
