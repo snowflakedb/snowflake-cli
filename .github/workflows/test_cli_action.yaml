@@ -1,0 +1,26 @@
+name: "CLI Action testing"
+
+on:
+  pull_request:
+    branches:
+      - "*"
+  push:
+    tags:
+      - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
+    branches:
+      - main
+
+env:
+  TERM: unknown  # Disables colors in rich
+
+jobs:
+  version:
+    name: "Check Snowflake CLI version"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/snowflake-cli@v1
+        with:
+          cli-version: "2.1.0"
+
+      - name: Test version
+        run: snow --version
