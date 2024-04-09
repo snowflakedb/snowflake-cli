@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 import snowflake.connector
 from click.exceptions import ClickException
@@ -35,6 +35,16 @@ def connect_to_snowflake(
 ) -> SnowflakeConnection:
     if temporary_connection and connection_name:
         raise ClickException("Can't use connection name and temporary connection.")
+
+    using_session_token = (
+        "session_token" in overrides and overrides["session_token"] is not None
+    )
+    using_master_token = (
+        "master_token" in overrides and overrides["master_token"] is not None
+    )
+    _raise_errors_related_to_session_token(
+        temporary_connection, using_session_token, using_master_token
+    )
 
     if connection_name:
         connection_parameters = get_connection_dict(connection_name)
@@ -78,7 +88,9 @@ def connect_to_snowflake(
             ] = diag_allowlist_path
 
     # Make sure the connection is not closed if it was shared to the SnowCLI, instead of being created in the SnowCLI
-    _avoid_closing_the_connection_if_it_was_shared(overrides, connection_parameters)
+    _avoid_closing_the_connection_if_it_was_shared(
+        using_session_token, using_master_token, connection_parameters
+    )
 
     try:
         # Whatever output is generated when creating connection,
@@ -97,15 +109,27 @@ def connect_to_snowflake(
 
 
 def _avoid_closing_the_connection_if_it_was_shared(
-    overrides: Dict[str, Any], connection_parameters: Dict
+    using_session_token: bool, using_master_token: bool, connection_parameters: Dict
 ):
-    if (
-        "session_token" in overrides
-        and overrides["session_token"] is not None
-        and "master_token" in overrides
-        and overrides["master_token"] is not None
-    ):
+    if using_session_token and using_master_token:
         connection_parameters["server_session_keep_alive"] = True
+
+
+def _raise_errors_related_to_session_token(
+    temporary_connection: bool, using_session_token: bool, using_master_token: bool
+):
+    if not temporary_connection and (using_session_token or using_master_token):
+        raise ClickException(
+            "When using a session or master token, you must use a temporary connection"
+        )
+    if using_session_token and not using_master_token:
+        raise ClickException(
+            "When using a session token, you must provide the corresponding master token"
+        )
+    if using_master_token and not using_session_token:
+        raise ClickException(
+            "When using a master token, you must provide the corresponding session token"
+        )
 
 
 def _update_connection_details_with_private_key(connection_parameters: Dict):

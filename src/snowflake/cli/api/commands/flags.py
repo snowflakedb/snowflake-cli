@@ -226,7 +226,7 @@ PrivateKeyPathOption = typer.Option(
 SessionTokenOption = typer.Option(
     None,
     "--session-token",
-    help="Snowflake session token. Overrides the value specified for the connection.",
+    help="Snowflake session token. Can be used only in conjunction with --master-token. Overrides the value specified for the connection.",
     hide_input=True,
     callback=_callback(
         lambda: cli_context_manager.connection_context.set_session_token
@@ -242,7 +242,7 @@ SessionTokenOption = typer.Option(
 MasterTokenOption = typer.Option(
     None,
     "--master-token",
-    help="Snowflake master token. Overrides the value specified for the connection.",
+    help="Snowflake master token. Can be used only in conjunction with --session-token. Overrides the value specified for the connection.",
     hide_input=True,
     callback=_callback(lambda: cli_context_manager.connection_context.set_master_token),
     show_default=False,
