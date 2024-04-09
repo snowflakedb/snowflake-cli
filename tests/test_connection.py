@@ -323,10 +323,10 @@ def test_connection_test(mock_connect, mock_om, runner):
 
     conn = mock_connect.return_value
     assert mock_om.return_value.use.mock_calls == [
-        mock.call(object_type=ObjectType.ROLE, name=conn.role),
-        mock.call(object_type=ObjectType.DATABASE, name=conn.database),
-        mock.call(object_type=ObjectType.SCHEMA, name=conn.schema),
-        mock.call(object_type=ObjectType.WAREHOUSE, name=conn.warehouse),
+        mock.call(object_type=ObjectType.ROLE, name=f'"{conn.role}"'),
+        mock.call(object_type=ObjectType.DATABASE, name=f'"{conn.database}"'),
+        mock.call(object_type=ObjectType.SCHEMA, name=f'"{conn.schema}"'),
+        mock.call(object_type=ObjectType.WAREHOUSE, name=f'"{conn.warehouse}"'),
     ]
 
 
