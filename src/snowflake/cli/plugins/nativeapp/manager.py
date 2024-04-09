@@ -29,7 +29,7 @@ from snowflake.cli.plugins.connection.util import make_snowsight_url
 from snowflake.cli.plugins.nativeapp.artifacts import (
     ArtifactMapping,
     build_bundle,
-    determine_artifacts_file_path,
+    map_paths_to_deploy_root,
     translate_artifact,
 )
 from snowflake.cli.plugins.nativeapp.constants import (
@@ -122,16 +122,6 @@ def _get_paths_to_sync(
         else:
             paths.append(str(relpath))
     return paths
-
-
-def _map_paths_to_deploy_root(
-    paths: List[Path], artifacts: List[ArtifactMapping]
-) -> List[Path]:
-    """Maps a list of paths to being relative to deploy root."""
-    new_paths = []
-    for path in paths:
-        new_paths.append(determine_artifacts_file_path(path, artifacts))
-    return new_paths
 
 
 def _get_default_deploy_prune_value(files_argument: Optional[List[Path]]) -> bool:
@@ -346,7 +336,7 @@ class NativeAppManager(SqlExecutionMixin):
 
         # If we are syncing specific files, remove everything else from the diff
         if paths_to_sync is not None and len(paths_to_sync) > 0:
-            paths_relative_to_deploy_root = _map_paths_to_deploy_root(
+            paths_relative_to_deploy_root = map_paths_to_deploy_root(
                 paths_to_sync, self.artifacts
             )
             paths_to_keep = set(

@@ -285,7 +285,7 @@ def find_version_info_in_manifest_file(
     return version_name, patch_name
 
 
-def determine_artifacts_file_path(
+def _determine_artifacts_file_path(
     source: PurePath, artifacts: List[ArtifactMapping]
 ) -> Optional[str]:
     """Given a source file path (relative to project root) that doesn't necessarily exist on the file system, returns the destination path string for the first matching artifact (relative to deploy root), or None if none matched."""
@@ -297,3 +297,13 @@ def determine_artifacts_file_path(
             else:
                 return artifact.dest
     return None
+
+
+def map_paths_to_deploy_root(
+    paths: List[Path], artifacts: List[ArtifactMapping]
+) -> List[Optional[str]]:
+    """Maps a list of paths to their location in the deploy root."""
+    new_paths = []
+    for path in paths:
+        new_paths.append(_determine_artifacts_file_path(path, artifacts))
+    return new_paths

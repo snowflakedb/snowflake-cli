@@ -500,7 +500,7 @@ def test_nativeapp_init_from_repo_with_single_template(
 
 # Tests a simple flow of executing "snow app deploy", verifying that an application package was created, and an application was not
 @pytest.mark.integration
-def test_nativeapp_init_deploy(
+def test_nativeapp_deploy(
     runner,
     snowflake_session,
     temporary_working_directory,
@@ -566,9 +566,129 @@ def test_nativeapp_init_deploy(
             assert result.exit_code == 0
 
 
+# Verifying that "snow app deploy --prune" removes remote-only files
+@pytest.mark.integration
+def test_nativeapp_deploy_prune(
+    runner,
+    snowflake_session,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    result = runner.invoke_json(
+        ["app", "init", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_name)):
+        result = runner.invoke_with_connection_json(
+            ["app", "deploy"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        try:
+            # delete a file locally
+            os.remove(os.path.join("app", "manifest.yml"))
+
+            # sync with no-prune
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # verify the file does not exist on the stage
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
+            stage_files = runner.invoke_with_connection_json(
+                ["object", "stage", "list", f"{package_name}.{stage_name}"],
+                env=TEST_ENV,
+            )
+            assert not_contains_row_with(
+                stage_files.json, {"name": "stage/manifest.yml"}
+            )
+            assert contains_row_with(stage_files.json, {"name": "stage/README.md"})
+
+            # make sure we always delete the app
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
+# Verifying that "snow app deploy" removes remote-only files (--prune is the default value)
+@pytest.mark.integration
+def test_nativeapp_deploy_prune_default(
+    runner,
+    snowflake_session,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    result = runner.invoke_json(
+        ["app", "init", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_name)):
+        result = runner.invoke_with_connection_json(
+            ["app", "deploy"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        try:
+            # delete a file locally
+            os.remove(os.path.join("app", "manifest.yml"))
+
+            # sync with no-prune
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # verify the file does not exist on the stage
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
+            stage_files = runner.invoke_with_connection_json(
+                ["object", "stage", "list", f"{package_name}.{stage_name}"],
+                env=TEST_ENV,
+            )
+            assert not_contains_row_with(
+                stage_files.json, {"name": "stage/manifest.yml"}
+            )
+            assert contains_row_with(stage_files.json, {"name": "stage/README.md"})
+
+            # make sure we always delete the app
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
 # Verifying that "snow app deploy --no-prune" does not delete remote-only files
 @pytest.mark.integration
-def test_nativeapp_init_deploy_no_prune(
+def test_nativeapp_deploy_no_prune(
     runner,
     snowflake_session,
     temporary_working_directory,
@@ -625,7 +745,7 @@ def test_nativeapp_init_deploy_no_prune(
 
 # Tests a simple flow of executing "snow app deploy [files]", verifying that only the specified files are synced to the stage
 @pytest.mark.integration
-def test_nativeapp_init_deploy_files(
+def test_nativeapp_deploy_files(
     runner,
     temporary_working_directory,
 ):
@@ -676,7 +796,7 @@ def test_nativeapp_init_deploy_files(
 
 # Tests a simple flow of removing a remote-only file from the stage with "snow app deploy remote-file --prune"
 @pytest.mark.integration
-def test_nativeapp_init_deploy_remove_remote_file_with_prune(
+def test_nativeapp_deploy_remove_remote_file_with_prune(
     runner,
     temporary_working_directory,
 ):
@@ -737,7 +857,7 @@ def test_nativeapp_init_deploy_remove_remote_file_with_prune(
 
 # Tests that remote-only files are not removed without the --prune flag
 @pytest.mark.integration
-def test_nativeapp_init_deploy_not_removing_remote_file_with_no_prune(
+def test_nativeapp_deploy_no_prune_default(
     runner,
     temporary_working_directory,
 ):
@@ -762,6 +882,63 @@ def test_nativeapp_init_deploy_not_removing_remote_file_with_no_prune(
         # deploy the locally-removed file
         result = runner.invoke_with_connection_json(
             ["app", "deploy", "app/README.md"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        try:
+            # manifest and script files exist, readme doesn't exist
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
+            stage_files = runner.invoke_with_connection_json(
+                ["object", "stage", "list", f"{package_name}.{stage_name}"],
+                env=TEST_ENV,
+            )
+            assert contains_row_with(stage_files.json, {"name": "stage/README.md"})
+
+            # make sure we always delete the app
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
+# Tests that remote-only files are not removed with --no-prune
+@pytest.mark.integration
+def test_nativeapp_deploy_not_removing_remote_file_with_no_prune(
+    runner,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    result = runner.invoke_json(
+        ["app", "init", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_name)):
+        # sync all files to the stage
+        result = runner.invoke_with_connection_json(
+            ["app", "deploy"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        # remove the file locally
+        os.remove(os.path.join("app", "README.md"))
+
+        # deploy the locally-removed file
+        result = runner.invoke_with_connection_json(
+            ["app", "deploy", "app/README.md", "--no-prune"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0

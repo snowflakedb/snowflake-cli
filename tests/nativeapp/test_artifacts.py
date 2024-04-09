@@ -11,7 +11,7 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     SourceNotFoundError,
     TooManyFilesError,
     build_bundle,
-    determine_artifacts_file_path,
+    map_paths_to_deploy_root,
     translate_artifact,
 )
 
@@ -167,30 +167,30 @@ def test_too_many_files(project_definition_files):
 
 
 @pytest.mark.parametrize(
-    "file_path,artifacts,expected_destination",
+    "file_paths,artifacts,expected_destination",
     [
         [
-            "file1",
+            ["file1"],
             [ArtifactMapping("file1", "file2")],
-            "file2",
+            ["file2"],
         ],
         [
-            "src/file.txt",
+            ["src/file1.txt", "src/file2.txt"],
             [ArtifactMapping("src/*", "app/")],
-            "app/file.txt",
+            ["app/file1.txt", "app/file2.txt"],
         ],
         [
-            "src/file.txt",
+            ["src/file.txt"],
             [ArtifactMapping("src/*", "nested/dir/")],
-            "nested/dir/file.txt",
+            ["nested/dir/file.txt"],
         ],
         [
-            "non-matching.txt",
+            ["non-matching.txt"],
             [ArtifactMapping("src/", "app/")],
-            None,
+            [None],
         ],
     ],
 )
-def test_determine_artifacts_file_path(file_path, artifacts, expected_destination):
-    result = determine_artifacts_file_path(file_path, artifacts)
+def test_map_paths_to_deploy_root(file_paths, artifacts, expected_destination):
+    result = map_paths_to_deploy_root(file_paths, artifacts)
     assert result == expected_destination
