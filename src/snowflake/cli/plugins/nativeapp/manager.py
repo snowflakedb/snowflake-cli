@@ -29,6 +29,7 @@ from snowflake.cli.plugins.connection.util import make_snowsight_url
 from snowflake.cli.plugins.nativeapp.artifacts import (
     ArtifactMapping,
     build_bundle,
+    determine_artifacts_file_path,
     translate_artifact,
 )
 from snowflake.cli.plugins.nativeapp.constants import (
@@ -104,14 +105,14 @@ def ensure_correct_owner(row: dict, role: str, obj_name: str) -> None:
         raise UnexpectedOwnerError(obj_name, role, actual_owner)
 
 
-def _get_relative_paths_to_sync(
-    relative_files_to_sync: List[Path], local_root: Path, remote_paths: Set[str]
+def _get_paths_to_sync(
+    relative_files_to_sync: List[Path], deploy_root: Path, remote_paths: Set[str]
 ) -> List[str]:
-    """Takes a list of paths that exist either locally or remotely, and returns a merged list of paths relative to the provided root path."""
+    """Takes a list of paths that exist either locally or remotely, and returns a merged list of paths relative to the deploy root."""
     paths = []
     for file in relative_files_to_sync:
-        path = Path(local_root, file)
-        relpath = path.relative_to(local_root)
+        path = Path(deploy_root, file)
+        relpath = path.relative_to(deploy_root)
         if not path.exists() and str(relpath) not in remote_paths:
             raise FileError(
                 str(file), "This file does not exist either locally or remotely"
@@ -121,6 +122,16 @@ def _get_relative_paths_to_sync(
         else:
             paths.append(str(relpath))
     return paths
+
+
+def _map_paths_to_deploy_root(
+    paths: List[Path], artifacts: List[ArtifactMapping]
+) -> List[Path]:
+    """Maps a list of paths to being relative to deploy root."""
+    new_paths = []
+    for path in paths:
+        new_paths.append(determine_artifacts_file_path(path, artifacts))
+    return new_paths
 
 
 def _get_default_deploy_prune_value(files_argument: Optional[List[Path]]) -> bool:
@@ -302,7 +313,7 @@ class NativeAppManager(SqlExecutionMixin):
         self,
         role: str,
         prune: Optional[bool] = None,
-        files_to_sync: Optional[List[Path]] = None,  # relative to deploy root
+        paths_to_sync: Optional[List[Path]] = None,  # relative to project root
     ) -> DiffResult:
         """
         Ensures that the files on our remote stage match the artifacts we have in
@@ -331,13 +342,18 @@ class NativeAppManager(SqlExecutionMixin):
         diff: DiffResult = stage_diff(self.deploy_root, self.stage_fqn)
 
         if prune is None:
-            prune = _get_default_deploy_prune_value(files_to_sync)
+            prune = _get_default_deploy_prune_value(paths_to_sync)
 
         # If we are syncing specific files, remove everything else from the diff
-        if files_to_sync is not None and len(files_to_sync) > 0:
+        if paths_to_sync is not None and len(paths_to_sync) > 0:
+            paths_relative_to_deploy_root = _map_paths_to_deploy_root(
+                paths_to_sync, self.artifacts
+            )
             paths_to_keep = set(
-                _get_relative_paths_to_sync(
-                    files_to_sync, self.deploy_root, set(diff.only_on_stage)
+                _get_paths_to_sync(
+                    paths_relative_to_deploy_root,
+                    self.deploy_root,
+                    set(diff.only_on_stage),
                 )
             )
             filter_from_diff(diff, paths_to_keep, prune)

@@ -639,7 +639,7 @@ def test_nativeapp_init_deploy_files(
     with pushd(Path(os.getcwd(), project_name)):
         # sync only two specific files to stage
         result = runner.invoke_with_connection_json(
-            ["app", "deploy", "manifest.yml", "setup_script.sql"],
+            ["app", "deploy", "app/manifest.yml", "app/setup_script.sql"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0
@@ -700,7 +700,7 @@ def test_nativeapp_init_deploy_remove_remote_file_with_prune(
 
         # deploy the locally-removed file
         result = runner.invoke_with_connection_json(
-            ["app", "deploy", "README.md", "--prune"],
+            ["app", "deploy", "app/README.md", "--prune"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0
@@ -761,7 +761,7 @@ def test_nativeapp_init_deploy_not_removing_remote_file_with_no_prune(
 
         # deploy the locally-removed file
         result = runner.invoke_with_connection_json(
-            ["app", "deploy", "README.md"],
+            ["app", "deploy", "app/README.md"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0

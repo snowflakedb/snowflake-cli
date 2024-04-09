@@ -11,6 +11,7 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     SourceNotFoundError,
     TooManyFilesError,
     build_bundle,
+    determine_artifacts_file_path,
     translate_artifact,
 )
 
@@ -163,3 +164,33 @@ def test_too_many_files(project_definition_files):
                 ArtifactMapping("app/streamlit/*.py", "somehow_combined_streamlits.py")
             ],
         )
+
+
+@pytest.mark.parametrize(
+    "file_path,artifacts,expected_destination",
+    [
+        [
+            "file1",
+            [ArtifactMapping("file1", "file2")],
+            "file2",
+        ],
+        [
+            "src/file.txt",
+            [ArtifactMapping("src/*", "app/")],
+            "app/file.txt",
+        ],
+        [
+            "src/file.txt",
+            [ArtifactMapping("src/*", "nested/dir/")],
+            "nested/dir/file.txt",
+        ],
+        [
+            "non-matching.txt",
+            [ArtifactMapping("src/", "app/")],
+            None,
+        ],
+    ],
+)
+def test_determine_artifacts_file_path(file_path, artifacts, expected_destination):
+    result = determine_artifacts_file_path(file_path, artifacts)
+    assert result == expected_destination

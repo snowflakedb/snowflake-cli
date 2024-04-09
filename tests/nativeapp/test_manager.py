@@ -24,7 +24,7 @@ from snowflake.cli.plugins.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
     _get_default_deploy_prune_value,
-    _get_relative_paths_to_sync,
+    _get_paths_to_sync,
     ensure_correct_owner,
 )
 from snowflake.cli.plugins.object.stage.diff import (
@@ -758,7 +758,7 @@ def is_dir_mock(path: Path):
         [["dir"], set(), ClickException],
     ],
 )
-def test_get_full_file_paths_to_sync(
+def test_get_paths_to_sync(
     path_mock_exists,
     path_mock_is_dir,
     files_to_sync: List[Path],
@@ -768,11 +768,11 @@ def test_get_full_file_paths_to_sync(
     path_mock_exists.side_effect = exists_mock
     path_mock_is_dir.side_effect = is_dir_mock
     if expected_exception is None:
-        result = _get_relative_paths_to_sync(files_to_sync, "/", remote_paths)
+        result = _get_paths_to_sync(files_to_sync, "/", remote_paths)
         assert len(result) == len(files_to_sync)
     else:
         with pytest.raises(expected_exception):
-            _get_relative_paths_to_sync(files_to_sync, "/", remote_paths)
+            _get_paths_to_sync(files_to_sync, "/", remote_paths)
 
 
 def test_filter_from_diff():

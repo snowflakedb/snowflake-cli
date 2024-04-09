@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import List, Optional, Tuple, Union
 
 from click import ClickException
@@ -283,3 +283,17 @@ def find_version_info_in_manifest_file(
             patch_name = version_info[patch_field]
 
     return version_name, patch_name
+
+
+def determine_artifacts_file_path(
+    source: PurePath, artifacts: List[ArtifactMapping]
+) -> str | None:
+    """Given a source file path (relative to project root) that doesn't necessarily exist on the file system, returns the destination path string for the first matching artifact (relative to deploy root), or None if none matched."""
+    for artifact in artifacts:
+        source_path = PurePath(source)
+        if source_path.match(artifact.src):
+            if specifies_directory(artifact.dest):
+                return str(PurePath(artifact.dest, source_path.name))
+            else:
+                return artifact.dest
+    return None
