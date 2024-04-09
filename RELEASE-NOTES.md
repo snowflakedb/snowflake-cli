@@ -15,6 +15,8 @@
   * `--pypi-download` flag have no effect and will cause a warning. Create command always check against PyPi.
   * `--check-anaconda-for-pypi-depts` is replaced with `--ignore-anaconda`
   * `--package-native-libraries` is replaced with boolean flag `--allow-shared-libraries`
+* `snow object stage` commands are deprecated and using them will cause a warning.
+   Functionality is replaced by `snow stage` commands.
 
 ## New additions
 * Added support for fully qualified name (`database.schema.name`) in `name` parameter in streamlit project definition
