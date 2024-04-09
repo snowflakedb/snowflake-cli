@@ -1,8 +1,6 @@
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Optional
 
-from snowflake.cli.api.commands.flags import OnErrorType
 from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -31,18 +29,8 @@ class GitManager(StageManager):
             query += f"git_credentials = {secret}\n"
         return self._execute_query(query)
 
-    def execute(
-        self,
-        repository_path: str,
-        on_error: OnErrorType,
-        variables: Optional[List[str]] = None,
-    ):
-        return super().execute(
-            stage_path=repository_path, on_error=on_error, variables=variables
-        )
-
     @staticmethod
-    def get_stage_name_from_path(path: str, is_git_repository: bool = False):
+    def get_stage_name_from_path(path: str):
         """
         Returns stage name from potential path on stage. For example
         repo/branches/main/foo/bar -> repo/branches/main/
