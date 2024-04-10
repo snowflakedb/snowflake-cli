@@ -7,7 +7,7 @@ import pytest
 from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )
-from snowflake.cli.plugins.object.stage.diff import (
+from snowflake.cli.plugins.stage.diff import (
     DiffResult,
     build_md5_map,
     delete_only_on_stage_files,
@@ -17,11 +17,11 @@ from snowflake.cli.plugins.object.stage.diff import (
     stage_diff,
     sync_local_diff_with_stage,
 )
-from snowflake.cli.plugins.object.stage.manager import StageManager
+from snowflake.cli.plugins.stage.manager import StageManager
 
 from tests.testing_utils.files_and_dirs import temp_local_dir
 
-STAGE_MANAGER = "snowflake.cli.plugins.object.stage.manager.StageManager"
+STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
 STAGE_DIFF = "snowflake.cli.plugins.object.stage.diff"
 
 FILE_CONTENTS = {

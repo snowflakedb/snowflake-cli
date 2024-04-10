@@ -27,7 +27,7 @@ from snowflake.cli.plugins.nativeapp.manager import (
     _get_paths_to_sync,
     ensure_correct_owner,
 )
-from snowflake.cli.plugins.object.stage.diff import (
+from snowflake.cli.plugins.stage.diff import (
     DiffResult,
     filter_from_diff,
 )

@@ -16,7 +16,7 @@ from typer.testing import CliRunner
 
 def test_format(runner, snapshot):
     result = runner.invoke(
-        ["object", "stage", "list", "stage_name", "--format", "invalid_format"]
+        ["stage", "list-files", "stage_name", "--format", "invalid_format"]
     )
 
     assert result.output == snapshot

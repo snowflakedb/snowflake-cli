@@ -71,3 +71,55 @@ def test_no_output_from_connection(mock_connect, runner):
 
     result = runner.invoke(["sql", "-q", "select 1"])
     assert funny_text not in result.output
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_returns_nice_error_in_case_of_master_token_without_temporary_connection(
+    runner,
+):
+    result = runner.invoke(
+        ["sql", "-q", "select 1", "--master-token", "dummy-master-token"]
+    )
+    assert result.exit_code == 1
+    assert (
+        "When using a session or master token, you must use a temporary connection"
+        in result.output
+    )
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_returns_nice_error_in_case_of_session_token_without_temporary_connection(
+    runner,
+):
+    result = runner.invoke(
+        ["sql", "-q", "select 1", "--session-token", "dummy-session-token"]
+    )
+    assert result.exit_code == 1
+    assert (
+        "When using a session or master token, you must use a temporary connection"
+        in result.output
+    )
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_returns_nice_error_in_case_of_missing_session_token(runner):
+    result = runner.invoke(
+        ["sql", "-q", "select 1", "--master-token", "dummy-master-token", "-x"]
+    )
+    assert result.exit_code == 1
+    assert (
+        "When using a master token, you must provide the corresponding session token"
+        in result.output
+    )
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_returns_nice_error_in_case_of_missing_master_token(runner):
+    result = runner.invoke(
+        ["sql", "-q", "select 1", "--session-token", "dummy-session-token", "-x"]
+    )
+    assert result.exit_code == 1
+    assert (
+        "When using a session token, you must provide the corresponding master token"
+        in result.output
+    )
