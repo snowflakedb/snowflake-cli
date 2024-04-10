@@ -315,6 +315,8 @@ def test_connection_test(mock_connect, mock_om, runner):
         password=None,
         authenticator=None,
         private_key_path=None,
+        session_token=None,
+        master_token=None,
         database=None,
         schema=None,
         role=None,
@@ -444,6 +446,53 @@ def test_key_pair_authentication(mock_connector, mock_ctx, runner):
         database="test_dv",
         schema="PUBLIC",
         warehouse="xsmall",
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    session_token = "dummy-session-token"
+    master_token = "dummy-master-token"
+    result = runner.invoke(
+        [
+            "object",
+            "list",
+            "warehouse",
+            "--temporary-connection",
+            "--account",
+            "test_account",
+            "--user",
+            "snowcli_test",
+            "--authenticator",
+            "SNOWFLAKE_JWT",
+            "--session-token",
+            session_token,
+            "--master-token",
+            master_token,
+            "--warehouse",
+            "xsmall",
+            "--database",
+            "test_dv",
+            "--schema",
+            "PUBLIC",
+        ]
+    )
+
+    assert result.exit_code == 0
+    mock_connector.assert_called_once_with(
+        application="SNOWCLI.OBJECT.LIST",
+        session_token=session_token,
+        master_token=master_token,
+        account="test_account",
+        user="snowcli_test",
+        authenticator="SNOWFLAKE_JWT",
+        database="test_dv",
+        schema="PUBLIC",
+        warehouse="xsmall",
+        server_session_keep_alive=True,
     )
 
 
@@ -762,6 +811,8 @@ def test_connection_test_diag_report(mock_connect, mock_om, runner):
         password=None,
         authenticator=None,
         private_key_path=None,
+        session_token=None,
+        master_token=None,
         database=None,
         schema=None,
         role=None,

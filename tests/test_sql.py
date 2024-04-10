@@ -115,6 +115,8 @@ def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
         password="passFromTest",
         authenticator=None,
         private_key_path=None,
+        session_token=None,
+        master_token=None,
         database="dbnameValue",
         schema="schemanameValue",
         role="rolenameValue",
