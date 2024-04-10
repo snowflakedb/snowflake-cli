@@ -117,9 +117,9 @@ def test_create_service_cli_defaults(mock_create, other_directory, runner):
         min_instances=1,
         max_instances=1,
         auto_resume=True,
-        external_access_integrations=[],
+        external_access_integrations=None,
         query_warehouse=None,
-        tags=[],
+        tags=None,
         comment=None,
         if_not_exists=False,
     )
