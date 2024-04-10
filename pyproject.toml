@@ -48,8 +48,8 @@ development = [
 ]
 
 [project.urls]
-"Source code" = "https://github.com/Snowflake-Labs/snowcli"
-"Bug Tracker" = "https://github.com/Snowflake-Labs/snowcli/issues"
+"Source code" = "https://github.com/snowflakedb/snowflake-cli"
+"Bug Tracker" = "https://github.com/snowflakedb/snowflake-cli/issues"
 
 [project.scripts]
 snow = "snowflake.cli.app.__main__:main"
@@ -129,7 +129,7 @@ addopts = "-m 'not integration and not performance and not e2e and not spcs and 
 markers = [
   "integration: mark test as integration test",
   "performance: mark test as performance test",
-  "e2e: mark test to execute on SnowCLI installed in fresh virtual environment",
+  "e2e: mark test to execute on Snowflake CLI installed in fresh virtual environment",
   "loaded_modules: checks loaded modules",
 ]
 
