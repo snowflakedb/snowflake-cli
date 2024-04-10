@@ -4,8 +4,8 @@ import logging
 from pathlib import Path
 
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.plugins.object.stage.manager import StageManager
 from snowflake.cli.plugins.snowpark.package.utils import prepare_app_zip
+from snowflake.cli.plugins.stage.manager import StageManager
 
 log = logging.getLogger(__name__)
 

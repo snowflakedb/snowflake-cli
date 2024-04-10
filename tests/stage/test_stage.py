@@ -3,17 +3,17 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 import pytest
-from snowflake.cli.plugins.object.stage.manager import StageManager
+from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
-STAGE_MANAGER = "snowflake.cli.plugins.object.stage.manager.StageManager"
+STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_list(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke(["object", "stage", "list", "-c", "empty", "stageName"])
+    result = runner.invoke(["stage", "list-files", "-c", "empty", "stageName"])
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with("ls @stageName", cursor_class=DictCursor)
 
@@ -22,7 +22,7 @@ def test_stage_list(mock_execute, runner, mock_cursor):
 def test_stage_list_pattern(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(
-        ["object", "stage", "list", "-c", "empty", "--pattern", "REGEX", "stageName"]
+        ["stage", "list-files", "-c", "empty", "--pattern", "REGEX", "stageName"]
     )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
@@ -32,7 +32,7 @@ def test_stage_list_pattern(mock_execute, runner, mock_cursor):
 
 def test_stage_list_pattern_error(runner):
     result = runner.invoke(
-        ["object", "stage", "list", "--pattern", "REGEX without escaped '", "stageName"]
+        ["stage", "list-files", "--pattern", "REGEX without escaped '", "stageName"]
     )
     assert result.exit_code == 1, result.output
     assert "Error" in result.output
@@ -42,7 +42,7 @@ def test_stage_list_pattern_error(runner):
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_list_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke(["object", "stage", "list", "-c", "empty", '"stage name"'])
+    result = runner.invoke(["stage", "list-files", "-c", "empty", '"stage name"'])
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
         "ls '@\"stage name\"'", cursor_class=DictCursor
@@ -54,7 +54,7 @@ def test_stage_copy_remote_to_local(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
-            ["object", "stage", "copy", "-c", "empty", "@stageName", str(tmp_dir)]
+            ["stage", "copy", "-c", "empty", "@stageName", str(tmp_dir)]
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
@@ -67,7 +67,7 @@ def test_stage_copy_remote_to_local_quoted_stage(mock_execute, runner, mock_curs
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
-            ["object", "stage", "copy", "-c", "empty", '@"stage name"', str(tmp_dir)]
+            ["stage", "copy", "-c", "empty", '@"stage name"', str(tmp_dir)]
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
@@ -86,7 +86,6 @@ def test_stage_copy_remote_to_local_quoted_stage_recursive(
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
             [
-                "object",
                 "stage",
                 "copy",
                 "-c",
@@ -131,7 +130,7 @@ def test_stage_copy_remote_to_local_quoted_uri(
         local_path = raw_path.replace("{}", str(tmp_dir))
         file_uri = expected_uri.replace("{}", str(tmp_dir))
         result = runner.invoke(
-            ["object", "stage", "copy", "-c", "empty", "@stageName", local_path]
+            ["stage", "copy", "-c", "empty", "@stageName", local_path]
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(f"get @stageName {file_uri} parallel=4")
@@ -167,7 +166,6 @@ def test_stage_copy_remote_to_local_quoted_uri_recursive(
         file_uri = expected_uri.replace("{}", str(tmp_dir))
         result = runner.invoke(
             [
-                "object",
                 "stage",
                 "copy",
                 "-c",
@@ -190,7 +188,6 @@ def test_stage_copy_local_to_remote(mock_execute, runner, mock_cursor):
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
             [
-                "object",
                 "stage",
                 "copy",
                 "-c",
@@ -214,7 +211,6 @@ def test_stage_copy_local_to_remote_quoted_stage(mock_execute, runner, mock_curs
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
             [
-                "object",
                 "stage",
                 "copy",
                 "-c",
@@ -259,7 +255,6 @@ def test_stage_copy_local_to_remote_quoted_path(
 
         result = runner.invoke(
             [
-                "object",
                 "stage",
                 "copy",
                 "-c",
@@ -283,7 +278,6 @@ def test_stage_copy_local_to_remote_star(mock_execute, runner, mock_cursor):
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
             [
-                "object",
                 "stage",
                 "copy",
                 "-c",
@@ -310,7 +304,7 @@ def test_stage_copy_local_to_remote_star(mock_execute, runner, mock_cursor):
     ],
 )
 def test_copy_throws_error_for_same_platform_operation(runner, source, dest, snapshot):
-    result = runner.invoke(["object", "stage", "copy", source, dest])
+    result = runner.invoke(["stage", "copy", source, dest])
     assert result.exit_code == 1
     assert result.output == snapshot
 
@@ -424,7 +418,7 @@ def test_copy_get_recursive(
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_create(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke(["object", "stage", "create", "-c", "empty", "stageName"])
+    result = runner.invoke(["stage", "create", "-c", "empty", "stageName"])
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with("create stage if not exists stageName")
 
@@ -432,7 +426,7 @@ def test_stage_create(mock_execute, runner, mock_cursor):
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_create_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke(["object", "stage", "create", "-c", "empty", '"stage name"'])
+    result = runner.invoke(["stage", "create", "-c", "empty", '"stage name"'])
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with('create stage if not exists "stage name"')
 
@@ -457,7 +451,7 @@ def test_stage_drop_quoted(mock_execute, runner, mock_cursor):
 def test_stage_remove(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(
-        ["object", "stage", "remove", "-c", "empty", "stageName", "my/file/foo.csv"]
+        ["stage", "remove", "-c", "empty", "stageName", "my/file/foo.csv"]
     )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with("remove @stageName/my/file/foo.csv")
@@ -467,7 +461,7 @@ def test_stage_remove(mock_execute, runner, mock_cursor):
 def test_stage_remove_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(
-        ["object", "stage", "remove", "-c", "empty", '"stage name"', "my/file/foo.csv"]
+        ["stage", "remove", "-c", "empty", '"stage name"', "my/file/foo.csv"]
     )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with("remove '@\"stage name\"/my/file/foo.csv'")
@@ -500,7 +494,7 @@ def test_stage_print_result_for_put_directory(
         (tmp_dir_path / "file1.txt").touch()
         (tmp_dir_path / "file2.txt").touch()
         (tmp_dir_path / "file3.txt").touch()
-        result = runner.invoke(["object", "stage", "copy", tmp_dir, "@stageName"])
+        result = runner.invoke(["stage", "copy", tmp_dir, "@stageName"])
 
     assert result.exit_code == 0, result.output
     assert result.output == snapshot
@@ -525,7 +519,7 @@ def test_stage_print_result_for_get_all_files_from_stage(
     )
 
     with TemporaryDirectory() as tmp_dir:
-        result = runner.invoke(["object", "stage", "copy", "@stageName", tmp_dir])
+        result = runner.invoke(["stage", "copy", "@stageName", tmp_dir])
 
     assert result.exit_code == 0, result.output
     assert result.output == snapshot
@@ -551,9 +545,7 @@ def test_stage_print_result_for_get_all_files_from_stage_recursive(
     ]
 
     with TemporaryDirectory() as tmp_dir:
-        result = runner.invoke(
-            ["object", "stage", "copy", "@stageName", tmp_dir, "--recursive"]
-        )
+        result = runner.invoke(["stage", "copy", "@stageName", tmp_dir, "--recursive"])
 
     assert result.exit_code == 0, result.output
     assert result.output == snapshot
@@ -706,7 +698,7 @@ def test_execute(mock_execute, mock_cursor, runner, stage_path, expected_files):
         [],
     )
 
-    result = runner.invoke(["object", "stage", "execute", stage_path])
+    result = runner.invoke(["stage", "execute", stage_path])
 
     assert result.exit_code == 0, result.output
     ls_call, *execute_calls = mock_execute.mock_calls
@@ -722,7 +714,6 @@ def test_execute_with_variables(mock_execute, mock_cursor, runner):
 
     result = runner.invoke(
         [
-            "object",
             "stage",
             "execute",
             "@exe",
@@ -756,7 +747,6 @@ def test_execute_raise_invalid_variables_error(
 
     result = runner.invoke(
         [
-            "object",
             "stage",
             "execute",
             "@exe",
@@ -777,7 +767,6 @@ def test_execute_raise_invalid_file_extension_error(
 
     result = runner.invoke(
         [
-            "object",
             "stage",
             "execute",
             "@exe/s1.txt",
@@ -796,7 +785,7 @@ def test_execute_not_existing_stage(mock_execute, mock_cursor, runner):
     ]
 
     with pytest.raises(ProgrammingError) as e:
-        runner.invoke(["object", "stage", "execute", stage_name])
+        runner.invoke(["stage", "execute", stage_name])
 
     assert mock_execute.mock_calls == [
         mock.call(f"ls @{stage_name}", cursor_class=DictCursor)
@@ -825,9 +814,7 @@ def test_execute_no_files_for_stage_path(
         [],
     )
 
-    result = runner.invoke(
-        ["object", "stage", "execute", stage_path, "--on-error", "continue"]
-    )
+    result = runner.invoke(["stage", "execute", stage_path, "--on-error", "continue"])
 
     assert result.exit_code == 1
     assert result.output == snapshot
@@ -850,7 +837,7 @@ def test_execute_stop_on_error(mock_execute, mock_cursor, runner):
     ]
 
     with pytest.raises(ProgrammingError) as e:
-        runner.invoke(["object", "stage", "execute", "exe"])
+        runner.invoke(["stage", "execute", "exe"])
 
     assert mock_execute.mock_calls == [
         mock.call("ls @exe", cursor_class=DictCursor),
@@ -876,9 +863,7 @@ def test_execute_continue_on_error(mock_execute, mock_cursor, runner, snapshot):
         mock_cursor([{"3": 3}], []),
     ]
 
-    result = runner.invoke(
-        ["object", "stage", "execute", "exe", "--on-error", "continue"]
-    )
+    result = runner.invoke(["stage", "execute", "exe", "--on-error", "continue"])
 
     assert result.exit_code == 0
     assert result.output == snapshot

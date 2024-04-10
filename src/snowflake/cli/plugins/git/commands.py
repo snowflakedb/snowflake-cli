@@ -18,7 +18,7 @@ from snowflake.cli.api.output.types import CollectionResult, CommandResult, Quer
 from snowflake.cli.api.utils.path_utils import is_stage_path
 from snowflake.cli.plugins.git.manager import GitManager
 from snowflake.cli.plugins.object.manager import ObjectManager
-from snowflake.cli.plugins.object.stage.manager import OnErrorType
+from snowflake.cli.plugins.stage.manager import OnErrorType
 
 app = SnowTyper(
     name="git",

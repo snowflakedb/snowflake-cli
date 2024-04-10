@@ -149,7 +149,7 @@ def test_copy_to_stage(runner, sf_git_repository):
         assert f"{STAGE_NAME.lower()}/{file_path}" in [f["name"] for f in result.json]
 
     # create stage for testing copy
-    result = runner.invoke_with_connection(["object", "stage", "create", STAGE_NAME])
+    result = runner.invoke_with_connection(["stage", "create", STAGE_NAME])
     assert result.exit_code == 0
 
     # copy directory - whole directory

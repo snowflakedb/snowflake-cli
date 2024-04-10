@@ -1,7 +1,7 @@
 from pathlib import Path
 from textwrap import dedent
 
-from snowflake.cli.plugins.object.stage.manager import StageManager
+from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector.cursor import SnowflakeCursor
 
 

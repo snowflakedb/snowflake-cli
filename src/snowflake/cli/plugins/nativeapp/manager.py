@@ -43,7 +43,7 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
     MissingPackageScriptError,
     UnexpectedOwnerError,
 )
-from snowflake.cli.plugins.object.stage.diff import (
+from snowflake.cli.plugins.stage.diff import (
     DiffResult,
     stage_diff,
     sync_local_diff_with_stage,
