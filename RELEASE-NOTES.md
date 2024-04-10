@@ -23,7 +23,7 @@
 * Added support for fully qualified image repository names in `spcs image-repository` commands.
 * Added `--if-not-exists` option to `create` commands for `service`, and `compute-pool`. Added `--replace` and `--if-not-exists` options for `image-repository create`.
 * Added support for python connector diagnostic report.
-* Added `snow app deploy [files]` command that creates an application package and syncs the local changes to the stage without creating or updating the application. If specific files are not specified, all changes will be synced to the stage.
+* Added `snow app deploy` command that creates an application package and syncs the local changes to the stage without creating or updating the application. If specific files are not specified, all changes will be synced to the stage.
 * Added `is_default` column to `snow connection list` output to highlight default connection.
 * `snow snowpark package create`:
   * new `--ignore-anaconda` flag disables package lookup in Snowflake Anaconda channel.

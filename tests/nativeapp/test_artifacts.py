@@ -192,5 +192,5 @@ def test_too_many_files(project_definition_files):
     ],
 )
 def test_map_paths_to_deploy_root(file_paths, artifacts, expected_destination):
-    result = map_paths_to_deploy_root(file_paths, artifacts)
+    result = map_paths_to_deploy_root([Path(f) for f in file_paths], artifacts)
     assert result == expected_destination
