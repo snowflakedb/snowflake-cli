@@ -21,7 +21,7 @@ from snowflake.cli.plugins.nativeapp.policy import (
     DenyAlwaysPolicy,
 )
 from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
-from snowflake.cli.plugins.object.stage.diff import DiffResult
+from snowflake.cli.plugins.stage.diff import DiffResult
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
