@@ -1,4 +1,4 @@
-# Contributing to SnowCLI
+# Contributing to Snowflake CLI
 
 There are two ways to contribute code to the repository: directly or by use of forks. For best practices for the second approach, refer to the section on forks below. Right now, there is limited access to contributing to the repository directly, and hence using forks is the recommended approach.
 
@@ -123,14 +123,14 @@ How to use it?
       You can resume code execution, add breakpoints, evaluate variables, do all the things you usually do when debugging locally.
 
 ## Using Forks
-Create your own fork from the `snowcli` repo. As a heads up, all `snowcli` forks are publicly accessible on Github.
+Create your own fork from the `snowflake-cli` repo. As a heads up, all `snowflake-cli` forks are publicly accessible on Github.
 
-Syncing forks with the upstream `snowcli` repo can be a hassle when trying to resolve merge conflicts. To avoid issues with this approach, we recommend always rebasing to the upstream `snowcli` branch.
+Syncing forks with the upstream `snowflake-cli` repo can be a hassle when trying to resolve merge conflicts. To avoid issues with this approach, we recommend always rebasing to the upstream `snowflake-cli` branch.
 
 In the cloned copy of your fork, perform the following steps.
 
 ```bash
-git remote add sfcli https://github.com/Snowflake-Labs/snowcli.git
+git remote add sfcli https://github.com/snowflakedb/snowflake-cli.git
 git fetch sfcli
 git checkout <your-branch>
 git rebase sfcli/main
