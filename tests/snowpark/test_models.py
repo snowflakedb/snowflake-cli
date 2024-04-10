@@ -35,9 +35,9 @@ def test_requirement_is_parsed_correctly(line, name, extras):
         ("foo.zip", "foo"),
         ("package", "package"),
         ("package.zip", "package"),
-        ("git+https://github.com/Snowflake-Labs/snowflake-cli/", "snowflake-cli"),
+        ("git+https://github.com/snowflakedb/snowflake-cli/", "snowflake-cli"),
         (
-            "git+https://github.com/Snowflake-Labs/snowflake-cli.git/@snow-123456-fix",
+            "git+https://github.com/snowflakedb/snowflake-cli.git/@snow-123456-fix",
             "snowflake-cli",
         ),
     ],
