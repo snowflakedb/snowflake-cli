@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
-
 import typer
 from snowflake.cli.api.commands.flags import (
-    OnErrorOption,
     PatternOption,
-    VariablesOption,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.console import cli_console
@@ -16,13 +12,11 @@ from snowflake.cli.api.plugins.command import CommandPath
 from snowflake.cli.plugins.stage.commands import (
     StageNameArgument,
     copy,
-    execute,
     stage_create,
     stage_diff,
     stage_list_files,
     stage_remove,
 )
-from snowflake.cli.plugins.stage.manager import OnErrorType
 
 _deprecated_command_msg = (
     f"`{CommandPath(['object', 'stage'])}` command group is deprecated."
@@ -101,18 +95,3 @@ def deprecated_stage_diff(
 ):
     """This command is deprecated. Please use `snow stage diff` instead."""
     return stage_diff(stage_name=stage_name, folder_name=folder_name, **options)
-
-
-@app.command("execute", requires_connection=True)
-def deprecated_execute(
-    stage_path: str = typer.Argument(
-        ...,
-        help="Stage path with files to be execute. For example `@stage/dev/*`.",
-        show_default=False,
-    ),
-    on_error: OnErrorType = OnErrorOption,
-    variables: Optional[List[str]] = VariablesOption,
-    **options,
-):
-    """This command is deprecated. Please use `snow stage execute` instead."""
-    execute(stage_path=stage_path, on_error=on_error, variables=variables, **options)

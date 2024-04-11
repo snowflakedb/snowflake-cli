@@ -1943,80 +1943,6 @@
   
   '''
 # ---
-# name: test_help_messages[object.stage.execute]
-  '''
-  `snow object stage` command group is deprecated. Please use `snow stage` instead.
-                                                                                  
-   Usage: default object stage execute [OPTIONS] STAGE_PATH                       
-                                                                                  
-   This command is deprecated. Please use `snow stage execute` instead.           
-                                                                                  
-  ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    stage_path      TEXT  Stage path with files to be execute. For example  │
-  │                            `@stage/dev/*`.                                   │
-  │                            [required]                                        │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
-  ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --on-error          [break|continue]  What to do when an error occurs.       │
-  │                                       Defaults to break.                     │
-  │                                       [default: break]                       │
-  │ --help      -h                        Show this message and exit.            │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
-  ╭─ Connection configuration ───────────────────────────────────────────────────╮
-  │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
-  │                                           in your `config.toml`. Default:    │
-  │                                           `default`.                         │
-  │ --account,--accountname             TEXT  Name assigned to your Snowflake    │
-  │                                           account. Overrides the value       │
-  │                                           specified for the connection.      │
-  │ --user,--username                   TEXT  Username to connect to Snowflake.  │
-  │                                           Overrides the value specified for  │
-  │                                           the connection.                    │
-  │ --password                          TEXT  Snowflake password. Overrides the  │
-  │                                           value specified for the            │
-  │                                           connection.                        │
-  │ --authenticator                     TEXT  Snowflake authenticator. Overrides │
-  │                                           the value specified for the        │
-  │                                           connection.                        │
-  │ --private-key-path                  TEXT  Snowflake private key path.        │
-  │                                           Overrides the value specified for  │
-  │                                           the connection.                    │
-  │ --database,--dbname                 TEXT  Database to use. Overrides the     │
-  │                                           value specified for the            │
-  │                                           connection.                        │
-  │ --schema,--schemaname               TEXT  Database schema to use. Overrides  │
-  │                                           the value specified for the        │
-  │                                           connection.                        │
-  │ --role,--rolename                   TEXT  Role to use. Overrides the value   │
-  │                                           specified for the connection.      │
-  │ --warehouse                         TEXT  Warehouse to use. Overrides the    │
-  │                                           value specified for the            │
-  │                                           connection.                        │
-  │ --temporary-connection      -x            Uses connection defined with       │
-  │                                           command line parameters, instead   │
-  │                                           of one defined in config           │
-  │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
-  │                                           authentication (MFA)               │
-  │ --enable-diag                             Run python connector diagnostic    │
-  │                                           test                               │
-  │ --diag-log-path                     TEXT  Diagnostic report path             │
-  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
-  │                                           allowlist                          │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
-  ╭─ Global configuration ───────────────────────────────────────────────────────╮
-  │ --format           [TABLE|JSON]  Specifies the output format.                │
-  │                                  [default: TABLE]                            │
-  │ --verbose  -v                    Displays log entries for log levels `info`  │
-  │                                  and higher.                                 │
-  │ --debug                          Displays log entries for log levels `debug` │
-  │                                  and higher; debug logs contains additional  │
-  │                                  information.                                │
-  │ --silent                         Turns off intermediate output to console.   │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
-  '''
-# ---
 # name: test_help_messages[object.stage.list]
   '''
   `snow object stage` command group is deprecated. Please use `snow stage` instead.
@@ -2172,15 +2098,11 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ copy      This command is deprecated. Please use `snow stage copy` instead.  │
-  │ create    This command is deprecated. Please use `snow stage create`         │
-  │           instead.                                                           │
-  │ execute   This command is deprecated. Please use `snow stage execute`        │
-  │           instead.                                                           │
-  │ list      This command is deprecated. Please use `snow stage list-files`     │
-  │           instead.                                                           │
-  │ remove    This command is deprecated. Please use `snow stage remove`         │
-  │           instead.                                                           │
+  │ copy     This command is deprecated. Please use `snow stage copy` instead.   │
+  │ create   This command is deprecated. Please use `snow stage create` instead. │
+  │ list     This command is deprecated. Please use `snow stage list-files`      │
+  │          instead.                                                            │
+  │ remove   This command is deprecated. Please use `snow stage remove` instead. │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
