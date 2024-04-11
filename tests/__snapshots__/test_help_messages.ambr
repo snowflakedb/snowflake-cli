@@ -941,13 +941,10 @@
   │                                  [required]                                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --parallel                         INTEGER  Number of parallel threads to    │
-  │                                             use when downloading files.      │
-  │                                             [default: 4]                     │
-  │ --recursive      --no-recursive             Copy files recursively with      │
-  │                                             directory structure.             │
-  │                                             [default: no-recursive]          │
-  │ --help       -h                             Show this message and exit.      │
+  │ --parallel          INTEGER  Number of parallel threads to use when          │
+  │                              downloading files.                              │
+  │                              [default: 4]                                    │
+  │ --help      -h               Show this message and exit.                     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
