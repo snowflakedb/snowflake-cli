@@ -23,7 +23,7 @@ _deprecated_command_msg = (
     f" Please use `{CommandPath(['stage'])}` instead."
 )
 
-app = SnowTyper(name="stage", help=_deprecated_command_msg)
+app = SnowTyper(name="stage", help="Manages stages.", deprecated=True)
 
 
 @app.callback()
@@ -31,15 +31,17 @@ def warn_command_deprecated() -> None:
     cli_console.warning(_deprecated_command_msg)
 
 
-@app.command("list", requires_connection=True)
+@app.command("list", requires_connection=True, deprecated=True)
 def deprecated_stage_list(
     stage_name: str = StageNameArgument, pattern=PatternOption, **options
 ):
-    """This command is deprecated. Please use `snow stage list-files` instead."""
+    """
+    Lists the stage contents.
+    """
     return stage_list_files(stage_name=stage_name, pattern=pattern, **options)
 
 
-@app.command("copy", requires_connection=True)
+@app.command("copy", requires_connection=True, deprecated=True)
 def deprecated_copy(
     source_path: str = typer.Argument(
         help="Source path for copy operation. Can be either stage path or local."
@@ -61,7 +63,10 @@ def deprecated_copy(
     ),
     **options,
 ):
-    """This command is deprecated. Please use `snow stage copy` instead."""
+    """
+    Copies all files from target path to target directory. This works for both uploading
+    to and downloading files from the stage.
+    """
     copy(
         source_path=source_path,
         destination_path=destination_path,
@@ -71,27 +76,33 @@ def deprecated_copy(
     )
 
 
-@app.command("create", requires_connection=True)
+@app.command("create", requires_connection=True, deprecated=True)
 def deprecated_stage_create(stage_name: str = StageNameArgument, **options):
-    """This command is deprecated. Please use `snow stage create` instead."""
+    """
+    Creates a named stage if it does not already exist.
+    """
     stage_create(stage_name=stage_name, **options)
 
 
-@app.command("remove", requires_connection=True)
+@app.command("remove", requires_connection=True, deprecated=True)
 def deprecated_stage_remove(
     stage_name: str = StageNameArgument,
     file_name: str = typer.Argument(..., help="Name of the file to remove."),
     **options,
 ):
-    """This command is deprecated. Please use `snow stage remove` instead."""
+    """
+    Removes a file from a stage.
+    """
     stage_remove(stage_name=stage_name, file_name=file_name)
 
 
-@app.command("diff", hidden=True, requires_connection=True)
+@app.command("diff", hidden=True, requires_connection=True, deprecated=True)
 def deprecated_stage_diff(
     stage_name: str = typer.Argument(None, help="Fully qualified name of a stage"),
     folder_name: str = typer.Argument(None, help="Path to local folder"),
     **options,
 ):
-    """This command is deprecated. Please use `snow stage diff` instead."""
+    """
+    Diffs a stage with a local folder.
+    """
     return stage_diff(stage_name=stage_name, folder_name=folder_name, **options)

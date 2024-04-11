@@ -142,9 +142,7 @@ def test_copy_to_stage(runner, sf_git_repository):
     STAGE_NAME = "a_perfect_stage_for_testing"
 
     def _assert_file_on_stage(file_path):
-        result = runner.invoke_with_connection_json(
-            ["object", "stage", "list", STAGE_NAME]
-        )
+        result = runner.invoke_with_connection_json(["stage", "list-files", STAGE_NAME])
         assert result.exit_code == 0
         assert f"{STAGE_NAME.lower()}/{file_path}" in [f["name"] for f in result.json]
 
