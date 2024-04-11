@@ -209,6 +209,15 @@ def test_copy_to_local_file_system(runner, sf_git_repository):
         assert LOCAL_DIR.exists()  # create directory if not exists
         assert (LOCAL_DIR / FILE_IN_SUBDIR).exists()  # contents are copied
 
+        # copy directory with --recursive option
+        repository_path = f"{REPO_PATH_PREFIX}/{SUBDIR}"
+        result = runner.invoke_with_connection_json(
+            ["git", "copy", repository_path, str(LOCAL_DIR), "--recursive"]
+        )
+        assert result.exit_code == 0
+        assert LOCAL_DIR.exists()  # create directory if not exists
+        assert (LOCAL_DIR / FILE_IN_SUBDIR).exists()  # contents are copied
+
         # copy single file
         repository_path = f"{REPO_PATH_PREFIX}/{FILE_IN_REPO}"
         result = runner.invoke_with_connection_json(

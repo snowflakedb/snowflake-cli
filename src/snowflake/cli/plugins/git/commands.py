@@ -219,6 +219,10 @@ def copy(
         4,
         help="Number of parallel threads to use when downloading files.",
     ),
+    recursive: bool = typer.Option(
+        False,
+        help="Copy files recursively with directory structure.",
+    ),
     **options,
 ):
     """
@@ -235,7 +239,7 @@ def copy(
             )
         )
     return get(
-        recursive=True,
+        recursive=recursive,
         source_path=repository_path,
         destination_path=destination_path,
         parallel=parallel,

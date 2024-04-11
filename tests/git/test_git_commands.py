@@ -103,9 +103,27 @@ def test_fetch(mock_connector, runner, mock_ctx):
 
 
 @mock.patch("snowflake.connector.connect")
+def test_copy_to_local_file_system(mock_connector, runner, mock_ctx, temp_dir):
+    repo_prefix = "@repo_name/branches/main/"
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    local_path = Path(temp_dir) / "local_dir"
+    assert not local_path.exists()
+    result = runner.invoke(["git", "copy", repo_prefix, str(local_path)])
+
+    assert result.exit_code == 0, result.output
+    assert local_path.exists()
+    assert (
+        ctx.get_query()
+        == f"get {repo_prefix} file://{local_path.resolve()}/ parallel=4"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
 @mock.patch.object(StageManager, "iter_stage")
 @mock.patch("snowflake.cli.plugins.stage.commands.QueryResult")
-def test_copy_to_local_file_system(
+def test_copy_to_local_file_system_recursive(
     mock_result, mock_iter, mock_connector, runner, mock_ctx, temp_dir
 ):
     repo_prefix = "@repo_name/branches/main/"
@@ -119,7 +137,7 @@ def test_copy_to_local_file_system(
 
     local_path = Path(temp_dir) / "local_dir"
     assert not local_path.exists()
-    result = runner.invoke(["git", "copy", repo_prefix, str(local_path)])
+    result = runner.invoke(["git", "copy", repo_prefix, str(local_path), "--recursive"])
 
     assert result.exit_code == 0, result.output
     assert local_path.exists()
