@@ -125,7 +125,7 @@ def test_stage_get_recursive(
     ]
 
 
-# @pytest.mark.integration
+@pytest.mark.integration
 def test_stage_execute(runner, test_database, test_root_path, snapshot):
     project_path = test_root_path / "test_data/projects/stage_execute"
     stage_name = "test_stage_execute"
