@@ -14,13 +14,20 @@ class UpdatableModel(BaseModel):
         except ValidationError as e:
             raise SchemaValidationError(e)
 
-    def update_from_dict(
-        self, update_values: Dict[str, Any]
-    ):  # this method works wrong for optional fields set to None
-        for field, value in update_values.items():  # do we even need this?
-            if getattr(self, field, None):
-                setattr(self, field, value)
+    def update_from_dict(self, update_values: Dict[str, Any]) -> object:
+        for field, value in update_values.items():
+            if field in self.model_fields.keys():
+                if self._is_field_an_updatable_model(field):
+                    getattr(self,field).update_from_dict(update_values[field])
+                else:
+                    setattr(self, field, value)
         return self
+
+    def _is_field_an_updatable_model(self, name: str) -> bool:
+        field_type = self.model_fields.get(name, None)
+        if field_type:
+            return issubclass(field_type.annotation, UpdatableModel)
+        return False
 
 
 def IdentifierField(*args, **kwargs):  # noqa

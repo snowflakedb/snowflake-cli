@@ -13,6 +13,8 @@ from unittest import mock
 import pytest
 import yaml
 from snowflake.cli.api.project.definition import merge_left
+from snowflake.cli.api.project.schemas.snowpark.argument import Argument
+from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
 from snowflake.cli.app.cli_app import app_factory
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
@@ -300,3 +302,18 @@ def alter_snowflake_yml():
             yaml.safe_dump(yml, fh)
 
     return _update
+
+
+@pytest.fixture()
+def argument_instance():
+    return Argument(name="Foo", type="Bar")
+
+
+@pytest.fixture()
+def callable_instance():
+    return FunctionSchema(
+        name="func1",
+        handler="app.func1_handler",
+        signature=[{"name": "a", "type": "string"}, {"name": "b", "type": "variant"}],
+        returns="string",
+    )
