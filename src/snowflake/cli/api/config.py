@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import warnings
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -104,7 +105,7 @@ def config_init(config_file: Optional[Path]):
         _check_default_config_files_permissions()
     if not CONFIG_MANAGER.file_path.exists():
         _initialise_config(CONFIG_MANAGER.file_path)
-    CONFIG_MANAGER.read_config()
+    _read_config_file()
 
 
 def add_connection(name: str, connection_config: ConnectionConfig):
@@ -126,10 +127,21 @@ _DEFAULT_CLI_CONFIG = {LOGS_SECTION: _DEFAULT_LOGS_CONFIG}
 
 @contextmanager
 def _config_file():
-    CONFIG_MANAGER.read_config()
+    _read_config_file()
     conf_file_cache = CONFIG_MANAGER.conf_file_cache
     yield conf_file_cache
     _dump_config(conf_file_cache)
+
+
+def _read_config_file():
+    with warnings.catch_warnings():
+        if IS_WINDOWS:
+            warnings.filterwarnings(
+                action="ignore",
+                message="Bad owner or permissions.*",
+                module="snowflake.connector.config_manager",
+            )
+        CONFIG_MANAGER.read_config()
 
 
 def _initialise_logs_section():
