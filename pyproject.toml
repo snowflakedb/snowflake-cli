@@ -24,7 +24,7 @@ dependencies = [
   "urllib3>=1.21.1,<2.3",
   "GitPython==3.1.43",
   "pip",
-  "pydantic==2.6.4"
+  "pydantic==2.7.0"
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
