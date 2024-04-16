@@ -3,7 +3,7 @@ from snowflake.connector.compat import IS_WINDOWS
 
 
 @pytest.mark.integration
-def test_config_file_permissions_warning(runner, recwarn):
+def test_config_file_permissions_warning(runner):
     with pytest.warns() as warnings:
         result = runner.invoke_with_config(["connection", "list"])
 
