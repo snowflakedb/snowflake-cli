@@ -27,12 +27,9 @@ from snowflake.cli.app.dev.docs.generator import generate_docs
 from snowflake.cli.app.dev.pycharm_remote_debug import (
     setup_pycharm_remote_debugger_if_provided,
 )
-from snowflake.cli.app.ignored_warnings import ignore_unuseful_warnings
 from snowflake.cli.app.main_typer import SnowCliMainTyper
 from snowflake.cli.app.printing import MessageResult, print_result
 from snowflake.connector.config_manager import CONFIG_MANAGER
-
-ignore_unuseful_warnings()
 
 log = logging.getLogger(__name__)
 
