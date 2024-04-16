@@ -11,7 +11,7 @@ typer==0.12.2
 urllib3>=1.21.1,<2.3
 GitPython==3.1.43
 pip
-pydantic==2.6.4
+pydantic==2.7.0
 coverage==7.4.4
 pre-commit>=3.5.0
 pytest==8.1.1
