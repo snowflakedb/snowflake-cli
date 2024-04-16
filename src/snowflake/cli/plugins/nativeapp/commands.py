@@ -249,7 +249,7 @@ def app_deploy(
         project_root=cli_context.project_root,
     )
 
-    manager.build_bundle()
-    manager.deploy(prune, files)
+    created_files = manager.build_bundle()
+    manager.deploy(prune, files, created_files)
 
     return MessageResult(f"Deployed successfully.")

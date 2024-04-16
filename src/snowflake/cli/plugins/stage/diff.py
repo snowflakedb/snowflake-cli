@@ -158,21 +158,21 @@ def build_md5_map(list_stage_cursor: SnowflakeCursor) -> Dict[str, str]:
 
 
 def filter_from_diff(
-    result: DiffResult, paths_to_keep: Set[str], prune: bool
+    diff: DiffResult, paths_to_keep: Set[str], prune: bool
 ) -> DiffResult:
     """Modifies the given diff, keeping only the provided paths. If prune is false, remote-only paths will be empty."""
-    result.different = [i for i in result.different if i in paths_to_keep]
-    result.only_local = [i for i in result.only_local if i in paths_to_keep]
+    diff.different = [i for i in diff.different if i in paths_to_keep]
+    diff.only_local = [i for i in diff.only_local if i in paths_to_keep]
     if prune:
-        result.only_on_stage = [i for i in result.only_on_stage if i in paths_to_keep]
+        diff.only_on_stage = [i for i in diff.only_on_stage if i in paths_to_keep]
     else:
-        files_not_removed = [i for i in result.only_on_stage if i in paths_to_keep]
+        files_not_removed = [i for i in diff.only_on_stage if i in paths_to_keep]
         if len(files_not_removed) > 0:
             cc.warning(
                 f"The following files exist only on the stage:\n{files_not_removed}\nUse the --prune flag to delete them from the stage."
             )
-        result.only_on_stage = []
-    return result
+        diff.only_on_stage = []
+    return diff
 
 
 def stage_diff(

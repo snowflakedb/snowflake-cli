@@ -1,13 +1,19 @@
 import os
 from dataclasses import dataclass
-from pathlib import Path, PurePath
-from typing import List, Optional, Tuple, Union
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union
 
-from click import ClickException
+# from click import ClickException
+from click.exceptions import (
+    ClickException,
+)
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 from yaml import safe_load
+
+# Map from source directories and files in the project directory to their path in the deploy directory
+DeployMapping = Dict[str, Path]
 
 
 class DeployRootError(ClickException):
@@ -129,7 +135,23 @@ def delete(path: Path) -> None:
         spath.rmdir(recursive=True)  # remove dir and all contains
 
 
-def symlink_or_copy(src: Path, dst: Path, makedirs=True, overwrite=True) -> None:
+def add_mappings_recursively(
+    src_base: Path, dst_root_dir: Path, mapping: DeployMapping
+) -> None:
+    """
+    Traverses the given directory and recursively adds all files and directories to the mapping.
+    """
+    if not dst_root_dir.is_dir():
+        return
+    for current_dir, dirs, files in os.walk(dst_root_dir):
+        for name in [*dirs, *files]:
+            src_path = str(Path(src_base, current_dir, name))
+            mapping[src_path] = Path(current_dir, name)
+
+
+def symlink_or_copy(
+    src: Path, dst: Path, created_files: DeployMapping, makedirs=True, overwrite=True
+) -> None:
     """
     Tries to create a symlink to src at dst; failing that (i.e. in Windows
     without Administrator / Developer Mode) copies the file from src to dst instead.
@@ -144,8 +166,10 @@ def symlink_or_copy(src: Path, dst: Path, makedirs=True, overwrite=True) -> None
         delete(dst)
     try:
         os.symlink(src, dst)
+        created_files[str(src)] = dst
     except OSError:
         ssrc.copy(dst)
+        created_files[str(ssrc.path)] = dst
 
 
 def translate_artifact(item: Union[dict, str]) -> ArtifactMapping:
@@ -196,10 +220,11 @@ def resolve_without_follow(path: Path) -> Path:
 
 def build_bundle(
     project_root: Path, deploy_root: Path, artifacts: List[ArtifactMapping]
-):
+) -> DeployMapping:
     """
     Prepares a local folder (deploy_root) with configured app artifacts.
     This folder can then be uploaded to a stage.
+    Returns a mapping of all created files/directories, pointing to the source files.
     """
     resolved_root = deploy_root.resolve()
     if resolved_root.exists() and not resolved_root.is_dir():
@@ -217,6 +242,7 @@ def build_bundle(
     if resolved_root.exists():
         delete(resolved_root)
 
+    created_files: DeployMapping = {}
     for artifact in artifacts:
         dest_path = resolve_without_follow(Path(resolved_root, artifact.dest))
         source_paths = get_source_paths(artifact, project_root)
@@ -228,7 +254,9 @@ def build_bundle(
 
             # copy all files as children of the given destination path
             for source_path in source_paths:
-                symlink_or_copy(source_path, dest_path / source_path.name)
+                symlink_or_copy(
+                    source_path, dest_path / source_path.name, created_files
+                )
         else:
             # ensure we are copying into the deploy root, not replacing it!
             if resolved_root not in dest_path.parents:
@@ -236,10 +264,11 @@ def build_bundle(
 
             if len(source_paths) == 1:
                 # copy a single file as the given destination path
-                symlink_or_copy(source_paths[0], dest_path)
+                symlink_or_copy(source_paths[0], dest_path, created_files)
             else:
                 # refuse to map multiple source files to one destination (undefined behaviour)
                 raise TooManyFilesError(dest_path)
+    return created_files
 
 
 def find_manifest_file(deploy_root: Path) -> Path:
@@ -285,24 +314,34 @@ def find_version_info_in_manifest_file(
     return version_name, patch_name
 
 
-def _determine_artifacts_file_path(
-    source: PurePath, artifacts: List[ArtifactMapping]
-) -> Optional[str]:
-    """Given a source file path (relative to project root) that doesn't necessarily exist on the file system, returns the destination path string for the first matching artifact (relative to deploy root), or None if none matched."""
-    for artifact in artifacts:
-        if source.match(artifact.src):
-            if specifies_directory(artifact.dest):
-                return str(PurePath(artifact.dest, source.name))
+def project_path_to_deploy_path(
+    project_paths: List[Path], files_mapping: DeployMapping
+):
+    """Given a list of source paths, returns the deploy destination paths. This function assumes that a build was performed before calling it, and that the build step uses symlinks to point to the source files."""
+
+    def calculate_deploy_path(project_path: str) -> Path:
+        # Find a common directory that exists under the deploy directory
+        root = Path(project_path)
+        while root:
+            if str(root) in files_mapping:
+                break
+            elif root.parent != root:
+                root = root.parent
             else:
-                return artifact.dest
-    return None
+                raise FileNotFoundError(project_path)
 
+        # Construct the target deploy path
+        path_to_symlink = files_mapping[str(root)]
+        path_to_target = Path(project_path).relative_to(root)
+        result = Path(path_to_symlink, path_to_target)
+        if not result.exists():
+            raise FileNotFoundError(result)
+        return result
 
-def map_paths_to_deploy_root(
-    paths: List[Path], artifacts: List[ArtifactMapping]
-) -> List[Optional[str]]:
-    """Maps a list of paths to their location in the deploy root."""
-    new_paths = []
-    for path in paths:
-        new_paths.append(_determine_artifacts_file_path(path, artifacts))
-    return new_paths
+    deploy_paths = []
+    for project_path in map(str, project_paths):
+        if project_path in files_mapping:
+            deploy_paths.append(files_mapping[project_path])
+        else:
+            deploy_paths.append(calculate_deploy_path(project_path))
+    return deploy_paths

@@ -1,16 +1,13 @@
 from __future__ import annotations
 
+import os
 from abc import ABC, abstractmethod
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Optional, Set
+from typing import List, Optional
 
 import jinja2
-from click.exceptions import (
-    ClickException,
-    FileError,
-)
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.definition import (
@@ -28,8 +25,9 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.connection.util import make_snowsight_url
 from snowflake.cli.plugins.nativeapp.artifacts import (
     ArtifactMapping,
+    DeployMapping,
     build_bundle,
-    map_paths_to_deploy_root,
+    project_path_to_deploy_path,
     translate_artifact,
 )
 from snowflake.cli.plugins.nativeapp.constants import (
@@ -106,22 +104,17 @@ def ensure_correct_owner(row: dict, role: str, obj_name: str) -> None:
         raise UnexpectedOwnerError(obj_name, role, actual_owner)
 
 
-def _get_paths_to_sync(
-    relative_files_to_sync: List[Path], deploy_root: Path, remote_paths: Set[str]
-) -> List[str]:
-    """Takes a list of paths that exist either locally or remotely, and returns a merged list of paths relative to the deploy root."""
+def _get_files_to_sync(paths_to_sync: List[Path], deploy_root: Path) -> List[str]:
+    """Takes a list of paths (files and directories), returning a list of all files recursively, stripping the path to deploy root."""
     paths = []
-    for file in relative_files_to_sync:
-        path = Path(deploy_root, file)
-        relpath = path.relative_to(deploy_root)
-        if not path.exists() and str(relpath) not in remote_paths:
-            raise FileError(
-                str(file), "This file does not exist either locally or remotely"
-            )
-        elif path.is_dir():
-            raise ClickException(f"Specifying directories is not supported: '{file}'")
+    for path in paths_to_sync:
+        if path.is_dir():
+            for current_dir, _dirs, files in os.walk(path):
+                for file in files:
+                    deploy_path = deploy_root.relative_to(Path(current_dir, file))
+                    paths.append(str(deploy_path))
         else:
-            paths.append(str(relpath))
+            paths.append(str(deploy_root.relative_to(path)))
     return paths
 
 
@@ -307,17 +300,18 @@ class NativeAppManager(SqlExecutionMixin):
             return False
         return True
 
-    def build_bundle(self) -> None:
+    def build_bundle(self) -> DeployMapping:
         """
         Populates the local deploy root from artifact sources.
         """
-        build_bundle(self.project_root, self.deploy_root, self.artifacts)
+        return build_bundle(self.project_root, self.deploy_root, self.artifacts)
 
     def sync_deploy_root_with_stage(
         self,
         role: str,
         prune: Optional[bool] = None,
         paths_to_sync: Optional[List[Path]] = None,  # relative to project root
+        created_files: Optional[DeployMapping] = None,
     ) -> DiffResult:
         """
         Ensures that the files on our remote stage match the artifacts we have in
@@ -348,18 +342,10 @@ class NativeAppManager(SqlExecutionMixin):
         if prune is None:
             prune = _get_default_deploy_prune_value(paths_to_sync)
 
-        # If we are syncing specific files, remove everything else from the diff
+        # If we are syncing specific files/directories, remove everything else from the diff
         if paths_to_sync is not None and len(paths_to_sync) > 0:
-            paths_relative_to_deploy_root = map_paths_to_deploy_root(
-                paths_to_sync, self.artifacts
-            )
-            paths_to_keep = set(
-                _get_paths_to_sync(
-                    paths_relative_to_deploy_root,
-                    self.deploy_root,
-                    set(diff.only_on_stage),
-                )
-            )
+            deploy_paths = project_path_to_deploy_path(paths_to_sync, created_files)
+            paths_to_keep = set(_get_files_to_sync(deploy_paths, self.deploy_root))
             filter_from_diff(diff, paths_to_keep, prune)
         # If we are syncing everything with no-prune, remove all remote-only files
         elif prune is False:
@@ -494,6 +480,7 @@ class NativeAppManager(SqlExecutionMixin):
         self,
         prune: Optional[bool] = None,
         files_to_sync: Optional[List[Path]] = None,
+        created_files: Optional[DeployMapping] = None,
     ) -> DiffResult:
         """app deploy process"""
 
@@ -506,7 +493,7 @@ class NativeAppManager(SqlExecutionMixin):
 
             # 3. Upload files from deploy root local folder to the above stage
             diff = self.sync_deploy_root_with_stage(
-                self.package_role, prune, files_to_sync
+                self.package_role, prune, files_to_sync, created_files
             )
 
         return diff
