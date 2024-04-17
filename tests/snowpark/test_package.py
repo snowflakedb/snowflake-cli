@@ -11,26 +11,24 @@ from snowflake.cli.plugins.snowpark.package_utils import (
     DownloadUnavailablePackagesResult,
 )
 
-from tests.test_data import test_data
-
 
 class TestPackage:
     @pytest.mark.parametrize(
         "argument",
         [
-            "snowflake-connector-python",
+            "snowflake.core",
             "some-weird-package-we-dont-know",
             "package-with-non-pep-version",
         ],
     )
-    @patch("snowflake.cli.plugins.snowpark.package.anaconda.requests")
     def test_package_lookup(
-        self, mock_requests, argument, monkeypatch, runner, snapshot
+        self,
+        argument,
+        monkeypatch,
+        runner,
+        snapshot,
+        mock_available_packages_sql_result,
     ) -> None:
-        mock_requests.get.return_value = self.mocked_anaconda_response(
-            test_data.anaconda_response
-        )
-
         result = runner.invoke(["snowpark", "package", "lookup", argument])
 
         assert result.exit_code == 0
@@ -58,7 +56,7 @@ class TestPackage:
 
         mock_download.return_value = DownloadUnavailablePackagesResult(
             succeeded=True,
-            packages_available_in_anaconda=[
+            packages_available_in_snowflake=[
                 Requirement.parse("in-anaconda-package>=2")
             ],
         )
@@ -140,7 +138,7 @@ class TestPackage:
         ],
     )
     @patch(
-        "snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel.from_snowflake"
+        "snowflake.cli.plugins.snowpark.package.commands.PackagesAvailableInSnowflakeManager.find_packages_available_in_snowflake"
     )
     def test_lookup_install_flag_are_deprecated(self, _, flags, runner):
         result = runner.invoke(["snowpark", "package", "lookup", "foo", *flags])
@@ -150,7 +148,7 @@ class TestPackage:
         )
 
     @patch(
-        "snowflake.cli.plugins.snowpark.package.commands.AnacondaChannel.from_snowflake"
+        "snowflake.cli.plugins.snowpark.package.commands.PackagesAvailableInSnowflakeManager.find_packages_available_in_snowflake"
     )
     def test_lookup_install_without_flags_does_not_warn(self, _, runner):
         result = runner.invoke(["snowpark", "package", "lookup", "foo"])

@@ -10,7 +10,9 @@ from packaging.requirements import InvalidRequirement
 from packaging.requirements import Requirement as PkgRequirement
 from packaging.version import InvalidVersion, parse
 from requests import HTTPError
+from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.snowpark.models import Requirement
 
 log = logging.getLogger(__name__)
@@ -27,7 +29,7 @@ class FilterRequirementsResult:
 
 
 @dataclass
-class AnacondaPackageData:
+class AvailablePackage:
     snowflake_name: str
     versions: Set[str]
 
@@ -46,12 +48,8 @@ class AnacondaPackageData:
             return False
 
 
-class AnacondaChannel:
-    snowflake_channel_url: str = (
-        "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
-    )
-
-    def __init__(self, packages: Dict[str, AnacondaPackageData]):
+class PackagesAvailableInSnowflake:
+    def __init__(self, packages: Dict[str, AvailablePackage]):
         """
         [packages] should be a dictionary mapping package name to AnacondaPackageData object.
         All package names should be provided in wheel escape format:
@@ -62,27 +60,6 @@ class AnacondaChannel:
     @classmethod
     def empty(cls):
         return cls({})
-
-    @classmethod
-    def from_snowflake(cls):
-        try:
-            response = requests.get(AnacondaChannel.snowflake_channel_url)
-            response.raise_for_status()
-            packages = {}
-            for key, package in response.json()["packages"].items():
-                if not (version := package.get("version")):
-                    continue
-                package_name = package.get("name", key)
-                standardized_name = Requirement.standardize_name(package_name)
-                packages[standardized_name] = AnacondaPackageData(
-                    snowflake_name=package_name, versions={version}
-                )
-            return cls(packages)
-
-        except HTTPError as err:
-            raise ClickException(
-                f"Accessing Snowflake Anaconda channel failed. Reason {err}"
-            )
 
     def is_package_available(
         self, package: Requirement, skip_version_check: bool = False
@@ -123,7 +100,7 @@ class AnacondaChannel:
         except InvalidVersion:
             return list(sorted(package_data.versions, reverse=True))
 
-    def filter_anaconda_packages(
+    def filter_available_packages(
         self, packages: List[Requirement], skip_version_check: bool = False
     ) -> FilterRequirementsResult:
         """
@@ -171,3 +148,70 @@ class AnacondaChannel:
 
         if formatted_requirements:
             file_path.write_text("\n".join(formatted_requirements))
+
+
+class PackagesAvailableInSnowflakeManager(SqlExecutionMixin):
+    _snowflake_channel_url: str = (
+        "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
+    )
+
+    # TODO in v3.0: Keep only SQL query, remove fallback to JSON with channel's metadata
+    def find_packages_available_in_snowflake(self) -> PackagesAvailableInSnowflake:
+        """
+        Finds python packages available in Snowflake to use in functions and stored procedures.
+        It tries to get the list of packages using SQL query
+        but if the try fails then the fallback is to parse JSON containing info about Snowflake's Anaconda channel.
+        """
+        try:
+            packages = self._query_snowflake_for_available_packages()
+        except Exception as ex:
+            log.warning(
+                "Cannot fetch available packages information from Snowflake. "
+                "Please check your connection configuration. "
+                "Fallback to Anaconda channel metadata."
+            )
+            log.debug("Available packages query failure: %s", ex.__str__(), exc_info=ex)
+            packages = self._get_available_packages_from_anaconda_channel_info()
+        return PackagesAvailableInSnowflake(packages)
+
+    def _query_snowflake_for_available_packages(self) -> dict[str, AvailablePackage]:
+        cursor = self._execute_query(
+            "select package_name, version from information_schema.packages where language = 'python'"
+        )
+        if cursor.rowcount is None or cursor.rowcount == 0:
+            raise SnowflakeSQLExecutionError()
+        packages: dict[str, AvailablePackage] = {}
+        for row in cursor:
+            if not (package_name := row[0]):
+                continue
+            if not (version := row[1]):
+                continue
+            standardized_name = Requirement.standardize_name(package_name)
+            if standardized_name in packages:
+                packages[standardized_name].versions.add(version)
+            else:
+                packages[standardized_name] = AvailablePackage(
+                    snowflake_name=package_name, versions={version}
+                )
+        return packages
+
+    def _get_available_packages_from_anaconda_channel_info(
+        self,
+    ) -> dict[str, AvailablePackage]:
+        try:
+            response = requests.get(self._snowflake_channel_url)
+            response.raise_for_status()
+            packages = {}
+            for key, package in response.json()["packages"].items():
+                if not (version := package.get("version")):
+                    continue
+                package_name = package.get("name", key)
+                standardized_name = Requirement.standardize_name(package_name)
+                packages[standardized_name] = AvailablePackage(
+                    snowflake_name=package_name, versions={version}
+                )
+            return packages
+        except HTTPError as err:
+            raise ClickException(
+                f"Accessing Snowflake Anaconda channel failed. Reason {err}"
+            )
