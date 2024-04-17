@@ -17,11 +17,11 @@ from snowflake.cli.plugins.snowpark.models import (
     Requirement,
     YesNoAsk,
 )
-from snowflake.cli.plugins.snowpark.package.manager import upload
-from snowflake.cli.plugins.snowpark.package.packages_in_snowflake import (
-    PackagesAvailableInSnowflake,
-    PackagesAvailableInSnowflakeManager,
+from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
+    AnacondaPackages,
+    AnacondaPackagesManager,
 )
+from snowflake.cli.plugins.snowpark.package.manager import upload
 from snowflake.cli.plugins.snowpark.package_utils import (
     detect_and_log_shared_libraries,
     download_unavailable_packages,
@@ -79,17 +79,17 @@ def package_lookup(
     """
     Checks if a package is available on the Snowflake Anaconda channel.
     """
-    available_packages_manager = PackagesAvailableInSnowflakeManager()
-    available_packages = (
-        available_packages_manager.find_packages_available_in_snowflake()
+    anaconda_packages_manager = AnacondaPackagesManager()
+    anaconda_packages = (
+        anaconda_packages_manager.find_packages_available_in_snowflake_anaconda()
     )
 
     package = Requirement.parse(package_name)
-    if available_packages.is_package_available(package=package):
+    if anaconda_packages.is_package_available(package=package):
         msg = f"Package `{package_name}` is available in Anaconda"
-        if version := available_packages.package_latest_version(package=package):
+        if version := anaconda_packages.package_latest_version(package=package):
             msg += f". Latest available version: {version}."
-        elif versions := available_packages.package_versions(package=package):
+        elif versions := anaconda_packages.package_versions(package=package):
             msg += f" in versions: {', '.join(versions)}."
         return MessageResult(msg)
 
@@ -176,14 +176,14 @@ def package_create(
     """
     with SecurePath.temporary_directory() as packages_dir:
         package = Requirement.parse(name)
-        available_packages_manager = PackagesAvailableInSnowflakeManager()
+        anaconda_packages_manager = AnacondaPackagesManager()
         download_result = download_unavailable_packages(
             requirements=[package],
             target_dir=packages_dir,
-            packages_available_in_snowflake=(
-                PackagesAvailableInSnowflake.empty()
+            anaconda_packages=(
+                AnacondaPackages.empty()
                 if ignore_anaconda
-                else available_packages_manager.find_packages_available_in_snowflake()
+                else anaconda_packages_manager.find_packages_available_in_snowflake_anaconda()
             ),
             skip_version_check=skip_version_check,
             pip_index_url=index_url,
@@ -193,8 +193,7 @@ def package_create(
 
         # check if package was detected as available
         package_available_in_conda = any(
-            p.line == package.line
-            for p in download_result.packages_available_in_snowflake
+            p.line == package.line for p in download_result.anaconda_packages
         )
         if package_available_in_conda:
             return MessageResult(
@@ -228,7 +227,7 @@ def package_create(
         Remember to add it to imports in the procedure or function definition.
         """
         )
-        if download_result.packages_available_in_snowflake:
+        if download_result.anaconda_packages:
             message += dedent(
                 f"""
                 The package {name} is successfully created, but depends on the following
@@ -237,7 +236,7 @@ def package_create(
                 """
             )
             message += "\n".join(
-                (req.line for req in download_result.packages_available_in_snowflake)
+                (req.line for req in download_result.anaconda_packages)
             )
 
         return MessageResult(message)

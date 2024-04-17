@@ -45,9 +45,9 @@ from snowflake.cli.plugins.snowpark.common import (
 )
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
 from snowflake.cli.plugins.snowpark.models import YesNoAsk
-from snowflake.cli.plugins.snowpark.package.packages_in_snowflake import (
-    PackagesAvailableInSnowflake,
-    PackagesAvailableInSnowflakeManager,
+from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
+    AnacondaPackages,
+    AnacondaPackagesManager,
 )
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
@@ -365,7 +365,7 @@ def build(
     )
     log.info("Building package using sources from: %s", snowpark_paths.source.path)
 
-    available_packages_manager = PackagesAvailableInSnowflakeManager()
+    anaconda_packages_manager = AnacondaPackagesManager()
 
     with SecurePath.temporary_directory() as packages_dir:
         if snowpark_paths.defined_requirements_file.exists():
@@ -373,15 +373,15 @@ def build(
             requirements = package_utils.parse_requirements(
                 requirements_file=snowpark_paths.defined_requirements_file,
             )
-            packages_available_in_snowflake = (
-                PackagesAvailableInSnowflake.empty()
+            anaconda_packages = (
+                AnacondaPackages.empty()
                 if ignore_anaconda
-                else available_packages_manager.find_packages_available_in_snowflake()
+                else anaconda_packages_manager.find_packages_available_in_snowflake_anaconda()
             )
             download_result = package_utils.download_unavailable_packages(
                 requirements=requirements,
                 target_dir=packages_dir,
-                packages_available_in_snowflake=packages_available_in_snowflake,
+                anaconda_packages=anaconda_packages,
                 skip_version_check=skip_version_check,
                 pip_index_url=index_url,
             )
@@ -403,10 +403,10 @@ def build(
                         "Some packages contain shared (.so/.dll) libraries. "
                         "Try again with --allow-shared-libraries."
                     )
-            if download_result.packages_available_in_snowflake:
-                packages_available_in_snowflake.write_requirements_file_in_snowflake_format(  # type: ignore
+            if download_result.anaconda_packages:
+                anaconda_packages.write_requirements_file_in_snowflake_format(  # type: ignore
                     file_path=snowpark_paths.snowflake_requirements_file,
-                    requirements=download_result.packages_available_in_snowflake,
+                    requirements=download_result.anaconda_packages,
                 )
 
         zip_dir(

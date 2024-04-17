@@ -58,9 +58,7 @@ class TestPackage:
 
         mock_download.return_value = DownloadUnavailablePackagesResult(
             succeeded=True,
-            packages_available_in_snowflake=[
-                Requirement.parse("in-anaconda-package>=2")
-            ],
+            anaconda_packages=[Requirement.parse("in-anaconda-package>=2")],
         )
 
         with caplog.at_level(
@@ -140,7 +138,7 @@ class TestPackage:
         ],
     )
     @patch(
-        "snowflake.cli.plugins.snowpark.package.commands.PackagesAvailableInSnowflakeManager.find_packages_available_in_snowflake"
+        "snowflake.cli.plugins.snowpark.package.commands.AnacondaPackagesManager.find_packages_available_in_snowflake_anaconda"
     )
     def test_lookup_install_flag_are_deprecated(self, _, flags, runner):
         result = runner.invoke(["snowpark", "package", "lookup", "foo", *flags])
@@ -150,7 +148,7 @@ class TestPackage:
         )
 
     @patch(
-        "snowflake.cli.plugins.snowpark.package.commands.PackagesAvailableInSnowflakeManager.find_packages_available_in_snowflake"
+        "snowflake.cli.plugins.snowpark.package.commands.AnacondaPackagesManager.find_packages_available_in_snowflake_anaconda"
     )
     def test_lookup_install_without_flags_does_not_warn(self, _, runner):
         result = runner.invoke(["snowpark", "package", "lookup", "foo"])

@@ -48,7 +48,7 @@ class AvailablePackage:
             return False
 
 
-class PackagesAvailableInSnowflake:
+class AnacondaPackages:
     def __init__(self, packages: Dict[str, AvailablePackage]):
         """
         [packages] should be a dictionary mapping package name to AnacondaPackageData object.
@@ -150,13 +150,13 @@ class PackagesAvailableInSnowflake:
             file_path.write_text("\n".join(formatted_requirements))
 
 
-class PackagesAvailableInSnowflakeManager(SqlExecutionMixin):
+class AnacondaPackagesManager(SqlExecutionMixin):
     _snowflake_channel_url: str = (
         "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
     )
 
     # TODO in v3.0: Keep only SQL query, remove fallback to JSON with channel's metadata
-    def find_packages_available_in_snowflake(self) -> PackagesAvailableInSnowflake:
+    def find_packages_available_in_snowflake_anaconda(self) -> AnacondaPackages:
         """
         Finds python packages available in Snowflake to use in functions and stored procedures.
         It tries to get the list of packages using SQL query
@@ -172,7 +172,7 @@ class PackagesAvailableInSnowflakeManager(SqlExecutionMixin):
             )
             log.debug("Available packages query failure: %s", ex.__str__(), exc_info=ex)
             packages = self._get_available_packages_from_anaconda_channel_info()
-        return PackagesAvailableInSnowflake(packages)
+        return AnacondaPackages(packages)
 
     def _query_snowflake_for_available_packages(self) -> dict[str, AvailablePackage]:
         cursor = self._execute_query(

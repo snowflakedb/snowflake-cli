@@ -4,10 +4,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from snowflake.cli.plugins.snowpark.models import Requirement
-from snowflake.cli.plugins.snowpark.package.packages_in_snowflake import (
+from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
+    AnacondaPackages,
+    AnacondaPackagesManager,
     AvailablePackage,
-    PackagesAvailableInSnowflake,
-    PackagesAvailableInSnowflakeManager,
 )
 from snowflake.connector import Error as ConnectorError
 
@@ -15,7 +15,7 @@ from tests.snowpark.mocks import mock_available_packages_sql_result  # noqa: F40
 from tests.test_data import test_data
 from tests.testing_utils.fixtures import TEST_DIR
 
-PACKAGES_AVAILABLE_IN_SNOWFLAKE = PackagesAvailableInSnowflake(
+ANACONDA_PACKAGES = AnacondaPackages(
     packages={
         "shrubbery": AvailablePackage(
             snowflake_name="shrubbery", versions={"1.2.1", "1.2.2"}
@@ -30,65 +30,44 @@ PACKAGES_AVAILABLE_IN_SNOWFLAKE = PackagesAvailableInSnowflake(
 
 def test_latest_version():
     assert (
-        PACKAGES_AVAILABLE_IN_SNOWFLAKE.package_latest_version(
-            Requirement.parse("shrubbery")
-        )
+        ANACONDA_PACKAGES.package_latest_version(Requirement.parse("shrubbery"))
         == "1.2.2"
     )
     assert (
-        PACKAGES_AVAILABLE_IN_SNOWFLAKE.package_latest_version(
-            Requirement.parse("dummy_pkg")
-        )
+        ANACONDA_PACKAGES.package_latest_version(Requirement.parse("dummy_pkg"))
         == "1.1.0"
     )
     assert (
-        PACKAGES_AVAILABLE_IN_SNOWFLAKE.package_latest_version(
-            Requirement.parse("dummy-pkg")
-        )
+        ANACONDA_PACKAGES.package_latest_version(Requirement.parse("dummy-pkg"))
         == "1.1.0"
     )
+    assert ANACONDA_PACKAGES.package_latest_version(Requirement.parse("jpeg")) is None
     assert (
-        PACKAGES_AVAILABLE_IN_SNOWFLAKE.package_latest_version(
-            Requirement.parse("jpeg")
-        )
-        is None
-    )
-    assert (
-        PACKAGES_AVAILABLE_IN_SNOWFLAKE.package_latest_version(
-            Requirement.parse("weird-pkg")
-        )
-        is None
+        ANACONDA_PACKAGES.package_latest_version(Requirement.parse("weird-pkg")) is None
     )
 
 
 def test_versions():
-    assert PACKAGES_AVAILABLE_IN_SNOWFLAKE.package_versions(
-        Requirement.parse("shrubbery")
-    ) == [
+    assert ANACONDA_PACKAGES.package_versions(Requirement.parse("shrubbery")) == [
         "1.2.2",
         "1.2.1",
     ]
-    assert PACKAGES_AVAILABLE_IN_SNOWFLAKE.package_versions(
-        Requirement.parse("dummy_pkg")
-    ) == [
+    assert ANACONDA_PACKAGES.package_versions(Requirement.parse("dummy_pkg")) == [
         "1.1.0",
         "1.0.0",
         "0.1.1",
     ]
-    assert PACKAGES_AVAILABLE_IN_SNOWFLAKE.package_versions(
-        Requirement.parse("dummy-pkg")
-    ) == [
+    assert ANACONDA_PACKAGES.package_versions(Requirement.parse("dummy-pkg")) == [
         "1.1.0",
         "1.0.0",
         "0.1.1",
     ]
-    assert PACKAGES_AVAILABLE_IN_SNOWFLAKE.package_versions(
-        Requirement.parse("jpeg")
-    ) == ["9e", "9d", "9b"]
-    assert (
-        PACKAGES_AVAILABLE_IN_SNOWFLAKE.package_versions(Requirement.parse("weird-pkg"))
-        == []
-    )
+    assert ANACONDA_PACKAGES.package_versions(Requirement.parse("jpeg")) == [
+        "9e",
+        "9d",
+        "9b",
+    ]
+    assert ANACONDA_PACKAGES.package_versions(Requirement.parse("weird-pkg")) == []
 
 
 @pytest.mark.parametrize(
@@ -114,17 +93,14 @@ def test_versions():
 )
 def test_check_if_package_is_avaiable_in_conda(argument, expected):
     assert (
-        PACKAGES_AVAILABLE_IN_SNOWFLAKE.is_package_available(
-            Requirement.parse(argument)
-        )
-        == expected
+        ANACONDA_PACKAGES.is_package_available(Requirement.parse(argument)) == expected
     )
 
 
 def test_anaconda_packages_from_sql_query(mock_available_packages_sql_result):
-    available_packages_manager = PackagesAvailableInSnowflakeManager()
-    available_packages = (
-        available_packages_manager.find_packages_available_in_snowflake()
+    anaconda_packages_manager = AnacondaPackagesManager()
+    anaconda_packages = (
+        anaconda_packages_manager.find_packages_available_in_snowflake_anaconda()
     )
 
     packages = [
@@ -132,7 +108,7 @@ def test_anaconda_packages_from_sql_query(mock_available_packages_sql_result):
         Requirement.parse("FuelSDK>=0.9.3"),
         Requirement.parse("Pamela==1.0.1"),
     ]
-    split_requirements = available_packages.filter_available_packages(packages=packages)
+    split_requirements = anaconda_packages.filter_available_packages(packages=packages)
     assert len(split_requirements.in_snowflake) == 1
     assert len(split_requirements.unavailable) == 2
     assert split_requirements.in_snowflake[0].name == "pandas"
@@ -144,14 +120,14 @@ def test_anaconda_packages_from_sql_query(mock_available_packages_sql_result):
     assert split_requirements.unavailable[1].name == "pamela"
     assert split_requirements.unavailable[1].specs == [("==", "1.0.1")]
 
-    assert available_packages.is_package_available(Requirement.parse_line("pamela"))
-    assert available_packages.is_package_available(
+    assert anaconda_packages.is_package_available(Requirement.parse_line("pamela"))
+    assert anaconda_packages.is_package_available(
         Requirement.parse_line("pandas==1.4.4")
     )
-    assert available_packages.is_package_available(
+    assert anaconda_packages.is_package_available(
         Requirement.parse_line("snowflake.core")
     )
-    assert available_packages.is_package_available(Requirement.parse_line("snowflake"))
+    assert anaconda_packages.is_package_available(Requirement.parse_line("snowflake"))
 
 
 @mock.patch("requests.get")
@@ -166,9 +142,9 @@ def test_filter_anaconda_packages_from_fallback_to_channel_data(mock_connect, mo
         mock_response.json.return_value = json.load(fh)
 
     mock_get.return_value = mock_response
-    available_packages_manager = PackagesAvailableInSnowflakeManager()
-    available_packages = (
-        available_packages_manager.find_packages_available_in_snowflake()
+    anaconda_packages_manager = AnacondaPackagesManager()
+    anaconda_packages = (
+        anaconda_packages_manager.find_packages_available_in_snowflake_anaconda()
     )
 
     packages = [
@@ -176,7 +152,7 @@ def test_filter_anaconda_packages_from_fallback_to_channel_data(mock_connect, mo
         Requirement.parse("FuelSDK>=0.9.3"),
         Requirement.parse("Pamela==1.0.1"),
     ]
-    split_requirements = available_packages.filter_available_packages(packages=packages)
+    split_requirements = anaconda_packages.filter_available_packages(packages=packages)
     assert len(split_requirements.in_snowflake) == 1
     assert len(split_requirements.unavailable) == 2
     assert split_requirements.in_snowflake[0].name == "pandas"
@@ -188,13 +164,13 @@ def test_filter_anaconda_packages_from_fallback_to_channel_data(mock_connect, mo
     assert split_requirements.unavailable[1].name == "pamela"
     assert split_requirements.unavailable[1].specs == [("==", "1.0.1")]
 
-    assert available_packages.is_package_available(Requirement.parse_line("pamela"))
-    assert available_packages.is_package_available(
+    assert anaconda_packages.is_package_available(Requirement.parse_line("pamela"))
+    assert anaconda_packages.is_package_available(
         Requirement.parse_line("pandas==1.4.4")
     )
 
 
-@patch("snowflake.cli.plugins.snowpark.package.packages_in_snowflake.requests")
+@patch("snowflake.cli.plugins.snowpark.package.anaconda_packages.requests")
 @mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
 def test_anaconda_packages_from_fallback_to_channel_data(mock_connect, mock_requests):
     mock_connect.side_effect = ConnectorError("test error")
@@ -204,14 +180,14 @@ def test_anaconda_packages_from_fallback_to_channel_data(mock_connect, mock_requ
     mock_response.json.return_value = test_data.anaconda_response
     mock_requests.get.return_value = mock_response
 
-    available_packages_manager = PackagesAvailableInSnowflakeManager()
-    available_packages = (
-        available_packages_manager.find_packages_available_in_snowflake()
+    anaconda_packages_manager = AnacondaPackagesManager()
+    anaconda_packages = (
+        anaconda_packages_manager.find_packages_available_in_snowflake_anaconda()
     )
 
-    assert available_packages.is_package_available(Requirement.parse_line("streamlit"))
+    assert anaconda_packages.is_package_available(Requirement.parse_line("streamlit"))
 
-    anaconda_packages = available_packages.filter_available_packages(test_data.packages)
+    anaconda_packages = anaconda_packages.filter_available_packages(test_data.packages)
     assert (
         Requirement.parse_line("snowflake-connector-python")
         in anaconda_packages.in_snowflake

@@ -10,8 +10,8 @@ import snowflake.cli.plugins.snowpark.package.utils
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
 from snowflake.cli.plugins.snowpark import package_utils
-from snowflake.cli.plugins.snowpark.package.packages_in_snowflake import (
-    PackagesAvailableInSnowflake,
+from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
+    AnacondaPackages,
 )
 
 from tests.test_data import test_data
@@ -145,7 +145,7 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
         package_utils.download_unavailable_packages(
             requirements=requirements,
             target_dir=SecurePath(".packages"),
-            packages_available_in_snowflake=PackagesAvailableInSnowflake.empty(),
+            anaconda_packages=AnacondaPackages.empty(),
         )
 
     assert "pip failed with return code 42" in caplog.text
