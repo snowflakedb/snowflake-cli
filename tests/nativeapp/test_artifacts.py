@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -11,9 +12,11 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     SourceNotFoundError,
     TooManyFilesError,
     build_bundle,
-    map_paths_to_deploy_root,
+    project_path_to_deploy_path,
     translate_artifact,
 )
+
+from tests.nativeapp.utils import touch
 
 
 def trimmed_contents(path: Path) -> Optional[str]:
@@ -167,30 +170,55 @@ def test_too_many_files(project_definition_files):
 
 
 @pytest.mark.parametrize(
-    "file_paths,artifacts,expected_destination",
+    "project_paths,expected_paths,expected_exception",
     [
         [
-            ["file1"],
-            [ArtifactMapping("file1", "file2")],
-            ["file2"],
+            ["file", "dir"],
+            ["deploy/file", "deploy/dir"],
+            None,
         ],
         [
-            ["src/file1.txt", "src/file2.txt"],
-            [ArtifactMapping("src/*", "app/")],
-            ["app/file1.txt", "app/file2.txt"],
+            ["dir/nested_file1", "dir/nested_dir/nested_file2"],
+            ["deploy/dir/nested_file1", "deploy/dir/nested_dir/nested_file2"],
+            None,
         ],
         [
-            ["src/file.txt"],
-            [ArtifactMapping("src/*", "nested/dir/")],
-            ["nested/dir/file.txt"],
+            ["non_existing_file"],
+            [],
+            FileNotFoundError,
         ],
         [
-            ["non-matching.txt"],
-            [ArtifactMapping("src/", "app/")],
-            [None],
+            ["dir/nested_dir/non_existing_file"],
+            [],
+            FileNotFoundError,
         ],
     ],
 )
-def test_map_paths_to_deploy_root(file_paths, artifacts, expected_destination):
-    result = map_paths_to_deploy_root([Path(f) for f in file_paths], artifacts)
-    assert result == expected_destination
+def test_project_path_to_deploy_path(
+    temp_dir,
+    project_paths,
+    expected_paths,
+    expected_exception,
+):
+    # Source files
+    touch("file")
+    touch("dir/nested_file1")
+    touch("dir/nested_dir/nested_file2")
+    # Build
+    os.mkdir("deploy")
+    os.symlink("file", "deploy/file")
+    os.symlink(Path("dir").absolute(), Path("deploy/dir"))
+
+    files_mapping = {
+        "dir": Path("deploy/dir"),
+        "file": Path("deploy/file"),
+    }
+
+    if expected_exception is None:
+        result = project_path_to_deploy_path(
+            [Path(p) for p in project_paths], files_mapping
+        )
+        assert result == [Path(p) for p in expected_paths]
+    else:
+        with pytest.raises(expected_exception):
+            project_path_to_deploy_path([Path(p) for p in project_paths], files_mapping)

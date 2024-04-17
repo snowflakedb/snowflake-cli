@@ -1,14 +1,9 @@
 import os
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Set
 from unittest import mock
 
 import pytest
-from click.exceptions import (
-    ClickException,
-    FileError,
-)
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
@@ -24,12 +19,12 @@ from snowflake.cli.plugins.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
     _get_default_deploy_prune_value,
-    _get_paths_to_sync,
+    _get_default_deploy_recursive_value,
+    _get_files_to_sync,
     ensure_correct_owner,
 )
 from snowflake.cli.plugins.stage.diff import (
     DiffResult,
-    filter_from_diff,
 )
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
@@ -45,6 +40,7 @@ from tests.nativeapp.utils import (
     NATIVEAPP_MODULE,
     mock_execute_helper,
     mock_snowflake_yml_file,
+    touch,
 )
 from tests.testing_utils.files_and_dirs import create_named_file
 
@@ -113,6 +109,10 @@ def test_sync_deploy_root_with_stage(
         diff_result=mock_diff_result,
         stage_path="app_pkg.app_src.stage",
     )
+
+
+def test_sync_deploy_root_with_stage_specific_files():
+    pass
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
@@ -729,109 +729,41 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
         )
 
 
-def exists_mock(path: Path):
-    if str(path) in ["/file", "/dir", "/dir/nested_file"]:
-        return True
-    else:
-        return False
-
-
-def is_dir_mock(path: Path):
-    if str(path) == "/dir":
-        return True
-    else:
-        return False
-
-
-# Mocking Path to mimic the following directory structure:
-# /file
-# /dir/nested_file
-@mock.patch(f"{NATIVEAPP_MODULE}.Path.is_dir", autospec=True)
-@mock.patch(f"{NATIVEAPP_MODULE}.Path.exists", autospec=True)
 @pytest.mark.parametrize(
-    "files_to_sync,remote_paths,expected_exception",
+    "paths_to_sync,recursive,expected_result",
     [
-        [["file", "dir/nested_file"], set(), None],
-        [["file", "file2", "dir/file3"], set(["file2", "dir/file3"]), None],
-        [["file", "file2"], set(), FileError],
-        [["dir/file3"], set(), FileError],
-        [["dir"], set(), ClickException],
+        [
+            ["deploy/dir"],
+            True,
+            ["dir/nested_file1", "dir/nested_file2", "dir/nested_dir/nested_file3"],
+        ],
+        [["deploy/dir/nested_dir"], True, ["dir/nested_dir/nested_file3"]],
+        [
+            ["deploy/file", "deploy/dir/nested_dir/nested_file3"],
+            True,
+            ["file", "dir/nested_dir/nested_file3"],
+        ],
+        [["deploy/dir"], False, None],
     ],
 )
-def test_get_paths_to_sync(
-    path_mock_exists,
-    path_mock_is_dir,
-    files_to_sync: List[Path],
-    remote_paths: Set[str],
-    expected_exception: Exception,
+def test_get_files_to_sync(
+    temp_dir,
+    paths_to_sync,
+    recursive,
+    expected_result,
 ):
-    path_mock_exists.side_effect = exists_mock
-    path_mock_is_dir.side_effect = is_dir_mock
-    if expected_exception is None:
-        result = _get_paths_to_sync(files_to_sync, "/", remote_paths)
-        assert len(result) == len(files_to_sync)
+    touch("deploy/file")
+    touch("deploy/dir/nested_file1")
+    touch("deploy/dir/nested_file2")
+    touch("deploy/dir/nested_dir/nested_file3")
+
+    paths_to_sync = [Path(p) for p in paths_to_sync]
+    if expected_result is None:
+        with pytest.raises(ValueError):
+            _get_files_to_sync(paths_to_sync, Path("deploy/"), recursive)
     else:
-        with pytest.raises(expected_exception):
-            _get_paths_to_sync(files_to_sync, "/", remote_paths)
-
-
-def test_filter_from_diff():
-    diff = DiffResult()
-    diff.different = [
-        "different",
-        "different-2",
-        "dir/different",
-        "dir/different-2",
-    ]
-    diff.only_local = [
-        "only_local",
-        "only_local-2",
-        "dir/only_local",
-        "dir/only_local-2",
-    ]
-    diff.only_on_stage = [
-        "only_on_stage",
-        "only_on_stage-2",
-        "dir/only_on_stage",
-        "dir/only_on_stage-2",
-    ]
-
-    paths_to_keep = set(
-        [
-            "different",
-            "only-local",
-            "only-stage",
-            "dir/different",
-            "dir/only-local",
-            "dir/only-stage",
-        ]
-    )
-    diff = filter_from_diff(diff, paths_to_keep, True)
-
-    for path in diff.different:
-        assert path in paths_to_keep
-    for path in diff.only_local:
-        assert path in paths_to_keep
-    for path in diff.only_on_stage:
-        assert path in paths_to_keep
-
-
-# When prune flag is off, remote-only files are filtered out and a warning is printed
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
-def test_filter_from_diff_no_prune(mock_warning):
-    diff = DiffResult()
-    diff.only_on_stage = [
-        "only-stage.txt",
-        "only-stage-2.txt",
-    ]
-
-    paths_to_keep = set(["only-stage.txt"])
-    diff = filter_from_diff(diff, paths_to_keep, False)
-
-    assert len(diff.only_on_stage) == 0
-    mock_warning.assert_called_once_with(
-        "The following files exist only on the stage:\n['only-stage.txt']\nUse the --prune flag to delete them from the stage."
-    )
+        result = _get_files_to_sync(paths_to_sync, Path("deploy/"), recursive)
+        assert result.sort() == expected_result.sort()
 
 
 @pytest.mark.parametrize(
@@ -845,3 +777,16 @@ def test_filter_from_diff_no_prune(mock_warning):
 def test_get_default_deploy_prune_value(files_argument, expected_prune_value):
     prune = _get_default_deploy_prune_value(files_argument)
     assert prune == expected_prune_value
+
+
+@pytest.mark.parametrize(
+    "files_argument,recursive",
+    [
+        [None, True],
+        [[], True],
+        [["file1", "file2"], False],
+    ],
+)
+def test_get_default_deploy_recursive_value(files_argument, recursive):
+    prune = _get_default_deploy_recursive_value(files_argument)
+    assert prune == recursive

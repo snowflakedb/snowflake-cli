@@ -117,10 +117,10 @@ def _get_files_to_sync(
                 )
             for current_dir, _dirs, files in os.walk(path):
                 for file in files:
-                    deploy_path = deploy_root.relative_to(Path(current_dir, file))
+                    deploy_path = Path(current_dir, file).relative_to(deploy_root)
                     paths.append(str(deploy_path))
         else:
-            paths.append(str(deploy_root.relative_to(path)))
+            paths.append(str(path.relative_to(deploy_root)))
     return paths
 
 

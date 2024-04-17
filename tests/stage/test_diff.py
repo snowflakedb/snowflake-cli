@@ -12,6 +12,7 @@ from snowflake.cli.plugins.stage.diff import (
     build_md5_map,
     delete_only_on_stage_files,
     enumerate_files,
+    filter_from_diff,
     get_stage_path_from_file,
     put_files_on_stage,
     stage_diff,
@@ -19,6 +20,7 @@ from snowflake.cli.plugins.stage.diff import (
 )
 from snowflake.cli.plugins.stage.manager import StageManager
 
+from tests.nativeapp.utils import NATIVEAPP_MODULE
 from tests.testing_utils.files_and_dirs import temp_local_dir
 
 STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
@@ -241,3 +243,62 @@ def test_sync_local_diff_with_stage(mock_remove, other_directory):
             diff_result=diff,
             stage_path=stage_name,
         )
+
+
+def test_filter_from_diff():
+    diff = DiffResult()
+    diff.different = [
+        "different",
+        "different-2",
+        "dir/different",
+        "dir/different-2",
+    ]
+    diff.only_local = [
+        "only_local",
+        "only_local-2",
+        "dir/only_local",
+        "dir/only_local-2",
+    ]
+    diff.only_on_stage = [
+        "only_on_stage",
+        "only_on_stage-2",
+        "dir/only_on_stage",
+        "dir/only_on_stage-2",
+    ]
+
+    paths_to_keep = set(
+        [
+            "different",
+            "only-local",
+            "only-stage",
+            "dir/different",
+            "dir/only-local",
+            "dir/only-stage",
+        ]
+    )
+    diff = filter_from_diff(diff, paths_to_keep, True)
+
+    for path in diff.different:
+        assert path in paths_to_keep
+    for path in diff.only_local:
+        assert path in paths_to_keep
+    for path in diff.only_on_stage:
+        assert path in paths_to_keep
+
+
+# When prune flag is off, remote-only files are filtered out and a warning is printed
+@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
+def test_filter_from_diff_no_prune(mock_warning):
+    diff = DiffResult()
+    diff.only_on_stage = [
+        "only-stage.txt",
+        "only-stage-2.txt",
+    ]
+
+    paths_to_keep = set(["only-stage.txt"])
+    diff = filter_from_diff(diff, paths_to_keep, False)
+
+    assert len(diff.only_on_stage) == 0
+    mock_warning.assert_called_once_with(
+        "The following files exist only on the stage:\n['only-stage.txt']\nUse the --prune flag to delete them from the stage."
+    )
