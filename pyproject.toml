@@ -20,7 +20,7 @@ dependencies = [
   "setuptools==69.5.1",
   "snowflake-connector-python[secure-local-storage]==3.7.1",
   "tomlkit==0.12.3",
-  "typer==0.12.2",
+  "typer==0.12.3",
   "urllib3>=1.21.1,<2.3",
   "GitPython==3.1.43",
   "pip",
