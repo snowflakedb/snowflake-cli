@@ -634,17 +634,21 @@ def test_snowpark_vector_function(
 
 
 @pytest.mark.integration
-def test_build_skip_version_check(runner, project_directory, alter_requirements_txt):
+def test_build_skip_version_check(
+    runner, project_directory, alter_requirements_txt, test_database
+):
     # test case: package is available in Anaconda, but not in required version
     with project_directory("snowpark") as tmp_dir:
         alter_requirements_txt(tmp_dir / "requirements.txt", ["matplotlib>=1000"])
-        result = runner.invoke(["snowpark", "build"])
+        result = runner.invoke_with_connection(["snowpark", "build"])
         assert result.exit_code == 1, result.output
         assert ("pip failed with return code") in result.output
         assert (" Most likely reasons:") in result.output
         assert (" * incorrect package name or version") in result.output
 
-        result = runner.invoke(["snowpark", "build", "--skip-version-check"])
+        result = runner.invoke_with_connection(
+            ["snowpark", "build", "--skip-version-check"]
+        )
         assert result.exit_code == 0, result.output
         assert "Build done. Artifact path: " in result.output
 
@@ -659,11 +663,11 @@ def test_build_skip_version_check(runner, project_directory, alter_requirements_
     ],
 )
 def test_build_with_anaconda_dependencies(
-    flags, runner, project_directory, alter_requirements_txt
+    flags, runner, project_directory, alter_requirements_txt, test_database
 ):
     with project_directory("snowpark") as tmp_dir:
-        alter_requirements_txt(tmp_dir / "requirements.txt", ["july"])
-        result = runner.invoke(["snowpark", "build", *flags])
+        alter_requirements_txt(tmp_dir / "requirements.txt", ["july", "snowflake.core"])
+        result = runner.invoke_with_connection(["snowpark", "build", *flags])
         assert result.exit_code == 0, result.output
         assert "Build done. Artifact path:" in result.output
 
@@ -674,17 +678,18 @@ def test_build_with_anaconda_dependencies(
             assert requirements_snowflake.exists()
             assert "matplotlib" in requirements_snowflake.read_text()
             assert "numpy" in requirements_snowflake.read_text()
+            assert "snowflake.core" in requirements_snowflake.read_text()
 
 
 @pytest.mark.integration
 def test_build_with_non_anaconda_dependencies(
-    runner, project_directory, alter_requirements_txt
+    runner, project_directory, alter_requirements_txt, test_database
 ):
     with project_directory("snowpark") as tmp_dir:
         alter_requirements_txt(
             tmp_dir / "requirements.txt", ["dummy-pkg-for-tests-with-deps"]
         )
-        result = runner.invoke(["snowpark", "build"])
+        result = runner.invoke_with_connection(["snowpark", "build"])
         assert result.exit_code == 0, result.output
         assert "Build done. Artifact path:" in result.output
 
@@ -695,11 +700,13 @@ def test_build_with_non_anaconda_dependencies(
 
 @pytest.mark.integration
 def test_build_shared_libraries_error(
-    runner, project_directory, alter_requirements_txt
+    runner, project_directory, alter_requirements_txt, test_database
 ):
     with project_directory("snowpark") as tmp_dir:
         alter_requirements_txt(tmp_dir / "requirements.txt", ["numpy"])
-        result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
+        result = runner.invoke_with_connection(
+            ["snowpark", "build", "--ignore-anaconda"]
+        )
         assert result.exit_code == 1, result.output
         assert (
             "Some packages contain shared (.so/.dll) libraries. Try again with"
@@ -710,7 +717,9 @@ def test_build_shared_libraries_error(
 
 
 @pytest.mark.integration
-def test_build_package_from_github(runner, project_directory, alter_requirements_txt):
+def test_build_package_from_github(
+    runner, project_directory, alter_requirements_txt, test_database
+):
     with project_directory("snowpark") as tmp_dir:
         alter_requirements_txt(
             tmp_dir / "requirements.txt",
@@ -718,7 +727,7 @@ def test_build_package_from_github(runner, project_directory, alter_requirements
                 "git+https://github.com/sfc-gh-turbaszek/dummy-pkg-for-tests-with-deps.git"
             ],
         )
-        result = runner.invoke(["snowpark", "build"])
+        result = runner.invoke_with_connection(["snowpark", "build"])
         assert result.exit_code == 0, result.output
         assert "Build done. Artifact path:" in result.output
 
@@ -737,7 +746,7 @@ def test_ignore_anaconda_uses_version_from_zip(
         command = ["snowpark", "build", "--allow-shared-libraries"]
         if flag:
             command.append(flag)
-        result = runner.invoke(command)
+        result = runner.invoke_with_connection(command)
         assert result.exit_code == 0, result.output
 
         result = runner.invoke_with_connection(["snowpark", "deploy"])
