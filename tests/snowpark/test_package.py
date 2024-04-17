@@ -11,6 +11,8 @@ from snowflake.cli.plugins.snowpark.package_utils import (
     DownloadUnavailablePackagesResult,
 )
 
+from tests.snowpark.mocks import mock_available_packages_sql_result  # noqa: F401
+
 
 class TestPackage:
     @pytest.mark.parametrize(

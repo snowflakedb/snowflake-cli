@@ -11,6 +11,7 @@ from snowflake.cli.plugins.snowpark.package.packages_in_snowflake import (
 )
 from snowflake.connector import Error as ConnectorError
 
+from tests.snowpark.mocks import mock_available_packages_sql_result  # noqa: F401
 from tests.test_data import test_data
 from tests.testing_utils.fixtures import TEST_DIR
 
