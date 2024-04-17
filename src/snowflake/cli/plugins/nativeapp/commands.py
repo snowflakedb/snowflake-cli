@@ -234,6 +234,12 @@ def app_deploy(
         default=None,
         help=f"""Controls whether files that exist only remotely will be deleted from the stage. When specific files are specified, the default is --no-prune. When no files are specified (sync all changes), the default is --prune.""",
     ),
+    recursive: Optional[bool] = typer.Option(
+        None,
+        "--recursive",
+        "-r",
+        help=f"""Controls whether the specified directories should be deployed including all of their contents. When no files are specified (sync all changes), the default is --recursive.""",
+    ),
     files: Optional[List[Path]] = typer.Argument(
         default=None,
         show_default=False,
@@ -250,6 +256,6 @@ def app_deploy(
     )
 
     created_files = manager.build_bundle()
-    manager.deploy(prune, files, created_files)
+    manager.deploy(prune, files, recursive, created_files)
 
     return MessageResult(f"Deployed successfully.")

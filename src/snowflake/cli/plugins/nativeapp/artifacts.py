@@ -135,20 +135,6 @@ def delete(path: Path) -> None:
         spath.rmdir(recursive=True)  # remove dir and all contains
 
 
-def add_mappings_recursively(
-    src_base: Path, dst_root_dir: Path, mapping: DeployMapping
-) -> None:
-    """
-    Traverses the given directory and recursively adds all files and directories to the mapping.
-    """
-    if not dst_root_dir.is_dir():
-        return
-    for current_dir, dirs, files in os.walk(dst_root_dir):
-        for name in [*dirs, *files]:
-            src_path = str(Path(src_base, current_dir, name))
-            mapping[src_path] = Path(current_dir, name)
-
-
 def symlink_or_copy(
     src: Path, dst: Path, created_files: DeployMapping, makedirs=True, overwrite=True
 ) -> None:

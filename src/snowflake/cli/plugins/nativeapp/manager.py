@@ -104,11 +104,17 @@ def ensure_correct_owner(row: dict, role: str, obj_name: str) -> None:
         raise UnexpectedOwnerError(obj_name, role, actual_owner)
 
 
-def _get_files_to_sync(paths_to_sync: List[Path], deploy_root: Path) -> List[str]:
+def _get_files_to_sync(
+    paths_to_sync: List[Path], deploy_root: Path, recursive: bool
+) -> List[str]:
     """Takes a list of paths (files and directories), returning a list of all files recursively, stripping the path to deploy root."""
     paths = []
     for path in paths_to_sync:
         if path.is_dir():
+            if not recursive:
+                raise ValueError(
+                    f"{path} is a directory. Add the -r flag to deploy directories."
+                )
             for current_dir, _dirs, files in os.walk(path):
                 for file in files:
                     deploy_path = deploy_root.relative_to(Path(current_dir, file))
@@ -119,6 +125,10 @@ def _get_files_to_sync(paths_to_sync: List[Path], deploy_root: Path) -> List[str
 
 
 def _get_default_deploy_prune_value(files_argument: Optional[List[Path]]) -> bool:
+    return False if files_argument is not None and len(files_argument) > 0 else True
+
+
+def _get_default_deploy_recursive_value(files_argument: Optional[List[Path]]) -> bool:
     return False if files_argument is not None and len(files_argument) > 0 else True
 
 
@@ -311,6 +321,7 @@ class NativeAppManager(SqlExecutionMixin):
         role: str,
         prune: Optional[bool] = None,
         paths_to_sync: Optional[List[Path]] = None,  # relative to project root
+        recursive: Optional[bool] = None,
         created_files: Optional[DeployMapping] = None,
     ) -> DiffResult:
         """
@@ -342,10 +353,15 @@ class NativeAppManager(SqlExecutionMixin):
         if prune is None:
             prune = _get_default_deploy_prune_value(paths_to_sync)
 
+        if recursive is None:
+            recursive = _get_default_deploy_recursive_value(paths_to_sync)
+
         # If we are syncing specific files/directories, remove everything else from the diff
         if paths_to_sync is not None and len(paths_to_sync) > 0:
             deploy_paths = project_path_to_deploy_path(paths_to_sync, created_files)
-            paths_to_keep = set(_get_files_to_sync(deploy_paths, self.deploy_root))
+            paths_to_keep = set(
+                _get_files_to_sync(deploy_paths, self.deploy_root, recursive)
+            )
             filter_from_diff(diff, paths_to_keep, prune)
         # If we are syncing everything with no-prune, remove all remote-only files
         elif prune is False:
@@ -480,6 +496,7 @@ class NativeAppManager(SqlExecutionMixin):
         self,
         prune: Optional[bool] = None,
         files_to_sync: Optional[List[Path]] = None,
+        recursive: Optional[bool] = None,
         created_files: Optional[DeployMapping] = None,
     ) -> DiffResult:
         """app deploy process"""
@@ -493,7 +510,7 @@ class NativeAppManager(SqlExecutionMixin):
 
             # 3. Upload files from deploy root local folder to the above stage
             diff = self.sync_deploy_root_with_stage(
-                self.package_role, prune, files_to_sync, created_files
+                self.package_role, prune, files_to_sync, recursive, created_files
             )
 
         return diff
