@@ -1737,11 +1737,14 @@
 # ---
 # name: test_help_messages[object.stage.copy]
   '''
+  DeprecationWarning: The command 'stage' is deprecated.
   `snow object stage` command group is deprecated. Please use `snow stage` instead.
                                                                                   
    Usage: default object stage copy [OPTIONS] SOURCE_PATH DESTINATION_PATH        
                                                                                   
-   This command is deprecated. Please use `snow stage copy` instead.              
+   (deprecated)                                                                   
+   Copies all files from target path to target directory. This works for both     
+   uploading to and downloading files from the stage.                             
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    source_path           TEXT  Source path for copy operation. Can be      │
@@ -1823,11 +1826,13 @@
 # ---
 # name: test_help_messages[object.stage.create]
   '''
+  DeprecationWarning: The command 'stage' is deprecated.
   `snow object stage` command group is deprecated. Please use `snow stage` instead.
                                                                                   
    Usage: default object stage create [OPTIONS] STAGE_NAME                        
                                                                                   
-   This command is deprecated. Please use `snow stage create` instead.            
+   (deprecated)                                                                   
+   Creates a named stage if it does not already exist.                            
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    stage_name      TEXT  Name of the stage. [required]                     │
@@ -1892,11 +1897,13 @@
 # ---
 # name: test_help_messages[object.stage.diff]
   '''
+  DeprecationWarning: The command 'stage' is deprecated.
   `snow object stage` command group is deprecated. Please use `snow stage` instead.
                                                                                   
    Usage: default object stage diff [OPTIONS] [STAGE_NAME] [FOLDER_NAME]          
                                                                                   
-   This command is deprecated. Please use `snow stage diff` instead.              
+   (deprecated)                                                                   
+   Diffs a stage with a local folder.                                             
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │   stage_name       [STAGE_NAME]   Fully qualified name of a stage            │
@@ -1961,87 +1968,15 @@
   
   '''
 # ---
-# name: test_help_messages[object.stage.execute]
-  '''
-  `snow object stage` command group is deprecated. Please use `snow stage` instead.
-                                                                                  
-   Usage: default object stage execute [OPTIONS] STAGE_PATH                       
-                                                                                  
-   This command is deprecated. Please use `snow stage execute` instead.           
-                                                                                  
-  ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    stage_path      TEXT  Stage path with files to be execute. For example  │
-  │                            `@stage/dev/*`.                                   │
-  │                            [required]                                        │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
-  ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --on-error          [break|continue]  What to do when an error occurs.       │
-  │                                       Defaults to break.                     │
-  │                                       [default: break]                       │
-  │ --help      -h                        Show this message and exit.            │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
-  ╭─ Connection configuration ───────────────────────────────────────────────────╮
-  │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
-  │                                           in your `config.toml`. Default:    │
-  │                                           `default`.                         │
-  │ --account,--accountname             TEXT  Name assigned to your Snowflake    │
-  │                                           account. Overrides the value       │
-  │                                           specified for the connection.      │
-  │ --user,--username                   TEXT  Username to connect to Snowflake.  │
-  │                                           Overrides the value specified for  │
-  │                                           the connection.                    │
-  │ --password                          TEXT  Snowflake password. Overrides the  │
-  │                                           value specified for the            │
-  │                                           connection.                        │
-  │ --authenticator                     TEXT  Snowflake authenticator. Overrides │
-  │                                           the value specified for the        │
-  │                                           connection.                        │
-  │ --private-key-path                  TEXT  Snowflake private key path.        │
-  │                                           Overrides the value specified for  │
-  │                                           the connection.                    │
-  │ --database,--dbname                 TEXT  Database to use. Overrides the     │
-  │                                           value specified for the            │
-  │                                           connection.                        │
-  │ --schema,--schemaname               TEXT  Database schema to use. Overrides  │
-  │                                           the value specified for the        │
-  │                                           connection.                        │
-  │ --role,--rolename                   TEXT  Role to use. Overrides the value   │
-  │                                           specified for the connection.      │
-  │ --warehouse                         TEXT  Warehouse to use. Overrides the    │
-  │                                           value specified for the            │
-  │                                           connection.                        │
-  │ --temporary-connection      -x            Uses connection defined with       │
-  │                                           command line parameters, instead   │
-  │                                           of one defined in config           │
-  │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
-  │                                           authentication (MFA)               │
-  │ --enable-diag                             Run python connector diagnostic    │
-  │                                           test                               │
-  │ --diag-log-path                     TEXT  Diagnostic report path             │
-  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
-  │                                           allowlist                          │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
-  ╭─ Global configuration ───────────────────────────────────────────────────────╮
-  │ --format           [TABLE|JSON]  Specifies the output format.                │
-  │                                  [default: TABLE]                            │
-  │ --verbose  -v                    Displays log entries for log levels `info`  │
-  │                                  and higher.                                 │
-  │ --debug                          Displays log entries for log levels `debug` │
-  │                                  and higher; debug logs contains additional  │
-  │                                  information.                                │
-  │ --silent                         Turns off intermediate output to console.   │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  
-  '''
-# ---
 # name: test_help_messages[object.stage.list]
   '''
+  DeprecationWarning: The command 'stage' is deprecated.
   `snow object stage` command group is deprecated. Please use `snow stage` instead.
                                                                                   
    Usage: default object stage list [OPTIONS] STAGE_NAME                          
                                                                                   
-   This command is deprecated. Please use `snow stage list-files` instead.        
+   (deprecated)                                                                   
+   Lists the stage contents.                                                      
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    stage_name      TEXT  Name of the stage. [required]                     │
@@ -2109,11 +2044,13 @@
 # ---
 # name: test_help_messages[object.stage.remove]
   '''
+  DeprecationWarning: The command 'stage' is deprecated.
   `snow object stage` command group is deprecated. Please use `snow stage` instead.
                                                                                   
    Usage: default object stage remove [OPTIONS] STAGE_NAME FILE_NAME              
                                                                                   
-   This command is deprecated. Please use `snow stage remove` instead.            
+   (deprecated)                                                                   
+   Removes a file from a stage.                                                   
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    stage_name      TEXT  Name of the stage. [required]                     │
@@ -2183,20 +2120,19 @@
                                                                                   
    Usage: default object stage [OPTIONS] COMMAND [ARGS]...                        
                                                                                   
-   `snow object stage` command group is deprecated. Please use `snow stage`       
-   instead.                                                                       
+   (deprecated)                                                                   
+   Manages stages.                                                                
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ copy     This command is deprecated. Please use `snow stage copy` instead.   │
-  │ create   This command is deprecated. Please use `snow stage create` instead. │
-  │ execute  This command is deprecated. Please use `snow stage execute`         │
-  │          instead.                                                            │
-  │ list     This command is deprecated. Please use `snow stage list-files`      │
-  │          instead.                                                            │
-  │ remove   This command is deprecated. Please use `snow stage remove` instead. │
+  │ copy    Copies all files from target path to target            (deprecated)  │
+  │         directory. This works for both uploading to and                      │
+  │         downloading files from the stage.                                    │
+  │ create  Creates a named stage if it does not already exist.    (deprecated)  │
+  │ list    Lists the stage contents.                              (deprecated)  │
+  │ remove  Removes a file from a stage.                           (deprecated)  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -2215,9 +2151,9 @@
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
   │ describe  Provides description of an object of given type.                   │
   │ drop      Drops Snowflake object of given name and type.                     │
-  │ list      Lists all available Snowflake objects of given type.               │
-  │ stage     `snow object stage` command group is deprecated. Please use `snow  │
-  │           stage` instead.                                                    │
+  │ list      Lists all available Snowflake objects of given                     │
+  │           type.                                                              │
+  │ stage     Manages stages.                                      (deprecated)  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   

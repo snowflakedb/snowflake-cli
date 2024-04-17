@@ -85,7 +85,7 @@ def copy(
         )
 
     if is_get:
-        return _get(
+        return get(
             recursive=recursive,
             source_path=source_path,
             destination_path=destination_path,
@@ -157,7 +157,7 @@ def execute(
     return CollectionResult(results)
 
 
-def _get(recursive: bool, source_path: str, destination_path: str, parallel: int):
+def get(recursive: bool, source_path: str, destination_path: str, parallel: int):
     target = Path(destination_path).resolve()
     if not recursive:
         cli_console.warning(

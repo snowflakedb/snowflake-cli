@@ -56,6 +56,7 @@
 * Fixed version parsing for packages lookup on Snowflake Anaconda Channel
 * Fix handling database/schema/role identifiers containing dashes
 * Fix schema override bug in `snow connection test`
+* Hidden incorrectly working config permissions warning on Windows
 
 # v2.1.2
 

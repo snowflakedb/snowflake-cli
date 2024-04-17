@@ -303,7 +303,7 @@ def find_version_info_in_manifest_file(
 def project_path_to_deploy_path(
     project_paths: List[Path], files_mapping: DeployMapping
 ) -> List[Path]:
-    """Given a list of source paths, returns the deploy destination paths. This function assumes that a build was performed before calling it, and that the build step uses symlinks to point to the source files."""
+    """Given a list of source paths, returns the deploy destination paths. This function assumes that a build was performed before calling it."""
 
     def calculate_deploy_path(project_path: str) -> Path:
         # Find a common directory that exists under the deploy directory
@@ -313,7 +313,6 @@ def project_path_to_deploy_path(
                 break
             elif root.parent != root:
                 root = root.parent
-            # TODO stop at deploy root?
             else:
                 raise FileNotFoundError(project_path)
 
