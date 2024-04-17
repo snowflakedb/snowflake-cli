@@ -11,7 +11,7 @@ def mock_available_packages_sql_result(mock_ctx, mock_cursor):
     with open(
         TEST_DIR / "test_data/packages_available_in_snowflake_sql_result_rows.json"
     ) as fh:
-        result_rows = [tuple(row) for row in json.load(fh)]
+        result_rows = json.load(fh)
     ctx = mock_ctx(
         mock_cursor(
             columns=["package_name", "version"],

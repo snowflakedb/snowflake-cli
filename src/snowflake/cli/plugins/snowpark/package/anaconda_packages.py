@@ -14,6 +14,7 @@ from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.snowpark.models import Requirement
+from snowflake.connector import DictCursor
 
 log = logging.getLogger(__name__)
 
@@ -176,15 +177,16 @@ class AnacondaPackagesManager(SqlExecutionMixin):
 
     def _query_snowflake_for_available_packages(self) -> dict[str, AvailablePackage]:
         cursor = self._execute_query(
-            "select package_name, version from information_schema.packages where language = 'python'"
+            "select package_name, version from information_schema.packages where language = 'python'",
+            cursor_class=DictCursor,
         )
         if cursor.rowcount is None or cursor.rowcount == 0:
             raise SnowflakeSQLExecutionError()
         packages: dict[str, AvailablePackage] = {}
         for row in cursor:
-            if not (package_name := row[0]):
+            if not (package_name := row["PACKAGE_NAME"]):
                 continue
-            if not (version := row[1]):
+            if not (version := row["VERSION"]):
                 continue
             standardized_name = Requirement.standardize_name(package_name)
             if standardized_name in packages:
