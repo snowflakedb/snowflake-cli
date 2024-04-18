@@ -45,7 +45,10 @@ from snowflake.cli.plugins.snowpark.common import (
 )
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
 from snowflake.cli.plugins.snowpark.models import YesNoAsk
-from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
+from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
+    AnacondaPackages,
+    AnacondaPackagesManager,
+)
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
@@ -336,7 +339,7 @@ def _read_snowflake_requrements_file(file_path: SecurePath):
     return file_path.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB).splitlines()
 
 
-@app.command("build")
+@app.command("build", requires_connection=True)
 @with_project_definition("snowpark")
 def build(
     ignore_anaconda: bool = IgnoreAnacondaOption,
@@ -362,22 +365,23 @@ def build(
     )
     log.info("Building package using sources from: %s", snowpark_paths.source.path)
 
+    anaconda_packages_manager = AnacondaPackagesManager()
+
     with SecurePath.temporary_directory() as packages_dir:
         if snowpark_paths.defined_requirements_file.exists():
             log.info("Resolving any requirements from requirements.txt...")
             requirements = package_utils.parse_requirements(
                 requirements_file=snowpark_paths.defined_requirements_file,
             )
-            anaconda: AnacondaChannel = (
-                AnacondaChannel.empty()
+            anaconda_packages = (
+                AnacondaPackages.empty()
                 if ignore_anaconda
-                else AnacondaChannel.from_snowflake()
+                else anaconda_packages_manager.find_packages_available_in_snowflake_anaconda()
             )
-
             download_result = package_utils.download_unavailable_packages(
                 requirements=requirements,
                 target_dir=packages_dir,
-                anaconda=anaconda,
+                anaconda_packages=anaconda_packages,
                 skip_version_check=skip_version_check,
                 pip_index_url=index_url,
             )
@@ -399,10 +403,10 @@ def build(
                         "Some packages contain shared (.so/.dll) libraries. "
                         "Try again with --allow-shared-libraries."
                     )
-            if download_result.packages_available_in_anaconda:
-                anaconda.write_requirements_file_in_snowflake_format(  # type: ignore
+            if download_result.anaconda_packages:
+                anaconda_packages.write_requirements_file_in_snowflake_format(  # type: ignore
                     file_path=snowpark_paths.snowflake_requirements_file,
-                    requirements=download_result.packages_available_in_anaconda,
+                    requirements=download_result.anaconda_packages,
                 )
 
         zip_dir(

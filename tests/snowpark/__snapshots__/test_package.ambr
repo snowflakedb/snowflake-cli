@@ -5,9 +5,9 @@
   
   '''
 # ---
-# name: TestPackage.test_package_lookup[snowflake-connector-python]
+# name: TestPackage.test_package_lookup[snowflake.core]
   '''
-  Package `snowflake-connector-python` is available in Anaconda. Latest available version: 2.7.12.
+  Package `snowflake.core` is available in Anaconda. Latest available version: 0.6.0.
   
   '''
 # ---
