@@ -15,16 +15,16 @@
   │ --help         -h            Show this message and exit.                     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ app         Manages a Snowflake Native App                                   │
-  │ connection  Manages connections to Snowflake.                                │
-  │ git         Manages git repositories in Snowflake.                           │
-  │ object      Manages Snowflake objects like warehouses and stages             │
-  │ snowpark    Manages procedures and functions.                                │
-  │ spcs        Manages Snowpark Container Services compute pools, services,     │
-  │             image registries, and image repositories.                        │
-  │ sql         Executes Snowflake query.                                        │
-  │ stage       Manages stages.                                                  │
-  │ streamlit   Manages a Streamlit app in Snowflake.                            │
+  │ app          Manages a Snowflake Native App                                  │
+  │ connection   Manages connections to Snowflake.                               │
+  │ git          Manages git repositories in Snowflake.                          │
+  │ object       Manages Snowflake objects like warehouses and stages            │
+  │ snowpark     Manages procedures and functions.                               │
+  │ spcs         Manages Snowpark Container Services compute pools, services,    │
+  │              image registries, and image repositories.                       │
+  │ sql          Executes Snowflake query.                                       │
+  │ stage        Manages stages.                                                 │
+  │ streamlit    Manages a Streamlit app in Snowflake.                           │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -734,13 +734,13 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ create  Adds a new patch to the provided version defined in your application │
-  │         package. If the version does not exist, creates a version with patch │
-  │         0.                                                                   │
-  │ drop    Drops a version defined in your application package. Versions can    │
-  │         either be passed in as an argument to the command or read from the   │
-  │         `manifest.yml` file. Dropping patches is not allowed.                │
-  │ list    Lists all versions defined in an application package.                │
+  │ create   Adds a new patch to the provided version defined in your            │
+  │          application package. If the version does not exist, creates a       │
+  │          version with patch 0.                                               │
+  │ drop     Drops a version defined in your application package. Versions can   │
+  │          either be passed in as an argument to the command or read from the  │
+  │          `manifest.yml` file. Dropping patches is not allowed.               │
+  │ list     Lists all versions defined in an application package.               │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -757,18 +757,18 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ deploy    Creates an application package in your Snowflake account and syncs │
-  │           the local changes to the stage without creating or updating the    │
-  │           application.                                                       │
-  │ init      Initializes a Snowflake Native App project.                        │
-  │ open      Opens the Snowflake Native App inside of your browser, once it has │
-  │           been installed in your account.                                    │
-  │ run       Creates an application package in your Snowflake account, uploads  │
-  │           code files to its stage, then creates or upgrades an application   │
-  │           object from the application package.                               │
-  │ teardown  Attempts to drop both the application object and application       │
-  │           package as defined in the project definition file.                 │
-  │ version   Manages versions defined in an application package                 │
+  │ deploy     Creates an application package in your Snowflake account and      │
+  │            syncs the local changes to the stage without creating or updating │
+  │            the application.                                                  │
+  │ init       Initializes a Snowflake Native App project.                       │
+  │ open       Opens the Snowflake Native App inside of your browser, once it    │
+  │            has been installed in your account.                               │
+  │ run        Creates an application package in your Snowflake account, uploads │
+  │            code files to its stage, then creates or upgrades an application  │
+  │            object from the application package.                              │
+  │ teardown   Attempts to drop both the application object and application      │
+  │            package as defined in the project definition file.                │
+  │ version    Manages versions defined in an application package                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -926,10 +926,10 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ add              Adds a connection to configuration file.                    │
-  │ list             Lists configured connections.                               │
-  │ set-default      Changes default connection to provided value.               │
-  │ test             Tests the connection to Snowflake.                          │
+  │ add           Adds a connection to configuration file.                       │
+  │ list          Lists configured connections.                                  │
+  │ set-default   Changes default connection to provided value.                  │
+  │ test          Tests the connection to Snowflake.                             │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -1483,18 +1483,18 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ copy           Copies all files from given state of repository to local      │
-  │                directory or stage.                                           │
-  │ execute        Execute immediate all files from the repository path. Files   │
-  │                can be filtered with glob like pattern, e.g.                  │
-  │                `@my_repo/branches/main/*.sql`,                               │
-  │                `@my_repo/branches/main/dev/*`. Only files with `.sql`        │
-  │                extension will be executed.                                   │
-  │ fetch          Fetch changes from origin to snowflake repository.            │
-  │ list-branches  List all branches in the repository.                          │
-  │ list-files     List files from given state of git repository.                │
-  │ list-tags      List all tags in the repository.                              │
-  │ setup          Sets up a git repository object.                              │
+  │ copy            Copies all files from given state of repository to local     │
+  │                 directory or stage.                                          │
+  │ execute         Execute immediate all files from the repository path. Files  │
+  │                 can be filtered with glob like pattern, e.g.                 │
+  │                 `@my_repo/branches/main/*.sql`,                              │
+  │                 `@my_repo/branches/main/dev/*`. Only files with `.sql`       │
+  │                 extension will be executed.                                  │
+  │ fetch           Fetch changes from origin to snowflake repository.           │
+  │ list-branches   List all branches in the repository.                         │
+  │ list-files      List files from given state of git repository.               │
+  │ list-tags       List all tags in the repository.                             │
+  │ setup           Sets up a git repository object.                             │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -2127,12 +2127,12 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ copy    Copies all files from target path to target            (deprecated)  │
-  │         directory. This works for both uploading to and                      │
-  │         downloading files from the stage.                                    │
-  │ create  Creates a named stage if it does not already exist.    (deprecated)  │
-  │ list    Lists the stage contents.                              (deprecated)  │
-  │ remove  Removes a file from a stage.                           (deprecated)  │
+  │ copy     Copies all files from target path to target           (deprecated)  │
+  │          directory. This works for both uploading to and                     │
+  │          downloading files from the stage.                                   │
+  │ create   Creates a named stage if it does not already exist.   (deprecated)  │
+  │ list     Lists the stage contents.                             (deprecated)  │
+  │ remove   Removes a file from a stage.                          (deprecated)  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -2149,11 +2149,11 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ describe  Provides description of an object of given type.                   │
-  │ drop      Drops Snowflake object of given name and type.                     │
-  │ list      Lists all available Snowflake objects of given                     │
-  │           type.                                                              │
-  │ stage     Manages stages.                                      (deprecated)  │
+  │ describe   Provides description of an object of given type.                  │
+  │ drop       Drops Snowflake object of given name and type.                    │
+  │ list       Lists all available Snowflake objects of given                    │
+  │            type.                                                             │
+  │ stage      Manages stages.                                     (deprecated)  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -2660,11 +2660,11 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ create  Creates a Python package as a zip file that can be uploaded to a     │
-  │         stage and imported for a Snowpark Python app.                        │
-  │ lookup  Checks if a package is available on the Snowflake Anaconda channel.  │
-  │ upload  Uploads a Python package zip file to a Snowflake stage so it can be  │
-  │         referenced in the imports of a procedure or function.                │
+  │ create   Creates a Python package as a zip file that can be uploaded to a    │
+  │          stage and imported for a Snowpark Python app.                       │
+  │ lookup   Checks if a package is available on the Snowflake Anaconda channel. │
+  │ upload   Uploads a Python package zip file to a Snowflake stage so it can be │
+  │          referenced in the imports of a procedure or function.               │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -2681,18 +2681,18 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ build    Builds the Snowpark project as a `.zip` archive that can be used by │
-  │          `deploy` command. The archive is built using only the `src`         │
-  │          directory specified in the project file.                            │
-  │ deploy   Deploys procedures and functions defined in project. Deploying the  │
-  │          project alters all objects defined in it. By default, if any of the │
-  │          objects exist already the commands will fail unless `--replace`     │
-  │          flag is provided. All deployed objects use the same artifact which  │
-  │          is deployed only once.                                              │
-  │ execute  Executes a procedure or function in a specified environment.        │
-  │ init     Initializes this directory with a sample set of files for creating  │
-  │          a Snowpark project.                                                 │
-  │ package  Manages custom Python packages for Snowpark                         │
+  │ build     Builds the Snowpark project as a `.zip` archive that can be used   │
+  │           by `deploy` command. The archive is built using only the `src`     │
+  │           directory specified in the project file.                           │
+  │ deploy    Deploys procedures and functions defined in project. Deploying the │
+  │           project alters all objects defined in it. By default, if any of    │
+  │           the objects exist already the commands will fail unless            │
+  │           `--replace` flag is provided. All deployed objects use the same    │
+  │           artifact which is deployed only once.                              │
+  │ execute   Executes a procedure or function in a specified environment.       │
+  │ init      Initializes this directory with a sample set of files for creating │
+  │           a Snowpark project.                                                │
+  │ package   Manages custom Python packages for Snowpark                        │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -3274,16 +3274,16 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ create    Creates a new compute pool.                                        │
-  │ resume    Resumes the compute pool from a SUSPENDED state.                   │
-  │ set       Sets one or more properties for the compute pool.                  │
-  │ status    Retrieves the status of a compute pool along with a relevant       │
-  │           message, if one exists.                                            │
-  │ stop-all  Deletes all services running on the compute pool.                  │
-  │ suspend   Suspends the compute pool by suspending all currently running      │
-  │           services and then releasing compute pool nodes.                    │
-  │ unset     Resets one or more properties for the compute pool to their        │
-  │           default value(s).                                                  │
+  │ create     Creates a new compute pool.                                       │
+  │ resume     Resumes the compute pool from a SUSPENDED state.                  │
+  │ set        Sets one or more properties for the compute pool.                 │
+  │ status     Retrieves the status of a compute pool along with a relevant      │
+  │            message, if one exists.                                           │
+  │ stop-all   Deletes all services running on the compute pool.                 │
+  │ suspend    Suspends the compute pool by suspending all currently running     │
+  │            services and then releasing compute pool nodes.                   │
+  │ unset      Resets one or more properties for the compute pool to their       │
+  │            default value(s).                                                 │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -3509,11 +3509,11 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ login  Logs in to the account image registry with the current user's         │
-  │        credentials through Docker.                                           │
-  │ token  Retrieves a registry authentication token based on your current       │
-  │        connection.                                                           │
-  │ url    Gets the image registry URL for the current account.                  │
+  │ login   Logs in to the account image registry with the current user's        │
+  │         credentials through Docker.                                          │
+  │ token   Retrieves a registry authentication token based on your current      │
+  │         connection.                                                          │
+  │ url     Gets the image registry URL for the current account.                 │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -3814,10 +3814,10 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ create         Creates a new image repository in the current schema.         │
-  │ list-images    Lists images in the given repository.                         │
-  │ list-tags      Lists tags for the given image in a repository.               │
-  │ url            Returns the URL for the given repository.                     │
+  │ create        Creates a new image repository in the current schema.          │
+  │ list-images   Lists images in the given repository.                          │
+  │ list-tags     Lists tags for the given image in a repository.                │
+  │ url           Returns the URL for the given repository.                      │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -4792,17 +4792,17 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ create          Creates a new service in the current schema.                 │
-  │ list-endpoints  Lists the endpoints in a service.                            │
-  │ logs            Retrieves local logs from a service container.               │
-  │ resume          Resumes the service from a SUSPENDED state.                  │
-  │ set             Sets one or more properties for the service.                 │
-  │ status          Retrieves the status of a service.                           │
-  │ suspend         Suspends the service, shutting down and deleting all its     │
-  │                 containers.                                                  │
-  │ unset           Resets one or more properties for the service to their       │
-  │                 default value(s).                                            │
-  │ upgrade         Updates an existing service with a new specification file.   │
+  │ create           Creates a new service in the current schema.                │
+  │ list-endpoints   Lists the endpoints in a service.                           │
+  │ logs             Retrieves local logs from a service container.              │
+  │ resume           Resumes the service from a SUSPENDED state.                 │
+  │ set              Sets one or more properties for the service.                │
+  │ status           Retrieves the status of a service.                          │
+  │ suspend          Suspends the service, shutting down and deleting all its    │
+  │                  containers.                                                 │
+  │ unset            Resets one or more properties for the service to their      │
+  │                  default value(s).                                           │
+  │ upgrade          Updates an existing service with a new specification file.  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -4820,10 +4820,10 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ compute-pool                  Manages compute pools.                         │
-  │ image-registry                Manages image registries.                      │
-  │ image-repository              Manages image repositories.                    │
-  │ service                       Manages services.                              │
+  │ compute-pool       Manages compute pools.                                    │
+  │ image-registry     Manages image registries.                                 │
+  │ image-repository   Manages image repositories.                               │
+  │ service            Manages services.                                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -5350,16 +5350,16 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ copy        Copies all files from target path to target directory. This      │
-  │             works for both uploading to and downloading files from the       │
-  │             stage.                                                           │
-  │ create      Creates a named stage if it does not already exist.              │
-  │ execute     Execute immediate all files from the stage path. Files can be    │
-  │             filtered with glob like pattern, e.g. `@stage/*.sql`,            │
-  │             `@stage/dev/*`. Only files with `.sql` extension will be         │
-  │             executed.                                                        │
-  │ list-files  Lists the stage contents.                                        │
-  │ remove      Removes a file from a stage.                                     │
+  │ copy         Copies all files from target path to target directory. This     │
+  │              works for both uploading to and downloading files from the      │
+  │              stage.                                                          │
+  │ create       Creates a named stage if it does not already exist.             │
+  │ execute      Execute immediate all files from the stage path. Files can be   │
+  │              filtered with glob like pattern, e.g. `@stage/*.sql`,           │
+  │              `@stage/dev/*`. Only files with `.sql` extension will be        │
+  │              executed.                                                       │
+  │ list-files   Lists the stage contents.                                       │
+  │ remove       Removes a file from a stage.                                    │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
@@ -5621,15 +5621,15 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ deploy   Deploys a Streamlit app defined in the project definition file      │
-  │          (snowflake.yml). By default, the command uploads environment.yml    │
-  │          and any other pages or folders, if present. If you don’t specify a  │
-  │          stage name, the `streamlit` stage is used. If the specified stage   │
-  │          does not exist, the command creates it.                             │
-  │ get-url  Returns a URL to the specified Streamlit app                        │
-  │ init     Initializes this directory with a sample set of files for creating  │
-  │          a Streamlit app project.                                            │
-  │ share    Shares a Streamlit app with another role.                           │
+  │ deploy    Deploys a Streamlit app defined in the project definition file     │
+  │           (snowflake.yml). By default, the command uploads environment.yml   │
+  │           and any other pages or folders, if present. If you don’t specify a │
+  │           stage name, the `streamlit` stage is used. If the specified stage  │
+  │           does not exist, the command creates it.                            │
+  │ get-url   Returns a URL to the specified Streamlit app                       │
+  │ init      Initializes this directory with a sample set of files for creating │
+  │           a Streamlit app project.                                           │
+  │ share     Shares a Streamlit app with another role.                          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
