@@ -1,17 +1,8 @@
 name: "CLI Action testing"
 
 on:
-  pull_request:
-    branches:
-      - "*"
-  push:
-    tags:
-      - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
-    branches:
-      - main
-
-env:
-  TERM: unknown  # Disables colors in rich
+  schedule:
+    - cron: "0 0 * * *"
 
 jobs:
   version:
@@ -20,7 +11,7 @@ jobs:
     steps:
       - uses: Snowflake-Labs/snowflake-cli-action@v1
         with:
-          cli-version: "2.1.0"
+          cli-version: "latest"
 
       - name: Test version
         run: snow --version
