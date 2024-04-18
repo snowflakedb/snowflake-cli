@@ -15,7 +15,9 @@ from snowflake.cli.plugins.snowpark.models import (
     RequirementWithWheelAndDeps,
     WheelMetadata,
 )
-from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
+from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
+    AnacondaPackages,
+)
 from snowflake.cli.plugins.snowpark.venv import Venv
 
 log = logging.getLogger(__name__)
@@ -100,9 +102,7 @@ def _write_requirements_file(file_path: SecurePath, requirements: List[Requireme
 class DownloadUnavailablePackagesResult:
     succeeded: bool
     error_message: str | None = None
-    packages_available_in_anaconda: List[Requirement] = dataclasses.field(
-        default_factory=list
-    )
+    anaconda_packages: List[Requirement] = dataclasses.field(default_factory=list)
     downloaded_packages_details: List[RequirementWithFiles] = dataclasses.field(
         default_factory=list
     )
@@ -111,8 +111,8 @@ class DownloadUnavailablePackagesResult:
 def download_unavailable_packages(
     requirements: List[Requirement],
     target_dir: SecurePath,
-    # anaconda lookup specs
-    anaconda: AnacondaChannel,
+    # available packages lookup specs
+    anaconda_packages: AnacondaPackages,
     skip_version_check: bool = False,
     # pip lookup specs
     pip_index_url: str | None = None,
@@ -122,20 +122,20 @@ def download_unavailable_packages(
     Returns an object with fields:
     - download_successful - whether packages were successfully downloaded
     - error_message - error message if download was not successful
-    - packages_available_in_anaconda - list of omitted packages
+    - anaconda_packages - list of omitted packages
     - downloaded_packages - list of downloaded packages details
     """
-    # pre-check on Anaconda to avoid potentially heavy downloads
-    split_requirements = anaconda.filter_anaconda_packages(
+    # pre-check of available packages to avoid potentially heavy downloads
+    split_requirements = anaconda_packages.filter_available_packages(
         requirements, skip_version_check=skip_version_check
     )
     omitted_packages = split_requirements.in_snowflake
     requirements = split_requirements.unavailable
     if not requirements:
-        # all packages are available in Anaconda
+        # all packages are available in Snowflake
         return DownloadUnavailablePackagesResult(
             succeeded=True,
-            packages_available_in_anaconda=omitted_packages,
+            anaconda_packages=omitted_packages,
         )
 
     # download all packages with their dependencies
@@ -167,9 +167,9 @@ def download_unavailable_packages(
             ", ".join([d.name for d in dependency_requirements]),
         )
 
-        # check whether some dependencies are available on Snowflake Anaconda Channel
+        # check whether some dependencies are available in Snowflake
         log.info("Checking for dependencies available in Anaconda...")
-        split_dependencies = anaconda.filter_anaconda_packages(
+        split_dependencies = anaconda_packages.filter_available_packages(
             packages=dependency_requirements, skip_version_check=skip_version_check
         )
         _log_dependencies_found_in_conda(split_dependencies.in_snowflake)
@@ -184,7 +184,7 @@ def download_unavailable_packages(
             package.extract_files(target_dir.path)
         return DownloadUnavailablePackagesResult(
             succeeded=True,
-            packages_available_in_anaconda=omitted_packages,
+            anaconda_packages=omitted_packages,
             downloaded_packages_details=[
                 RequirementWithFiles(requirement=dep.requirement, files=dep.namelist())
                 for dep in dependencies_to_be_packed
