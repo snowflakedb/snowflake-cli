@@ -365,7 +365,7 @@ class NativeAppManager(SqlExecutionMixin):
             deploy_paths = project_path_to_deploy_path(paths_to_sync, created_files)
             paths_to_keep = set(
                 _get_files_to_sync(
-                    deploy_paths, Path(self.project_root.relative_to(self.deploy_root))
+                    deploy_paths, Path(self.deploy_root.relative_to(self.project_root))
                 )
             )
             filter_from_diff(diff, paths_to_keep, prune)
