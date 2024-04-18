@@ -12,7 +12,6 @@ from unittest import mock
 
 import pytest
 import yaml
-from snowflake.cli.api.project.definition import merge_left
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
@@ -23,7 +22,11 @@ from typer import Typer
 from typer.testing import CliRunner
 
 from tests.test_data import test_data
-from tests.testing_utils.files_and_dirs import create_named_file, create_temp_file
+from tests.testing_utils.files_and_dirs import (
+    create_named_file,
+    create_temp_file,
+    merge_left,
+)
 
 REQUIREMENTS_SNOWFLAKE = "requirements.snowflake.txt"
 REQUIREMENTS_TXT = "requirements.txt"
