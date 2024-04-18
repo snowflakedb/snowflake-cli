@@ -13,6 +13,7 @@ from unittest import mock
 import pytest
 import yaml
 from snowflake.cli.api.project.definition import merge_left
+from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
 from snowflake.cli.app.cli_app import app_factory
@@ -310,10 +311,28 @@ def argument_instance():
 
 
 @pytest.fixture()
-def callable_instance():
+def function_instance():
     return FunctionSchema(
         name="func1",
         handler="app.func1_handler",
         signature=[{"name": "a", "type": "string"}, {"name": "b", "type": "variant"}],
         returns="string",
+    )
+
+
+@pytest.fixture()
+def native_app_project_instance():
+    return ProjectDefinition(
+        **{
+            "definition_version": "1",
+            "native_app": {
+                "artifacts": [{"dest": "./", "src": "app/*"}],
+                "name": "napp_test",
+                "package": {
+                    "scripts": [
+                        "package/001.sql",
+                    ]
+                },
+            },
+        }
     )
