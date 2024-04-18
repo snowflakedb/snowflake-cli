@@ -104,17 +104,11 @@ def ensure_correct_owner(row: dict, role: str, obj_name: str) -> None:
         raise UnexpectedOwnerError(obj_name, role, actual_owner)
 
 
-def _get_files_to_sync(
-    paths_to_sync: List[Path], deploy_root: Path, recursive: bool
-) -> List[str]:
+def _get_files_to_sync(paths_to_sync: List[Path], deploy_root: Path) -> List[str]:
     """Takes a list of paths (files and directories), returning a list of all files recursively, stripping the path to deploy root."""
     paths = []
     for path in paths_to_sync:
         if path.is_dir():
-            if not recursive:
-                raise ValueError(
-                    f"{path} is a directory. Add the -r flag to deploy directories."
-                )
             for current_dir, _dirs, files in os.walk(path):
                 for file in files:
                     deploy_path = Path(current_dir, file).relative_to(deploy_root)
@@ -122,6 +116,14 @@ def _get_files_to_sync(
         else:
             paths.append(str(path.relative_to(deploy_root)))
     return paths
+
+
+def _assert_no_directories(paths_to_sync):
+    for path in paths_to_sync:
+        if path.is_dir():
+            raise ValueError(
+                f"{path} is a directory. Add the -r flag to deploy directories."
+            )
 
 
 def _get_default_deploy_prune_value(files_argument: Optional[List[Path]]) -> bool:
@@ -358,9 +360,13 @@ class NativeAppManager(SqlExecutionMixin):
 
         # If we are syncing specific files/directories, remove everything else from the diff
         if paths_to_sync is not None and len(paths_to_sync) > 0:
+            if not recursive:
+                _assert_no_directories(paths_to_sync)
             deploy_paths = project_path_to_deploy_path(paths_to_sync, created_files)
             paths_to_keep = set(
-                _get_files_to_sync(deploy_paths, self.deploy_root, recursive)
+                _get_files_to_sync(
+                    deploy_paths, Path(os.path.relpath(self.deploy_root))
+                )
             )
             filter_from_diff(diff, paths_to_keep, prune)
         # If we are syncing everything with no-prune, remove all remote-only files

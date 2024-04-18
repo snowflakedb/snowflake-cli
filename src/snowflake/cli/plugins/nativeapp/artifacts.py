@@ -152,10 +152,10 @@ def symlink_or_copy(
         delete(dst)
     try:
         os.symlink(src, dst)
-        created_files[str(src)] = dst
+        created_files[str(os.path.relpath(src))] = Path(os.path.relpath(dst))
     except OSError:
         ssrc.copy(dst)
-        created_files[str(ssrc.path)] = dst
+        created_files[str(os.path.relpath(ssrc))] = Path(os.path.relpath(dst))
 
 
 def translate_artifact(item: Union[dict, str]) -> ArtifactMapping:

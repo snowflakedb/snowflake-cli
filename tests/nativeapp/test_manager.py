@@ -730,26 +730,22 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
 
 
 @pytest.mark.parametrize(
-    "paths_to_sync,recursive,expected_result",
+    "paths_to_sync,expected_result",
     [
         [
             ["deploy/dir"],
-            True,
             ["dir/nested_file1", "dir/nested_file2", "dir/nested_dir/nested_file3"],
         ],
-        [["deploy/dir/nested_dir"], True, ["dir/nested_dir/nested_file3"]],
+        [["deploy/dir/nested_dir"], ["dir/nested_dir/nested_file3"]],
         [
             ["deploy/file", "deploy/dir/nested_dir/nested_file3"],
-            True,
             ["file", "dir/nested_dir/nested_file3"],
         ],
-        [["deploy/dir"], False, None],
     ],
 )
 def test_get_files_to_sync(
     temp_dir,
     paths_to_sync,
-    recursive,
     expected_result,
 ):
     touch("deploy/file")
@@ -758,12 +754,8 @@ def test_get_files_to_sync(
     touch("deploy/dir/nested_dir/nested_file3")
 
     paths_to_sync = [Path(p) for p in paths_to_sync]
-    if expected_result is None:
-        with pytest.raises(ValueError):
-            _get_files_to_sync(paths_to_sync, Path("deploy/"), recursive)
-    else:
-        result = _get_files_to_sync(paths_to_sync, Path("deploy/"), recursive)
-        assert result.sort() == expected_result.sort()
+    result = _get_files_to_sync(paths_to_sync, Path("deploy/"))
+    assert result.sort() == expected_result.sort()
 
 
 @pytest.mark.parametrize(

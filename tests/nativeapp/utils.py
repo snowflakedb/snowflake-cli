@@ -82,6 +82,6 @@ def mock_execute_helper(mock_input: list):
 
 
 def touch(path: str):
-    output_file = Path(path)
-    output_file.parent.mkdir(exist_ok=True, parents=True)
-    output_file.write_text("")
+    file = Path(path)
+    file.parent.mkdir(exist_ok=True, parents=True)
+    file.write_text("")
