@@ -43,6 +43,11 @@
   * `snow git copy` - copies files from provided branch/tag/commit into stage or local directory
   * `snow git execute` - execute immediate files from repository
 * Added command for execute immediate `snow object stage execute`
+* Fetching available packages list from Snowflake instead of directly from Anaconda with fallback to the old method (for backward compatibility).
+  As the new method requires a connection to Snowflake, it adds connection options to the following commands:
+  * `snow snowpark build`
+  * `snow snowpark package lookup`
+  * `snow snowpark package create`
 
 ## Fixes and improvements
 * Adding `--image-name` option for image name argument in `spcs image-repository list-tags` for consistency with other commands.
