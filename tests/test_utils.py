@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 from pathlib import Path
@@ -11,11 +10,11 @@ import snowflake.cli.plugins.snowpark.package.utils
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
 from snowflake.cli.plugins.snowpark import package_utils
-from snowflake.cli.plugins.snowpark.models import Requirement
-from snowflake.cli.plugins.snowpark.package.anaconda import AnacondaChannel
+from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
+    AnacondaPackages,
+)
 
 from tests.test_data import test_data
-from tests.testing_utils.fixtures import TEST_DIR
 
 
 def test_prepare_app_zip(
@@ -118,35 +117,6 @@ def test_parse_requirements(correct_requirements_txt: str):
     assert result[2].specs == [("==", "1.0.0")]
 
 
-@mock.patch("requests.get")
-def test_filter_anaconda_packages(mock_get):
-    mock_response = mock.Mock()
-    mock_response.status_code = 200
-    # load the contents of the local json file under test_data/anaconda_channel_data.json
-    with open(TEST_DIR / "test_data/anaconda_channel_data.json") as fh:
-        mock_response.json.return_value = json.load(fh)
-
-    mock_get.return_value = mock_response
-    anaconda = AnacondaChannel.from_snowflake()
-
-    packages = [
-        Requirement.parse("Pandas==1.4.4"),
-        Requirement.parse("FuelSDK>=0.9.3"),
-        Requirement.parse("Pamela==1.0.1"),
-    ]
-    split_requirements = anaconda.filter_anaconda_packages(packages=packages)
-    assert len(split_requirements.in_snowflake) == 1
-    assert len(split_requirements.unavailable) == 2
-    assert split_requirements.in_snowflake[0].name == "pandas"
-    assert split_requirements.in_snowflake[0].specifier is True
-    assert split_requirements.in_snowflake[0].specs == [("==", "1.4.4")]
-    assert split_requirements.unavailable[0].name == "fuelsdk"
-    assert split_requirements.unavailable[0].specifier is True
-    assert split_requirements.unavailable[0].specs == [(">=", "0.9.3")]
-    assert split_requirements.unavailable[1].name == "pamela"
-    assert split_requirements.unavailable[1].specs == [("==", "1.0.1")]
-
-
 @patch("platform.system")
 @pytest.mark.parametrize(
     "argument, expected",
@@ -175,7 +145,7 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
         package_utils.download_unavailable_packages(
             requirements=requirements,
             target_dir=SecurePath(".packages"),
-            anaconda=AnacondaChannel.empty(),
+            anaconda_packages=AnacondaPackages.empty(),
         )
 
     assert "pip failed with return code 42" in caplog.text
