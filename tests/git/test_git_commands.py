@@ -3,10 +3,11 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
+from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import DictCursor, ProgrammingError
 
 EXAMPLE_URL = "https://github.com/an-example-repo.git"
-STAGE_MANAGER = "snowflake.cli.plugins.object.stage.manager.StageManager"
+STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
 
 
 def test_toplevel_help(runner):
@@ -102,20 +103,30 @@ def test_fetch(mock_connector, runner, mock_ctx):
 
 
 @mock.patch("snowflake.connector.connect")
-def test_copy_to_local_file_system(mock_connector, runner, mock_ctx, temp_dir):
+@mock.patch.object(StageManager, "iter_stage")
+@mock.patch("snowflake.cli.plugins.stage.commands.QueryResult")
+def test_copy_to_local_file_system(
+    mock_result, mock_iter, mock_connector, runner, mock_ctx, temp_dir
+):
+    repo_prefix = "@repo_name/branches/main/"
     ctx = mock_ctx()
     mock_connector.return_value = ctx
+    mock_iter.return_value = (
+        x for x in [f"{repo_prefix}file.txt", f"{repo_prefix}dir/file_in_dir.txt"]
+    )
+    mock_iter.__len__.return_value = 2
+    mock_result.result = {"file": "mock"}
+
     local_path = Path(temp_dir) / "local_dir"
     assert not local_path.exists()
-    result = runner.invoke(
-        ["git", "copy", "@repo_name/branches/main/", str(local_path)]
-    )
+    result = runner.invoke(["git", "copy", repo_prefix, str(local_path)])
 
     assert result.exit_code == 0, result.output
     assert local_path.exists()
     assert (
         ctx.get_query()
-        == f"get @repo_name/branches/main/ file://{local_path.resolve()}/ parallel=4"
+        == f"""get {repo_prefix}file.txt file://{local_path.resolve()}/ parallel=4
+get {repo_prefix}dir/file_in_dir.txt file://{local_path.resolve()}/dir/ parallel=4"""
     )
 
 

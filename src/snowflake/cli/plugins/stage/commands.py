@@ -22,19 +22,19 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
 )
 from snowflake.cli.api.utils.path_utils import is_stage_path
-from snowflake.cli.plugins.object.stage.diff import DiffResult
-from snowflake.cli.plugins.object.stage.manager import OnErrorType, StageManager
+from snowflake.cli.plugins.stage.diff import DiffResult
+from snowflake.cli.plugins.stage.manager import OnErrorType, StageManager
 
 app = SnowTyper(
     name="stage",
     help="Manages stages.",
 )
 
-StageNameArgument = typer.Argument(..., help="Name of the stage.")
+StageNameArgument = typer.Argument(..., help="Name of the stage.", show_default=False)
 
 
-@app.command("list", requires_connection=True)
-def stage_list(
+@app.command("list-files", requires_connection=True)
+def stage_list_files(
     stage_name: str = StageNameArgument, pattern=PatternOption, **options
 ) -> CommandResult:
     """
@@ -47,10 +47,12 @@ def stage_list(
 @app.command("copy", requires_connection=True)
 def copy(
     source_path: str = typer.Argument(
-        help="Source path for copy operation. Can be either stage path or local."
+        help="Source path for copy operation. Can be either stage path or local.",
+        show_default=False,
     ),
     destination_path: str = typer.Argument(
         help="Target directory path for copy operation. Should be stage if source is local or local if source is stage.",
+        show_default=False,
     ),
     overwrite: bool = typer.Option(
         False,
@@ -83,7 +85,7 @@ def copy(
         )
 
     if is_get:
-        return _get(
+        return get(
             recursive=recursive,
             source_path=source_path,
             destination_path=destination_path,
@@ -155,7 +157,7 @@ def execute(
     return CollectionResult(results)
 
 
-def _get(recursive: bool, source_path: str, destination_path: str, parallel: int):
+def get(recursive: bool, source_path: str, destination_path: str, parallel: int):
     target = Path(destination_path).resolve()
     if not recursive:
         cli_console.warning(

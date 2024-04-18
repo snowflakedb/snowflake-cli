@@ -16,9 +16,7 @@ from tests_integration.test_utils import (
 def test_stage(runner, snowflake_session, test_database, tmp_path):
     stage_name = "test_stage"
 
-    result = runner.invoke_with_connection_json(
-        ["object", "stage", "create", stage_name]
-    )
+    result = runner.invoke_with_connection_json(["stage", "create", stage_name])
     assert contains_row_with(
         result.json,
         {"status": f"Stage area {stage_name.upper()} successfully created."},
@@ -37,7 +35,7 @@ def test_stage(runner, snowflake_session, test_database, tmp_path):
         for path in [file_path, another_file_path]:
             path.touch()
             result = runner.invoke_with_connection_json(
-                ["object", "stage", "copy", str(path), f"@{stage_name}"]
+                ["stage", "copy", str(path), f"@{stage_name}"]
             )
             assert result.exit_code == 0, result.output
             assert contains_row_with(
@@ -45,26 +43,26 @@ def test_stage(runner, snowflake_session, test_database, tmp_path):
                 {"source": path.name, "target": path.name, "status": "UPLOADED"},
             )
 
-    result = runner.invoke_with_connection_json(["object", "stage", "list", stage_name])
+    result = runner.invoke_with_connection_json(["stage", "list-files", stage_name])
     expect = snowflake_session.execute_string(f"list @{stage_name}")
     assert result.json == row_from_snowflake_session(expect)
 
     result = runner.invoke_with_connection_json(
-        ["object", "stage", "list", stage_name, "--pattern", ".*md"]
+        ["stage", "list-files", stage_name, "--pattern", ".*md"]
     )
     assert contains_row_with(result.json, {"name": f"{stage_name}/{another_filename}"})
     assert not_contains_row_with(result.json, {"name": f"{stage_name}/{filename}"})
 
     # Operation fails because directory exists
     result = runner.invoke_with_connection_json(
-        ["object", "stage", "copy", f"@{stage_name}", tmp_path.parent.__str__()]
+        ["stage", "copy", f"@{stage_name}", tmp_path.parent.__str__()]
     )
     assert result.exit_code == 0, result.output
     assert contains_row_with(result.json, {"file": filename, "status": "DOWNLOADED"})
     assert os.path.isfile(tmp_path.parent / filename)
 
     result = runner.invoke_with_connection_json(
-        ["object", "stage", "remove", stage_name, f"/{filename}"]
+        ["stage", "remove", stage_name, f"/{filename}"]
     )
     assert contains_row_with(
         result.json,
@@ -95,9 +93,7 @@ def test_stage_get_recursive(
     project_path = test_root_path / "test_data/projects/stage_get_directory_structure"
     stage_name = "stage_directory_structure"
 
-    result = runner.invoke_with_connection_json(
-        ["object", "stage", "create", stage_name]
-    )
+    result = runner.invoke_with_connection_json(["stage", "create", stage_name])
     assert contains_row_with(
         result.json,
         {"status": f"Stage area {stage_name.upper()} successfully created."},
@@ -108,14 +104,13 @@ def test_stage_get_recursive(
     for path in file_paths:
         dest_path = "/".join(Path(path).parts[project_path_parts_length:-1])
         result = runner.invoke_with_connection_json(
-            ["object", "stage", "copy", path, f"@{stage_name}/{dest_path}"]
+            ["stage", "copy", path, f"@{stage_name}/{dest_path}"]
         )
         assert result.exit_code == 0, result.output
         assert contains_row_with(result.json, {"status": "UPLOADED"})
 
     runner.invoke_with_connection_json(
         [
-            "object",
             "stage",
             "copy",
             f"@{stage_name}",
@@ -130,14 +125,12 @@ def test_stage_get_recursive(
     ]
 
 
-# @pytest.mark.integration
+@pytest.mark.integration
 def test_stage_execute(runner, test_database, test_root_path, snapshot):
     project_path = test_root_path / "test_data/projects/stage_execute"
     stage_name = "test_stage_execute"
 
-    result = runner.invoke_with_connection_json(
-        ["object", "stage", "create", stage_name]
-    )
+    result = runner.invoke_with_connection_json(["stage", "create", stage_name])
     assert contains_row_with(
         result.json,
         {"status": f"Stage area {stage_name.upper()} successfully created."},
@@ -151,7 +144,6 @@ def test_stage_execute(runner, test_database, test_root_path, snapshot):
     for name, stage_path in files:
         result = runner.invoke_with_connection_json(
             [
-                "object",
                 "stage",
                 "copy",
                 f"{project_path}/{name}",
@@ -161,15 +153,12 @@ def test_stage_execute(runner, test_database, test_root_path, snapshot):
         assert result.exit_code == 0, result.output
         assert contains_row_with(result.json, {"status": "UPLOADED"})
 
-    result = runner.invoke_with_connection_json(
-        ["object", "stage", "execute", stage_name]
-    )
+    result = runner.invoke_with_connection_json(["stage", "execute", stage_name])
     assert result.exit_code == 0
     assert result.json == snapshot
 
     result = runner.invoke_with_connection_json(
         [
-            "object",
             "stage",
             "copy",
             f"{project_path}/script_template.sql",
@@ -181,7 +170,6 @@ def test_stage_execute(runner, test_database, test_root_path, snapshot):
 
     result = runner.invoke_with_connection_json(
         [
-            "object",
             "stage",
             "execute",
             f"{stage_name}/script_template.sql",

@@ -43,12 +43,13 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
     MissingPackageScriptError,
     UnexpectedOwnerError,
 )
-from snowflake.cli.plugins.object.stage.diff import (
+from snowflake.cli.plugins.stage.diff import (
     DiffResult,
     stage_diff,
     sync_local_diff_with_stage,
 )
 from snowflake.connector import ProgrammingError
+from snowflake.connector.cursor import DictCursor
 
 
 def generic_sql_error_handler(
@@ -181,7 +182,7 @@ class NativeAppManager(SqlExecutionMixin):
         if self.definition.package and self.definition.package.role:
             return self.definition.package.role
         else:
-            return default_role()
+            return self._default_role
 
     @cached_property
     def package_distribution(self) -> str:
@@ -202,7 +203,20 @@ class NativeAppManager(SqlExecutionMixin):
         if self.definition.application and self.definition.application.role:
             return self.definition.application.role
         else:
-            return default_role()
+            return self._default_role
+
+    @cached_property
+    def _default_role(self) -> str:
+        role = default_role()
+        if role is None:
+            role = self._get_current_role()
+        return role
+
+    def _get_current_role(self) -> str:
+        role_result = self._execute_query(
+            "select current_role()", cursor_class=DictCursor
+        ).fetchone()
+        return role_result["CURRENT_ROLE()"]
 
     @cached_property
     def debug_mode(self) -> bool:

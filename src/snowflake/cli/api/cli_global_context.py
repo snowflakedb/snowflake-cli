@@ -28,6 +28,8 @@ class _ConnectionContext:
         self._diag_log_path: Optional[Path] = None
         self._diag_allowlist_path: Optional[Path] = None
         self._temporary_connection: bool = False
+        self._session_token: Optional[str] = None
+        self._master_token: Optional[str] = None
 
     def __setattr__(self, key, value):
         """
@@ -150,6 +152,20 @@ class _ConnectionContext:
         self._temporary_connection = value
 
     @property
+    def session_token(self) -> Optional[str]:
+        return self._session_token
+
+    def set_session_token(self, value: Optional[str]):
+        self._session_token = value
+
+    @property
+    def master_token(self) -> Optional[str]:
+        return self._master_token
+
+    def set_master_token(self, value: Optional[str]):
+        self._master_token = value
+
+    @property
     def connection(self) -> SnowflakeConnection:
         if not self._cached_connection:
             self._cached_connection = self._build_connection()
@@ -166,6 +182,8 @@ class _ConnectionContext:
             "schema": self.schema,
             "role": self.role,
             "warehouse": self.warehouse,
+            "session_token": self.session_token,
+            "master_token": self.master_token,
         }
 
     def _build_connection(self):

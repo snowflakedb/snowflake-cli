@@ -7,14 +7,16 @@
   has no effect and will cause a warning. In this way the command has single responsibility - check if package is
   available in Snowflake Anaconda channel.
 * `snow snowpark package create`:
-  * `--pypi-download` or `--yes` flags have no effect and will cause a warning.
+  * `--pypi-download` or `--yes` flags are deprecated, have no effect and will cause a warning.
     `create` command always checks against PyPi.
-  * `--allow-native-libraries` is replaced with boolean flag `--allow-shared-libraries`.
+  * `--allow-native-libraries` is deprecated in favour of boolean flag `--allow-shared-libraries`.
     Using old flag will cause a warning.
 * `snow snowpark build`:
-  * `--pypi-download` flag have no effect and will cause a warning. Create command always check against PyPi.
-  * `--check-anaconda-for-pypi-depts` is replaced with `--ignore-anaconda`
-  * `--package-native-libraries` is replaced with boolean flag `--allow-shared-libraries`
+  * `--pypi-download` flag is deprecated, have no effect and will cause a warning. Create command always check against PyPi.
+  * `--check-anaconda-for-pypi-depts` is deprecated and using it will cause warning, the functionality is replaced by `--ignore-anaconda`
+  * `--package-native-libraries` is deprecated and using it will cause warning, the functionality is replaced by `--allow-shared-libraries`
+* `snow object stage` commands are deprecated and using them will cause a warning.
+   Functionality is replaced by `snow stage` commands.
 
 ## New additions
 * Added support for fully qualified name (`database.schema.name`) in `name` parameter in streamlit project definition
@@ -41,6 +43,11 @@
   * `snow git copy` - copies files from provided branch/tag/commit into stage or local directory
   * `snow git execute` - execute immediate files from repository
 * Added command for execute immediate `snow object stage execute`
+* Fetching available packages list from Snowflake instead of directly from Anaconda with fallback to the old method (for backward compatibility).
+  As the new method requires a connection to Snowflake, it adds connection options to the following commands:
+  * `snow snowpark build`
+  * `snow snowpark package lookup`
+  * `snow snowpark package create`
 
 ## Fixes and improvements
 * Adding `--image-name` option for image name argument in `spcs image-repository list-tags` for consistency with other commands.
@@ -54,6 +61,7 @@
 * Fixed version parsing for packages lookup on Snowflake Anaconda Channel
 * Fix handling database/schema/role identifiers containing dashes
 * Fix schema override bug in `snow connection test`
+* Hidden incorrectly working config permissions warning on Windows
 
 # v2.1.2
 
