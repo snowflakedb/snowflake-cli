@@ -150,12 +150,13 @@ def symlink_or_copy(
         sdst.parent.mkdir(parents=True, exist_ok=True)
     if overwrite:
         delete(dst)
+    project_root = Path(os.getcwd()).resolve()
     try:
         os.symlink(src, dst)
-        created_files[str(os.path.relpath(src))] = Path(os.path.relpath(dst))
+        created_files[str(os.path.relpath(src))] = dst.relative_to(project_root)
     except OSError:
         ssrc.copy(dst)
-        created_files[str(os.path.relpath(ssrc))] = Path(os.path.relpath(dst))
+        created_files[str(os.path.relpath(ssrc))] = dst.relative_to(project_root)
 
 
 def translate_artifact(item: Union[dict, str]) -> ArtifactMapping:
@@ -320,6 +321,7 @@ def project_path_to_deploy_path(
         path_to_symlink = files_mapping[str(root)]
         path_to_target = Path(project_path).relative_to(root)
         result = Path(path_to_symlink, path_to_target)
+
         if not result.exists():
             raise FileNotFoundError(result)
         return result
