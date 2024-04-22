@@ -18,6 +18,7 @@
   │ app          Manages a Snowflake Native App                                  │
   │ connection   Manages connections to Snowflake.                               │
   │ git          Manages git repositories in Snowflake.                          │
+  │ notebook     Manages notebooks in Snowflake.                                 │
   │ object       Manages Snowflake objects like warehouses and stages            │
   │ snowpark     Manages procedures and functions.                               │
   │ spcs         Manages Snowpark Container Services compute pools, services,    │
@@ -1706,9 +1707,9 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ execute       Executes a notebook in a headless mode.                        │
-  │ get-url       Return a url to a notebook.                                    │
-  │ open          Opens a notebook in default browser                            │
+  │ execute   Executes a notebook in a headless mode.                            │
+  │ get-url   Return a url to a notebook.                                        │
+  │ open      Opens a notebook in default browser                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
