@@ -143,7 +143,7 @@ def download_unavailable_packages(
     # download all packages with their dependencies
     with SecurePath.temporary_directory() as downloads_dir:
         # This is a Windows workaround where use TemporaryDirectory instead of NamedTemporaryFile
-        requirements_file = SecurePath("requirements.txt")
+        requirements_file = downloads_dir / "requirements.txt"
         _write_requirements_file(requirements_file, requirements)  # type: ignore
         pip_wheel_result = pip_wheel(
             package_name=None,
@@ -206,7 +206,7 @@ def pip_wheel(
         command.append(package_name)
     if requirements_file:
         command += ["-r", str(requirements_file)]
-    if index_url is not None:
+    if index_url:
         command += ["-i", index_url]
     if not dependencies:
         command += ["--no-deps"]
