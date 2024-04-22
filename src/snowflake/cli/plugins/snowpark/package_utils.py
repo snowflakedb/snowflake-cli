@@ -201,11 +201,11 @@ def pip_wheel(
     index_url: Optional[str],
     dependencies: bool = True,
 ):
-    command = ["-m", "pip", "wheel", "-w", download_dir]
+    command = ["-m", "pip", "wheel", "-w", str(download_dir)]
     if package_name:
         command.append(package_name)
     if requirements_file:
-        command += ["-r", requirements_file.]
+        command += ["-r", str(requirements_file)]
     if index_url is not None:
         command += ["-i", index_url]
     if not dependencies:
@@ -213,7 +213,8 @@ def pip_wheel(
 
     try:
         log.info(
-            "Running wheel with command: %s", " ".join([str(com) for com in command])
+            "Running pip wheel with command: %s",
+            " ".join([str(com) for com in command]),
         )
         process = subprocess.run(
             ["python", *command],
@@ -225,6 +226,7 @@ def pip_wheel(
         log.error("Encountered error %s", e.stderr)
         raise SystemExit
 
+    log.info("Pip wheel command executed successfully")
     return process.returncode
 
 
