@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import dataclasses
+import locale
 import logging
 import os
 import re
+import subprocess
+from pathlib import Path
 from textwrap import dedent
-from typing import List
+from typing import Dict, List, Optional
 
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.secure_path import SecurePath
@@ -18,7 +21,6 @@ from snowflake.cli.plugins.snowpark.models import (
 from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
 )
-from snowflake.cli.plugins.snowpark.venv import Venv
 
 log = logging.getLogger(__name__)
 
@@ -73,8 +75,8 @@ def generate_deploy_stage_name(identifier: str) -> str:
 def get_package_name_from_pip_wheel(package: str, index_url: str | None = None) -> str:
     """Downloads the package using pip and returns the package name.
     If the package name cannot be determined, it returns the [package]."""
-    with Venv() as v, SecurePath.temporary_directory() as tmp_dir:
-        pip_result = v.pip_wheel(
+    with SecurePath.temporary_directory() as tmp_dir:
+        pip_result = pip_wheel(
             package_name=package,
             requirements_file=None,
             download_dir=tmp_dir.path,
@@ -139,11 +141,11 @@ def download_unavailable_packages(
         )
 
     # download all packages with their dependencies
-    with Venv() as v, SecurePath.temporary_directory() as downloads_dir:
+    with SecurePath.temporary_directory() as downloads_dir:
         # This is a Windows workaround where use TemporaryDirectory instead of NamedTemporaryFile
-        requirements_file = SecurePath(v.directory.name) / "requirements.txt"
+        requirements_file = SecurePath("requirements.txt")
         _write_requirements_file(requirements_file, requirements)  # type: ignore
-        pip_wheel_result = v.pip_wheel(
+        pip_wheel_result = pip_wheel(
             package_name=None,
             requirements_file=requirements_file.path,  # type: ignore
             download_dir=downloads_dir.path,
@@ -158,7 +160,7 @@ def download_unavailable_packages(
             )
 
         # detect all downloaded packages
-        dependencies = v.get_package_dependencies(
+        dependencies = get_package_dependencies(
             requirements_file, downloads_dir=downloads_dir.path
         )
         dependency_requirements = [d.requirement for d in dependencies]
@@ -190,6 +192,80 @@ def download_unavailable_packages(
                 for dep in dependencies_to_be_packed
             ],
         )
+
+
+def pip_wheel(
+    requirements_file: Optional[str],
+    package_name: Optional[str],
+    download_dir: Path,
+    index_url: Optional[str],
+    dependencies: bool = True,
+):
+    command = ["-m", "pip", "wheel", "-w", download_dir]
+    if package_name:
+        command.append(package_name)
+    if requirements_file:
+        command += ["-r", requirements_file.]
+    if index_url is not None:
+        command += ["-i", index_url]
+    if not dependencies:
+        command += ["--no-deps"]
+
+    try:
+        log.info(
+            "Running wheel with command: %s", " ".join([str(com) for com in command])
+        )
+        process = subprocess.run(
+            ["python", *command],
+            capture_output=True,
+            text=True,
+            encoding=locale.getpreferredencoding(),
+        )
+    except subprocess.CalledProcessError as e:
+        log.error("Encountered error %s", e.stderr)
+        raise SystemExit
+
+    return process.returncode
+
+
+def get_package_dependencies(
+    requirements_file: SecurePath, downloads_dir: Path
+) -> List[RequirementWithWheelAndDeps]:
+    packages_metadata: Dict[str, WheelMetadata] = {
+        meta.name: meta
+        for meta in (
+            WheelMetadata.from_wheel(wheel_path)
+            for wheel_path in downloads_dir.glob("*.whl")
+        )
+        if meta is not None
+    }
+    dependencies: Dict = {}
+
+    def _get_dependencies(package: Requirement):
+        if package.name not in dependencies:
+            meta = packages_metadata.get(
+                WheelMetadata.to_wheel_name_format(package.name)
+            )
+            wheel_path = meta.wheel_path if meta else None
+            requires = meta.dependencies if meta else []
+            dependencies[package.name] = RequirementWithWheelAndDeps(
+                requirement=package,
+                wheel_path=wheel_path,
+                dependencies=requires,
+            )
+
+            log.debug(
+                "Checking package %s, with dependencies: %s", package.name, requires
+            )
+
+            for package in requires:
+                _get_dependencies(Requirement.parse_line(package))
+
+    with requirements_file.open("r", read_file_limit_mb=512) as req_file:
+        for line in req_file:
+            _get_dependencies(Requirement.parse_line(line))
+
+    return list(dependencies.values())
 
 
 def _filter_dependencies_not_available_in_conda(
