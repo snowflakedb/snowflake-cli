@@ -5,13 +5,12 @@ import glob
 import logging
 import re
 from contextlib import nullcontext
-from dataclasses import dataclass
 from os import path
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 from click import ClickException
-from snowflake.cli.api.commands.flags import OnErrorType
+from snowflake.cli.api.commands.flags import OnErrorType, parse_key_value_variables
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
@@ -25,16 +24,6 @@ log = logging.getLogger(__name__)
 
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
 EXECUTE_SUPPORTED_FILES_FORMATS = {".sql"}
-
-
-@dataclass
-class Variable:
-    key: str
-    value: str
-
-    def __init__(self, key: str, value: str):
-        self.key = key
-        self.value = value
 
 
 class StageManager(SqlExecutionMixin):
@@ -262,20 +251,9 @@ class StageManager(SqlExecutionMixin):
         if not variables:
             return None
 
-        parsed_variables = StageManager._parse_variables(variables)
+        parsed_variables = parse_key_value_variables(variables)
         query_parameters = [f"{v.key}=>{v.value}" for v in parsed_variables]
         return f" using ({', '.join(query_parameters)})"
-
-    @staticmethod
-    def _parse_variables(variables: List[str]) -> List[Variable]:
-        result = []
-        for p in variables:
-            if "=" not in p:
-                raise ClickException(f"Invalid variable: '{p}'")
-
-            key, value = p.split("=", 1)
-            result.append(Variable(key.strip(), value.strip()))
-        return result
 
     def _call_execute_immediate(
         self, file: str, variables: Optional[str], on_error: OnErrorType

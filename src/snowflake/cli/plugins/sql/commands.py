@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
+from snowflake.cli.api.commands.flags import parse_key_value_variables
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MultipleResults, QueryResult
 from snowflake.cli.plugins.sql.manager import SqlManager
@@ -62,9 +63,7 @@ def execute_sql(
     """
     data = {}
     if data_override:
-        for key_value_str in data_override:
-            key, value = _parse_key_value(key_value_str)
-            data[key] = value
+        data = {v.key: v.value for v in parse_key_value_variables(data_override)}
 
     single_statement, cursors = SqlManager().execute(query, file, std_in, data=data)
     if single_statement:

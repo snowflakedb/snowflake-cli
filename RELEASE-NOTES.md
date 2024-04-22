@@ -48,7 +48,7 @@
   * `snow snowpark build`
   * `snow snowpark package lookup`
   * `snow snowpark package create`
-* `snow sql` command supports now templating of queries.
+* `snow sql` command supports now client-side templating of queries.
 
 ## Fixes and improvements
 * Adding `--image-name` option for image name argument in `spcs image-repository list-tags` for consistency with other commands.

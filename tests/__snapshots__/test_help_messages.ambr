@@ -4820,6 +4820,8 @@
    Query to execute can be specified using query option, filename option (all     
    queries from file will be executed) or via stdin by piping output from other   
    command. For example `cat my.sql | snow sql -i`.                               
+   The command supports variable substitution that happens on client-side. Both   
+   $VARIABLE or ${ VARIABLE } syntax are supported.                               
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --query     -q      TEXT  Query to execute. [default: None]                  │
@@ -4827,8 +4829,8 @@
   │ --stdin     -i            Read the query from standard input. Use it when    │
   │                           piping input to this command.                      │
   │ --data      -D      TEXT  String in format of key=value. If provided the SQL │
-  │                           content will be treated and rendered using         │
-  │                           provided data.                                     │
+  │                           content will be treated as template and rendered   │
+  │                           using provided data.                               │
   │                           [default: None]                                    │
   │ --help      -h            Show this message and exit.                        │
   ╰──────────────────────────────────────────────────────────────────────────────╯

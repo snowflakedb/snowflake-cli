@@ -47,7 +47,9 @@ def test_that_common_logic_block_are_ignored(text):
 
 
 def test_that_common_comments_are_respected():
+    # Make sure comment are ignored
     assert snowflake_cli_jinja_render("{# note a comment &{ foo } #}") == ""
+    # Make sure comment's work together with templates
     assert (
         snowflake_cli_jinja_render("{# note a comment #}&{ foo }", data={"foo": "bar"})
         == "bar"
