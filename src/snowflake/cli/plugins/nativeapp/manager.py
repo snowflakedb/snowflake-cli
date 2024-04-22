@@ -24,10 +24,11 @@ from snowflake.cli.api.project.util import (
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.connection.util import make_snowsight_url
 from snowflake.cli.plugins.nativeapp.artifacts import (
+    ArtifactDeploymentMap,
     ArtifactMapping,
-    DeployMapping,
     build_bundle,
     project_path_to_deploy_path,
+    resolve_without_follow,
     translate_artifact,
 )
 from snowflake.cli.plugins.nativeapp.constants import (
@@ -118,7 +119,7 @@ def _get_files_to_sync(paths_to_sync: List[Path], deploy_root: Path) -> List[str
     return paths
 
 
-def _assert_no_directories(paths_to_sync):
+def _verify_no_directories(paths_to_sync):
     for path in paths_to_sync:
         if path.is_dir():
             raise ValueError(
@@ -312,7 +313,7 @@ class NativeAppManager(SqlExecutionMixin):
             return False
         return True
 
-    def build_bundle(self) -> DeployMapping:
+    def build_bundle(self) -> ArtifactDeploymentMap:
         """
         Populates the local deploy root from artifact sources.
         """
@@ -324,7 +325,7 @@ class NativeAppManager(SqlExecutionMixin):
         prune: Optional[bool] = None,
         paths_to_sync: Optional[List[Path]] = None,  # relative to project root
         recursive: Optional[bool] = None,
-        created_files: Optional[DeployMapping] = None,
+        created_files: Optional[ArtifactDeploymentMap] = None,
     ) -> DiffResult:
         """
         Ensures that the files on our remote stage match the artifacts we have in
@@ -360,14 +361,13 @@ class NativeAppManager(SqlExecutionMixin):
 
         # If we are syncing specific files/directories, remove everything else from the diff
         if paths_to_sync is not None and len(paths_to_sync) > 0:
+            paths_to_sync = [resolve_without_follow(p) for p in paths_to_sync]
             if not recursive:
-                _assert_no_directories(paths_to_sync)
-            deploy_paths = project_path_to_deploy_path(paths_to_sync, created_files)
-            paths_to_keep = set(
-                _get_files_to_sync(
-                    deploy_paths, Path(self.deploy_root.relative_to(self.project_root))
-                )
-            )
+                _verify_no_directories(paths_to_sync)
+            deploy_paths = [
+                project_path_to_deploy_path(p, created_files) for p in paths_to_sync
+            ]
+            paths_to_keep = set(_get_files_to_sync(deploy_paths, self.deploy_root))
             filter_from_diff(diff, paths_to_keep, prune)
         # If we are syncing everything with no-prune, remove all remote-only files
         elif prune is False:
@@ -501,9 +501,9 @@ class NativeAppManager(SqlExecutionMixin):
     def deploy(
         self,
         prune: Optional[bool] = None,
-        files_to_sync: Optional[List[Path]] = None,
+        paths_to_sync: Optional[List[Path]] = None,
         recursive: Optional[bool] = None,
-        created_files: Optional[DeployMapping] = None,
+        created_files: Optional[ArtifactDeploymentMap] = None,
     ) -> DiffResult:
         """app deploy process"""
 
@@ -516,7 +516,7 @@ class NativeAppManager(SqlExecutionMixin):
 
             # 3. Upload files from deploy root local folder to the above stage
             diff = self.sync_deploy_root_with_stage(
-                self.package_role, prune, files_to_sync, recursive, created_files
+                self.package_role, prune, paths_to_sync, recursive, created_files
             )
 
         return diff

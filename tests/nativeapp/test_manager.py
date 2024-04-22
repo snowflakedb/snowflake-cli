@@ -111,10 +111,6 @@ def test_sync_deploy_root_with_stage(
     )
 
 
-def test_sync_deploy_root_with_stage_specific_files():
-    pass
-
-
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_cursor):
 

@@ -13,6 +13,7 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     TooManyFilesError,
     build_bundle,
     project_path_to_deploy_path,
+    resolve_without_follow,
     translate_artifact,
 )
 
@@ -170,34 +171,49 @@ def test_too_many_files(project_definition_files):
 
 
 @pytest.mark.parametrize(
-    "project_paths,expected_paths,expected_exception",
+    "project_path,expected_path,expected_exception",
     [
         [
-            ["file", "dir"],
-            ["deploy/file", "deploy/dir"],
+            "file",
+            "deploy/file",
             None,
         ],
         [
-            ["dir/nested_file1", "dir/nested_dir/nested_file2"],
-            ["deploy/dir/nested_file1", "deploy/dir/nested_dir/nested_file2"],
+            "dir",
+            "deploy/dir",
             None,
         ],
         [
-            ["non_existing_file"],
-            [],
+            "dir/nested_file1",
+            "deploy/dir/nested_file1",
+            None,
+        ],
+        [
+            "dir/nested_dir/nested_file2",
+            "deploy/dir/nested_dir/nested_file2",
+            None,
+        ],
+        [
+            "dir/nested_dir",
+            "deploy/dir/nested_dir",
+            None,
+        ],
+        [
+            "non_existing_file",
+            None,
             FileNotFoundError,
         ],
         [
-            ["dir/nested_dir/non_existing_file"],
-            [],
+            "dir/nested_dir/non_existing_file",
+            None,
             FileNotFoundError,
         ],
     ],
 )
 def test_project_path_to_deploy_path(
     temp_dir,
-    project_paths,
-    expected_paths,
+    project_path,
+    expected_path,
     expected_exception,
 ):
     # Source files
@@ -207,18 +223,18 @@ def test_project_path_to_deploy_path(
     # Build
     os.mkdir("deploy")
     os.symlink("file", "deploy/file")
-    os.symlink(Path("dir").absolute(), Path("deploy/dir"))
+    os.symlink(Path("dir").resolve(), Path("deploy/dir"))
 
     files_mapping = {
-        "dir": Path("deploy/dir"),
-        "file": Path("deploy/file"),
+        Path("dir").resolve(): resolve_without_follow(Path("deploy/dir")),
+        Path("file").resolve(): resolve_without_follow(Path("deploy/file")),
     }
 
     if expected_exception is None:
         result = project_path_to_deploy_path(
-            [Path(p) for p in project_paths], files_mapping
+            Path(project_path).resolve(), files_mapping
         )
-        assert result == [Path(p) for p in expected_paths]
+        assert result == resolve_without_follow(Path(expected_path))
     else:
         with pytest.raises(expected_exception):
-            project_path_to_deploy_path([Path(p) for p in project_paths], files_mapping)
+            project_path_to_deploy_path(Path(project_path).resolve(), files_mapping)

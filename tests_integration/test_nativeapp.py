@@ -693,7 +693,7 @@ def test_nativeapp_deploy_files(
 
 # Tests that files inside of a symlinked directory are deployed
 @pytest.mark.integration
-def test_nativeapp_deploy_nested_directores(
+def test_nativeapp_deploy_nested_directories(
     runner,
     temporary_working_directory,
 ):
