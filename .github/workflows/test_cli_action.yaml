@@ -1,0 +1,17 @@
+name: "CLI Action testing"
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  version:
+    name: "Check Snowflake CLI version"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Snowflake-Labs/snowflake-cli-action@v1
+        with:
+          cli-version: "latest"
+
+      - name: Test version
+        run: snow --version
