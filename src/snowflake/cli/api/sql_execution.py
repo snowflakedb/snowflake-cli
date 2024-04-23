@@ -224,3 +224,11 @@ class SqlExecutionMixin:
             lambda row: row[name_col] == unquote_identifier(unqualified_name),
         )
         return show_obj_row
+
+    def qualified_name_for_url(
+        self, object_name: str, database: str | None = None, schema: str | None = None
+    ):
+        fqn = self.to_fully_qualified_name(
+            object_name, database=database, schema=schema
+        )
+        return ".".join(unquote_identifier(part) for part in fqn.split("."))
