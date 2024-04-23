@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 from click.exceptions import ClickException
 from snowflake.cli.api.constants import ObjectType
@@ -56,7 +55,7 @@ class SnowflakeSQLExecutionError(ClickException):
     Could not successfully execute the Snowflake SQL statements.
     """
 
-    def __init__(self, queries: Optional[str] = None):
+    def __init__(self, queries: str | None = None):
         super().__init__(
             f"""
                 {self.__doc__}

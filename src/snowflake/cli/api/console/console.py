@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Optional
 
 from rich.style import Style
 from rich.text import Text
@@ -49,7 +48,7 @@ class CliConsole(AbstractConsole):
         return text
 
     @contextmanager
-    def phase(self, enter_message: str, exit_message: Optional[str] = None):
+    def phase(self, enter_message: str, exit_message: str | None = None):
         """A context manager for organising steps into logical group."""
         if self.in_phase:
             raise CliConsoleNestingProhibitedError("Only one phase allowed at a time.")

@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional
 
 import typer
 from click import ClickException
@@ -161,7 +160,7 @@ def package_create(
         help="Name of the package to create.",
     ),
     ignore_anaconda: bool = IgnoreAnacondaOption,
-    index_url: Optional[str] = IndexUrlOption,
+    index_url: str | None = IndexUrlOption,
     skip_version_check: bool = SkipVersionCheckOption,
     allow_shared_libraries: bool = AllowSharedLibrariesOption,
     deprecated_allow_native_libraries: YesNoAsk = deprecated_allow_native_libraries_option(

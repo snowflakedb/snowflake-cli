@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import pluggy
 from snowflake.cli.api.plugins.command import (
@@ -55,15 +57,13 @@ class CommandPluginsLoader:
             self._load_plugin(plugin_name, plugin)
         return list(self._loaded_plugins.values())
 
-    def _load_plugin(self, plugin_name: str, plugin) -> Optional[LoadedCommandPlugin]:
+    def _load_plugin(self, plugin_name: str, plugin) -> LoadedCommandPlugin | None:
         already_loaded_plugin = self._loaded_plugins.get(plugin_name)
         if already_loaded_plugin:
             return already_loaded_plugin
         return self._load_new_plugin(plugin_name, plugin)
 
-    def _load_new_plugin(
-        self, plugin_name: str, plugin
-    ) -> Optional[LoadedCommandPlugin]:
+    def _load_new_plugin(self, plugin_name: str, plugin) -> LoadedCommandPlugin | None:
         loaded_plugin = self._load_plugin_spec(plugin_name, plugin)
         if not loaded_plugin:
             return None
@@ -86,9 +86,7 @@ class CommandPluginsLoader:
         ] = loaded_plugin
         return loaded_plugin
 
-    def _load_plugin_spec(
-        self, plugin_name: str, plugin
-    ) -> Optional[LoadedCommandPlugin]:
+    def _load_plugin_spec(self, plugin_name: str, plugin) -> LoadedCommandPlugin | None:
         if plugin_name in get_builtin_plugin_name_to_plugin_spec().keys():
             return self._load_builtin_plugin_spec(plugin_name, plugin)
         else:
@@ -96,7 +94,7 @@ class CommandPluginsLoader:
 
     def _load_builtin_plugin_spec(
         self, plugin_name: str, plugin
-    ) -> Optional[LoadedCommandPlugin]:
+    ) -> LoadedCommandPlugin | None:
         command_spec = self._load_command_spec(plugin_name, plugin)
         if command_spec:
             return LoadedBuiltInCommandPlugin(
@@ -108,7 +106,7 @@ class CommandPluginsLoader:
 
     def _load_external_plugin_spec(
         self, plugin_name: str, plugin
-    ) -> Optional[LoadedCommandPlugin]:
+    ) -> LoadedCommandPlugin | None:
         command_spec = self._load_command_spec(plugin_name, plugin)
         if command_spec:
             return LoadedExternalCommandPlugin(
@@ -119,7 +117,7 @@ class CommandPluginsLoader:
             return None
 
     @staticmethod
-    def _load_command_spec(plugin_name: str, plugin) -> Optional[CommandSpec]:
+    def _load_command_spec(plugin_name: str, plugin) -> CommandSpec | None:
         try:
             return plugin.command_spec()
         except Exception as ex:

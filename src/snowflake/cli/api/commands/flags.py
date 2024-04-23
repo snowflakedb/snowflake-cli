@@ -4,7 +4,7 @@ import tempfile
 from enum import Enum
 from inspect import signature
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Tuple
 
 import click
 import typer
@@ -40,7 +40,7 @@ class OverrideableOption:
         self,
         default: Any,
         *param_decls: str,
-        mutually_exclusive: Optional[List[str] | Tuple[str]] = None,
+        mutually_exclusive: List[str] | Tuple[str] | None = None,
         **kwargs,
     ):
         self.default = default
@@ -76,7 +76,7 @@ class OverrideableOption:
             )
 
     def _callback_factory(
-        self, callback, mutually_exclusive: Optional[List[str] | Tuple[str]]
+        self, callback, mutually_exclusive: List[str] | Tuple[str] | None
     ):
         callback = callback if callback else lambda x: x
 
@@ -448,7 +448,7 @@ PatternOption = typer.Option(
 
 
 def experimental_option(
-    experimental_behaviour_description: Optional[str] = None,
+    experimental_behaviour_description: str | None = None,
 ) -> typer.Option:
     help_text = (
         f"Turns on experimental behaviour of the command: {experimental_behaviour_description}"
@@ -482,7 +482,7 @@ def project_definition_option(project_name: str):
     from snowflake.cli.api.exceptions import NoProjectDefinitionError
     from snowflake.cli.api.project.definition_manager import DefinitionManager
 
-    def _callback(project_path: Optional[str]):
+    def _callback(project_path: str | None):
         dm = DefinitionManager(project_path)
         project_definition = getattr(dm.project_definition, project_name, None)
         project_root = dm.project_root

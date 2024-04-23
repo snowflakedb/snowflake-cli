@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List
 
 from pydantic import Field, field_validator
 from snowflake.cli.api.project.schemas.native_app.application import DistributionOptions
@@ -11,21 +11,21 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 
 
 class Package(UpdatableModel):
-    scripts: Optional[List[str]] = Field(
+    scripts: List[str] | None = Field(
         title="List of SQL file paths relative to the project root", default=None
     )
-    role: Optional[str] = IdentifierField(
+    role: str | None = IdentifierField(
         title="Role to use when creating the application package and provider-side objects",
         default=None,
     )
-    name: Optional[str] = IdentifierField(
+    name: str | None = IdentifierField(
         title="Name of the application package created when you run the snow app run command",
         default=None,
     )
-    warehouse: Optional[str] = IdentifierField(
+    warehouse: str | None = IdentifierField(
         title="Warehouse used to run the scripts", default=None
     )
-    distribution: Optional[DistributionOptions] = Field(
+    distribution: DistributionOptions | None = Field(
         title="Distribution of the application package created by the Snowflake CLI",
         default="internal",
     )

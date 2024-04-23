@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 import yaml
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
@@ -25,10 +27,10 @@ class ServiceManager(SqlExecutionMixin):
         min_instances: int,
         max_instances: int,
         auto_resume: bool,
-        external_access_integrations: Optional[List[str]],
-        query_warehouse: Optional[str],
-        tags: Optional[List[Tag]],
-        comment: Optional[str],
+        external_access_integrations: List[str] | None,
+        query_warehouse: str | None,
+        tags: List[Tag] | None,
+        comment: str | None,
         if_not_exists: bool,
     ) -> SnowflakeCursor:
         spec = self._read_yaml(spec_path)
@@ -102,11 +104,11 @@ class ServiceManager(SqlExecutionMixin):
     def set_property(
         self,
         service_name: str,
-        min_instances: Optional[int],
-        max_instances: Optional[int],
-        query_warehouse: Optional[str],
-        auto_resume: Optional[bool],
-        comment: Optional[str],
+        min_instances: int | None,
+        max_instances: int | None,
+        query_warehouse: str | None,
+        auto_resume: bool | None,
+        comment: str | None,
     ):
         property_pairs = [
             ("min_instances", min_instances),

@@ -1,5 +1,4 @@
 import json
-from typing import Optional
 
 import requests
 import typer
@@ -67,7 +66,7 @@ def list_images(
     api_url = repository_manager.get_repository_api_url(url)
     bearer_login = RegistryManager().login_to_registry(api_url)
     repos = []
-    query: Optional[str] = f"{api_url}/_catalog?n=10"
+    query: str | None = f"{api_url}/_catalog?n=10"
 
     while query:
         # Make paginated catalog requests
@@ -118,7 +117,7 @@ def list_tags(
 
     image_realname = "/".join(image_name.split("/")[4:])
     tags = []
-    query: Optional[str] = f"{api_url}/{image_realname}/tags/list?n=10"
+    query: str | None = f"{api_url}/{image_realname}/tags/list?n=10"
 
     while query is not None:
         # Make paginated catalog requests

@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from functools import cached_property
 from io import StringIO
 from textwrap import dedent
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, Tuple
 
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.constants import ObjectType
@@ -99,7 +99,7 @@ class SqlExecutionMixin:
         )
 
     def create_api_integration(
-        self, name: str, api_provider: str, allowed_prefix: str, secret: Optional[str]
+        self, name: str, api_provider: str, allowed_prefix: str, secret: str | None
     ) -> SnowflakeCursor:
         return self._execute_query(
             f"""
@@ -111,14 +111,14 @@ class SqlExecutionMixin:
             """
         )
 
-    def _execute_schema_query(self, query: str, name: Optional[str] = None, **kwargs):
+    def _execute_schema_query(self, query: str, name: str | None = None, **kwargs):
         """
         Check that a database and schema are provided before executing the query. Useful for operating on schema level objects.
         """
         self.check_database_and_schema_provided(name)
         return self._execute_query(query, **kwargs)
 
-    def check_database_and_schema_provided(self, name: Optional[str] = None) -> None:
+    def check_database_and_schema_provided(self, name: str | None = None) -> None:
         """
         Checks if a database and schema are provided, either through the connection context or a qualified name.
         """
@@ -134,7 +134,7 @@ class SqlExecutionMixin:
             raise SchemaNotProvidedError()
 
     def to_fully_qualified_name(
-        self, name: str, database: Optional[str] = None, schema: Optional[str] = None
+        self, name: str, database: str | None = None, schema: str | None = None
     ):
         current_parts = name.split(".")
         if len(current_parts) == 3:
@@ -163,7 +163,7 @@ class SqlExecutionMixin:
         return from_qualified_name(name)[0]
 
     @staticmethod
-    def _qualified_name_to_in_clause(name: str) -> Tuple[str, Optional[str]]:
+    def _qualified_name_to_in_clause(name: str) -> Tuple[str, str | None]:
         unqualified_name, schema, database = from_qualified_name(name)
         if database:
             in_clause = f"in schema {database}.{schema}"
@@ -184,7 +184,7 @@ class SqlExecutionMixin:
         name_col: str = "name",
         in_clause: str = "",
         check_schema: bool = False,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """
         Executes a "show <objects> like" query for a particular entity with a
         given (optionally qualified) name. This command is useful when the corresponding

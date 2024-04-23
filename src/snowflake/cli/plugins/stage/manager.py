@@ -8,7 +8,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from os import path
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List
 
 from click import ClickException
 from snowflake.cli.api.commands.flags import OnErrorType
@@ -136,11 +136,11 @@ class StageManager(SqlExecutionMixin):
 
     def put(
         self,
-        local_path: Union[str, Path],
+        local_path: str | Path,
         stage_path: str,
         parallel: int = 4,
         overwrite: bool = False,
-        role: Optional[str] = None,
+        role: str | None = None,
     ) -> SnowflakeCursor:
         """
         This method will take a file path from the user's system and put it into a Snowflake stage,
@@ -166,7 +166,7 @@ class StageManager(SqlExecutionMixin):
         return self._execute_query(query)
 
     def remove(
-        self, stage_name: str, path: str, role: Optional[str] = None
+        self, stage_name: str, path: str, role: str | None = None
     ) -> SnowflakeCursor:
         """
         This method will take a file path that exists on a Snowflake stage,
@@ -180,7 +180,7 @@ class StageManager(SqlExecutionMixin):
             quoted_stage_name = self.quote_stage_name(f"{stage_name}{path}")
             return self._execute_query(f"remove {quoted_stage_name}")
 
-    def create(self, stage_name: str, comment: Optional[str] = None) -> SnowflakeCursor:
+    def create(self, stage_name: str, comment: str | None = None) -> SnowflakeCursor:
         query = f"create stage if not exists {stage_name}"
         if comment:
             query += f" comment='{comment}'"
@@ -194,7 +194,7 @@ class StageManager(SqlExecutionMixin):
         self,
         stage_path: str,
         on_error: OnErrorType,
-        variables: Optional[List[str]] = None,
+        variables: List[str] | None = None,
     ):
         stage_path = self.get_standard_stage_prefix(stage_path)
         all_files_list = self._get_files_list_from_stage(stage_path)
@@ -258,7 +258,7 @@ class StageManager(SqlExecutionMixin):
         return [f for f in files if Path(f).suffix in EXECUTE_SUPPORTED_FILES_FORMATS]
 
     @staticmethod
-    def _parse_execute_variables(variables: Optional[List[str]]) -> Optional[str]:
+    def _parse_execute_variables(variables: List[str] | None) -> str | None:
         if not variables:
             return None
 
@@ -278,7 +278,7 @@ class StageManager(SqlExecutionMixin):
         return result
 
     def _call_execute_immediate(
-        self, file: str, variables: Optional[str], on_error: OnErrorType
+        self, file: str, variables: str | None, on_error: OnErrorType
     ) -> Dict:
         try:
             stage_path_prefixed = self.get_standard_stage_prefix(file)

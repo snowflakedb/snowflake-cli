@@ -1,4 +1,6 @@
-from typing import List, Optional
+from __future__ import annotations
+
+from typing import List
 
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -21,7 +23,7 @@ class ComputePoolManager(SqlExecutionMixin):
         auto_resume: bool,
         initially_suspended: bool,
         auto_suspend_secs: int,
-        comment: Optional[str],
+        comment: str | None,
         if_not_exists: bool,
     ) -> SnowflakeCursor:
         create_statement = "CREATE COMPUTE POOL"
@@ -56,11 +58,11 @@ class ComputePoolManager(SqlExecutionMixin):
     def set_property(
         self,
         pool_name: str,
-        min_nodes: Optional[int],
-        max_nodes: Optional[int],
-        auto_resume: Optional[bool],
-        auto_suspend_secs: Optional[int],
-        comment: Optional[str],
+        min_nodes: int | None,
+        max_nodes: int | None,
+        auto_resume: bool | None,
+        auto_suspend_secs: int | None,
+        comment: str | None,
     ) -> SnowflakeCursor:
         property_pairs = [
             ("min_nodes", min_nodes),

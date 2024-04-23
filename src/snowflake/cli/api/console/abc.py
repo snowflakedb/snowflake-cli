@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Callable, Iterator, Optional
+from typing import Callable, Iterator
 
 from rich import print as rich_print
 from rich.text import Text
@@ -46,7 +46,7 @@ class AbstractConsole(ABC):
     def phase(
         self,
         enter_message: str,
-        exit_message: Optional[str] = None,
+        exit_message: str | None = None,
     ) -> Iterator[Callable[[str], None]]:
         """A context manager for organising steps into logical group."""
 

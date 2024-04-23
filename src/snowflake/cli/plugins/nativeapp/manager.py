@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Optional
+from typing import List
 
 import jinja2
 from snowflake.cli.api.console import cli_console as cc
@@ -53,7 +53,7 @@ from snowflake.connector.cursor import DictCursor
 
 
 def generic_sql_error_handler(
-    err: ProgrammingError, role: Optional[str] = None, warehouse: Optional[str] = None
+    err: ProgrammingError, role: str | None = None, warehouse: str | None = None
 ):
     # Potential refactor: If moving away from Python 3.8 and 3.9 to >= 3.10, use match ... case
     if err.errno == 2043 or err.msg.__contains__(ERROR_MESSAGE_2043):
@@ -147,18 +147,18 @@ class NativeAppManager(SqlExecutionMixin):
         return f"{self.package_name}.{self.definition.source_stage}"
 
     @cached_property
-    def stage_schema(self) -> Optional[str]:
+    def stage_schema(self) -> str | None:
         return extract_schema(self.stage_fqn)
 
     @cached_property
-    def package_warehouse(self) -> Optional[str]:
+    def package_warehouse(self) -> str | None:
         if self.definition.package and self.definition.package.warehouse:
             return self.definition.package.warehouse
         else:
             return self._conn.warehouse
 
     @cached_property
-    def application_warehouse(self) -> Optional[str]:
+    def application_warehouse(self) -> str | None:
         if self.definition.application and self.definition.application.warehouse:
             return self.definition.application.warehouse
         else:
@@ -254,7 +254,7 @@ class NativeAppManager(SqlExecutionMixin):
         )
 
     def verify_project_distribution(
-        self, expected_distribution: Optional[str] = None
+        self, expected_distribution: str | None = None
     ) -> bool:
         """
         Returns true if the 'distribution' attribute of an existing application package in snowflake
@@ -326,7 +326,7 @@ class NativeAppManager(SqlExecutionMixin):
             )
         return diff
 
-    def get_existing_app_info(self) -> Optional[dict]:
+    def get_existing_app_info(self) -> dict | None:
         """
         Check for an existing application object by the same name as in project definition, in account.
         It executes a 'show applications like' query and returns the result as single row, if one exists.
@@ -336,7 +336,7 @@ class NativeAppManager(SqlExecutionMixin):
                 "applications", self.app_name, name_col=NAME_COL
             )
 
-    def get_existing_app_pkg_info(self) -> Optional[dict]:
+    def get_existing_app_pkg_info(self) -> dict | None:
         """
         Check for an existing application package by the same name as in project definition, in account.
         It executes a 'show application packages like' query and returns the result as single row, if one exists.

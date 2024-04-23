@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from click import Command
 from jinja2 import Environment, FileSystemLoader
@@ -15,7 +15,7 @@ CMD_USAGE_TMPL = "usage.rst.jinja2"
 OVERVIEW_TMPL = "overview.rst.jinja2"
 
 
-def generate_docs(root: SecurePath, command: Command, cmd_parts: Optional[List] = None):
+def generate_docs(root: SecurePath, command: Command, cmd_parts: List | None = None):
     """
     Iterates recursively through commands info. Creates a file structure resembling
     commands structure. For each terminal command creates a "usage" rst file.
@@ -49,7 +49,7 @@ def get_main_option(options: List[str]) -> str:
 def _render_usage(
     command: Command,
     root: SecurePath,
-    path: Optional[List] = None,
+    path: List | None = None,
     template_name: str = CMD_USAGE_TMPL,
 ):
     # This is end command

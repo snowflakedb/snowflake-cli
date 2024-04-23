@@ -1,12 +1,14 @@
+from __future__ import annotations
+
 import re
-from typing import Optional, Tuple
+from typing import Tuple
 
 from snowflake.cli.api.project.util import (
     VALID_IDENTIFIER_REGEX,
 )
 
 
-def from_qualified_name(name: str) -> Tuple[str, Optional[str], Optional[str]]:
+def from_qualified_name(name: str) -> Tuple[str, str | None, str | None]:
     """
     Takes in an object name in the form [[database.]schema.]name. Returns a tuple (name, [schema], [database])
     """

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import locale
 import logging
@@ -9,7 +11,7 @@ import venv
 from enum import Enum
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
@@ -62,10 +64,10 @@ class Venv:
 
     def pip_wheel(
         self,
-        requirements_file: Optional[str],
-        package_name: Optional[str],
+        requirements_file: str | None,
+        package_name: str | None,
         download_dir: Path,
-        index_url: Optional[str],
+        index_url: str | None,
         dependencies: bool = True,
     ):
         command = ["-m", "pip", "wheel", "-w", download_dir]

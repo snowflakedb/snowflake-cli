@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Tuple, Union
+from typing import Tuple
 
 from click import ClickException
 from snowflake.cli.api.constants import OBJECT_TO_NAMES, ObjectNames
@@ -21,8 +21,8 @@ class ObjectManager(SqlExecutionMixin):
         self,
         *,
         object_type: str,
-        like: Optional[str] = None,
-        scope: Union[Tuple[str, str], Tuple[None, None]] = (None, None),
+        like: str | None = None,
+        scope: Tuple[str, str] | Tuple[None, None] = (None, None),
         **kwargs,
     ) -> SnowflakeCursor:
         object_name = _get_object_names(object_type).sf_plural_name

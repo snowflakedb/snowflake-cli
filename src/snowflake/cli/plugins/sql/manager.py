@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import sys
 from io import StringIO
 from pathlib import Path
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, Tuple
 
 from click import UsageError
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
@@ -12,7 +14,7 @@ from snowflake.connector.util_text import split_statements
 
 class SqlManager(SqlExecutionMixin):
     def execute(
-        self, query: Optional[str], file: Optional[Path], std_in: bool
+        self, query: str | None, file: Path | None, std_in: bool
     ) -> Tuple[int, Iterable[SnowflakeCursor]]:
         inputs = [query, file, std_in]
         if not any(inputs):

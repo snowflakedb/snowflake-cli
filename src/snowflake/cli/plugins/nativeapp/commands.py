@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 import typer
 from snowflake.cli.api.cli_global_context import cli_context
@@ -133,26 +132,29 @@ def app_bundle(
 @app.command("run", requires_connection=True)
 @with_project_definition("native_app")
 def app_run(
-    version: Optional[str] = typer.Option(
+    version: str
+    | None = typer.Option(
         None,
         help=f"""The version defined in an existing application package from which you want to create an application object.
         The application object and application package names are determined from the project definition file.""",
     ),
-    patch: Optional[str] = typer.Option(
+    patch: str
+    | None = typer.Option(
         None,
         "--patch",
         help=f"""The patch number under the given `--version` defined in an existing application package that should be used to create an application object.
         The application object and application package names are determined from the project definition file.""",
     ),
-    from_release_directive: Optional[bool] = typer.Option(
+    from_release_directive: bool
+    | None = typer.Option(
         False,
         "--from-release-directive",
         help=f"""Creates or upgrades an application object to the version and patch specified by the release directive applicable to your Snowflake account.
         The command fails if no release directive exists for your Snowflake account for a given application package, which is determined from the project definition file. Default: unset.""",
         is_flag=True,
     ),
-    interactive: Optional[bool] = InteractiveOption,
-    force: Optional[bool] = ForceOption,
+    interactive: bool | None = InteractiveOption,
+    force: bool | None = ForceOption,
     **options,
 ) -> CommandResult:
     """
@@ -212,7 +214,7 @@ def app_open(
 @app.command("teardown", requires_connection=True)
 @with_project_definition("native_app")
 def app_teardown(
-    force: Optional[bool] = ForceOption,
+    force: bool | None = ForceOption,
     **options,
 ) -> CommandResult:
     """

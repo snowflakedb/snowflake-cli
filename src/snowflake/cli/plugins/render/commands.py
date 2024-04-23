@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 import typer
 from snowflake.cli.api import secure_path
@@ -32,7 +32,8 @@ def render_template(
         readable=True,
         help="Path to template file",
     ),
-    data_file_path: Optional[Path] = typer.Option(
+    data_file_path: Path
+    | None = typer.Option(
         None,
         "--data-file",
         "-d",
@@ -42,14 +43,16 @@ def render_template(
         readable=True,
         help="Path to JSON file with data that will be passed to the template",
     ),
-    data_override: Optional[List[str]] = typer.Option(
+    data_override: List[str]
+    | None = typer.Option(
         None,
         "--data",
         "-D",
         help="String in format of key=value that will be passed to rendered template. "
         "If used together with data file then this will override existing values",
     ),
-    output_file_path: Optional[Path] = typer.Option(
+    output_file_path: Path
+    | None = typer.Option(
         None,
         "--output-file",
         "-o",

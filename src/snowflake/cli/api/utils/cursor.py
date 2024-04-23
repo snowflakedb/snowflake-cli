@@ -1,4 +1,6 @@
-from typing import Callable, List, Optional
+from __future__ import annotations
+
+from typing import Callable, List
 
 from snowflake.connector.cursor import DictCursor
 
@@ -13,6 +15,6 @@ def find_all_rows(cursor: DictCursor, predicate: Callable[[dict], bool]) -> List
 
 def find_first_row(
     cursor: DictCursor, predicate: Callable[[dict], bool]
-) -> Optional[dict]:
+) -> dict | None:
     """Returns the first row that matches the predicate, or None."""
     return next(_rows_generator(cursor, predicate), None)

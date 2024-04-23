@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.constants import TEMPLATES_PATH
 from snowflake.cli.api.output.types import CommandResult, MessageResult
@@ -16,7 +14,7 @@ def _create_project_template(template_name: str, project_directory: str):
 
 
 def add_init_command(
-    app: SnowTyper, project_type: str, template: str, help_message: Optional[str] = None
+    app: SnowTyper, project_type: str, template: str, help_message: str | None = None
 ):
     @app.command()
     def init(

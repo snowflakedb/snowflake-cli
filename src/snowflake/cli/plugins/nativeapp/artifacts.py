@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import List, Tuple
 
 from click import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
@@ -148,7 +150,7 @@ def symlink_or_copy(src: Path, dst: Path, makedirs=True, overwrite=True) -> None
         ssrc.copy(dst)
 
 
-def translate_artifact(item: Union[dict, str]) -> ArtifactMapping:
+def translate_artifact(item: dict | str) -> ArtifactMapping:
     """
     Builds an artifact mapping from a project definition value.
     Validation is done later when we actually resolve files / folders.
@@ -259,7 +261,7 @@ def find_manifest_file(deploy_root: Path) -> Path:
 
 def find_version_info_in_manifest_file(
     deploy_root: Path,
-) -> Tuple[Optional[str], Optional[str]]:
+) -> Tuple[str | None, str | None]:
     """
     Find version and patch, if available, in the manifest.yml file.
     """
@@ -273,8 +275,8 @@ def find_version_info_in_manifest_file(
     ) as file:
         manifest_content = safe_load(file.read())
 
-    version_name: Optional[str] = None
-    patch_name: Optional[str] = None
+    version_name: str | None = None
+    patch_name: str | None = None
 
     if version_field in manifest_content:
         version_info = manifest_content[version_field]

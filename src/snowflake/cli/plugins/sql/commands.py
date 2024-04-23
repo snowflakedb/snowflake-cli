@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 
 import typer
 from snowflake.cli.api.commands.snow_typer import SnowTyper
@@ -12,13 +11,15 @@ app = SnowTyper()
 
 @app.command(name="sql", requires_connection=True)
 def execute_sql(
-    query: Optional[str] = typer.Option(
+    query: str
+    | None = typer.Option(
         None,
         "--query",
         "-q",
         help="Query to execute.",
     ),
-    file: Optional[Path] = typer.Option(
+    file: Path
+    | None = typer.Option(
         None,
         "--filename",
         "-f",
@@ -28,7 +29,8 @@ def execute_sql(
         readable=True,
         help="File to execute.",
     ),
-    std_in: Optional[bool] = typer.Option(
+    std_in: bool
+    | None = typer.Option(
         False,
         "--stdin",
         "-i",

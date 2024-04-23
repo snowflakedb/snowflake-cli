@@ -5,7 +5,6 @@ import platform
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import click
 import typer
@@ -42,7 +41,7 @@ _commands_registration = CommandsRegistrationWithCallbacks(_api.plugin_config_pr
 @dataclass
 class AppContextHolder:
     # needed to access the context from tests
-    app_context: Optional[Context] = None
+    app_context: Context | None = None
 
 
 app_context_holder = AppContextHolder()
@@ -72,7 +71,7 @@ def _commands_registration_callback(value: bool):
 
 
 @_commands_registration.before
-def _config_init_callback(configuration_file: Optional[Path]):
+def _config_init_callback(configuration_file: Path | None):
     config_init(configuration_file)
 
 

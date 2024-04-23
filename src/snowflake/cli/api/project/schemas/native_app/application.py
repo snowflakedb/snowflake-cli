@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import Field
 from snowflake.cli.api.project.schemas.updatable_model import (
@@ -10,19 +10,19 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 
 
 class Application(UpdatableModel):
-    role: Optional[str] = Field(
+    role: str | None = Field(
         title="Role to use when creating the application object and consumer-side objects",
         default=None,
     )
-    name: Optional[str] = Field(
+    name: str | None = Field(
         title="Name of the application object created when you run the snow app run command",
         default=None,
     )
-    warehouse: Optional[str] = IdentifierField(
+    warehouse: str | None = IdentifierField(
         title="Name of the application object created when you run the snow app run command",
         default=None,
     )
-    debug: Optional[bool] = Field(
+    debug: bool | None = Field(
         title="Whether to enable debug mode when using a named stage to create an application object",
         default=True,
     )

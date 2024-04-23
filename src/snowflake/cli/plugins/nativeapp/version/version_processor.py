@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from pathlib import Path
 from textwrap import dedent
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import typer
 from click import BadOptionUsage, ClickException
@@ -115,7 +117,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 f"Version {version} created for application package {self.package_name}."
             )
 
-    def add_new_patch_to_version(self, version: str, patch: Optional[str] = None):
+    def add_new_patch_to_version(self, version: str, patch: str | None = None):
         """
         Add a new patch, optionally a custom one, to an existing version in an application package.
         """
@@ -146,8 +148,8 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
 
     def process(
         self,
-        version: Optional[str],
-        patch: Optional[str],
+        version: str | None,
+        patch: str | None,
         policy: PolicyBase,
         git_policy: PolicyBase,
         is_interactive: bool,
@@ -246,7 +248,7 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
 
     def process(
         self,
-        version: Optional[str],
+        version: str | None,
         policy: PolicyBase,
         is_interactive: bool,
         *args,
