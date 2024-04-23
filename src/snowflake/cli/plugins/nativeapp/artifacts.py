@@ -235,9 +235,7 @@ def build_bundle(
             for source_path in source_paths:
                 dest_child_path = dest_path / source_path.name
                 symlink_or_copy(source_path, dest_child_path)
-                created_files[
-                    resolve_without_follow(source_path)
-                ] = resolve_without_follow(dest_child_path)
+                created_files[source_path.resolve()] = dest_child_path
         else:
             # ensure we are copying into the deploy root, not replacing it!
             if resolved_root not in dest_path.parents:
@@ -246,9 +244,7 @@ def build_bundle(
             if len(source_paths) == 1:
                 # copy a single file as the given destination path
                 symlink_or_copy(source_paths[0], dest_path)
-                created_files[
-                    resolve_without_follow(source_paths[0])
-                ] = resolve_without_follow(dest_path)
+                created_files[source_paths[0].resolve()] = dest_path
             else:
                 # refuse to map multiple source files to one destination (undefined behaviour)
                 raise TooManyFilesError(dest_path)
@@ -302,6 +298,8 @@ def project_path_to_deploy_path(
     project_path: Path, files_mapping: ArtifactDeploymentMap
 ) -> Path:
     """Given a source path, returns the deploy destination path. This function assumes that a build was performed before calling it."""
+
+    project_path = project_path.resolve()
 
     if project_path in files_mapping:
         return files_mapping[project_path]
