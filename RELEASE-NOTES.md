@@ -1,3 +1,12 @@
+# Unreleased version
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
 # v2.2.0
 
 ## Backward incompatibility
