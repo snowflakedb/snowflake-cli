@@ -14,7 +14,7 @@ from snowflake.cli.api.project.util import (
     to_identifier,
 )
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.api.utils.rendering import generic_render_template
+from snowflake.cli.api.utils.rendering import jinja_render_from_file
 from yaml import dump, safe_dump, safe_load
 
 log = logging.getLogger(__name__)
@@ -121,7 +121,7 @@ def _render_snowflake_yml(parent_to_snowflake_yml: Path, project_identifier: str
     snowflake_yml_jinja = "snowflake.yml.jinja"
 
     try:
-        generic_render_template(
+        jinja_render_from_file(
             template_path=parent_to_snowflake_yml / snowflake_yml_jinja,
             data={
                 # generic_render_template operates on text, not YAML, so escape before rendering
