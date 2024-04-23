@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 from click.exceptions import ClickException
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
@@ -234,6 +235,8 @@ def build_bundle(
             # copy all files as children of the given destination path
             for source_path in source_paths:
                 dest_child_path = dest_path / source_path.name
+                cc.step(f"Copying child {source_path} to {dest_child_path}")
+                cc.step(f"({Path(dest_path, source_path.name)})")
                 symlink_or_copy(source_path, dest_child_path)
                 created_files[source_path.resolve()] = dest_child_path
         else:
@@ -244,6 +247,7 @@ def build_bundle(
             if len(source_paths) == 1:
                 # copy a single file as the given destination path
                 symlink_or_copy(source_paths[0], dest_path)
+                cc.step(f"Copying {source_paths[0]} to {dest_path}")
                 created_files[source_paths[0].resolve()] = dest_path
             else:
                 # refuse to map multiple source files to one destination (undefined behaviour)
@@ -306,15 +310,13 @@ def project_path_to_deploy_path(
 
     # Find the first parent directory that exists in files_mapping
     common_root = Path(project_path).resolve()
-    parents = []
     while common_root:
-        parents.append(common_root)
         if common_root in files_mapping:
             break
         elif common_root.parent != common_root:
             common_root = common_root.parent
         else:
-            raise FileNotFoundError([project_path, files_mapping, parents])
+            raise FileNotFoundError(project_path)
 
     # Construct the target deploy path
     path_to_symlink = files_mapping[common_root]

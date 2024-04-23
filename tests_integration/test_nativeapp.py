@@ -514,6 +514,7 @@ def test_nativeapp_deploy(
     assert result.exit_code == 0
 
     with pushd(Path(os.getcwd(), project_name)):
+        touch("app/nested/file1.txt")
         result = runner.invoke_with_connection_json(
             ["app", "deploy"],
             env=TEST_ENV,
@@ -540,6 +541,9 @@ def test_nativeapp_deploy(
                 env=TEST_ENV,
             )
             assert contains_row_with(stage_files.json, {"name": "stage/manifest.yml"})
+            assert contains_row_with(
+                stage_files.json, {"name": "stage/nested/file1.txt"}
+            )
 
             # app does not exist
             assert not_contains_row_with(
