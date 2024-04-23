@@ -368,9 +368,7 @@ class NativeAppManager(SqlExecutionMixin):
                 project_path_to_deploy_path(p, created_files) for p in paths_to_sync
             ]
             paths_to_keep = set(
-                _get_files_to_sync(
-                    deploy_paths, resolve_without_follow(self.deploy_root)
-                )
+                _get_files_to_sync(deploy_paths, self.deploy_root.resolve())
             )
             filter_from_diff(diff, paths_to_keep, prune)
         # If we are syncing everything with no-prune, remove all remote-only files
