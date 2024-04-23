@@ -817,7 +817,7 @@ def test_nativeapp_deploy_directory_no_recursive(
             touch("app/nested/dir/file.txt")
             with pytest.raises(
                 ValueError,
-                match="app/nested is a directory. Add the -r flag to deploy directories.",
+                match="Add the -r flag to deploy directories",
             ):
                 result = runner.invoke_with_connection_json(
                     ["app", "deploy", "app/nested"],
