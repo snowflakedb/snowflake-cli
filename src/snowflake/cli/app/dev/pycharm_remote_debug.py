@@ -1,12 +1,10 @@
-from typing import Optional
-
 from click import ClickException
 
 
 def setup_pycharm_remote_debugger_if_provided(
-    pycharm_debug_library_path: Optional[str],
-    pycharm_debug_server_host: Optional[str],
-    pycharm_debug_server_port: Optional[int],
+    pycharm_debug_library_path: str | None,
+    pycharm_debug_server_host: str | None,
+    pycharm_debug_server_port: int | None,
 ):
     if pycharm_debug_library_path:
         if (

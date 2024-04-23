@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
-from typing import Dict, Optional
+from typing import Dict
 
 import snowflake.connector
 from click.exceptions import ClickException
@@ -26,11 +26,11 @@ UNENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN PRIVATE KEY-----"
 
 def connect_to_snowflake(
     temporary_connection: bool = False,
-    mfa_passcode: Optional[str] = None,
-    enable_diag: Optional[bool] = False,
-    diag_log_path: Optional[str] = None,
-    diag_allowlist_path: Optional[str] = None,
-    connection_name: Optional[str] = None,
+    mfa_passcode: str | None = None,
+    enable_diag: bool | None = False,
+    diag_log_path: str | None = None,
+    diag_allowlist_path: str | None = None,
+    connection_name: str | None = None,
     **overrides,
 ) -> SnowflakeConnection:
     if temporary_connection and connection_name:

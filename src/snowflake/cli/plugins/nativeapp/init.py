@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Optional
 
 from click.exceptions import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
@@ -200,8 +199,8 @@ def _generate_project_name_from_path(p: Path):
 def _init_from_template(
     project_path: Path,
     project_identifier: str,
-    git_url: Optional[str],
-    template: Optional[str],
+    git_url: str | None,
+    template: str | None,
 ):
     """
     Initialize a Snowflake Native App project with a git URL and optionally a specific template within the git URL.
@@ -272,9 +271,9 @@ def _init_from_template(
 
 def nativeapp_init(
     path: str,
-    name: Optional[str] = None,
-    git_url: Optional[str] = None,
-    template: Optional[str] = None,
+    name: str | None = None,
+    git_url: str | None = None,
+    template: str | None = None,
 ) -> ProjectDescriptor:
     """
     Initialize a Snowflake Native App project in the user's current working directory, with or without the use of a template.

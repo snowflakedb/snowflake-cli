@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import re
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 
 from snowflake.cli.api.exceptions import InvalidSchemaError
 from snowflake.cli.api.output.formats import OutputFormat
@@ -11,25 +13,25 @@ schema_pattern = re.compile(r".+\..+")
 
 class _ConnectionContext:
     def __init__(self):
-        self._cached_connection: Optional[SnowflakeConnection] = None
+        self._cached_connection: SnowflakeConnection | None = None
 
-        self._connection_name: Optional[str] = None
-        self._account: Optional[str] = None
-        self._database: Optional[str] = None
-        self._role: Optional[str] = None
-        self._schema: Optional[str] = None
-        self._user: Optional[str] = None
-        self._password: Optional[str] = None
-        self._authenticator: Optional[str] = None
-        self._private_key_path: Optional[str] = None
-        self._warehouse: Optional[str] = None
-        self._mfa_passcode: Optional[str] = None
-        self._enable_diag: Optional[bool] = False
-        self._diag_log_path: Optional[Path] = None
-        self._diag_allowlist_path: Optional[Path] = None
+        self._connection_name: str | None = None
+        self._account: str | None = None
+        self._database: str | None = None
+        self._role: str | None = None
+        self._schema: str | None = None
+        self._user: str | None = None
+        self._password: str | None = None
+        self._authenticator: str | None = None
+        self._private_key_path: str | None = None
+        self._warehouse: str | None = None
+        self._mfa_passcode: str | None = None
+        self._enable_diag: bool | None = False
+        self._diag_log_path: Path | None = None
+        self._diag_allowlist_path: Path | None = None
         self._temporary_connection: bool = False
-        self._session_token: Optional[str] = None
-        self._master_token: Optional[str] = None
+        self._session_token: str | None = None
+        self._master_token: str | None = None
 
     def __setattr__(self, key, value):
         """
@@ -40,38 +42,38 @@ class _ConnectionContext:
             self._cached_connection = None
 
     @property
-    def connection_name(self) -> Optional[str]:
+    def connection_name(self) -> str | None:
         return self._connection_name
 
-    def set_connection_name(self, value: Optional[str]):
+    def set_connection_name(self, value: str | None):
         self._connection_name = value
 
     @property
-    def account(self) -> Optional[str]:
+    def account(self) -> str | None:
         return self._account
 
-    def set_account(self, value: Optional[str]):
+    def set_account(self, value: str | None):
         self._account = value
 
     @property
-    def database(self) -> Optional[str]:
+    def database(self) -> str | None:
         return self._database
 
-    def set_database(self, value: Optional[str]):
+    def set_database(self, value: str | None):
         self._database = value
 
     @property
-    def role(self) -> Optional[str]:
+    def role(self) -> str | None:
         return self._role
 
-    def set_role(self, value: Optional[str]):
+    def set_role(self, value: str | None):
         self._role = value
 
     @property
-    def schema(self) -> Optional[str]:
+    def schema(self) -> str | None:
         return self._schema
 
-    def set_schema(self, value: Optional[str]):
+    def set_schema(self, value: str | None):
         if (
             value
             and not (value.startswith('"') and value.endswith('"'))
@@ -82,66 +84,66 @@ class _ConnectionContext:
         self._schema = value
 
     @property
-    def user(self) -> Optional[str]:
+    def user(self) -> str | None:
         return self._user
 
-    def set_user(self, value: Optional[str]):
+    def set_user(self, value: str | None):
         self._user = value
 
     @property
-    def password(self) -> Optional[str]:
+    def password(self) -> str | None:
         return self._password
 
-    def set_password(self, value: Optional[str]):
+    def set_password(self, value: str | None):
         self._password = value
 
     @property
-    def authenticator(self) -> Optional[str]:
+    def authenticator(self) -> str | None:
         return self._authenticator
 
-    def set_authenticator(self, value: Optional[str]):
+    def set_authenticator(self, value: str | None):
         self._authenticator = value
 
     @property
-    def private_key_path(self) -> Optional[str]:
+    def private_key_path(self) -> str | None:
         return self._private_key_path
 
-    def set_private_key_path(self, value: Optional[str]):
+    def set_private_key_path(self, value: str | None):
         self._private_key_path = value
 
     @property
-    def warehouse(self) -> Optional[str]:
+    def warehouse(self) -> str | None:
         return self._warehouse
 
-    def set_warehouse(self, value: Optional[str]):
+    def set_warehouse(self, value: str | None):
         self._warehouse = value
 
     @property
-    def mfa_passcode(self) -> Optional[str]:
+    def mfa_passcode(self) -> str | None:
         return self._mfa_passcode
 
-    def set_mfa_passcode(self, value: Optional[str]):
+    def set_mfa_passcode(self, value: str | None):
         self._mfa_passcode = value
 
     @property
-    def enable_diag(self) -> Optional[bool]:
+    def enable_diag(self) -> bool | None:
         return self._enable_diag
 
-    def set_enable_diag(self, value: Optional[bool]):
+    def set_enable_diag(self, value: bool | None):
         self._enable_diag = value
 
     @property
-    def diag_log_path(self) -> Optional[Path]:
+    def diag_log_path(self) -> Path | None:
         return self._diag_log_path
 
-    def set_diag_log_path(self, value: Optional[Path]):
+    def set_diag_log_path(self, value: Path | None):
         self._diag_log_path = value
 
     @property
-    def diag_allowlist_path(self) -> Optional[Path]:
+    def diag_allowlist_path(self) -> Path | None:
         return self._diag_allowlist_path
 
-    def set_diag_allowlist_path(self, value: Optional[Path]):
+    def set_diag_allowlist_path(self, value: Path | None):
         self._diag_allowlist_path = value
 
     @property
@@ -152,17 +154,17 @@ class _ConnectionContext:
         self._temporary_connection = value
 
     @property
-    def session_token(self) -> Optional[str]:
+    def session_token(self) -> str | None:
         return self._session_token
 
-    def set_session_token(self, value: Optional[str]):
+    def set_session_token(self, value: str | None):
         self._session_token = value
 
     @property
-    def master_token(self) -> Optional[str]:
+    def master_token(self) -> str | None:
         return self._master_token
 
-    def set_master_token(self, value: Optional[str]):
+    def set_master_token(self, value: str | None):
         self._master_token = value
 
     @property
@@ -243,7 +245,7 @@ class _CliGlobalContextManager:
         self._experimental = value
 
     @property
-    def project_definition(self) -> Optional[Dict]:
+    def project_definition(self) -> Dict | None:
         return self._project_definition
 
     def set_project_definition(self, value: Dict):

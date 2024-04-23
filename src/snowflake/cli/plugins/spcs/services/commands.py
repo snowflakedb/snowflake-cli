@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 import typer
 from click import ClickException
@@ -83,16 +85,17 @@ def create(
     ),
     spec_path: Path = SpecPathOption,
     min_instances: int = MinInstancesOption(),
-    max_instances: Optional[int] = MaxInstancesOption(),
+    max_instances: int | None = MaxInstancesOption(),
     auto_resume: bool = AutoResumeOption(),
-    external_access_integrations: Optional[List[str]] = typer.Option(
+    external_access_integrations: List[str]
+    | None = typer.Option(
         None,
         "--eai-name",
         help="Identifies External Access Integrations(EAI) that the service can access. This option may be specified multiple times for multiple EAIs.",
     ),
-    query_warehouse: Optional[str] = QueryWarehouseOption(),
-    tags: Optional[List[Tag]] = TagOption(help="Tag for the service."),
-    comment: Optional[str] = CommentOption(help=_COMMENT_HELP),
+    query_warehouse: str | None = QueryWarehouseOption(),
+    tags: List[Tag] | None = TagOption(help="Tag for the service."),
+    comment: str | None = CommentOption(help=_COMMENT_HELP),
     if_not_exists: bool = IfNotExistsOption(),
     **options,
 ) -> CommandResult:
@@ -196,11 +199,11 @@ def resume(name: str = ServiceNameArgument, **options) -> CommandResult:
 @app.command("set", requires_connection=True)
 def set_property(
     name: str = ServiceNameArgument,
-    min_instances: Optional[int] = MinInstancesOption(default=None, show_default=False),
-    max_instances: Optional[int] = MaxInstancesOption(show_default=False),
-    query_warehouse: Optional[str] = QueryWarehouseOption(show_default=False),
-    auto_resume: Optional[bool] = AutoResumeOption(default=None, show_default=False),
-    comment: Optional[str] = CommentOption(help=_COMMENT_HELP, show_default=False),
+    min_instances: int | None = MinInstancesOption(default=None, show_default=False),
+    max_instances: int | None = MaxInstancesOption(show_default=False),
+    query_warehouse: str | None = QueryWarehouseOption(show_default=False),
+    auto_resume: bool | None = AutoResumeOption(default=None, show_default=False),
+    comment: str | None = CommentOption(help=_COMMENT_HELP, show_default=False),
     **options,
 ):
     """

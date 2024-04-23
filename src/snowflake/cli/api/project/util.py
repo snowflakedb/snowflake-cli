@@ -1,7 +1,6 @@
 import codecs
 import os
 import re
-from typing import Optional
 
 IDENTIFIER = r'((?:"[^"]*(?:""[^"]*)*")|(?:[A-Za-z_][\w$]{0,254}))'
 IDENTIFIER_NO_LENGTH = r'((?:"[^"]*(?:""[^"]*)*")|(?:[A-Za-z_][\w$]*))'
@@ -148,7 +147,7 @@ def first_set_env(*keys: str):
     return None
 
 
-def get_env_username() -> Optional[str]:
+def get_env_username() -> str | None:
     return first_set_env("USER", "USERNAME", "LOGNAME")
 
 

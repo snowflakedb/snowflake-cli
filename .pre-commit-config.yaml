@@ -61,6 +61,13 @@ repos:
         pass_filenames: true
         files: ^src/.*\.py$
         exclude: ^src/snowflake/cli/app/telemetry.py$
+      - id: prefer-union=type=syntax
+        language: pygrep
+        name: "Prefer X | Y union signature over typing.Optional and typing.Union"
+        entry: >
+          Optional\[.+\]|Union\[.+\]
+        pass_filenames: true
+        files: ^src/.*\.py$
       - id: dependencies-sync
         name: "Copy dependencies from pyproject.toml to requirements.txt"
         language: system

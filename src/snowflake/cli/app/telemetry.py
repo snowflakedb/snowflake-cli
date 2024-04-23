@@ -3,7 +3,7 @@ from __future__ import annotations
 import platform
 import sys
 from enum import Enum, unique
-from typing import Any, Dict, Union
+from typing import Any, Dict
 
 import click
 from snowflake.cli.__about__ import VERSION
@@ -39,7 +39,7 @@ class TelemetryEvent(Enum):
     CMD_EXECUTION = "executing_command"
 
 
-TelemetryDict = Dict[Union[CLITelemetryField, TelemetryField], Any]
+TelemetryDict = Dict[CLITelemetryField | TelemetryField, Any]
 
 
 def _find_command_info() -> TelemetryDict:

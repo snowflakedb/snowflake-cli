@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import List, Optional, Union
+from typing import List
 
 from pydantic import Field, field_validator
 from snowflake.cli.api.project.schemas.native_app.application import Application
@@ -17,19 +17,19 @@ class NativeApp(UpdatableModel):
     name: str = Field(
         title="Project identifier",
     )
-    artifacts: List[Union[PathMapping, str]] = Field(
+    artifacts: List[PathMapping | str] = Field(
         title="List of file source and destination pairs to add to the deploy root",
     )
-    deploy_root: Optional[str] = Field(
+    deploy_root: str | None = Field(
         title="Folder at the root of your project where the build step copies the artifacts.",
         default="output/deploy/",
     )
-    source_stage: Optional[str] = Field(
+    source_stage: str | None = Field(
         title="Identifier of the stage that stores the application artifacts.",
         default="app_src.stage",
     )
-    package: Optional[Package] = Field(title="PackageSchema", default=None)
-    application: Optional[Application] = Field(title="Application info", default=None)
+    package: Package | None = Field(title="PackageSchema", default=None)
+    application: Application | None = Field(title="Application info", default=None)
 
     @field_validator("source_stage")
     @classmethod

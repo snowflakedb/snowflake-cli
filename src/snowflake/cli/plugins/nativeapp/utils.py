@@ -1,7 +1,6 @@
 from os import PathLike
 from pathlib import Path
 from sys import stdin, stdout
-from typing import Optional, Union
 
 
 def needs_confirmation(needs_confirm: bool, auto_yes: bool) -> bool:
@@ -12,7 +11,7 @@ def is_tty_interactive():
     return stdin.isatty() and stdout.isatty()
 
 
-def get_first_paragraph_from_markdown_file(file_path: Path) -> Optional[str]:
+def get_first_paragraph_from_markdown_file(file_path: Path) -> str | None:
     """
     Reads a Markdown file at the given file path and finds the first paragraph
 
@@ -20,7 +19,7 @@ def get_first_paragraph_from_markdown_file(file_path: Path) -> Optional[str]:
         file_path (Path): Path to Markdown file
 
     Returns:
-        Optional[str]: the first paragraph as a string, or None
+        str | None: the first paragraph as a string, or None
         if no paragraph could be found
 
     Raises:
@@ -41,7 +40,7 @@ def get_first_paragraph_from_markdown_file(file_path: Path) -> Optional[str]:
         return paragraph_text
 
 
-def shallow_git_clone(url: Union[str, PathLike], to_path: Union[str, PathLike]):
+def shallow_git_clone(url: str | PathLike, to_path: str | PathLike):
     """
     Performs a shallow clone of the repository at the provided url to the path specified
 

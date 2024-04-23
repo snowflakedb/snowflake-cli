@@ -3,7 +3,7 @@ from __future__ import annotations
 import itertools
 from os import path
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 import click
 import typer
@@ -144,7 +144,7 @@ def execute(
         show_default=False,
     ),
     on_error: OnErrorType = OnErrorOption,
-    variables: Optional[List[str]] = VariablesOption,
+    variables: List[str] | None = VariablesOption,
     **options,
 ):
     """

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import subprocess
 from decimal import Decimal
 from timeit import default_timer as timer

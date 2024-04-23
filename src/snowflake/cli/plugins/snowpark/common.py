@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Set
 
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
@@ -131,9 +131,9 @@ class SnowparkObjectManager(SqlExecutionMixin):
         artifact_file: str,
         packages: List[str],
         imports: List[str],
-        external_access_integrations: Optional[List[str]] = None,
-        secrets: Optional[Dict[str, str]] = None,
-        runtime: Optional[str] = None,
+        external_access_integrations: List[str] | None = None,
+        secrets: Dict[str, str] | None = None,
+        runtime: str | None = None,
         execute_as_caller: bool = False,
     ) -> str:
         imports.append(artifact_file)

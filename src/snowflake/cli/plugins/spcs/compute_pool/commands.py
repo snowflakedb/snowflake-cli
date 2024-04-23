@@ -1,5 +1,3 @@
-from typing import Optional
-
 import typer
 from click import ClickException
 from snowflake.cli.api.commands.flags import IfNotExistsOption, OverrideableOption
@@ -79,7 +77,7 @@ def create(
         help="Name of the instance family. For more information about instance families, refer to the SQL CREATE COMPUTE POOL command.",
     ),
     min_nodes: int = MinNodesOption(),
-    max_nodes: Optional[int] = MaxNodesOption(),
+    max_nodes: int | None = MaxNodesOption(),
     auto_resume: bool = AutoResumeOption(),
     initially_suspended: bool = typer.Option(
         False,
@@ -87,7 +85,7 @@ def create(
         help="Starts the compute pool in a suspended state.",
     ),
     auto_suspend_secs: int = AutoSuspendSecsOption(),
-    comment: Optional[str] = CommentOption(help=_COMMENT_HELP),
+    comment: str | None = CommentOption(help=_COMMENT_HELP),
     if_not_exists: bool = IfNotExistsOption(),
     **options,
 ) -> CommandResult:
@@ -137,15 +135,13 @@ def resume(name: str = ComputePoolNameArgument, **options) -> CommandResult:
 @app.command("set", requires_connection=True)
 def set_property(
     name: str = ComputePoolNameArgument,
-    min_nodes: Optional[int] = MinNodesOption(default=None, show_default=False),
-    max_nodes: Optional[int] = MaxNodesOption(show_default=False),
-    auto_resume: Optional[bool] = AutoResumeOption(default=None, show_default=False),
-    auto_suspend_secs: Optional[int] = AutoSuspendSecsOption(
-        default=None, show_default=False
-    ),
-    comment: Optional[str] = CommentOption(
-        help="Comment for the compute pool.", show_default=False
-    ),
+    min_nodes: int | None = MinNodesOption(default=None, show_default=False),
+    max_nodes: int | None = MaxNodesOption(show_default=False),
+    auto_resume: bool | None = AutoResumeOption(default=None, show_default=False),
+    auto_suspend_secs: int
+    | None = AutoSuspendSecsOption(default=None, show_default=False),
+    comment: str
+    | None = CommentOption(help="Comment for the compute pool.", show_default=False),
     **options,
 ) -> CommandResult:
     """

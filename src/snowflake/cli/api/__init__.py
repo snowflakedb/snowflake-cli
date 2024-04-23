@@ -1,5 +1,3 @@
-from typing import Optional
-
 from snowflake.cli.api.plugins.plugin_config import PluginConfigProvider
 
 
@@ -17,7 +15,7 @@ class ApiNotInitializedError(RuntimeError):
 
 class ApiProvider:
     def __init__(self):
-        self._api: Optional[Api] = None
+        self._api: Api | None = None
 
     def register_api(self, api: Api) -> None:
         self._api = api

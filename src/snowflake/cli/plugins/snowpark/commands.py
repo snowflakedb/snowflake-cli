@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Set
 
 import typer
 from click import ClickException
@@ -248,7 +248,7 @@ def _check_if_all_defined_integrations_exists(
         )
 
 
-def get_app_stage_path(stage_name: Optional[str], project_name: str) -> str:
+def get_app_stage_path(stage_name: str | None, project_name: str) -> str:
     artifact_stage_directory = f"@{(stage_name or DEPLOYMENT_STAGE)}/{project_name}"
     return artifact_stage_directory
 
@@ -344,7 +344,7 @@ def _read_snowflake_requrements_file(file_path: SecurePath):
 def build(
     ignore_anaconda: bool = IgnoreAnacondaOption,
     allow_shared_libraries: bool = AllowSharedLibrariesOption,
-    index_url: Optional[str] = IndexUrlOption,
+    index_url: str | None = IndexUrlOption,
     skip_version_check: bool = SkipVersionCheckOption,
     deprecated_package_native_libraries: YesNoAsk = deprecated_allow_native_libraries_option(
         "--package-native-libraries"

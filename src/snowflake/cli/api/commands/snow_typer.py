@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from functools import wraps
-from typing import Callable, Optional
+from typing import Callable
 
 import typer
 from snowflake.cli.api.commands.decorators import (
@@ -27,7 +27,7 @@ class SnowTyper(typer.Typer):
     @wraps(typer.Typer.command)
     def command(
         self,
-        name: Optional[str] = None,
+        name: str | None = None,
         requires_global_options: bool = True,
         requires_connection: bool = False,
         is_enabled: Callable[[], bool] | None = None,

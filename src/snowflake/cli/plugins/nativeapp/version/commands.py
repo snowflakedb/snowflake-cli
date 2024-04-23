@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 import typer
 from click import MissingParameter
@@ -33,24 +32,27 @@ log = logging.getLogger(__name__)
 @app.command(requires_connection=True)
 @with_project_definition("native_app")
 def create(
-    version: Optional[str] = typer.Argument(
+    version: str
+    | None = typer.Argument(
         None,
         help=f"""Version to define in your application package. If the version already exists, an auto-incremented patch is added to the version instead. Defaults to the version specified in the `manifest.yml` file.""",
     ),
-    patch: Optional[str] = typer.Option(
+    patch: str
+    | None = typer.Option(
         None,
         "--patch",
         help=f"""The patch number you want to create for an existing version.
         Defaults to undefined if it is not set, which means the Snowflake CLI either uses the patch specified in the `manifest.yml` file or automatically generates a new patch number.""",
     ),
-    skip_git_check: Optional[bool] = typer.Option(
+    skip_git_check: bool
+    | None = typer.Option(
         False,
         "--skip-git-check",
         help="When enabled, the Snowflake CLI skips checking if your project has any untracked or stages files in git. Default: unset.",
         is_flag=True,
     ),
-    interactive: Optional[bool] = InteractiveOption,
-    force: Optional[bool] = ForceOption,
+    interactive: bool | None = InteractiveOption,
+    force: bool | None = ForceOption,
     **options,
 ) -> CommandResult:
     """
@@ -109,12 +111,13 @@ def version_list(
 @app.command(requires_connection=True)
 @with_project_definition("native_app")
 def drop(
-    version: Optional[str] = typer.Argument(
+    version: str
+    | None = typer.Argument(
         None,
         help="Version defined in an application package that you want to drop. Defaults to the version specified in the `manifest.yml` file.",
     ),
-    interactive: Optional[bool] = InteractiveOption,
-    force: Optional[bool] = ForceOption,
+    interactive: bool | None = InteractiveOption,
+    force: bool | None = ForceOption,
     **options,
 ) -> CommandResult:
     """

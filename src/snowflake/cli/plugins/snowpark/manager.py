@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.plugins.snowpark.common import SnowparkObjectManager
@@ -27,9 +27,9 @@ class FunctionManager(SnowparkObjectManager):
         artifact_file: str,
         packages: List[str],
         imports: List[str],
-        external_access_integrations: Optional[List[str]] = None,
-        secrets: Optional[Dict[str, str]] = None,
-        runtime: Optional[str] = None,
+        external_access_integrations: List[str] | None = None,
+        secrets: Dict[str, str] | None = None,
+        runtime: str | None = None,
     ) -> SnowflakeCursor:
         log.debug("Creating function %s using @%s", identifier, artifact_file)
         query = self.create_query(
@@ -63,9 +63,9 @@ class ProcedureManager(SnowparkObjectManager):
         artifact_file: str,
         packages: List[str],
         imports: List[str],
-        external_access_integrations: Optional[List[str]] = None,
-        secrets: Optional[Dict[str, str]] = None,
-        runtime: Optional[str] = None,
+        external_access_integrations: List[str] | None = None,
+        secrets: Dict[str, str] | None = None,
+        runtime: str | None = None,
         execute_as_caller: bool = False,
     ) -> SnowflakeCursor:
         log.debug("Creating procedure %s using @%s", identifier, artifact_file)

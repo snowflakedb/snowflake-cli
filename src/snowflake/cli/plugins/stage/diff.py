@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import hashlib
 import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
@@ -203,7 +205,7 @@ def delete_only_on_stage_files(
     stage_manager: StageManager,
     stage_fqn: str,
     only_on_stage: List[str],
-    role: Optional[str] = None,
+    role: str | None = None,
 ):
     """
     Deletes all files from a Snowflake stage according to the input list of filenames, using a custom role.
@@ -217,7 +219,7 @@ def put_files_on_stage(
     stage_fqn: str,
     deploy_root_path: Path,
     files: List[str],
-    role: Optional[str] = None,
+    role: str | None = None,
     overwrite: bool = False,
 ):
     """

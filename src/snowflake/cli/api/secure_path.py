@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import errno
 import logging
 import os
@@ -5,7 +7,7 @@ import shutil
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 from snowflake.cli.api.exceptions import DirectoryIsNotEmptyError, FileTooLargeError
 
@@ -15,7 +17,7 @@ UNLIMITED = -1
 
 
 class SecurePath:
-    def __init__(self, path: Union[Path, str]):
+    def __init__(self, path: str | Path):
         self._path = Path(path)
 
     def __repr__(self):
@@ -116,7 +118,7 @@ class SecurePath:
     def open(  # noqa: A003
         self,
         mode="r",
-        read_file_limit_mb: Optional[int] = None,
+        read_file_limit_mb: int | None = None,
         **open_kwargs,
     ):
         """
@@ -143,7 +145,7 @@ class SecurePath:
             yield fd
         log.info("Closing file %s", self._path)
 
-    def move(self, destination: Union[Path, str]) -> "SecurePath":
+    def move(self, destination: str | Path) -> "SecurePath":
         """Recursively move a file or directory (src) to another location and return the destination.
 
         If dst is an existing directory or a symlink to a directory, then src is moved inside that directory.

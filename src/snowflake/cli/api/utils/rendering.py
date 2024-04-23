@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional
 
 import jinja2
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
@@ -92,7 +91,7 @@ def render_metadata(env: jinja2.Environment, file_name: str):
 
 
 def generic_render_template(
-    template_path: Path, data: dict, output_file_path: Optional[Path] = None
+    template_path: Path, data: dict, output_file_path: Path | None = None
 ):
     """
     Create a file from a jinja template.
@@ -100,7 +99,7 @@ def generic_render_template(
     Args:
         template_path (Path): Path to the template
         data (dict): A dictionary of jinja variables and their actual values
-        output_file_path (Optional[Path]): If provided then rendered template will be written to this file
+        output_file_path (Path | None): If provided then rendered template will be written to this file
 
     Returns:
         None

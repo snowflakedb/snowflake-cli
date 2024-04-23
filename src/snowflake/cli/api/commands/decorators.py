@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from functools import wraps
 from inspect import Signature
-from typing import Callable, Dict, List, Optional, get_type_hints
+from typing import Callable, Dict, List, get_type_hints
 
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import (
@@ -66,7 +66,7 @@ def with_project_definition(project_name: str):
                 inspect.Parameter(
                     "project_definition",
                     inspect.Parameter.KEYWORD_ONLY,
-                    annotation=Optional[str],
+                    annotation=str | None,
                     default=project_definition_option(project_name),
                 )
             ],
@@ -76,7 +76,7 @@ def with_project_definition(project_name: str):
 
 
 def with_experimental_behaviour(
-    experimental_behaviour_description: Optional[str] = None,
+    experimental_behaviour_description: str | None = None,
 ):
     """
     Decorator providing --experimental flag, which allows to use experimental behaviour in commands implementation.
@@ -87,7 +87,7 @@ def with_experimental_behaviour(
         inspect.Parameter(
             "experimental",
             inspect.Parameter.KEYWORD_ONLY,
-            annotation=Optional[bool],
+            annotation=bool | None,
             default=experimental_option(experimental_behaviour_description),
         ),
     ]
@@ -120,7 +120,7 @@ def _global_options_decorator_factory(
 def _options_decorator_factory(
     func: Callable,
     additional_options: List[inspect.Parameter],
-    execute_before_command_using_new_options: Optional[Callable] = None,
+    execute_before_command_using_new_options: Callable | None = None,
 ):
     @wraps(func)
     def wrapper(**options):
@@ -178,103 +178,103 @@ GLOBAL_CONNECTION_OPTIONS = [
     inspect.Parameter(
         "connection",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[str],
+        annotation=str | None,
         default=ConnectionOption,
     ),
     inspect.Parameter(
         "account",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[str],
+        annotation=str | None,
         default=AccountOption,
     ),
     inspect.Parameter(
         "user",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[str],
+        annotation=str | None,
         default=UserOption,
     ),
     inspect.Parameter(
         "password",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[str],
+        annotation=str | None,
         default=PasswordOption,
     ),
     inspect.Parameter(
         "authenticator",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[str],
+        annotation=str | None,
         default=AuthenticatorOption,
     ),
     inspect.Parameter(
         "private_key_path",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[str],
+        annotation=str | None,
         default=PrivateKeyPathOption,
     ),
     inspect.Parameter(
         "session_token",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[str],
+        annotation=str | None,
         default=SessionTokenOption,
     ),
     inspect.Parameter(
         "master_token",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[str],
+        annotation=str | None,
         default=MasterTokenOption,
     ),
     inspect.Parameter(
         "database",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[str],
+        annotation=str | None,
         default=DatabaseOption,
     ),
     inspect.Parameter(
         "schema",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[str],
+        annotation=str | None,
         default=SchemaOption,
     ),
     inspect.Parameter(
         "role",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[str],
+        annotation=str | None,
         default=RoleOption,
     ),
     inspect.Parameter(
         "warehouse",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[str],
+        annotation=str | None,
         default=WarehouseOption,
     ),
     inspect.Parameter(
         "temporary_connection",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[bool],
+        annotation=bool | None,
         default=TemporaryConnectionOption,
     ),
     inspect.Parameter(
         "mfa_passcode",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[str],
+        annotation=str | None,
         default=MfaPasscodeOption,
     ),
     inspect.Parameter(
         "enable_diag",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[bool],
+        annotation=bool | None,
         default=EnableDiagOption,
     ),
     inspect.Parameter(
         "diag_log_path",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[str],
+        annotation=str | None,
         default=DiagLogPathOption,
     ),
     inspect.Parameter(
         "diag_allowlist_path",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[str],
+        annotation=str | None,
         default=DiagAllowlistPathOption,
     ),
 ]
@@ -289,19 +289,19 @@ GLOBAL_OPTIONS = [
     inspect.Parameter(
         "verbose",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[bool],
+        annotation=bool | None,
         default=VerboseOption,
     ),
     inspect.Parameter(
         "debug",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[bool],
+        annotation=bool | None,
         default=DebugOption,
     ),
     inspect.Parameter(
         "silent",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[bool],
+        annotation=bool | None,
         default=SilentOption,
     ),
 ]

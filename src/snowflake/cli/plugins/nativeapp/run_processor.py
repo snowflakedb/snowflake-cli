@@ -1,6 +1,5 @@
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional
 
 import typer
 from click import UsageError
@@ -135,7 +134,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
 
             return show_obj_cursor
 
-    def get_existing_version_info(self, version: str) -> Optional[dict]:
+    def get_existing_version_info(self, version: str) -> dict | None:
         """
         Get an existing version, if defined, by the same name in an application package.
         It executes a 'show versions like ... in application package' query and returns the result as single row, if one exists.
@@ -179,8 +178,8 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         self,
         policy: PolicyBase,
         is_interactive: bool,
-        version: Optional[str] = None,
-        patch: Optional[str] = None,
+        version: str | None = None,
+        patch: str | None = None,
     ):
 
         patch_clause = f"patch {patch}" if patch else ""
@@ -264,8 +263,8 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
     def process(
         self,
         policy: PolicyBase,
-        version: Optional[str] = None,
-        patch: Optional[str] = None,
+        version: str | None = None,
+        patch: str | None = None,
         from_release_directive: bool = False,
         is_interactive: bool = False,
         *args,

@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 
 from click import ClickException
 from snowflake.cli.api.commands.flags import OverrideableOption
@@ -54,7 +53,7 @@ TagOption = OverrideableOption(
 )
 
 
-def _comment_callback(comment: Optional[str]):
+def _comment_callback(comment: str | None):
     if comment is None:
         return comment
     return to_string_literal(comment)

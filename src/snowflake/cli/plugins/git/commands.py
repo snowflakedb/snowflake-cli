@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import logging
-from typing import List, Optional
+from typing import List
 
 import typer
 from click import ClickException
@@ -246,7 +248,7 @@ def copy(
 def execute(
     repository_path: str = RepoPathArgument,
     on_error: OnErrorType = OnErrorOption,
-    variables: Optional[List[str]] = VariablesOption,
+    variables: List[str] | None = VariablesOption,
     **options,
 ):
     """

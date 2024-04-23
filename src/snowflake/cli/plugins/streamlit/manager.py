@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from snowflake.cli.api.commands.experimental_behaviour import (
     experimental_behaviour_enabled,
@@ -31,9 +31,9 @@ class StreamlitManager(SqlExecutionMixin):
         self,
         root_location: str,
         main_file: Path,
-        environment_file: Optional[Path],
-        pages_dir: Optional[Path],
-        additional_source_files: Optional[List[str]],
+        environment_file: Path | None,
+        pages_dir: Path | None,
+        additional_source_files: List[str] | None,
     ):
         stage_manager = StageManager()
 
@@ -60,10 +60,10 @@ class StreamlitManager(SqlExecutionMixin):
         self,
         fully_qualified_name: str,
         main_file: Path,
-        replace: Optional[bool] = None,
-        experimental: Optional[bool] = None,
-        query_warehouse: Optional[str] = None,
-        from_stage_name: Optional[str] = None,
+        replace: bool | None = None,
+        experimental: bool | None = None,
+        query_warehouse: str | None = None,
+        from_stage_name: str | None = None,
     ):
         query = []
         if replace:
@@ -91,12 +91,12 @@ class StreamlitManager(SqlExecutionMixin):
         self,
         streamlit_name: str,
         main_file: Path,
-        environment_file: Optional[Path] = None,
-        pages_dir: Optional[Path] = None,
-        stage_name: Optional[str] = None,
-        query_warehouse: Optional[str] = None,
-        replace: Optional[bool] = False,
-        additional_source_files: Optional[List[str]] = None,
+        environment_file: Path | None = None,
+        pages_dir: Path | None = None,
+        stage_name: str | None = None,
+        query_warehouse: str | None = None,
+        replace: bool | None = False,
+        additional_source_files: List[str] | None = None,
         **options,
     ):
         stage_manager = StageManager()

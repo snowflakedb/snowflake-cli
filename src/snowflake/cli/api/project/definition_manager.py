@@ -3,7 +3,7 @@ from __future__ import annotations
 import functools
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.project.definition import load_project_definition
@@ -26,7 +26,7 @@ class DefinitionManager:
     project_root: Path
     _project_config_paths: List[Path]
 
-    def __init__(self, project_arg: Optional[str] = None) -> None:
+    def __init__(self, project_arg: str | None = None) -> None:
         project_root = Path(
             os.path.abspath(project_arg) if project_arg else os.getcwd()
         )
@@ -54,7 +54,7 @@ class DefinitionManager:
         return [base_config_file_path]
 
     @staticmethod
-    def find_project_root(search_path: Path) -> Optional[Path]:
+    def find_project_root(search_path: Path) -> Path | None:
         """
         Recurse up the directory tree from the given search path until we find
         a directory that contains a snowflake.yml file. We'll stop if we cross
@@ -82,20 +82,20 @@ class DefinitionManager:
         return None
 
     @staticmethod
-    def _definition_if_available(filename, project_path: Path) -> Optional[Path]:
+    def _definition_if_available(filename, project_path: Path) -> Path | None:
         file_path = Path(project_path) / filename
         if file_path.is_file():
             return file_path
         return None
 
     @staticmethod
-    def _base_definition_file_if_available(project_path: Path) -> Optional[Path]:
+    def _base_definition_file_if_available(project_path: Path) -> Path | None:
         return DefinitionManager._definition_if_available(
             DefinitionManager.BASE_DEFINITION_FILENAME, project_path
         )
 
     @staticmethod
-    def _user_definition_file_if_available(project_path: Path) -> Optional[Path]:
+    def _user_definition_file_if_available(project_path: Path) -> Path | None:
         return DefinitionManager._definition_if_available(
             DefinitionManager.USER_DEFINITION_FILENAME, project_path
         )

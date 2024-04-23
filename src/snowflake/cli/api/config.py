@@ -6,7 +6,7 @@ import warnings
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict
 
 import tomlkit
 from click import ClickException
@@ -51,18 +51,18 @@ CONFIG_MANAGER.add_option(
 
 @dataclass
 class ConnectionConfig:
-    account: Optional[str] = None
-    user: Optional[str] = None
-    password: Optional[str] = field(default=None, repr=False)
-    host: Optional[str] = None
-    region: Optional[str] = None
-    port: Optional[int] = None
-    database: Optional[str] = None
-    schema: Optional[str] = None
-    warehouse: Optional[str] = None
-    role: Optional[str] = None
-    authenticator: Optional[str] = None
-    private_key_path: Optional[str] = None
+    account: str | None = None
+    user: str | None = None
+    password: str | None = field(default=None, repr=False)
+    host: str | None = None
+    region: str | None = None
+    port: int | None = None
+    database: str | None = None
+    schema: str | None = None
+    warehouse: str | None = None
+    role: str | None = None
+    authenticator: str | None = None
+    private_key_path: str | None = None
 
     _other_settings: dict = field(default_factory=lambda: {})
 
@@ -94,7 +94,7 @@ class ConnectionConfig:
         }
 
 
-def config_init(config_file: Optional[Path]):
+def config_init(config_file: Path | None):
     """
     Initializes the app configuration. Config provided via cli flag takes precedence.
     If config file does not exist we create an empty one.
@@ -219,7 +219,7 @@ def get_config_section(*path) -> dict:
     raise UnsupportedConfigSectionTypeError(type(section))
 
 
-def get_config_value(*path, key: str, default: Optional[Any] = Empty) -> Any:
+def get_config_value(*path, key: str, default: Any | None = Empty) -> Any:
     """Looks for given key under nested path in toml file."""
     env_variable = get_env_value(*path, key=key)
     if env_variable:
@@ -232,7 +232,7 @@ def get_config_value(*path, key: str, default: Optional[Any] = Empty) -> Any:
         raise
 
 
-def get_config_bool_value(*path, key: str, default: Optional[Any] = Empty) -> bool:
+def get_config_bool_value(*path, key: str, default: Any | None = Empty) -> bool:
     value = get_config_value(*path, key=key, default=default)
     # If we get bool then we can return
     if isinstance(value, bool):
@@ -276,7 +276,7 @@ def _find_section(*path) -> TOMLDocument:
     return section
 
 
-def _merge_section_with_env(section: Union[Table, Any], *path) -> Dict[str, str]:
+def _merge_section_with_env(section: Table | Any, *path) -> Dict[str, str]:
     if isinstance(section, Table):
         env_variables = _get_envs_for_path(*path)
         section_copy = section.copy()
