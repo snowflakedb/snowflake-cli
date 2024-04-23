@@ -73,6 +73,7 @@
 * Fix handling database/schema/role identifiers containing dashes
 * Fix schema override bug in `snow connection test`
 * Hidden incorrectly working config permissions warning on Windows
+* Make errors from `snow connection test` more meaningful when role, warehouse or database does not exist.
 
 # v2.1.2
 

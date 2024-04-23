@@ -43,4 +43,6 @@ def test_connection_not_existing_schema(
     with mock_single_env_var(SCHEMA_ENV_PARAMETER, value=schema):
         result = runner.invoke_with_connection(["connection", "test"])
         assert result.exit_code == 1, result.output
-        assert "Object does not exist" in result.output
+        assert (
+            f'Could not use schema "{schema}". Object does not exist' in result.output
+        )
