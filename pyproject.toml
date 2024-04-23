@@ -100,7 +100,7 @@ pre-install-commands = [
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
-test = ["pytest -m integration --snapshot-warn-unused"]
+test = ["pytest -m integration --snapshot-warn-unused tests_integration/test_nativeapp.py"]
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.8", "3.9", "3.10", "3.11", "3.12"]

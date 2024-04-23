@@ -308,14 +308,15 @@ def project_path_to_deploy_path(
 
     # Find the first parent directory that exists in files_mapping
     common_root = Path(project_path).resolve()
+    parents = []
     while common_root:
+        parents.append(common_root)
         if common_root in files_mapping:
             break
         elif common_root.parent != common_root:
             common_root = common_root.parent
         else:
-            os.system(f"echo {files_mapping}")
-            raise FileNotFoundError([project_path, files_mapping])
+            raise FileNotFoundError([project_path, files_mapping, parents])
 
     # Construct the target deploy path
     path_to_symlink = files_mapping[common_root]
