@@ -101,6 +101,7 @@ features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
 test = ["pytest -m integration --snapshot-warn-unused"]
+test-experimental = ["pytest -m integration_experimental --snapshot-warn-unused"]
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.8", "3.9", "3.10", "3.11", "3.12"]

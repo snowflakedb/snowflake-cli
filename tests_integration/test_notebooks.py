@@ -2,7 +2,7 @@ import pytest
 from snowflake.connector import ProgrammingError
 
 
-@pytest.mark.integration
+@pytest.mark.integration_experimental
 def test_execute_notebook(runner, test_database, snowflake_session):
     # TODO: replace once there's option to create notebook from outside snowsight
     notebook_name = "notebooks.public.test_notebook"
@@ -13,7 +13,7 @@ def test_execute_notebook(runner, test_database, snowflake_session):
     assert result.json == {"message": f"Notebook {notebook_name} executed."}
 
 
-@pytest.mark.integration
+@pytest.mark.integration_experimental
 def test_execute_notebook_failure(runner, test_database, snowflake_session):
     # TODO: replace once there's option to create notebook from outside snowsight
     notebook_name = "notebooks.public.test_notebook_error"
