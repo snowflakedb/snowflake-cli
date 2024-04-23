@@ -44,5 +44,6 @@ def test_connection_not_existing_schema(
         result = runner.invoke_with_connection(["connection", "test"])
         assert result.exit_code == 1, result.output
         assert (
-            f'Could not use schema "{schema}". Object does not exist' in result.output
+            f'Could not use schema "{schema.upper()}". Object does not exist'
+            in result.output
         )
