@@ -12,6 +12,12 @@ jobs:
       - uses: Snowflake-Labs/snowflake-cli-action@v1
         with:
           cli-version: "latest"
+          default-config-file-path: "tests_integration/config/connection_configs.toml"
 
       - name: Test version
-        run: snow --version
+        env:
+          TERM: unknown
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+        run: snow connection test -c integration | grep Status
