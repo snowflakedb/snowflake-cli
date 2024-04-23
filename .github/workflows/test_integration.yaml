@@ -14,12 +14,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  TERM: unknown
-  SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
-  SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
-  SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
-  SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
 
 jobs:
   tests:
@@ -40,6 +34,16 @@ jobs:
           python -m pip install --upgrade pip hatch
           python -m hatch env create integration
       - name: Run integration tests
+        env:
+          TERM: unknown
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
         run: python -m hatch run integration:test
       - name: Run integration tests for experimental features
+        env:
+          TERM: unknown
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
         run: python -m hatch run integration:test-experimental
