@@ -1,6 +1,7 @@
 from snowflake.cli.plugins.connection import plugin_spec as connection_plugin_spec
 from snowflake.cli.plugins.git import plugin_spec as git_plugin_spec
 from snowflake.cli.plugins.nativeapp import plugin_spec as nativeapp_plugin_spec
+from snowflake.cli.plugins.notebook import plugin_spec as notebook_plugin_spec
 from snowflake.cli.plugins.object import plugin_spec as object_plugin_spec
 from snowflake.cli.plugins.render import plugin_spec as render_plugin_spec
 from snowflake.cli.plugins.snowpark import plugin_spec as snowpark_plugin_spec
@@ -23,6 +24,7 @@ def get_builtin_plugin_name_to_plugin_spec():
         "sql": sql_plugin_spec,
         "streamlit": streamlit_plugin_spec,
         "git": git_plugin_spec,
+        "notebook": notebook_plugin_spec,
     }
 
     return plugin_specs
