@@ -1085,7 +1085,7 @@
                                                                                   
    Usage: default git fetch [OPTIONS] REPOSITORY_NAME                             
                                                                                   
-   Fetch changes from origin to snowflake repository.                             
+   Fetch changes from origin to Snowflake repository.
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    repository_name      TEXT  Identifier of the git repository. For        │
@@ -1472,7 +1472,7 @@
   │                 `@my_repo/branches/main/*.sql`,                              │
   │                 `@my_repo/branches/main/dev/*`. Only files with `.sql`       │
   │                 extension will be executed.                                  │
-  │ fetch           Fetch changes from origin to snowflake repository.           │
+  │ fetch           Fetch changes from origin to Snowflake repository.           │
   │ list-branches   List all branches in the repository.                         │
   │ list-files      List files from given state of git repository.               │
   │ list-tags       List all tags in the repository.                             │
