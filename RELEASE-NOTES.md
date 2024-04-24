@@ -1,4 +1,5 @@
-# Unreleased
+# Unreleased version
+
 ## Backward incompatibility
 
 ## Deprecations
