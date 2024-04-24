@@ -722,15 +722,13 @@ def test_nativeapp_deploy_nested_directories(
                 ["stage", "list-files", f"{package_name}.{stage_name}"],
                 env=TEST_ENV,
             )
-            try:
-                assert contains_row_with(
-                    stage_files.json, {"name": "stage/nested/dir/file.txt"}
-                )
-            except Exception as ex:
+            assert contains_row_with(
+                stage_files.json, {"name": "stage/nested/dir/file.txt"}
+            ) or contains_row_with(
                 # Windows path
-                assert contains_row_with(
-                    stage_files.json, {"name": "stage/nested\\dir/file.txt"}
-                )
+                stage_files.json,
+                {"name": "stage/nested\\dir/file.txt"},
+            )
 
             # make sure we always delete the app
             result = runner.invoke_with_connection_json(

@@ -295,19 +295,19 @@ def find_version_info_in_manifest_file(
 
 
 def project_path_to_deploy_path(
-    project_path: Path, files_mapping: ArtifactDeploymentMap
+    project_path: Path, created_files: ArtifactDeploymentMap
 ) -> Path:
-    """Given a source path, returns the deploy destination path. This function assumes that a build was performed before calling it."""
+    """Given a source path, returns the deploy destination path. This function assumes that a bundle was created before calling it."""
 
     project_path = project_path.resolve()
 
-    if project_path in files_mapping:
-        return files_mapping[project_path]
+    if project_path in created_files:
+        return created_files[project_path]
 
-    # Find the first parent directory that exists in files_mapping
+    # Find the first parent directory that exists in created_files
     common_root = Path(project_path).resolve()
     while common_root:
-        if common_root in files_mapping:
+        if common_root in created_files:
             break
         elif common_root.parent != common_root:
             common_root = common_root.parent
@@ -315,7 +315,7 @@ def project_path_to_deploy_path(
             raise FileNotFoundError(project_path)
 
     # Construct the target deploy path
-    path_to_symlink = files_mapping[common_root]
+    path_to_symlink = created_files[common_root]
     path_to_target = Path(project_path).relative_to(common_root)
     result = Path(path_to_symlink, path_to_target)
 

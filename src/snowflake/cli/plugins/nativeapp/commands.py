@@ -268,6 +268,6 @@ def app_deploy(
     )
 
     created_files = manager.build_bundle()
-    manager.deploy(prune, files, recursive, created_files)
+    manager.deploy(prune, recursive, files, created_files)
 
     return MessageResult(f"Deployed successfully.")
