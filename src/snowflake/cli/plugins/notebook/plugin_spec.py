@@ -4,7 +4,7 @@ from snowflake.cli.api.plugins.command import (
     CommandType,
     plugin_hook_impl,
 )
-from snowflake.cli.plugins.render import commands
+from snowflake.cli.plugins.notebook import commands
 
 
 @plugin_hook_impl
