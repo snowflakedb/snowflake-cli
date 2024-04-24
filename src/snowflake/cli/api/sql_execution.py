@@ -64,7 +64,13 @@ class SqlExecutionMixin:
         return list(self._execute_string(dedent(queries), **kwargs))
 
     def use(self, object_type: ObjectType, name: str):
-        return self._execute_query(f"use {object_type.value.sf_name} {name}")
+        try:
+            self._execute_query(f"use {object_type.value.sf_name} {name}")
+        except ProgrammingError:
+            # Rewrite the error to make the message more useful.
+            raise ProgrammingError(
+                f"Could not use {object_type} {name}. Object does not exist, or operation cannot be performed."
+            )
 
     @contextmanager
     def use_role(self, new_role: str):
