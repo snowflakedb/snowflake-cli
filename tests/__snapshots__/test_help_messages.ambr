@@ -1085,7 +1085,7 @@
                                                                                   
    Usage: default git fetch [OPTIONS] REPOSITORY_NAME                             
                                                                                   
-   Fetch changes from origin to Snowflake repository.
+   Fetch changes from origin to Snowflake repository.                             
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    repository_name      TEXT  Identifier of the git repository. For        │
