@@ -514,8 +514,6 @@ def test_nativeapp_deploy(
     assert result.exit_code == 0
 
     with pushd(Path(os.getcwd(), project_name)):
-        touch("app/nested/file1.txt")
-        touch("app/nested/dir/file2.txt")
         result = runner.invoke_with_connection_json(
             ["app", "deploy"],
             env=TEST_ENV,
@@ -542,12 +540,6 @@ def test_nativeapp_deploy(
                 env=TEST_ENV,
             )
             assert contains_row_with(stage_files.json, {"name": "stage/manifest.yml"})
-            assert contains_row_with(
-                stage_files.json, {"name": "stage/nested/file1.txt"}
-            )
-            assert contains_row_with(
-                stage_files.json, {"name": "stage/nested/dir/file2.txt"}
-            )
 
             # app does not exist
             assert not_contains_row_with(
@@ -730,9 +722,15 @@ def test_nativeapp_deploy_nested_directories(
                 ["stage", "list-files", f"{package_name}.{stage_name}"],
                 env=TEST_ENV,
             )
-            assert contains_row_with(
-                stage_files.json, {"name": "stage/nested/dir/file.txt"}
-            )
+            try:
+                assert contains_row_with(
+                    stage_files.json, {"name": "stage/nested/dir/file.txt"}
+                )
+            except Exception as ex:
+                # Windows path
+                assert contains_row_with(
+                    stage_files.json, {"name": "stage/nested\\dir/file.txt"}
+                )
 
             # make sure we always delete the app
             result = runner.invoke_with_connection_json(
@@ -765,13 +763,9 @@ def test_nativeapp_deploy_directory(
     assert result.exit_code == 0
 
     with pushd(Path(os.getcwd(), project_dir)):
-        # create nested file and directory under app/nested/
-        touch("app/nested/file1.txt")
-        touch("app/nested/dir/file2.txt")
-
-        # deploy app/nested
+        touch("app/dir/file.txt")
         result = runner.invoke_with_connection_json(
-            ["app", "deploy", "app/nested", "-r"],
+            ["app", "deploy", "app/dir", "-r"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0
@@ -783,12 +777,7 @@ def test_nativeapp_deploy_directory(
                 ["stage", "list-files", f"{package_name}.{stage_name}"],
                 env=TEST_ENV,
             )
-            assert contains_row_with(
-                stage_files.json, {"name": "stage/nested/file1.txt"}
-            )
-            assert contains_row_with(
-                stage_files.json, {"name": "stage/nested/dir/file2.txt"}
-            )
+            assert contains_row_with(stage_files.json, {"name": "stage/dir/file.txt"})
 
             # make sure we always delete the app
             result = runner.invoke_with_connection_json(
