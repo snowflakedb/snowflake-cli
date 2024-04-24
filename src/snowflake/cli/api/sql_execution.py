@@ -64,7 +64,13 @@ class SqlExecutionMixin:
         return list(self._execute_string(dedent(queries), **kwargs))
 
     def use(self, object_type: ObjectType, name: str):
-        return self._execute_query(f"use {object_type.value.sf_name} {name}")
+        try:
+            self._execute_query(f"use {object_type.value.sf_name} {name}")
+        except ProgrammingError:
+            # Rewrite the error to make the message more useful.
+            raise ProgrammingError(
+                f"Could not use {object_type} {name}. Object does not exist, or operation cannot be performed."
+            )
 
     @contextmanager
     def use_role(self, new_role: str):
@@ -224,3 +230,11 @@ class SqlExecutionMixin:
             lambda row: row[name_col] == unquote_identifier(unqualified_name),
         )
         return show_obj_row
+
+    def qualified_name_for_url(
+        self, object_name: str, database: str | None = None, schema: str | None = None
+    ):
+        fqn = self.to_fully_qualified_name(
+            object_name, database=database, schema=schema
+        )
+        return ".".join(unquote_identifier(part) for part in fqn.split("."))
