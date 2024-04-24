@@ -1,11 +1,14 @@
 # Unreleased version
+
 ## Backward incompatibility
 
 ## Deprecations
 
 ## New additions
+* `snow sql` command supports now client-side templating of queries.
 
 ## Fixes and improvements
+
 
 # v2.2.0
 
