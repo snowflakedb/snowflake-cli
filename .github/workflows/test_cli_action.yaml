@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: Snowflake-Labs/snowflake-cli-action@v1
         with:
           cli-version: "latest"
