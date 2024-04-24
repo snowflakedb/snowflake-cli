@@ -10,6 +10,7 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Dict, List, Optional
 
+from click import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
@@ -205,11 +206,11 @@ def pip_wheel(
     if package_name:
         command.append(package_name)
     if requirements_file:
-        command += ["-r", str(requirements_file)]
+        command.extend(["-r", str(requirements_file)])
     if index_url:
-        command += ["-i", index_url]
+        command.extend(["-i", index_url])
     if not dependencies:
-        command += ["--no-deps"]
+        command.append("--no-deps")
 
     try:
         log.info(
@@ -224,7 +225,7 @@ def pip_wheel(
         )
     except subprocess.CalledProcessError as e:
         log.error("Encountered error %s", e.stderr)
-        raise SystemExit
+        raise ClickException(f"Encountered error while running pip wheel.")
 
     log.info("Pip wheel command executed successfully")
     return process.returncode
