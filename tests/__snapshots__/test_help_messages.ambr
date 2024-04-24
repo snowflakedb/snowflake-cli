@@ -62,7 +62,9 @@
    Usage: default app deploy [OPTIONS] [FILES]...                                 
                                                                                   
    Creates an application package in your Snowflake account and syncs the local   
-   changes to the stage without creating or updating the application.             
+   changes to the stage without creating or updating the application. Running     
+   this command with no arguments at all is a shorthand for "snow app deploy      
+   --prune --recursive".                                                          
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │   files      [FILES]...  Paths of the files, relative to the project root,   │
@@ -72,16 +74,11 @@
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --prune          --no-prune          Controls whether files that exist only  │
   │                                      remotely will be deleted from the       │
-  │                                      stage. When specific files are          │
-  │                                      specified, the default is --no-prune.   │
-  │                                      When no files are specified (sync all   │
-  │                                      changes), the default is --prune.       │
+  │                                      stage.                                  │
   │                                      [default: no-prune]                     │
   │ --recursive  -r                      Controls whether the specified          │
   │                                      directories should be deployed          │
-  │                                      including all of their contents. When   │
-  │                                      no files are specified (sync all        │
-  │                                      changes), the default is --recursive.   │
+  │                                      including all of their contents.        │
   │ --project    -p                TEXT  Path where the Snowflake Native App     │
   │                                      project resides. Defaults to current    │
   │                                      working directory.                      │
@@ -759,7 +756,8 @@
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
   │ deploy     Creates an application package in your Snowflake account and      │
   │            syncs the local changes to the stage without creating or updating │
-  │            the application.                                                  │
+  │            the application. Running this command with no arguments at all is │
+  │            a shorthand for "snow app deploy --prune --recursive".            │
   │ init       Initializes a Snowflake Native App project.                       │
   │ open       Opens the Snowflake Native App inside of your browser, once it    │
   │            has been installed in your account.                               │

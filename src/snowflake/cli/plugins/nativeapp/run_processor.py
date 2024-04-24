@@ -297,5 +297,5 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             )
             return
 
-        diff = self.deploy()
+        diff = self.deploy(prune=True, recursive=True)
         self._create_dev_app(diff)

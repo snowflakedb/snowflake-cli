@@ -232,13 +232,13 @@ def app_teardown(
 def app_deploy(
     prune: Optional[bool] = typer.Option(
         default=None,
-        help=f"""Controls whether files that exist only remotely will be deleted from the stage. When specific files are specified, the default is --no-prune. When no files are specified (sync all changes), the default is --prune.""",
+        help=f"""Controls whether files that exist only remotely will be deleted from the stage.""",
     ),
     recursive: Optional[bool] = typer.Option(
         None,
         "--recursive",
         "-r",
-        help=f"""Controls whether the specified directories should be deployed including all of their contents. When no files are specified (sync all changes), the default is --recursive.""",
+        help=f"""Controls whether the specified directories should be deployed including all of their contents.""",
     ),
     files: Optional[List[Path]] = typer.Argument(
         default=None,
@@ -249,7 +249,19 @@ def app_deploy(
 ) -> CommandResult:
     """
     Creates an application package in your Snowflake account and syncs the local changes to the stage without creating or updating the application.
+    Running this command with no arguments at all is a shorthand for "snow app deploy --prune --recursive".
     """
+    if files is None:
+        files = []
+    if prune is None and recursive is None and len(files) == 0:
+        prune = True
+        recursive = True
+    else:
+        if prune is None:
+            prune = False
+        if recursive is None:
+            recursive = False
+
     manager = NativeAppManager(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,

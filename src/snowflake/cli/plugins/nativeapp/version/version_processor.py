@@ -199,7 +199,9 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
             self._apply_package_scripts()
 
             # Upload files from deploy root local folder to the above stage
-            self.sync_deploy_root_with_stage(self.package_role)
+            self.sync_deploy_root_with_stage(
+                self.package_role, prune=True, recursive=True
+            )
 
         # Warn if the version exists in a release directive(s)
         existing_release_directives = (

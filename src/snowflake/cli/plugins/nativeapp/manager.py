@@ -127,14 +127,6 @@ def _verify_no_directories(paths_to_sync):
             )
 
 
-def _get_default_deploy_prune_value(files_argument: Optional[List[Path]]) -> bool:
-    return False if files_argument is not None and len(files_argument) > 0 else True
-
-
-def _get_default_deploy_recursive_value(files_argument: Optional[List[Path]]) -> bool:
-    return False if files_argument is not None and len(files_argument) > 0 else True
-
-
 class NativeAppCommandProcessor(ABC):
     @abstractmethod
     def process(self, *args, **kwargs):
@@ -322,9 +314,9 @@ class NativeAppManager(SqlExecutionMixin):
     def sync_deploy_root_with_stage(
         self,
         role: str,
-        prune: Optional[bool] = None,
-        paths_to_sync: Optional[List[Path]] = None,  # relative to project root
-        recursive: Optional[bool] = None,
+        prune: bool,
+        recursive: bool,
+        paths_to_sync: List[Path] = [],  # relative to project root
         created_files: Optional[ArtifactDeploymentMap] = None,
     ) -> DiffResult:
         """
@@ -353,14 +345,8 @@ class NativeAppManager(SqlExecutionMixin):
         )
         diff: DiffResult = stage_diff(self.deploy_root, self.stage_fqn)
 
-        if prune is None:
-            prune = _get_default_deploy_prune_value(paths_to_sync)
-
-        if recursive is None:
-            recursive = _get_default_deploy_recursive_value(paths_to_sync)
-
         # If we are syncing specific files/directories, remove everything else from the diff
-        if paths_to_sync is not None and len(paths_to_sync) > 0:
+        if len(paths_to_sync) > 0:
             paths_to_sync = [resolve_without_follow(p) for p in paths_to_sync]
             if not recursive:
                 _verify_no_directories(paths_to_sync)
@@ -371,8 +357,8 @@ class NativeAppManager(SqlExecutionMixin):
                 _get_files_to_sync(deploy_paths, self.deploy_root.resolve())
             )
             filter_from_diff(diff, paths_to_keep, prune)
-        # If we are syncing everything with no-prune, remove all remote-only files
-        elif prune is False:
+
+        if prune is False:
             diff.only_on_stage = []
 
         cc.message(str(diff))
@@ -502,9 +488,9 @@ class NativeAppManager(SqlExecutionMixin):
 
     def deploy(
         self,
-        prune: Optional[bool] = None,
-        paths_to_sync: Optional[List[Path]] = None,
-        recursive: Optional[bool] = None,
+        prune: bool,
+        recursive: bool,
+        paths_to_sync: List[Path] = [],
         created_files: Optional[ArtifactDeploymentMap] = None,
     ) -> DiffResult:
         """app deploy process"""
@@ -518,7 +504,7 @@ class NativeAppManager(SqlExecutionMixin):
 
             # 3. Upload files from deploy root local folder to the above stage
             diff = self.sync_deploy_root_with_stage(
-                self.package_role, prune, paths_to_sync, recursive, created_files
+                self.package_role, prune, recursive, paths_to_sync, created_files
             )
 
         return diff

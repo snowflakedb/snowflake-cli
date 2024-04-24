@@ -18,8 +18,6 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
 from snowflake.cli.plugins.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
-    _get_default_deploy_prune_value,
-    _get_default_deploy_recursive_value,
     _get_files_to_sync,
     ensure_correct_owner,
 )
@@ -85,7 +83,7 @@ def test_sync_deploy_root_with_stage(
 
     native_app_manager = _get_na_manager()
     assert mock_diff_result.has_changes()
-    native_app_manager.sync_deploy_root_with_stage("new_role")
+    native_app_manager.sync_deploy_root_with_stage("new_role", True, True)
 
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
@@ -752,29 +750,3 @@ def test_get_files_to_sync(
     paths_to_sync = [Path(p) for p in paths_to_sync]
     result = _get_files_to_sync(paths_to_sync, Path("deploy/"))
     assert result.sort() == expected_result.sort()
-
-
-@pytest.mark.parametrize(
-    "files_argument,expected_prune_value",
-    [
-        [None, True],
-        [[], True],
-        [["file1", "file2"], False],
-    ],
-)
-def test_get_default_deploy_prune_value(files_argument, expected_prune_value):
-    prune = _get_default_deploy_prune_value(files_argument)
-    assert prune == expected_prune_value
-
-
-@pytest.mark.parametrize(
-    "files_argument,recursive",
-    [
-        [None, True],
-        [[], True],
-        [["file1", "file2"], False],
-    ],
-)
-def test_get_default_deploy_recursive_value(files_argument, recursive):
-    prune = _get_default_deploy_recursive_value(files_argument)
-    assert prune == recursive
