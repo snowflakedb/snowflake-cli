@@ -1,7 +1,6 @@
 name: "CLI Action testing"
 
 on:
-  push:
   schedule:
     - cron: "0 0 * * *"
   workflow_dispatch:
@@ -12,12 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2.3.4
+        uses: actions/checkout@v4
       - uses: Snowflake-Labs/snowflake-cli-action@v1
         with:
           cli-version: "latest"
           default-config-file-path: "tests_integration/config/connection_configs.toml"
-      - name: Test version
+      - name: Test connection
         env:
           TERM: unknown
           SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
