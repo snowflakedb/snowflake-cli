@@ -8,6 +8,7 @@
 * `snow sql` command supports now client-side templating of queries.
 
 ## Fixes and improvements
+* Make errors from `snow connection test` more meaningful when role, warehouse or database does not exist.
 
 
 # v2.2.0
