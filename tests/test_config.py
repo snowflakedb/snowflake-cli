@@ -302,5 +302,9 @@ def test_corrupted_config_raises_human_friendly_error(
             tmp_file.name,
             ["sql", "-q", "foo"],
         )
+
+    # Run cli help to reset state after config load error
+    runner.invoke("--help")
+
     assert result.exit_code == 1, result.output
     assert result.output == snapshot
