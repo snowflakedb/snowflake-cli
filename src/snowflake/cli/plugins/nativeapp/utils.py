@@ -1,7 +1,7 @@
-from os import PathLike
+import os
 from pathlib import Path
 from sys import stdin, stdout
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 
 def needs_confirmation(needs_confirm: bool, auto_yes: bool) -> bool:
@@ -41,7 +41,7 @@ def get_first_paragraph_from_markdown_file(file_path: Path) -> Optional[str]:
         return paragraph_text
 
 
-def shallow_git_clone(url: Union[str, PathLike], to_path: Union[str, PathLike]):
+def shallow_git_clone(url: Union[str, os.PathLike], to_path: Union[str, os.PathLike]):
     """
     Performs a shallow clone of the repository at the provided url to the path specified
 
@@ -65,3 +65,23 @@ def shallow_git_clone(url: Union[str, PathLike], to_path: Union[str, PathLike]):
     repo.close()
 
     return repo
+
+
+def is_parent_directory(parent_dir: Path, file_path: Path) -> bool:
+    abs_parent = str(parent_dir.resolve())
+    abs_file = str(file_path.resolve())
+    return abs_file.startswith(abs_parent)
+
+
+def get_all_file_paths_under_dir(directory: Path) -> List[str]:
+    abs_dir = str(directory.resolve())
+    file_paths: List[str] = []
+    for root, _, files in os.walk(abs_dir):
+        for file in files:
+            file_path = os.path.join(root, file)
+            file_paths.append(file_path)
+    return file_paths
+
+
+def is_single_quoted(name: str) -> bool:
+    return name.startswith("'") and name.endswith("'")

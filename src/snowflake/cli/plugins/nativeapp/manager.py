@@ -43,11 +43,14 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
     MissingPackageScriptError,
     UnexpectedOwnerError,
 )
+from snowflake.cli.plugins.nativeapp.setup_script_compiler.compiler import (
+    SetupScriptCompiler,
+)
 from snowflake.cli.plugins.stage.diff import (
     DiffResult,
-    stage_diff,
     sync_local_diff_with_stage,
 )
+from snowflake.cli.plugins.stage.commands import stage_diff
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -115,6 +118,11 @@ class NativeAppManager(SqlExecutionMixin):
         super().__init__()
         self._project_root = project_root
         self._project_definition = project_definition
+        self._setup_script_compiler = SetupScriptCompiler(
+            project_definition=project_definition,
+            project_root=project_root,
+            deploy_root=project_definition.artifacts,
+        )
 
     @property
     def project_root(self) -> Path:
@@ -278,11 +286,17 @@ class NativeAppManager(SqlExecutionMixin):
             return False
         return True
 
+    def generate_setup_script(self):
+        self._setup_script_compiler.parse_entities()
+        self._setup_script_compiler.validate_entities()
+        self._setup_script_compiler.generate_sql()
+
     def build_bundle(self) -> None:
         """
         Populates the local deploy root from artifact sources.
         """
         build_bundle(self.project_root, self.deploy_root, self.artifacts)
+        self.generate_setup_script()
 
     def sync_deploy_root_with_stage(self, role: str) -> DiffResult:
         """
