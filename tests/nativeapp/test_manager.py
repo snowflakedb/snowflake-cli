@@ -18,7 +18,7 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
 from snowflake.cli.plugins.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
-    _get_files_to_sync,
+    _get_paths_to_sync,
     ensure_correct_owner,
 )
 from snowflake.cli.plugins.stage.diff import (
@@ -737,7 +737,7 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
         ],
     ],
 )
-def test_get_files_to_sync(
+def test_get_paths_to_sync(
     temp_dir,
     paths_to_sync,
     expected_result,
@@ -748,5 +748,5 @@ def test_get_files_to_sync(
     touch("deploy/dir/nested_dir/nested_file3")
 
     paths_to_sync = [Path(p) for p in paths_to_sync]
-    result = _get_files_to_sync(paths_to_sync, Path("deploy/"))
+    result = _get_paths_to_sync(paths_to_sync, Path("deploy/"))
     assert result.sort() == expected_result.sort()

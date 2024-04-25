@@ -105,7 +105,7 @@ def ensure_correct_owner(row: dict, role: str, obj_name: str) -> None:
         raise UnexpectedOwnerError(obj_name, role, actual_owner)
 
 
-def _get_files_to_sync(paths_to_sync: List[Path], deploy_root: Path) -> List[str]:
+def _get_paths_to_sync(paths_to_sync: List[Path], deploy_root: Path) -> List[str]:
     """Takes a list of paths (files and directories), returning a list of all files recursively, stripping the path to deploy root."""
     paths = []
     for path in paths_to_sync:
@@ -119,12 +119,18 @@ def _get_files_to_sync(paths_to_sync: List[Path], deploy_root: Path) -> List[str
     return paths
 
 
-def _verify_no_directories(paths_to_sync):
+def _verify_no_directories(paths_to_sync: List[Path]):
     for path in paths_to_sync:
         if path.is_dir():
             raise ValueError(
                 f"{path} is a directory. Add the -r flag to deploy directories."
             )
+
+
+def _verify_exists(paths_to_sync: List[Path]):
+    for path in paths_to_sync:
+        if not path.exists():
+            raise FileNotFoundError(path)
 
 
 class NativeAppCommandProcessor(ABC):
@@ -347,18 +353,20 @@ class NativeAppManager(SqlExecutionMixin):
 
         # If we are syncing specific files/directories, remove everything else from the diff
         if len(paths_to_sync) > 0:
-            paths_to_sync = [resolve_without_follow(p) for p in paths_to_sync]
+            resolved_paths_to_sync = [resolve_without_follow(p) for p in paths_to_sync]
             if not recursive:
-                _verify_no_directories(paths_to_sync)
-            deploy_paths = [
-                project_path_to_deploy_path(p, created_files) for p in paths_to_sync
+                _verify_no_directories(resolved_paths_to_sync)
+            deploy_paths_to_sync = [
+                project_path_to_deploy_path(p, created_files)
+                for p in resolved_paths_to_sync
             ]
-            paths_to_keep = set(
-                _get_files_to_sync(deploy_paths, self.deploy_root.resolve())
+            _verify_exists(deploy_paths_to_sync)
+            paths_to_sync_set = set(
+                _get_paths_to_sync(deploy_paths_to_sync, self.deploy_root.resolve())
             )
-            filter_from_diff(diff, paths_to_keep, prune)
+            filter_from_diff(diff, paths_to_sync_set, prune)
 
-        if prune is False:
+        if not prune:
             diff.only_on_stage = []
 
         cc.message(str(diff))

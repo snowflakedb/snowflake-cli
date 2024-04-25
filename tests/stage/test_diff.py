@@ -266,7 +266,7 @@ def test_filter_from_diff():
         "dir/only_on_stage-2",
     ]
 
-    paths_to_keep = set(
+    paths_to_sync = set(
         [
             "different",
             "only-local",
@@ -276,14 +276,14 @@ def test_filter_from_diff():
             "dir/only-stage",
         ]
     )
-    diff = filter_from_diff(diff, paths_to_keep, True)
+    diff = filter_from_diff(diff, paths_to_sync, True)
 
     for path in diff.different:
-        assert path in paths_to_keep
+        assert path in paths_to_sync
     for path in diff.only_local:
-        assert path in paths_to_keep
+        assert path in paths_to_sync
     for path in diff.only_on_stage:
-        assert path in paths_to_keep
+        assert path in paths_to_sync
 
 
 # When prune flag is off, remote-only files are filtered out and a warning is printed
@@ -291,14 +291,26 @@ def test_filter_from_diff():
 def test_filter_from_diff_no_prune(mock_warning):
     diff = DiffResult()
     diff.only_on_stage = [
-        "only-stage.txt",
+        "only-stage-1.txt",
         "only-stage-2.txt",
+        "only-stage-3.txt",
     ]
+    paths_to_sync = set(
+        [
+            "on-both.txt",
+            "only-stage-1.txt",
+            "only-stage-2.txt",
+            "only-local.txt",
+        ]
+    )
 
-    paths_to_keep = set(["only-stage.txt"])
-    diff = filter_from_diff(diff, paths_to_keep, False)
+    diff = filter_from_diff(diff, paths_to_sync, False)
 
     assert len(diff.only_on_stage) == 0
     mock_warning.assert_called_once_with(
-        "The following files exist only on the stage:\n['only-stage.txt']\nUse the --prune flag to delete them from the stage."
+        """The following files exist only on the stage:
+only-stage-1.txt
+only-stage-2.txt
+
+Use the --prune flag to delete them from the stage."""
     )

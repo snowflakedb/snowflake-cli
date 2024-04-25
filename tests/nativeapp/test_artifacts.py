@@ -171,42 +171,27 @@ def test_too_many_files(project_definition_files):
 
 
 @pytest.mark.parametrize(
-    "project_path,expected_path,expected_exception",
+    "project_path,expected_path",
     [
         [
             "file",
             "deploy/file",
-            None,
         ],
         [
             "dir",
             "deploy/dir",
-            None,
         ],
         [
             "dir/nested_file1",
             "deploy/dir/nested_file1",
-            None,
         ],
         [
             "dir/nested_dir/nested_file2",
             "deploy/dir/nested_dir/nested_file2",
-            None,
         ],
         [
             "dir/nested_dir",
             "deploy/dir/nested_dir",
-            None,
-        ],
-        [
-            "non_existing_file",
-            None,
-            FileNotFoundError,
-        ],
-        [
-            "dir/nested_dir/non_existing_file",
-            None,
-            FileNotFoundError,
         ],
     ],
 )
@@ -214,7 +199,6 @@ def test_project_path_to_deploy_path(
     temp_dir,
     project_path,
     expected_path,
-    expected_exception,
 ):
     # Source files
     touch("file")
@@ -230,11 +214,5 @@ def test_project_path_to_deploy_path(
         Path("file").resolve(): resolve_without_follow(Path("deploy/file")),
     }
 
-    if expected_exception is None:
-        result = project_path_to_deploy_path(
-            Path(project_path).resolve(), files_mapping
-        )
-        assert result == resolve_without_follow(Path(expected_path))
-    else:
-        with pytest.raises(expected_exception):
-            project_path_to_deploy_path(Path(project_path).resolve(), files_mapping)
+    result = project_path_to_deploy_path(Path(project_path).resolve(), files_mapping)
+    assert result == resolve_without_follow(Path(expected_path))
