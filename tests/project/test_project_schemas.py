@@ -67,19 +67,3 @@ def test_project_schema_is_updated_correctly_from_dict(
     native_app_project_instance.update_from_dict(update_dict)
     assert native_app_project_instance.native_app.name == "napp_test"
     assert native_app_project_instance.native_app.package.distribution == "external"
-
-
-def test_single_element_in_collection_is_updated(snowpark_project_definition_instance: ProjectDefinition):
-    assert len(snowpark_project_definition_instance.snowpark.procedures) == 6
-
-    update_dict ={"snowpark": {
-        "procedures": [
-            {'handler': 'app.hello_procedure', 'name': 'custom_db.custom_schema.fqn_procedure', 'returns': 'int',
-             'signature': [{'name': 'name', 'type': 'string'}]}
-        ]
-        }
-    }
-    snowpark_project_definition_instance.update_from_dict(update_dict)
-
-    assert len(snowpark_project_definition_instance.snowpark.procedures) == 6
-

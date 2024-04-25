@@ -27,9 +27,6 @@ class UpdatableModel(BaseModel):
                     setattr(self, field, value)
         return self
 
-    def override_list(self):
-        raise NotImplementedError()
-
     def _is_field_an_updatable_model(self, name: str) -> bool:
         typing_types = (Literal, list)
         field_type = self.model_fields.get(name, None)
