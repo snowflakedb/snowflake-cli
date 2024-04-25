@@ -68,7 +68,7 @@ class AnacondaPackages:
         """
         Checks of a requirement is available in the Snowflake Anaconda Channel.
 
-        As snowflake currently doesn't support extra syntax (ex. `jinja2[diagrams]`), if such
+        As Snowflake currently doesn't support extra syntax (ex. `jinja2[diagrams]`), if such
         extra is present in the dependency, we mark it as unavailable.
         """
         if not package.name or package.extras:
