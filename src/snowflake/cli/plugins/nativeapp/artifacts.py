@@ -266,7 +266,7 @@ def find_and_read_manifest_file(deploy_root: Path) -> Any:
     return manifest_content
 
 
-def find_setup_script_file(deploy_root: Path) -> Tuple[Path, Path]:
+def find_setup_script_file(deploy_root: Path) -> Path:
     """
     Find the setup script file, if available, in the deploy_root of the Snowflake Native App project.
     """
@@ -279,9 +279,12 @@ def find_setup_script_file(deploy_root: Path) -> Tuple[Path, Path]:
         setup_script in manifest_content[artifacts]
     ):
         setup_script_rel_path = manifest_content[artifacts][setup_script]
-        src_path = os.path.realpath(setup_script_rel_path)
-        dest_path = os.path.abspath(deploy_root / setup_script_rel_path)
-        return Path(src_path), Path(dest_path)
+        # src_path = os.path.realpath(setup_script_rel_path)
+        file_name = Path(deploy_root / setup_script_rel_path)
+        if file_name.exists():
+            return Path(file_name)
+        else:
+            raise SourceNotFoundError(file_name)
     else:
         raise ClickException(
             "Manifest.yml file must contain an artifacts section to specify the location of the setup script."

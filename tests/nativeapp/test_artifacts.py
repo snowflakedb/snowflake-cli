@@ -1,7 +1,9 @@
+import logging
 from pathlib import Path
 from typing import List, Optional
 
 import pytest
+from click import ClickException
 from snowflake.cli.api.project.definition import load_project_definition
 from snowflake.cli.plugins.nativeapp.artifacts import (
     ArtifactMapping,
@@ -11,6 +13,7 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     SourceNotFoundError,
     TooManyFilesError,
     build_bundle,
+    find_setup_script_file,
     translate_artifact,
 )
 
@@ -163,3 +166,53 @@ def test_too_many_files(project_definition_files):
                 ArtifactMapping("app/streamlit/*.py", "somehow_combined_streamlits.py")
             ],
         )
+
+
+@pytest.mark.parametrize(
+    "project_definition_files",
+    ["deploy_root_without_manifest_artifacts"],
+    indirect=True,
+)
+def test_find_setup_script_file_fails_without_manifest_artifacts(
+    project_definition_files,
+):
+    project_root = project_definition_files[0].parent
+    with pytest.raises(
+        ClickException,
+        match="Manifest.yml file must contain an artifacts section to specify the location of the setup script.",
+    ):
+        find_setup_script_file(deploy_root=project_root)
+
+
+@pytest.mark.parametrize(
+    "project_definition_files", ["deploy_root_with_manifest_artifacts"], indirect=True
+)
+def test_find_setup_script_file_fails_with_manifest_artifacts(project_definition_files):
+    project_root = project_definition_files[0].parent
+    with pytest.raises(
+        ClickException,
+        match="Manifest.yml file must contain an artifacts section to specify the location of the setup script.",
+    ):
+        find_setup_script_file(deploy_root=project_root)
+
+
+@pytest.mark.parametrize(
+    "project_definition_files",
+    ["deploy_root_with_incorrect_setup_script"],
+    indirect=True,
+)
+def test_find_setup_script_file_fails_with_incorrect_setup_script(
+    project_definition_files,
+):
+    project_root = project_definition_files[0].parent
+    with pytest.raises(SourceNotFoundError):
+        find_setup_script_file(deploy_root=project_root)
+
+
+@pytest.mark.parametrize(
+    "project_definition_files", ["deploy_root_with_setup_script"], indirect=True
+)
+def test_find_setup_script_file(project_definition_files):
+    deploy_root = project_definition_files[0].parent
+    dest_file = find_setup_script_file(deploy_root=deploy_root)
+    logging.error(dest_file)

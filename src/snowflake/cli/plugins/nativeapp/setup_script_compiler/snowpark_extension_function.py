@@ -4,7 +4,7 @@ from textwrap import dedent
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.plugins.nativeapp.utils import is_parent_directory, is_single_quoted
+from snowflake.cli.plugins.nativeapp.utils import is_single_quoted
 from snowflake.snowpark._internal.udf_utils import UDFColumn
 from snowflake.snowpark._internal.utils import TempObjectType
 
@@ -14,8 +14,13 @@ TEMP_OBJECT_NAME_PREFIX = "SNOWPARK_TEMP_"
 
 def get_handler_path_without_suffix(file_path: Path) -> str:
     parent_dir = str(file_path.parent).strip(os.path.sep)
+    parent_dir = parent_dir.replace(os.path.sep, ".")
     file_name = file_path.name.split(".")[0]
     return f"{parent_dir}.{file_name}"
+
+
+def get_object_type_as_text(object_type: TempObjectType) -> str:
+    return object_type.value.replace("_", " ")
 
 
 class ExtensionFunctionProperties:
@@ -46,6 +51,7 @@ class ExtensionFunctionProperties:
         execute_as: Optional[Literal["caller", "owner"]] = None,
         anonymous: bool = False,
     ) -> None:
+
         # Set initial properties
         self.func = func
         self.object_type = object_type
@@ -59,6 +65,7 @@ class ExtensionFunctionProperties:
         self.external_access_integrations = external_access_integrations
         self.secrets = secrets
         self.inline_python_code = inline_python_code
+        # We allow native_app_params to be None as this obj could be used in other contexts as well
         self.native_app_params = native_app_params
         self.raw_imports = raw_imports
         self.runtime_version = runtime_version
@@ -68,64 +75,93 @@ class ExtensionFunctionProperties:
         self.anonymous = anonymous
 
         # Set additional properties
-        self.set_schema()
-        self.set_object_name_for_udf_sp()
+        # self.set_schema()
+        # self.set_object_name_for_udf_sp()
 
-        self.validate_raw_imports()
-        self.set_all_imports()
+        # self.validate_raw_imports()
+        # self.set_all_imports()
 
-    def set_deploy_root(self, deploy_root: Path):
+    def set_deploy_root(self, deploy_root: Path) -> None:
         self.deploy_root = deploy_root
 
-    def set_schema(self):
-        if self.native_app_params is not None and "schema" in self.native_app_params:
-            self.schema = self.native_app_params["schema"]
-        else:
-            cc.warning(
-                f"Could not find a schema for {self.handler}, proceeding without the schema."
-            )
-
-    def set_object_name_for_udf_sp(self):
-        if self.object_name.startswith(TEMP_OBJECT_NAME_PREFIX):
-            self.object_name = f"{self.schema}.{self.handler}"
-        # Else, use the name provided by the user
-
     def set_source_file(self, source_file: Path):
+        # This source_file is guaranteed to exist as it is fetched from traversing the source dir
         self.source_file = source_file
 
     def set_destination_file(self, dest_file: Path):
+        # This dest_file is guaranteed to exist as it is fetched from traversing the dest dir
         self.dest_file = dest_file
 
+    def set_schema(self) -> None:
+        # FYI: Needs object name and source_file to be set
+        if self.native_app_params is not None and "schema" in self.native_app_params:
+            self.schema = self.native_app_params["schema"]
+        else:
+            assert self.handler is not None
+            cc.warning(
+                f"{get_object_type_as_text(self.object_type)} {self.object_name} in {self.source_file} does not have a schema specified in its definition."
+            )
+            self.schema = None
+
     def set_handler(self):
+        # FYI: Needs dest file to be set
         if isinstance(self.func, Callable):
             self.handler = f"{get_handler_path_without_suffix(self.dest_file)}.{self.func.__name__}"
         else:
-            # FYI: This is how Snowpark creates handler string when func is of type Tuple[str, str]
-            udf_file_name = os.path.basename(self.func[0])
-            # for a compressed file, it might have multiple extensions
-            # and we should remove all extensions
-            udf_file_name_base = udf_file_name.split(".")[0]
-            self.handler = f"{udf_file_name_base}.{self.func[1]}"
+            # isinstance(self.func, Tuple[str, str]) is only possible if using decorator.register_from_file(), which is not allowed as of now.
+            # When allowed, refer to https://github.com/snowflakedb/snowpark-python/blob/v1.15.0/src/snowflake/snowpark/_internal/udf_utils.py#L1092 on resolving handler name
+            cc.warning(
+                f"Could not determine handler name for {self.func[1]}, proceeding without the handler."
+            )
+            self.handler = None
+
+    def set_object_name_for_udf_sp(self) -> None:
+        # FYI: Needs schema and handler to be set
+        if self.object_name.startswith(TEMP_OBJECT_NAME_PREFIX):
+            assert self.handler is not None
+            assert self.schema is not None
+            self.object_name = f"{self.schema}.{self.handler}"
+        # Else, use the name provided by the user
+
+    def set_application_roles(self) -> None:
+        # FYI: Needs object name and source_file to be set
+        if (
+            self.native_app_params is not None
+            and "application_roles" in self.native_app_params
+        ):
+            self.application_roles = self.native_app_params["application_roles"]
+        else:
+            cc.warning(
+                dedent(
+                    f"""
+                {get_object_type_as_text(self.object_type)} {self.object_name} in {self.source_file} does not have application roles specified in its definition.
+                """
+                )
+            )
+            self.application_roles = []
 
     def validate_raw_imports(self):
         assert self.all_imports is ""
+
+        valid_imports: List[Union[str, Tuple[str, str]]] = []
 
         if self.raw_imports is None or len(self.raw_imports) == 0:
             cc.warning(
                 f"Could not find any imports for {self.object_name}, proceeding without use of imports."
             )
 
-        valid_imports: List[Union[str, Tuple[str, str]]] = []
         for raw_import in self.raw_imports:
             if isinstance(raw_import, str):
                 self.get_valid_imports(valid_imports, raw_import)
             elif isinstance(raw_import, tuple) and len(raw_import) == 2:
                 self.get_valid_imports(valid_imports, raw_import[0], raw_import[1])
             else:
+                # From snowflake-snowpark-python
                 raise TypeError(
                     f"{(self.object_type).replace(' ', '-')}-level import can only be a file path (str) "
                     "or a tuple of the file path (str) and the import path (str)."
                 )
+
         self.valid_imports = valid_imports
 
     def get_valid_imports(
@@ -143,40 +179,44 @@ class ExtensionFunctionProperties:
                 f"Cannot specify stage name in import path in case of Snowflake Native Apps. Proceeding without use of this import for {self.object_name}."
             )
         else:
-            if not os.path.exists(trimmed_path):
+            if not Path(trimmed_path).exists():  # The import should exist, in general
                 cc.warning(
                     f"Could not find {trimmed_path} in your filesystem. Proceeding without use of this import for {self.object_name}."
                 )
-            if not os.path.isfile(trimmed_path) and not os.path.isdir(trimmed_path):
+                return
+            if not Path(trimmed_path).is_file() and not Path(trimmed_path).is_dir():
                 # os.path.isfile() returns True when the passed in file is a symlink.
                 # So this code might not be reachable. To avoid mistakes, keep it here for now.
-                raise ValueError(
+                cc.warning(
                     f"You must only specify a local file or directory in the 'imports' property for {self.object_name}."
                 )
 
-            abs_path = os.path.abspath(trimmed_path)
+            abs_path = Path(trimmed_path).absolute()
 
-            if trimmed_import_path is not None:
-                # the import path only works for the directory and the Python file
-                if os.path.isdir(abs_path):
-                    import_file_path = trimmed_import_path.replace(".", os.path.sep)
-                elif os.path.isfile(abs_path) and abs_path.endswith(".py"):
-                    import_file_path = (
-                        f"{trimmed_import_path.replace('.', os.path.sep)}.py"
-                    )
+            if trimmed_import_path is None:
+                if Path(self.deploy_root / trimmed_path).exists():
+                    # If only one value is specified, i.e. only trimmed_path, then it must also be
+                    # a valid path on the stage or deploy_root
+                    valid_imports.append(trimmed_path)
                 else:
-                    import_file_path = None
-
-                if import_file_path is not None:
-                    if not is_parent_directory(
-                        parent_dir=self.deploy_root, file_path=import_file_path
-                    ):
-                        raise ValueError(
-                            f"import_path {trimmed_import_path} is invalid "
-                        )
-                valid_imports.append((trimmed_path, trimmed_import_path))
+                    cc.warning(
+                        f"Could not find {trimmed_path} in your deploy_root. Proceeding without use of this import for {self.object_name}."
+                    )
             else:
-                valid_imports.append(trimmed_path)
+                # the import path only works for the directory and the Python file
+                if abs_path.is_dir():
+                    import_file_path = trimmed_import_path.replace(".", os.path.sep)
+                elif abs_path.is_file():
+                    import_file_path = f"{trimmed_import_path.replace('.', os.path.sep)}{abs_path.suffix}"
+
+                if Path(self.deploy_root / import_file_path).exists():
+                    # If both values are specified, i.e. both trimmed_path and trimmed_import_path, then
+                    # only trimmed_import_path should be a valid path on the stage
+                    valid_imports.append((trimmed_path, trimmed_import_path))
+                else:
+                    cc.warning(
+                        f"Could not find {trimmed_import_path} in your deploy_root. Proceeding without use of this import for {self.object_name}."
+                    )
 
     def set_all_imports(self):
         # Ensure that the raw_imports have been validated
@@ -191,9 +231,6 @@ class ExtensionFunctionProperties:
             [url if is_single_quoted(url) else f"'{url}'" for url in all_urls]
         )
 
-    def get_object_type_as_str(self) -> str:
-        return self.object_type.value.replace("_", " ")
-
     def generate_create_sql_statement(self) -> str:
         if self.object_type == TempObjectType.PROCEDURE and self.anonymous:
             cc.warning(
@@ -202,6 +239,7 @@ class ExtensionFunctionProperties:
             )
             return ""
 
+        # Lifted from snowflake-snowpark-python library's implementation of create statements.
         add_replace = f" OR REPLACE " if self.replace else ""
         sql_func_args = ",".join(
             [f"{a.name} {t}" for a, t in zip(self.input_args, self.input_sql_types)]
@@ -250,31 +288,25 @@ class ExtensionFunctionProperties:
         return create_query
 
     def generate_grant_sql_statements(self) -> str:
-        if (
-            self.native_app_params is not None
-            and "application_roles" in self.native_app_params
-        ):
-            grant_sql_statements = []
-            for app_role in self.native_app_params["application_roles"]:
-                grant_sql_statement = dedent(
-                    f"""\
-                    GRANT USAGE ON {self.get_object_type_as_str()} {self.object_name}
-                    TO APPLICATION ROLE {app_role.upper()};
-                    """
-                )
-                grant_sql_statements.append(grant_sql_statement)
-            return "\n".join(grant_sql_statements)
-        else:
+        grant_sql_statements = []
+        if len(self.application_roles) == 0:
             cc.warning(
                 dedent(
                     f"""
-                {self.get_object_type_as_str()} {self.object_name} in {self.source_file} does not have application roles specified in its definition.
-                Skipping generation of 'GRANT USAGE ON ...' SQL statement for this object.
-            """
+                Skipping generation of 'GRANT USAGE ON ...' SQL statement for this object due to lack of application roles.
+                """
                 )
             )
-
             return ""
+        for app_role in self.application_roles:
+            grant_sql_statement = dedent(
+                f"""\
+                GRANT USAGE ON {get_object_type_as_text(self.object_type)} {self.object_name}
+                TO APPLICATION ROLE {app_role.upper()};
+                """
+            )
+            grant_sql_statements.append(grant_sql_statement)
+        return "\n".join(grant_sql_statements)
 
 
 def convert_snowpark_object_to_internal_rep(

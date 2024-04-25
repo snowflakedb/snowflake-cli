@@ -3,7 +3,7 @@ from textwrap import dedent
 from typing import Dict, List, Tuple
 
 # from snowflake.cli.plugins.nativeapp.utils import get_all_file_paths_under_dir
-from snowflake.cli.api.console import cli_console as cc
+from click import UsageError
 from snowflake.cli.plugins.nativeapp.artifacts import ArtifactMapping
 from snowflake.cli.plugins.nativeapp.setup_script_compiler.annotation_processors.annotation_processor import (
     AnnotationProcessor,
@@ -14,17 +14,33 @@ from snowflake.cli.plugins.nativeapp.setup_script_compiler.snowpark_extension_fu
 )
 
 
-def snowpark_library_has_annotation_code() -> bool:
+def verify_correct_version_of_snowpark_library() -> bool:
+    """
+    Verify that snowflake-snowpark-python has the right version, and the required parameters to set.
+    """
     import snowflake.snowpark
 
-    return hasattr(
-        snowflake.snowpark.context, "_is_execution_environment_sandboxed_for_client"
-    ) and hasattr(snowflake.snowpark.context, "_should_continue_registration")
+    return (
+        (snowflake.snowpark.__version__ >= "1.15.0")
+        and hasattr(
+            snowflake.snowpark.context, "_is_execution_environment_sandboxed_for_client"
+        )
+        and hasattr(snowflake.snowpark.context, "_should_continue_registration")
+    )
 
 
 class SnowparkAnnotationProcessor(AnnotationProcessor):
     def __init__(self):
         super().__init__()
+        if not verify_correct_version_of_snowpark_library():
+            raise UsageError(
+                dedent(
+                    f"""\
+                    The installed snowflake-snowpark-python library is on an older release version, cannot use Python annotation processor with this version.
+                    Please upgrade the library to >= 1.15.0 or remove the use of processor from artifacts list in your project definition file(s).
+                """
+                )
+            )
 
     def get_py_file_to_artifact_map(
         self, artifacts: List[ArtifactMapping], project_root: Path, deploy_root: Path
@@ -35,17 +51,6 @@ class SnowparkAnnotationProcessor(AnnotationProcessor):
             for artifact in artifacts
             if artifact.processor is not None
         ]
-
-        if not snowpark_library_has_annotation_code():
-            cc.warning(
-                dedent(
-                    f"""\
-                    The installed snowflake-snowpark-python library is on an older release version, cannot use Python annotation processor with this version.
-                    Please upgrade the library or remove the use of processor from artifacts list in your project definition file(s).
-                """
-                )
-            )
-            return {}
 
         py_file_to_dest_map: Dict[Path, str] = {}
         py_file_to_artifact_map: Dict[Path, Tuple[Path, Path]] = {}
@@ -109,16 +114,12 @@ class SnowparkAnnotationProcessor(AnnotationProcessor):
             extension_function_properties_lst.append(callable_properties)
             return False  # To not continue registration in Snowpark
 
-        # TODO: comment "# noqa: SLF001" not working, find out why
-        # snowflake.snowpark.context._is_execution_environment_sandboxed_for_client = (
-        #     True  # noqa: SLF001
-        # )
-        # snowflake.snowpark.context._should_continue_registration = (
-        #     callback_replacement  # noqa: SLF001
-        # )
-        # snowflake.snowpark.session._is_execution_environment_sandboxed_for_client = (
-        #     True  # noqa: SLF001
-        # )
+        import snowflake.snowpark.context as ctx
+        import snowflake.snowpark.session as session
+
+        ctx._is_execution_environment_sandboxed_for_client = True  # noqa: SLF001
+        ctx._should_continue_registration = callback_replacement  # noqa: SLF001
+        session._is_execution_environment_sandboxed_for_client = True  # noqa: SLF001
 
         with open(py_file, mode="r", encoding="utf-8") as udf_code:
             code = udf_code.read()
@@ -139,7 +140,7 @@ class SnowparkAnnotationProcessor(AnnotationProcessor):
             ]
             for snowpark_obj in cli_snowpark_properties_lst:
                 snowpark_obj.set_source_file(py_file)
-                snowpark_obj.set_dest_file(py_file_to_artifact_map[py_file][1])
+                snowpark_obj.set_destination_file(py_file_to_artifact_map[py_file][1])
                 snowpark_obj.set_handler()
                 snowpark_obj.set_deploy_root(deploy_root)
 

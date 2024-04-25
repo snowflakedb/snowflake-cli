@@ -1,8 +1,12 @@
+from pathlib import Path
 from textwrap import dedent
 
 import pytest
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.plugins.nativeapp.utils import get_first_paragraph_from_markdown_file
+from snowflake.cli.plugins.nativeapp.utils import (
+    get_first_paragraph_from_markdown_file,
+    is_parent_directory,
+)
 
 
 @pytest.mark.parametrize(
@@ -75,3 +79,21 @@ def test_get_first_paragraph_from_markdown_file_with_invalid_path():
 
         with pytest.raises(FileNotFoundError):
             get_first_paragraph_from_markdown_file(temp_readme_path)
+
+
+def test_is_parent_directory(temp_dir):
+    current_dir = Path.cwd()
+    deploy_root = current_dir / "output" / "deploy"
+    deploy_root.mkdir(parents=True, exist_ok=True)
+
+    real_file_path = deploy_root / "src" / "main.py"
+    real_file_path.mkdir(parents=True, exist_ok=True)
+    assert is_parent_directory(parent_dir=deploy_root, file=real_file_path)
+
+    real_file_path = deploy_root / "src" / "annotation_processor"
+    real_file_path.mkdir(parents=True, exist_ok=True)
+    assert is_parent_directory(parent_dir=deploy_root, file=real_file_path)
+
+    non_relative_path = current_dir / "_output_" / "_deploy_"
+    non_relative_path.mkdir(parents=True, exist_ok=True)
+    assert not is_parent_directory(parent_dir=deploy_root, file=non_relative_path)

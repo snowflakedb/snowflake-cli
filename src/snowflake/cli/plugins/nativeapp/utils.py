@@ -67,10 +67,12 @@ def shallow_git_clone(url: Union[str, os.PathLike], to_path: Union[str, os.PathL
     return repo
 
 
-def is_parent_directory(parent_dir: Path, file_path: Path) -> bool:
-    abs_parent = str(parent_dir.resolve())
-    abs_file = str(file_path.resolve())
-    return abs_file.startswith(abs_parent)
+def is_parent_directory(parent_dir: Path, file: Path) -> bool:
+    parent_path = (
+        parent_dir.absolute()
+    )  # Path.absolute to find full path, without resolving symlinks
+    file_path = file.absolute()
+    return file_path.is_relative_to(parent_path)
 
 
 def get_all_file_paths_under_dir(directory: Path) -> List[str]:

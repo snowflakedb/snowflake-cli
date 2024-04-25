@@ -75,7 +75,6 @@ class SetupScriptCompiler:
                     file.write(extension_function.generate_create_sql_statement())
                     file.write("\n")
                     file.write(extension_function.generate_grant_sql_statements())
-                    file.write("\n")
 
         return py_file_to_sql_file_map
 
@@ -84,7 +83,7 @@ class SetupScriptCompiler:
         py_file_to_sql_file_map: Dict[Path, Path],
     ):
         # For every SQL file, add SQL statement 'execute immediate' to setup script.
-        _, dest_file = find_setup_script_file(deploy_root=self.deploy_root)
+        dest_file = find_setup_script_file(deploy_root=self.deploy_root)
         # for _, sql_file_path in py_file_to_sql_file_map:
         for py_file in py_file_to_sql_file_map:
             sql_file_path = py_file_to_sql_file_map[py_file]

@@ -14,8 +14,12 @@ import pytest
 import yaml
 from snowflake.cli.api.project.definition import merge_left
 from snowflake.cli.app.cli_app import app_factory
+from snowflake.cli.plugins.nativeapp.setup_script_compiler.snowpark_extension_function import (
+    ExtensionFunctionProperties,
+)
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
+from snowflake.snowpark._internal.utils import TempObjectType
 from typer import Typer
 from typer.testing import CliRunner
 
@@ -300,3 +304,24 @@ def alter_snowflake_yml():
             yaml.safe_dump(yml, fh)
 
     return _update
+
+
+@pytest.fixture
+def dummy_extension_function_obj():
+    dummy_extension_function = ExtensionFunctionProperties(
+        func=lambda: None,
+        object_type=TempObjectType.FUNCTION,
+        object_name="DUMMY_NAME",
+        input_args=[],
+        input_sql_types=[],
+        return_sql="",
+        all_imports=None,
+        all_packages="",
+        handler=None,
+        external_access_integrations=None,
+        secrets=None,
+        inline_python_code=None,
+        native_app_params=None,
+        raw_imports=None,
+    )
+    yield dummy_extension_function
