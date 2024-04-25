@@ -201,7 +201,7 @@ def fetch(
     **options,
 ) -> CommandResult:
     """
-    Fetch changes from origin to snowflake repository.
+    Fetch changes from origin to Snowflake repository.
     """
     return QueryResult(GitManager().fetch(repo_name=repository_name))
 
