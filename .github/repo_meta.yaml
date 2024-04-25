@@ -1,6 +1,9 @@
 point_of_contact: @snowflakedb/snowcli
 production: true
+distributed: true
+modified: false
 code_owners_file_present: true
 release_branches:
+  - release-*
   - main
 jira_area: Developer Platform
