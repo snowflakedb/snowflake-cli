@@ -17,7 +17,7 @@ class Tag:
 
     def __post_init__(self):
         if not is_valid_identifier(self.name):
-            raise ValueError("name of a tag must be a valid snowflake identifier")
+            raise ValueError("name of a tag must be a valid Snowflake identifier")
 
     def value_string_literal(self):
         return to_string_literal(self.value)
