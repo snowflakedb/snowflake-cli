@@ -24,7 +24,7 @@
   * `--allow-native-libraries` is deprecated in favour of boolean flag `--allow-shared-libraries`.
     Using old flag will cause a warning.
 * `snow snowpark build`:
-  * `--pypi-download` flag is deprecated, have no effect and will cause a warning. Create command always check against PyPi.
+  * `--pypi-download` flag is deprecated, have no effect and will cause a warning. Build command always check against PyPi.
   * `--check-anaconda-for-pypi-depts` is deprecated and using it will cause warning, the functionality is replaced by `--ignore-anaconda`
   * `--package-native-libraries` is deprecated and using it will cause warning, the functionality is replaced by `--allow-shared-libraries`
 * `snow object stage` commands are deprecated and using them will cause a warning.
