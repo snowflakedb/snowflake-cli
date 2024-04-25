@@ -40,7 +40,7 @@ class TestPackage:
         "snowflake.cli.plugins.snowpark.package.commands.download_unavailable_packages"
     )
     @patch(
-        "snowflake.cli.plugins.snowpark.package_utils.Venv.pip_wheel",
+        "snowflake.cli.plugins.snowpark.package_utils.pip_wheel",
     )
     @pytest.mark.parametrize(
         "extra_flags", [[], ["--skip-version-check"], ["--ignore-anaconda"]]

@@ -134,7 +134,7 @@ def test_path_resolver(mock_system, argument, expected):
     assert path_utils.path_resolver(argument) == expected
 
 
-@patch("snowflake.cli.plugins.snowpark.package_utils.Venv.pip_wheel")
+@patch("snowflake.cli.plugins.snowpark.package_utils.pip_wheel")
 def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
     mock_installer.return_value = 42
 
