@@ -66,7 +66,7 @@
 * Fixed errors during `spcs image-registry login` not being formatted correctly.
 * Project definition no longer accept extra fields. Any extra field will cause an error.
 * Changing imports in function/procedure section in `snowflake.yml` will cause the definition update on replace
-* Adding `--pattern` flag to `stage list` command for filtering out results with regex.
+* Adding `--pattern` flag to `stage list-files` command for filtering out results with regex.
 * Fixed snowpark build paths for builds with --project option (fixed empty zip issue).
 * More clear error messages in `snow snowpark build` command
 * Adding support for any source supported by `pip` in `snow snowpark`.
