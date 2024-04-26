@@ -7,6 +7,7 @@ from click.exceptions import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.plugins.nativeapp.utils import verify_no_directories
 from yaml import safe_load
 
 # Map from source directories and files in the project directory to their path in the deploy directory. Both paths are absolute.
@@ -198,7 +199,10 @@ def resolve_without_follow(path: Path) -> Path:
 
 
 def build_bundle(
-    project_root: Path, deploy_root: Path, artifacts: List[ArtifactMapping]
+    project_root: Path,
+    deploy_root: Path,
+    artifacts: List[ArtifactMapping],
+    recursive: bool = True,
 ) -> ArtifactDeploymentMap:
     """
     Prepares a local folder (deploy_root) with configured app artifacts.
@@ -225,6 +229,8 @@ def build_bundle(
     for artifact in artifacts:
         dest_path = resolve_without_follow(Path(resolved_root, artifact.dest))
         source_paths = get_source_paths(artifact, project_root)
+        if not recursive:
+            verify_no_directories(source_paths)
 
         if specifies_directory(artifact.dest):
             # make sure we are only modifying files / directories inside the deploy root

@@ -47,6 +47,7 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
     MissingPackageScriptError,
     UnexpectedOwnerError,
 )
+from snowflake.cli.plugins.nativeapp.utils import verify_exists, verify_no_directories
 from snowflake.cli.plugins.stage.diff import (
     DiffResult,
     filter_from_diff,
@@ -117,20 +118,6 @@ def _get_paths_to_sync(paths_to_sync: List[Path], deploy_root: Path) -> List[str
         else:
             paths.append(str(path.relative_to(deploy_root)))
     return paths
-
-
-def _verify_no_directories(paths_to_sync: List[Path]):
-    for path in paths_to_sync:
-        if path.is_dir():
-            raise ValueError(
-                f"{path} is a directory. Add the -r flag to deploy directories."
-            )
-
-
-def _verify_exists(paths_to_sync: List[Path]):
-    for path in paths_to_sync:
-        if not path.exists():
-            raise FileNotFoundError(path)
 
 
 class NativeAppCommandProcessor(ABC):
@@ -311,11 +298,13 @@ class NativeAppManager(SqlExecutionMixin):
             return False
         return True
 
-    def build_bundle(self) -> ArtifactDeploymentMap:
+    def build_bundle(self, recursive: bool) -> ArtifactDeploymentMap:
         """
         Populates the local deploy root from artifact sources.
         """
-        return build_bundle(self.project_root, self.deploy_root, self.artifacts)
+        return build_bundle(
+            self.project_root, self.deploy_root, self.artifacts, recursive
+        )
 
     def sync_deploy_root_with_stage(
         self,
@@ -355,12 +344,12 @@ class NativeAppManager(SqlExecutionMixin):
         if len(paths_to_sync) > 0:
             resolved_paths_to_sync = [resolve_without_follow(p) for p in paths_to_sync]
             if not recursive:
-                _verify_no_directories(resolved_paths_to_sync)
+                verify_no_directories(resolved_paths_to_sync)
             deploy_paths_to_sync = [
                 project_path_to_deploy_path(p, created_files)
                 for p in resolved_paths_to_sync
             ]
-            _verify_exists(deploy_paths_to_sync)
+            verify_exists(deploy_paths_to_sync)
             paths_to_sync_set = set(
                 _get_paths_to_sync(deploy_paths_to_sync, self.deploy_root.resolve())
             )

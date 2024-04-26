@@ -267,7 +267,7 @@ def app_deploy(
         project_root=cli_context.project_root,
     )
 
-    created_files = manager.build_bundle()
+    created_files = manager.build_bundle(recursive)
     manager.deploy(prune, recursive, files, created_files)
 
     return MessageResult(f"Deployed successfully.")
