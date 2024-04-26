@@ -110,6 +110,56 @@ def test_sync_deploy_root_with_stage(
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(f"{NATIVEAPP_MODULE}.sync_local_diff_with_stage")
+@mock.patch(f"{NATIVEAPP_MODULE}.stage_diff")
+@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
+@pytest.mark.parametrize(
+    "prune,only_on_stage_files,expected_warn",
+    [
+        [
+            True,
+            ["only-stage.txt"],
+            False,
+        ],
+        [
+            False,
+            ["only-stage-1.txt", "only-stage-2.txt"],
+            True,
+        ],
+    ],
+)
+def test_sync_deploy_root_with_stage_prune(
+    mock_warning,
+    mock_stage_diff,
+    mock_local_diff_with_stage,
+    mock_execute,
+    prune,
+    only_on_stage_files,
+    expected_warn,
+    temp_dir,
+):
+    mock_stage_diff.return_value = DiffResult(only_on_stage=only_on_stage_files)
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=os.getcwd(),
+        contents=[mock_snowflake_yml_file],
+    )
+    native_app_manager = _get_na_manager()
+
+    native_app_manager.sync_deploy_root_with_stage("role", prune, True)
+
+    if expected_warn:
+        files_str = "\n".join(only_on_stage_files)
+        warn_message = f"""The following files exist only on the stage:
+{files_str}
+
+Use the --prune flag to delete them from the stage."""
+        mock_warning.assert_called_once_with(warn_message)
+    else:
+        mock_warning.assert_not_called()
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_cursor):
 
     side_effects, expected = mock_execute_helper(

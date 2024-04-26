@@ -20,7 +20,6 @@ from snowflake.cli.plugins.stage.diff import (
 )
 from snowflake.cli.plugins.stage.manager import StageManager
 
-from tests.nativeapp.utils import NATIVEAPP_MODULE
 from tests.testing_utils.files_and_dirs import temp_local_dir
 
 STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
@@ -276,7 +275,7 @@ def test_filter_from_diff():
             "dir/only-stage",
         ]
     )
-    diff = filter_from_diff(diff, paths_to_sync, True)
+    filter_from_diff(diff, paths_to_sync, True)
 
     for path in diff.different:
         assert path in paths_to_sync
@@ -286,9 +285,8 @@ def test_filter_from_diff():
         assert path in paths_to_sync
 
 
-# When prune flag is off, remote-only files are filtered out and a warning is printed
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
-def test_filter_from_diff_no_prune(mock_warning):
+# When prune flag is off, remote-only files are filtered out
+def test_filter_from_diff_no_prune():
     diff = DiffResult()
     diff.only_on_stage = [
         "only-stage-1.txt",
@@ -304,13 +302,6 @@ def test_filter_from_diff_no_prune(mock_warning):
         ]
     )
 
-    diff = filter_from_diff(diff, paths_to_sync, False)
+    filter_from_diff(diff, paths_to_sync, False)
 
     assert len(diff.only_on_stage) == 0
-    mock_warning.assert_called_once_with(
-        """The following files exist only on the stage:
-only-stage-1.txt
-only-stage-2.txt
-
-Use the --prune flag to delete them from the stage."""
-    )

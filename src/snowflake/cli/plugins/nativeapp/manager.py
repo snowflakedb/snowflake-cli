@@ -340,6 +340,7 @@ class NativeAppManager(SqlExecutionMixin):
         )
         diff: DiffResult = stage_diff(self.deploy_root, self.stage_fqn)
 
+        files_not_removed = []
         # If we are syncing specific files/directories, remove everything else from the diff
         if len(paths_to_sync) > 0:
             resolved_paths_to_sync = [resolve_without_follow(p) for p in paths_to_sync]
@@ -353,10 +354,16 @@ class NativeAppManager(SqlExecutionMixin):
             paths_to_sync_set = set(
                 _get_paths_to_sync(deploy_paths_to_sync, self.deploy_root.resolve())
             )
-            filter_from_diff(diff, paths_to_sync_set, prune)
-
-        if not prune:
+            files_not_removed = filter_from_diff(diff, paths_to_sync_set, prune)
+        elif not prune:
+            files_not_removed = diff.only_on_stage
             diff.only_on_stage = []
+
+        if len(files_not_removed) > 0:
+            files_not_removed_str = "\n".join(files_not_removed)
+            cc.warning(
+                f"The following files exist only on the stage:\n{files_not_removed_str}\n\nUse the --prune flag to delete them from the stage."
+            )
 
         cc.message(str(diff))
 
