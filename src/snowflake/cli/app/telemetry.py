@@ -10,6 +10,7 @@ from snowflake.cli.__about__ import VERSION
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.utils.error_handling import ignore_exceptions
+from snowflake.cli.app.constants import PARAM_APPLICATION_NAME
 from snowflake.connector.telemetry import (
     TelemetryData,
     TelemetryField,
@@ -61,7 +62,8 @@ def _find_command_info() -> TelemetryDict:
 
 def command_info() -> str:
     info = _find_command_info()
-    return ("SNOWCLI." + ".".join(info[CLITelemetryField.COMMAND])).upper()
+    command = ".".join(info[CLITelemetryField.COMMAND])
+    return f"{PARAM_APPLICATION_NAME}.{command}".upper()
 
 
 def python_version() -> str:
@@ -78,7 +80,7 @@ class CLITelemetryClient:
         telemetry_payload: TelemetryDict,
     ) -> Dict[str, Any]:
         data = {
-            CLITelemetryField.SOURCE: "snowcli",
+            CLITelemetryField.SOURCE: PARAM_APPLICATION_NAME,
             CLITelemetryField.VERSION_CLI: VERSION,
             CLITelemetryField.VERSION_OS: platform.platform(),
             CLITelemetryField.VERSION_PYTHON: python_version(),

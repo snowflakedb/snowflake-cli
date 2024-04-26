@@ -8,7 +8,7 @@
 * `snow sql` command supports now client-side templating of queries.
 
 ## Fixes and improvements
-
+* More human-friendly errors in case of corrupted `config.toml` file.
 
 # v2.2.0
 

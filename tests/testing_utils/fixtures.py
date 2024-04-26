@@ -263,7 +263,6 @@ def snowflake_home(monkeypatch):
         snowflake_home = Path(tmp_dir) / ".snowflake"
         snowflake_home.mkdir()
         monkeypatch.setenv("SNOWFLAKE_HOME", str(snowflake_home))
-
         for module in [
             sys.modules["snowflake.connector.constants"],
             sys.modules["snowflake.connector.config_manager"],
