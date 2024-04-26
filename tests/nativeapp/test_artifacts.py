@@ -174,23 +174,23 @@ def test_too_many_files(project_definition_files):
     "project_path,expected_path",
     [
         [
-            "file",
+            "srcfile",
             "deploy/file",
         ],
         [
-            "dir",
+            "srcdir",
             "deploy/dir",
         ],
         [
-            "dir/nested_file1",
+            "srcdir/nested_file1",
             "deploy/dir/nested_file1",
         ],
         [
-            "dir/nested_dir/nested_file2",
+            "srcdir/nested_dir/nested_file2",
             "deploy/dir/nested_dir/nested_file2",
         ],
         [
-            "dir/nested_dir",
+            "srcdir/nested_dir",
             "deploy/dir/nested_dir",
         ],
         [
@@ -205,18 +205,18 @@ def test_project_path_to_deploy_path(
     expected_path,
 ):
     # Source files
-    touch("file")
-    touch("dir/nested_file1")
-    touch("dir/nested_dir/nested_file2")
+    touch("srcfile")
+    touch("srcdir/nested_file1")
+    touch("srcdir/nested_dir/nested_file2")
     touch("not-in-deploy")
     # Build
     os.mkdir("deploy")
-    os.symlink("file", "deploy/file")
-    os.symlink(Path("dir").resolve(), Path("deploy/dir"))
+    os.symlink("srcfile", "deploy/file")
+    os.symlink(Path("srcdir").resolve(), Path("deploy/dir"))
 
     files_mapping = {
-        Path("dir").resolve(): resolve_without_follow(Path("deploy/dir")),
-        Path("file").resolve(): resolve_without_follow(Path("deploy/file")),
+        Path("srcdir").resolve(): resolve_without_follow(Path("deploy/dir")),
+        Path("srcfile").resolve(): resolve_without_follow(Path("deploy/file")),
     }
 
     if expected_path:
