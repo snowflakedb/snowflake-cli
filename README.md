@@ -1,7 +1,8 @@
 [![Code quality checks](https://github.com/snowflakedb/snowflake-cli/actions/workflows/lint.yaml/badge.svg)](https://github.com/snowflakedb/snowflake-cli/actions/workflows/lint.yaml)
 [![Integration testing](https://github.com/snowflakedb/snowflake-cli/actions/workflows/integration_test.yaml/badge.svg)](https://github.com/snowflakedb/snowflake-cli/actions/workflows/integration_test.yaml)
 [![CLI Action testing](https://github.com/snowflakedb/snowflake-cli/actions/workflows/test_cli_action.yaml/badge.svg?branch=main)](https://github.com/snowflakedb/snowflake-cli/actions/workflows/test_cli_action.yaml)
-[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-311/)
+
+[//]: # ([![Python 3.11]&#40;https://img.shields.io/badge/python-3.11-blue.svg&#41;]&#40;https://www.python.org/downloads/release/python-311/&#41;)
 
 # Snowflake CLI
 
