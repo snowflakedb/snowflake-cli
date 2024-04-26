@@ -12,7 +12,6 @@ from unittest import mock
 
 import pytest
 from click import Command
-from snowflake.cli.__about__ import VERSION
 from snowflake.cli.app.cli_app import app_context_holder
 from snowflake.connector.config_manager import CONFIG_MANAGER
 from typer.core import TyperArgument, TyperOption
@@ -49,6 +48,9 @@ def test_custom_config_path(mock_conn, runner, mock_cursor):
         role="test_role",
         warehouse="xs",
         password="dummy_password",
+        application_name="snowcli",
+        _internal_application_name="snowcli",
+        _internal_application_version="0.0.0-test_patched",
     )
 
 
@@ -57,7 +59,7 @@ def test_info_callback(runner):
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload == [
-        {"key": "version", "value": VERSION},
+        {"key": "version", "value": "0.0.0-test_patched"},
         {"key": "default_config_file_path", "value": str(CONFIG_MANAGER.file_path)},
         {"key": "python_version", "value": sys.version},
         {"key": "system_info", "value": platform.platform()},

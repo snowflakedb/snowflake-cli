@@ -14,11 +14,17 @@ from snowflake.cli.api.exceptions import (
     SnowflakeConnectionError,
 )
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.app.constants import (
+    PARAM_APPLICATION_NAME,
+    PARAM_INTERNAL_APPLICATION_NAME,
+)
 from snowflake.cli.app.telemetry import command_info
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.errors import DatabaseError, ForbiddenError
 
 log = logging.getLogger(__name__)
+
+from snowflake.cli.__about__ import VERSION
 
 ENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN ENCRYPTED PRIVATE KEY-----"
 UNENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN PRIVATE KEY-----"
@@ -92,6 +98,8 @@ def connect_to_snowflake(
         using_session_token, using_master_token, connection_parameters
     )
 
+    _update_connection_application_name(connection_parameters)
+
     try:
         # Whatever output is generated when creating connection,
         # we don't want it in our output. This is particularly important
@@ -143,6 +151,16 @@ def _update_connection_details_with_private_key(connection_parameters: Dict):
                 "Private Key authentication requires authenticator set to SNOWFLAKE_JWT"
             )
     return connection_parameters
+
+
+def _update_connection_application_name(connection_parameters: Dict):
+    """Update version and name of app handling connection."""
+    connection_application_params = {
+        "application_name": PARAM_APPLICATION_NAME,
+        "_internal_application_name": PARAM_INTERNAL_APPLICATION_NAME,
+        "_internal_application_version": VERSION,
+    }
+    connection_parameters.update(connection_application_params)
 
 
 def _load_pem_to_der(private_key_path: str) -> bytes:
