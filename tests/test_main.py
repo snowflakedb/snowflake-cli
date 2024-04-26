@@ -30,6 +30,7 @@ def test_streamlit_help(runner):
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch.dict(os.environ, {}, clear=True)
+@mock.patch("snowflake.cli.__about__.VERSION", "0.0.0")
 def test_custom_config_path(mock_conn, runner, mock_cursor):
     config_file = Path(__file__).parent / "test.toml"
     mock_conn.return_value.execute_stream.return_value = [
@@ -49,6 +50,9 @@ def test_custom_config_path(mock_conn, runner, mock_cursor):
         role="test_role",
         warehouse="xs",
         password="dummy_password",
+        application_name="snowcli",
+        _internal_application_name="snowcli",
+        _internal_application_version="0.0.0",
     )
 
 
