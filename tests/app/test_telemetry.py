@@ -1,6 +1,5 @@
 from unittest import mock
 
-from snowflake.cli.__about__ import VERSION
 from snowflake.connector.version import VERSION as DRIVER_VERSION
 
 
@@ -29,7 +28,7 @@ def test_executing_command_sends_telemetry_data(
             "driver_type": "PythonConnector",
             "driver_version": ".".join(str(s) for s in DRIVER_VERSION[:3]),
             "source": "snowcli",
-            "version_cli": VERSION,
+            "version_cli": "0.0.0-test_patched",
             "version_os": "FancyOS",
             "version_python": "2.3.4",
             "command": ["connection", "test"],

@@ -24,7 +24,7 @@ dependencies = [
   "urllib3>=1.21.1,<2.3",
   "GitPython==3.1.43",
   "pip",
-  "pydantic==2.7.0"
+  "pydantic==2.7.0",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -101,7 +101,9 @@ features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
 test = ["pytest -m integration --snapshot-warn-unused"]
-test-experimental = ["pytest -m integration_experimental --snapshot-warn-unused"]
+test-experimental = [
+  "pytest -m integration_experimental --snapshot-warn-unused",
+]
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.8", "3.9", "3.10", "3.11", "3.12"]
@@ -132,6 +134,7 @@ markers = [
   "performance: mark test as performance test",
   "e2e: mark test to execute on Snowflake CLI installed in fresh virtual environment",
   "loaded_modules: checks loaded modules",
+  "patch_app_version: sets app version to 0.0.0-test_patched",
 ]
 
 
