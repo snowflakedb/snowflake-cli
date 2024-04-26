@@ -193,6 +193,10 @@ def test_too_many_files(project_definition_files):
             "dir/nested_dir",
             "deploy/dir/nested_dir",
         ],
+        [
+            "not-in-deploy",
+            None,
+        ],
     ],
 )
 def test_project_path_to_deploy_path(
@@ -204,6 +208,7 @@ def test_project_path_to_deploy_path(
     touch("file")
     touch("dir/nested_file1")
     touch("dir/nested_dir/nested_file2")
+    touch("not-in-deploy")
     # Build
     os.mkdir("deploy")
     os.symlink("file", "deploy/file")
@@ -214,5 +219,11 @@ def test_project_path_to_deploy_path(
         Path("file").resolve(): resolve_without_follow(Path("deploy/file")),
     }
 
-    result = project_path_to_deploy_path(Path(project_path).resolve(), files_mapping)
-    assert result == resolve_without_follow(Path(expected_path))
+    if expected_path:
+        result = project_path_to_deploy_path(
+            Path(project_path).resolve(), files_mapping
+        )
+        assert result == resolve_without_follow(Path(expected_path))
+    else:
+        with pytest.raises(FileNotFoundError):
+            project_path_to_deploy_path(Path(project_path).resolve(), files_mapping)
