@@ -27,7 +27,6 @@ MOCK_CONNECTION = {
 )
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.app.snow_connector.command_info")
-@mock.patch("snowflake.cli.__about__.VERSION", "0.0.0")
 def test_command_context_is_passed_to_snowflake_connection(
     mock_command_info, mock_connect, cmd, expected, test_snowcli_config
 ):
@@ -51,7 +50,7 @@ def test_command_context_is_passed_to_snowflake_connection(
         password="dummy_password",
         application_name="snowcli",
         _internal_application_name="snowcli",
-        _internal_application_version="0.0.0",
+        _internal_application_version="0.0.0-test_patched",
     )
 
 

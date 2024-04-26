@@ -334,7 +334,6 @@ def test_connection_test(mock_connect, mock_om, runner):
 
 @mock.patch("snowflake.connector.connect")
 @pytest.mark.parametrize("option", ["--temporary-connection", "-x"])
-@mock.patch("snowflake.cli.__about__.VERSION", "0.0.0")
 def test_temporary_connection(mock_connector, mock_ctx, option, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -370,7 +369,7 @@ def test_temporary_connection(mock_connector, mock_ctx, option, runner):
         warehouse="xsmall",
         application_name="snowcli",
         _internal_application_name="snowcli",
-        _internal_application_version="0.0.0",
+        _internal_application_version="0.0.0-test_patched",
     )
 
 
@@ -382,7 +381,6 @@ def test_temporary_connection(mock_connector, mock_ctx, option, runner):
     clear=True,
 )
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.__about__.VERSION", "0.0.0")
 def test_key_pair_authentication(mock_connector, mock_ctx, runner):
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import serialization
@@ -453,12 +451,11 @@ def test_key_pair_authentication(mock_connector, mock_ctx, runner):
         warehouse="xsmall",
         application_name="snowcli",
         _internal_application_name="snowcli",
-        _internal_application_version="0.0.0",
+        _internal_application_version="0.0.0-test_patched",
     )
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.__about__.VERSION", "0.0.0")
 def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -504,7 +501,7 @@ def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
         server_session_keep_alive=True,
         application_name="snowcli",
         _internal_application_name="snowcli",
-        _internal_application_version="0.0.0",
+        _internal_application_version="0.0.0-test_patched",
     )
 
 
@@ -517,7 +514,6 @@ def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
 )
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.app.snow_connector._load_pem_to_der")
-@mock.patch("snowflake.cli.__about__.VERSION", "0.0.0")
 def test_key_pair_authentication_from_config(
     mock_load, mock_connector, mock_ctx, temp_dir, runner
 ):
@@ -554,7 +550,7 @@ def test_key_pair_authentication_from_config(
         private_key="secret value",
         application_name="snowcli",
         _internal_application_name="snowcli",
-        _internal_application_version="0.0.0",
+        _internal_application_version="0.0.0-test_patched",
     )
 
 
@@ -662,7 +658,6 @@ def test_no_mfa_passcode(mock_connect, runner):
     ],
 )
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.__about__.VERSION", "0.0.0")
 def test_connection_details_are_resolved_using_environment_variables(
     mock_connect, env, test_snowcli_config, runner
 ):
@@ -682,7 +677,7 @@ def test_connection_details_are_resolved_using_environment_variables(
             "password": "dummy",
             "application_name": "snowcli",
             "_internal_application_name": "snowcli",
-            "_internal_application_version": "0.0.0",
+            "_internal_application_version": "0.0.0-test_patched",
         }
 
 
@@ -706,7 +701,6 @@ def test_connection_details_are_resolved_using_environment_variables(
     ],
 )
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.__about__.VERSION", "0.0.0")
 def test_flags_take_precedence_before_environment_variables(
     mock_connect, env, test_snowcli_config, runner
 ):
@@ -744,7 +738,7 @@ def test_flags_take_precedence_before_environment_variables(
             "role": "role_from_flag",
             "application_name": "snowcli",
             "_internal_application_name": "snowcli",
-            "_internal_application_version": "0.0.0",
+            "_internal_application_version": "0.0.0-test_patched",
         }
 
 
@@ -759,7 +753,6 @@ def test_flags_take_precedence_before_environment_variables(
     },
     clear=True,
 )
-@mock.patch("snowflake.cli.__about__.VERSION", "0.0.0")
 @mock.patch("snowflake.connector.connect")
 def test_source_precedence(mock_connect, runner):
     result = runner.invoke(
@@ -784,7 +777,7 @@ def test_source_precedence(mock_connect, runner):
         "role": "role_from_global_env",
         "application_name": "snowcli",
         "_internal_application_name": "snowcli",
-        "_internal_application_version": "0.0.0",
+        "_internal_application_version": "0.0.0-test_patched",
     }
 
 
