@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from click import ClickException
+from snowflake.cli.api.project.schemas.identifier_model import ObjectIdentifierBaseModel
 from snowflake.connector import SnowflakeConnection
 
 
@@ -61,10 +62,16 @@ class FQN:
         raise FQNNameError(identifier)
 
     @classmethod
-    def from_pydantic_object(
-        cls, name: str, database: str | None, schema: str | None
-    ) -> "FQN":
-        return cls.from_string(name).set_database(database).set_schema(schema)
+    def from_identifier_model(cls, model: ObjectIdentifierBaseModel) -> "FQN":
+        if not isinstance(model, ObjectIdentifierBaseModel):
+            raise ClickException(
+                f"Expected {type(ObjectIdentifierBaseModel)}, got {model}."
+            )
+        return (
+            cls.from_string(model.name)
+            .set_database(model.database)
+            .set_schema(model.schema_name)
+        )
 
     def using_connection(self, connection: SnowflakeConnection) -> "FQN":
         if connection.database:

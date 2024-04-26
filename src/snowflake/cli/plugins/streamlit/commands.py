@@ -12,6 +12,7 @@ from snowflake.cli.api.commands.decorators import (
 from snowflake.cli.api.commands.flags import ReplaceOption
 from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.fqn import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
@@ -110,8 +111,13 @@ def streamlit_deploy(
     elif pages_dir is None:
         pages_dir = "pages"
 
+    app_name = (
+        FQN.from_identifier_model(streamlit)
+        .using_connection(cli_context.connection)
+        .identifier
+    )
     url = StreamlitManager().deploy(
-        streamlit_name=streamlit.name,
+        streamlit_name=app_name,
         environment_file=Path(environment_file),
         pages_dir=Path(pages_dir),
         stage_name=streamlit.stage,

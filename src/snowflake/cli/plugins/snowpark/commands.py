@@ -32,7 +32,6 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
 )
 from snowflake.cli.api.project.schemas.snowpark.callable import (
-    Callable,
     FunctionSchema,
     ProcedureSchema,
 )
@@ -181,7 +180,7 @@ def deploy(
 
 
 def _assert_object_definitions_are_correct(
-    object_type, object_definitions: List[Callable]
+    object_type, object_definitions: List[FunctionSchema | ProcedureSchema]
 ):
     for definition in object_definitions:
         database = definition.database
@@ -256,7 +255,7 @@ def get_app_stage_path(stage_name: Optional[str], project_name: str) -> str:
 def _deploy_single_object(
     manager: FunctionManager | ProcedureManager,
     object_type: ObjectType,
-    object_definition: Callable,
+    object_definition: FunctionSchema | ProcedureSchema,
     existing_objects: Dict[str, Dict],
     snowflake_dependencies: List[str],
     stage_artifact_path: str,
