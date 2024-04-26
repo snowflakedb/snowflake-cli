@@ -1,3 +1,8 @@
+[![Code quality checks](https://github.com/snowflakedb/snowflake-cli/actions/workflows/lint.yaml/badge.svg)](https://github.com/snowflakedb/snowflake-cli/actions/workflows/lint.yaml)
+[![Integration testing](https://github.com/snowflakedb/snowflake-cli/actions/workflows/integration_test.yaml/badge.svg)](https://github.com/snowflakedb/snowflake-cli/actions/workflows/integration_test.yaml)
+[![CLI Action testing](https://github.com/snowflakedb/snowflake-cli/actions/workflows/test_cli_action.yaml/badge.svg?branch=main)](https://github.com/snowflakedb/snowflake-cli/actions/workflows/test_cli_action.yaml)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-311/)
+
 # Snowflake CLI
 
 Snowflake CLI is an open-source command-line tool explicitly designed for developer-centric workloads in addition to SQL operations. It is a flexible and extensible tool that can accommodate modern development practices and technologies.
