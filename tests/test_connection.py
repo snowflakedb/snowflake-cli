@@ -367,6 +367,9 @@ def test_temporary_connection(mock_connector, mock_ctx, option, runner):
         database="test_dv",
         schema="PUBLIC",
         warehouse="xsmall",
+        application_name="snowcli",
+        _internal_application_name="snowcli",
+        _internal_application_version="0.0.0-test_patched",
     )
 
 
@@ -446,6 +449,9 @@ def test_key_pair_authentication(mock_connector, mock_ctx, runner):
         database="test_dv",
         schema="PUBLIC",
         warehouse="xsmall",
+        application_name="snowcli",
+        _internal_application_name="snowcli",
+        _internal_application_version="0.0.0-test_patched",
     )
 
 
@@ -493,6 +499,9 @@ def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
         schema="PUBLIC",
         warehouse="xsmall",
         server_session_keep_alive=True,
+        application_name="snowcli",
+        _internal_application_name="snowcli",
+        _internal_application_version="0.0.0-test_patched",
     )
 
 
@@ -539,6 +548,9 @@ def test_key_pair_authentication_from_config(
         user="jdoe",
         authenticator="SNOWFLAKE_JWT",
         private_key="secret value",
+        application_name="snowcli",
+        _internal_application_name="snowcli",
+        _internal_application_version="0.0.0-test_patched",
     )
 
 
@@ -654,7 +666,7 @@ def test_connection_details_are_resolved_using_environment_variables(
         result = runner.invoke(["sql", "-q", "select 1", "-c", "empty"])
 
         assert result.exit_code == 0, result.output
-        args, kwargs = mock_connect.call_args
+        _, kwargs = mock_connect.call_args
         assert kwargs == {
             "account": "some_account",
             "application": "SNOWCLI.SQL",
@@ -663,6 +675,9 @@ def test_connection_details_are_resolved_using_environment_variables(
             "schema": "my_schema",
             "role": "role",
             "password": "dummy",
+            "application_name": "snowcli",
+            "_internal_application_name": "snowcli",
+            "_internal_application_version": "0.0.0-test_patched",
         }
 
 
@@ -712,7 +727,7 @@ def test_flags_take_precedence_before_environment_variables(
         )
 
         assert result.exit_code == 0, result.output
-        args, kwargs = mock_connect.call_args
+        _, kwargs = mock_connect.call_args
         assert kwargs == {
             "account": "account_from_flag",
             "application": "SNOWCLI.SQL",
@@ -721,6 +736,9 @@ def test_flags_take_precedence_before_environment_variables(
             "schema": "schema_from_flag",
             "password": "password_from_flag",
             "role": "role_from_flag",
+            "application_name": "snowcli",
+            "_internal_application_name": "snowcli",
+            "_internal_application_version": "0.0.0-test_patched",
         }
 
 
@@ -750,13 +768,16 @@ def test_source_precedence(mock_connect, runner):
     )
 
     assert result.exit_code == 0, result.output
-    args, kwargs = mock_connect.call_args
+    _, kwargs = mock_connect.call_args
     assert kwargs == {
         "user": "python",  # from config
         "account": "account_from_flag",
         "application": "SNOWCLI.SQL",
         "database": "database_from_connection_env",
         "role": "role_from_global_env",
+        "application_name": "snowcli",
+        "_internal_application_name": "snowcli",
+        "_internal_application_version": "0.0.0-test_patched",
     }
 
 

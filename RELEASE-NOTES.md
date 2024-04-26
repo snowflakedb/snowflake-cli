@@ -8,7 +8,7 @@
 * `snow sql` command supports now client-side templating of queries.
 
 ## Fixes and improvements
-
+* More human-friendly errors in case of corrupted `config.toml` file.
 
 # v2.2.0
 
@@ -24,7 +24,7 @@
   * `--allow-native-libraries` is deprecated in favour of boolean flag `--allow-shared-libraries`.
     Using old flag will cause a warning.
 * `snow snowpark build`:
-  * `--pypi-download` flag is deprecated, have no effect and will cause a warning. Create command always check against PyPi.
+  * `--pypi-download` flag is deprecated, have no effect and will cause a warning. Build command always check against PyPi.
   * `--check-anaconda-for-pypi-depts` is deprecated and using it will cause warning, the functionality is replaced by `--ignore-anaconda`
   * `--package-native-libraries` is deprecated and using it will cause warning, the functionality is replaced by `--allow-shared-libraries`
 * `snow object stage` commands are deprecated and using them will cause a warning.
@@ -49,7 +49,7 @@
 * Added support for snowgit. New commands:
   * `snow git setup` - wizard setting up a git repository stage and creating all necessary objects
   * `snow git fetch` - fetches latest changes from the origin repository into Snowflake repository
-  * `snow git list-brahces` - lists all branches in the repository
+  * `snow git list-branches` - lists all branches in the repository
   * `snow git list-tags` - lists all tags in the repository
   * `snow git list-files` - lists all files on provided branch/tag/commit
   * `snow git copy` - copies files from provided branch/tag/commit into stage or local directory
@@ -66,7 +66,7 @@
 * Fixed errors during `spcs image-registry login` not being formatted correctly.
 * Project definition no longer accept extra fields. Any extra field will cause an error.
 * Changing imports in function/procedure section in `snowflake.yml` will cause the definition update on replace
-* Adding `--pattern` flag to `stage list` command for filtering out results with regex.
+* Adding `--pattern` flag to `stage list-files` command for filtering out results with regex.
 * Fixed snowpark build paths for builds with --project option (fixed empty zip issue).
 * More clear error messages in `snow snowpark build` command
 * Adding support for any source supported by `pip` in `snow snowpark`.

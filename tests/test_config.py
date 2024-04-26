@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest import mock
 
 import pytest
@@ -159,7 +159,10 @@ def test_not_found_default_connection(test_root_path):
     with pytest.raises(MissingConfiguration) as ex:
         get_default_connection_dict()
 
-    assert ex.value.message == "Connection default is not configured"
+    assert (
+        ex.value.message
+        == "Couldn't find connection for default connection `default`. Specify connection name or configure default connection."
+    )
 
 
 @mock.patch.dict(
@@ -174,7 +177,10 @@ def test_not_found_default_connection_from_evn_variable(test_root_path):
     with pytest.raises(MissingConfiguration) as ex:
         get_default_connection_dict()
 
-    assert ex.value.message == "Connection not_existed_connection is not configured"
+    assert (
+        ex.value.message
+        == "Couldn't find connection for default connection `not_existed_connection`. Specify connection name or configure default connection."
+    )
 
 
 def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_home):
@@ -281,3 +287,24 @@ def test_no_error_when_init_from_non_default_config(
     connections_path.chmod(0o777)
 
     config_init(test_snowcli_config)
+
+
+@pytest.mark.parametrize(
+    "content", ["[corrupted", "[connections.foo]\n[connections.foo]"]
+)
+def test_corrupted_config_raises_human_friendly_error(
+    snowflake_home, runner, content, snapshot
+):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        tmp_file.write(content)
+        tmp_file.flush()
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            ["sql", "-q", "foo"],
+        )
+
+    # Run cli help to reset state after config load error
+    runner.invoke("--help")
+
+    assert result.exit_code == 1, result.output
+    assert result.output == snapshot
