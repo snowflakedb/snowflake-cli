@@ -572,11 +572,11 @@ def test_nativeapp_deploy(
     "command,contains,not_contains",
     [
         # deploy --prune removes remote-only files
-        ["app deploy --prune", ["stage/README.md"], ["stage/manifest.yml"]],
+        ["app deploy --prune", ["stage/manifest.yml"], ["stage/README.md"]],
         # deploy removes remote-only files (--prune is the default value)
-        ["app deploy", ["stage/README.md"], ["stage/manifest.yml"]],
+        ["app deploy", ["stage/manifest.yml"], ["stage/README.md"]],
         # deploy --no-prune does not delete remote-only files
-        ["app deploy --no-prune", ["stage/manifest.yml"], []],
+        ["app deploy --no-prune", ["stage/README.md"], []],
     ],
 )
 def test_nativeapp_deploy_prune(
@@ -603,7 +603,7 @@ def test_nativeapp_deploy_prune(
 
         try:
             # delete a file locally
-            os.remove(os.path.join("app", "manifest.yml"))
+            os.remove(os.path.join("app", "README.md"))
 
             # deploy
             result = runner.invoke_with_connection_json(

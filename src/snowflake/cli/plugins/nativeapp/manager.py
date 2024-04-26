@@ -298,13 +298,11 @@ class NativeAppManager(SqlExecutionMixin):
             return False
         return True
 
-    def build_bundle(self, recursive: bool) -> ArtifactDeploymentMap:
+    def build_bundle(self) -> ArtifactDeploymentMap:
         """
         Populates the local deploy root from artifact sources.
         """
-        return build_bundle(
-            self.project_root, self.deploy_root, self.artifacts, recursive
-        )
+        return build_bundle(self.project_root, self.deploy_root, self.artifacts)
 
     def sync_deploy_root_with_stage(
         self,
@@ -341,8 +339,8 @@ class NativeAppManager(SqlExecutionMixin):
         diff: DiffResult = stage_diff(self.deploy_root, self.stage_fqn)
 
         files_not_removed = []
-        # If we are syncing specific files/directories, remove everything else from the diff
         if len(paths_to_sync) > 0:
+            # Deploying specific files/directories
             resolved_paths_to_sync = [resolve_without_follow(p) for p in paths_to_sync]
             if not recursive:
                 verify_no_directories(resolved_paths_to_sync)
@@ -355,9 +353,14 @@ class NativeAppManager(SqlExecutionMixin):
                 _get_paths_to_sync(deploy_paths_to_sync, self.deploy_root.resolve())
             )
             files_not_removed = filter_from_diff(diff, paths_to_sync_set, prune)
-        elif not prune:
-            files_not_removed = diff.only_on_stage
-            diff.only_on_stage = []
+        else:
+            # Full deploy
+            if not recursive:
+                deploy_files = os.listdir(str(self.deploy_root.resolve()))
+                verify_no_directories([Path(path_str) for path_str in deploy_files])
+            if not prune:
+                files_not_removed = diff.only_on_stage
+                diff.only_on_stage = []
 
         if len(files_not_removed) > 0:
             files_not_removed_str = "\n".join(files_not_removed)
