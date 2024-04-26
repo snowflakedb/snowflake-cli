@@ -41,11 +41,21 @@ from snowflake.connector.errors import ProgrammingError
 
 class SqlExecutionMixin:
     def __init__(self):
-        pass
+        self._snowpark_session = None
 
     @property
     def _conn(self):
         return cli_context.connection
+
+    @property
+    def snowpark_session(self):
+        if not self._snowpark_session:
+            from snowflake.snowpark.session import Session
+
+            self._snowpark_session = Session.builder.configs(
+                {"connection": self._conn}
+            ).create()
+        return self._snowpark_session
 
     @cached_property
     def _log(self):

@@ -1446,9 +1446,18 @@
   | --on-error          [break|continue]  What to do when an error occurs.       |
   |                                       Defaults to break.                     |
   |                                       [default: break]                       |
-  | --variable  -D      TEXT              Variables for the template. For        |
-  |                                       example: `-D "<key>=<value>"`, string  |
-  |                                       values must be in `''`.                |
+  | --variable  -D      TEXT              Variables for the execution context.   |
+  |                                       For example: `-D "<key>=<value>"`. For |
+  |                                       SQL files variables are use to expand  |
+  |                                       the template and any unknown variable  |
+  |                                       will cause an error. For Python files  |
+  |                                       variables are used to update           |
+  |                                       os.environ dictionary. Provided keys   |
+  |                                       are capitalized to adhere to best      |
+  |                                       practices.In case of SQL files string  |
+  |                                       values must be quoted in `''`          |
+  |                                       (consider embedding quoting in the     |
+  |                                       file).                                 |
   | --help      -h                        Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -7208,9 +7217,18 @@
   | --on-error          [break|continue]  What to do when an error occurs.       |
   |                                       Defaults to break.                     |
   |                                       [default: break]                       |
-  | --variable  -D      TEXT              Variables for the template. For        |
-  |                                       example: `-D "<key>=<value>"`, string  |
-  |                                       values must be in `''`.                |
+  | --variable  -D      TEXT              Variables for the execution context.   |
+  |                                       For example: `-D "<key>=<value>"`. For |
+  |                                       SQL files variables are use to expand  |
+  |                                       the template and any unknown variable  |
+  |                                       will cause an error. For Python files  |
+  |                                       variables are used to update           |
+  |                                       os.environ dictionary. Provided keys   |
+  |                                       are capitalized to adhere to best      |
+  |                                       practices.In case of SQL files string  |
+  |                                       values must be quoted in `''`          |
+  |                                       (consider embedding quoting in the     |
+  |                                       file).                                 |
   | --help      -h                        Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+

@@ -14,10 +14,13 @@
 
 import glob
 import os
+import sys
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
+from snowflake.connector import DictCursor
 
 from tests_integration.test_utils import (
     contains_row_with,
@@ -328,6 +331,57 @@ def test_user_stage_execute(runner, test_database, test_root_path, snapshot):
     )
     assert result.exit_code == 0
     assert result.json == snapshot
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    sys.version_info >= (3, 12), reason="Snowpark is not supported in Python >= 3.12"
+)
+def test_stage_execute_python(
+    snowflake_session, runner, test_database, test_root_path, snapshot
+):
+    project_path = test_root_path / "test_data/projects/stage_execute"
+    stage_name = "test_stage_execute"
+
+    result = runner.invoke_with_connection_json(["stage", "create", stage_name])
+    assert contains_row_with(
+        result.json,
+        {"status": f"Stage area {stage_name.upper()} successfully created."},
+    )
+
+    files = ["script1.py", "script_template.py", "requirements.txt"]
+    for name in files:
+        result = runner.invoke_with_connection_json(
+            [
+                "stage",
+                "copy",
+                f"{project_path}/{name}",
+                f"@{stage_name}",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert contains_row_with(result.json, {"status": "UPLOADED"})
+
+    test_id = f"FOO{time.time_ns()}"
+    result = runner.invoke_with_connection_json(
+        [
+            "stage",
+            "execute",
+            f"{stage_name}/",
+            "-D",
+            f"test_database_name={test_database}",
+            "-D",
+            f"TEST_ID={test_id}",
+        ]
+    )
+    assert result.exit_code == 0
+    assert result.json == snapshot
+
+    # Assert side effect created by executed script
+    *_, schemas = snowflake_session.execute_string(
+        f"show schemas like '{test_id}' in database {test_database};"
+    )
+    assert len(list(schemas)) == 1
 
 
 @pytest.mark.integration
