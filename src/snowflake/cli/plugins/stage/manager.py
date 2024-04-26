@@ -22,7 +22,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from os import path
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 from click import ClickException
 from snowflake.cli.api.commands.flags import OnErrorType, parse_key_value_variables
@@ -33,12 +33,13 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.utils.path_utils import path_resolver
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.snowpark import Session
 
 log = logging.getLogger(__name__)
 
 
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
-EXECUTE_SUPPORTED_FILES_FORMATS = {".sql"}
+EXECUTE_SUPPORTED_FILES_FORMATS = {".sql", ".py"}
 
 
 @dataclass
@@ -233,15 +234,28 @@ class StageManager(SqlExecutionMixin):
 
         sql_variables = self._parse_execute_variables(variables)
         results = []
+
+        if any(f.endswith(".py") for f in sorted_file_list):
+            # Bootstrap Snowpark session
+            python_exec_sproc = self._bootstrap_snowpark_execution_environment()
+        else:
+            python_exec_sproc = None
+
         for file in sorted_file_list:
-            results.append(
-                self._call_execute_immediate(
+            if file.endswith(".py"):
+                result = self._execute_python(
+                    file=file,
+                    on_error=on_error,
+                    python_execution_procedure=python_exec_sproc,
+                )
+            else:
+                result = self._call_execute_immediate(
                     stage_path_parts=stage_path_parts,
                     file=file,
                     variables=sql_variables,
                     on_error=on_error,
                 )
-            )
+            results.append(result)
 
         return results
 
@@ -286,9 +300,8 @@ class StageManager(SqlExecutionMixin):
                 return filtered_files
             else:
                 raise ClickException(
-                    "Invalid file extension, only `.sql` files are allowed."
+                    f"Invalid file extension, only {','.join(EXECUTE_SUPPORTED_FILES_FORMATS)} files are allowed."
                 )
-
         # Filter with fnmatch if contains `*` or `?`
         if glob.has_magic(stage_path):
             filtered_files = fnmatch.filter(files_on_stage, stage_path)
@@ -310,6 +323,21 @@ class StageManager(SqlExecutionMixin):
         query_parameters = [f"{v.key}=>{v.value}" for v in parsed_variables]
         return f" using ({', '.join(query_parameters)})"
 
+    @staticmethod
+    def _success_result(file: str):
+        cli_console.warning(f"SUCCESS - {file}")
+        return {"File": file, "Status": "SUCCESS", "Error": None}
+
+    @staticmethod
+    def _error_result(file: str, msg: str):
+        cli_console.warning(f"FAILURE - {file}")
+        return {"File": file, "Status": "FAILURE", "Error": msg}
+
+    @staticmethod
+    def _handle_execution_exception(on_error: OnErrorType, exception: Exception):
+        if on_error == OnErrorType.BREAK:
+            raise exception
+
     def _call_execute_immediate(
         self,
         stage_path_parts: StagePathParts,
@@ -323,13 +351,11 @@ class StageManager(SqlExecutionMixin):
             if variables:
                 query += variables
             self._execute_query(query)
-            cli_console.step(f"SUCCESS - {file_stage_path}")
-            return {"File": file_stage_path, "Status": "SUCCESS", "Error": None}
+            cli_console.step(f"SUCCESS - {file}")
+            return StageManager._success_result(file=file)
         except ProgrammingError as e:
-            cli_console.warning(f"FAILURE - {file_stage_path}")
-            if on_error == OnErrorType.BREAK:
-                raise e
-            return {"File": file_stage_path, "Status": "FAILURE", "Error": e.msg}
+            StageManager._handle_execution_exception(on_error=on_error, exception=e)
+            return StageManager._error_result(file=file, msg=e.msg)
 
     def _build_file_stage_path(
         self, stage_path_parts: StagePathParts, file: str
@@ -337,3 +363,36 @@ class StageManager(SqlExecutionMixin):
         stage = Path(stage_path_parts.stage).parts[0]
         file_path = Path(file).parts[1:]
         return f"{stage}/{'/'.join(file_path)}"
+
+    def _bootstrap_snowpark_execution_environment(self):
+        """Prepares Snowpark session for executing Python code remotely."""
+        from snowflake.snowpark.functions import sproc
+
+        self.snowpark_session.add_packages("snowflake-snowpark-python")
+
+        @sproc(is_permanent=False)
+        def _python_execution_procedure(_: Session, file_path: str) -> None:
+            """Snowpark session-scoped stored procedure to execute content of provided pyrthon file."""
+            from snowflake.snowpark.files import SnowflakeFile
+
+            with SnowflakeFile.open(file_path, require_scoped_url=False) as f:
+                file_content: str = f.read()  # type: ignore
+            exec(file_content)
+
+        return _python_execution_procedure
+
+    def _execute_python(
+        self, file: str, on_error: OnErrorType, python_execution_procedure: Callable
+    ):
+        """
+        Executes Python file from stage using a Snowpark temporary procedure.
+        Currently, there's no option to pass input to the execution.
+        """
+        from snowflake.snowpark.exceptions import SnowparkSQLException
+
+        try:
+            python_execution_procedure(self.get_standard_stage_prefix(file))
+            return StageManager._success_result(file=file)
+        except SnowparkSQLException as e:
+            StageManager._handle_execution_exception(on_error=on_error, exception=e)
+            return StageManager._error_result(file=file, msg=e.message)
