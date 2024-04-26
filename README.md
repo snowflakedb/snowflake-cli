@@ -12,7 +12,7 @@ With Snowflake CLI, developers can create, manage, update, and view apps running
 
 ### Install with pipx (PyPi)
 
-We recommend installing Snowflake CLI in isolated environment using [pipx](https://pipx.pypa.io/stable/). Requires Python >= 3.10
+We recommend installing Snowflake CLI in isolated environment using [pipx](https://pipx.pypa.io/stable/). Requires Python >= 3.11
 
 ```bash
 pipx install snowflake-cli-labs
@@ -31,7 +31,7 @@ snow --help
 
 ### Install from source
 
-Requires Python >= 3.10 and git
+Requires Python >= 3.11 and git
 
 ```bash
 git clone https://github.com/snowflakedb/snowflake-cli
