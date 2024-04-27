@@ -111,13 +111,10 @@ def streamlit_deploy(
     elif pages_dir is None:
         pages_dir = "pages"
 
-    app_name = (
-        FQN.from_identifier_model(streamlit)
-        .using_connection(cli_context.connection)
-        .identifier
-    )
+    streamlit_name = FQN.from_identifier_model(streamlit).using_context()
+
     url = StreamlitManager().deploy(
-        streamlit_name=app_name,
+        streamlit=streamlit_name,
         environment_file=Path(environment_file),
         pages_dir=Path(pages_dir),
         stage_name=streamlit.stage,

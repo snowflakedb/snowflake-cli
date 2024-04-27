@@ -8,8 +8,8 @@ from snowflake.cli.api.project.schemas.updatable_model import IdentifierField
 
 class ObjectIdentifierBaseModel:
     name: str
-    database: str | None
-    schema_name: str | None
+    database: Optional[str]
+    schema_name: Optional[str]
 
 
 def identifier_model(object_name: str) -> ObjectIdentifierBaseModel:

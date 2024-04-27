@@ -8,6 +8,7 @@ from snowflake.cli.api.commands.experimental_behaviour import (
     experimental_behaviour_enabled,
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
+from snowflake.cli.api.fqn import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.connection.util import (
     MissingConnectionHostError,
@@ -88,7 +89,7 @@ class StreamlitManager(SqlExecutionMixin):
 
     def deploy(
         self,
-        streamlit_name: str,
+        streamlit: FQN,
         main_file: Path,
         environment_file: Optional[Path] = None,
         pages_dir: Optional[Path] = None,
@@ -98,14 +99,11 @@ class StreamlitManager(SqlExecutionMixin):
         additional_source_files: Optional[List[str]] = None,
         **options,
     ):
-        stage_manager = StageManager()
         # for backwards compatibility - quoted stage path might be case-sensitive
         # https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers
-        streamlit_name_for_root_location = self.get_name_from_fully_qualified_name(
-            streamlit_name
-        )
-        fully_qualified_name = stage_manager.to_fully_qualified_name(streamlit_name)
-        streamlit_name = self.get_name_from_fully_qualified_name(fully_qualified_name)
+        streamlit_name_for_root_location = streamlit.name
+        fully_qualified_name = streamlit.identifier
+
         if (
             experimental_behaviour_enabled()
             or FeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled()
@@ -132,7 +130,7 @@ class StreamlitManager(SqlExecutionMixin):
                     log.info("Checkout already exists, continuing")
                 else:
                     raise
-            stage_path = stage_manager.to_fully_qualified_name(streamlit_name)
+            stage_path = streamlit.identifier
             embedded_stage_name = f"snow://streamlit/{stage_path}"
             root_location = f"{embedded_stage_name}/default_checkout"
 

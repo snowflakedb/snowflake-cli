@@ -4,6 +4,7 @@ import re
 from typing import Dict, List, Optional, Set
 
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.fqn import FQN
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.snowpark.models import Requirement
@@ -204,11 +205,7 @@ def build_udf_sproc_identifier(
     else:
         arguments = ""
 
-    name = slq_exec_mixin.to_fully_qualified_name(
-        udf_sproc.name,
-        database=udf_sproc.database,
-        schema=udf_sproc.schema_name,
-    )
+    name = FQN.from_identifier_model(udf_sproc).using_context().identifier
     return f"{name}({arguments})"
 
 
