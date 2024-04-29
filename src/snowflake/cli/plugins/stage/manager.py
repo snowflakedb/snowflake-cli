@@ -5,6 +5,7 @@ import glob
 import logging
 import re
 from contextlib import nullcontext
+from dataclasses import dataclass
 from os import path
 from pathlib import Path
 from typing import Dict, List, Optional, Union
@@ -26,6 +27,21 @@ UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
 EXECUTE_SUPPORTED_FILES_FORMATS = {".sql"}
 
 
+@dataclass
+class StagePathParts:
+    stage: str
+    stage_name: str
+    directory: str
+
+    @property
+    def path(self) -> str:
+        return (
+            f"{self.stage_name}{self.directory}".lower()
+            if self.stage_name.endswith("/")
+            else f"{self.stage_name}/{self.directory}".lower()
+        )
+
+
 class StageManager(SqlExecutionMixin):
     @staticmethod
     def get_standard_stage_prefix(name: str) -> str:
@@ -45,7 +61,7 @@ class StageManager(SqlExecutionMixin):
         return StageManager.get_standard_stage_prefix(path)
 
     @staticmethod
-    def get_stage_name_from_path(path: str):
+    def get_stage_from_path(path: str):
         """
         Returns stage name from potential path on stage. For example
         db.schema.stage/foo/bar  -> db.schema.stage
@@ -185,10 +201,12 @@ class StageManager(SqlExecutionMixin):
         on_error: OnErrorType,
         variables: Optional[List[str]] = None,
     ):
-        stage_path = self.get_standard_stage_prefix(stage_path)
-        all_files_list = self._get_files_list_from_stage(stage_path)
+        stage_path_with_prefix = self.get_standard_stage_prefix(stage_path)
+        stage_path_parts = self._split_stage_path(stage_path_with_prefix)
+        all_files_list = self._get_files_list_from_stage(stage_path_parts)
+
         # filter files from stage if match stage_path pattern
-        filtered_file_list = self._filter_files_list(stage_path, all_files_list)
+        filtered_file_list = self._filter_files_list(stage_path_parts, all_files_list)
 
         if not filtered_file_list:
             raise ClickException(f"No files matched pattern '{stage_path}'")
@@ -203,26 +221,46 @@ class StageManager(SqlExecutionMixin):
         for file in sorted_file_list:
             results.append(
                 self._call_execute_immediate(
-                    file=file, variables=sql_variables, on_error=on_error
+                    stage_path_parts=stage_path_parts,
+                    file=file,
+                    variables=sql_variables,
+                    on_error=on_error,
                 )
             )
 
         return results
 
-    def _get_files_list_from_stage(self, stage_path: str) -> List[str]:
-        stage_name = self.get_stage_name_from_path(stage_path)
-        files_list_result = self.list_files(stage_name).fetchall()
+    def _split_stage_path(self, stage_path: str) -> StagePathParts:
+        """
+        Splits stage path `@stage/dir` to
+            stage -> @stage
+            stage_name -> stage
+            directory -> dir
+        For stage path with fully qualified name `@db.schema.stage/dir`
+            stage -> @db.schema.stage
+            stage_name -> stage
+            directory -> dir
+        """
+        stage = self.get_stage_from_path(stage_path)
+        stage_name = stage.split(".")[-1]
+        directory = "/".join(Path(stage_path).parts[1:])
+        return StagePathParts(stage, stage_name[1:], directory)
+
+    def _get_files_list_from_stage(self, stage_path_parts: StagePathParts) -> List[str]:
+        files_list_result = self.list_files(stage_path_parts.stage).fetchall()
 
         if not files_list_result:
-            raise ClickException(f"No files found on stage '{stage_name}'")
+            raise ClickException(f"No files found on stage '{stage_path_parts.stage}'")
 
         return [f["name"] for f in files_list_result]
 
     def _filter_files_list(
-        self, stage_path: str, files_on_stage: List[str]
+        self, stage_path_parts: StagePathParts, files_on_stage: List[str]
     ) -> List[str]:
-        stage_path = self.remove_stage_prefix(stage_path)
-        stage_path = stage_path.lower()
+        if not stage_path_parts.directory:
+            return self._filter_supported_files(files_on_stage)
+
+        stage_path = stage_path_parts.path
 
         # Exact file path was provided if stage_path in file list
         if stage_path in files_on_stage:
@@ -256,20 +294,29 @@ class StageManager(SqlExecutionMixin):
         return f" using ({', '.join(query_parameters)})"
 
     def _call_execute_immediate(
-        self, file: str, variables: Optional[str], on_error: OnErrorType
+        self,
+        stage_path_parts: StagePathParts,
+        file: str,
+        variables: Optional[str],
+        on_error: OnErrorType,
     ) -> Dict:
+        file_stage_path = self._build_file_stage_path(stage_path_parts, file)
         try:
-            stage_path_prefixed = self.get_standard_stage_prefix(file)
-            query = (
-                f"execute immediate from {self.quote_stage_name(stage_path_prefixed)}"
-            )
+            query = f"execute immediate from {file_stage_path}"
             if variables:
                 query += variables
             self._execute_query(query)
-            cli_console.step(f"SUCCESS - {file}")
-            return {"File": file, "Status": "SUCCESS", "Error": None}
+            cli_console.step(f"SUCCESS - {file_stage_path}")
+            return {"File": file_stage_path, "Status": "SUCCESS", "Error": None}
         except ProgrammingError as e:
-            cli_console.warning(f"FAILURE - {file}")
+            cli_console.warning(f"FAILURE - {file_stage_path}")
             if on_error == OnErrorType.BREAK:
                 raise e
-            return {"File": file, "Status": "FAILURE", "Error": e.msg}
+            return {"File": file_stage_path, "Status": "FAILURE", "Error": e.msg}
+
+    def _build_file_stage_path(
+        self, stage_path_parts: StagePathParts, file: str
+    ) -> str:
+        stage = Path(stage_path_parts.stage).parts[0]
+        file_path = Path(file).parts[1:]
+        return f"{stage}/{'/'.join(file_path)}"

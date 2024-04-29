@@ -663,31 +663,58 @@ def test_stage_internal_put_quoted_path(
 
 
 @pytest.mark.parametrize(
-    "stage_path, expected_files",
+    "stage_path, expected_stage, expected_files",
     [
-        ("@exe", ["exe/s1.sql", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
+        ("@exe", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
         (
             "snow://exe",
-            ["exe/s1.sql", "exe/a/s3.sql", "exe/a/b/s4.sql"],
+            "@exe",
+            ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"],
         ),
-        ("exe", ["exe/s1.sql", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe/", ["exe/s1.sql", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe/*", ["exe/s1.sql", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe/*.sql", ["exe/s1.sql", "exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe/a", ["exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe/a/", ["exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe/a/*", ["exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe/a/*.sql", ["exe/a/s3.sql", "exe/a/b/s4.sql"]),
-        ("exe/a/b", ["exe/a/b/s4.sql"]),
-        ("exe/a/b/", ["exe/a/b/s4.sql"]),
-        ("exe/a/b/*", ["exe/a/b/s4.sql"]),
-        ("exe/a/b/*.sql", ["exe/a/b/s4.sql"]),
-        ("exe/s?.sql", ["exe/s1.sql"]),
-        ("exe/s1.sql", ["exe/s1.sql"]),
+        ("exe", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/*", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/*.sql", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/a", "@exe", ["@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/a/", "@exe", ["@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/a/*", "@exe", ["@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/a/*.sql", "@exe", ["@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/a/b", "@exe", ["@exe/a/b/s4.sql"]),
+        ("exe/a/b/", "@exe", ["@exe/a/b/s4.sql"]),
+        ("exe/a/b/*", "@exe", ["@exe/a/b/s4.sql"]),
+        ("exe/a/b/*.sql", "@exe", ["@exe/a/b/s4.sql"]),
+        ("exe/s?.sql", "@exe", ["@exe/s1.sql"]),
+        ("exe/s1.sql", "@exe", ["@exe/s1.sql"]),
+        (
+            "@db.schema.exe",
+            "@db.schema.exe",
+            [
+                "@db.schema.exe/s1.sql",
+                "@db.schema.exe/a/s3.sql",
+                "@db.schema.exe/a/b/s4.sql",
+            ],
+        ),
+        (
+            "db.schema.exe",
+            "@db.schema.exe",
+            [
+                "@db.schema.exe/s1.sql",
+                "@db.schema.exe/a/s3.sql",
+                "@db.schema.exe/a/b/s4.sql",
+            ],
+        ),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_execute(mock_execute, mock_cursor, runner, stage_path, expected_files):
+def test_execute(
+    mock_execute,
+    mock_cursor,
+    runner,
+    stage_path,
+    expected_stage,
+    expected_files,
+    snapshot,
+):
     mock_execute.return_value = mock_cursor(
         [
             {"name": "exe/a/s3.sql"},
@@ -702,10 +729,11 @@ def test_execute(mock_execute, mock_cursor, runner, stage_path, expected_files):
 
     assert result.exit_code == 0, result.output
     ls_call, *execute_calls = mock_execute.mock_calls
-    assert ls_call == mock.call(f"ls @exe", cursor_class=DictCursor)
+    assert ls_call == mock.call(f"ls {expected_stage}", cursor_class=DictCursor)
     assert execute_calls == [
-        mock.call(f"execute immediate from @{p}") for p in expected_files
+        mock.call(f"execute immediate from {p}") for p in expected_files
     ]
+    assert result.output == snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -803,7 +831,7 @@ def test_execute_not_existing_stage(mock_execute, mock_cursor, runner):
 )
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_execute_no_files_for_stage_path(
-    mock_execute, mock_cursor, runner, snapshot, stage_path, expected_message
+    mock_execute, mock_cursor, runner, stage_path, expected_message
 ):
     mock_execute.return_value = mock_cursor(
         [
@@ -817,7 +845,7 @@ def test_execute_no_files_for_stage_path(
     result = runner.invoke(["stage", "execute", stage_path, "--on-error", "continue"])
 
     assert result.exit_code == 1
-    assert result.output == snapshot
+    assert expected_message in result.output
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
