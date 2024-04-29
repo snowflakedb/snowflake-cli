@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Union
 
 from pydantic import Field
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
@@ -33,4 +33,4 @@ class AnnotationProcessor(UpdatableModel):
 class PathMapping(UpdatableModel):
     src: str
     dest: Optional[str] = None
-    processors: Optional[List[str | AnnotationProcessor]] = None
+    processors: Optional[List[Union[str, AnnotationProcessor]]] = None
