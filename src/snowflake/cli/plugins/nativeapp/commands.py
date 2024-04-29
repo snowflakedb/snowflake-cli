@@ -232,24 +232,24 @@ def app_teardown(
 def app_deploy(
     prune: Optional[bool] = typer.Option(
         default=None,
-        help=f"""If set, matched files that do not exist locally will also be deleted from the stage.""",
+        help=f"""Whether to delete specified files from the stage if they don't exist locally. If set, the command deletes files that exist in the stage, but not in the local filesystem.""",
     ),
     recursive: Optional[bool] = typer.Option(
         None,
         "--recursive",
         "-r",
-        help=f"""Controls whether the specified directories should be deployed including all of their contents. If false, only the immediate files will be deployed, ignoring any sub-directories.""",
+        help=f"""Whether to traverse and deploy files from subdirectories. If set, the command deploys all files and subdirectories; otherwise, only files in the current directory are deployed.""",
     ),
     files: Optional[List[Path]] = typer.Argument(
         default=None,
         show_default=False,
-        help=f"""Paths of the files, relative to the project root, to be uploaded to a stage. [default: sync all local changes to the stage]""",
+        help=f"""Paths, relative to the the project root, of files you want to upload to a stage. If unspecified, the command syncs all local changes to the stage.""",
     ),
     **options,
 ) -> CommandResult:
     """
     Creates an application package in your Snowflake account and syncs the local changes to the stage without creating or updating the application.
-    Running this command with no arguments at all is a shorthand for "snow app deploy --prune --recursive".
+    Running this command with no arguments at all, as in `snow app deploy`, is a shorthand for "snow app deploy --prune --recursive".
     """
     if files is None:
         files = []

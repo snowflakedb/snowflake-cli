@@ -205,7 +205,7 @@ def build_bundle(
     """
     Prepares a local folder (deploy_root) with configured app artifacts.
     This folder can then be uploaded to a stage.
-    Returns a mapping of the copied source files, pointing to where they were copied to.
+    Returns a map of the copied source files, pointing to where they were copied.
     """
     resolved_root = deploy_root.resolve()
     if resolved_root.exists() and not resolved_root.is_dir():
@@ -299,7 +299,7 @@ def find_version_info_in_manifest_file(
 def source_path_to_deploy_path(
     source_path: Path, mapped_files: ArtifactDeploymentMap
 ) -> Path:
-    """Given a source path and the files created during bundle, returns the absolute deploy destination path."""
+    """Returns the absolute path where the specified source path was copied to during bundle."""
 
     source_path = source_path.resolve()
 
