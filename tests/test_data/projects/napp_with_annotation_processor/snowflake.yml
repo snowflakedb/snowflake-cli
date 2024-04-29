@@ -13,11 +13,18 @@ native_app:
       dest: ui/
       processors:
         - snowpark_scala # str instead of dict, scala uses "import com.snowflake.snowpark._"
-        - name: snowpark_java # without virtual_env, java uses "import com.snowflake.snowpark_java.*;"
-        - name: snowpark # with virtual_env, python uses "import snowflake.snowpark"
-          virtual_env:
-            name: snowpark_venv
+        - name: snowpark_java # without any properties, java uses "import com.snowflake.snowpark_java.*;"
+        - name: snowpark # python uses "import snowflake.snowpark"
+          properties: # with properties
+            venv_path: ~/Users/jdoe/snowpark_venv
             env_type: venv
+    - src: app/core/*.py
+      dest: core/
+      processors:
+        - name: snowpark # python uses "import snowflake.snowpark"
+          properties: # with properties
+            name: snowpark_conda
+            env_type: conda
 
   package:
     scripts:
