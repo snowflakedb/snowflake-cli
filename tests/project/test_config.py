@@ -22,6 +22,41 @@ def test_napp_project_1(project_definition_files):
     assert project.native_app.application.debug == True
 
 
+@pytest.mark.parametrize(
+    "project_definition_files", ["napp_with_annotation_processor"], indirect=True
+)
+def test_napp_project_with_annotation_processor(project_definition_files):
+    project = load_project_definition(project_definition_files)
+    assert len(project.native_app.artifacts) == 3
+    result = project.native_app.artifacts[2]
+    assert len(result.processors) == 2
+    assert result.processors[0].name == "python-snowpark"
+    assert result.processors[0].language == "python"
+    assert result.processors[0].language_version == "3.8"
+    assert result.processors[0].virtual_env.name == "snowpark_conda"
+    assert result.processors[0].virtual_env.env_type == "CONDA"
+    assert result.processors[1].name == "PYTHON-SNOWPARK"
+    assert result.processors[1].language == "python"
+    assert result.processors[1].language_version == "3.11.8"
+    assert result.processors[1].virtual_env.name == "snowpark_venv"
+    assert result.processors[1].virtual_env.env_type == "venv"
+
+
+@pytest.mark.parametrize(
+    "project_definition_files",
+    ["napp_with_annotation_processor_failure"],
+    indirect=True,
+)
+def test_napp_project_with_annotation_processor_failure(project_definition_files):
+    with pytest.raises(SchemaValidationError) as exc_info:
+        load_project_definition(project_definition_files)
+
+    assert (
+        "Your project definition is missing following fields: ('language_version',)"
+        in str(exc_info.value)
+    )
+
+
 @pytest.mark.parametrize("project_definition_files", ["minimal"], indirect=True)
 def test_na_minimal_project(project_definition_files: List[Path]):
     project = load_project_definition(project_definition_files)
