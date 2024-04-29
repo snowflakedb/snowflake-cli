@@ -72,13 +72,15 @@
   │                          changes to the stage]                               │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --prune          --no-prune          Controls whether files that exist only  │
-  │                                      remotely will be deleted from the       │
+  │ --prune          --no-prune          If set, matched files that do not exist │
+  │                                      locally will also be deleted from the   │
   │                                      stage.                                  │
   │                                      [default: no-prune]                     │
   │ --recursive  -r                      Controls whether the specified          │
   │                                      directories should be deployed          │
-  │                                      including all of their contents.        │
+  │                                      including all of their contents. If     │
+  │                                      false, only the immediate files will be │
+  │                                      deployed, ignoring any sub-directories. │
   │ --project    -p                TEXT  Path where the Snowflake Native App     │
   │                                      project resides. Defaults to current    │
   │                                      working directory.                      │
