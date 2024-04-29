@@ -12,15 +12,9 @@ native_app:
     - src: app/streamlit/*.py
       dest: ui/
       processors:
-        - name: python-snowpark
-          language: python
-          language_version: 3.8
-          virtual_env:
-            name: snowpark_conda
-            env_type: CONDA
-        - name: PYTHON-SNOWPARK
-          language: python
-          language_version: 3.11.8
+        - snowpark # str instead of dict
+        - name: snowpark # without virtual_env
+        - name: snowpark # with virtual_env
           virtual_env:
             name: snowpark_venv
             env_type: venv
