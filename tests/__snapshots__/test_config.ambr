@@ -1,0 +1,19 @@
+# serializer version: 1
+# name: test_corrupted_config_raises_human_friendly_error[[connections.foo]\n[connections.foo]]
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Configuration file seems to be corrupted. Key "foo" already exists. at line  │
+  │ 2 col 17                                                                     │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_corrupted_config_raises_human_friendly_error[[corrupted]
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Configuration file seems to be corrupted. Unexpected end of file at line 1   │
+  │ col 10                                                                       │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
