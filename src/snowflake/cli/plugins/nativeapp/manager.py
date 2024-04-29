@@ -310,7 +310,7 @@ class NativeAppManager(SqlExecutionMixin):
         prune: bool,
         recursive: bool,
         paths_to_sync: List[Path] = [],  # relative to project root
-        created_files: Optional[ArtifactDeploymentMap] = None,
+        mapped_files: Optional[ArtifactDeploymentMap] = None,
     ) -> DiffResult:
         """
         Ensures that the files on our remote stage match the artifacts we have in
@@ -345,7 +345,7 @@ class NativeAppManager(SqlExecutionMixin):
             if not recursive:
                 verify_no_directories(resolved_paths_to_sync)
             deploy_paths_to_sync = [
-                project_path_to_deploy_path(p, created_files)
+                project_path_to_deploy_path(p, mapped_files)
                 for p in resolved_paths_to_sync
             ]
             verify_exists(deploy_paths_to_sync)
@@ -498,7 +498,7 @@ class NativeAppManager(SqlExecutionMixin):
         prune: bool,
         recursive: bool,
         paths_to_sync: List[Path] = [],
-        created_files: Optional[ArtifactDeploymentMap] = None,
+        mapped_files: Optional[ArtifactDeploymentMap] = None,
     ) -> DiffResult:
         """app deploy process"""
 
@@ -511,7 +511,7 @@ class NativeAppManager(SqlExecutionMixin):
 
             # 3. Upload files from deploy root local folder to the above stage
             diff = self.sync_deploy_root_with_stage(
-                self.package_role, prune, recursive, paths_to_sync, created_files
+                self.package_role, prune, recursive, paths_to_sync, mapped_files
             )
 
         return diff

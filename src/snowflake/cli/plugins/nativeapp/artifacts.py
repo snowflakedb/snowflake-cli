@@ -223,7 +223,7 @@ def build_bundle(
     if resolved_root.exists():
         delete(resolved_root)
 
-    created_files: ArtifactDeploymentMap = {}
+    mapped_files: ArtifactDeploymentMap = {}
     for artifact in artifacts:
         dest_path = resolve_without_follow(Path(resolved_root, artifact.dest))
         source_paths = get_source_paths(artifact, project_root)
@@ -237,7 +237,7 @@ def build_bundle(
             for source_path in source_paths:
                 dest_child_path = dest_path / source_path.name
                 symlink_or_copy(source_path, dest_child_path)
-                created_files[source_path.resolve()] = dest_child_path
+                mapped_files[source_path.resolve()] = dest_child_path
         else:
             # ensure we are copying into the deploy root, not replacing it!
             if resolved_root not in dest_path.parents:
@@ -246,11 +246,11 @@ def build_bundle(
             if len(source_paths) == 1:
                 # copy a single file as the given destination path
                 symlink_or_copy(source_paths[0], dest_path)
-                created_files[source_paths[0].resolve()] = dest_path
+                mapped_files[source_paths[0].resolve()] = dest_path
             else:
                 # refuse to map multiple source files to one destination (undefined behaviour)
                 raise TooManyFilesError(dest_path)
-    return created_files
+    return mapped_files
 
 
 def find_manifest_file(deploy_root: Path) -> Path:
@@ -297,19 +297,19 @@ def find_version_info_in_manifest_file(
 
 
 def project_path_to_deploy_path(
-    project_path: Path, created_files: ArtifactDeploymentMap
+    project_path: Path, mapped_files: ArtifactDeploymentMap
 ) -> Path:
     """Given a source path and the files created during bundle, returns the deploy destination path."""
 
     project_path = project_path.resolve()
 
-    if project_path in created_files:
-        return created_files[project_path]
+    if project_path in mapped_files:
+        return mapped_files[project_path]
 
-    # Find the first parent directory that exists in created_files
+    # Find the first parent directory that exists in mapped_files
     common_root = project_path
     while common_root:
-        if common_root in created_files:
+        if common_root in mapped_files:
             break
         elif common_root.parent != common_root:
             common_root = common_root.parent
@@ -317,7 +317,7 @@ def project_path_to_deploy_path(
             raise FileNotFoundError(project_path)
 
     # Construct the target deploy path
-    path_to_symlink = created_files[common_root]
+    path_to_symlink = mapped_files[common_root]
     relative_path_to_target = Path(project_path).relative_to(common_root)
     result = Path(path_to_symlink, relative_path_to_target)
 
