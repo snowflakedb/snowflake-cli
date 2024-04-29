@@ -1,4 +1,4 @@
-from os import PathLike
+import os
 from pathlib import Path
 from sys import stdin, stdout
 from typing import List, Optional, Union
@@ -43,7 +43,7 @@ def get_first_paragraph_from_markdown_file(file_path: Path) -> Optional[str]:
         return paragraph_text
 
 
-def shallow_git_clone(url: Union[str, PathLike], to_path: Union[str, PathLike]):
+def shallow_git_clone(url: Union[str, os.PathLike], to_path: Union[str, os.PathLike]):
     """
     Performs a shallow clone of the repository at the provided url to the path specified
 
@@ -81,3 +81,27 @@ def verify_exists(paths_to_sync: List[Path]):
     for path in paths_to_sync:
         if not path.exists():
             raise ClickException(f"The following path does not exist: {path}")
+        
+        
+def get_all_file_paths_under_dir(directory: Path) -> List[str]:
+    """
+    Gets all files under a given directory. If the directory is a symlink, then the function follows the behavior of os.walk for symlinks.
+    The directory may be a relative path to the project root.
+    """
+    file_paths: List[str] = []
+    for root, _, files in os.walk(directory):
+        for file in files:
+            file_path = os.path.join(root, file)
+            file_paths.append(file_path)
+    return file_paths
+
+
+def get_all_python_files(all_files: List[Path]):
+    """
+    Gets all python files from a list of file paths
+    """
+    return [py_file for py_file in all_files if py_file.suffix == ".py"]
+
+
+def is_single_quoted(name: str) -> bool:
+    return name.startswith("'") and name.endswith("'")

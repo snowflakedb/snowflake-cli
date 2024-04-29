@@ -6,7 +6,7 @@ from pydantic import Field
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 
 
-class AnnotationProcessor(UpdatableModel):
+class Processor(UpdatableModel):
     name: str = Field(
         title="Name of a processor to invoke on a collection of artifacts."
     )
@@ -19,4 +19,4 @@ class AnnotationProcessor(UpdatableModel):
 class PathMapping(UpdatableModel):
     src: str
     dest: Optional[str] = None
-    processors: Optional[List[Union[str, AnnotationProcessor]]] = None
+    processors: Optional[List[Union[str, Processor]]] = None
