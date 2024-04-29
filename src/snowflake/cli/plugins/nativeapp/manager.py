@@ -27,8 +27,8 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     ArtifactDeploymentMap,
     ArtifactMapping,
     build_bundle,
-    project_path_to_deploy_path,
     resolve_without_follow,
+    source_path_to_deploy_path,
     translate_artifact,
 )
 from snowflake.cli.plugins.nativeapp.constants import (
@@ -345,7 +345,7 @@ class NativeAppManager(SqlExecutionMixin):
             if not recursive:
                 verify_no_directories(resolved_paths_to_sync)
             deploy_paths_to_sync = [
-                project_path_to_deploy_path(p, mapped_files)
+                source_path_to_deploy_path(p, mapped_files)
                 for p in resolved_paths_to_sync
             ]
             verify_exists(deploy_paths_to_sync)

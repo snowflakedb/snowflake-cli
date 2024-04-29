@@ -12,8 +12,8 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     SourceNotFoundError,
     TooManyFilesError,
     build_bundle,
-    project_path_to_deploy_path,
     resolve_without_follow,
+    source_path_to_deploy_path,
     translate_artifact,
 )
 
@@ -199,7 +199,7 @@ def test_too_many_files(project_definition_files):
         ],
     ],
 )
-def test_project_path_to_deploy_path(
+def test_source_path_to_deploy_path(
     temp_dir,
     project_path,
     expected_path,
@@ -220,10 +220,8 @@ def test_project_path_to_deploy_path(
     }
 
     if expected_path:
-        result = project_path_to_deploy_path(
-            Path(project_path).resolve(), files_mapping
-        )
+        result = source_path_to_deploy_path(Path(project_path).resolve(), files_mapping)
         assert result == resolve_without_follow(Path(expected_path))
     else:
         with pytest.raises(FileNotFoundError):
-            project_path_to_deploy_path(Path(project_path).resolve(), files_mapping)
+            source_path_to_deploy_path(Path(project_path).resolve(), files_mapping)
