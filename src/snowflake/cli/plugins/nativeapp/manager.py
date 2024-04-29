@@ -107,7 +107,7 @@ def ensure_correct_owner(row: dict, role: str, obj_name: str) -> None:
 
 
 def _get_paths_to_sync(paths_to_sync: List[Path], deploy_root: Path) -> List[str]:
-    """Takes a list of paths (files and directories), returning a list of all files recursively, stripping the path to deploy root."""
+    """Takes a list of paths (files and directories), returning a list of all files recursively relative to the deploy root."""
     paths = []
     for path in paths_to_sync:
         if path.is_dir():

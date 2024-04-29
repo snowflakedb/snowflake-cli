@@ -299,7 +299,7 @@ def find_version_info_in_manifest_file(
 def source_path_to_deploy_path(
     source_path: Path, mapped_files: ArtifactDeploymentMap
 ) -> Path:
-    """Given a source path and the files created during bundle, returns the deploy destination path."""
+    """Given a source path and the files created during bundle, returns the absolute deploy destination path."""
 
     source_path = source_path.resolve()
 

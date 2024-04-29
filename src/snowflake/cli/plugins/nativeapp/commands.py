@@ -232,13 +232,13 @@ def app_teardown(
 def app_deploy(
     prune: Optional[bool] = typer.Option(
         default=None,
-        help=f"""Controls whether files that exist only remotely will be deleted from the stage.""",
+        help=f"""If set, matched files that do not exist locally will also be deleted from the stage.""",
     ),
     recursive: Optional[bool] = typer.Option(
         None,
         "--recursive",
         "-r",
-        help=f"""Controls whether the specified directories should be deployed including all of their contents.""",
+        help=f"""Controls whether the specified directories should be deployed including all of their contents. If false, only the immediate files will be deployed, ignoring any sub-directories.""",
     ),
     files: Optional[List[Path]] = typer.Argument(
         default=None,
