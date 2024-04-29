@@ -16,7 +16,6 @@ class VirtualEnvironment(UpdatableModel):
     )
     env_type: VirtualEnvTypeOptions = Field(
         title="Type of the virtual environment to activate.",
-        default="venv",
     )
 
 
