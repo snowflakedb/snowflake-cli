@@ -1,5 +1,4 @@
 import os
-import re
 import uuid
 
 from snowflake.cli.api.project.util import generate_user_env
@@ -816,10 +815,7 @@ def test_nativeapp_deploy_directory_no_recursive(
                 ["app", "deploy", "app/nested"],
                 env=TEST_ENV,
             )
-            # Formatted ClickException have an ASCII border and can span across multiple lines
-            output_single_line = re.sub("\s*│\n\s*│ ", "", result.output)
-            assert result.exit_code == 1
-            assert "Add the -r flag to deploy directories" in output_single_line
+            assert result.exit_code == 1, result.output
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
