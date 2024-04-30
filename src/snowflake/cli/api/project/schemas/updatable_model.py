@@ -1,9 +1,8 @@
-from typing import Any, Dict, Literal, get_args
+from typing import Any, Dict
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.util import IDENTIFIER_NO_LENGTH
-from typing_extensions import get_origin
 
 
 class UpdatableModel(BaseModel):
@@ -27,7 +26,7 @@ class UpdatableModel(BaseModel):
         for field, value in update_values.items():
             if field in self.model_fields.keys():
                 if (
-                    hasattr(getattr(self,field), "update_from_dict")
+                    hasattr(getattr(self, field), "update_from_dict")
                     and field in self.model_fields_set
                 ):
                     getattr(self, field).update_from_dict(value)

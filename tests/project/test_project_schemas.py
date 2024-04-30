@@ -4,10 +4,6 @@ from snowflake.cli.api.project.schemas.project_definition import ProjectDefiniti
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
 
-# TODO:
-# -test nice error message when update fails - this should be done by yaml loader, here we only check that error is raised
-# -test if runtime is passed correctly to Callable
-
 
 def test_if_fields_are_updated_correctly_by_assignment(argument_instance: Argument):
     argument_instance.name = "Baz"
