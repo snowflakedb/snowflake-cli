@@ -12,19 +12,17 @@ native_app:
     - src: app/streamlit/*.py
       dest: ui/
       processors:
-        - snowpark_scala # str instead of dict, scala uses "import com.snowflake.snowpark._"
-        - name: snowpark_java # without any properties, java uses "import com.snowflake.snowpark_java.*;"
-        - name: snowpark # python uses "import snowflake.snowpark"
+        - simple_processor_str
+        - name: processor_without_properties
+        - name: processor_with_properties
           properties: # with properties
-            venv_path: ~/Users/jdoe/snowpark_venv
-            env_type: venv
-    - src: app/core/*.py
-      dest: core/
-      processors:
-        - name: snowpark # python uses "import snowflake.snowpark"
-          properties: # with properties
-            name: snowpark_conda
-            env_type: conda
+            key_1: value_1
+            key_2:
+              key_3: value_3
+              key_4:
+                - value_a
+                - value_b
+                - 1
 
   package:
     scripts:
