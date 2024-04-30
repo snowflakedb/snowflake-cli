@@ -68,8 +68,10 @@
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │   files      [FILES]...  Paths, relative to the the project root, of files   │
-  │                          you want to upload to a stage. If unspecified, the  │
-  │                          command syncs all local changes to the stage.       │
+  │                          you want to upload to a stage. The paths must match │
+  │                          one of the artifacts src pattern entries in         │
+  │                          snowflake.yml. If unspecified, the command syncs    │
+  │                          all local changes to the stage.                     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --prune          --no-prune          Whether to delete specified files from  │
