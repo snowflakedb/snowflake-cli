@@ -243,7 +243,7 @@ def app_deploy(
     files: Optional[List[Path]] = typer.Argument(
         default=None,
         show_default=False,
-        help=f"""Paths, relative to the the project root, of files you want to upload to a stage. If unspecified, the command syncs all local changes to the stage.""",
+        help=f"""Paths, relative to the the project root, of files you want to upload to a stage. The paths must match one of the artifacts src pattern entries in snowflake.yml. If unspecified, the command syncs all local changes to the stage.""",
     ),
     **options,
 ) -> CommandResult:
