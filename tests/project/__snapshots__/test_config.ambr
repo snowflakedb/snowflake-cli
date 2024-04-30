@@ -210,8 +210,8 @@
           'returns': 'string',
           'runtime': None,
           'schema_name': None,
-          'secrets': list([
-          ]),
+          'secrets': dict({
+          }),
           'signature': list([
             dict({
               'arg_type': 'string',
@@ -231,8 +231,8 @@
           'returns': 'string',
           'runtime': None,
           'schema_name': None,
-          'secrets': list([
-          ]),
+          'secrets': dict({
+          }),
           'signature': list([
             dict({
               'arg_type': 'string',
@@ -252,8 +252,8 @@
           'returns': 'string',
           'runtime': None,
           'schema_name': 'custom_schema',
-          'secrets': list([
-          ]),
+          'secrets': dict({
+          }),
           'signature': list([
             dict({
               'arg_type': 'string',
@@ -273,8 +273,8 @@
           'returns': 'string',
           'runtime': None,
           'schema_name': None,
-          'secrets': list([
-          ]),
+          'secrets': dict({
+          }),
           'signature': list([
             dict({
               'arg_type': 'string',
@@ -294,8 +294,8 @@
           'returns': 'string',
           'runtime': None,
           'schema_name': None,
-          'secrets': list([
-          ]),
+          'secrets': dict({
+          }),
           'signature': list([
             dict({
               'arg_type': 'string',
@@ -315,8 +315,8 @@
           'returns': 'string',
           'runtime': None,
           'schema_name': 'custom_schema',
-          'secrets': list([
-          ]),
+          'secrets': dict({
+          }),
           'signature': list([
             dict({
               'arg_type': 'string',
@@ -396,8 +396,8 @@
           'returns': 'string',
           'runtime': '3.10',
           'schema_name': None,
-          'secrets': list([
-          ]),
+          'secrets': dict({
+          }),
           'signature': list([
             dict({
               'arg_type': 'string',
@@ -483,8 +483,8 @@
           'returns': 'string',
           'runtime': None,
           'schema_name': None,
-          'secrets': list([
-          ]),
+          'secrets': dict({
+          }),
           'signature': list([
             dict({
               'arg_type': 'string',
@@ -505,8 +505,8 @@
           'returns': 'string',
           'runtime': None,
           'schema_name': None,
-          'secrets': list([
-          ]),
+          'secrets': dict({
+          }),
           'signature': list([
             dict({
               'arg_type': 'string',
@@ -527,8 +527,8 @@
           'returns': 'string',
           'runtime': None,
           'schema_name': 'custom_schema',
-          'secrets': list([
-          ]),
+          'secrets': dict({
+          }),
           'signature': list([
             dict({
               'arg_type': 'string',
@@ -549,8 +549,8 @@
           'returns': 'string',
           'runtime': None,
           'schema_name': None,
-          'secrets': list([
-          ]),
+          'secrets': dict({
+          }),
           'signature': list([
             dict({
               'arg_type': 'string',
@@ -571,8 +571,8 @@
           'returns': 'string',
           'runtime': None,
           'schema_name': None,
-          'secrets': list([
-          ]),
+          'secrets': dict({
+          }),
           'signature': list([
             dict({
               'arg_type': 'string',
@@ -593,8 +593,8 @@
           'returns': 'string',
           'runtime': None,
           'schema_name': 'custom_schema',
-          'secrets': list([
-          ]),
+          'secrets': dict({
+          }),
           'signature': list([
             dict({
               'arg_type': 'string',
@@ -671,8 +671,8 @@
           'returns': 'string',
           'runtime': None,
           'schema_name': None,
-          'secrets': list([
-          ]),
+          'secrets': dict({
+          }),
           'signature': list([
             dict({
               'arg_type': 'string',
@@ -693,8 +693,8 @@
           'returns': 'string',
           'runtime': '3.10',
           'schema_name': None,
-          'secrets': list([
-          ]),
+          'secrets': dict({
+          }),
           'signature': '',
         }),
       ]),
@@ -725,8 +725,8 @@
           'returns': 'variant',
           'runtime': None,
           'schema_name': None,
-          'secrets': list([
-          ]),
+          'secrets': dict({
+          }),
           'signature': list([
             dict({
               'arg_type': 'string',

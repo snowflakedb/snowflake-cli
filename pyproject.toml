@@ -128,13 +128,14 @@ select = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-m 'not integration and not performance and not e2e and not spcs and not loaded_modules'"
+addopts = "-m 'not integration and not performance and not e2e and not spcs and not loaded_modules and not integration_experimental'"
 markers = [
   "integration: mark test as integration test",
   "performance: mark test as performance test",
   "e2e: mark test to execute on Snowflake CLI installed in fresh virtual environment",
   "loaded_modules: checks loaded modules",
   "patch_app_version: sets app version to 0.0.0-test_patched",
+  "integration_experimental: experimental integration test",
 ]
 
 
