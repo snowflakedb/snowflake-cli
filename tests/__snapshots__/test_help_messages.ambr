@@ -64,7 +64,7 @@
    Creates an application package in your Snowflake account and syncs the local   
    changes to the stage without creating or updating the application. Running     
    this command with no arguments at all, as in `snow app deploy`, is a shorthand 
-   for "snow app deploy --prune --recursive".                                     
+   for `snow app deploy --prune --recursive`.                                     
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │   files      [FILES]...  Paths, relative to the the project root, of files   │
@@ -761,8 +761,8 @@
   │ deploy     Creates an application package in your Snowflake account and      │
   │            syncs the local changes to the stage without creating or updating │
   │            the application. Running this command with no arguments at all,   │
-  │            as in `snow app deploy`, is a shorthand for "snow app deploy      │
-  │            --prune --recursive".                                             │
+  │            as in `snow app deploy`, is a shorthand for `snow app deploy      │
+  │            --prune --recursive`.                                             │
   │ init       Initializes a Snowflake Native App project.                       │
   │ open       Opens the Snowflake Native App inside of your browser, once it    │
   │            has been installed in your account.                               │
