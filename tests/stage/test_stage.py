@@ -703,6 +703,7 @@ def test_stage_internal_put_quoted_path(
                 "@db.schema.exe/a/b/s4.sql",
             ],
         ),
+        ("@db.schema.exe/s1.sql", "@db.schema.exe", ["@db.schema.exe/s1.sql"]),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}._execute_query")

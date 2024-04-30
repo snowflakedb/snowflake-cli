@@ -243,8 +243,10 @@ class StageManager(SqlExecutionMixin):
         """
         stage = self.get_stage_from_path(stage_path)
         stage_name = stage.split(".")[-1]
+        if stage_name.startswith("@"):
+            stage_name = stage_name[1:]
         directory = "/".join(Path(stage_path).parts[1:])
-        return StagePathParts(stage, stage_name[1:], directory)
+        return StagePathParts(stage, stage_name, directory)
 
     def _get_files_list_from_stage(self, stage_path_parts: StagePathParts) -> List[str]:
         files_list_result = self.list_files(stage_path_parts.stage).fetchall()

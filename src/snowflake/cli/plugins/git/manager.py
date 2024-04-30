@@ -51,6 +51,8 @@ class GitManager(StageManager):
         stage = self.get_stage_from_path(stage_path)
         stage_path_parts = Path(stage_path).parts
         git_repo_name = stage_path_parts[0].split(".")[-1]
-        stage_name = "/".join([git_repo_name[1:], *stage_path_parts[1:3], ""])
+        if git_repo_name.startswith("@"):
+            git_repo_name = git_repo_name[1:]
+        stage_name = "/".join([git_repo_name, *stage_path_parts[1:3], ""])
         directory = "/".join(stage_path_parts[3:])
         return StagePathParts(stage, stage_name, directory)

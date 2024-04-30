@@ -38,6 +38,17 @@
   
   '''
 # ---
+# name: test_execute[@db.schema.exe/s1.sql-@db.schema.exe-expected_files18]
+  '''
+  SUCCESS - @db.schema.exe/s1.sql
+  +-----------------------------------------+
+  | File                  | Status  | Error |
+  |-----------------------+---------+-------|
+  | @db.schema.exe/s1.sql | SUCCESS | None  |
+  +-----------------------------------------+
+  
+  '''
+# ---
 # name: test_execute[@exe-@exe-expected_files0]
   '''
   SUCCESS - @exe/s1.sql

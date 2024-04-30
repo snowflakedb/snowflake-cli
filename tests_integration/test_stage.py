@@ -185,3 +185,21 @@ def test_stage_execute(runner, test_database, test_root_path, snapshot):
     )
     assert result.exit_code == 0
     assert result.json == snapshot
+
+    result_fqn = runner.invoke_with_connection_json(
+        [
+            "stage",
+            "execute",
+            f"@{test_database}.public.{stage_name}/script_template.sql",
+            "-D",
+            " text = 'string' ",
+            "-D",
+            "value=1",
+            "-D",
+            "boolean=TRUE",
+            "-D",
+            "null_value= NULL",
+        ]
+    )
+    assert result_fqn.exit_code == 0
+    assert result_fqn.json == snapshot
