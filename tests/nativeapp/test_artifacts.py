@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import pytest
+from click.exceptions import ClickException
 from snowflake.cli.api.project.definition import load_project_definition
 from snowflake.cli.plugins.nativeapp.artifacts import (
     ArtifactMapping,
@@ -223,5 +224,5 @@ def test_source_path_to_deploy_path(
         result = source_path_to_deploy_path(Path(project_path).resolve(), files_mapping)
         assert result == resolve_without_follow(Path(expected_path))
     else:
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(ClickException):
             source_path_to_deploy_path(Path(project_path).resolve(), files_mapping)

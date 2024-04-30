@@ -249,7 +249,7 @@ def app_deploy(
 ) -> CommandResult:
     """
     Creates an application package in your Snowflake account and syncs the local changes to the stage without creating or updating the application.
-    Running this command with no arguments at all, as in `snow app deploy`, is a shorthand for "snow app deploy --prune --recursive".
+    Running this command with no arguments at all, as in `snow app deploy`, is a shorthand for `snow app deploy --prune --recursive`.
     """
     if files is None:
         files = []

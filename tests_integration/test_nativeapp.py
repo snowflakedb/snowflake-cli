@@ -5,6 +5,7 @@ from snowflake.cli.api.project.util import generate_user_env
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.nativeapp.init import OFFICIAL_TEMPLATES_GITHUB_URL
 from tests.nativeapp.utils import touch
+from click import ClickException
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
@@ -810,14 +811,12 @@ def test_nativeapp_deploy_directory_no_recursive(
     with pushd(Path(os.getcwd(), project_dir)):
         try:
             touch("app/nested/dir/file.txt")
-            with pytest.raises(
-                ValueError,
-                match="Add the -r flag to deploy directories",
-            ):
-                result = runner.invoke_with_connection_json(
-                    ["app", "deploy", "app/nested"],
-                    env=TEST_ENV,
-                )
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy", "app/nested"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 1
+            assert "Add the -r flag to deploy directories" in result.output
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects

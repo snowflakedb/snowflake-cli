@@ -314,7 +314,7 @@ def source_path_to_deploy_path(
         elif common_root.parent != common_root:
             common_root = common_root.parent
         else:
-            raise FileNotFoundError(source_path)
+            raise ClickException(f"Could not find the deploy path of {source_path}")
 
     # Construct the target deploy path
     path_to_symlink = mapped_files[common_root]
