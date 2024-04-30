@@ -799,6 +799,7 @@ def test_nativeapp_deploy_directory(
 def test_nativeapp_deploy_directory_no_recursive(
     runner,
     temporary_working_directory,
+    snapshot,
 ):
     project_name = "myapp"
     project_dir = "app root"
@@ -816,9 +817,7 @@ def test_nativeapp_deploy_directory_no_recursive(
                 env=TEST_ENV,
             )
             assert result.exit_code == 1
-            assert "Add the -r flag to deploy directories" in result.output.replace(
-                "\n", ""
-            )
+            assert result.output == snapshot
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
