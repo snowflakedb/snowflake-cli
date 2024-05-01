@@ -3,6 +3,7 @@ from textwrap import dedent
 from typing import Dict, Optional
 
 import typer
+from click import ClickException
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.plugins.nativeapp.constants import (
@@ -141,14 +142,13 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                         """
                     )
                 else:
-                    cc.warning(
+                    raise ClickException(
                         f"""\
                             The following application objects are owned by this application:
                             {application_objects_str}
                             Please explicitly set --cascade if they should be deleted, or --no-cascade otherwise.
                         """
                     )
-                    return
         elif cascade is None:
             cascade = False
 
