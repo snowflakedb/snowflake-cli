@@ -1,12 +1,13 @@
 import hashlib
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Union
 from unittest import mock
 
 import pytest
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.plugins.stage.diff import (
     DiffResult,
+    build_md5_map,
     delete_only_on_stage_files,
     enumerate_files,
     get_stage_path_from_file,
@@ -40,13 +41,18 @@ def md5_of(contents: Union[str, bytes]) -> str:
 
 def stage_contents(
     files: Dict[str, Union[str, bytes]], last_modified: str = DEFAULT_LAST_MODIFIED
-) -> List[Tuple[str, int, str, str]]:
+) -> List[Dict[str, Union[str, int]]]:
     """
     Return file contents as they would be listed by a SNOWFLAKE_SSE stage
     if they were uploaded with the given structure and contents.
     """
     return [
-        (f"stage/{relpath}", len(contents), md5_of(contents), last_modified)
+        {
+            "name": f"stage/{relpath}",
+            "size": len(contents),
+            "md5": md5_of(contents),
+            "last_modified": last_modified,
+        }
         for (relpath, contents) in files.items()
     ]
 
@@ -197,6 +203,23 @@ def test_put_files_on_stage(mock_put, overwrite_param):
             ),
         ]
         assert mock_put.mock_calls == expected
+
+
+def test_build_md5_map(mock_cursor):
+    actual = build_md5_map(
+        mock_cursor(
+            rows=stage_contents(FILE_CONTENTS),
+            columns=STAGE_LS_COLUMNS,
+        )
+    )
+
+    expected = {
+        "README.md": "9b650974f65cc49be96a5ed34ac6d1fd",
+        "my.jar": "fc605d0e2e50cf3e71873d57f4c598b0",
+        "ui/streamlit.py": "a7dfdfaf892ecfc5f164914123c7f2cc",
+    }
+
+    assert actual == expected
 
 
 @mock.patch(f"{STAGE_MANAGER}.remove")
