@@ -395,14 +395,27 @@
    defined in the project definition file.                                        
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --force                  When enabled, this option causes the command to     │
-  │                          implicitly approve any prompts that arise. You      │
-  │                          should enable this option if interactive mode is    │
-  │                          not specified and if you want perform potentially   │
-  │                          destructive actions. Defaults to unset.             │
-  │ --project  -p      TEXT  Path where the Snowflake Native App project         │
-  │                          resides. Defaults to current working directory.     │
-  │ --help     -h            Show this message and exit.                         │
+  │ --force                                  When enabled, this option causes    │
+  │                                          the command to implicitly approve   │
+  │                                          any prompts that arise. You should  │
+  │                                          enable this option if interactive   │
+  │                                          mode is not specified and if you    │
+  │                                          want perform potentially            │
+  │                                          destructive actions. Defaults to    │
+  │                                          unset.                              │
+  │ --cascade          --no-cascade          When enabled, will also drop all    │
+  │                                          application objects owned by the    │
+  │                                          application within the account.     │
+  │                                          Defaults to false.                  │
+  │                                          [default: no-cascade]               │
+  │ --interactive  -i                        When enabled, this option displays  │
+  │                                          prompts even if the standard input  │
+  │                                          and output are not terminal         │
+  │                                          devices. Defaults to unset.         │
+  │ --project      -p                  TEXT  Path where the Snowflake Native App │
+  │                                          project resides. Defaults to        │
+  │                                          current working directory.          │
+  │ --help         -h                        Show this message and exit.         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │

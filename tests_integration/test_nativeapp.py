@@ -564,3 +564,35 @@ def test_nativeapp_init_deploy(
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+
+
+# Executing "snow app teardown --cascade", verifying that the application and application objects owned by the application are dropped
+@pytest.mark.integration
+def test_nativeapp_teardown_cascade(
+    runner,
+):
+    pass
+
+
+# Executing "snow app teardown --force --no-cascade", verifying that the application is dropped and the application objects owned by the application are not dropped
+@pytest.mark.integration
+def test_nativeapp_teardown_no_cascade(
+    runner,
+):
+    pass
+
+
+# Executing "snow app teardown" with owned application objects, verifying that the teardown is not executed in non-interactive mode
+@pytest.mark.integration
+def test_nativeapp_teardown_cascade_unset_non_interactive(
+    runner,
+):
+    pass
+
+
+# Executing "snow app teardown" with owned application objects, verifying that the user is prompted to specify cascade/no-cascade
+@pytest.mark.integration
+def test_nativeapp_teardown_cascade_unset_interactive(
+    runner,
+):
+    pass

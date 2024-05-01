@@ -1004,3 +1004,24 @@ def test_drop_package_idempotent(
     mock_is_correct_owner.assert_called_once()
     mock_drop_generic_object.assert_called_once()
     mock_execute.mock_calls == expected
+
+
+@pytest.mark.parametrize(
+    "cascade,has_objects,is_interactive,expected_behavior",
+    [
+        # Cascade true
+        [True, False, False, "cascade query"],
+        [True, True, False, "cascade query"],
+        # Cascade false
+        [False, False, False, "no cascade query"],
+        [False, True, False, "no cascade query"],
+        # Cascade unset
+        [None, False, False, "no cascade query"],
+        [None, True, True, "ask user"],
+        [None, True, False, "exit"],
+    ],
+)
+def test_drop_application_cascade(
+    cascade, has_objects, is_interactive, expected_behavior
+):
+    pass
