@@ -2,11 +2,9 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
-from contextlib import contextmanager
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Sequence, Union
 
 from click.exceptions import ClickException
 
@@ -38,26 +36,30 @@ def _is_ms_windows() -> bool:
     return sys.platform == "win32"
 
 
-@contextmanager
-def _temp_script_file(script_source: str):
-    script_file = tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=True)
-    try:
-        script_file.write(script_source)
-        script_file.flush()
+def _execute_python_interpreter(
+    python_executable: Optional[Union[str, Path, Sequence[str]]], script_source: str
+) -> subprocess.CompletedProcess:
+    if not python_executable:
+        raise SandboxExecutionError("No python executable found")
 
-        yield script_file.name
-    finally:
-        script_file.close()
+    if isinstance(python_executable, str) or isinstance(python_executable, Path):
+        args = [python_executable]
+    else:
+        args = [arg for arg in python_executable]
+    args.append("-")
+    return subprocess.run(args, capture_output=True, text=True, input=script_source)
 
 
 def _execute_in_venv(
-    script_source: str, venv_path: Optional[Path] = None
+    script_source: str, venv_path: Optional[Union[str, Path]] = None
 ) -> subprocess.CompletedProcess:
     resolved_venv_path = None
     if venv_path is None:
         active_venv_dir = _get_active_venv_dir()
         if active_venv_dir is not None:
             resolved_venv_path = Path(active_venv_dir).resolve()
+    elif isinstance(venv_path, str):
+        resolved_venv_path = Path(venv_path).resolve()
     else:
         resolved_venv_path = venv_path.resolve()
 
@@ -82,10 +84,7 @@ def _execute_in_venv(
             f"No venv python executable found: {resolved_venv_path}"
         )
 
-    with _temp_script_file(script_source) as script_file:
-        return subprocess.run(
-            [python_executable, script_file], capture_output=True, text=True
-        )
+    return _execute_python_interpreter(python_executable, script_source)
 
 
 def _execute_in_conda_env(
@@ -97,46 +96,33 @@ def _execute_in_conda_env(
     if conda_env is None:
         raise SandboxExecutionError("No conda environment found")
 
-    if shutil.which("conda") is None:
+    conda_exec = shutil.which("conda")
+    if conda_exec is None:
         raise SandboxExecutionError(
             "conda command not found, make sure it is installed on your system and in your PATH"
         )
 
-    with _temp_script_file(script_source) as script_file:
-        # conda run removes the need to activate the environment, as would typically be done in an interactive shell
-        return subprocess.run(
-            [
-                "conda",
-                "run",
-                "-n",
-                conda_env,
-                "--no-capture-output",
-                "python3",
-                script_file,
-            ],
-            capture_output=True,
-            text=True,
-        )
+    # conda run removes the need to activate the environment, as would typically be done in an interactive shell
+    return _execute_python_interpreter(
+        [conda_exec, "run", "-n", conda_env, "--no-capture-output", "python"],
+        script_source,
+    )
 
 
-def _execute_with_system_python(script_source: str) -> subprocess.CompletedProcess:
+def _execute_with_system_path_python(script_source: str) -> subprocess.CompletedProcess:
     python_executable = (
         shutil.which("python3") or shutil.which("python") or sys.executable
     )
-    if not python_executable:
-        raise SandboxExecutionError("No python executable found")
 
-    with _temp_script_file(script_source) as script_file:
-        return subprocess.run(
-            [python_executable, script_file], capture_output=True, text=True
-        )
+    return _execute_python_interpreter(python_executable, script_source)
 
 
 class ExecutionEnvironmentType(Enum):
     AUTO_DETECT = 0  # auto-detect the current python interpreter by looking for an active virtual environment
     VENV = 1  # use the python interpreter specified by a venv environment
     CONDA = 2  # use the python interpreter specified by a conda environment
-    SYSTEM_DEFAULT = 3  # use the system's default python interpreter
+    SYSTEM_PATH = 3  # search for a python interpreter in the system path
+    CURRENT = 4  # Use the python interpreter that is currently executing (i.e. `sys.executable`)
 
 
 def execute_script_in_sandbox(
@@ -166,10 +152,12 @@ def execute_script_in_sandbox(
         elif _is_conda_active():
             return _execute_in_conda_env(script_source)
         else:
-            return _execute_with_system_python(script_source)
+            return _execute_with_system_path_python(script_source)
     elif env_type == ExecutionEnvironmentType.VENV:
         return _execute_in_venv(script_source, kwargs.get("path"))
     elif env_type == ExecutionEnvironmentType.CONDA:
         return _execute_in_conda_env(script_source, kwargs.get("name"))
-    else:
-        return _execute_with_system_python(script_source)
+    elif env_type == ExecutionEnvironmentType.SYSTEM_PATH:
+        return _execute_with_system_path_python(script_source)
+    else:  # ExecutionEnvironmentType.CURRENT
+        return _execute_python_interpreter(sys.executable, script_source)
