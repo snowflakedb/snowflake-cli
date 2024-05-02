@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import Field, field_validator
-from snowflake.cli.api.project.schemas.native_app.application import DistributionOptions
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
 )
+
+DistributionOptions = Literal["internal", "external", "INTERNAL", "EXTERNAL"]
 
 
 class Package(UpdatableModel):
