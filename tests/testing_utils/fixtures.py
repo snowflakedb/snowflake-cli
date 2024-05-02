@@ -12,7 +12,9 @@ from unittest import mock
 
 import pytest
 import yaml
-from snowflake.cli.api.project.definition import merge_left
+from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
+from snowflake.cli.api.project.schemas.snowpark.argument import Argument
+from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
 from snowflake.cli.app.cli_app import app_factory
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
@@ -20,7 +22,11 @@ from typer import Typer
 from typer.testing import CliRunner
 
 from tests.test_data import test_data
-from tests.testing_utils.files_and_dirs import create_named_file, create_temp_file
+from tests.testing_utils.files_and_dirs import (
+    create_named_file,
+    create_temp_file,
+    merge_left,
+)
 
 REQUIREMENTS_SNOWFLAKE = "requirements.snowflake.txt"
 REQUIREMENTS_TXT = "requirements.txt"
@@ -299,3 +305,36 @@ def alter_snowflake_yml():
             yaml.safe_dump(yml, fh)
 
     return _update
+
+
+@pytest.fixture()
+def argument_instance():
+    return Argument(name="Foo", type="Bar")
+
+
+@pytest.fixture()
+def function_instance():
+    return FunctionSchema(
+        name="func1",
+        handler="app.func1_handler",
+        signature=[{"name": "a", "type": "string"}, {"name": "b", "type": "variant"}],
+        returns="string",
+    )
+
+
+@pytest.fixture()
+def native_app_project_instance():
+    return ProjectDefinition(
+        **{
+            "definition_version": "1",
+            "native_app": {
+                "artifacts": [{"dest": "./", "src": "app/*"}],
+                "name": "napp_test",
+                "package": {
+                    "scripts": [
+                        "package/001.sql",
+                    ]
+                },
+            },
+        }
+    )
