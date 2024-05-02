@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Optional
 
 from pydantic import Field
 from snowflake.cli.api.project.schemas.updatable_model import (
@@ -26,6 +26,3 @@ class Application(UpdatableModel):
         title="Whether to enable debug mode when using a named stage to create an application object",
         default=True,
     )
-
-
-DistributionOptions = Literal["internal", "external", "INTERNAL", "EXTERNAL"]
