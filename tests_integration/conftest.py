@@ -14,7 +14,6 @@ import pytest
 import yaml
 
 from snowflake.cli.api.cli_global_context import cli_context_manager
-from snowflake.cli.api.project.definition import merge_left
 from snowflake.cli.app.cli_app import app_factory
 from typer import Typer
 from typer.testing import CliRunner
@@ -24,6 +23,7 @@ from tests.testing_utils.fixtures import (
     alter_snowflake_yml,  # noqa: F401
     snowflake_home,
 )
+from tests.testing_utils.files_and_dirs import merge_left
 
 pytest_plugins = [
     "tests_integration.testing_utils",
