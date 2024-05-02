@@ -46,3 +46,16 @@ def temp_local_dir(files: Dict[str, Union[str, bytes]]) -> Generator[Path, None,
                 fh.write(contents)
 
         yield Path(tmpdir)
+
+
+def merge_left(target: Dict, source: Dict) -> None:
+    """
+    Recursively merges key/value pairs from source into target.
+    Modifies the original dict-like "target".
+    """
+    for k, v in source.items():
+        if k in target and isinstance(target[k], dict):
+            # assumption: all inputs have been validated.
+            merge_left(target[k], v)
+        else:
+            target[k] = v

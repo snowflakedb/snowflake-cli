@@ -9,7 +9,7 @@ from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
-from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.cursor import DictCursor
 
 from .manager import StageManager
 
@@ -146,7 +146,7 @@ def strip_stage_name(path: str) -> str:
     return "/".join(path.split("/")[1:])
 
 
-def build_md5_map(list_stage_cursor: SnowflakeCursor) -> Dict[str, str]:
+def build_md5_map(list_stage_cursor: DictCursor) -> Dict[str, str]:
     """
     Returns a mapping of relative stage paths to their md5sums.
     """

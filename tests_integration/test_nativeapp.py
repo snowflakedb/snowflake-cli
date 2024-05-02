@@ -552,7 +552,15 @@ def test_nativeapp_deploy(
                 dict(name=app_name),
             )
 
-            # make sure we always delete the app
+            # re-deploying should be a no-op; make sure we don't issue any PUT commands
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy", "--debug"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+            assert "Successfully uploaded chunk 0 of file" not in result.output
+
+            # make sure we always delete the package
             result = runner.invoke_with_connection_json(
                 ["app", "teardown"],
                 env=TEST_ENV,

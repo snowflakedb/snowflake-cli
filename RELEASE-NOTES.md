@@ -13,6 +13,7 @@
 
 ## Fixes and improvements
 * More human-friendly errors in case of corrupted `config.toml` file.
+* Fixed a bug in `snow app` that caused files to be re-uploaded unnecessarily.
 
 # v2.2.0
 
