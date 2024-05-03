@@ -1,5 +1,6 @@
 import os
 import uuid
+from textwrap import dedent
 
 from snowflake.cli.api.project.util import generate_user_env
 from snowflake.cli.api.secure_path import SecurePath
@@ -566,7 +567,7 @@ def test_nativeapp_init_deploy(
             assert result.exit_code == 0
 
 
-# Executing "snow app teardown --cascade", verifying that the application and application objects owned by the application are dropped
+# Executing "snow app teardown --cascade", verifying that the application and the application objects it owns are dropped
 @pytest.mark.integration
 def test_nativeapp_teardown_cascade(
     runner,
@@ -574,6 +575,9 @@ def test_nativeapp_teardown_cascade(
     temporary_working_directory,
 ):
     project_name = "myapp"
+    app_name = f"{project_name}_{USER_NAME}".upper()
+    pool_name = f"{project_name}_pool_{USER_NAME}".upper()
+
     result = runner.invoke_json(
         ["app", "init", project_name],
         env=TEST_ENV,
@@ -581,34 +585,67 @@ def test_nativeapp_teardown_cascade(
     assert result.exit_code == 0
 
     with pushd(Path(os.getcwd(), project_name)):
+        # Add create compute pool privilege and create the app
+        with open("app/manifest.yml", "a") as file:
+            file.write(
+                dedent(
+                    f"""\
+                privileges:
+                    - CREATE COMPUTE POOL:
+                        description: "Permission to compute pools"
+            """
+                )
+            )
         result = runner.invoke_with_connection_json(
-            ["app", "deploy"],
+            ["app", "run"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0
 
+        # Grant permission to create compute pools
+        snowflake_session.execute_string(
+            f"grant create compute pool on account to application {app_name}",
+        )
+
+        # Update setup script to create a compute pool and upgrade the app
+        with open("app/setup_script.sql", "a") as file:
+            file.write(
+                f"create compute pool if not exists {pool_name} min_nodes = 1 max_nodes = 1 instance_family = CPU_X64_XS;"
+            )
+        result = runner.invoke_with_connection_json(
+            ["app", "run"],
+            env=TEST_ENV,
+        )
+
         try:
-            # package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{USER_NAME}".upper()
+            # Verify the compute pool exist and is owned by the app
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
-                        f"show application packages like '{package_name}'",
+                        f"show compute pools like '{pool_name}'"
                     )
                 ),
-                dict(name=package_name),
+                dict(name=pool_name, application=app_name, owner=app_name),
             )
 
-            # manifest file exists
-            stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
-            stage_files = runner.invoke_with_connection_json(
-                ["stage", "list-files", f"{package_name}.{stage_name}"],
+            # teardown --cascade
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--cascade"],
                 env=TEST_ENV,
             )
-            assert contains_row_with(stage_files.json, {"name": "stage/manifest.yml"})
+            assert result.exit_code == 0
 
-            # app does not exist
+            # Verify the pool is dropped
+            assert not_contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show compute pools like '{pool_name}'"
+                    )
+                ),
+                dict(name=pool_name, application=app_name, owner=app_name),
+            )
+
+            # Verify the app is dropped
             assert not_contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -618,15 +655,8 @@ def test_nativeapp_teardown_cascade(
                 dict(name=app_name),
             )
 
-            # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
-            assert result.exit_code == 0
-
         finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
+            snowflake_session.execute_string(f"drop compute pool if exists {pool_name}")
             result = runner.invoke_with_connection_json(
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,
@@ -634,7 +664,7 @@ def test_nativeapp_teardown_cascade(
             assert result.exit_code == 0
 
 
-# Executing "snow app teardown --force --no-cascade", verifying that the application is dropped and the application objects owned by the application are not dropped
+# Executing "snow app teardown --force --no-cascade", verifying that the application is dropped and the application objects it owns are not dropped
 @pytest.mark.integration
 def test_nativeapp_teardown_no_cascade(
     runner,
@@ -642,7 +672,7 @@ def test_nativeapp_teardown_no_cascade(
     pass
 
 
-# Executing "snow app teardown" with owned application objects, verifying that the teardown is not executed in non-interactive mode
+# Executing "snow app teardown" in non-interactive mode with owned application objects, verifying that the teardown is not executed
 @pytest.mark.integration
 def test_nativeapp_teardown_cascade_unset_non_interactive(
     runner,
@@ -650,7 +680,7 @@ def test_nativeapp_teardown_cascade_unset_non_interactive(
     pass
 
 
-# Executing "snow app teardown" with owned application objects, verifying that the user is prompted to specify cascade/no-cascade
+# Executing "snow app teardown" in interactive mode with owned application objects, verifying that the user is prompted to specify cascade/no-cascade
 @pytest.mark.integration
 def test_nativeapp_teardown_cascade_unset_interactive(
     runner,
