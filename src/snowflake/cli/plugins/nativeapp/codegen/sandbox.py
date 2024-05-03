@@ -81,7 +81,7 @@ def _execute_in_venv(
 
     if not resolved_venv_path.is_dir():
         raise SandboxExecutionError(
-            f"venv path should be an existing directory: {resolved_venv_path}"
+            f"venv path must be an existing directory: {resolved_venv_path}"
         )
 
     # find the python interpreter for this environment. There is no need to activate environment prior to invoking the
@@ -111,8 +111,8 @@ def _execute_in_conda_env(
     conda_env = env_name
     if conda_env is None:
         conda_env = _get_active_conda_env()
-    if conda_env is None:
-        raise SandboxExecutionError("No conda environment found")
+        if conda_env is None:
+            raise SandboxExecutionError("No conda environment found")
 
     conda_exec = shutil.which("conda")
     if conda_exec is None:
@@ -168,7 +168,7 @@ def execute_script_in_sandbox(
     Parameters:
         script_source (str): The python script to be executed, as a string.
         env_type: The type of execution environment to use (default: ExecutionEnvironmentType.AUTO_DETECT).
-        cwd (Optional[Union[str, Path]]): An optional path to use as the current directory when exeecuting the script.
+        cwd (Optional[Union[str, Path]]): An optional path to use as the current directory when executing the script.
         timeout (Optional[int]): An optional timeout in seconds when executing the script. Defaults to no timeout.
         **kwargs: Additional keyword arguments used by specific execution environments, as follows:
             - venv environments accept a 'path' argument to specify the venv root directory.

@@ -726,3 +726,38 @@ def test_execute_auto_detect_is_default(
     assert actual.stderr == SCRIPT_ERR
 
     assert not mock_which.called
+
+
+@mock.patch("subprocess.run")
+@mock.patch("shutil.which")
+def test_execute_does_not_interpret_return_codes(
+    mock_which, mock_run, mock_environ, fake_venv_root
+):
+    mock_environ.side_effect = {
+        "VIRTUAL_ENV": str(fake_venv_root),
+        "CONDA_DEFAULT_ENV": CONDA_ENV_NAME_FROM_ENVIRON,
+    }.get
+
+    expected = subprocess.CompletedProcess(
+        args=SCRIPT_ARGS, returncode=1, stdout=SCRIPT_OUT, stderr=SCRIPT_ERR
+    )
+    mock_run.return_value = expected
+
+    actual = sandbox.execute_script_in_sandbox(PYTHON_SCRIPT)
+
+    expected_interpreter = fake_venv_root / "bin" / "python3"
+    mock_run.assert_called_once_with(
+        [expected_interpreter.resolve(), "-"],
+        capture_output=True,
+        text=True,
+        input=PYTHON_SCRIPT,
+        cwd=None,
+        timeout=None,
+    )
+
+    assert actual.args == SCRIPT_ARGS
+    assert actual.returncode == 1
+    assert actual.stdout == SCRIPT_OUT
+    assert actual.stderr == SCRIPT_ERR
+
+    assert not mock_which.called
