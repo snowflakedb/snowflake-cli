@@ -37,7 +37,10 @@ def _is_ms_windows() -> bool:
 
 
 def _execute_python_interpreter(
-    python_executable: Optional[Union[str, Path, Sequence[str]]], script_source: str
+    python_executable: Optional[Union[str, Path, Sequence[str]]],
+    script_source: str,
+    cwd: Optional[Union[str, Path]],
+    timeout: Optional[int],
 ) -> subprocess.CompletedProcess:
     if not python_executable:
         raise SandboxExecutionError("No python executable found")
@@ -47,11 +50,21 @@ def _execute_python_interpreter(
     else:
         args = [arg for arg in python_executable]
     args.append("-")
-    return subprocess.run(args, capture_output=True, text=True, input=script_source)
+    return subprocess.run(
+        args,
+        capture_output=True,
+        text=True,
+        input=script_source,
+        timeout=timeout,
+        cwd=cwd,
+    )
 
 
 def _execute_in_venv(
-    script_source: str, venv_path: Optional[Union[str, Path]] = None
+    script_source: str,
+    venv_path: Optional[Union[str, Path]] = None,
+    cwd: Optional[Union[str, Path]] = None,
+    timeout: Optional[int] = None,
 ) -> subprocess.CompletedProcess:
     resolved_venv_path = None
     if venv_path is None:
@@ -84,11 +97,16 @@ def _execute_in_venv(
             f"No venv python executable found: {resolved_venv_path}"
         )
 
-    return _execute_python_interpreter(python_executable, script_source)
+    return _execute_python_interpreter(
+        python_executable, script_source, timeout=timeout, cwd=cwd
+    )
 
 
 def _execute_in_conda_env(
-    script_source: str, env_name: Optional[str] = None
+    script_source: str,
+    env_name: Optional[str] = None,
+    cwd: Optional[Union[str, Path]] = None,
+    timeout: Optional[int] = None,
 ) -> subprocess.CompletedProcess:
     conda_env = env_name
     if conda_env is None:
@@ -106,15 +124,23 @@ def _execute_in_conda_env(
     return _execute_python_interpreter(
         [conda_exec, "run", "-n", conda_env, "--no-capture-output", "python"],
         script_source,
+        timeout=timeout,
+        cwd=cwd,
     )
 
 
-def _execute_with_system_path_python(script_source: str) -> subprocess.CompletedProcess:
+def _execute_with_system_path_python(
+    script_source: str,
+    cwd: Optional[Union[str, Path]] = None,
+    timeout: Optional[int] = None,
+) -> subprocess.CompletedProcess:
     python_executable = (
         shutil.which("python3") or shutil.which("python") or sys.executable
     )
 
-    return _execute_python_interpreter(python_executable, script_source)
+    return _execute_python_interpreter(
+        python_executable, script_source, timeout=timeout, cwd=cwd
+    )
 
 
 class ExecutionEnvironmentType(Enum):
@@ -128,6 +154,8 @@ class ExecutionEnvironmentType(Enum):
 def execute_script_in_sandbox(
     script_source: str,
     env_type: ExecutionEnvironmentType = ExecutionEnvironmentType.AUTO_DETECT,
+    cwd: Optional[Union[str, Path]] = None,
+    timeout: Optional[int] = None,
     **kwargs,
 ) -> subprocess.CompletedProcess:
     """
@@ -140,6 +168,8 @@ def execute_script_in_sandbox(
     Parameters:
         script_source (str): The python script to be executed, as a string.
         env_type: The type of execution environment to use (default: ExecutionEnvironmentType.AUTO_DETECT).
+        cwd (Optional[Union[str, Path]]): An optional path to use as the current directory when exeecuting the script.
+        timeout (Optional[int]): An optional timeout in seconds when executing the script. Defaults to no timeout.
         **kwargs: Additional keyword arguments used by specific execution environments, as follows:
             - venv environments accept a 'path' argument to specify the venv root directory.
             - conda environments accept a 'name' argument to specify the name of the conda environment to use.
@@ -148,16 +178,24 @@ def execute_script_in_sandbox(
     """
     if env_type == ExecutionEnvironmentType.AUTO_DETECT:
         if _is_venv_active():
-            return _execute_in_venv(script_source)
+            return _execute_in_venv(script_source, cwd=cwd, timeout=timeout)
         elif _is_conda_active():
-            return _execute_in_conda_env(script_source)
+            return _execute_in_conda_env(script_source, cwd=cwd, timeout=timeout)
         else:
-            return _execute_with_system_path_python(script_source)
+            return _execute_with_system_path_python(
+                script_source, cwd=cwd, timeout=timeout
+            )
     elif env_type == ExecutionEnvironmentType.VENV:
-        return _execute_in_venv(script_source, kwargs.get("path"))
+        return _execute_in_venv(
+            script_source, kwargs.get("path"), cwd=cwd, timeout=timeout
+        )
     elif env_type == ExecutionEnvironmentType.CONDA:
-        return _execute_in_conda_env(script_source, kwargs.get("name"))
+        return _execute_in_conda_env(
+            script_source, kwargs.get("name"), cwd=cwd, timeout=timeout
+        )
     elif env_type == ExecutionEnvironmentType.SYSTEM_PATH:
-        return _execute_with_system_path_python(script_source)
+        return _execute_with_system_path_python(script_source, cwd=cwd, timeout=timeout)
     else:  # ExecutionEnvironmentType.CURRENT
-        return _execute_python_interpreter(sys.executable, script_source)
+        return _execute_python_interpreter(
+            sys.executable, script_source, cwd=cwd, timeout=timeout
+        )
