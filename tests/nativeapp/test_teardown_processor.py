@@ -2,6 +2,7 @@ import os
 from unittest import mock
 
 import pytest
+from click import ClickException
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.constants import (
     SPECIAL_COMMENT,
@@ -1015,22 +1016,64 @@ def test_drop_package_idempotent(
     mock_execute.mock_calls == expected
 
 
+@mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}")
+@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
+@mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
+@mock.patch(NATIVEAPP_MANAGER_GET_APPLICATION_OBJECTS)
 @pytest.mark.parametrize(
-    "cascade,has_objects,is_interactive,expected_behavior",
+    "cascade,application_objects,interactive_response,expected_cascade",
     [
         # Cascade true
-        [True, False, False, "cascade query"],
-        [True, True, False, "cascade query"],
+        [True, [], None, True],
+        [True, [{"type": "DATABASE", "name": "db"}], None, True],
         # Cascade false
-        [False, False, False, "no cascade query"],
-        [False, True, False, "no cascade query"],
+        [False, [], None, False],
+        [False, [{"type": "DATABASE", "name": "db"}], None, False],
         # Cascade unset
-        [None, False, False, "no cascade query"],
-        [None, True, True, "ask user"],
-        [None, True, False, "exit"],
+        [None, [], None, False],
+        [None, [{"type": "DATABASE", "name": "db"}], None, None],
+        # Interactive
+        [None, [{"type": "DATABASE", "name": "db"}], True, True],
+        [None, [{"type": "DATABASE", "name": "db"}], False, False],
     ],
 )
 def test_drop_application_cascade(
-    cascade, has_objects, is_interactive, expected_behavior
+    mock_get_application_objects,
+    mock_drop_generic_object,
+    mock_is_correct_owner,
+    mock_get_existing_app_info,
+    mock_typer_confirm,
+    cascade,
+    application_objects,
+    interactive_response,
+    expected_cascade,
+    temp_dir,
 ):
-    pass
+    mock_get_application_objects.return_value = application_objects
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "owner": "app_role",
+        "comment": SPECIAL_COMMENT,
+    }
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+    interactive = interactive_response is not None
+    mock_typer_confirm.return_value = interactive_response
+
+    teardown_processor = _get_na_teardown_processor()
+    if expected_cascade is None:
+        with pytest.raises(ClickException):
+            teardown_processor.drop_application(False, interactive, cascade)
+    else:
+        teardown_processor.drop_application(False, interactive, cascade)
+        mock_drop_generic_object.assert_called_once_with(
+            object_type="application",
+            object_name="myapp",
+            role="app_role",
+            cascade=expected_cascade,
+        )
