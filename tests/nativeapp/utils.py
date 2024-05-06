@@ -1,3 +1,4 @@
+from pathlib import Path
 from textwrap import dedent
 
 NATIVEAPP_MODULE = "snowflake.cli.plugins.nativeapp.manager"
@@ -81,3 +82,9 @@ quoted_override_yml_file = dedent(
 def mock_execute_helper(mock_input: list):
     side_effects, expected = map(list, zip(*mock_input))
     return side_effects, expected
+
+
+def touch(path: str):
+    file = Path(path)
+    file.parent.mkdir(exist_ok=True, parents=True)
+    file.write_text("")

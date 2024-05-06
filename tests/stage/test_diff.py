@@ -1,14 +1,18 @@
 import hashlib
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Union
 from unittest import mock
 
 import pytest
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.exceptions import (
+    SnowflakeSQLExecutionError,
+)
 from snowflake.cli.plugins.stage.diff import (
     DiffResult,
+    build_md5_map,
     delete_only_on_stage_files,
     enumerate_files,
+    filter_from_diff,
     get_stage_path_from_file,
     put_files_on_stage,
     stage_diff,
@@ -19,6 +23,7 @@ from snowflake.cli.plugins.stage.manager import StageManager
 from tests.testing_utils.files_and_dirs import temp_local_dir
 
 STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
+STAGE_DIFF = "snowflake.cli.plugins.object.stage.diff"
 
 FILE_CONTENTS = {
     "README.md": "This is a README\n",
@@ -40,13 +45,18 @@ def md5_of(contents: Union[str, bytes]) -> str:
 
 def stage_contents(
     files: Dict[str, Union[str, bytes]], last_modified: str = DEFAULT_LAST_MODIFIED
-) -> List[Tuple[str, int, str, str]]:
+) -> List[Dict[str, Union[str, int]]]:
     """
     Return file contents as they would be listed by a SNOWFLAKE_SSE stage
     if they were uploaded with the given structure and contents.
     """
     return [
-        (f"stage/{relpath}", len(contents), md5_of(contents), last_modified)
+        {
+            "name": f"stage/{relpath}",
+            "size": len(contents),
+            "md5": md5_of(contents),
+            "last_modified": last_modified,
+        }
         for (relpath, contents) in files.items()
     ]
 
@@ -199,12 +209,29 @@ def test_put_files_on_stage(mock_put, overwrite_param):
         assert mock_put.mock_calls == expected
 
 
+def test_build_md5_map(mock_cursor):
+    actual = build_md5_map(
+        mock_cursor(
+            rows=stage_contents(FILE_CONTENTS),
+            columns=STAGE_LS_COLUMNS,
+        )
+    )
+
+    expected = {
+        "README.md": "9b650974f65cc49be96a5ed34ac6d1fd",
+        "my.jar": "fc605d0e2e50cf3e71873d57f4c598b0",
+        "ui/streamlit.py": "a7dfdfaf892ecfc5f164914123c7f2cc",
+    }
+
+    assert actual == expected
+
+
 @mock.patch(f"{STAGE_MANAGER}.remove")
 def test_sync_local_diff_with_stage(mock_remove, other_directory):
     temp_dir = Path(other_directory)
     mock_remove.side_effect = Exception("Mock Exception")
     mock_remove.return_value = None
-    diff: DiffResult = DiffResult()
+    diff = DiffResult()
     diff.only_on_stage = ["some_file_on_stage"]
     stage_name = "some_stage_name"
 
@@ -215,3 +242,66 @@ def test_sync_local_diff_with_stage(mock_remove, other_directory):
             diff_result=diff,
             stage_path=stage_name,
         )
+
+
+def test_filter_from_diff():
+    diff = DiffResult()
+    diff.different = [
+        "different",
+        "different-2",
+        "dir/different",
+        "dir/different-2",
+    ]
+    diff.only_local = [
+        "only_local",
+        "only_local-2",
+        "dir/only_local",
+        "dir/only_local-2",
+    ]
+    diff.only_on_stage = [
+        "only_on_stage",
+        "only_on_stage-2",
+        "dir/only_on_stage",
+        "dir/only_on_stage-2",
+    ]
+
+    paths_to_sync = set(
+        [
+            "different",
+            "only-local",
+            "only-stage",
+            "dir/different",
+            "dir/only-local",
+            "dir/only-stage",
+        ]
+    )
+    filter_from_diff(diff, paths_to_sync, True)
+
+    for path in diff.different:
+        assert path in paths_to_sync
+    for path in diff.only_local:
+        assert path in paths_to_sync
+    for path in diff.only_on_stage:
+        assert path in paths_to_sync
+
+
+# When prune flag is off, remote-only files are filtered out
+def test_filter_from_diff_no_prune():
+    diff = DiffResult()
+    diff.only_on_stage = [
+        "only-stage-1.txt",
+        "only-stage-2.txt",
+        "only-stage-3.txt",
+    ]
+    paths_to_sync = set(
+        [
+            "on-both.txt",
+            "only-stage-1.txt",
+            "only-stage-2.txt",
+            "only-local.txt",
+        ]
+    )
+
+    filter_from_diff(diff, paths_to_sync, False)
+
+    assert len(diff.only_on_stage) == 0

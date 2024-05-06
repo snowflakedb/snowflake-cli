@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from textwrap import dedent
 from unittest import mock
 
@@ -17,9 +18,12 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
 from snowflake.cli.plugins.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
+    _get_paths_to_sync,
     ensure_correct_owner,
 )
-from snowflake.cli.plugins.stage.diff import DiffResult
+from snowflake.cli.plugins.stage.diff import (
+    DiffResult,
+)
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -34,6 +38,7 @@ from tests.nativeapp.utils import (
     NATIVEAPP_MODULE,
     mock_execute_helper,
     mock_snowflake_yml_file,
+    touch,
 )
 from tests.testing_utils.files_and_dirs import create_named_file
 
@@ -78,7 +83,7 @@ def test_sync_deploy_root_with_stage(
 
     native_app_manager = _get_na_manager()
     assert mock_diff_result.has_changes()
-    native_app_manager.sync_deploy_root_with_stage("new_role")
+    native_app_manager.sync_deploy_root_with_stage("new_role", True, True)
 
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
@@ -102,6 +107,56 @@ def test_sync_deploy_root_with_stage(
         diff_result=mock_diff_result,
         stage_path="app_pkg.app_src.stage",
     )
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(f"{NATIVEAPP_MODULE}.sync_local_diff_with_stage")
+@mock.patch(f"{NATIVEAPP_MODULE}.stage_diff")
+@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
+@pytest.mark.parametrize(
+    "prune,only_on_stage_files,expected_warn",
+    [
+        [
+            True,
+            ["only-stage.txt"],
+            False,
+        ],
+        [
+            False,
+            ["only-stage-1.txt", "only-stage-2.txt"],
+            True,
+        ],
+    ],
+)
+def test_sync_deploy_root_with_stage_prune(
+    mock_warning,
+    mock_stage_diff,
+    mock_local_diff_with_stage,
+    mock_execute,
+    prune,
+    only_on_stage_files,
+    expected_warn,
+    temp_dir,
+):
+    mock_stage_diff.return_value = DiffResult(only_on_stage=only_on_stage_files)
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=os.getcwd(),
+        contents=[mock_snowflake_yml_file],
+    )
+    native_app_manager = _get_na_manager()
+
+    native_app_manager.sync_deploy_root_with_stage("role", prune, True)
+
+    if expected_warn:
+        files_str = "\n".join(only_on_stage_files)
+        warn_message = f"""The following files exist only on the stage:
+{files_str}
+
+Use the --prune flag to delete them from the stage."""
+        mock_warning.assert_called_once_with(warn_message)
+    else:
+        mock_warning.assert_not_called()
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
@@ -716,3 +771,32 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
         mock_warning.assert_called_once_with(
             "Continuing to execute `snow app run` on application package app_pkg with distribution 'internal'."
         )
+
+
+@pytest.mark.parametrize(
+    "paths_to_sync,expected_result",
+    [
+        [
+            ["deploy/dir"],
+            ["dir/nested_file1", "dir/nested_file2", "dir/nested_dir/nested_file3"],
+        ],
+        [["deploy/dir/nested_dir"], ["dir/nested_dir/nested_file3"]],
+        [
+            ["deploy/file", "deploy/dir/nested_dir/nested_file3"],
+            ["file", "dir/nested_dir/nested_file3"],
+        ],
+    ],
+)
+def test_get_paths_to_sync(
+    temp_dir,
+    paths_to_sync,
+    expected_result,
+):
+    touch("deploy/file")
+    touch("deploy/dir/nested_file1")
+    touch("deploy/dir/nested_file2")
+    touch("deploy/dir/nested_dir/nested_file3")
+
+    paths_to_sync = [Path(p) for p in paths_to_sync]
+    result = _get_paths_to_sync(paths_to_sync, Path("deploy/"))
+    assert result.sort() == expected_result.sort()

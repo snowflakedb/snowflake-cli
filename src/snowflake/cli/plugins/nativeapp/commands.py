@@ -1,5 +1,6 @@
 import logging
-from typing import Optional
+from pathlib import Path
+from typing import List, Optional
 
 import typer
 from snowflake.cli.api.cli_global_context import cli_context
@@ -236,17 +237,44 @@ def app_teardown(
 @app.command("deploy", requires_connection=True)
 @with_project_definition("native_app")
 def app_deploy(
+    prune: Optional[bool] = typer.Option(
+        default=None,
+        help=f"""Whether to delete specified files from the stage if they don't exist locally. If set, the command deletes files that exist in the stage, but not in the local filesystem.""",
+    ),
+    recursive: Optional[bool] = typer.Option(
+        None,
+        "--recursive",
+        "-r",
+        help=f"""Whether to traverse and deploy files from subdirectories. If set, the command deploys all files and subdirectories; otherwise, only files in the current directory are deployed.""",
+    ),
+    files: Optional[List[Path]] = typer.Argument(
+        default=None,
+        show_default=False,
+        help=f"""Paths, relative to the the project root, of files you want to upload to a stage. The paths must match one of the artifacts src pattern entries in snowflake.yml. If unspecified, the command syncs all local changes to the stage.""",
+    ),
     **options,
 ) -> CommandResult:
     """
     Creates an application package in your Snowflake account and syncs the local changes to the stage without creating or updating the application.
+    Running this command with no arguments at all, as in `snow app deploy`, is a shorthand for `snow app deploy --prune --recursive`.
     """
+    if files is None:
+        files = []
+    if prune is None and recursive is None and len(files) == 0:
+        prune = True
+        recursive = True
+    else:
+        if prune is None:
+            prune = False
+        if recursive is None:
+            recursive = False
+
     manager = NativeAppManager(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
 
-    manager.build_bundle()
-    manager.deploy()
+    mapped_files = manager.build_bundle()
+    manager.deploy(prune, recursive, files, mapped_files)
 
     return MessageResult(f"Deployed successfully.")

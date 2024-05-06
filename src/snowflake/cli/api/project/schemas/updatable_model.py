@@ -14,12 +14,24 @@ class UpdatableModel(BaseModel):
         except ValidationError as e:
             raise SchemaValidationError(e)
 
-    def update_from_dict(
-        self, update_values: Dict[str, Any]
-    ):  # this method works wrong for optional fields set to None
-        for field, value in update_values.items():  # do we even need this?
-            if getattr(self, field, None):
-                setattr(self, field, value)
+    def update_from_dict(self, update_values: Dict[str, Any]):
+        """
+        Takes a dictionary with values to override.
+        If the field type is subclass of a UpdatableModel, its update_from_dict() method is called with
+        the value to be set.
+        If not, we use simple setattr to set new value.
+        Values provided are validated against original restrictions, so it's impossible to overwrite string field with
+        integer value etc.
+        """
+        for field, value in update_values.items():
+            if field in self.model_fields.keys():
+                if (
+                    hasattr(getattr(self, field), "update_from_dict")
+                    and field in self.model_fields_set
+                ):
+                    getattr(self, field).update_from_dict(value)
+                else:
+                    setattr(self, field, value)
         return self
 
 
