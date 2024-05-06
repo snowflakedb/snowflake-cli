@@ -8,12 +8,3 @@
     }),
   ])
 # ---
-# name: test_execute.1
-  list([
-    dict({
-      'Error': None,
-      'File': '@db_f1ae203df88c4b80bf3fc31e5431baca.public.SNOWCLI_TESTING_REPO/branches/main/tests_integration/test_data/projects/stage_execute/script_template.sql',
-      'Status': 'SUCCESS',
-    }),
-  ])
-# ---

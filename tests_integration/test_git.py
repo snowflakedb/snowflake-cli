@@ -252,6 +252,9 @@ def test_execute(runner, test_database, sf_git_repository, snapshot):
     assert result.exit_code == 0
     assert result.json == snapshot
 
+
+@pytest.mark.integration
+def test_execute_fqn_stage(runner, test_database, sf_git_repository):
     result_fqn = runner.invoke_with_connection_json(
         [
             "git",
@@ -269,7 +272,13 @@ def test_execute(runner, test_database, sf_git_repository, snapshot):
     )
 
     assert result_fqn.exit_code == 0
-    assert result_fqn.json == snapshot
+    assert result_fqn.json == [
+        {
+            "File": f"@{test_database}.public.{sf_git_repository}/branches/main/tests_integration/test_data/projects/stage_execute/script_template.sql",
+            "Status": "SUCCESS",
+            "Error": None,
+        }
+    ]
 
 
 def _filter_key(objects, *, key):

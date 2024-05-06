@@ -29,8 +29,12 @@ EXECUTE_SUPPORTED_FILES_FORMATS = {".sql"}
 
 @dataclass
 class StagePathParts:
+    # For path like @db.schema.stage/dir the values will be:
+    # stage = @db.schema.stage
     stage: str
+    # stage_name = stage/dir
     stage_name: str
+    # directory = dir
     directory: str
 
     @property
