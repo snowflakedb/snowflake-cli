@@ -5,6 +5,7 @@ from unittest import mock
 import pytest
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.fqn import FQN
 from snowflake.cli.api.project.util import identifier_to_show_like_pattern
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.sql.snowsql_templating import transpile_snowsql_templates
@@ -183,29 +184,22 @@ def test_show_specific_object_sql_execution_error(mock_execute):
 
 
 @pytest.mark.parametrize(
-    "name, name_split, expected_name, expected_in_clause",
+    "fqn, expected_in_clause",
     [
         (
-            "func(number, number)",
-            ("func(number, number)", None, None),
-            "func(number, number)",
+            FQN(None, None, "func(number, number)"),
             None,
         ),
-        ("name", ("name", None, None), "name", None),
-        ("schema.name", ("name", "schema", None), "name", "in schema schema"),
-        ("db.schema.name", ("name", "schema", "db"), "name", "in schema db.schema"),
+        (FQN(None, None, "name"), None),
+        (FQN(None, "schema", "name"), "in schema schema"),
+        (FQN("db", "schema", "name"), "in schema db.schema"),
     ],
 )
-@mock.patch("snowflake.cli.api.sql_execution.from_qualified_name")
-def test_qualified_name_to_in_clause(
-    mock_from_qualified_name, name, name_split, expected_name, expected_in_clause
-):
-    mock_from_qualified_name.return_value = name_split
-    assert SqlExecutionMixin._qualified_name_to_in_clause(name) == (  # noqa: SLF001
-        expected_name,
+def test_qualified_name_to_in_clause(fqn, expected_in_clause):
+    assert SqlExecutionMixin._qualified_name_to_in_clause(fqn) == (  # noqa: SLF001
+        fqn.name,
         expected_in_clause,
     )
-    mock_from_qualified_name.assert_called_once_with(name)
 
 
 @mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
@@ -243,7 +237,9 @@ def test_show_specific_object_qualified_name_and_in_clause_error(
         SqlExecutionMixin().show_specific_object(
             "objects", object_name, in_clause="in database db"
         )
-    mock_qualified_name_to_in_clause.assert_called_once_with(object_name)
+    mock_qualified_name_to_in_clause.assert_called_once_with(
+        FQN.from_string(object_name)
+    )
 
 
 @mock.patch("snowflake.cli.api.sql_execution.SqlExecutionMixin._execute_query")

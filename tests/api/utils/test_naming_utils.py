@@ -1,5 +1,5 @@
 import pytest
-from snowflake.cli.api.utils.naming_utils import from_qualified_name
+from snowflake.cli.api.fqn import FQN
 
 
 @pytest.mark.parametrize(
@@ -12,4 +12,8 @@ from snowflake.cli.api.utils.naming_utils import from_qualified_name
     ],
 )
 def test_from_fully_qualified_name(qualified_name, expected):
-    assert from_qualified_name(qualified_name) == expected
+    name, schema, database = expected
+    fqn = FQN.from_string(qualified_name)
+    assert fqn.name == name
+    assert fqn.schema == schema
+    assert fqn.database == database

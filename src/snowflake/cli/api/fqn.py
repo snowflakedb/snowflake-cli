@@ -1,17 +1,12 @@
 from __future__ import annotations
 
+import re
+
 from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.exceptions import FQNInconsistencyError, FQNNameError
 from snowflake.cli.api.project.schemas.identifier_model import ObjectIdentifierBaseModel
-
-
-class FQNNameError(ClickException):
-    def __init__(self, name: str):
-        super().__init__(f"Specified name {name} is invalid.")
-
-
-class FQNInconsistencyError(ClickException):
-    pass
+from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, unquote_identifier
 
 
 class FQN:
@@ -35,13 +30,14 @@ class FQN:
     @property
     def identifier(self):
         if self.database:
-            if self.schema:
-                return f"{self.database}.{self.schema}.{self.name}".upper()
-            else:
-                return f"{self.database}.PUBLIC.{self.name}".upper()
+            return f"{self.database}.{self.schema if self.schema else 'PUBLIC'}.{self.name}".upper()
         if self.schema:
             return f"{self.schema}.{self.name}".upper()
         return self.name.upper()
+
+    @property
+    def url_identifier(self):
+        return ".".join(unquote_identifier(part) for part in self.identifier.split("."))
 
     def __str__(self):
         return self.identifier
@@ -51,19 +47,25 @@ class FQN:
 
     @classmethod
     def from_string(cls, identifier: str) -> "FQN":
-        current_parts = identifier.split(".")
-        if len(current_parts) == 3:
-            return cls(*current_parts)
-        if len(current_parts) == 2:
-            return cls(None, *current_parts)
-        if len(current_parts) == 1:
-            return cls(None, None, *current_parts)
+        """
+        Takes in an object name in the form [[database.]schema.]name. Returns a FQN instance.
+        """
+        # TODO: Use regex to match object name to a valid identifier or
+        #  valid identifier (args). Second case is for sprocs and UDFs
+        qualifier_pattern = rf"(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?P<name>.*)"
+        result = re.fullmatch(qualifier_pattern, identifier)
 
-        raise FQNNameError(identifier)
+        if result is None:
+            raise FQNNameError(f"'{identifier}' is not a valid qualified name")
 
-    @staticmethod
-    def is_fqn_string_name(name: str) -> bool:
-        return len(name.split(".")) == 3
+        unqualified_name = result.group("name")
+        if result.group("second_qualifier") is not None:
+            database = result.group("first_qualifier")
+            schema = result.group("second_qualifier")
+        else:
+            database = None
+            schema = result.group("first_qualifier")
+        return cls(name=unqualified_name, schema=schema, database=database)
 
     @classmethod
     def from_identifier_model(cls, model: ObjectIdentifierBaseModel) -> "FQN":
@@ -74,10 +76,10 @@ class FQN:
 
         fqn = cls.from_string(model.name)
 
-        if FQN.is_fqn_string_name(model.name) and (model.database or model.schema_name):
-            raise ClickException(
-                f"Database or schema provided but name {model.name} is fully qualified name."
-            )
+        if fqn.database and model.database:
+            raise FQNInconsistencyError("database", model.name)
+        if fqn.schema and model.schema_name:
+            raise FQNInconsistencyError("schema", model.name)
 
         return fqn.set_database(model.database).set_schema(model.schema_name)
 
@@ -95,11 +97,13 @@ class FQN:
         self._name = name
         return self
 
-    def using_context(self):
+    def using_connection(self, conn):
         # Update the identifier only it if wasn't already a qualified name
-        conn = cli_context.connection
         if conn.database and not self.database:
             self.set_database(conn.database)
         if conn.schema and not self.schema:
             self.set_schema(conn.schema)
         return self
+
+    def using_context(self):
+        return self.using_connection(cli_context.connection)

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
+from click import ClickException
 from click.exceptions import ClickException
 from snowflake.cli.api.constants import ObjectType
 
@@ -127,4 +128,16 @@ class SchemaNotProvidedError(ClickException):
     def __init__(self):
         super().__init__(
             "Schema not specified. Please update connection to add `schema` parameter, or re-run command using `--schema` option. Use `snow connection list` to list existing connections."
+        )
+
+
+class FQNNameError(ClickException):
+    def __init__(self, name: str):
+        super().__init__(f"Specified name {name} is invalid.")
+
+
+class FQNInconsistencyError(ClickException):
+    def __init__(self, part: str, name: str):
+        super().__init__(
+            f"{part.capitalize()} provided but name {name} is fully qualified name."
         )

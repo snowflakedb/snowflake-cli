@@ -25,6 +25,7 @@ from snowflake.cli.api.constants import (
 from snowflake.cli.api.exceptions import (
     SecretsWithoutExternalAccessIntegrationError,
 )
+from snowflake.cli.api.fqn import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -131,7 +132,7 @@ def deploy(
     # Create stage
     stage_name = snowpark.stage_name
     stage_manager = StageManager()
-    stage_name = stage_manager.to_fully_qualified_name(stage_name)
+    stage_name = FQN.from_string(stage_name).using_context()
     stage_manager.create(
         stage_name=stage_name, comment="deployments managed by Snowflake CLI"
     )

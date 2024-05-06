@@ -150,7 +150,7 @@ class StreamlitManager(SqlExecutionMixin):
             stage_manager = StageManager()
 
             stage_name = stage_name or "streamlit"
-            stage_name = stage_manager.to_fully_qualified_name(stage_name)
+            stage_name = FQN.from_string(stage_name).using_connection(self._conn)
 
             stage_manager.create(stage_name=stage_name)
 
@@ -179,9 +179,10 @@ class StreamlitManager(SqlExecutionMixin):
 
     def get_url(self, streamlit_name: str, database=None, schema=None) -> str:
         try:
+            fqn = FQN.from_string(streamlit_name).using_connection(self._conn)
             return make_snowsight_url(
                 self._conn,
-                f"/#/streamlit-apps/{self.qualified_name_for_url(streamlit_name, database=database, schema=schema)}",
+                f"/#/streamlit-apps/{fqn.url_identifier}",
             )
         except MissingConnectionHostError as e:
             return "https://app.snowflake.com"

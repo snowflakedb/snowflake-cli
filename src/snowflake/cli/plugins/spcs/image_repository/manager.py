@@ -1,6 +1,7 @@
 from urllib.parse import urlparse
 
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.fqn import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.spcs.common import handle_object_already_exists
 from snowflake.connector.errors import ProgrammingError
@@ -22,8 +23,9 @@ class ImageRepositoryManager(SqlExecutionMixin):
             "image repositories", repo_name, check_schema=True
         )
         if repo_row is None:
+            fqn = FQN.from_string(repo_name).using_connection(self._conn)
             raise ProgrammingError(
-                f"Image repository '{self.to_fully_qualified_name(repo_name)}' does not exist or not authorized."
+                f"Image repository '{fqn.identifier}' does not exist or not authorized."
             )
         if with_scheme:
             return f"https://{repo_row['repository_url']}"
