@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List
+from typing import List
 
 import yaml.loader
 from snowflake.cli.api.cli_global_context import cli_context
@@ -17,19 +17,6 @@ from yaml import load
 DEFAULT_USERNAME = "unknown_user"
 
 
-def merge_left(target: Dict, source: Dict) -> None:
-    """
-    Recursively merges key/value pairs from source into target.
-    Modifies the original dict-like "target".
-    """
-    for k, v in source.items():
-        if k in target and isinstance(target[k], dict):
-            # assumption: all inputs have been validated.
-            merge_left(target[k], v)
-        else:
-            target[k] = v
-
-
 def load_project_definition(paths: List[Path]) -> ProjectDefinition:
     """
     Loads project definition, optionally overriding values. Definition values
@@ -41,17 +28,16 @@ def load_project_definition(paths: List[Path]) -> ProjectDefinition:
 
     with spaths[0].open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as base_yml:
         definition = load(base_yml.read(), Loader=yaml.loader.BaseLoader)
+        project = ProjectDefinition(**definition)
 
     for override_path in spaths[1:]:
         with override_path.open(
             "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
         ) as override_yml:
             overrides = load(override_yml.read(), Loader=yaml.loader.BaseLoader)
-            merge_left(definition, overrides)
+            project.update_from_dict(overrides)
 
-        # TODO: how to show good error messages here?
-
-    return ProjectDefinition(**definition)
+    return project
 
 
 def generate_local_override_yml(
@@ -82,12 +68,8 @@ def generate_local_override_yml(
             },
             "package": {"name": package_identifier, "role": role},
         }
-    # TODO: this is an ugly workaround, because pydantics BaseModel.model_copy(update=) doesn't work properly
-    # After fixing UpdatableModel.update_from_dict it should be used here
-    target_definition = project.model_dump()
-    merge_left(target_definition, local)
 
-    return ProjectDefinition(**target_definition)
+    return project.update_from_dict(local)
 
 
 def default_app_package(project_name: str):

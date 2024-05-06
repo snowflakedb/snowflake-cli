@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from abc import ABC, abstractmethod
 from functools import cached_property
 from pathlib import Path
@@ -23,8 +24,11 @@ from snowflake.cli.api.project.util import (
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.connection.util import make_snowsight_url
 from snowflake.cli.plugins.nativeapp.artifacts import (
+    ArtifactDeploymentMap,
     ArtifactMapping,
     build_bundle,
+    resolve_without_follow,
+    source_path_to_deploy_path,
     translate_artifact,
 )
 from snowflake.cli.plugins.nativeapp.constants import (
@@ -43,8 +47,10 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
     MissingPackageScriptError,
     UnexpectedOwnerError,
 )
+from snowflake.cli.plugins.nativeapp.utils import verify_exists, verify_no_directories
 from snowflake.cli.plugins.stage.diff import (
     DiffResult,
+    filter_from_diff,
     stage_diff,
     sync_local_diff_with_stage,
 )
@@ -98,6 +104,20 @@ def ensure_correct_owner(row: dict, role: str, obj_name: str) -> None:
     ].upper()  # Because unquote_identifier() always returns uppercase str
     if actual_owner != unquote_identifier(role):
         raise UnexpectedOwnerError(obj_name, role, actual_owner)
+
+
+def _get_paths_to_sync(paths_to_sync: List[Path], deploy_root: Path) -> List[str]:
+    """Takes a list of paths (files and directories), returning a list of all files recursively relative to the deploy root."""
+    paths = []
+    for path in paths_to_sync:
+        if path.is_dir():
+            for current_dir, _dirs, files in os.walk(path):
+                for file in files:
+                    deploy_path = Path(current_dir, file).relative_to(deploy_root)
+                    paths.append(str(deploy_path))
+        else:
+            paths.append(str(path.relative_to(deploy_root)))
+    return paths
 
 
 class NativeAppCommandProcessor(ABC):
@@ -278,13 +298,20 @@ class NativeAppManager(SqlExecutionMixin):
             return False
         return True
 
-    def build_bundle(self) -> None:
+    def build_bundle(self) -> ArtifactDeploymentMap:
         """
         Populates the local deploy root from artifact sources.
         """
-        build_bundle(self.project_root, self.deploy_root, self.artifacts)
+        return build_bundle(self.project_root, self.deploy_root, self.artifacts)
 
-    def sync_deploy_root_with_stage(self, role: str) -> DiffResult:
+    def sync_deploy_root_with_stage(
+        self,
+        role: str,
+        prune: bool,
+        recursive: bool,
+        paths_to_sync: List[Path] = [],  # relative to project root
+        mapped_files: Optional[ArtifactDeploymentMap] = None,
+    ) -> DiffResult:
         """
         Ensures that the files on our remote stage match the artifacts we have in
         the local filesystem. Returns the DiffResult used to make changes.
@@ -310,6 +337,37 @@ class NativeAppManager(SqlExecutionMixin):
             % self.deploy_root
         )
         diff: DiffResult = stage_diff(self.deploy_root, self.stage_fqn)
+
+        files_not_removed = []
+        if len(paths_to_sync) > 0:
+            # Deploying specific files/directories
+            resolved_paths_to_sync = [resolve_without_follow(p) for p in paths_to_sync]
+            if not recursive:
+                verify_no_directories(resolved_paths_to_sync)
+            deploy_paths_to_sync = [
+                source_path_to_deploy_path(p, mapped_files)
+                for p in resolved_paths_to_sync
+            ]
+            verify_exists(deploy_paths_to_sync)
+            paths_to_sync_set = set(
+                _get_paths_to_sync(deploy_paths_to_sync, self.deploy_root.resolve())
+            )
+            files_not_removed = filter_from_diff(diff, paths_to_sync_set, prune)
+        else:
+            # Full deploy
+            if not recursive:
+                deploy_files = os.listdir(str(self.deploy_root.resolve()))
+                verify_no_directories([Path(path_str) for path_str in deploy_files])
+            if not prune:
+                files_not_removed = diff.only_on_stage
+                diff.only_on_stage = []
+
+        if len(files_not_removed) > 0:
+            files_not_removed_str = "\n".join(files_not_removed)
+            cc.warning(
+                f"The following files exist only on the stage:\n{files_not_removed_str}\n\nUse the --prune flag to delete them from the stage."
+            )
+
         cc.message(str(diff))
 
         # Upload diff-ed files to application package stage
@@ -435,7 +493,13 @@ class NativeAppManager(SqlExecutionMixin):
                 err, role=self.package_role, warehouse=self.package_warehouse
             )
 
-    def deploy(self) -> DiffResult:
+    def deploy(
+        self,
+        prune: bool,
+        recursive: bool,
+        paths_to_sync: List[Path] = [],
+        mapped_files: Optional[ArtifactDeploymentMap] = None,
+    ) -> DiffResult:
         """app deploy process"""
 
         # 1. Create an empty application package, if none exists
@@ -446,6 +510,8 @@ class NativeAppManager(SqlExecutionMixin):
             self._apply_package_scripts()
 
             # 3. Upload files from deploy root local folder to the above stage
-            diff = self.sync_deploy_root_with_stage(self.package_role)
+            diff = self.sync_deploy_root_with_stage(
+                self.package_role, prune, recursive, paths_to_sync, mapped_files
+            )
 
         return diff
