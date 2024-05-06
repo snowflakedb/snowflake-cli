@@ -120,32 +120,16 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             )
             if cascade is True:
                 cc.message(
-                    dedent(
-                        f"""\
-                            The following application objects will be deleted:
-                            {application_objects_str}
-                        """
-                    )
+                    f"The following application objects will be deleted:\n{application_objects_str}"
                 )
             elif cascade is False:
                 cc.message(
-                    dedent(
-                        f"""\
-                            The following application objects will not be deleted:
-                            {application_objects_str}
-                        """
-                    )
+                    f"The following application objects will not be deleted:\n{application_objects_str}"
                 )
             elif interactive:
                 if interactive:
                     cascade = typer.confirm(
-                        dedent(
-                            f"""\
-                        The following application objects are owned by this application:
-                        {application_objects_str}
-                        Do you confirm to delete these?
-                    """
-                        )
+                        f"The following application objects are owned by this application:\n{application_objects_str}\n\nDo you confirm to delete these?"
                     )
             else:
                 raise ClickException(
@@ -153,7 +137,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                         f"""\
                     The following application objects are owned by this application:
                     {application_objects_str}
-                    Please explicitly set --cascade if they should be deleted, or transfer ownership and run teardown again.
+                    Please explicitly specify --cascade if they should be deleted, or transfer ownership and run teardown again.
                 """
                     )
                 )
