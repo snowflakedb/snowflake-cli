@@ -101,7 +101,3 @@ def get_all_python_files(all_files: List[Path]):
     Gets all python files from a list of file paths
     """
     return [py_file for py_file in all_files if py_file.suffix == ".py"]
-
-
-def is_single_quoted(name: str) -> bool:
-    return name.startswith("'") and name.endswith("'")

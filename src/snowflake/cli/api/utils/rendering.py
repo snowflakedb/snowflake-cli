@@ -85,7 +85,7 @@ def jinja_render_from_file(
     if output_file_path:
         SecurePath(output_file_path).write_text(rendered_result)
     else:
-        print(rendered_result)
+        return rendered_result
 
 
 class _AttrGetter:
