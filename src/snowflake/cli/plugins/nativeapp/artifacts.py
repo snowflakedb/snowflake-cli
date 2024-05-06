@@ -1,13 +1,16 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
-from click import ClickException
+from click.exceptions import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 from yaml import safe_load
+
+# Map from source directories and files in the project directory to their path in the deploy directory. Both paths are absolute.
+ArtifactDeploymentMap = Dict[Path, Path]
 
 
 class DeployRootError(ClickException):
@@ -195,11 +198,14 @@ def resolve_without_follow(path: Path) -> Path:
 
 
 def build_bundle(
-    project_root: Path, deploy_root: Path, artifacts: List[ArtifactMapping]
-):
+    project_root: Path,
+    deploy_root: Path,
+    artifacts: List[ArtifactMapping],
+) -> ArtifactDeploymentMap:
     """
     Prepares a local folder (deploy_root) with configured app artifacts.
     This folder can then be uploaded to a stage.
+    Returns a map of the copied source files, pointing to where they were copied.
     """
     resolved_root = deploy_root.resolve()
     if resolved_root.exists() and not resolved_root.is_dir():
@@ -217,6 +223,7 @@ def build_bundle(
     if resolved_root.exists():
         delete(resolved_root)
 
+    mapped_files: ArtifactDeploymentMap = {}
     for artifact in artifacts:
         dest_path = resolve_without_follow(Path(resolved_root, artifact.dest))
         source_paths = get_source_paths(artifact, project_root)
@@ -228,7 +235,9 @@ def build_bundle(
 
             # copy all files as children of the given destination path
             for source_path in source_paths:
-                symlink_or_copy(source_path, dest_path / source_path.name)
+                dest_child_path = dest_path / source_path.name
+                symlink_or_copy(source_path, dest_child_path)
+                mapped_files[source_path.resolve()] = dest_child_path
         else:
             # ensure we are copying into the deploy root, not replacing it!
             if resolved_root not in dest_path.parents:
@@ -237,9 +246,11 @@ def build_bundle(
             if len(source_paths) == 1:
                 # copy a single file as the given destination path
                 symlink_or_copy(source_paths[0], dest_path)
+                mapped_files[source_paths[0].resolve()] = dest_path
             else:
                 # refuse to map multiple source files to one destination (undefined behaviour)
                 raise TooManyFilesError(dest_path)
+    return mapped_files
 
 
 def find_manifest_file(deploy_root: Path) -> Path:
@@ -283,3 +294,31 @@ def find_version_info_in_manifest_file(
             patch_name = version_info[patch_field]
 
     return version_name, patch_name
+
+
+def source_path_to_deploy_path(
+    source_path: Path, mapped_files: ArtifactDeploymentMap
+) -> Path:
+    """Returns the absolute path where the specified source path was copied to during bundle."""
+
+    source_path = source_path.resolve()
+
+    if source_path in mapped_files:
+        return mapped_files[source_path]
+
+    # Find the first parent directory that exists in mapped_files
+    common_root = source_path
+    while common_root:
+        if common_root in mapped_files:
+            break
+        elif common_root.parent != common_root:
+            common_root = common_root.parent
+        else:
+            raise ClickException(f"Could not find the deploy path of {source_path}")
+
+    # Construct the target deploy path
+    path_to_symlink = mapped_files[common_root]
+    relative_path_to_target = Path(source_path).relative_to(common_root)
+    result = Path(path_to_symlink, relative_path_to_target)
+
+    return result
