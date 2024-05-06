@@ -21,6 +21,7 @@ from snowflake.connector.cursor import DictCursor
 from tests.nativeapp.patch_utils import mock_get_app_pkg_distribution_in_sf
 from tests.nativeapp.utils import (
     NATIVEAPP_MANAGER_EXECUTE,
+    NATIVEAPP_MANAGER_GET_APPLICATION_OBJECTS,
     NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME,
     TEARDOWN_MODULE,
     TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT,
@@ -169,6 +170,7 @@ def test_drop_application_incorrect_owner(
 @mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
+@mock.patch(NATIVEAPP_MANAGER_GET_APPLICATION_OBJECTS, return_value=[])
 @pytest.mark.parametrize(
     "auto_yes_param, special_comment",  # auto_yes should have no effect on the test
     [
@@ -179,6 +181,7 @@ def test_drop_application_incorrect_owner(
     ],
 )
 def test_drop_application_has_special_comment(
+    mock_get_application_objects,
     mock_drop_generic_object,
     mock_is_correct_owner,
     mock_get_existing_app_info,
@@ -208,6 +211,7 @@ def test_drop_application_has_special_comment(
 
 # Test drop_application() successfully when it has special comment but is a quoted string
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(NATIVEAPP_MANAGER_GET_APPLICATION_OBJECTS, return_value=[])
 @pytest.mark.parametrize(
     "auto_yes_param, special_comment",  # auto_yes should have no effect on the test
     [
@@ -218,6 +222,7 @@ def test_drop_application_has_special_comment(
     ],
 )
 def test_drop_application_has_special_comment_and_quoted_name(
+    mock_get_application_objects,
     mock_execute,
     auto_yes_param,
     special_comment,
@@ -324,11 +329,13 @@ def test_drop_application_user_prohibits_drop(
 @mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=True)
+@mock.patch(NATIVEAPP_MANAGER_GET_APPLICATION_OBJECTS, return_value=[])
 @pytest.mark.parametrize(
     "auto_yes_param",
     [False, True],
 )
 def test_drop_application_user_allows_drop(
+    mock_get_application_objects,
     mock_confirm,
     mock_execute,
     mock_drop_generic_object,
@@ -378,11 +385,13 @@ def test_drop_application_user_allows_drop(
 @mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
+@mock.patch(NATIVEAPP_MANAGER_GET_APPLICATION_OBJECTS, return_value=[])
 @pytest.mark.parametrize(
     "auto_yes_param",
     [False, True],  # This should have no effect on the test
 )
 def test_drop_application_idempotent(
+    mock_get_application_objects,
     mock_drop_generic_object,
     mock_is_correct_owner,
     mock_get_existing_app_info,

@@ -120,35 +120,43 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             )
             if cascade is True:
                 cc.message(
-                    f"""\
-                    The following application objects will be removed:
-                    {application_objects_str}
-                """
+                    dedent(
+                        f"""\
+                            The following application objects will be deleted:
+                            {application_objects_str}
+                        """
+                    )
                 )
             elif cascade is False:
                 cc.message(
-                    f"""\
-                    The following application objects will not be removed:
-                    {application_objects_str}
-                """
+                    dedent(
+                        f"""\
+                            The following application objects will not be deleted:
+                            {application_objects_str}
+                        """
+                    )
                 )
-            else:
+            elif interactive:
                 if interactive:
                     cascade = typer.confirm(
-                        f"""\
-                            The following application objects are owned by this application:
-                            {application_objects_str}
-                            Should they be deleted?
-                        """
+                        dedent(
+                            f"""\
+                        The following application objects are owned by this application:
+                        {application_objects_str}
+                        Do you confirm to delete these?
+                    """
+                        )
                     )
-                else:
-                    raise ClickException(
+            else:
+                raise ClickException(
+                    dedent(
                         f"""\
-                            The following application objects are owned by this application:
-                            {application_objects_str}
-                            Please explicitly set --cascade if they should be deleted, or --no-cascade otherwise.
-                        """
+                    The following application objects are owned by this application:
+                    {application_objects_str}
+                    Please explicitly set --cascade if they should be deleted, or transfer ownership and run teardown again.
+                """
                     )
+                )
         elif cascade is None:
             cascade = False
 
