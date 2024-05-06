@@ -25,8 +25,9 @@ def _try_create_processor(
     artifact_to_process: PathMapping,
     **kwargs,
 ) -> Optional[ArtifactProcessor]:
-    if (isinstance(processor, str) and processor == SNOWPARK_PROCESSOR) or (
-        isinstance(processor, Processor) and processor.name == SNOWPARK_PROCESSOR
+    if (isinstance(processor, str) and processor.lower() == SNOWPARK_PROCESSOR) or (
+        isinstance(processor, Processor)
+        and processor.name.lower() == SNOWPARK_PROCESSOR
     ):
         return SnowparkAnnotationProcessor(
             project_definition=project_definition,
@@ -39,7 +40,7 @@ def _try_create_processor(
         return None
 
 
-def find_and_execute_processors(
+def _find_and_execute_processors(
     project_definition: NativeApp, project_root: Path, deploy_root: Path
 ):
     """

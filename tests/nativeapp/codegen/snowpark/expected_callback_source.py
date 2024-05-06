@@ -34,7 +34,7 @@ def __snowflake_cli_native_app_internal_callback_replacement():
         extension_function_properties,
     ):
 
-        {% raw %}extension_function_dict = {}
+        extension_function_dict = {}
         extension_function_dict[
             "object_type"
         ] = extension_function_properties.object_type.name
@@ -92,7 +92,7 @@ def __snowflake_cli_native_app_internal_callback_replacement():
             extension_function_dict["schema"] = extension_function_dict[
                 "application_roles"
             ] = None
-        # Imports and handler will be set at a later time. {% endraw %}
+        # Imports and handler will be set at a later time.
         return extension_function_dict
 
     def __snowflake_cli_native_app_internal_callback_append_to_list(
@@ -112,7 +112,7 @@ def __snowflake_cli_native_app_internal_callback_replacement():
     )
 
 
-with open("{{py_file}}", mode="r", encoding="utf-8") as udf_code:
+with open("dummy_file.py", mode="r", encoding="utf-8") as udf_code:
     code = udf_code.read()
 
 

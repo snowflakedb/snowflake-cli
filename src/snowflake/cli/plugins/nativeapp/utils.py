@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from sys import stdin, stdout
-from typing import List, Optional, Union
+from typing import Callable, Generator, List, Optional, Union
 
 from click import ClickException
 
@@ -81,23 +81,33 @@ def verify_exists(paths_to_sync: List[Path]):
     for path in paths_to_sync:
         if not path.exists():
             raise ClickException(f"The following path does not exist: {path}")
-        
-        
-def get_all_file_paths_under_dir(directory: Path) -> List[str]:
+
+
+def get_all_file_paths_under_dir(directory: Path):
     """
-    Gets all files under a given directory. If the directory is a symlink, then the function follows the behavior of os.walk for symlinks.
+    Recursively traverse the given directory and yield file paths. If the directory is a symlink, then the function follows the behavior of os.walk for symlinks.
     The directory may be a relative path to the project root.
     """
-    file_paths: List[str] = []
     for root, _, files in os.walk(directory):
         for file in files:
-            file_path = os.path.join(root, file)
-            file_paths.append(file_path)
-    return file_paths
+            yield Path(os.path.join(root, file))
 
 
-def get_all_python_files(all_files: List[Path]):
+def is_python_file(file_path: Path):
     """
-    Gets all python files from a list of file paths
+    Checks if the given file is a python file.
     """
-    return [py_file for py_file in all_files if py_file.suffix == ".py"]
+    return file_path.suffix == ".py"
+
+
+def filter_files(generator: Generator, predicate_func: Callable):
+    """
+    Filter file paths based on a given predicate function.
+    """
+    for file_path in generator:
+        if predicate_func(file_path):
+            yield file_path
+
+
+def is_single_quoted(name: str) -> bool:
+    return name.startswith("'") and name.endswith("'")

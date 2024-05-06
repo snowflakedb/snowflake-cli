@@ -15,12 +15,16 @@ from snowflake.cli.plugins.nativeapp.utils import is_single_quoted
 TEMP_OBJECT_NAME_PREFIX = "SNOWPARK_TEMP_"
 
 
-def _get_handler_path_without_suffix(file_path: Path) -> str:
+def _get_handler_path_without_suffix(file_path: Path, suffix_str: Optional[str]) -> str:
     file_parts = file_path.parts
     if os.path.sep in file_parts[0]:
         file_parts = file_parts[1:]
 
-    return ".".join(file_parts).removesuffix(".py")
+    return (
+        ".".join(file_parts).removesuffix(suffix_str)
+        if suffix_str
+        else ".".join(file_parts)
+    )
 
 
 def _get_object_type_as_text(object_type: str) -> str:
@@ -33,7 +37,7 @@ def _get_handler(dest_file: Path, func: Union[str, Tuple[str, str]]) -> Optional
     """
     # FYI: Needs dest file to be set
     if isinstance(func, str):
-        return f"{_get_handler_path_without_suffix(dest_file)}.{func}"
+        return f"{_get_handler_path_without_suffix(dest_file, '.py')}.{func}"
     else:
         # isinstance(self.func, Tuple[str, str]) is only possible if using decorator.register_from_file(), which is not allowed in codegen as of now.
         # When allowed, refer to https://github.com/snowflakedb/snowpark-python/blob/v1.15.0/src/snowflake/snowpark/_internal/udf_utils.py#L1092 on resolving handler name
@@ -53,7 +57,7 @@ def _get_object_name_for_udf_sp(
     if object_name.startswith(TEMP_OBJECT_NAME_PREFIX):
         return f"{schema}.{handler}"
     else:
-        return object_name
+        return f"{schema}.{object_name}"
 
 
 def _get_all_imports(raw_imports: List):
@@ -67,18 +71,24 @@ def _get_all_imports(raw_imports: List):
         if isinstance(valid_import, str):
             # Similar to session.add_import("tests/resources/test_udf_dir/test_udf_file.py"), no checks on path being absolute
             # Or session.add_import("/tmp/temp.txt")
-            all_urls.append(valid_import)
+            if valid_import.startswith("/"):
+                all_urls.append(valid_import)
+            else:
+                all_urls.append(f"/{valid_import}")
         else:
             # Similar to session.add_import("tests/resources/test_udf_dir/test_udf_file.py", import_path="resources.test_udf_dir.test_udf_file")'
             # Convert to path on stage
             import_path = valid_import[1]
-            if import_path.ends_with(".py"):
+            if import_path.endswith(".py"):
                 without_suffix = "/".join(import_path.split(".")[:-1])
-                with_suffix = f"{without_suffix}.py"
-                all_urls.append(with_suffix)
+                file_path = f"{without_suffix}.py"
             else:
-                without_suffix = "/".join(import_path.split("."))
-                all_urls.append(without_suffix)
+                file_path = "/".join(import_path.split("."))
+
+            if file_path.startswith("/"):
+                all_urls.append(file_path)
+            else:
+                all_urls.append(f"/{file_path}")
     return ",".join([url if is_single_quoted(url) else f"'{url}'" for url in all_urls])
 
 

@@ -2,7 +2,7 @@ import os
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, Generator, List, Union
+from typing import Dict, Generator, List, Optional, Union
 
 from snowflake.cli.api.secure_utils import file_permissions_are_strict
 
@@ -30,7 +30,9 @@ def assert_file_permissions_are_strict(file_path: Path) -> None:
 
 
 @contextmanager
-def temp_local_dir(files: Dict[str, Union[str, bytes]]) -> Generator[Path, None, None]:
+def temp_local_dir(
+    files: Dict[str, Optional[Union[str, bytes]]]
+) -> Generator[Path, None, None]:
     """
     Creates a temporary local directory structure from a dictionary
     of local paths and their file contents (either strings to be encoded
@@ -40,10 +42,11 @@ def temp_local_dir(files: Dict[str, Union[str, bytes]]) -> Generator[Path, None,
         for relpath, contents in files.items():
             path = Path(tmpdir, relpath)
             path.parent.mkdir(parents=True, exist_ok=True)
-            mode = "wb" if isinstance(contents, bytes) else "w"
-            encoding = None if isinstance(contents, bytes) else "UTF-8"
-            with open(path, mode=mode, encoding=encoding) as fh:
-                fh.write(contents)
+            if path.suffix != "":
+                mode = "wb" if isinstance(contents, bytes) else "w"
+                encoding = None if isinstance(contents, bytes) else "UTF-8"
+                with open(path, mode=mode, encoding=encoding) as fh:
+                    fh.write(contents)
 
         yield Path(tmpdir)
 
