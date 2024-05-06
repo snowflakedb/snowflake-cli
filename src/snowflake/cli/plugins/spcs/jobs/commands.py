@@ -28,7 +28,7 @@ def create(
         exists=True,
     ),
     name: str = typer.Option(
-        ..., "--name", help="Name of the job. If not provided, a random name is generated."
+        None, "--name", help="Name of the job. If not provided, a random name is generated."
     ),
     **options,
 ) -> CommandResult:

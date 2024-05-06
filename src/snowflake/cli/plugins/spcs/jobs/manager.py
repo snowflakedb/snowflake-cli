@@ -7,7 +7,7 @@ from snowflake.connector.cursor import SnowflakeCursor
 
 
 class JobManager(SqlExecutionMixin):
-    def create(self, compute_pool: str, spec_path: Path, name: str) -> SnowflakeCursor:
+    def create(self, compute_pool: str, spec_path: Path, name: str | None) -> SnowflakeCursor:
         spec = self._read_yaml(spec_path)
         return self._execute_schema_query(
             f"""\
