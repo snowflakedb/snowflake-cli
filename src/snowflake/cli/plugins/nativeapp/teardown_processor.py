@@ -17,7 +17,7 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
 )
 from snowflake.cli.plugins.nativeapp.manager import (
-    AppOwnedObjectObject,
+    ApplicationOwnedObject,
     NativeAppCommandProcessor,
     NativeAppManager,
     ensure_correct_owner,
@@ -51,7 +51,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             cc.message(f"Dropped {object_type} {object_name} successfully.")
 
     def _application_objects_to_str(
-        self, application_objects: AppOwnedObjectObject
+        self, application_objects: ApplicationOwnedObject
     ) -> str:
         """
         Returns a list in a "(Object Type) Object Name" format. Database-level and schema-level object names are fully qualified:

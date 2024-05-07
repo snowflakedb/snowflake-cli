@@ -428,7 +428,6 @@
   │                                          application objects owned by the    │
   │                                          application within the account.     │
   │                                          Defaults to false.                  │
-  │                                          [default: no-cascade]               │
   │ --interactive  -i                        When enabled, this option displays  │
   │                                          prompts even if the standard input  │
   │                                          and output are not terminal         │
