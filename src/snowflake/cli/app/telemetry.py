@@ -30,6 +30,8 @@ class CLITelemetryField(Enum):
     COMMAND_GROUP = "command_group"
     COMMAND_FLAGS = "command_flags"
     COMMAND_OUTPUT_TYPE = "command_output_type"
+    # Configuration
+    CONFIG_FEATURE_FLAGS = "config_feature_flags"
     # Information
     EVENT = "event"
     ERROR_MSG = "error_msg"
@@ -84,6 +86,7 @@ class CLITelemetryClient:
             CLITelemetryField.VERSION_CLI: VERSION,
             CLITelemetryField.VERSION_OS: platform.platform(),
             CLITelemetryField.VERSION_PYTHON: python_version(),
+            CLITelemetryField.CONFIG_FEATURE_FLAGS: check_feature_flags_usage(),
             **_find_command_info(),
             **telemetry_payload,
         }
@@ -117,3 +120,12 @@ def log_command_usage():
 @ignore_exceptions()
 def flush_telemetry():
     _telemetry.flush()
+
+
+def check_feature_flags_usage():
+    from snowflake.cli.api.feature_flags import FeatureFlagMixin
+
+    flags = {}
+    for flag_cls in FeatureFlagMixin.__subclasses__():
+        flags.update({f.name: f.is_enabled() for f in flag_cls})
+    return flags
