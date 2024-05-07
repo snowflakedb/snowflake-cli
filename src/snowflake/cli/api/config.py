@@ -323,5 +323,5 @@ def _check_default_config_files_permissions() -> None:
 def get_feature_flags_usage():
     try:
         return get_config_section(*FEATURE_FLAGS_SECTION_PATH)
-    except NonExistentKey:
+    except (NonExistentKey, KeyError):
         return {}

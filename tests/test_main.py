@@ -63,6 +63,7 @@ def test_info_callback(runner):
         {"key": "default_config_file_path", "value": str(CONFIG_MANAGER.file_path)},
         {"key": "python_version", "value": sys.version},
         {"key": "system_info", "value": platform.platform()},
+        {"key": "feature_flags", "value": {"DUMMY_FLAG": True}},
     ]
 
 

@@ -36,6 +36,10 @@ def test_executing_command_sends_telemetry_data(
             "command_flags": {"diag_log_path": "DEFAULT", "format": "DEFAULT"},
             "command_output_type": "TABLE",
             "type": "executing_command",
+            "config_feature_flags": {
+                "ENABLE_NOTEBOOKS": False,
+                "ENABLE_STREAMLIT_EMBEDDED_STAGE": False,
+            },
         },
         "timestamp": "123",
     }

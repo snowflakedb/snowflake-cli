@@ -21,3 +21,7 @@ password = "dummy_password"
 
 [connections.test_connections]
 user = "python"
+
+
+[cli.features]
+DUMMY_FLAG = true
