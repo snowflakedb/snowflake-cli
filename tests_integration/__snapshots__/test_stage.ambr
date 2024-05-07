@@ -27,12 +27,3 @@
     }),
   ])
 # ---
-# name: test_stage_execute.2
-  list([
-    dict({
-      'Error': None,
-      'File': '@db_a3debd7ccbb24e39815282559183cc14.public.test_stage_execute/script_template.sql',
-      'Status': 'SUCCESS',
-    }),
-  ])
-# ---

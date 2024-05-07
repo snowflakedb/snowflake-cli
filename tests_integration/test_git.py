@@ -254,7 +254,7 @@ def test_execute(runner, test_database, sf_git_repository, snapshot):
 
 
 @pytest.mark.integration
-def test_execute_fqn_stage(runner, test_database, sf_git_repository):
+def test_execute_fqn_repo(runner, test_database, sf_git_repository):
     result_fqn = runner.invoke_with_connection_json(
         [
             "git",

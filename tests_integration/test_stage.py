@@ -202,4 +202,10 @@ def test_stage_execute(runner, test_database, test_root_path, snapshot):
         ]
     )
     assert result_fqn.exit_code == 0
-    assert result_fqn.json == snapshot
+    assert result_fqn.json == [
+        {
+            "File": f"@{test_database}.public.{stage_name}/script_template.sql",
+            "Status": "SUCCESS",
+            "Error": None,
+        }
+    ]
