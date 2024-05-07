@@ -3,11 +3,13 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.exceptions import (
+    SnowflakeSQLExecutionError,
+)
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
-from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.cursor import DictCursor
 
 from .manager import StageManager
 
@@ -144,17 +146,36 @@ def strip_stage_name(path: str) -> str:
     return "/".join(path.split("/")[1:])
 
 
-def build_md5_map(list_stage_cursor: SnowflakeCursor) -> Dict[str, str]:
+def build_md5_map(list_stage_cursor: DictCursor) -> Dict[str, str]:
     """
     Returns a mapping of relative stage paths to their md5sums.
     """
     return {
-        strip_stage_name(name): md5
-        for (name, size, md5, modified) in list_stage_cursor.fetchall()
+        strip_stage_name(file["name"]): file["md5"]
+        for file in list_stage_cursor.fetchall()
     }
 
 
-def stage_diff(local_path: Path, stage_fqn: str) -> DiffResult:
+def filter_from_diff(
+    diff: DiffResult, paths_to_sync: Set[str], prune: bool
+) -> List[str]:
+    """Modifies the given diff, keeping only the provided paths. If prune is false, remote-only paths will be empty and the non-removed paths will be returned."""
+    diff.different = [i for i in diff.different if i in paths_to_sync]
+    diff.only_local = [i for i in diff.only_local if i in paths_to_sync]
+    only_on_stage = [i for i in diff.only_on_stage if i in paths_to_sync]
+    files_not_removed = []
+    if prune:
+        diff.only_on_stage = only_on_stage
+    else:
+        files_not_removed = only_on_stage
+        diff.only_on_stage = []
+    return files_not_removed
+
+
+def stage_diff(
+    local_path: Path,
+    stage_fqn: str,
+) -> DiffResult:
     """
     Diffs the files in a stage with a local folder.
     """

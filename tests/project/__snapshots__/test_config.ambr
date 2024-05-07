@@ -7,6 +7,7 @@
       'artifacts': list([
         dict({
           'dest': './',
+          'processors': None,
           'src': 'app/*',
         }),
       ]),
@@ -36,6 +37,7 @@
       'artifacts': list([
         dict({
           'dest': './',
+          'processors': None,
           'src': 'app/*',
         }),
       ]),
@@ -90,6 +92,7 @@
         'app/README.md',
         dict({
           'dest': 'ui/',
+          'processors': None,
           'src': 'app/streamlit/*.py',
         }),
       ]),
@@ -126,6 +129,7 @@
         'app/README.md',
         dict({
           'dest': 'ui/',
+          'processors': None,
           'src': 'app/streamlit/*.py',
         }),
       ]),
