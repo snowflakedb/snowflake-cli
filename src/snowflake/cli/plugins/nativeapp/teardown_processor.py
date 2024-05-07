@@ -121,20 +121,20 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             )
             if cascade is True:
                 cc.message(
-                    f"The following objects are owned by the application and will be dropped:\n{application_objects_str}"
+                    f"The following objects are owned by application {self.app_name} and will be dropped:\n{application_objects_str}"
                 )
             elif cascade is False:
                 cc.message(
-                    f"The following objects are owned by the application but will not be dropped:\n{application_objects_str}"
+                    f"The following objects are owned by application {self.app_name} but will not be dropped:\n{application_objects_str}"
                 )
             elif interactive:
                 if interactive:
                     cascade = typer.confirm(
-                        f"The following objects are owned by application {self.app_name}:\n{application_objects_str}\n\nDo you confirm to delete these?"
+                        f"The following objects are owned by application {self.app_name}:\n{application_objects_str}\n\nDelete these objects along with the application?"
                     )
             else:
                 raise ClickException(
-                    f"The following application objects are owned by this application:\n{application_objects_str}\n\nAborting, re-run teardown again with --cascade or --no-cascade to specify whether these objects should be dropped along with the application."
+                    f"The following application objects are owned application {self.app_name}:\n{application_objects_str}\n\nAborting, re-run teardown again with --cascade or --no-cascade to specify whether these objects should be dropped along with the application."
                 )
         elif cascade is None:
             cascade = False
