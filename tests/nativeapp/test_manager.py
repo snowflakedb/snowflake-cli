@@ -18,11 +18,12 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
 from snowflake.cli.plugins.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
-    _get_paths_to_sync,
+    _get_stage_paths_to_sync,
     ensure_correct_owner,
 )
 from snowflake.cli.plugins.stage.diff import (
     DiffResult,
+    StagePath,
 )
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
@@ -71,7 +72,7 @@ def test_sync_deploy_root_with_stage(
     mock_local_diff_with_stage, mock_stage_diff, mock_execute, temp_dir, mock_cursor
 ):
     mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
-    mock_diff_result = DiffResult(different=["setup.sql"])
+    mock_diff_result = DiffResult(different=[StagePath("setup.sql")])
     mock_stage_diff.return_value = mock_diff_result
     mock_local_diff_with_stage.return_value = None
     current_working_directory = os.getcwd()
@@ -798,5 +799,5 @@ def test_get_paths_to_sync(
     touch("deploy/dir/nested_dir/nested_file3")
 
     paths_to_sync = [Path(p) for p in paths_to_sync]
-    result = _get_paths_to_sync(paths_to_sync, Path("deploy/"))
-    assert result.sort() == expected_result.sort()
+    result = _get_stage_paths_to_sync(paths_to_sync, Path("deploy/"))
+    assert result.sort() == [StagePath(p) for p in expected_result].sort()
