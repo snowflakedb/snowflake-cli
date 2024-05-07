@@ -14,6 +14,9 @@
 ## Fixes and improvements
 * More human-friendly errors in case of corrupted `config.toml` file.
 * Fixed a bug in `snow app` that caused files to be re-uploaded unnecessarily.
+* Optimize snowpark dependency search to lower the size of .zip artifacts and
+  the number of anaconda dependencies for snowpark projects.
+* Added support for fully qualified stage names in stage and git execute commands.
 
 # v2.2.0
 
