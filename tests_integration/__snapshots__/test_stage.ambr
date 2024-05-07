@@ -3,17 +3,17 @@
   list([
     dict({
       'Error': None,
-      'File': 'test_stage_execute/script1.sql',
+      'File': '@test_stage_execute/script1.sql',
       'Status': 'SUCCESS',
     }),
     dict({
       'Error': None,
-      'File': 'test_stage_execute/directory/script2.sql',
+      'File': '@test_stage_execute/directory/script2.sql',
       'Status': 'SUCCESS',
     }),
     dict({
       'Error': None,
-      'File': 'test_stage_execute/directory/subdirectory/script3.sql',
+      'File': '@test_stage_execute/directory/subdirectory/script3.sql',
       'Status': 'SUCCESS',
     }),
   ])
@@ -22,7 +22,7 @@
   list([
     dict({
       'Error': None,
-      'File': 'test_stage_execute/script_template.sql',
+      'File': '@test_stage_execute/script_template.sql',
       'Status': 'SUCCESS',
     }),
   ])
