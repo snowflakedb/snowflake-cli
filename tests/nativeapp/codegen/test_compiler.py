@@ -43,7 +43,7 @@ proj_def = ProjectDefinition(
 def test_try_create_processor_returns_none():
     artifact_to_process = proj_def.native_app.artifacts[2]
     result = _try_create_processor(
-        processor=artifact_to_process.processors,
+        processor_mapping=artifact_to_process.processors,
         project_definition=proj_def.native_app,
         project_root=Path("some/dummy/path"),
         deploy_root=Path("some/dummy/path"),
@@ -58,7 +58,7 @@ def test_try_create_processor_returns_none():
 )
 def test_try_create_processor_returns_processor(artifact_to_process):
     result = _try_create_processor(
-        processor=artifact_to_process.processors[0],
+        processor_mapping=artifact_to_process.processors[0],
         project_definition=proj_def.native_app,
         project_root=Path("some/dummy/path"),
         deploy_root=Path("some/dummy/path"),

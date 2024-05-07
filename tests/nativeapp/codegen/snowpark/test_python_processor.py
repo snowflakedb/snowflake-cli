@@ -3,10 +3,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from snowflake.cli.api.project.schemas.native_app.path_mapping import Processor
-from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
-    MissingProjectDefinitionPropertyError,
-)
+from snowflake.cli.api.project.schemas.native_app.path_mapping import ProcessorMapping
 from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
     ExecutionEnvironmentType,
     SandboxExecutionError,
@@ -23,26 +20,26 @@ from tests.testing_utils.files_and_dirs import temp_local_dir
 @pytest.mark.parametrize(
     "input_param, expected",
     [
-        (Processor(name="dummy", properties={"random": "random"}), {}),
-        (Processor(name="dummy", properties={"env": {"random": "random"}}), {}),
+        (ProcessorMapping(name="dummy", properties={"random": "random"}), {}),
+        (ProcessorMapping(name="dummy", properties={"env": {"random": "random"}}), {}),
         (
-            Processor(
+            ProcessorMapping(
                 name="dummy",
                 properties={"env": {"type": "conda", "name": "snowpark-dev"}},
             ),
             {"env_type": ExecutionEnvironmentType.CONDA, "name": "snowpark-dev"},
         ),
         (
-            Processor(
+            ProcessorMapping(
                 name="dummy", properties={"env": {"type": "venv", "path": "some/path"}}
             ),
             {"env_type": ExecutionEnvironmentType.VENV, "path": "some/path"},
         ),
         (
-            Processor(name="dummy", properties={"env": {"type": "current"}}),
+            ProcessorMapping(name="dummy", properties={"env": {"type": "current"}}),
             {"env_type": ExecutionEnvironmentType.CURRENT},
         ),
-        (Processor(name="dummy", properties={"env": {"type": "other"}}), {}),
+        (ProcessorMapping(name="dummy", properties={"env": {"type": "other"}}), {}),
     ],
 )
 def test_determine_virtual_env(input_param, expected):
@@ -51,15 +48,20 @@ def test_determine_virtual_env(input_param, expected):
 
 
 @pytest.mark.parametrize(
-    "input_param",
+    "input_param, expected",
     [
-        Processor(name="dummy", properties={"env": {"type": "conda"}}),
-        Processor(name="dummy", properties={"env": {"type": "venv"}}),
+        [
+            ProcessorMapping(name="dummy", properties={"env": {"type": "conda"}}),
+            {"env_type": ExecutionEnvironmentType.CONDA, "name": None},
+        ],
+        [
+            ProcessorMapping(name="dummy", properties={"env": {"type": "venv"}}),
+            {"env_type": ExecutionEnvironmentType.VENV, "path": None},
+        ],
     ],
 )
-def test_determine_virtual_env_exception(input_param):
-    with pytest.raises(MissingProjectDefinitionPropertyError):
-        _determine_virtual_env(processor=input_param)
+def test_determine_virtual_env_with_none(input_param, expected):
+    _determine_virtual_env(processor=input_param) == expected
 
 
 def test_get_src_py_file_to_dest_py_file_map_case1(native_app_project_instance):
@@ -79,26 +81,28 @@ def test_get_src_py_file_to_dest_py_file_map_case1(native_app_project_instance):
             {"dest": "stagepath/", "src": "a/b/c/*.py", "processors": ["SNOWPARK"]}
         ]
         artifact_to_process = native_app_project_instance.native_app.artifacts[0]
-        result_1 = SnowparkAnnotationProcessor(
+        snowpark_processor = SnowparkAnnotationProcessor(
             project_definition=native_app_project_instance,
             project_root=local_path,
             deploy_root=Path(local_path, "output/deploy"),
-            processor="SNOWPARK",
-            artifact_to_process=artifact_to_process,
-        ).get_src_py_file_to_dest_py_file_map()
+        )
+        result_1 = snowpark_processor.get_src_py_file_to_dest_py_file_map(
+            artifact_to_process=artifact_to_process
+        )
         assert len(result_1) == 1
 
         native_app_project_instance.native_app.artifacts = [
             {"dest": "stagepath/", "src": "a/b/c/**/*.py", "processors": ["SNOWPARK"]}
         ]
         artifact_to_process = native_app_project_instance.native_app.artifacts[0]
-        result_2 = SnowparkAnnotationProcessor(
+        snowpark_processor = SnowparkAnnotationProcessor(
             project_definition=native_app_project_instance,
             project_root=local_path,
             deploy_root=Path(local_path, "output/deploy"),
-            processor="SNOWPARK",
-            artifact_to_process=artifact_to_process,
-        ).get_src_py_file_to_dest_py_file_map()
+        )
+        result_2 = snowpark_processor.get_src_py_file_to_dest_py_file_map(
+            artifact_to_process=artifact_to_process
+        )
         assert len(result_2) == 2
 
 
@@ -113,13 +117,14 @@ def test_get_src_py_file_to_dest_py_file_map_case1_fails(native_app_project_inst
             {"dest": "stagepath/", "src": "a/b/c/*.py", "processors": ["SNOWPARK"]}
         ]
         artifact_to_process = native_app_project_instance.native_app.artifacts[0]
-        result_1 = SnowparkAnnotationProcessor(
+        snowpark_processor = SnowparkAnnotationProcessor(
             project_definition=native_app_project_instance,
             project_root=local_path,
             deploy_root=Path(local_path, "output/deploy"),
-            processor="SNOWPARK",
-            artifact_to_process=artifact_to_process,
-        ).get_src_py_file_to_dest_py_file_map()
+        )
+        result_1 = snowpark_processor.get_src_py_file_to_dest_py_file_map(
+            artifact_to_process=artifact_to_process
+        )
         assert len(result_1) == 0
 
 
@@ -149,13 +154,14 @@ def test_get_src_py_file_to_dest_py_file_map_case2_case3(
     with temp_local_dir(dir_structure) as local_path:
         native_app_project_instance.native_app.artifacts = custom_artifacts
         artifact_to_process = native_app_project_instance.native_app.artifacts[0]
-        result_1 = SnowparkAnnotationProcessor(
+        snowpark_processor = SnowparkAnnotationProcessor(
             project_definition=native_app_project_instance,
             project_root=local_path,
             deploy_root=Path(local_path, "output/deploy"),
-            processor="SNOWPARK",
-            artifact_to_process=artifact_to_process,
-        ).get_src_py_file_to_dest_py_file_map()
+        )
+        result_1 = snowpark_processor.get_src_py_file_to_dest_py_file_map(
+            artifact_to_process=artifact_to_process
+        )
         assert len(result_1) == 2
 
 
@@ -174,13 +180,14 @@ def test_get_src_py_file_to_dest_py_file_map_case4(native_app_project_instance):
             }
         ]
         artifact_to_process = native_app_project_instance.native_app.artifacts[0]
-        result_1 = SnowparkAnnotationProcessor(
+        snowpark_processor = SnowparkAnnotationProcessor(
             project_definition=native_app_project_instance,
             project_root=local_path,
             deploy_root=Path(local_path, "output/deploy"),
-            processor="SNOWPARK",
-            artifact_to_process=artifact_to_process,
-        ).get_src_py_file_to_dest_py_file_map()
+        )
+        result_1 = snowpark_processor.get_src_py_file_to_dest_py_file_map(
+            artifact_to_process=artifact_to_process
+        )
         assert len(result_1) == 1
 
 
@@ -208,9 +215,10 @@ def test_process_exception(mock_sandbox, native_app_project_instance):
             project_definition=native_app_project_instance,
             project_root=local_path,
             deploy_root=Path(local_path, "output/deploy"),
-            processor="SNOWPARK",
+        ).process(
             artifact_to_process=artifact_to_process,
-        ).process()
+            processor_mapping=ProcessorMapping(name="SNOWPARK"),
+        )
         assert len(result_1) == 1
         assert list(result_1.values())[0] is None
 

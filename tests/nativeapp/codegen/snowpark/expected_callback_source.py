@@ -23,6 +23,7 @@ if not found_correct_version:
     )
     sys.exit(1)
 
+orig_globals = globals().copy()
 
 __snowflake_cli_native_app_internal_callback_return_list: List[Any] = []
 
@@ -34,60 +35,41 @@ def __snowflake_cli_native_app_internal_callback_replacement():
         extension_function_properties,
     ):
 
-        extension_function_dict = {}
-        extension_function_dict[
-            "object_type"
-        ] = extension_function_properties.object_type.name
-        extension_function_dict[
-            "object_name"
-        ] = extension_function_properties.object_name
-        extension_function_dict["input_args"] = [
-            {"name": input_arg.name, "datatype": input_arg.datatype.__name__}
-            for input_arg in extension_function_properties.input_args
-        ]
-        extension_function_dict[
-            "input_sql_types"
-        ] = extension_function_properties.input_sql_types
-        extension_function_dict["return_sql"] = extension_function_properties.return_sql
-        extension_function_dict[
-            "runtime_version"
-        ] = extension_function_properties.runtime_version
-        extension_function_dict[
-            "all_imports"
-        ] = extension_function_properties.all_imports
-        extension_function_dict[
-            "all_packages"
-        ] = extension_function_properties.all_packages
-        extension_function_dict["handler"] = extension_function_properties.handler
-        extension_function_dict[
-            "external_access_integrations"
-        ] = extension_function_properties.external_access_integrations
-        extension_function_dict["secrets"] = extension_function_properties.secrets
-        extension_function_dict[
-            "inline_python_code"
-        ] = extension_function_properties.inline_python_code
-        extension_function_dict[
-            "raw_imports"
-        ] = extension_function_properties.raw_imports
-        extension_function_dict["replace"] = extension_function_properties.replace
-        extension_function_dict[
-            "if_not_exists"
-        ] = extension_function_properties.if_not_exists
-        extension_function_dict["execute_as"] = extension_function_properties.execute_as
-        extension_function_dict["anonymous"] = extension_function_properties.anonymous
-        # Set func based on type
-        raw_func = extension_function_properties.func
-        extension_function_dict["func"] = (
-            raw_func.__name__ if isinstance(raw_func, Callable) else raw_func
-        )
+        ext_fn = extension_function_properties
+        extension_function_dict = {
+            "object_type": ext_fn.object_type.name,
+            "object_name": ext_fn.object_name,
+            "input_args": [
+                {"name": input_arg.name, "datatype": input_arg.datatype.__name__}
+                for input_arg in ext_fn.input_args
+            ],
+            "input_sql_types": ext_fn.input_sql_types,
+            "return_sql": ext_fn.return_sql,
+            "runtime_version": ext_fn.runtime_version,
+            "all_imports": ext_fn.all_imports,
+            "all_packages": ext_fn.all_packages,
+            "handler": ext_fn.handler,
+            "external_access_integrations": ext_fn.external_access_integrations,
+            "secrets": ext_fn.secrets,
+            "inline_python_code": ext_fn.inline_python_code,
+            "raw_imports": ext_fn.raw_imports,
+            "replace": ext_fn.replace,
+            "if_not_exists": ext_fn.if_not_exists,
+            "execute_as": ext_fn.execute_as,
+            "anonymous": ext_fn.anonymous,
+            # Set func based on type
+            "func": ext_fn.func.__name__
+            if isinstance(ext_fn.func, Callable)
+            else ext_fn.func,
+        }
         # Set native app params based on dictionary
-        if extension_function_properties.native_app_params is not None:
-            extension_function_dict[
-                "schema"
-            ] = extension_function_properties.native_app_params["schema"]
-            extension_function_dict[
-                "application_roles"
-            ] = extension_function_properties.native_app_params["application_roles"]
+        if ext_fn.native_app_params is not None:
+            extension_function_dict["schema"] = ext_fn.native_app_params.get(
+                "schema", None
+            )
+            extension_function_dict["application_roles"] = ext_fn.native_app_params.get(
+                "application_roles", None
+            )
         else:
             extension_function_dict["schema"] = extension_function_dict[
                 "application_roles"
@@ -126,10 +108,8 @@ snowflake.snowpark.session._is_execution_environment_sandboxed_for_client = (  #
     True
 )
 
-del globals()["__snowflake_cli_native_app_internal_callback_replacement"]
-
 try:
-    exec(code, globals())
+    exec(code, orig_globals)
 except Exception as exc:  # Catch any error
     print("An exception occurred while executing file: ", exc, file=sys.stderr)
     sys.exit(1)

@@ -41,12 +41,18 @@ def temp_local_dir(
     with tempfile.TemporaryDirectory() as tmpdir:
         for relpath, contents in files.items():
             path = Path(tmpdir, relpath)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            if path.suffix != "":
-                mode = "wb" if isinstance(contents, bytes) else "w"
-                encoding = None if isinstance(contents, bytes) else "UTF-8"
-                with open(path, mode=mode, encoding=encoding) as fh:
-                    fh.write(contents)
+            if path.is_file():
+                path.parent.mkdir(parents=True, exist_ok=True)
+                if contents is None:
+                    f = open(path, "x")
+                    f.close()
+                else:
+                    mode = "wb" if isinstance(contents, bytes) else "w"
+                    encoding = None if isinstance(contents, bytes) else "UTF-8"
+                    with open(path, mode=mode, encoding=encoding) as fh:
+                        fh.write(contents)
+            else:
+                path.mkdir(parents=True, exist_ok=True)
 
         yield Path(tmpdir)
 

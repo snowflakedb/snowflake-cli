@@ -11,11 +11,12 @@ import snowflake.cli.plugins.nativeapp.codegen.snowpark.extension_function_utils
         ("a/b/c/d.py", "a.b.c.d"),
         ("a/b/c/d.jar", "a.b.c.d.jar"),
         ("/a/b/c/d.py", "a.b.c.d"),
+        ("/a/b/c/d.py.zip", "a.b.c.d.py.zip"),  # TODO: what do we want to do here?
     ],
 )
 def test_get_handler_path_without_suffix(input_param, expected):
     actual = ef_utils._get_handler_path_without_suffix(  # noqa: SLF001
-        Path(input_param), ".py"
+        file_path=Path(input_param), suffix_str_to_rm=".py", deploy_root=Path("a/")
     )
     assert actual == expected
 
@@ -52,7 +53,7 @@ def test_get_handler(dest_file, func, expected):
     ],
 )
 def test_get_object_name_for_udf_sp(object_name, schema, handler, expected):
-    actual = ef_utils._get_object_name_for_udf_sp(  # noqa: SLF001
+    actual = ef_utils._get_schema_and_name_for_extension_function(  # noqa: SLF001
         object_name, schema, handler
     )
     assert actual == expected

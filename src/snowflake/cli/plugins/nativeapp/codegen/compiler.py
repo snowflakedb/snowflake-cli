@@ -1,10 +1,10 @@
 from pathlib import Path
-from typing import Optional, Union
+from typing import Dict, Optional
 
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
-    Processor,
+    ProcessorMapping,
 )
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
     ArtifactProcessor,
@@ -16,26 +16,29 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
 
 SNOWPARK_PROCESSOR = "snowpark"
 
+# Singleton dictionary of all processors created and shared between different artifact objects
+cached_processors: Dict[str, ArtifactProcessor] = {}
+
 
 def _try_create_processor(
-    processor: Union[str, Processor],
+    processor_mapping: ProcessorMapping,
     project_definition: NativeApp,
     project_root: Path,
     deploy_root: Path,
-    artifact_to_process: PathMapping,
     **kwargs,
 ) -> Optional[ArtifactProcessor]:
-    if (isinstance(processor, str) and processor.lower() == SNOWPARK_PROCESSOR) or (
-        isinstance(processor, Processor)
-        and processor.name.lower() == SNOWPARK_PROCESSOR
-    ):
-        return SnowparkAnnotationProcessor(
-            project_definition=project_definition,
-            project_root=project_root,
-            deploy_root=deploy_root,
-            artifact_to_process=artifact_to_process,
-            processor=processor,
-        )
+    if processor_mapping.name.lower() == SNOWPARK_PROCESSOR:
+        curr_processor = cached_processors.get(SNOWPARK_PROCESSOR, None)
+        if curr_processor is not None:
+            return curr_processor
+        else:
+            curr_processor = SnowparkAnnotationProcessor(
+                project_definition=project_definition,
+                project_root=project_root,
+                deploy_root=deploy_root,
+            )
+            cached_processors[SNOWPARK_PROCESSOR] = curr_processor
+            return curr_processor
     else:
         return None
 
@@ -58,12 +61,13 @@ def _find_and_execute_processors(
                 project_definition=project_definition,
                 project_root=project_root,
                 deploy_root=deploy_root,
-                artifact_to_process=artifact,
-                processor=processor,
+                processor_mapping=processor,
             )
             if artifact_processor is None:
                 raise MissingProjectDefinitionPropertyError(
                     f"{processor if isinstance(processor, str) else processor.name} is not a valid processor type for artifacts in the project definition file."
                 )
             else:
-                artifact_processor.process()
+                artifact_processor.process(
+                    artifact_to_process=artifact, processor_mapping=processor
+                )

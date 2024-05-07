@@ -21,23 +21,6 @@ with open(
     rendered_src = udf_code.read()
 
 
-def test_renderinhg():
-    current_working_directory = os.getcwd()
-
-    callback_path = create_named_file(
-        file_name="callback_source__.py",
-        dir_name=current_working_directory,
-        contents=[],
-    )
-    jinja_render_from_file(
-        template_path=Path(
-            "./src/snowflake/cli/plugins/nativeapp/codegen/snowpark/callback_source.py.jinja"
-        ),
-        data={"py_file": "dummy_file.py"},
-        output_file_path=Path(callback_path),
-    )
-
-
 def test_rendering(temp_dir):
     current_working_directory = os.getcwd()
     jinja_path = create_named_file(
@@ -63,31 +46,3 @@ def test_rendering(temp_dir):
     )
 
     assert filecmp.cmp(callback_path, expected_path, shallow=False)
-
-
-def test_other_stuff(temp_dir):
-    current_working_directory = os.getcwd()
-    jinja_path = create_named_file(
-        file_name="callback_source.py.jinja",
-        dir_name=current_working_directory,
-        contents=[jinja_src],
-    )
-    callback_path = create_named_file(
-        file_name="callback_source.py",
-        dir_name=current_working_directory,
-        contents=[],
-    )
-
-    exec_path = create_named_file(
-        file_name="exec_source.py",
-        dir_name=current_working_directory,
-        contents=[],
-    )
-
-    script_source = jinja_render_from_file(
-        template_path=Path(jinja_path),
-        data={"py_file": "dummy_file.py"},
-        output_file_path=Path(callback_path),
-    )
-
-    # TODO: add stuff?

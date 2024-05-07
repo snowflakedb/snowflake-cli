@@ -1,22 +1,19 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
-    Processor,
+    ProcessorMapping,
 )
 from snowflake.cli.api.utils.rendering import jinja_render_from_file
 from snowflake.cli.plugins.nativeapp.artifacts import (
     is_glob,
     resolve_without_follow,
 )
-from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
-    ArtifactProcessor,
-    MissingProjectDefinitionPropertyError,
-)
+from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import ArtifactProcessor
 from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
     ExecutionEnvironmentType,
     SandboxExecutionError,
@@ -34,7 +31,7 @@ from snowflake.cli.plugins.nativeapp.utils import (
 DEFAULT_TIMEOUT = 30
 
 
-def _determine_virtual_env(processor: Processor) -> Dict[str, Any]:
+def _determine_virtual_env(processor: ProcessorMapping) -> Dict[str, Any]:
     """
     Determines a virtual environment to run the Snowpark processor in, either through the project definition or by querying the current environment.
     """
@@ -50,14 +47,14 @@ def _determine_virtual_env(processor: Processor) -> Dict[str, Any]:
     if env_type.upper() == ExecutionEnvironmentType.CONDA.name:
         env_name = env_props.get("name", None)
         if env_name is None:
-            raise MissingProjectDefinitionPropertyError(
+            cc.warning(
                 "No name found in project definition file for the conda environment to run the Snowpark processor in. Will attempt to auto-detect the current conda environment."
             )
         return {"env_type": ExecutionEnvironmentType.CONDA, "name": env_name}
     elif env_type.upper() == ExecutionEnvironmentType.VENV.name:
         env_path = env_props.get("path", None)
         if env_path is None:
-            raise MissingProjectDefinitionPropertyError(
+            cc.warning(
                 "No path found in project definition file for the conda environment to run the Snowpark processor in. Will attempt to auto-detect the current venv path."
             )
         return {
@@ -97,6 +94,13 @@ def _execute_in_sandbox(
         )
         return None
 
+    if completed_process.returncode != 0:
+        cc.warning(
+            f"Could not fetch Snowpark objects from {py_file} due to the following error:\n {completed_process.stderr}"
+        )
+        cc.warning("Continuing execution for the rest of the python files.")
+        return None
+
     try:
         return json.loads(completed_process.stdout)
     except Exception as exc:
@@ -104,7 +108,7 @@ def _execute_in_sandbox(
             f"Could not load JSON into python due to the following exception: {exc}"
         )
         cc.warning(f"Continuing execution for the rest of the python files.")
-        return []
+        return None
 
 
 def _add_py_file_dest_to_dict(
@@ -131,35 +135,36 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         project_definition: NativeApp,
         project_root: Path,
         deploy_root: Path,
-        artifact_to_process: PathMapping,
-        processor: Union[str, Processor],
     ):
         super().__init__(
             project_definition=project_definition,
             project_root=project_root,
             deploy_root=deploy_root,
-            artifact_to_process=artifact_to_process,
         )
         self.project_definition = project_definition
         self.project_root = project_root
         self.deploy_root = deploy_root
-        self.artifact_to_process = artifact_to_process
-        self.processor = processor
 
-        self.kwargs = (
-            _determine_virtual_env(processor)
-            if isinstance(processor, Processor)
-            else {}
-        )
-
-    def process(self) -> Dict[Path, Optional[Any]]:
+    def process(
+        self,
+        artifact_to_process: PathMapping,
+        processor_mapping: Optional[ProcessorMapping],
+    ) -> Dict[Path, Optional[Any]]:
         """
         Intended to be the main method which can perform all relevant processing, and/or write to a target file, which depends on the type of processor.
         For SnowparkAnnotationProcessor, the target file is the setup script.
         """
 
+        kwargs = (
+            _determine_virtual_env(processor_mapping)
+            if processor_mapping is not None
+            else {}
+        )
+
         # 1. Get all src.py -> dest.py mapping
-        src_py_file_to_dest_py_file_map = self.get_src_py_file_to_dest_py_file_map()
+        src_py_file_to_dest_py_file_map = self.get_src_py_file_to_dest_py_file_map(
+            artifact_to_process
+        )
 
         # 2. Get entities through Snowpark callback
         src_py_file_to_collected_entities: Dict[Path, Optional[Any]] = {}
@@ -169,7 +174,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                     collected_entities = _execute_in_sandbox(
                         py_file=str(dest_file.resolve()),
                         deploy_root=self.deploy_root,
-                        kwargs=self.kwargs,
+                        kwargs=kwargs,
                     )
                 except Exception as exc:
                     cc.warning(
@@ -187,22 +192,30 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
 
                 # 4. Enrich entities by setting additional properties
                 for entity in collected_entities:
-                    _enrich_entity(entity=entity, py_file=dest_file)
+                    _enrich_entity(
+                        entity=entity,
+                        py_file=dest_file,
+                        deploy_root=self.deploy_root,
+                        suffix_str=".py",
+                    )
 
         # TODO: Temporary for testing, while feature is being built in phases
         return src_py_file_to_collected_entities
 
-    def get_src_py_file_to_dest_py_file_map(self) -> Dict[Path, Path]:
+    def get_src_py_file_to_dest_py_file_map(
+        self,
+        artifact_to_process: PathMapping,
+    ) -> Dict[Path, Path]:
         """
         For the project definition for a native app, find the mapping between src python files and their destination python files.
         """
 
         src_py_file_to_dest_py_file_map: Dict[Path, Path] = {}
-        artifact_src = self.artifact_to_process.src
+        artifact_src = artifact_to_process.src
 
         resolved_root = self.deploy_root.resolve()
         dest_path = resolve_without_follow(
-            Path(resolved_root, self.artifact_to_process.dest)
+            Path(resolved_root, artifact_to_process.dest)
         )
 
         # Case 1: When artifact has the following src/dest pairing
@@ -258,9 +271,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         # Case 4: When artifact has the following src/dest pairing
         # src: john/doe/folder1/main.py
         # dest: stagepath/stagemain.py
-        elif artifact_src.endswith(".py") and self.artifact_to_process.dest.endswith(
-            ".py"
-        ):
+        elif artifact_src.endswith(".py") and artifact_to_process.dest.endswith(".py"):
             if dest_path.exists():
                 src_py_file_to_dest_py_file_map[
                     Path(self.project_root, artifact_src)
