@@ -167,6 +167,13 @@ def download_unavailable_packages(
             anaconda_packages=anaconda_packages,
             skip_version_check=skip_version_check,
         )
+        log.info(
+            "Downloaded packages: %s",
+            ", ".join(
+                dep.requirement.name
+                for dep in dependencies.unavailable_dependencies_wheels
+            ),
+        )
         _log_dependencies_found_in_conda(dependencies.snowflake_dependencies)
         omitted_packages += dependencies.snowflake_dependencies
 
