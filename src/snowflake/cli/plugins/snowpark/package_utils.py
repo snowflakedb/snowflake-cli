@@ -132,13 +132,13 @@ def download_unavailable_packages(
     split_requirements = anaconda_packages.filter_available_packages(
         requirements, skip_version_check=skip_version_check
     )
-    omitted_packages = split_requirements.in_snowflake
+    packages_in_snowflake = split_requirements.in_snowflake
     requirements = split_requirements.unavailable
     if not requirements:
         # all packages are available in Snowflake
         return DownloadUnavailablePackagesResult(
             succeeded=True,
-            anaconda_packages=omitted_packages,
+            anaconda_packages=packages_in_snowflake,
         )
 
     # download all packages with their dependencies
@@ -175,7 +175,7 @@ def download_unavailable_packages(
             ),
         )
         _log_dependencies_found_in_conda(dependencies.snowflake_dependencies)
-        omitted_packages += dependencies.snowflake_dependencies
+        packages_in_snowflake += dependencies.snowflake_dependencies
 
         # move filtered packages to target directory
         target_dir.mkdir(exist_ok=True)
@@ -183,7 +183,7 @@ def download_unavailable_packages(
             package.extract_files(target_dir.path)
         return DownloadUnavailablePackagesResult(
             succeeded=True,
-            anaconda_packages=omitted_packages,
+            anaconda_packages=packages_in_snowflake,
             downloaded_packages_details=[
                 RequirementWithFiles(requirement=dep.requirement, files=dep.namelist())
                 for dep in dependencies.unavailable_dependencies_wheels
@@ -249,18 +249,18 @@ def split_downloaded_dependencies(
         )
         if meta is not None
     }
-    snowflake_dependencies: Dict = {}
+    available_in_snowflake_dependencies: Dict = {}
     unavailable_dependencies: Dict = {}
 
     def _get_dependencies(package: Requirement):
-        if not (
-            package.name in snowflake_dependencies
-            or package.name in unavailable_dependencies
+        if (
+            package.name not in available_in_snowflake_dependencies
+            and package.name not in unavailable_dependencies
         ):
             if anaconda_packages.is_package_available(
                 package, skip_version_check=skip_version_check
             ):
-                snowflake_dependencies[package.name] = package
+                available_in_snowflake_dependencies[package.name] = package
             else:
                 meta = packages_metadata.get(
                     WheelMetadata.to_wheel_name_format(package.name)
@@ -284,7 +284,7 @@ def split_downloaded_dependencies(
             _get_dependencies(Requirement.parse_line(line))
 
     return SplitDownloadedDependenciesResult(
-        snowflake_dependencies=list(snowflake_dependencies.values()),
+        snowflake_dependencies=list(available_in_snowflake_dependencies.values()),
         unavailable_dependencies_wheels=list(unavailable_dependencies.values()),
     )
 
