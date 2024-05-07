@@ -40,7 +40,7 @@ class Callable(UpdatableModel):
     )
     secrets: Optional[Dict[str, str]] = Field(
         title="Assigns the names of secrets to variables so that you can use the variables to reference the secrets",
-        default={},
+        default=[],
     )
     imports: Optional[List[str]] = Field(
         title="Stage and path to previously uploaded files you want to import",
