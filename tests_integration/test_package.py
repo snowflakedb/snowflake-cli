@@ -1,5 +1,4 @@
 import os
-import sys
 import tempfile
 from pathlib import Path
 from typing import List
@@ -8,9 +7,6 @@ from zipfile import ZipFile
 import pytest
 
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
-from tests_integration.testing_utils.assertions.test_result_assertions import (
-    assert_that_result_is_successful,
-)
 
 
 class TestPackage:
@@ -161,10 +157,7 @@ class TestPackage:
         assert Path("july.zip").exists()
         files = self._get_filenames_from_zip("july.zip")
         # july is not available on anaconda
-        # packaging dependency defines extras
-        assert all(
-            [name.startswith("july") or name.startswith("packaging") for name in files]
-        )
+        assert all([name.startswith("july") for name in files])
 
     @pytest.mark.integration
     def test_package_from_github(self, directory_for_test, runner):
