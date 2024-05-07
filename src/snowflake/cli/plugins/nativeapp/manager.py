@@ -57,7 +57,7 @@ from snowflake.cli.plugins.stage.diff import (
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
-ApplicationObject = TypedDict("ApplicationObject", {"name": str, "type": str})
+AppOwnedObjectObject = TypedDict("AppOwnedObjectObject", {"name": str, "type": str})
 
 
 def generic_sql_error_handler(
@@ -407,7 +407,7 @@ class NativeAppManager(SqlExecutionMixin):
                 "application packages", self.package_name, name_col=NAME_COL
             )
 
-    def get_application_objects(self) -> List[ApplicationObject]:
+    def get_objects_owned_by_application(self) -> List[AppOwnedObjectObject]:
         """
         Returns all application objects owned by this application.
         """

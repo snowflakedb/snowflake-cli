@@ -17,7 +17,7 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
 )
 from snowflake.cli.plugins.nativeapp.manager import (
-    ApplicationObject,
+    AppOwnedObjectObject,
     NativeAppCommandProcessor,
     NativeAppManager,
     ensure_correct_owner,
@@ -51,12 +51,13 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             cc.message(f"Dropped {object_type} {object_name} successfully.")
 
     def _application_objects_to_str(
-        self, application_objects: ApplicationObject
+        self, application_objects: AppOwnedObjectObject
     ) -> str:
         """
-        Returns a list in a "(Object Type) Object Name" format:
-        (COMPUTE_POOL) ObjectName1
-        (COMPUTE_POOL) ObjectName2
+        Returns a list in a "(Object Type) Object Name" format. Database-level and schema-level object names are fully qualified:
+        (COMPUTE_POOL) POOL_NAME
+        (DATABASE) DB_NAME
+        (SCHEMA) DB_NAME.PUBLIC
         ...
         """
         return "\n".join(
@@ -113,33 +114,27 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                     return  # The user desires to keep the app, therefore exit gracefully
 
         # 4. Check for application objects owned by the application
-        application_objects = self.get_application_objects()
+        application_objects = self.get_objects_owned_by_application()
         if len(application_objects) > 0:
             application_objects_str = self._application_objects_to_str(
                 application_objects
             )
             if cascade is True:
                 cc.message(
-                    f"The following application objects will be deleted:\n{application_objects_str}"
+                    f"The following objects are owned by the application and will be dropped:\n{application_objects_str}"
                 )
             elif cascade is False:
                 cc.message(
-                    f"The following application objects will not be deleted:\n{application_objects_str}"
+                    f"The following objects are owned by the application but will not be dropped:\n{application_objects_str}"
                 )
             elif interactive:
                 if interactive:
                     cascade = typer.confirm(
-                        f"The following application objects are owned by this application:\n{application_objects_str}\n\nDo you confirm to delete these?"
+                        f"The following objects are owned by application {self.app_name}:\n{application_objects_str}\n\nDo you confirm to delete these?"
                     )
             else:
                 raise ClickException(
-                    dedent(
-                        f"""\
-                    The following application objects are owned by this application:
-                    {application_objects_str}
-                    Please explicitly specify --cascade if they should be deleted, or transfer ownership and run teardown again.
-                """
-                    )
+                    f"The following application objects are owned by this application:\n{application_objects_str}\n\nAborting, re-run teardown again with --cascade or --no-cascade to specify whether these objects should be dropped along with the application."
                 )
         elif cascade is None:
             cascade = False
