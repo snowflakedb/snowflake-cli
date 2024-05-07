@@ -3,7 +3,7 @@
   list([
     dict({
       'Error': None,
-      'File': 'snowcli_testing_repo/branches/main/tests_integration/test_data/projects/stage_execute/script_template.sql',
+      'File': '@SNOWCLI_TESTING_REPO/branches/main/tests_integration/test_data/projects/stage_execute/script_template.sql',
       'Status': 'SUCCESS',
     }),
   ])

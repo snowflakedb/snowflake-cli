@@ -400,20 +400,43 @@ def test_setup_create_secret_create_api(
 
 
 @pytest.mark.parametrize(
-    "repository_path, expected_files",
+    "repository_path, expected_stage, expected_files",
     [
         (
             "@repo/branches/main/",
-            ["repo/branches/main/s1.sql", "repo/branches/main/a/s3.sql"],
+            "@repo/branches/main/",
+            ["@repo/branches/main/s1.sql", "@repo/branches/main/a/s3.sql"],
         ),
         (
             "@repo/branches/main/a",
-            ["repo/branches/main/a/s3.sql"],
+            "@repo/branches/main/",
+            ["@repo/branches/main/a/s3.sql"],
+        ),
+        (
+            "@db.schema.repo/branches/main/",
+            "@db.schema.repo/branches/main/",
+            [
+                "@db.schema.repo/branches/main/s1.sql",
+                "@db.schema.repo/branches/main/a/s3.sql",
+            ],
+        ),
+        (
+            "@db.schema.repo/branches/main/s1.sql",
+            "@db.schema.repo/branches/main/",
+            ["@db.schema.repo/branches/main/s1.sql"],
         ),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_execute(mock_execute, mock_cursor, runner, repository_path, expected_files):
+def test_execute(
+    mock_execute,
+    mock_cursor,
+    runner,
+    repository_path,
+    expected_stage,
+    expected_files,
+    snapshot,
+):
     mock_execute.return_value = mock_cursor(
         [
             {"name": "repo/branches/main/a/s3.sql"},
@@ -427,10 +450,11 @@ def test_execute(mock_execute, mock_cursor, runner, repository_path, expected_fi
 
     assert result.exit_code == 0, result.output
     ls_call, *execute_calls = mock_execute.mock_calls
-    assert ls_call == mock.call(f"ls @repo/branches/main/", cursor_class=DictCursor)
+    assert ls_call == mock.call(f"ls {expected_stage}", cursor_class=DictCursor)
     assert execute_calls == [
-        mock.call(f"execute immediate from @{p}") for p in expected_files
+        mock.call(f"execute immediate from {p}") for p in expected_files
     ]
+    assert result.output == snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
