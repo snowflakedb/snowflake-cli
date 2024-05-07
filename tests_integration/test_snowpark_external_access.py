@@ -1,14 +1,15 @@
 import pytest
 
+from tests.testing_utils.fixtures import alter_snowflake_yml
 from tests_integration.testing_utils import SnowparkTestSetup, SnowparkTestSteps
 
 STAGE_NAME = "dev_deployment"
 
 
 @pytest.mark.integration
-def test_snowpark_external_access(project_directory, _test_steps, test_database):
+def test_snowpark_external_access(project_directory, _test_steps, test_database, alter_snowflake_yml):
 
-    with project_directory("snowpark_external_access"):
+    with project_directory("snowpark_external_access") as tmp_dir:
         _test_steps.snowpark_build_should_zip_files()
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
@@ -37,6 +38,36 @@ def test_snowpark_external_access(project_directory, _test_steps, test_database)
             expected_value="200",
         )
 
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path = "snowpark.functions.0.external_access_integrations.0",
+            value="TEST_INTEGRATION"
+        )
+
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path = "snowpark.procedures.0.external_access_integrations.0",
+            value="TEST_INTEGRATION"
+        )
+
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            additional_arguments=["--replace", "--debug"],
+            expected_result=[
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.STATUS_PROCEDURE()",
+                    "status": "created",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.STATUS_FUNCTION()",
+                    "status": "created",
+                    "type": "function",
+                },
+            ]
+        )
+
+def test_snowpark_upgrades_with_external_access():
+    pass
 
 @pytest.fixture
 def _test_setup(
