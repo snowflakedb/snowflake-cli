@@ -3,7 +3,6 @@ from textwrap import dedent
 from typing import Dict, Optional
 
 import typer
-from click import ClickException
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.plugins.nativeapp.constants import (
@@ -139,9 +138,10 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                     else:
                         raise typer.Abort()
             else:
-                raise ClickException(
-                    f"The following application objects are owned application {self.app_name}:\n{application_objects_str}\n\nAborting, re-run teardown again with --cascade or --no-cascade to specify whether these objects should be dropped along with the application."
+                cc.message(
+                    f"The following application objects are owned application {self.app_name}:\n{application_objects_str}\n\nRe-run teardown again with --cascade or --no-cascade to specify whether these objects should be dropped along with the application."
                 )
+                raise typer.Abort()
         elif cascade is None:
             cascade = False
 

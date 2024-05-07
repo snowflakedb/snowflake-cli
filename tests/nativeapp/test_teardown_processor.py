@@ -2,7 +2,7 @@ import os
 from unittest import mock
 
 import pytest
-from click import ClickException
+from click import Abort
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.constants import (
     SPECIAL_COMMENT,
@@ -30,6 +30,7 @@ from tests.nativeapp.utils import (
     TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO,
     TEARDOWN_PROCESSOR_IS_CORRECT_OWNER,
     TYPER_CONFIRM,
+    TYPER_PROMPT,
     mock_execute_helper,
     mock_snowflake_yml_file,
     quoted_override_yml_file,
@@ -1016,7 +1017,7 @@ def test_drop_package_idempotent(
     mock_execute.mock_calls == expected
 
 
-@mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}")
+@mock.patch(f"{TEARDOWN_MODULE}.{TYPER_PROMPT}")
 @mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
@@ -1034,8 +1035,9 @@ def test_drop_package_idempotent(
         [None, [], None, False],
         [None, [{"type": "DATABASE", "name": "db"}], None, None],
         # Interactive
-        [None, [{"type": "DATABASE", "name": "db"}], True, True],
-        [None, [{"type": "DATABASE", "name": "db"}], False, False],
+        [None, [{"type": "DATABASE", "name": "db"}], "yes", True],
+        [None, [{"type": "DATABASE", "name": "db"}], "no", False],
+        [None, [{"type": "DATABASE", "name": "db"}], "abort", None],
     ],
 )
 def test_drop_application_cascade(
@@ -1043,7 +1045,7 @@ def test_drop_application_cascade(
     mock_drop_generic_object,
     mock_is_correct_owner,
     mock_get_existing_app_info,
-    mock_typer_confirm,
+    mock_typer_prompt,
     cascade,
     application_objects,
     interactive_response,
@@ -1063,11 +1065,11 @@ def test_drop_application_cascade(
         contents=[mock_snowflake_yml_file],
     )
     interactive = interactive_response is not None
-    mock_typer_confirm.return_value = interactive_response
+    mock_typer_prompt.return_value = interactive_response
 
     teardown_processor = _get_na_teardown_processor()
     if expected_cascade is None:
-        with pytest.raises(ClickException):
+        with pytest.raises(Abort):
             teardown_processor.drop_application(False, interactive, cascade)
     else:
         teardown_processor.drop_application(False, interactive, cascade)

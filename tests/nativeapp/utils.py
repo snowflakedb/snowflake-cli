@@ -4,6 +4,7 @@ from textwrap import dedent
 NATIVEAPP_MODULE = "snowflake.cli.plugins.nativeapp.manager"
 TEARDOWN_MODULE = "snowflake.cli.plugins.nativeapp.teardown_processor"
 TYPER_CONFIRM = "typer.confirm"
+TYPER_PROMPT = "typer.prompt"
 RUN_MODULE = "snowflake.cli.plugins.nativeapp.run_processor"
 VERSION_MODULE = "snowflake.cli.plugins.nativeapp.version.version_processor"
 
