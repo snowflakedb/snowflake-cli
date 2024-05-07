@@ -11,7 +11,7 @@ requires-python = ">=3.8"
 description = "Snowflake CLI"
 readme = "README.md"
 dependencies = [
-  "jinja2==3.1.3",
+  "jinja2==3.1.4",
   "pluggy==1.5.0",
   "PyYAML==6.0.1",
   "rich==13.7.1",
