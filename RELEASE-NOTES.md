@@ -10,6 +10,7 @@
   * Passing files and directories as arguments syncs these only: `snow app deploy some-file some-dir`.
   * `--recursive` syncs all files and subdirectories recursively.
   * `--prune` deletes specified files from the stage if they don't exist locally.
+* Added `--cascade` option to `snow app teardown` that will also drop all application objects that are owned by the application.
 
 ## Fixes and improvements
 * More human-friendly errors in case of corrupted `config.toml` file.
