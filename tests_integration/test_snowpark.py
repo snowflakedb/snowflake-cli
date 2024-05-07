@@ -717,6 +717,20 @@ def test_build_shared_libraries_error(
 
 
 @pytest.mark.integration
+def test_dependency_search_optimization(
+    runner, project_directory, alter_requirements_txt
+):
+    with project_directory("snowpark") as tmp_dir:
+        alter_requirements_txt(tmp_dir / "requirements.txt", ["july"])
+        result = runner.invoke_with_connection(["snowpark", "build"])
+        assert result.exit_code == 0, result.output
+        snowflake_deps_txt = tmp_dir / "requirements.snowflake.txt"
+        assert snowflake_deps_txt.exists()
+        deps = set(snowflake_deps_txt.read_text().splitlines())
+        assert deps == {"matplotlib", "numpy", "snowflake-snowpark-python"}
+
+
+@pytest.mark.integration
 def test_build_package_from_github(
     runner, project_directory, alter_requirements_txt, test_database
 ):

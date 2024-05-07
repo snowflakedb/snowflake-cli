@@ -59,12 +59,11 @@ class RequirementWithFiles:
 
 
 @dataclass
-class RequirementWithWheelAndDeps:
+class RequirementWithWheel:
     """A dataclass to hold a requirement and corresponding .whl file."""
 
     requirement: Requirement
     wheel_path: Path | None
-    dependencies: List[str]
 
     def extract_files(self, destination: Path) -> None:
         if self.wheel_path is not None:
