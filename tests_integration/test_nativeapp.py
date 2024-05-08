@@ -318,6 +318,59 @@ def test_nativeapp_run_existing_w_external(
             assert result.exit_code == 0
 
 
+# Verifies that running "app run" after "app deploy" upgrades the app
+@pytest.mark.integration
+def test_nativeapp_run_after_deploy(
+    runner,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    app_name = f"{project_name}_{USER_NAME}"
+    stage_fqn = f"{project_name}_pkg_{USER_NAME}.app_src.stage"
+
+    result = runner.invoke_json(
+        ["app", "init", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_name)):
+        try:
+            # Run #1
+            result = runner.invoke_with_connection_json(
+                ["app", "run"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # Make a change & deploy
+            with open("app/README.md", "a") as file:
+                file.write("### Test")
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # Run #2
+            result = runner.invoke_with_connection_json(
+                ["app", "run", "--debug"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+            assert (
+                f"alter application {app_name} upgrade using @{stage_fqn}"
+                in result.output
+            )
+
+        finally:
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
 # Tests a simple flow of an existing project, executing snow app version create, drop and teardown, all with distribution=internal
 @pytest.mark.integration
 @pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
@@ -683,7 +736,188 @@ privileges:
             )
 
         finally:
-            snowflake_session.execute_string(f"drop warehouse if exists {wh_name}")
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
+# Tests a simple flow of executing "snow app deploy [files]", verifying that only the specified files are synced to the stage
+@pytest.mark.integration
+def test_nativeapp_deploy_files(
+    runner,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    result = runner.invoke_json(
+        ["app", "init", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_name)):
+        # sync only two specific files to stage
+        result = runner.invoke_with_connection_json(
+            ["app", "deploy", "app/manifest.yml", "app/setup_script.sql"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        try:
+            # manifest and script files exist, readme doesn't exist
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
+            stage_files = runner.invoke_with_connection_json(
+                ["stage", "list-files", f"{package_name}.{stage_name}"],
+                env=TEST_ENV,
+            )
+            assert contains_row_with(stage_files.json, {"name": "stage/manifest.yml"})
+            assert contains_row_with(
+                stage_files.json, {"name": "stage/setup_script.sql"}
+            )
+            assert not_contains_row_with(stage_files.json, {"name": "stage/README.md"})
+
+            # make sure we always delete the app
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
+# Tests that files inside of a symlinked directory are deployed
+@pytest.mark.integration
+def test_nativeapp_deploy_nested_directories(
+    runner,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    project_dir = "app root"
+    result = runner.invoke_json(
+        ["app", "init", project_dir, "--name", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_dir)):
+        # create nested file under app/
+        touch("app/nested/dir/file.txt")
+
+        result = runner.invoke_with_connection_json(
+            ["app", "deploy", "app/nested/dir/file.txt"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        try:
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
+            stage_files = runner.invoke_with_connection_json(
+                ["stage", "list-files", f"{package_name}.{stage_name}"],
+                env=TEST_ENV,
+            )
+            assert contains_row_with(
+                stage_files.json, {"name": "stage/nested/dir/file.txt"}
+            )
+
+            # make sure we always delete the app
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
+# Tests that deploying a directory recursively syncs all of its contents
+@pytest.mark.integration
+def test_nativeapp_deploy_directory(
+    runner,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    project_dir = "app root"
+    result = runner.invoke_json(
+        ["app", "init", project_dir, "--name", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_dir)):
+        touch("app/dir/file.txt")
+        result = runner.invoke_with_connection_json(
+            ["app", "deploy", "app/dir", "-r"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        try:
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
+            stage_files = runner.invoke_with_connection_json(
+                ["stage", "list-files", f"{package_name}.{stage_name}"],
+                env=TEST_ENV,
+            )
+            assert contains_row_with(stage_files.json, {"name": "stage/dir/file.txt"})
+
+            # make sure we always delete the app
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
+# Tests that deploying a directory without specifying -r returns an error
+@pytest.mark.integration
+def test_nativeapp_deploy_directory_no_recursive(
+    runner,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    project_dir = "app root"
+    result = runner.invoke_json(
+        ["app", "init", project_dir, "--name", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_dir)):
+        try:
+            touch("app/nested/dir/file.txt")
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy", "app/nested"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 1, result.output
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
             result = runner.invoke_with_connection_json(
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,

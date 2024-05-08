@@ -259,9 +259,8 @@ def app_deploy(
     Creates an application package in your Snowflake account and syncs the local changes to the stage without creating or updating the application.
     Running this command with no arguments at all, as in `snow app deploy`, is a shorthand for `snow app deploy --prune --recursive`.
     """
-    if files is None:
-        files = []
-    if prune is None and recursive is None and len(files) == 0:
+    has_files = files is not None and len(files) > 0
+    if prune is None and recursive is None and not has_files:
         prune = True
         recursive = True
     else:
@@ -278,4 +277,6 @@ def app_deploy(
     mapped_files = manager.build_bundle()
     manager.deploy(prune, recursive, files, mapped_files)
 
-    return MessageResult(f"Deployed successfully.")
+    return MessageResult(
+        f"Deployed successfully. Application package and stage are up-to-date."
+    )
