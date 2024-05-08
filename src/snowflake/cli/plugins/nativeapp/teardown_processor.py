@@ -53,7 +53,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
         self, application_objects: ApplicationOwnedObject
     ) -> str:
         """
-        Returns a list in a "(Object Type) Object Name" format. Database-level and schema-level object names are fully qualified:
+        Returns a list in an "(Object Type) Object Name" format. Database-level and schema-level object names are fully qualified:
         (COMPUTE_POOL) POOL_NAME
         (DATABASE) DB_NAME
         (SCHEMA) DB_NAME.PUBLIC
@@ -129,7 +129,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             elif interactive:
                 if interactive:
                     api_integration = typer.prompt(
-                        f"The following objects are owned by application {self.app_name}:\n{application_objects_str}\n\nWould you like to drop these objects as well as the application? [y/n/ABORT]"
+                        f"The following objects are owned by application {self.app_name}:\n{application_objects_str}\n\nWould you like to drop these objects in addition to the application? [y/n/ABORT]"
                     )
                     if api_integration in ["y", "yes", "Y", "Yes", "YES"]:
                         cascade = True

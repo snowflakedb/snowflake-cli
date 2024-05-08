@@ -216,7 +216,7 @@ def app_teardown(
     force: Optional[bool] = ForceOption,
     cascade: Optional[bool] = typer.Option(
         None,
-        help=f"""When enabled, will also drop all application objects owned by the application within the account. Defaults to false.""",
+        help=f"""Whether to drop all application objects owned by the application within the account. Default: false.""",
         show_default=False,
     ),
     interactive: Optional[bool] = InteractiveOption,
