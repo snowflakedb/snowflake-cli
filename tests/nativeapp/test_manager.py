@@ -18,11 +18,12 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
 from snowflake.cli.plugins.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
-    _get_paths_to_sync,
+    _get_stage_paths_to_sync,
     ensure_correct_owner,
 )
 from snowflake.cli.plugins.stage.diff import (
     DiffResult,
+    StagePath,
 )
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
@@ -65,14 +66,18 @@ def _get_na_manager():
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(f"{NATIVEAPP_MODULE}.stage_diff")
+@mock.patch(f"{NATIVEAPP_MODULE}.compute_stage_diff")
 @mock.patch(f"{NATIVEAPP_MODULE}.sync_local_diff_with_stage")
 def test_sync_deploy_root_with_stage(
-    mock_local_diff_with_stage, mock_stage_diff, mock_execute, temp_dir, mock_cursor
+    mock_local_diff_with_stage,
+    mock_compute_stage_diff,
+    mock_execute,
+    temp_dir,
+    mock_cursor,
 ):
     mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
-    mock_diff_result = DiffResult(different=["setup.sql"])
-    mock_stage_diff.return_value = mock_diff_result
+    mock_diff_result = DiffResult(different=[StagePath("setup.sql")])
+    mock_compute_stage_diff.return_value = mock_diff_result
     mock_local_diff_with_stage.return_value = None
     current_working_directory = os.getcwd()
     create_named_file(
@@ -98,20 +103,20 @@ def test_sync_deploy_root_with_stage(
         mock.call("use role old_role"),
     ]
     assert mock_execute.mock_calls == expected
-    mock_stage_diff.assert_called_once_with(
+    mock_compute_stage_diff.assert_called_once_with(
         native_app_manager.deploy_root, "app_pkg.app_src.stage"
     )
     mock_local_diff_with_stage.assert_called_once_with(
         role="new_role",
         deploy_root_path=native_app_manager.deploy_root,
         diff_result=mock_diff_result,
-        stage_path="app_pkg.app_src.stage",
+        stage_fqn="app_pkg.app_src.stage",
     )
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(f"{NATIVEAPP_MODULE}.sync_local_diff_with_stage")
-@mock.patch(f"{NATIVEAPP_MODULE}.stage_diff")
+@mock.patch(f"{NATIVEAPP_MODULE}.compute_stage_diff")
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "prune,only_on_stage_files,expected_warn",
@@ -130,7 +135,7 @@ def test_sync_deploy_root_with_stage(
 )
 def test_sync_deploy_root_with_stage_prune(
     mock_warning,
-    mock_stage_diff,
+    mock_compute_stage_diff,
     mock_local_diff_with_stage,
     mock_execute,
     prune,
@@ -138,7 +143,7 @@ def test_sync_deploy_root_with_stage_prune(
     expected_warn,
     temp_dir,
 ):
-    mock_stage_diff.return_value = DiffResult(only_on_stage=only_on_stage_files)
+    mock_compute_stage_diff.return_value = DiffResult(only_on_stage=only_on_stage_files)
     create_named_file(
         file_name="snowflake.yml",
         dir_name=os.getcwd(),
@@ -798,5 +803,5 @@ def test_get_paths_to_sync(
     touch("deploy/dir/nested_dir/nested_file3")
 
     paths_to_sync = [Path(p) for p in paths_to_sync]
-    result = _get_paths_to_sync(paths_to_sync, Path("deploy/"))
-    assert result.sort() == expected_result.sort()
+    result = _get_stage_paths_to_sync(paths_to_sync, Path("deploy/"))
+    assert result.sort() == [StagePath(p) for p in expected_result].sort()

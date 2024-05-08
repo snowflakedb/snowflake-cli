@@ -786,10 +786,6 @@ def test_nativeapp_deploy_nested_directories(
             )
             assert contains_row_with(
                 stage_files.json, {"name": "stage/nested/dir/file.txt"}
-            ) or contains_row_with(
-                # Windows path
-                stage_files.json,
-                {"name": "stage/nested\\dir/file.txt"},
             )
 
             # make sure we always delete the app
