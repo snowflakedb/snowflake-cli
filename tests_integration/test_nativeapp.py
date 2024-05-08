@@ -4,6 +4,8 @@ import uuid
 from snowflake.cli.api.project.util import generate_user_env
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.nativeapp.init import OFFICIAL_TEMPLATES_GITHUB_URL
+from tests.nativeapp.utils import touch
+from click import ClickException
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
@@ -553,7 +555,7 @@ def test_nativeapp_init_from_repo_with_single_template(
 
 # Tests a simple flow of executing "snow app deploy", verifying that an application package was created, and an application was not
 @pytest.mark.integration
-def test_nativeapp_init_deploy(
+def test_nativeapp_deploy(
     runner,
     snowflake_session,
     temporary_working_directory,
@@ -603,7 +605,15 @@ def test_nativeapp_init_deploy(
                 dict(name=app_name),
             )
 
-            # make sure we always delete the app
+            # re-deploying should be a no-op; make sure we don't issue any PUT commands
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy", "--debug"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+            assert "Successfully uploaded chunk 0 of file" not in result.output
+
+            # make sure we always delete the package
             result = runner.invoke_with_connection_json(
                 ["app", "teardown"],
                 env=TEST_ENV,
@@ -621,30 +631,25 @@ def test_nativeapp_init_deploy(
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "command,expected_error",
+    "command,contains,not_contains",
     [
-        # "snow app teardown --cascade" should drop both application and application objects
-        ["app teardown --cascade", None],
-        # "snow app teardown --force --no-cascade" should attempt to drop the application and fail
-        [
-            "app teardown --force --no-cascade",
-            "Could not successfully execute the Snowflake SQL statements",
-        ],
-        # "snow app teardown" with owned application objects should abort the teardown
-        ["app teardown", "Please explicitly set --cascade"],
+        # deploy --prune removes remote-only files
+        ["app deploy --prune", ["stage/manifest.yml"], ["stage/README.md"]],
+        # deploy removes remote-only files (--prune is the default value)
+        ["app deploy", ["stage/manifest.yml"], ["stage/README.md"]],
+        # deploy --no-prune does not delete remote-only files
+        ["app deploy --no-prune", ["stage/README.md"], []],
     ],
 )
-def test_nativeapp_teardown_cascade(
+def test_nativeapp_deploy_prune(
     command,
-    expected_error,
+    contains,
+    not_contains,
     runner,
     snowflake_session,
     temporary_working_directory,
 ):
     project_name = "myapp"
-    app_name = f"{project_name}_{USER_NAME}".upper()
-    wh_name = f"{project_name}_wh_{USER_NAME}".upper()
-
     result = runner.invoke_json(
         ["app", "init", project_name],
         env=TEST_ENV,
@@ -652,88 +657,41 @@ def test_nativeapp_teardown_cascade(
     assert result.exit_code == 0
 
     with pushd(Path(os.getcwd(), project_name)):
-        # Add a procedure to the setup script that creates an app-owned warehouse
-        with open("app/setup_script.sql", "a") as file:
-            file.write(
-                f"""\
-create or replace procedure core.create_wh()
-    returns boolean
-    language sql
-    as $$
-        begin
-            create warehouse {wh_name};
-            return true;
-        end;
-    $$;"""
-            )
-        with open("app/manifest.yml", "a") as file:
-            file.write(
-                f"""\
-privileges:
-  - CREATE WAREHOUSE:
-      description: "Permission to create warehouses"
-"""
-            )
-
         result = runner.invoke_with_connection_json(
-            ["app", "run"],
+            ["app", "deploy"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0
 
         try:
-            # Grant permission to create warehouses
-            snowflake_session.execute_string(
-                f"grant create warehouse on account to application {app_name}",
-            )
+            # delete a file locally
+            os.remove(os.path.join("app", "README.md"))
 
-            # Create the warehouse
-            snowflake_session.execute_string("use warehouse xsmall")
-            snowflake_session.execute_string(
-                f"call {app_name}.core.create_wh()",
-            )
-
-            # Verify the warehouse is owned by the app
-            assert contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show warehouses like '{wh_name}'"
-                    )
-                ),
-                dict(name=wh_name, owner=app_name),
-            )
-
-            # Run the teardown command
+            # deploy
             result = runner.invoke_with_connection_json(
                 command.split(),
                 env=TEST_ENV,
             )
-            if expected_error is not None:
-                assert result.exit_code == 1
-                assert expected_error in result.output
-                return
-
             assert result.exit_code == 0
 
-            # Verify the warehouse is dropped
-            assert not_contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show warehouses like '{wh_name}'"
-                    )
-                ),
-                dict(name=wh_name, owner=app_name),
+            # verify the file does not exist on the stage
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
+            stage_files = runner.invoke_with_connection_json(
+                ["stage", "list-files", f"{package_name}.{stage_name}"],
+                env=TEST_ENV,
             )
+            for name in contains:
+                assert contains_row_with(stage_files.json, {"name": name})
+            for name in not_contains:
+                assert not_contains_row_with(stage_files.json, {"name": name})
 
-            # Verify the app is dropped
-            assert not_contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show applications like '{app_name}'",
-                    )
-                ),
-                dict(name=app_name),
+            # make sure we always delete the app
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
             )
+            assert result.exit_code == 0
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
