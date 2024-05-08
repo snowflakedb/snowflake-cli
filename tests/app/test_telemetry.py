@@ -45,5 +45,13 @@ def test_executing_command_sends_telemetry_data(
         "timestamp": "123",
     }
 
-    assert "ENABLE_NOTEBOOKS" in feature_flags
-    assert "ENABLE_STREAMLIT_EMBEDDED_STAGE" in feature_flags
+    assert feature_flags["ENABLE_NOTEBOOKS"] == {
+        "configured": False,
+        "default": False,
+        "enabled": False,
+    }
+    assert feature_flags["ENABLE_STREAMLIT_EMBEDDED_STAGE"] == {
+        "configured": False,
+        "default": False,
+        "enabled": False,
+    }

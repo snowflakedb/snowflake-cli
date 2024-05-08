@@ -33,6 +33,10 @@ class Empty:
     pass
 
 
+class _NotSet(str):
+    pass
+
+
 CONNECTIONS_SECTION = "connections"
 CLI_SECTION = "cli"
 LOGS_SECTION = "logs"
@@ -241,6 +245,11 @@ def get_config_value(*path, key: str, default: Optional[Any] = Empty) -> Any:
         if default is not Empty:
             return default
         raise
+
+
+def check_if_value_is_set(*path, key: str) -> bool:
+    value = get_config_value(*path, key=key, default=_NotSet())
+    return not isinstance(value, _NotSet)
 
 
 def get_config_bool_value(*path, key: str, default: Optional[Any] = Empty) -> bool:
