@@ -7,7 +7,7 @@ from click import ClickException
 from snowflake.cli.api.commands.flags import like_option
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.constants import SUPPORTED_OBJECTS, VALID_SCOPES
-from snowflake.cli.api.output.types import QueryResult
+from snowflake.cli.api.output.types import MessageResult, QueryResult
 from snowflake.cli.api.project.util import is_valid_identifier
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.object.stage_deprecated.commands import app as stage_app
@@ -23,6 +23,13 @@ NameArgument = typer.Argument(help="Name of the object")
 ObjectArgument = typer.Argument(
     help="Type of object. For example table, procedure, streamlit.",
     case_sensitive=False,
+)
+PayloadArgument = typer.Argument(
+    help="""Parameters to create the object with, for example \'{"name"="my_database"}\'.
+Check https://docs.snowflake.com/LIMITEDACCESS/rest-api/reference/ for the full list of available parameters
+for every object type.
+    """,
+    default="{}",
 )
 LikeOption = like_option(
     help_example='`list function --like "my%"` lists all functions that begin with “my”',
@@ -88,3 +95,13 @@ def describe(
     return QueryResult(
         ObjectManager().describe(object_type=object_type, name=object_name)
     )
+
+
+@app.command(name="create", requires_connection=True)
+def create(
+    object_type: str = ObjectArgument, payload: str = PayloadArgument, **options
+):
+    """Create an object of a given type. List of supported objects
+    and parameters: https://docs.snowflake.com/LIMITEDACCESS/rest-api/reference/"""
+    result = ObjectManager().create(object_type=object_type, payload=payload)
+    return MessageResult(result)
