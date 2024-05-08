@@ -270,4 +270,6 @@ def app_deploy(
     mapped_files = manager.build_bundle()
     manager.deploy(prune, recursive, files, mapped_files)
 
-    return MessageResult(f"Deployed successfully.")
+    return MessageResult(
+        f"Deployed successfully. Application package and stage are up-to-date."
+    )

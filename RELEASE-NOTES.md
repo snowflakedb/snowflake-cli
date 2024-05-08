@@ -17,7 +17,7 @@
 * Optimize snowpark dependency search to lower the size of .zip artifacts and
   the number of anaconda dependencies for snowpark projects.
 * Added support for fully qualified stage names in stage and git execute commands.
-* Fixed `snow app run` not upgrading the application after `snow app deploy`.
+* Fixed a bug where `snow app run` was not upgrading the application when the local state and remote stage are identical (for example immediately after `snow app deploy`).
 
 # v2.2.0
 
