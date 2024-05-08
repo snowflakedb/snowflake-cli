@@ -106,7 +106,7 @@ def test_sync_deploy_root_with_stage(
         role="new_role",
         deploy_root_path=native_app_manager.deploy_root,
         diff_result=mock_diff_result,
-        stage_path="app_pkg.app_src.stage",
+        stage_fqn="app_pkg.app_src.stage",
     )
 
 
