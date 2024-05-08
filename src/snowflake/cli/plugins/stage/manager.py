@@ -22,10 +22,15 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from os import path
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Union
+from textwrap import dedent
+from typing import Dict, List, Optional, Union
 
 from click import ClickException
-from snowflake.cli.api.commands.flags import OnErrorType, parse_key_value_variables
+from snowflake.cli.api.commands.flags import (
+    OnErrorType,
+    Variable,
+    parse_key_value_variables,
+)
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
@@ -62,6 +67,10 @@ class StagePathParts:
 
 
 class StageManager(SqlExecutionMixin):
+    def __init__(self):
+        super().__init__()
+        self._python_exe_procedure = None
+
     @staticmethod
     def get_standard_stage_prefix(name: str) -> str:
         # Handle embedded stages
@@ -232,21 +241,15 @@ class StageManager(SqlExecutionMixin):
             filtered_file_list, key=lambda f: (path.dirname(f), path.basename(f))
         )
 
-        sql_variables = self._parse_execute_variables(variables)
+        parsed_variables = parse_key_value_variables(variables)
+        sql_variables = self._parse_execute_variables(parsed_variables)
+        python_variables = {str(v.key).upper(): v.value for v in parsed_variables}
         results = []
-
-        if any(f.endswith(".py") for f in sorted_file_list):
-            # Bootstrap Snowpark session
-            python_exec_sproc = self._bootstrap_snowpark_execution_environment()
-        else:
-            python_exec_sproc = None
 
         for file in sorted_file_list:
             if file.endswith(".py"):
                 result = self._execute_python(
-                    file=file,
-                    on_error=on_error,
-                    python_execution_procedure=python_exec_sproc,
+                    file=file, on_error=on_error, variables=python_variables
                 )
             else:
                 result = self._call_execute_immediate(
@@ -315,12 +318,10 @@ class StageManager(SqlExecutionMixin):
         return [f for f in files if Path(f).suffix in EXECUTE_SUPPORTED_FILES_FORMATS]
 
     @staticmethod
-    def _parse_execute_variables(variables: Optional[List[str]]) -> Optional[str]:
+    def _parse_execute_variables(variables: List[Variable]) -> Optional[str]:
         if not variables:
             return None
-
-        parsed_variables = parse_key_value_variables(variables)
-        query_parameters = [f"{v.key}=>{v.value}" for v in parsed_variables]
+        query_parameters = [f"{v.key}=>{v.value}" for v in variables]
         return f" using ({', '.join(query_parameters)})"
 
     @staticmethod
@@ -369,29 +370,46 @@ class StageManager(SqlExecutionMixin):
         from snowflake.snowpark.functions import sproc
 
         self.snowpark_session.add_packages("snowflake-snowpark-python")
+        self.snowpark_session.add_packages("snowflake.core")
 
         @sproc(is_permanent=False)
-        def _python_execution_procedure(_: Session, file_path: str) -> None:
-            """Snowpark session-scoped stored procedure to execute content of provided pyrthon file."""
+        def _python_execution_procedure(
+            _: Session, file_path: str, variables: Dict | None = None
+        ) -> None:
+            """Snowpark session-scoped stored procedure to execute content of provided python file."""
+            import json
+
             from snowflake.snowpark.files import SnowflakeFile
 
             with SnowflakeFile.open(file_path, require_scoped_url=False) as f:
                 file_content: str = f.read()  # type: ignore
-            exec(file_content)
+
+            wrapper = dedent(
+                f"""\
+                import os
+                os.environ.update({json.dumps(variables)})
+                """
+            )
+
+            exec(wrapper + file_content)
 
         return _python_execution_procedure
 
-    def _execute_python(
-        self, file: str, on_error: OnErrorType, python_execution_procedure: Callable
-    ):
+    def _execute_python(self, file: str, on_error: OnErrorType, variables: Dict):
         """
         Executes Python file from stage using a Snowpark temporary procedure.
         Currently, there's no option to pass input to the execution.
         """
         from snowflake.snowpark.exceptions import SnowparkSQLException
 
+        # Bootstrap Snowpark session
+        if self._python_exe_procedure is None:
+            self._python_exe_procedure = (
+                self._bootstrap_snowpark_execution_environment()
+            )
+
         try:
-            python_execution_procedure(self.get_standard_stage_prefix(file))
+            self._python_exe_procedure(self.get_standard_stage_prefix(file), variables)  # type: ignore
             return StageManager._success_result(file=file)
         except SnowparkSQLException as e:
             StageManager._handle_execution_exception(on_error=on_error, exception=e)

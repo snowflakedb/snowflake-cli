@@ -18,11 +18,16 @@
     }),
   ])
 # ---
-# name: test_stage_execute.1
+# name: test_stage_execute_python
   list([
     dict({
       'Error': None,
-      'File': '@test_stage_execute/script_template.sql',
+      'File': 'test_stage_execute/script1.py',
+      'Status': 'SUCCESS',
+    }),
+    dict({
+      'Error': None,
+      'File': '@test_stage_execute/script_template.py',
       'Status': 'SUCCESS',
     }),
   ])

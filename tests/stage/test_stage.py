@@ -20,6 +20,7 @@ import pytest
 from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
+from snowflake.snowpark.exceptions import SnowparkSQLException
 
 STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
 
@@ -849,13 +850,16 @@ def test_execute_no_files_for_stage_path(
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_execute_stop_on_error(mock_execute, mock_cursor, runner):
+@mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
+def test_execute_stop_on_error(mock_bootstrap, mock_execute, mock_cursor, runner):
     error_message = "Error"
     mock_execute.side_effect = [
         mock_cursor(
             [
                 {"name": "exe/s1.sql"},
+                {"name": "exe/p1.py"},
                 {"name": "exe/s2.sql"},
+                {"name": "exe/p2.py"},
                 {"name": "exe/s3.sql"},
             ],
             [],
@@ -872,16 +876,25 @@ def test_execute_stop_on_error(mock_execute, mock_cursor, runner):
         mock.call(f"execute immediate from @exe/s1.sql"),
         mock.call(f"execute immediate from @exe/s2.sql"),
     ]
+    assert mock_bootstrap.return_value.mock_calls == [
+        mock.call("@exe/p1.py"),
+        mock.call("@exe/p2.py"),
+    ]
     assert e.value.msg == error_message
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_execute_continue_on_error(mock_execute, mock_cursor, runner, snapshot):
+@mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
+def test_execute_continue_on_error(
+    mock_bootstrap, mock_execute, mock_cursor, runner, snapshot
+):
     mock_execute.side_effect = [
         mock_cursor(
             [
                 {"name": "exe/s1.sql"},
+                {"name": "exe/p1.py"},
                 {"name": "exe/s2.sql"},
+                {"name": "exe/p2.py"},
                 {"name": "exe/s3.sql"},
             ],
             [],
@@ -890,6 +903,8 @@ def test_execute_continue_on_error(mock_execute, mock_cursor, runner, snapshot):
         ProgrammingError("Error"),
         mock_cursor([{"3": 3}], []),
     ]
+
+    mock_bootstrap.return_value.side_effect = ["ok", SnowparkSQLException("Test error")]
 
     result = runner.invoke(["stage", "execute", "exe", "--on-error", "continue"])
 
@@ -900,6 +915,11 @@ def test_execute_continue_on_error(mock_execute, mock_cursor, runner, snapshot):
         mock.call(f"execute immediate from @exe/s1.sql"),
         mock.call(f"execute immediate from @exe/s2.sql"),
         mock.call(f"execute immediate from @exe/s3.sql"),
+    ]
+
+    assert mock_bootstrap.return_value.mock_calls == [
+        mock.call("@exe/p1.py"),
+        mock.call("@exe/p2.py"),
     ]
 
 

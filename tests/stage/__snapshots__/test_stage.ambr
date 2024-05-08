@@ -50,7 +50,7 @@
   | @db.schema.exe/a/s3.sql   | SUCCESS | None  |
   | @db.schema.exe/a/b/s4.sql | SUCCESS | None  |
   +---------------------------------------------+
-  
+
   '''
 # ---
 # name: test_execute[@db.schema.exe/s1.sql-@db.schema.exe-expected_files17]
@@ -72,7 +72,7 @@
   |-----------------------+---------+-------|
   | @db.schema.exe/s1.sql | SUCCESS | None  |
   +-----------------------------------------+
-  
+
   '''
 # ---
 # name: test_execute[@exe-@exe-expected_files0]
@@ -87,7 +87,7 @@
   | @exe/a/s3.sql   | SUCCESS | None  |
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
-  
+
   '''
 # ---
 # name: test_execute[db.schema.exe-@db.schema.exe-expected_files16]
@@ -117,7 +117,7 @@
   | @db.schema.exe/a/s3.sql   | SUCCESS | None  |
   | @db.schema.exe/a/b/s4.sql | SUCCESS | None  |
   +---------------------------------------------+
-  
+
   '''
 # ---
 # name: test_execute[exe-@exe-expected_files1]
@@ -147,7 +147,7 @@
   | @exe/a/s3.sql   | SUCCESS | None  |
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
-  
+
   '''
 # ---
 # name: test_execute[exe/*-@exe-expected_files3]
@@ -177,7 +177,7 @@
   | @exe/a/s3.sql   | SUCCESS | None  |
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
-  
+
   '''
 # ---
 # name: test_execute[exe/*.sql-@exe-expected_files4]
@@ -207,7 +207,7 @@
   | @exe/a/s3.sql   | SUCCESS | None  |
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
-  
+
   '''
 # ---
 # name: test_execute[exe/-@exe-expected_files2]
@@ -237,7 +237,7 @@
   | @exe/a/s3.sql   | SUCCESS | None  |
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
-  
+
   '''
 # ---
 # name: test_execute[exe/a-@exe-expected_files5]
@@ -263,7 +263,7 @@
   | @exe/a/s3.sql   | SUCCESS | None  |
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
-  
+
   '''
 # ---
 # name: test_execute[exe/a/*-@exe-expected_files7]
@@ -289,7 +289,7 @@
   | @exe/a/s3.sql   | SUCCESS | None  |
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
-  
+
   '''
 # ---
 # name: test_execute[exe/a/*.sql-@exe-expected_files8]
@@ -315,7 +315,7 @@
   | @exe/a/s3.sql   | SUCCESS | None  |
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
-  
+
   '''
 # ---
 # name: test_execute[exe/a/-@exe-expected_files6]
@@ -341,7 +341,7 @@
   | @exe/a/s3.sql   | SUCCESS | None  |
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
-  
+
   '''
 # ---
 # name: test_execute[exe/a/b-@exe-expected_files10]
@@ -352,7 +352,7 @@
   |-----------------+---------+-------|
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
-  
+
   '''
 # ---
 # name: test_execute[exe/a/b-@exe-expected_files9]
@@ -385,7 +385,7 @@
   |-----------------+---------+-------|
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
-  
+
   '''
 # ---
 # name: test_execute[exe/a/b/*.sql-@exe-expected_files12]
@@ -473,7 +473,7 @@
   |-------------+---------+-------|
   | @exe/s1.sql | SUCCESS | None  |
   +-------------------------------+
-  
+
   '''
 # ---
 # name: test_execute[snow://exe-@exe-expected_files1]
@@ -488,7 +488,7 @@
   | @exe/a/s3.sql   | SUCCESS | None  |
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
-  
+
   '''
 # ---
 # name: test_execute_continue_on_error
@@ -509,7 +509,7 @@
 # name: test_execute_raise_invalid_file_extension_error
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ Invalid file extension, only `.sql` files are allowed.                       │
+  │ Invalid file extension, only .sql,.py files are allowed.                     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   '''
