@@ -71,13 +71,10 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
 
                 # If all the above checks are in order, proceed to upgrade
                 try:
-                    if diff.has_changes():
-                        cc.step(
-                            f"Upgrading existing application object {self.app_name}."
-                        )
-                        self._execute_query(
-                            f"alter application {self.app_name} upgrade using @{self.stage_fqn}"
-                        )
+                    cc.step(f"Upgrading existing application object {self.app_name}.")
+                    self._execute_query(
+                        f"alter application {self.app_name} upgrade using @{self.stage_fqn}"
+                    )
 
                     # ensure debug_mode is up-to-date
                     self._execute_query(
