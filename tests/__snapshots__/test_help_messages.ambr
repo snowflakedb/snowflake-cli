@@ -5299,14 +5299,14 @@
 # name: test_help_messages[stage.diff]
   '''
                                                                                   
-   Usage: default stage diff [OPTIONS] [STAGE_NAME] [FOLDER_NAME]                 
+   Usage: default stage diff [OPTIONS] STAGE_NAME FOLDER_NAME                     
                                                                                   
    Diffs a stage with a local folder.                                             
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │   stage_name       [STAGE_NAME]   Fully qualified name of a stage            │
-  │                                   [default: None]                            │
-  │   folder_name      [FOLDER_NAME]  Path to local folder [default: None]       │
+  │ *    stage_name       TEXT  Fully qualified name of a stage [default: None]  │
+  │                             [required]                                       │
+  │ *    folder_name      TEXT  Path to local folder [default: None] [required]  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
