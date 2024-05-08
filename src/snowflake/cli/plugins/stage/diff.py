@@ -183,7 +183,7 @@ def preserve_from_diff(
     return preserved_diff
 
 
-def stage_diff(
+def compute_stage_diff(
     local_root: Path,
     stage_fqn: str,
 ) -> DiffResult:

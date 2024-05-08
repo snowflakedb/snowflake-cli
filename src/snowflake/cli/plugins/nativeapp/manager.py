@@ -51,8 +51,8 @@ from snowflake.cli.plugins.nativeapp.utils import verify_exists, verify_no_direc
 from snowflake.cli.plugins.stage.diff import (
     DiffResult,
     StagePath,
+    compute_stage_diff,
     preserve_from_diff,
-    stage_diff,
     sync_local_diff_with_stage,
     to_stage_path,
 )
@@ -343,7 +343,7 @@ class NativeAppManager(SqlExecutionMixin):
             "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
             % self.deploy_root
         )
-        diff: DiffResult = stage_diff(self.deploy_root, self.stage_fqn)
+        diff: DiffResult = compute_stage_diff(self.deploy_root, self.stage_fqn)
 
         files_not_removed = []
         if local_paths_to_sync is not None:
