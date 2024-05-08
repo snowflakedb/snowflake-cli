@@ -321,7 +321,19 @@ class NativeAppManager(SqlExecutionMixin):
     ) -> DiffResult:
         """
         Ensures that the files on our remote stage match the artifacts we have in
-        the local filesystem. Returns the DiffResult used to make changes.
+        the local filesystem.
+
+        Args:
+            role (str): The name of the role to use for queries and commands.
+            prune (bool): Whether to prune artifacts from the stage that don't exist locally.
+            recursive (bool): Whether to traverse directories recursively.
+            local_paths_to_sync (List[Path], optional): List of local paths to sync. Defaults to None to sync all
+             local paths. Note that providing an empty list here is equivalent to None.
+            mapped_files: the file mapping computed during the `bundle` step. Required when local_paths_to_sync is
+             provided.
+
+        Returns:
+            A `DiffResult` instance describing the changes that were performed.
         """
 
         # Does a stage already exist within the application package, or we need to create one?
@@ -346,7 +358,9 @@ class NativeAppManager(SqlExecutionMixin):
         diff: DiffResult = compute_stage_diff(self.deploy_root, self.stage_fqn)
 
         files_not_removed = []
-        if local_paths_to_sync is not None:
+        if local_paths_to_sync:
+            assert mapped_files is not None
+
             # Deploying specific files/directories
             resolved_paths_to_sync = [
                 resolve_without_follow(p) for p in local_paths_to_sync

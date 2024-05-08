@@ -173,12 +173,13 @@ def preserve_from_diff(
     """
     Returns a filtered version of the provided diff, keeping only the provided stage paths.
     """
+    paths_to_preserve = set(stage_paths_to_sync)
     preserved_diff: DiffResult = DiffResult()
-    preserved_diff.identical = [i for i in diff.identical if i in stage_paths_to_sync]
-    preserved_diff.different = [i for i in diff.different if i in stage_paths_to_sync]
-    preserved_diff.only_local = [i for i in diff.only_local if i in stage_paths_to_sync]
+    preserved_diff.identical = [i for i in diff.identical if i in paths_to_preserve]
+    preserved_diff.different = [i for i in diff.different if i in paths_to_preserve]
+    preserved_diff.only_local = [i for i in diff.only_local if i in paths_to_preserve]
     preserved_diff.only_on_stage = [
-        i for i in diff.only_on_stage if i in stage_paths_to_sync
+        i for i in diff.only_on_stage if i in paths_to_preserve
     ]
     return preserved_diff
 
