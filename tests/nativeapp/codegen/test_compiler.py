@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
-    MissingProjectDefinitionPropertyError,
+    UnsupportedArtifactProcessorError,
 )
 from snowflake.cli.plugins.nativeapp.codegen.compiler import (
     _find_and_execute_processors,
@@ -43,7 +43,7 @@ proj_def = ProjectDefinition(
 def test_try_create_processor_returns_none():
     artifact_to_process = proj_def.native_app.artifacts[2]
     result = _try_create_processor(
-        processor_mapping=artifact_to_process.processors,
+        processor_mapping=artifact_to_process.processors[0],
         project_definition=proj_def.native_app,
         project_root=Path("some/dummy/path"),
         deploy_root=Path("some/dummy/path"),
@@ -73,7 +73,7 @@ def test_find_and_execute_processors_exception():
         {"dest": "./", "src": "app/*", "processors": ["DUMMY"]}
     ]
 
-    with pytest.raises(MissingProjectDefinitionPropertyError):
+    with pytest.raises(UnsupportedArtifactProcessorError):
         _find_and_execute_processors(
             project_definition=test_proj_def.native_app,
             project_root=Path("some/dummy/path"),

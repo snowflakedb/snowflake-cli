@@ -118,7 +118,9 @@ def _add_py_file_dest_to_dict(
     deploy_root: Path,
 ):
     dest_file = dest_path / py_file.name
-    if dest_file.exists():
+    if (
+        dest_file.exists()
+    ):  # Should already exist since bundle is called before processing begins
         src_py_file_to_dest_py_file_map[py_file] = dest_file
     else:
         cc.warning(f"{dest_path} does not exist in {deploy_root}.")

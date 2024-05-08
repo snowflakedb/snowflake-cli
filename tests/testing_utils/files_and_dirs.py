@@ -31,17 +31,25 @@ def assert_file_permissions_are_strict(file_path: Path) -> None:
 
 @contextmanager
 def temp_local_dir(
-    files: Dict[str, Optional[Union[str, bytes]]]
+    dir_structure: Dict[str, Optional[Union[str, bytes]]]
 ) -> Generator[Path, None, None]:
     """
     Creates a temporary local directory structure from a dictionary
     of local paths and their file contents (either strings to be encoded
     as UTF-8, or binary bytes).
+
+    Parameters:
+     dir_structure (Dict[str, Optional[Union[str, bytes]]]): A dictionary of file or directory names along with their contents.
+        For creating a file, 'contents' must be a string, empty or otherwise.
+        For creating a directory, 'contents' must be set to None.
     """
     with tempfile.TemporaryDirectory() as tmpdir:
-        for relpath, contents in files.items():
+        for relpath, contents in dir_structure.items():
             path = Path(tmpdir, relpath)
-            if path.is_file():
+            is_directory = contents is None
+            if is_directory:
+                path.mkdir(parents=True, exist_ok=True)
+            else:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 if contents is None:
                     f = open(path, "x")
@@ -51,8 +59,6 @@ def temp_local_dir(
                     encoding = None if isinstance(contents, bytes) else "UTF-8"
                     with open(path, mode=mode, encoding=encoding) as fh:
                         fh.write(contents)
-            else:
-                path.mkdir(parents=True, exist_ok=True)
 
         yield Path(tmpdir)
 

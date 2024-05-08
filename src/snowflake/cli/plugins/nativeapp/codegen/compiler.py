@@ -8,7 +8,7 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import (
 )
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
     ArtifactProcessor,
-    MissingProjectDefinitionPropertyError,
+    UnsupportedArtifactProcessorError,
 )
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
@@ -64,9 +64,7 @@ def _find_and_execute_processors(
                 processor_mapping=processor,
             )
             if artifact_processor is None:
-                raise MissingProjectDefinitionPropertyError(
-                    f"{processor if isinstance(processor, str) else processor.name} is not a valid processor type for artifacts in the project definition file."
-                )
+                raise UnsupportedArtifactProcessorError(processor_name=processor.name)
             else:
                 artifact_processor.process(
                     artifact_to_process=artifact, processor_mapping=processor

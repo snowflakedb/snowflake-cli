@@ -40,7 +40,7 @@ def __snowflake_cli_native_app_internal_callback_replacement():
             "object_type": ext_fn.object_type.name,
             "object_name": ext_fn.object_name,
             "input_args": [
-                {"name": input_arg.name, "datatype": input_arg.datatype.__name__}
+                {"name": input_arg.name, "datatype": type(input_arg.datatype).__name__}
                 for input_arg in ext_fn.input_args
             ],
             "input_sql_types": ext_fn.input_sql_types,

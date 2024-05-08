@@ -94,14 +94,14 @@ def _get_all_imports(
     all_urls: List[str] = []
     for raw_import in raw_imports:  # Example 1
         if isinstance(raw_import, str):  # Example 2
-            if raw_import.startswith("/"):
-                all_urls.append(raw_import)
+            all_urls.append(raw_import)
         else:  # Example 3
             local_path = Path(raw_import[0])
             stage_import = raw_import[1]
-            if local_path.is_file():
-                suffix_str = local_path.suffix
-                stage_import = stage_import[: -len(suffix_str)]
+            suffix_str = local_path.suffix
+            if suffix_str != "":
+                # We use suffix check here instead of local_path.is_file() as local_path may not exist, making is_file() False.
+                # We do not provide validation on local_path existing, and hence should not fail or treat it differently than any other file.
                 without_suffix = "/".join(stage_import.split("."))
                 all_urls.append(f"{without_suffix}{suffix_str}")
             else:

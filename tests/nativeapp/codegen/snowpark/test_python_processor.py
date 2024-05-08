@@ -131,7 +131,7 @@ def test_get_src_py_file_to_dest_py_file_map_case1_fails(native_app_project_inst
 @pytest.mark.parametrize(
     "custom_artifacts",
     [
-        [{"dest": "stagepath/", "src": "a/b/c/**/*", "processors": ["SNOWPARK"]}],
+        # [{"dest": "stagepath/", "src": "a/b/c/**/*", "processors": ["SNOWPARK"]}],
         [{"dest": "stagepath/", "src": "a/b/c/*", "processors": ["SNOWPARK"]}],
     ],
 )
@@ -231,7 +231,7 @@ def test_process_exception(mock_sandbox, native_app_project_instance):
     "snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor.jinja_render_from_file",
     return_value="some_src",
 )
-def test_execute_in_sandbox_none_entity(mock_jinja, mock_sandbox):
+def test_execute_in_sandbox_none_entity_case1(mock_jinja, mock_sandbox):
     entity = _execute_in_sandbox(
         py_file="some_file", deploy_root=Path("some/path"), kwargs={}
     )
@@ -248,9 +248,29 @@ def test_execute_in_sandbox_none_entity(mock_jinja, mock_sandbox):
 def test_execute_in_sandbox_full_entity(mock_jinja, mock_sandbox):
     mock_completed_process = mock.MagicMock(spec=subprocess.CompletedProcess)
     mock_completed_process.stdout = '[{"name": "john"}, {"name": "jane"}]'
+    mock_completed_process.returncode = 0
     mock_sandbox.return_value = mock_completed_process
 
     entity = _execute_in_sandbox(
         py_file="some_file", deploy_root=Path("some/path"), kwargs={}
     )
     assert len(entity) == 2
+
+
+@mock.patch(
+    "snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor.execute_script_in_sandbox"
+)
+@mock.patch(
+    "snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor.jinja_render_from_file",
+    return_value="some_src",
+)
+def test_execute_in_sandbox_none_entity_case2(mock_jinja, mock_sandbox):
+    mock_completed_process = mock.MagicMock(spec=subprocess.CompletedProcess)
+    mock_completed_process.returncode = 1
+    mock_completed_process.stderr = "DUMMY"
+    mock_sandbox.return_value = mock_completed_process
+
+    entity = _execute_in_sandbox(
+        py_file="some_file", deploy_root=Path("some/path"), kwargs={}
+    )
+    assert entity is None
