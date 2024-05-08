@@ -229,7 +229,8 @@ def compute_stage_diff(
 
 def get_stage_subpath(stage_path: StagePath) -> str:
     """
-    Returns the parent stage path (i.e. prefix or folder) for a given stage file path.
+    Returns the parent portion of a stage path, as a string, for inclusion in the fully qualified stage path. Note that
+    '.' treated specially here, and so the return value of this call is not a `StagePath` instance.
     """
     parent = str(stage_path.parent)
     return "" if parent == "." else parent
