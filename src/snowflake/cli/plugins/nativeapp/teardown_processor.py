@@ -139,7 +139,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                         raise typer.Abort()
             else:
                 cc.message(
-                    f"The following application objects are owned application {self.app_name}:\n{application_objects_str}\n\nRe-run teardown again with --cascade or --no-cascade to specify whether these objects should be dropped along with the application."
+                    f"The following application objects are owned by application {self.app_name}:\n{application_objects_str}\n\nRe-run teardown again with --cascade or --no-cascade to specify whether these objects should be dropped along with the application."
                 )
                 raise typer.Abort()
         elif cascade is None:
