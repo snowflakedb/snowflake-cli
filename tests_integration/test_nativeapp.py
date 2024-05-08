@@ -320,6 +320,59 @@ def test_nativeapp_run_existing_w_external(
             assert result.exit_code == 0
 
 
+# Verifies that running "app run" after "app deploy" upgrades the app
+@pytest.mark.integration
+def test_nativeapp_run_after_deploy(
+    runner,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    app_name = f"{project_name}_{USER_NAME}"
+    stage_fqn = f"{project_name}_pkg_{USER_NAME}.app_src.stage"
+
+    result = runner.invoke_json(
+        ["app", "init", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_name)):
+        try:
+            # Run #1
+            result = runner.invoke_with_connection_json(
+                ["app", "run"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # Make a change & deploy
+            with open("app/README.md", "a") as file:
+                file.write("### Test")
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # Run #2
+            result = runner.invoke_with_connection_json(
+                ["app", "run", "--debug"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+            assert (
+                f"alter application {app_name} upgrade using @{stage_fqn}"
+                in result.output
+            )
+
+        finally:
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
 # Tests a simple flow of an existing project, executing snow app version create, drop and teardown, all with distribution=internal
 @pytest.mark.integration
 @pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
