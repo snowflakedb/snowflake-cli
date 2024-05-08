@@ -21,9 +21,14 @@ def test_executing_command_sends_telemetry_data(
     assert result.exit_code == 0, result.output
 
     # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
-    assert mock_conn.return_value._telemetry.try_add_log_to_batch.call_args.args[  # noqa: SLF001
+    actual_call = mock_conn.return_value._telemetry.try_add_log_to_batch.call_args.args[  # noqa: SLF001
         0
-    ].to_dict() == {
+    ].to_dict()
+    # Feature flags discovery is dynamic so we compare them separately
+    feature_flags = actual_call["message"]["config_feature_flags"]
+    del actual_call["message"]["config_feature_flags"]
+
+    assert actual_call == {
         "message": {
             "driver_type": "PythonConnector",
             "driver_version": ".".join(str(s) for s in DRIVER_VERSION[:3]),
@@ -36,10 +41,9 @@ def test_executing_command_sends_telemetry_data(
             "command_flags": {"diag_log_path": "DEFAULT", "format": "DEFAULT"},
             "command_output_type": "TABLE",
             "type": "executing_command",
-            "config_feature_flags": {
-                "ENABLE_NOTEBOOKS": False,
-                "ENABLE_STREAMLIT_EMBEDDED_STAGE": False,
-            },
         },
         "timestamp": "123",
     }
+
+    assert "ENABLE_NOTEBOOKS" in feature_flags
+    assert "ENABLE_STREAMLIT_EMBEDDED_STAGE" in feature_flags

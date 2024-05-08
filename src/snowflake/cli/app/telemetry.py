@@ -127,5 +127,8 @@ def check_feature_flags_usage():
 
     flags = {}
     for flag_cls in FeatureFlagMixin.__subclasses__():
+        # To skip test classes
+        if flag_cls.__name__.startswith("_"):
+            continue
         flags.update({f.name: f.is_enabled() for f in flag_cls})
     return flags

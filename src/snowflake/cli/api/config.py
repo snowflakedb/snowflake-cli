@@ -320,7 +320,7 @@ def _check_default_config_files_permissions() -> None:
         raise ConfigFileTooWidePermissionsError(CONFIG_FILE)
 
 
-def get_feature_flags_usage():
+def get_feature_flags_section():
     try:
         return get_config_section(*FEATURE_FLAGS_SECTION_PATH)
     except (NonExistentKey, KeyError):
