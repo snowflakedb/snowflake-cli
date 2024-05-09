@@ -24,4 +24,4 @@ user = "python"
 
 
 [cli.features]
-DUMMY_FLAG = true
+dummy_flag = true

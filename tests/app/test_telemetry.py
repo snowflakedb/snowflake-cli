@@ -1,3 +1,4 @@
+import os
 from unittest import mock
 
 from snowflake.connector.version import VERSION as DRIVER_VERSION
@@ -10,6 +11,7 @@ from snowflake.connector.version import VERSION as DRIVER_VERSION
 @mock.patch("snowflake.cli.app.telemetry.get_time_millis")
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
+@mock.patch.dict(os.environ, {"SNOWFLAKE_CLI_FEATURES_FOO": "True"})
 def test_executing_command_sends_telemetry_data(
     _, mock_conn, mock_time, mock_platform, mock_version, runner
 ):
@@ -24,10 +26,6 @@ def test_executing_command_sends_telemetry_data(
     actual_call = mock_conn.return_value._telemetry.try_add_log_to_batch.call_args.args[  # noqa: SLF001
         0
     ].to_dict()
-    # Feature flags discovery is dynamic so we compare them separately
-    feature_flags = actual_call["message"]["config_feature_flags"]
-    del actual_call["message"]["config_feature_flags"]
-
     assert actual_call == {
         "message": {
             "driver_type": "PythonConnector",
@@ -41,17 +39,7 @@ def test_executing_command_sends_telemetry_data(
             "command_flags": {"diag_log_path": "DEFAULT", "format": "DEFAULT"},
             "command_output_type": "TABLE",
             "type": "executing_command",
+            "config_feature_flags": {"dummy_flag": "True", "foo": "True"},
         },
         "timestamp": "123",
-    }
-
-    assert feature_flags["ENABLE_NOTEBOOKS"] == {
-        "configured": False,
-        "default": False,
-        "enabled": False,
-    }
-    assert feature_flags["ENABLE_STREAMLIT_EMBEDDED_STAGE"] == {
-        "configured": False,
-        "default": False,
-        "enabled": False,
     }

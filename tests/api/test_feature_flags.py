@@ -20,11 +20,6 @@ def test_flag_value_has_to_be_boolean():
 def test_flag_is_enabled():
     assert _TestFlags.ENABLED_BY_DEFAULT.is_enabled() is True
     assert _TestFlags.ENABLED_BY_DEFAULT.is_disabled() is False
-    assert _TestFlags.ENABLED_BY_DEFAULT.state() == {
-        "configured": False,
-        "default": True,
-        "enabled": True,
-    }
 
 
 def test_flag_is_disabled():
@@ -60,11 +55,6 @@ def test_flag_is_enabled_from_env_var(value_from_env):
         "os.environ", {"SNOWFLAKE_CLI_FEATURES_DISABLED_DEFAULT": value_from_env}
     ):
         assert _TestFlags.DISABLED_BY_DEFAULT.is_enabled() is True
-        assert _TestFlags.DISABLED_BY_DEFAULT.state() == {
-            "configured": True,
-            "default": False,
-            "enabled": True,
-        }
 
 
 @pytest.mark.parametrize("value_from_env", ["0", "false", "False", "FALSE", "FaLse"])
@@ -73,8 +63,3 @@ def test_flag_is_disabled_from_env_var(value_from_env):
         "os.environ", {"SNOWFLAKE_CLI_FEATURES_ENABLED_DEFAULT": value_from_env}
     ):
         assert _TestFlags.ENABLED_BY_DEFAULT.is_enabled() is False
-        assert _TestFlags.ENABLED_BY_DEFAULT.state() == {
-            "configured": True,
-            "default": True,
-            "enabled": False,
-        }

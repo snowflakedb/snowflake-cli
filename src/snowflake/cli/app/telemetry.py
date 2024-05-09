@@ -8,6 +8,7 @@ from typing import Any, Dict, Union
 import click
 from snowflake.cli.__about__ import VERSION
 from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.config import get_feature_flags_section
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.utils.error_handling import ignore_exceptions
 from snowflake.cli.app.constants import PARAM_APPLICATION_NAME
@@ -86,7 +87,9 @@ class CLITelemetryClient:
             CLITelemetryField.VERSION_CLI: VERSION,
             CLITelemetryField.VERSION_OS: platform.platform(),
             CLITelemetryField.VERSION_PYTHON: python_version(),
-            CLITelemetryField.CONFIG_FEATURE_FLAGS: check_feature_flags_usage(),
+            CLITelemetryField.CONFIG_FEATURE_FLAGS: {
+                k: str(v) for k, v in get_feature_flags_section().items()
+            },
             **_find_command_info(),
             **telemetry_payload,
         }
@@ -120,15 +123,3 @@ def log_command_usage():
 @ignore_exceptions()
 def flush_telemetry():
     _telemetry.flush()
-
-
-def check_feature_flags_usage():
-    from snowflake.cli.api.feature_flags import FeatureFlagMixin
-
-    flags = {}
-    for flag_cls in FeatureFlagMixin.__subclasses__():
-        # To skip test classes
-        if flag_cls.__name__.startswith("_"):
-            continue
-        flags.update({f.name: f.state() for f in flag_cls})
-    return flags
