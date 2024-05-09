@@ -107,6 +107,9 @@ def _version_callback(value: bool):
         _exit_with_cleanup()
 
 
+from snowflake.cli.api.config import get_feature_flags_section
+
+
 @_do_not_execute_on_completion
 def _info_callback(value: bool):
     if value:
@@ -119,6 +122,7 @@ def _info_callback(value: bool):
                 },
                 {"key": "python_version", "value": sys.version},
                 {"key": "system_info", "value": platform.platform()},
+                {"key": "feature_flags", "value": get_feature_flags_section()},
             ],
         )
         print_result(result, output_format=OutputFormat.JSON)
