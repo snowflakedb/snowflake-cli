@@ -8,13 +8,6 @@ from snowflake.cli.api.config import (
 )
 
 
-class _NotSet(str):
-    pass
-
-
-NOT_SET = _NotSet("NotSet")
-
-
 class BooleanFlag(NamedTuple):
     name: str
     default: bool = False
