@@ -2,10 +2,7 @@ import os
 import uuid
 from textwrap import dedent
 
-from snowflake.cli.api.project.util import (
-    generate_user_env,
-    to_identifier,
-)
+from snowflake.cli.api.project.util import generate_user_env
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.nativeapp.init import OFFICIAL_TEMPLATES_GITHUB_URL
 from tests.nativeapp.utils import touch
@@ -581,8 +578,8 @@ def test_nativeapp_teardown_cascade(
 ):
     snowflake_session.execute_string("use role ACCOUNTADMIN")
     project_name = "myapp"
-    app_name = to_identifier(f"{project_name}_{USER_NAME}".upper())
-    wh_name = to_identifier(f"{project_name}_wh_{USER_NAME}".upper())
+    app_name = f"{project_name}_{USER_NAME}".upper()
+    wh_name = f"{project_name}_wh_{USER_NAME}".upper()
 
     result = runner.invoke_json(
         ["app", "init", project_name],
