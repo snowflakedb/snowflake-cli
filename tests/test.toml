@@ -25,3 +25,4 @@ user = "python"
 
 [cli.features]
 dummy_flag = true
+wrong_type_flag = "not_true"

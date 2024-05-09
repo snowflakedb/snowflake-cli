@@ -17,6 +17,7 @@ from snowflake.cli.api.exceptions import (
 )
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.secure_utils import file_permissions_are_strict
+from snowflake.cli.api.utils.types import try_cast_to_bool
 from snowflake.connector.compat import IS_WINDOWS
 from snowflake.connector.config_manager import CONFIG_MANAGER
 from snowflake.connector.constants import CONFIG_FILE, CONNECTIONS_FILE
@@ -254,21 +255,12 @@ def check_if_value_is_set(*path, key: str) -> bool:
 
 def get_config_bool_value(*path, key: str, default: Optional[Any] = Empty) -> bool:
     value = get_config_value(*path, key=key, default=default)
-    # If we get bool then we can return
-    if isinstance(value, bool):
-        return value
-
-    # Now if value is not string then cast it to str. Simplifies logic for 1 and 0
-    if not isinstance(value, str):
-        value = str(value)
-
-    know_booleans_mapping = {"true": True, "false": False, "1": True, "0": False}
-
-    if value.lower() not in know_booleans_mapping:
+    try:
+        return try_cast_to_bool(value)
+    except ValueError:
         raise ClickException(
             f"Expected boolean value for {'.'.join((*path, key))} option."
         )
-    return know_booleans_mapping[value.lower()]
 
 
 def _initialise_config(config_file: Path) -> None:
@@ -329,8 +321,19 @@ def _check_default_config_files_permissions() -> None:
         raise ConfigFileTooWidePermissionsError(CONFIG_FILE)
 
 
-def get_feature_flags_section():
-    try:
-        return get_config_section(*FEATURE_FLAGS_SECTION_PATH)
-    except (NonExistentKey, KeyError):
+from typing import Literal
+
+
+def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
+    if not config_section_exists(*FEATURE_FLAGS_SECTION_PATH):
         return {}
+
+    flags = get_config_section(*FEATURE_FLAGS_SECTION_PATH)
+
+    def _bool_or_unknown(value):
+        try:
+            return try_cast_to_bool(value)
+        except ValueError:
+            return "UNKNOWN"
+
+    return {k: _bool_or_unknown(v) for k, v in flags.items()}

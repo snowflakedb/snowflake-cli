@@ -11,7 +11,7 @@ from snowflake.connector.version import VERSION as DRIVER_VERSION
 @mock.patch("snowflake.cli.app.telemetry.get_time_millis")
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
-@mock.patch.dict(os.environ, {"SNOWFLAKE_CLI_FEATURES_FOO": "True"})
+@mock.patch.dict(os.environ, {"SNOWFLAKE_CLI_FEATURES_FOO": "False"})
 def test_executing_command_sends_telemetry_data(
     _, mock_conn, mock_time, mock_platform, mock_version, runner
 ):
@@ -39,7 +39,11 @@ def test_executing_command_sends_telemetry_data(
             "command_flags": {"diag_log_path": "DEFAULT", "format": "DEFAULT"},
             "command_output_type": "TABLE",
             "type": "executing_command",
-            "config_feature_flags": {"dummy_flag": "True", "foo": "True"},
+            "config_feature_flags": {
+                "dummy_flag": "True",
+                "foo": "False",
+                "wrong_type_flag": "UNKNOWN",
+            },
         },
         "timestamp": "123",
     }
