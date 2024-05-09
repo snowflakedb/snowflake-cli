@@ -1,7 +1,7 @@
-from os import PathLike
+import os
 from pathlib import Path
 from sys import stdin, stdout
-from typing import List, Optional, Union
+from typing import Callable, Generator, List, Optional, Union
 
 from click import ClickException
 
@@ -43,7 +43,7 @@ def get_first_paragraph_from_markdown_file(file_path: Path) -> Optional[str]:
         return paragraph_text
 
 
-def shallow_git_clone(url: Union[str, PathLike], to_path: Union[str, PathLike]):
+def shallow_git_clone(url: Union[str, os.PathLike], to_path: Union[str, os.PathLike]):
     """
     Performs a shallow clone of the repository at the provided url to the path specified
 
@@ -81,3 +81,22 @@ def verify_exists(paths_to_sync: List[Path]):
     for path in paths_to_sync:
         if not path.exists():
             raise ClickException(f"The following path does not exist: {path}")
+
+
+def get_all_file_paths_under_dir(directory: Path):
+    """
+    Recursively traverse the given directory and yield file paths. If the directory is a symlink, then the function follows the behavior of os.walk for symlinks.
+    The directory may be a relative path to the project root.
+    """
+    for root, _, files in os.walk(directory):
+        for file in files:
+            yield Path(os.path.join(root, file))
+
+
+def filter_files(generator: Generator, predicate_func: Callable):
+    """
+    Filter file paths based on a given predicate function.
+    """
+    for file_path in generator:
+        if predicate_func(file_path):
+            yield file_path
