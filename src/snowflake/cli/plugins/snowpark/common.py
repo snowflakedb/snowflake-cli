@@ -21,6 +21,7 @@ def check_if_replace_is_required(
     handler: str,
     return_type: str,
     snowflake_dependencies: List[str],
+    external_access_integrations: List[str],
     imports: List[str],
     stage_artifact_file: str,
 ) -> bool:
@@ -39,6 +40,15 @@ def check_if_replace_is_required(
     if _snowflake_dependencies_differ(old_dependencies, snowflake_dependencies):
         log.info(
             "Found difference of package requirements. Replacing the %s.", object_type
+        )
+        return True
+
+    if set(external_access_integrations) != set(
+        resource_json.get("external_access_integrations", [])
+    ):
+        log.info(
+            "Found difference of external access integrations. Replacing the %s.",
+            object_type,
         )
         return True
 
@@ -189,7 +199,11 @@ def build_udf_sproc_identifier(
             result += f" default {val}"
         return result
 
-    arguments = ", ".join(format_arg(arg) for arg in udf_sproc.signature)
+    if udf_sproc.signature and udf_sproc.signature != "null":
+        arguments = ", ".join(format_arg(arg) for arg in udf_sproc.signature)
+    else:
+        arguments = ""
+
     name = slq_exec_mixin.to_fully_qualified_name(
         udf_sproc.name,
         database=udf_sproc.database,

@@ -275,6 +275,7 @@ def _deploy_single_object(
     handler = object_definition.handler
     returns = object_definition.returns
     imports = object_definition.imports
+    external_access_integrations = object_definition.external_access_integrations
     replace_object = False
 
     object_exists = identifier in existing_objects
@@ -285,6 +286,7 @@ def _deploy_single_object(
             handler=handler,
             return_type=returns,
             snowflake_dependencies=snowflake_dependencies,
+            external_access_integrations=external_access_integrations,
             imports=imports,
             stage_artifact_file=stage_artifact_path,
         )
