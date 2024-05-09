@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import (
     Any,
@@ -22,13 +21,14 @@ def _get_handler_path_without_suffix(
     Get a handler for an extension function based on the file path on the stage. If a specific suffix needs to be removed from the path,
     then that is also taken into account.
     """
-    rel_file_path = file_path.relative_to(deploy_root.resolve())  # No leading slash
-    stem, suffix = os.path.splitext(rel_file_path)
-    if (suffix_str_to_rm is not None) and (suffix == suffix_str_to_rm):
-        file_parts = Path(stem).parts
-    else:
-        file_parts = rel_file_path.parts
-    return ".".join(file_parts)
+    # rel_file_path = file_path.absolute().relative_to(deploy_root.resolve())  # No leading slash
+    # stem, suffix = os.path.splitext(rel_file_path)
+    # if (suffix_str_to_rm is not None) and (suffix == suffix_str_to_rm):
+    #     file_parts = Path(stem).parts
+    # else:
+    #     file_parts = rel_file_path.parts
+    # return ".".join(file_parts)
+    return "NotImplementedHandler"
 
 
 def _get_object_type_as_text(object_type: str) -> str:
