@@ -434,7 +434,7 @@ VariablesOption = typer.Option(
     "-D",
     help='Variables for the execution context. For example: `-D "<key>=<value>"`. '
     "For SQL files variables are use to expand the template and any unknown variable will cause an error. "
-    "For Python files variables are used to update os.environ dictionary. "
+    "For Python files variables are used to update os.environ dictionary. Provided keys are capitalized to adhere to best practices."
     "In case of SQL files string values must be quoted in `''` (consider embedding quoting in the file).",
     show_default=False,
 )

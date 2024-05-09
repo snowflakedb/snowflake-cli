@@ -738,8 +738,11 @@ def test_execute(
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_execute_with_variables(mock_execute, mock_cursor, runner):
-    mock_execute.return_value = mock_cursor([{"name": "exe/s1.sql"}], [])
+@mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
+def test_execute_with_variables(mock_bootstrap, mock_execute, mock_cursor, runner):
+    mock_execute.return_value = mock_cursor(
+        [{"name": "exe/s1.sql"}, {"name": "exe/s2.py"}], []
+    )
 
     result = runner.invoke(
         [
@@ -766,6 +769,16 @@ def test_execute_with_variables(mock_execute, mock_cursor, runner):
             f"execute immediate from @exe/s1.sql using (key1=>'string value', key2=>1, key3=>TRUE, key4=>NULL, key5=>'var=value')"
         ),
     ]
+    mock_bootstrap.return_value.assert_called_once_with(
+        "@exe/s2.py",
+        {
+            "KEY1": "'string value'",
+            "KEY2": "1",
+            "KEY3": "TRUE",
+            "KEY4": "NULL",
+            "KEY5": "'var=value'",
+        },
+    )
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -877,8 +890,8 @@ def test_execute_stop_on_error(mock_bootstrap, mock_execute, mock_cursor, runner
         mock.call(f"execute immediate from @exe/s2.sql"),
     ]
     assert mock_bootstrap.return_value.mock_calls == [
-        mock.call("@exe/p1.py"),
-        mock.call("@exe/p2.py"),
+        mock.call("@exe/p1.py", {}),
+        mock.call("@exe/p2.py", {}),
     ]
     assert e.value.msg == error_message
 
@@ -918,8 +931,8 @@ def test_execute_continue_on_error(
     ]
 
     assert mock_bootstrap.return_value.mock_calls == [
-        mock.call("@exe/p1.py"),
-        mock.call("@exe/p2.py"),
+        mock.call("@exe/p1.py", {}),
+        mock.call("@exe/p2.py", {}),
     ]
 
 

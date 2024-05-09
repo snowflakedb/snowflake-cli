@@ -40,17 +40,20 @@
 # ---
 # name: test_execute[@db.schema.exe-@db.schema.exe-expected_files16]
   '''
-  SUCCESS - @db.schema.exe/s1.sql
-  SUCCESS - @db.schema.exe/a/s3.sql
-  SUCCESS - @db.schema.exe/a/b/s4.sql
-  +---------------------------------------------+
-  | File                      | Status  | Error |
-  |---------------------------+---------+-------|
-  | @db.schema.exe/s1.sql     | SUCCESS | None  |
-  | @db.schema.exe/a/s3.sql   | SUCCESS | None  |
-  | @db.schema.exe/a/b/s4.sql | SUCCESS | None  |
-  +---------------------------------------------+
-
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/b/s4.sql
+  SUCCESS - exe/a/b/s4.sql
+  +----------------------------------+
+  | File           | Status  | Error |
+  |----------------+---------+-------|
+  | exe/s1.sql     | SUCCESS | None  |
+  | exe/a/s3.sql   | SUCCESS | None  |
+  | exe/a/b/s4.sql | SUCCESS | None  |
+  +----------------------------------+
+  
   '''
 # ---
 # name: test_execute[@db.schema.exe/s1.sql-@db.schema.exe-expected_files17]
@@ -66,28 +69,32 @@
 # ---
 # name: test_execute[@db.schema.exe/s1.sql-@db.schema.exe-expected_files18]
   '''
-  SUCCESS - @db.schema.exe/s1.sql
-  +-----------------------------------------+
-  | File                  | Status  | Error |
-  |-----------------------+---------+-------|
-  | @db.schema.exe/s1.sql | SUCCESS | None  |
-  +-----------------------------------------+
-
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/s1.sql
+  +------------------------------+
+  | File       | Status  | Error |
+  |------------+---------+-------|
+  | exe/s1.sql | SUCCESS | None  |
+  +------------------------------+
+  
   '''
 # ---
 # name: test_execute[@exe-@exe-expected_files0]
   '''
-  SUCCESS - @exe/s1.sql
-  SUCCESS - @exe/a/s3.sql
-  SUCCESS - @exe/a/b/s4.sql
-  +-----------------------------------+
-  | File            | Status  | Error |
-  |-----------------+---------+-------|
-  | @exe/s1.sql     | SUCCESS | None  |
-  | @exe/a/s3.sql   | SUCCESS | None  |
-  | @exe/a/b/s4.sql | SUCCESS | None  |
-  +-----------------------------------+
-
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/b/s4.sql
+  SUCCESS - exe/a/b/s4.sql
+  +----------------------------------+
+  | File           | Status  | Error |
+  |----------------+---------+-------|
+  | exe/s1.sql     | SUCCESS | None  |
+  | exe/a/s3.sql   | SUCCESS | None  |
+  | exe/a/b/s4.sql | SUCCESS | None  |
+  +----------------------------------+
+  
   '''
 # ---
 # name: test_execute[db.schema.exe-@db.schema.exe-expected_files16]
@@ -107,17 +114,20 @@
 # ---
 # name: test_execute[db.schema.exe-@db.schema.exe-expected_files17]
   '''
-  SUCCESS - @db.schema.exe/s1.sql
-  SUCCESS - @db.schema.exe/a/s3.sql
-  SUCCESS - @db.schema.exe/a/b/s4.sql
-  +---------------------------------------------+
-  | File                      | Status  | Error |
-  |---------------------------+---------+-------|
-  | @db.schema.exe/s1.sql     | SUCCESS | None  |
-  | @db.schema.exe/a/s3.sql   | SUCCESS | None  |
-  | @db.schema.exe/a/b/s4.sql | SUCCESS | None  |
-  +---------------------------------------------+
-
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/b/s4.sql
+  SUCCESS - exe/a/b/s4.sql
+  +----------------------------------+
+  | File           | Status  | Error |
+  |----------------+---------+-------|
+  | exe/s1.sql     | SUCCESS | None  |
+  | exe/a/s3.sql   | SUCCESS | None  |
+  | exe/a/b/s4.sql | SUCCESS | None  |
+  +----------------------------------+
+  
   '''
 # ---
 # name: test_execute[exe-@exe-expected_files1]
@@ -137,17 +147,20 @@
 # ---
 # name: test_execute[exe-@exe-expected_files2]
   '''
-  SUCCESS - @exe/s1.sql
-  SUCCESS - @exe/a/s3.sql
-  SUCCESS - @exe/a/b/s4.sql
-  +-----------------------------------+
-  | File            | Status  | Error |
-  |-----------------+---------+-------|
-  | @exe/s1.sql     | SUCCESS | None  |
-  | @exe/a/s3.sql   | SUCCESS | None  |
-  | @exe/a/b/s4.sql | SUCCESS | None  |
-  +-----------------------------------+
-
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/b/s4.sql
+  SUCCESS - exe/a/b/s4.sql
+  +----------------------------------+
+  | File           | Status  | Error |
+  |----------------+---------+-------|
+  | exe/s1.sql     | SUCCESS | None  |
+  | exe/a/s3.sql   | SUCCESS | None  |
+  | exe/a/b/s4.sql | SUCCESS | None  |
+  +----------------------------------+
+  
   '''
 # ---
 # name: test_execute[exe/*-@exe-expected_files3]
@@ -167,17 +180,20 @@
 # ---
 # name: test_execute[exe/*-@exe-expected_files4]
   '''
-  SUCCESS - @exe/s1.sql
-  SUCCESS - @exe/a/s3.sql
-  SUCCESS - @exe/a/b/s4.sql
-  +-----------------------------------+
-  | File            | Status  | Error |
-  |-----------------+---------+-------|
-  | @exe/s1.sql     | SUCCESS | None  |
-  | @exe/a/s3.sql   | SUCCESS | None  |
-  | @exe/a/b/s4.sql | SUCCESS | None  |
-  +-----------------------------------+
-
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/b/s4.sql
+  SUCCESS - exe/a/b/s4.sql
+  +----------------------------------+
+  | File           | Status  | Error |
+  |----------------+---------+-------|
+  | exe/s1.sql     | SUCCESS | None  |
+  | exe/a/s3.sql   | SUCCESS | None  |
+  | exe/a/b/s4.sql | SUCCESS | None  |
+  +----------------------------------+
+  
   '''
 # ---
 # name: test_execute[exe/*.sql-@exe-expected_files4]
@@ -197,17 +213,20 @@
 # ---
 # name: test_execute[exe/*.sql-@exe-expected_files5]
   '''
-  SUCCESS - @exe/s1.sql
-  SUCCESS - @exe/a/s3.sql
-  SUCCESS - @exe/a/b/s4.sql
-  +-----------------------------------+
-  | File            | Status  | Error |
-  |-----------------+---------+-------|
-  | @exe/s1.sql     | SUCCESS | None  |
-  | @exe/a/s3.sql   | SUCCESS | None  |
-  | @exe/a/b/s4.sql | SUCCESS | None  |
-  +-----------------------------------+
-
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/b/s4.sql
+  SUCCESS - exe/a/b/s4.sql
+  +----------------------------------+
+  | File           | Status  | Error |
+  |----------------+---------+-------|
+  | exe/s1.sql     | SUCCESS | None  |
+  | exe/a/s3.sql   | SUCCESS | None  |
+  | exe/a/b/s4.sql | SUCCESS | None  |
+  +----------------------------------+
+  
   '''
 # ---
 # name: test_execute[exe/-@exe-expected_files2]
@@ -227,17 +246,20 @@
 # ---
 # name: test_execute[exe/-@exe-expected_files3]
   '''
-  SUCCESS - @exe/s1.sql
-  SUCCESS - @exe/a/s3.sql
-  SUCCESS - @exe/a/b/s4.sql
-  +-----------------------------------+
-  | File            | Status  | Error |
-  |-----------------+---------+-------|
-  | @exe/s1.sql     | SUCCESS | None  |
-  | @exe/a/s3.sql   | SUCCESS | None  |
-  | @exe/a/b/s4.sql | SUCCESS | None  |
-  +-----------------------------------+
-
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/b/s4.sql
+  SUCCESS - exe/a/b/s4.sql
+  +----------------------------------+
+  | File           | Status  | Error |
+  |----------------+---------+-------|
+  | exe/s1.sql     | SUCCESS | None  |
+  | exe/a/s3.sql   | SUCCESS | None  |
+  | exe/a/b/s4.sql | SUCCESS | None  |
+  +----------------------------------+
+  
   '''
 # ---
 # name: test_execute[exe/a-@exe-expected_files5]
@@ -255,15 +277,17 @@
 # ---
 # name: test_execute[exe/a-@exe-expected_files6]
   '''
-  SUCCESS - @exe/a/s3.sql
-  SUCCESS - @exe/a/b/s4.sql
-  +-----------------------------------+
-  | File            | Status  | Error |
-  |-----------------+---------+-------|
-  | @exe/a/s3.sql   | SUCCESS | None  |
-  | @exe/a/b/s4.sql | SUCCESS | None  |
-  +-----------------------------------+
-
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/b/s4.sql
+  SUCCESS - exe/a/b/s4.sql
+  +----------------------------------+
+  | File           | Status  | Error |
+  |----------------+---------+-------|
+  | exe/a/s3.sql   | SUCCESS | None  |
+  | exe/a/b/s4.sql | SUCCESS | None  |
+  +----------------------------------+
+  
   '''
 # ---
 # name: test_execute[exe/a/*-@exe-expected_files7]
@@ -281,15 +305,17 @@
 # ---
 # name: test_execute[exe/a/*-@exe-expected_files8]
   '''
-  SUCCESS - @exe/a/s3.sql
-  SUCCESS - @exe/a/b/s4.sql
-  +-----------------------------------+
-  | File            | Status  | Error |
-  |-----------------+---------+-------|
-  | @exe/a/s3.sql   | SUCCESS | None  |
-  | @exe/a/b/s4.sql | SUCCESS | None  |
-  +-----------------------------------+
-
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/b/s4.sql
+  SUCCESS - exe/a/b/s4.sql
+  +----------------------------------+
+  | File           | Status  | Error |
+  |----------------+---------+-------|
+  | exe/a/s3.sql   | SUCCESS | None  |
+  | exe/a/b/s4.sql | SUCCESS | None  |
+  +----------------------------------+
+  
   '''
 # ---
 # name: test_execute[exe/a/*.sql-@exe-expected_files8]
@@ -307,15 +333,17 @@
 # ---
 # name: test_execute[exe/a/*.sql-@exe-expected_files9]
   '''
-  SUCCESS - @exe/a/s3.sql
-  SUCCESS - @exe/a/b/s4.sql
-  +-----------------------------------+
-  | File            | Status  | Error |
-  |-----------------+---------+-------|
-  | @exe/a/s3.sql   | SUCCESS | None  |
-  | @exe/a/b/s4.sql | SUCCESS | None  |
-  +-----------------------------------+
-
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/b/s4.sql
+  SUCCESS - exe/a/b/s4.sql
+  +----------------------------------+
+  | File           | Status  | Error |
+  |----------------+---------+-------|
+  | exe/a/s3.sql   | SUCCESS | None  |
+  | exe/a/b/s4.sql | SUCCESS | None  |
+  +----------------------------------+
+  
   '''
 # ---
 # name: test_execute[exe/a/-@exe-expected_files6]
@@ -333,26 +361,29 @@
 # ---
 # name: test_execute[exe/a/-@exe-expected_files7]
   '''
-  SUCCESS - @exe/a/s3.sql
-  SUCCESS - @exe/a/b/s4.sql
-  +-----------------------------------+
-  | File            | Status  | Error |
-  |-----------------+---------+-------|
-  | @exe/a/s3.sql   | SUCCESS | None  |
-  | @exe/a/b/s4.sql | SUCCESS | None  |
-  +-----------------------------------+
-
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/b/s4.sql
+  SUCCESS - exe/a/b/s4.sql
+  +----------------------------------+
+  | File           | Status  | Error |
+  |----------------+---------+-------|
+  | exe/a/s3.sql   | SUCCESS | None  |
+  | exe/a/b/s4.sql | SUCCESS | None  |
+  +----------------------------------+
+  
   '''
 # ---
 # name: test_execute[exe/a/b-@exe-expected_files10]
   '''
-  SUCCESS - @exe/a/b/s4.sql
-  +-----------------------------------+
-  | File            | Status  | Error |
-  |-----------------+---------+-------|
-  | @exe/a/b/s4.sql | SUCCESS | None  |
-  +-----------------------------------+
-
+  SUCCESS - exe/a/b/s4.sql
+  SUCCESS - exe/a/b/s4.sql
+  +----------------------------------+
+  | File           | Status  | Error |
+  |----------------+---------+-------|
+  | exe/a/b/s4.sql | SUCCESS | None  |
+  +----------------------------------+
+  
   '''
 # ---
 # name: test_execute[exe/a/b-@exe-expected_files9]
@@ -379,13 +410,14 @@
 # ---
 # name: test_execute[exe/a/b/*-@exe-expected_files12]
   '''
-  SUCCESS - @exe/a/b/s4.sql
-  +-----------------------------------+
-  | File            | Status  | Error |
-  |-----------------+---------+-------|
-  | @exe/a/b/s4.sql | SUCCESS | None  |
-  +-----------------------------------+
-
+  SUCCESS - exe/a/b/s4.sql
+  SUCCESS - exe/a/b/s4.sql
+  +----------------------------------+
+  | File           | Status  | Error |
+  |----------------+---------+-------|
+  | exe/a/b/s4.sql | SUCCESS | None  |
+  +----------------------------------+
+  
   '''
 # ---
 # name: test_execute[exe/a/b/*.sql-@exe-expected_files12]
@@ -401,12 +433,13 @@
 # ---
 # name: test_execute[exe/a/b/*.sql-@exe-expected_files13]
   '''
-  SUCCESS - @exe/a/b/s4.sql
-  +-----------------------------------+
-  | File            | Status  | Error |
-  |-----------------+---------+-------|
-  | @exe/a/b/s4.sql | SUCCESS | None  |
-  +-----------------------------------+
+  SUCCESS - exe/a/b/s4.sql
+  SUCCESS - exe/a/b/s4.sql
+  +----------------------------------+
+  | File           | Status  | Error |
+  |----------------+---------+-------|
+  | exe/a/b/s4.sql | SUCCESS | None  |
+  +----------------------------------+
   
   '''
 # ---
@@ -423,12 +456,13 @@
 # ---
 # name: test_execute[exe/a/b/-@exe-expected_files11]
   '''
-  SUCCESS - @exe/a/b/s4.sql
-  +-----------------------------------+
-  | File            | Status  | Error |
-  |-----------------+---------+-------|
-  | @exe/a/b/s4.sql | SUCCESS | None  |
-  +-----------------------------------+
+  SUCCESS - exe/a/b/s4.sql
+  SUCCESS - exe/a/b/s4.sql
+  +----------------------------------+
+  | File           | Status  | Error |
+  |----------------+---------+-------|
+  | exe/a/b/s4.sql | SUCCESS | None  |
+  +----------------------------------+
   
   '''
 # ---
@@ -445,12 +479,13 @@
 # ---
 # name: test_execute[exe/s1.sql-@exe-expected_files15]
   '''
-  SUCCESS - @exe/s1.sql
-  +-------------------------------+
-  | File        | Status  | Error |
-  |-------------+---------+-------|
-  | @exe/s1.sql | SUCCESS | None  |
-  +-------------------------------+
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/s1.sql
+  +------------------------------+
+  | File       | Status  | Error |
+  |------------+---------+-------|
+  | exe/s1.sql | SUCCESS | None  |
+  +------------------------------+
   
   '''
 # ---
@@ -467,42 +502,52 @@
 # ---
 # name: test_execute[exe/s?.sql-@exe-expected_files14]
   '''
-  SUCCESS - @exe/s1.sql
-  +-------------------------------+
-  | File        | Status  | Error |
-  |-------------+---------+-------|
-  | @exe/s1.sql | SUCCESS | None  |
-  +-------------------------------+
-
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/s1.sql
+  +------------------------------+
+  | File       | Status  | Error |
+  |------------+---------+-------|
+  | exe/s1.sql | SUCCESS | None  |
+  +------------------------------+
+  
   '''
 # ---
 # name: test_execute[snow://exe-@exe-expected_files1]
   '''
-  SUCCESS - @exe/s1.sql
-  SUCCESS - @exe/a/s3.sql
-  SUCCESS - @exe/a/b/s4.sql
-  +-----------------------------------+
-  | File            | Status  | Error |
-  |-----------------+---------+-------|
-  | @exe/s1.sql     | SUCCESS | None  |
-  | @exe/a/s3.sql   | SUCCESS | None  |
-  | @exe/a/b/s4.sql | SUCCESS | None  |
-  +-----------------------------------+
-
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/s3.sql
+  SUCCESS - exe/a/b/s4.sql
+  SUCCESS - exe/a/b/s4.sql
+  +----------------------------------+
+  | File           | Status  | Error |
+  |----------------+---------+-------|
+  | exe/s1.sql     | SUCCESS | None  |
+  | exe/a/s3.sql   | SUCCESS | None  |
+  | exe/a/b/s4.sql | SUCCESS | None  |
+  +----------------------------------+
+  
   '''
 # ---
 # name: test_execute_continue_on_error
   '''
-  SUCCESS - @exe/s1.sql
-  FAILURE - @exe/s2.sql
-  SUCCESS - @exe/s3.sql
-  +-------------------------------+
-  | File        | Status  | Error |
-  |-------------+---------+-------|
-  | @exe/s1.sql | SUCCESS | None  |
-  | @exe/s2.sql | FAILURE | Error |
-  | @exe/s3.sql | SUCCESS | None  |
-  +-------------------------------+
+  SUCCESS - exe/p1.py
+  FAILURE - exe/p2.py
+  SUCCESS - exe/s1.sql
+  SUCCESS - exe/s1.sql
+  FAILURE - exe/s2.sql
+  SUCCESS - exe/s3.sql
+  SUCCESS - exe/s3.sql
+  +-----------------------------------+
+  | File       | Status  | Error      |
+  |------------+---------+------------|
+  | exe/p1.py  | SUCCESS | None       |
+  | exe/p2.py  | FAILURE | Test error |
+  | exe/s1.sql | SUCCESS | None       |
+  | exe/s2.sql | FAILURE | Error      |
+  | exe/s3.sql | SUCCESS | None       |
+  +-----------------------------------+
   
   '''
 # ---
