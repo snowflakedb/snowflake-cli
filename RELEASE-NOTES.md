@@ -19,6 +19,7 @@
 * Added support for fully qualified stage names in stage and git execute commands.
 * Fixed a bug where `snow app run` was not upgrading the application when the local state and remote stage are identical (for example immediately after `snow app deploy`).
 * Fixed handling of stage path separators on Windows
+* The `--info` callback returns info about configured feature flags.
 
 # v2.2.0
 
