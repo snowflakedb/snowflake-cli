@@ -553,7 +553,6 @@ def test_nativeapp_init_from_repo_with_single_template(
             single_template_repo.close()
 
 
-@pytest.mark.skip("Insufficient privileges for CI integration_tests role")
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "command,expected_error",
@@ -578,7 +577,7 @@ def test_nativeapp_teardown_cascade(
 ):
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}".upper()
-    wh_name = f"{project_name}_wh_{USER_NAME}".upper()
+    db_name = f"{project_name}_db_{USER_NAME}".upper()
 
     result = runner.invoke_json(
         ["app", "init", project_name],
@@ -587,17 +586,17 @@ def test_nativeapp_teardown_cascade(
     assert result.exit_code == 0
 
     with pushd(Path(os.getcwd(), project_name)):
-        # Add a procedure to the setup script that creates an app-owned warehouse
+        # Add a procedure to the setup script that creates an app-owned database
         with open("app/setup_script.sql", "a") as file:
             file.write(
                 dedent(
                     f"""
-                    create or replace procedure core.create_wh()
+                    create or replace procedure core.create_db()
                         returns boolean
                         language sql
                         as $$
                             begin
-                                create or replace warehouse {wh_name};
+                                create or replace database {db_name};
                                 return true;
                             end;
                         $$;
@@ -609,8 +608,8 @@ def test_nativeapp_teardown_cascade(
                 dedent(
                     f"""
                     privileges:
-                    - CREATE WAREHOUSE:
-                        description: "Permission to create warehouses"
+                    - CREATE DATABASE:
+                        description: "Permission to create databases"
                     """
                 )
             )
@@ -622,25 +621,23 @@ def test_nativeapp_teardown_cascade(
         assert result.exit_code == 0
 
         try:
-            # Grant permission to create warehouses
+            # Grant permission to create databases
             snowflake_session.execute_string(
-                f"grant create warehouse on account to application {app_name}",
+                f"grant create database on account to application {app_name}",
             )
 
-            # Create the warehouse
+            # Create the database
             snowflake_session.execute_string("use warehouse xsmall")
             snowflake_session.execute_string(
-                f"call {app_name}.core.create_wh()",
+                f"call {app_name}.core.create_db()",
             )
 
-            # Verify the warehouse is owned by the app
+            # Verify the database is owned by the app
             assert contains_row_with(
                 row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show warehouses like '{wh_name}'"
-                    )
+                    snowflake_session.execute_string(f"show databases like '{db_name}'")
                 ),
-                dict(name=wh_name, owner=app_name),
+                dict(name=db_name, owner=app_name),
             )
 
             # Run the teardown command
@@ -655,14 +652,12 @@ def test_nativeapp_teardown_cascade(
 
             assert result.exit_code == 0
 
-            # Verify the warehouse is dropped
+            # Verify the database is dropped
             assert not_contains_row_with(
                 row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show warehouses like '{wh_name}'"
-                    )
+                    snowflake_session.execute_string(f"show databases like '{db_name}'")
                 ),
-                dict(name=wh_name, owner=app_name),
+                dict(name=db_name, owner=app_name),
             )
 
             # Verify the app is dropped
