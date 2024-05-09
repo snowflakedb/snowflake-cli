@@ -51,23 +51,80 @@ def test_snowpark_external_access(project_directory, _test_steps, test_database,
         )
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
-            additional_arguments=["--replace", "--debug"],
+            additional_arguments=["--replace"],
             expected_result=[
                 {
                     "object": f"{test_database.upper()}.PUBLIC.STATUS_PROCEDURE()",
-                    "status": "created",
+                    "status": "packages updated",
                     "type": "procedure",
                 },
                 {
                     "object": f"{test_database.upper()}.PUBLIC.STATUS_FUNCTION()",
+                    "status": "packages updated",
+                    "type": "function",
+                },
+            ]
+        )
+
+def test_snowpark_upgrades_with_external_access(project_directory, _test_steps, test_database, alter_snowflake_yml):
+
+    with project_directory("snowpark") as tmp_dir:
+        _test_steps.snowpark_build_should_zip_files()
+
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            [
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.HELLO_PROCEDURE(name string)",
+                    "status": "created",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.TEST()",
+                    "status": "created",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.HELLO_FUNCTION(name string)",
                     "status": "created",
                     "type": "function",
                 },
             ]
         )
 
-def test_snowpark_upgrades_with_external_access():
-    pass
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.functions.0.external_access_integrations",
+            value=["snowflake_docs_access_integration"]
+        )
+
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.procedures.0.external_access_integrations",
+            value=["snowflake_docs_access_integration"]
+        )
+
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            [
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.HELLO_PROCEDURE(name string)",
+                    "status": "definition updated",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.TEST()",
+                    "status": "packages updated",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.HELLO_FUNCTION(name string)",
+                    "status": "definition updated",
+                    "type": "function",
+                },
+            ],
+            additional_arguments=["--replace"]
+        )
+
+
 
 @pytest.fixture
 def _test_setup(
