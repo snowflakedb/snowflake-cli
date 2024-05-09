@@ -43,8 +43,13 @@ def check_if_replace_is_required(
         )
         return True
 
-    if set(external_access_integrations) != set(resource_json.get("external_access_integration",[])):
-        log.info("Found difference of external access integrations. Replacing the %s.",object_type)
+    if set(external_access_integrations) != set(
+        resource_json.get("external_access_integration", [])
+    ):
+        log.info(
+            "Found difference of external access integrations. Replacing the %s.",
+            object_type,
+        )
         return True
 
     if (
@@ -59,7 +64,6 @@ def check_if_replace_is_required(
 
     if _compare_imports(resource_json, imports, stage_artifact_file):
         return True
-
 
     return False
 
@@ -195,7 +199,7 @@ def build_udf_sproc_identifier(
             result += f" default {val}"
         return result
 
-    if udf_sproc.signature and udf_sproc.signature != 'null':
+    if udf_sproc.signature and udf_sproc.signature != "null":
         arguments = ", ".join(format_arg(arg) for arg in udf_sproc.signature)
     else:
         arguments = ""
