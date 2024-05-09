@@ -93,13 +93,6 @@ def get_all_file_paths_under_dir(directory: Path):
             yield Path(os.path.join(root, file))
 
 
-def is_python_file(file_path: Path):
-    """
-    Checks if the given file is a python file.
-    """
-    return file_path.suffix == ".py"
-
-
 def filter_files(generator: Generator, predicate_func: Callable):
     """
     Filter file paths based on a given predicate function.
@@ -107,7 +100,3 @@ def filter_files(generator: Generator, predicate_func: Callable):
     for file_path in generator:
         if predicate_func(file_path):
             yield file_path
-
-
-def is_single_quoted(name: str) -> bool:
-    return name.startswith("'") and name.endswith("'")

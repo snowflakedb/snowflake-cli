@@ -12,6 +12,8 @@ except ModuleNotFoundError as exc:
     )
     sys.exit(1)
 
+orig_globals = globals().copy()
+
 found_correct_version = hasattr(
     snowflake.snowpark.context, "_is_execution_environment_sandboxed_for_client"
 ) and hasattr(snowflake.snowpark.context, "_should_continue_registration")
@@ -22,8 +24,6 @@ if not found_correct_version:
         file=sys.stderr,
     )
     sys.exit(1)
-
-orig_globals = globals().copy()
 
 __snowflake_cli_native_app_internal_callback_return_list: List[Any] = []
 

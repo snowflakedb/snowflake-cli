@@ -25,10 +25,16 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.extension_function_utils i
 from snowflake.cli.plugins.nativeapp.utils import (
     filter_files,
     get_all_file_paths_under_dir,
-    is_python_file,
 )
 
 DEFAULT_TIMEOUT = 30
+
+
+def is_python_file(file_path: Path):
+    """
+    Checks if the given file is a python file.
+    """
+    return file_path.suffix == ".py"
 
 
 def _determine_virtual_env(processor: ProcessorMapping) -> Dict[str, Any]:
@@ -164,6 +170,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         )
 
         # 1. Get all src.py -> dest.py mapping
+        # TODO: Logic to replaced in a follow up PR by NADE
         src_py_file_to_dest_py_file_map = self.get_src_py_file_to_dest_py_file_map(
             artifact_to_process
         )

@@ -9,7 +9,6 @@ from typing import (
 )
 
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.plugins.nativeapp.utils import is_single_quoted
 
 TEMP_OBJECT_NAME_PREFIX = "SNOWPARK_TEMP_"
 
@@ -65,6 +64,13 @@ def _get_schema_and_name_for_extension_function(
         return f"{schema}.{handler}"
     else:
         return f"{schema}.{object_name}"
+
+
+def is_single_quoted(name: str) -> bool:
+    """
+    Helper function to do a generic check on whether the provided string is surrounded by single quotes.
+    """
+    return name.startswith("'") and name.endswith("'")
 
 
 def ensure_single_quoted(obj_lst: List[str]) -> List[str]:
