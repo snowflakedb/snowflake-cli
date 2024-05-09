@@ -1,11 +1,14 @@
 import os
 import uuid
+from textwrap import dedent
 
-from snowflake.cli.api.project.util import generate_user_env
+from snowflake.cli.api.project.util import (
+    generate_user_env,
+    to_identifier,
+)
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.nativeapp.init import OFFICIAL_TEMPLATES_GITHUB_URL
 from tests.nativeapp.utils import touch
-from click import ClickException
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
@@ -566,7 +569,7 @@ def test_nativeapp_init_from_repo_with_single_template(
             "Could not successfully execute the Snowflake SQL statements",
         ],
         # "snow app teardown" with owned application objects should abort the teardown
-        ["app teardown", "Please explicitly set --cascade"],
+        ["app teardown", "Aborted"],
     ],
 )
 def test_nativeapp_teardown_cascade(
@@ -576,9 +579,10 @@ def test_nativeapp_teardown_cascade(
     snowflake_session,
     temporary_working_directory,
 ):
+    snowflake_session.execute_string("use role ACCOUNTADMIN")
     project_name = "myapp"
-    app_name = f"{project_name}_{USER_NAME}".upper()
-    wh_name = f"{project_name}_wh_{USER_NAME}".upper()
+    app_name = to_identifier(f"{project_name}_{USER_NAME}".upper())
+    wh_name = to_identifier(f"{project_name}_wh_{USER_NAME}".upper())
 
     result = runner.invoke_json(
         ["app", "init", project_name],
@@ -590,24 +594,29 @@ def test_nativeapp_teardown_cascade(
         # Add a procedure to the setup script that creates an app-owned warehouse
         with open("app/setup_script.sql", "a") as file:
             file.write(
-                f"""\
-create or replace procedure core.create_wh()
-    returns boolean
-    language sql
-    as $$
-        begin
-            create warehouse {wh_name};
-            return true;
-        end;
-    $$;"""
+                dedent(
+                    f"""
+                    create or replace procedure core.create_wh()
+                        returns boolean
+                        language sql
+                        as $$
+                            begin
+                                create or replace warehouse {wh_name};
+                                return true;
+                            end;
+                        $$;
+                    """
+                )
             )
         with open("app/manifest.yml", "a") as file:
             file.write(
-                f"""\
-privileges:
-  - CREATE WAREHOUSE:
-      description: "Permission to create warehouses"
-"""
+                dedent(
+                    f"""
+                    privileges:
+                    - CREATE WAREHOUSE:
+                        description: "Permission to create warehouses"
+                    """
+                )
             )
 
         result = runner.invoke_with_connection_json(
@@ -673,7 +682,7 @@ privileges:
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
             result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
+                ["app", "teardown", "--force", "--cascade"],
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
