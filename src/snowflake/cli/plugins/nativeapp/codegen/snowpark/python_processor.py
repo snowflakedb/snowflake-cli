@@ -197,7 +197,12 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                 src_py_file_to_collected_entities[dest_file] = collected_entities
 
                 if collected_entities is None:
+                    cc.message("No entities could be collected from the file path.")
                     continue
+
+                cc.message(f"This is the file path in deploy root: {dest_file}\n")
+                cc.message("This is the list of collected entities:")
+                cc.message(collected_entities)
 
                 # 4. Enrich entities by setting additional properties
                 for entity in collected_entities:
