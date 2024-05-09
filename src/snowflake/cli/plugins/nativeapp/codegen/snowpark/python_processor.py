@@ -195,6 +195,9 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                     collected_entities = None
 
                 src_py_file_to_collected_entities[dest_file] = collected_entities
+                cc.message(f"This is the file path in deploy root: {dest_file}\n")
+                cc.message("This is the list of collected entities:")
+                cc.message(collected_entities)
 
                 if collected_entities is None:
                     continue
