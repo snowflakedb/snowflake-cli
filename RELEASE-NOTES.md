@@ -19,6 +19,7 @@
 * Added support for fully qualified stage names in stage and git execute commands.
 * Fixed a bug where `snow app run` was not upgrading the application when the local state and remote stage are identical (for example immediately after `snow app deploy`).
 * Fixed handling of stage path separators on Windows
+* Change to `external_access_integrations` in `snowflake.yml` now also triggers function replace
 
 # v2.2.0
 
