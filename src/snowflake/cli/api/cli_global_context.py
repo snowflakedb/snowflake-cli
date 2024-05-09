@@ -187,7 +187,7 @@ class _ConnectionContext:
         }
 
     def _build_connection(self):
-        from snowflake.cli.app.snow_connector import connect_to_snowflake
+        from snowflake.cli._app.snow_connector import connect_to_snowflake
 
         return connect_to_snowflake(
             temporary_connection=self.temporary_connection,

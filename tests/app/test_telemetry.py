@@ -4,12 +4,12 @@ from snowflake.connector.version import VERSION as DRIVER_VERSION
 
 
 @mock.patch(
-    "snowflake.cli.app.telemetry.python_version",
+    "snowflake.cli._app.telemetry.python_version",
 )
-@mock.patch("snowflake.cli.app.telemetry.platform.platform")
-@mock.patch("snowflake.cli.app.telemetry.get_time_millis")
+@mock.patch("snowflake.cli._app.telemetry.platform.platform")
+@mock.patch("snowflake.cli._app.telemetry.get_time_millis")
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
 def test_executing_command_sends_telemetry_data(
     _, mock_conn, mock_time, mock_platform, mock_version, runner
 ):

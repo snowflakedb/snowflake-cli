@@ -4,12 +4,12 @@ from unittest import mock
 from unittest.mock import Mock
 
 import pytest
+from snowflake.cli._plugins.spcs.image_repository.manager import ImageRepositoryManager
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
     DatabaseNotProvidedError,
     SchemaNotProvidedError,
 )
-from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -54,7 +54,7 @@ MOCK_ROWS_DICT = [
     ],
 )
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
+    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
 )
 def test_create(mock_execute, replace, if_not_exists, expected_query):
     repo_name = "test_repo"
@@ -76,7 +76,7 @@ def test_create_replace_and_if_not_exist():
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.create"
+    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager.create"
 )
 def test_create_cli(mock_create, mock_cursor, runner, snapshot):
     repo_name = "test_repo"
@@ -109,10 +109,10 @@ def test_create_cli_replace_and_if_not_exists_fails(runner, snapshot):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
+    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
 )
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.handle_object_already_exists"
+    "snowflake.cli._plugins.spcs.image_repository.manager.handle_object_already_exists"
 )
 def test_create_repository_already_exists(mock_handle, mock_execute):
     repo_name = "test_object"
@@ -126,15 +126,15 @@ def test_create_repository_already_exists(mock_handle, mock_execute):
     )
 
 
-@mock.patch("snowflake.cli.plugins.spcs.image_repository.commands.requests.get")
+@mock.patch("snowflake.cli._plugins.spcs.image_repository.commands.requests.get")
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.commands.ImageRepositoryManager._execute_query"
+    "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager._execute_query"
 )
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.commands.ImageRepositoryManager._conn"
+    "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager._conn"
 )
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_registry.commands.RegistryManager.login_to_registry"
+    "snowflake.cli._plugins.spcs.image_registry.commands.RegistryManager.login_to_registry"
 )
 def test_list_images(
     mock_login,
@@ -165,15 +165,15 @@ def test_list_images(
     assert json.loads(result.output) == [{"image": "/DB/SCHEMA/IMAGES/super-cool-repo"}]
 
 
-@mock.patch("snowflake.cli.plugins.spcs.image_repository.commands.requests.get")
+@mock.patch("snowflake.cli._plugins.spcs.image_repository.commands.requests.get")
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_query"
+    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_query"
 )
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.commands.ImageRepositoryManager._conn"
+    "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager._conn"
 )
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.login_to_registry"
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.login_to_registry"
 )
 def test_list_tags(
     mock_login,
@@ -215,7 +215,7 @@ def test_list_tags(
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.get_repository_url"
+    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager.get_repository_url"
 )
 def test_get_repository_url_cli(mock_url, runner):
     repo_url = "repotest.registry.snowflakecomputing.com/db/schema/IMAGES"
@@ -226,7 +226,7 @@ def test_get_repository_url_cli(mock_url, runner):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.show_specific_object"
+    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager.show_specific_object"
 )
 def test_get_repository_url(mock_get_row):
     expected_row = MOCK_ROWS_DICT[0]
@@ -241,7 +241,7 @@ def test_get_repository_url(mock_get_row):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.show_specific_object"
+    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager.show_specific_object"
 )
 def test_get_repository_url_no_scheme(mock_get_row):
     expected_row = MOCK_ROWS_DICT[0]
@@ -258,10 +258,10 @@ def test_get_repository_url_no_scheme(mock_get_row):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
+    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
 )
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.show_specific_object"
+    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager.show_specific_object"
 )
 def test_get_repository_url_no_repo_found(mock_get_row, mock_conn):
     mock_get_row.return_value = None
@@ -279,7 +279,7 @@ def test_get_repository_url_no_repo_found(mock_get_row, mock_conn):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
+    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
 )
 def test_get_repository_url_no_database_provided(mock_conn):
     mock_conn.database = None
@@ -288,7 +288,7 @@ def test_get_repository_url_no_database_provided(mock_conn):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
+    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
 )
 def test_get_repository_url_no_schema_provided(mock_conn):
     mock_conn.database = "DB"

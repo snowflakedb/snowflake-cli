@@ -1,4 +1,4 @@
-from snowflake.cli.plugins.snowpark.models import Requirement
+from snowflake.cli._plugins.snowpark.models import Requirement
 
 requirements = ["pytest==1.0.0", "Django==3.2.1", "awesome_lib==3.3.3"]
 

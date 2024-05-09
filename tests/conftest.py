@@ -5,12 +5,12 @@ from datetime import datetime
 from logging import FileHandler
 
 import pytest
+from snowflake.cli._app import loggers
 from snowflake.cli.api.cli_global_context import cli_context_manager
 from snowflake.cli.api.commands.decorators import global_options, with_output
 from snowflake.cli.api.config import config_init
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import QueryResult
-from snowflake.cli.app import loggers
 
 pytest_plugins = ["tests.testing_utils.fixtures", "tests.project.fixtures"]
 

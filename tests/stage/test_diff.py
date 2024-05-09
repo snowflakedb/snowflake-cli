@@ -5,10 +5,7 @@ from typing import Dict, List, Union
 from unittest import mock
 
 import pytest
-from snowflake.cli.api.exceptions import (
-    SnowflakeSQLExecutionError,
-)
-from snowflake.cli.plugins.stage.diff import (
+from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePath,
     build_md5_map,
@@ -20,12 +17,15 @@ from snowflake.cli.plugins.stage.diff import (
     put_files_on_stage,
     sync_local_diff_with_stage,
 )
-from snowflake.cli.plugins.stage.manager import StageManager
+from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli.api.exceptions import (
+    SnowflakeSQLExecutionError,
+)
 
 from tests.testing_utils.files_and_dirs import temp_local_dir
 
-STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
-STAGE_DIFF = "snowflake.cli.plugins.object.stage.diff"
+STAGE_MANAGER = "snowflake.cli._plugins.stage.manager.StageManager"
+STAGE_DIFF = "snowflake.cli._plugins.object.stage.diff"
 
 FILE_CONTENTS = {
     "README.md": "This is a README\n",

@@ -1,5 +1,5 @@
 import pytest
-from snowflake.cli.plugins.snowpark.models import Requirement, get_package_name
+from snowflake.cli._plugins.snowpark.models import Requirement, get_package_name
 
 
 @pytest.mark.parametrize(

@@ -3,11 +3,11 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from snowflake.cli.plugins.stage.manager import StageManager
+from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.connector import DictCursor, ProgrammingError
 
 EXAMPLE_URL = "https://github.com/an-example-repo.git"
-STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
+STAGE_MANAGER = "snowflake.cli._plugins.stage.manager.StageManager"
 
 
 def test_toplevel_help(runner):
@@ -104,7 +104,7 @@ def test_fetch(mock_connector, runner, mock_ctx):
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch.object(StageManager, "iter_stage")
-@mock.patch("snowflake.cli.plugins.stage.commands.QueryResult")
+@mock.patch("snowflake.cli._plugins.stage.commands.QueryResult")
 def test_copy_to_local_file_system(
     mock_result, mock_iter, mock_connector, runner, mock_ctx, temp_dir
 ):
@@ -158,7 +158,7 @@ def test_copy_not_a_stage_error(runner):
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 def test_setup_already_exists_error(mock_om_describe, mock_connector, runner, mock_ctx):
     mock_om_describe.return_value = {"object_details": "something"}
     ctx = mock_ctx()
@@ -171,7 +171,7 @@ def test_setup_already_exists_error(mock_om_describe, mock_connector, runner, mo
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 def test_setup_invalid_url_error(mock_om_describe, mock_connector, runner, mock_ctx):
     mock_om_describe.side_effect = ProgrammingError("does not exist or not authorized")
     ctx = mock_ctx()
@@ -185,7 +185,7 @@ def test_setup_invalid_url_error(mock_om_describe, mock_connector, runner, mock_
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 def test_setup_no_secret_existing_api(
     mock_om_describe, mock_connector, runner, mock_ctx
 ):
@@ -221,7 +221,7 @@ def test_setup_no_secret_existing_api(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 def test_setup_no_secret_create_api(mock_om_describe, mock_connector, runner, mock_ctx):
     mock_om_describe.side_effect = ProgrammingError("does not exist or not authorized")
     ctx = mock_ctx()
@@ -258,7 +258,7 @@ def test_setup_no_secret_create_api(mock_om_describe, mock_connector, runner, mo
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 def test_setup_existing_secret_existing_api(
     mock_om_describe, mock_connector, runner, mock_ctx
 ):
@@ -300,7 +300,7 @@ def test_setup_existing_secret_existing_api(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 def test_setup_existing_secret_create_api(
     mock_om_describe, mock_connector, runner, mock_ctx
 ):
@@ -347,7 +347,7 @@ def test_setup_existing_secret_create_api(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 def test_setup_create_secret_create_api(
     mock_om_describe, mock_connector, runner, mock_ctx
 ):

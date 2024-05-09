@@ -4,8 +4,7 @@ from typing import List, Optional
 
 import pytest
 from click.exceptions import ClickException
-from snowflake.cli.api.project.definition import load_project_definition
-from snowflake.cli.plugins.nativeapp.artifacts import (
+from snowflake.cli._plugins.nativeapp.artifacts import (
     ArtifactMapping,
     DeployRootError,
     GlobMatchedNothingError,
@@ -17,6 +16,7 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     source_path_to_deploy_path,
     translate_artifact,
 )
+from snowflake.cli.api.project.definition import load_project_definition
 
 from tests.nativeapp.utils import touch
 
