@@ -61,9 +61,9 @@ def get_snowflake_cli_jinja_env():
 
 def jinja_render_from_file(
     template_path: Path, data: Dict, output_file_path: Optional[Path] = None
-):
+) -> Optional[str]:
     """
-    Create a file from a jinja template.
+    Renders a jinja template and outputs either the rendered contents as string or writes to a file.
 
     Args:
         template_path (Path): Path to the template
@@ -71,7 +71,7 @@ def jinja_render_from_file(
         output_file_path (Optional[Path]): If provided then rendered template will be written to this file
 
     Returns:
-        None
+        None if file path is provided, else returns the rendered string.
     """
     env = _env_bootstrap(
         Environment(
@@ -84,8 +84,9 @@ def jinja_render_from_file(
     rendered_result = loaded_template.render(**data)
     if output_file_path:
         SecurePath(output_file_path).write_text(rendered_result)
+        return None
     else:
-        print(rendered_result)
+        return rendered_result
 
 
 class _AttrGetter:
