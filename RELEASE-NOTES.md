@@ -1,11 +1,23 @@
 # Unreleased version
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
+# v2.3.0
 
 ## Backward incompatibility
 
 ## Deprecations
 
 ## New additions
-* `snow sql` command supports now client-side templating of queries.
+* `snow sql` command supports now client-side templating of queries
+* New `snow sql` functionality:
+  * `-D/--data` allows variable substitutions in a SQL input (client-side query templating)
 * New `snow app deploy` functionality:
   * Passing files and directories as arguments syncs these only: `snow app deploy some-file some-dir`.
   * `--recursive` syncs all files and subdirectories recursively.
