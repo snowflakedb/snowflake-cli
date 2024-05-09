@@ -44,7 +44,10 @@ log = logging.getLogger(__name__)
 
 
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
-EXECUTE_SUPPORTED_FILES_FORMATS = {".sql", ".py"}
+EXECUTE_SUPPORTED_FILES_FORMATS = (
+    ".sql",
+    ".py",
+)  # tuple to preserve order but it's a set
 
 
 @dataclass
