@@ -576,7 +576,6 @@ def test_nativeapp_teardown_cascade(
     snowflake_session,
     temporary_working_directory,
 ):
-    snowflake_session.execute_string("use role ACCOUNTADMIN")
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}".upper()
     wh_name = f"{project_name}_wh_{USER_NAME}".upper()
