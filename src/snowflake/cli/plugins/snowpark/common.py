@@ -44,7 +44,7 @@ def check_if_replace_is_required(
         return True
 
     if set(external_access_integrations) != set(
-        resource_json.get("external_access_integration", [])
+        resource_json.get("external_access_integrations", [])
     ):
         log.info(
             "Found difference of external access integrations. Replacing the %s.",
