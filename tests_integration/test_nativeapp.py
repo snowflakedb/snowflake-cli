@@ -553,6 +553,7 @@ def test_nativeapp_init_from_repo_with_single_template(
             single_template_repo.close()
 
 
+@pytest.mark.skip("Insufficient privileges for CI integration_tests role")
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "command,expected_error",
