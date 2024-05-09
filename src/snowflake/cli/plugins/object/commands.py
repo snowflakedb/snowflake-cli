@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import typer
 from click import ClickException
@@ -24,12 +24,12 @@ ObjectArgument = typer.Argument(
     help="Type of object. For example table, procedure, streamlit.",
     case_sensitive=False,
 )
-PayloadArgument = typer.Argument(
-    help="""Parameters to create the object with, for example \'{"name"="my_database"}\'.
+ObjectDefinitionArgument = typer.Argument(
+    help="""Object definition in JSON format, for example \'{"name": "my_database"}\'.
 Check https://docs.snowflake.com/LIMITEDACCESS/rest-api/reference/ for the full list of available parameters
-for every object type.
+for every object.
     """,
-    default="{}",
+    default=None,
 )
 LikeOption = like_option(
     help_example='`list function --like "my%"` lists all functions that begin with “my”',
@@ -97,11 +97,24 @@ def describe(
     )
 
 
+def _parse_payload(payload: Optional[str]) -> Dict[str, Any]:
+    if payload is None:
+        return {}
+    import json
+
+    return json.loads(payload)
+
+
 @app.command(name="create", requires_connection=True)
 def create(
-    object_type: str = ObjectArgument, payload: str = PayloadArgument, **options
+    object_type: str = ObjectArgument,
+    object_definition: Optional[str] = ObjectDefinitionArgument,
+    **options,
 ):
     """Create an object of a given type. List of supported objects
     and parameters: https://docs.snowflake.com/LIMITEDACCESS/rest-api/reference/"""
+
+    # TODO add support for multiple arguments for payload: name=mordo mode=XD
+    payload = _parse_payload(object_definition)
     result = ObjectManager().create(object_type=object_type, payload=payload)
     return MessageResult(result)
