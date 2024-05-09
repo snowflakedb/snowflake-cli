@@ -1,7 +1,9 @@
 from os import PathLike
 from pathlib import Path
 from sys import stdin, stdout
-from typing import Optional, Union
+from typing import List, Optional, Union
+
+from click import ClickException
 
 
 def needs_confirmation(needs_confirm: bool, auto_yes: bool) -> bool:
@@ -65,3 +67,17 @@ def shallow_git_clone(url: Union[str, PathLike], to_path: Union[str, PathLike]):
     repo.close()
 
     return repo
+
+
+def verify_no_directories(paths_to_sync: List[Path]):
+    for path in paths_to_sync:
+        if path.is_dir():
+            raise ClickException(
+                f"{path} is a directory. Add the -r flag to deploy directories."  #
+            )
+
+
+def verify_exists(paths_to_sync: List[Path]):
+    for path in paths_to_sync:
+        if not path.exists():
+            raise ClickException(f"The following path does not exist: {path}")

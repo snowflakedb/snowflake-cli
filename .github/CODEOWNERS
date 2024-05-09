@@ -2,7 +2,7 @@
 
 # Native Apps Owners
 src/snowflake/cli/plugins/nativeapp/ @snowflakedb/nade
-tests/nativeapp/ @sfc-gh-bgoel @snowflakedb/nade
+tests/nativeapp/ @snowflakedb/nade
 tests_integration/test_nativeapp.py @snowflakedb/nade
 
 # Project Definition Owners

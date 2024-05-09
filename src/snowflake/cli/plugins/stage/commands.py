@@ -22,7 +22,7 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
 )
 from snowflake.cli.api.utils.path_utils import is_stage_path
-from snowflake.cli.plugins.stage.diff import DiffResult
+from snowflake.cli.plugins.stage.diff import DiffResult, compute_stage_diff
 from snowflake.cli.plugins.stage.manager import OnErrorType, StageManager
 
 app = SnowTyper(
@@ -125,14 +125,14 @@ def stage_remove(
 
 @app.command("diff", hidden=True, requires_connection=True)
 def stage_diff(
-    stage_name: str = typer.Argument(None, help="Fully qualified name of a stage"),
-    folder_name: str = typer.Argument(None, help="Path to local folder"),
+    stage_name: str = typer.Argument(help="Fully qualified name of a stage"),
+    folder_name: str = typer.Argument(help="Path to local folder"),
     **options,
 ) -> ObjectResult:
     """
     Diffs a stage with a local folder.
     """
-    diff: DiffResult = stage_diff(Path(folder_name), stage_name)
+    diff: DiffResult = compute_stage_diff(Path(folder_name), stage_name)
     return ObjectResult(str(diff))
 
 

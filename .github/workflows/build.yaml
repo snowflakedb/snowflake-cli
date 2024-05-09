@@ -18,7 +18,6 @@ jobs:
   build:
     name: Build project
     runs-on: ${{ matrix.os }}
-    needs: lint
     strategy:
       matrix:
         os: [ macos-latest, ubuntu-latest, windows-latest ]
