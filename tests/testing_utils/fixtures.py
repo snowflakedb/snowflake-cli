@@ -12,10 +12,10 @@ from unittest import mock
 
 import pytest
 import yaml
+from snowflake.cli._app.cli_app import app_factory
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
-from snowflake.cli.app.cli_app import app_factory
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 from typer import Typer

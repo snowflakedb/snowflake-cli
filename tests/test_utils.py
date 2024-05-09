@@ -5,14 +5,18 @@ from unittest import mock
 from unittest.mock import patch
 
 import pytest
-import snowflake.cli.plugins.snowpark.models
-import snowflake.cli.plugins.snowpark.package.utils
-from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.api.utils import path_utils
-from snowflake.cli.plugins.snowpark import package_utils
-from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
+from snowflake.cli._plugins.snowpark.package.anaconda_packages import (  # noqa: SLF001
     AnacondaPackages,
 )
+from snowflake.cli._plugins.snowpark.package.utils import (
+    prepare_app_zip,  # noqa: SLF001
+)
+from snowflake.cli._plugins.snowpark.package_utils import (  # noqa: SLF001
+    download_unavailable_packages,
+    parse_requirements,
+)
+from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.utils import path_utils
 
 from tests.test_data import test_data
 
@@ -22,7 +26,7 @@ def test_prepare_app_zip(
     app_zip: str,
     temp_directory_for_app_zip: str,
 ):
-    result = snowflake.cli.plugins.snowpark.package.utils.prepare_app_zip(
+    result = prepare_app_zip(
         SecurePath(app_zip), SecurePath(temp_directory_for_app_zip)
     )
     assert str(result.path) == os.path.join(
@@ -34,7 +38,7 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_source(
     temp_directory_for_app_zip,
 ):
     with pytest.raises(FileNotFoundError) as expected_error:
-        snowflake.cli.plugins.snowpark.package.utils.prepare_app_zip(
+        prepare_app_zip(
             SecurePath("/non/existent/path"), SecurePath(temp_directory_for_app_zip)
         )
 
@@ -44,9 +48,7 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_source(
 
 def test_prepare_app_zip_if_exception_is_raised_if_no_dst(app_zip):
     with pytest.raises(FileNotFoundError) as expected_error:
-        snowflake.cli.plugins.snowpark.package.utils.prepare_app_zip(
-            SecurePath(app_zip), SecurePath("/non/existent/path")
-        )
+        prepare_app_zip(SecurePath(app_zip), SecurePath("/non/existent/path"))
 
     assert expected_error.value.errno == 2
     assert expected_error.type == FileNotFoundError
@@ -55,16 +57,14 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_dst(app_zip):
 def test_parse_requirements_with_correct_file(
     correct_requirements_snowflake_txt: str, temp_dir
 ):
-    result = package_utils.parse_requirements(
-        SecurePath(correct_requirements_snowflake_txt)
-    )
+    result = parse_requirements(SecurePath(correct_requirements_snowflake_txt))
 
     assert len(result) == len(test_data.requirements)
 
 
 def test_parse_requirements_with_nonexistent_file(temp_dir):
     path = os.path.join(temp_dir, "non_existent.file")
-    result = package_utils.parse_requirements(SecurePath(path))
+    result = parse_requirements(SecurePath(path))
 
     assert result == []
 
@@ -86,23 +86,21 @@ def test_parse_requirements_with_nonexistent_file(temp_dir):
         ),
     ],
 )
-@mock.patch("snowflake.cli.plugins.snowpark.package_utils.SecurePath.read_text")
+@mock.patch("snowflake.cli._plugins.snowpark.package_utils.SecurePath.read_text")
 def test_parse_requirements_corner_cases(
     mock_file, contents, expected, correct_requirements_snowflake_txt
 ):
     mock_file.return_value = contents
     result = [
         p.name_and_version
-        for p in package_utils.parse_requirements(
-            SecurePath(correct_requirements_snowflake_txt)
-        )
+        for p in parse_requirements(SecurePath(correct_requirements_snowflake_txt))
     ]
     mock_file.assert_called_with(file_size_limit_mb=128)
     assert result == expected
 
 
 def test_parse_requirements(correct_requirements_txt: str):
-    result = package_utils.parse_requirements(SecurePath(correct_requirements_txt))
+    result = parse_requirements(SecurePath(correct_requirements_txt))
     result.sort(key=lambda r: r.name)
 
     assert len(result) == 3
@@ -134,15 +132,13 @@ def test_path_resolver(mock_system, argument, expected):
     assert path_utils.path_resolver(argument) == expected
 
 
-@patch("snowflake.cli.plugins.snowpark.package_utils.pip_wheel")
+@patch("snowflake.cli._plugins.snowpark.package_utils.pip_wheel")
 def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
     mock_installer.return_value = 42
 
-    with caplog.at_level(logging.INFO, "snowflake.cli.plugins.snowpark.package_utils"):
-        requirements = package_utils.parse_requirements(
-            SecurePath(correct_requirements_txt)
-        )
-        package_utils.download_unavailable_packages(
+    with caplog.at_level(logging.INFO, "snowflake.cli._plugins.snowpark.package_utils"):
+        requirements = parse_requirements(SecurePath(correct_requirements_txt))
+        download_unavailable_packages(
             requirements=requirements,
             target_dir=SecurePath(".packages"),
             anaconda_packages=AnacondaPackages.empty(),

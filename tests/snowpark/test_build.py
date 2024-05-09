@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 import pytest
-from snowflake.cli.plugins.snowpark.package_utils import (
+from snowflake.cli._plugins.snowpark.package_utils import (
     DownloadUnavailablePackagesResult,
 )
 
@@ -20,7 +20,7 @@ from snowflake.cli.plugins.snowpark.package_utils import (
         ["--package-native-libraries", "ask"],
     ],
 )
-@patch("snowflake.cli.plugins.snowpark.package_utils.download_unavailable_packages")
+@patch("snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages")
 def test_snowpark_build_deprecated_flags_warning(
     mock_download, flags, runner, project_directory
 ):
@@ -31,7 +31,7 @@ def test_snowpark_build_deprecated_flags_warning(
         assert "flag is deprecated" in result.output
 
 
-@patch("snowflake.cli.plugins.snowpark.package_utils.download_unavailable_packages")
+@patch("snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages")
 def test_snowpark_build_no_deprecated_warnings_by_default(
     mock_download, runner, project_directory
 ):

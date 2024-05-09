@@ -3,7 +3,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-import snowflake.cli.plugins.nativeapp.codegen.sandbox as sandbox
+import snowflake.cli._plugins.nativeapp.codegen.sandbox as sandbox
 
 PYTHON_SCRIPT = """
 import sys

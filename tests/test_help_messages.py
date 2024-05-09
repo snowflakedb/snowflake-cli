@@ -1,5 +1,5 @@
 import pytest
-from snowflake.cli.app.commands_registration.command_plugins_loader import (
+from snowflake.cli._app.commands_registration.command_plugins_loader import (
     load_only_builtin_command_plugins,
 )
 

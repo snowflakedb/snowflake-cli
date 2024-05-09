@@ -161,7 +161,7 @@ def test_fails_if_existing_connection(runner):
     assert "Connection conn2 already exists  " in result.output
 
 
-@mock.patch("snowflake.cli.plugins.connection.commands.get_default_connection_name")
+@mock.patch("snowflake.cli._plugins.connection.commands.get_default_connection_name")
 def test_lists_connection_information(mock_get_default_conn_name, runner):
     mock_get_default_conn_name.return_value = "empty"
     result = runner.invoke(["connection", "list", "--format", "json"])
@@ -212,7 +212,7 @@ def test_lists_connection_information(mock_get_default_conn_name, runner):
     },
     clear=True,
 )
-@mock.patch("snowflake.cli.plugins.connection.commands.get_default_connection_name")
+@mock.patch("snowflake.cli._plugins.connection.commands.get_default_connection_name")
 def test_connection_list_does_not_print_too_many_env_variables(
     mock_get_default_conn_name, runner
 ):
@@ -292,8 +292,8 @@ def test_second_connection_not_update_default_connection(runner, snapshot):
         assert content == snapshot
 
 
-@mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
-@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 def test_connection_test(mock_connect, mock_om, runner):
     result = runner.invoke(
         ["connection", "test", "-c", "full", "--diag-log-path", "/tmp"]
@@ -513,7 +513,7 @@ def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
     clear=True,
 )
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.app.snow_connector._load_pem_to_der")
+@mock.patch("snowflake.cli._app.snow_connector._load_pem_to_der")
 def test_key_pair_authentication_from_config(
     mock_load, mock_connector, mock_ctx, temp_dir, runner
 ):
@@ -562,7 +562,7 @@ def test_key_pair_authentication_from_config(
     ],
 )
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
 def test_mfa_passcode(_, mock_connect, runner, command):
     command.extend(["--mfa-passcode", "123"])
     result = runner.invoke(command)
@@ -617,7 +617,7 @@ def test_if_password_callback_is_called_only_once_from_arguments(runner):
     ],
 )
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
 def test_mfa_passcode_from_prompt(_, mock_connect, runner, command):
     command.append("--mfa-passcode")
     result = runner.invoke(command, input="123")
@@ -810,8 +810,8 @@ def test_set_default_connection(runner):
         assert config["default_connection_name"] == "conn2"
 
 
-@mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
-@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 def test_connection_test_diag_report(mock_connect, mock_om, runner):
     result = runner.invoke(
         ["connection", "test", "-c", "full", "--enable-diag", "--diag-log-path", "/tmp"]

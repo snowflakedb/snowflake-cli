@@ -1,7 +1,7 @@
 from unittest import mock
 from unittest.mock import MagicMock
 
-from snowflake.cli.plugins.notebook.manager import NotebookManager
+from snowflake.cli._plugins.notebook.manager import NotebookManager
 
 
 @mock.patch.object(NotebookManager, "_execute_query")
@@ -10,7 +10,7 @@ def test_execute(mock_execute):
     mock_execute.assert_called_once_with(query="EXECUTE NOTEBOOK MY_NOTEBOOK()")
 
 
-@mock.patch("snowflake.cli.plugins.notebook.manager.make_snowsight_url")
+@mock.patch("snowflake.cli._plugins.notebook.manager.make_snowsight_url")
 def test_get_url(mock_url):
     mock_url.return_value = "my_url"
     conn_mock = MagicMock(database="nb_database", schema="nb_schema")

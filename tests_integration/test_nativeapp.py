@@ -3,7 +3,7 @@ import uuid
 
 from snowflake.cli.api.project.util import generate_user_env
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.plugins.nativeapp.init import OFFICIAL_TEMPLATES_GITHUB_URL
+from snowflake.cli._plugins.nativeapp.init import OFFICIAL_TEMPLATES_GITHUB_URL
 from tests.nativeapp.utils import touch
 from click import ClickException
 

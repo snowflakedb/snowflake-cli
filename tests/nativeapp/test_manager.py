@@ -4,27 +4,27 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.plugins.nativeapp.constants import (
+from snowflake.cli._plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     NAME_COL,
     SPECIAL_COMMENT,
     SPECIAL_COMMENT_OLD,
 )
-from snowflake.cli.plugins.nativeapp.exceptions import (
+from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     UnexpectedOwnerError,
 )
-from snowflake.cli.plugins.nativeapp.manager import (
+from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
     _get_stage_paths_to_sync,
     ensure_correct_owner,
 )
-from snowflake.cli.plugins.stage.diff import (
+from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePath,
 )
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -542,9 +542,9 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch("snowflake.cli.plugins.connection.util.get_context")
-@mock.patch("snowflake.cli.plugins.connection.util.get_account")
-@mock.patch("snowflake.cli.plugins.connection.util.get_snowsight_host")
+@mock.patch("snowflake.cli._plugins.connection.util.get_context")
+@mock.patch("snowflake.cli._plugins.connection.util.get_account")
+@mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
 @mock_connection()
 def test_get_snowsight_url(
     mock_conn, mock_snowsight_host, mock_account, mock_context, temp_dir

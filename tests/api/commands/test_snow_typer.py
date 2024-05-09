@@ -170,21 +170,21 @@ def test_enabled_command_is_not_visible(cli, snapshot):
     assert result.output == snapshot
 
 
-@mock.patch("snowflake.cli.app.telemetry.log_command_usage")
+@mock.patch("snowflake.cli._app.telemetry.log_command_usage")
 def test_snow_typer_pre_execute_sends_telemetry(mock_log_command_usage, cli):
     result = cli(app_factory(SnowTyper))(["simple_cmd", "Norma"])
     assert result.exit_code == 0
     mock_log_command_usage.assert_called_once_with()
 
 
-@mock.patch("snowflake.cli.app.telemetry.flush_telemetry")
+@mock.patch("snowflake.cli._app.telemetry.flush_telemetry")
 def test_snow_typer_post_execute_sends_telemetry(mock_flush_telemetry, cli):
     result = cli(app_factory(SnowTyper))(["simple_cmd", "Norma"])
     assert result.exit_code == 0
     mock_flush_telemetry.assert_called_once_with()
 
 
-@mock.patch("snowflake.cli.app.printing.print_result")
+@mock.patch("snowflake.cli._app.printing.print_result")
 def test_snow_typer_result_callback_sends_telemetry(mock_print_result, cli):
     result = cli(app_factory(SnowTyper))(["simple_cmd", "Norma"])
     assert result.exit_code == 0

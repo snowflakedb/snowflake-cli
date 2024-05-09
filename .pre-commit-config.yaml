@@ -9,7 +9,7 @@ repos:
       - id: check-yaml
         exclude: .github/repo_meta.yaml
       - id: debug-statements
-        exclude: src/snowflake/cli/app/dev/pycharm_remote_debug.py
+        exclude: src/snowflake/cli/_app/dev/pycharm_remote_debug.py
       - id: check-ast
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     rev: "v0.1.7"
@@ -42,16 +42,16 @@ repos:
         exclude: >
           (?x)
           ^src/snowflake/cli/api/console/.*$|
-          ^src/snowflake/cli/app/printing.py$|
-          ^src/snowflake/cli/app/dev/.*$|
-          ^src/snowflake/cli/templates/.*$|
+          ^src/snowflake/cli/_app/printing.py$|
+          ^src/snowflake/cli/_app/dev/.*$|
+          ^src/snowflake/cli/_templates/.*$|
           ^src/snowflake/cli/api/utils/rendering.py$|
-          ^src/snowflake/cli/plugins/spcs/common.py$|
-          ^src/snowflake/cli/plugins/snowpark/venv.py$
+          ^src/snowflake/cli/_plugins/spcs/common.py$|
+          ^src/snowflake/cli/_plugins/snowpark/venv.py$
       - id: check-app-imports-in-api
         language: pygrep
         name: "No top level cli.app imports in cli.api"
-        entry: "^from snowflake\\.cli\\.app"
+        entry: "^from snowflake\\.cli\\._app"
         pass_filenames: true
         files: ^src/snowflake/cli/api/.*\.py$
       - id: avoid-snowcli
@@ -60,7 +60,7 @@ repos:
         entry: "snowcli"
         pass_filenames: true
         files: ^src/.*\.py$
-        exclude: ^src/snowflake/cli/app/constants.py$
+        exclude: ^src/snowflake/cli/_app/constants.py$
       - id: dependencies-sync
         name: "Copy dependencies from pyproject.toml to requirements.txt"
         language: system
@@ -74,4 +74,4 @@ repos:
           ^from requirements.* import|
           ^import requirements.*
         pass_filenames: true
-        exclude: ^src/snowflake/cli/plugins/snowpark/models.py$
+        exclude: ^src/snowflake/cli/_plugins/snowpark/models.py$

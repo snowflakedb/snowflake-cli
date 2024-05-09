@@ -14,7 +14,7 @@ import pytest
 import yaml
 
 from snowflake.cli.api.cli_global_context import cli_context_manager
-from snowflake.cli.app.cli_app import app_factory
+from snowflake.cli._app.cli_app import app_factory
 from typer import Typer
 from typer.testing import CliRunner
 
