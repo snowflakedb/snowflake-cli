@@ -12,7 +12,7 @@ class ObjectIdentifierBaseModel:
     schema_name: Optional[str]
 
 
-def identifier_model(object_name: str) -> ObjectIdentifierBaseModel:
+def IdentifierModel(object_name: str) -> ObjectIdentifierBaseModel:  # noqa: N802
     """Generates ObjectIdentifierBaseModel but with object specific descriptions."""
 
     class _ObjectIdentifierModel(ObjectIdentifierBaseModel):

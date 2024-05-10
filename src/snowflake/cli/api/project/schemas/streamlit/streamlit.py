@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import List, Optional
 
 from pydantic import Field
-from snowflake.cli.api.project.schemas.identifier_model import identifier_model
+from snowflake.cli.api.project.schemas.identifier_model import IdentifierModel
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 
 
-class Streamlit(UpdatableModel, identifier_model(object_name="Streamlit")):  # type: ignore
+class Streamlit(UpdatableModel, IdentifierModel(object_name="Streamlit")):  # type: ignore
     stage: Optional[str] = Field(
         title="Stage in which the app’s artifacts will be stored", default="streamlit"
     )
