@@ -1,7 +1,20 @@
+import os
 import datetime
 from typing import Any, Dict, List
+from contextlib import contextmanager
+from pathlib import Path
 
 from snowflake.connector.cursor import SnowflakeCursor
+
+
+@contextmanager
+def pushd(directory: Path):
+    cwd = os.getcwd()
+    os.chdir(directory)
+    try:
+        yield directory
+    finally:
+        os.chdir(cwd)
 
 
 def row_from_mock(mock_print) -> List[Dict[str, Any]]:
