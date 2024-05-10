@@ -136,8 +136,6 @@ def create(
 ):
     """Create an object of a given type. List of supported objects
     and parameters: https://docs.snowflake.com/LIMITEDACCESS/rest-api/reference/"""
-
-    # TODO add support for multiple arguments for payload: name=mordo mode=XD
-    payload = _parse_object_definition(object_definition)
-    result = ObjectManager().create(object_type=object_type, payload=payload)
+    object_data = _parse_object_definition(object_definition)
+    result = ObjectManager().create(object_type=object_type, object_data=object_data)
     return MessageResult(result)

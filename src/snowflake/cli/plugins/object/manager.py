@@ -56,10 +56,10 @@ class ObjectManager(SqlExecutionMixin):
             return False
 
     def _send_rest_request(
-        self, url: str, method: str, payload: Optional[Dict[str, Any]] = None
+        self, url: str, method: str, data: Optional[Dict[str, Any]] = None
     ):
-        # SnowflakeRestful.request assuems that API response is always a dict with "code" key
-        # this is not true in case of this API, so we need to do this workaround:
+        # SnowflakeRestful.request assumes that API response is always a dict with "code" key.
+        # This is not true in case of this API, so we need to do this workaround:
         from snowflake.connector.network import (
             CONTENT_TYPE_APPLICATION_JSON,
             HTTP_HEADER_ACCEPT,
@@ -68,8 +68,7 @@ class ObjectManager(SqlExecutionMixin):
             PYTHON_CONNECTOR_USER_AGENT,
         )
 
-        # TODO: change to DEBUG
-        self._log.info(f"Sending {method} request to {url}")
+        self._log.debug(f"Sending {method} request to {url}")
         rest = self._conn.rest
         full_url = f"{rest.server_url}{url}"
         headers = {
@@ -82,8 +81,8 @@ class ObjectManager(SqlExecutionMixin):
             full_url=full_url,
             headers=headers,
             token=rest.token,
-            data=json.dumps(payload),
-            # no_retry=True,
+            data=json.dumps(data if data else {}),
+            no_retry=True,
         )
 
     def _url_exists(self, url):
@@ -117,12 +116,14 @@ class ObjectManager(SqlExecutionMixin):
 
         return None
 
-    def create(self, object_type: str, payload: Dict[str, Any]) -> str:
+    def create(self, object_type: str, object_data: Dict[str, Any]) -> str:
         url = self._get_rest_api_create_url(object_type)
         if not url:
             return f"Create operation for type {object_type} is not supported. Try using `sql -q 'CREATE ...'` command"
-        # TODO: nice exception handling
-        response = self._send_rest_request(url=url, method="post", payload=payload)
+        # TODO: nice exception handling (if possible) - "sth wrong" is not enough
+        response = self._send_rest_request(url=url, method="post", data=object_data)
         if not response:
-            return "Something went wrong"
+            return (
+                "Something went wrong ¯\_(ツ)_/¯. Try again with --debug for more info."
+            )
         return response["status"]

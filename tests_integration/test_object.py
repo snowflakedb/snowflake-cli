@@ -3,6 +3,9 @@ import pytest
 from tests_integration.test_utils import row_from_cursor
 from tests_integration.testing_utils.naming_utils import ObjectNameProvider
 
+from contextlib import contextmanager
+import json
+
 
 @pytest.mark.integration
 @pytest.mark.parametrize("object_type", ["warehouse", "schema"])
@@ -109,3 +112,54 @@ def test_show_drop_image_repository(runner, test_database, snowflake_session):
     )
     assert result_drop.exit_code == 0, result_drop.output
     assert f"{repo_name} successfully dropped" in result_drop.output
+
+
+@pytest.mark.parametrize(
+    "object_type,object_definition",
+    [
+        ("database", {}),
+        (
+            "schema",
+            {
+                "name": "test_schema",
+                "comment": "test_schema = schema for testing stuff",
+            },
+        ),
+    ],
+)
+@pytest.mark.integration
+def test_create(object_type, object_definition, runner, test_database):
+    if object_type == "database":
+        object_definition["name"] = test_database + "_test_create"
+    object_name = object_definition["name"]
+
+    @contextmanager
+    def _cleanup_object():
+        drop_cmd = ["object", "drop", object_type, object_name]
+        try:
+            yield
+            runner.invoke_with_connection(drop_cmd, catch_exceptions=True)
+        except Exception as e:
+            runner.invoke_with_connection(drop_cmd, catch_exceptions=True)
+            raise e
+
+    def _test_create(params):
+        # create object
+        result = runner.invoke_with_connection(
+            ["object", "create", object_type, *params]
+        )
+        assert result.exit_code == 0, result.output
+        assert f"{object_name.upper()} successfully created" in result.output
+
+        # object is visible
+        result = runner.invoke_with_connection_json(["object", "list", object_type])
+        assert result.exit_code == 0, result.output
+        assert any(obj["name"].upper() == object_name.upper() for obj in result.json)
+
+    # test json param
+    with _cleanup_object():
+        _test_create([json.dumps(object_definition)])
+    # test key=value format
+    with _cleanup_object():
+        list_definition = [f"{key}={value}" for key, value in object_definition.items()]
+        _test_create(list_definition)
