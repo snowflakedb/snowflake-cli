@@ -133,11 +133,11 @@ class SchemaNotProvidedError(ClickException):
 
 class FQNNameError(ClickException):
     def __init__(self, name: str):
-        super().__init__(f"Specified name {name} is invalid.")
+        super().__init__(f"Specified name '{name}' is not valid name.")
 
 
 class FQNInconsistencyError(ClickException):
     def __init__(self, part: str, name: str):
         super().__init__(
-            f"{part.capitalize()} provided but name {name} is fully qualified name."
+            f"{part.capitalize()} provided but name '{name}' is fully qualified name."
         )

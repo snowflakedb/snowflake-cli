@@ -1,5 +1,5 @@
 import pytest
-from snowflake.cli.api.fqn import FQN
+from snowflake.cli.api.identifiers import FQN
 
 
 @pytest.mark.parametrize(

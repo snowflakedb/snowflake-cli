@@ -12,7 +12,7 @@ from snowflake.cli.api.commands.decorators import (
 from snowflake.cli.api.commands.flags import ReplaceOption
 from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyper
-from snowflake.cli.api.fqn import FQN
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,

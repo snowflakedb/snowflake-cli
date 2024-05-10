@@ -1,7 +1,7 @@
 from urllib.parse import urlparse
 
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.fqn import FQN
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.spcs.common import handle_object_already_exists
 from snowflake.connector.errors import ProgrammingError

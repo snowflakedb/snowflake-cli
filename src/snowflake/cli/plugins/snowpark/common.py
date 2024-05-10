@@ -4,7 +4,7 @@ import re
 from typing import Dict, List, Optional, Set
 
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.fqn import FQN
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.snowpark.models import Requirement

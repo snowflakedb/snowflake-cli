@@ -8,7 +8,7 @@ from snowflake.cli.api.commands.experimental_behaviour import (
     experimental_behaviour_enabled,
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
-from snowflake.cli.api.fqn import FQN
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.connection.util import (
     MissingConnectionHostError,

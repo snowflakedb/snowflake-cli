@@ -14,7 +14,7 @@ from snowflake.cli.api.exceptions import (
     SchemaNotProvidedError,
     SnowflakeSQLExecutionError,
 )
-from snowflake.cli.api.fqn import FQN
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import (
     identifier_to_show_like_pattern,
     unquote_identifier,

@@ -25,7 +25,7 @@ from snowflake.cli.api.constants import (
 from snowflake.cli.api.exceptions import (
     SecretsWithoutExternalAccessIntegrationError,
 )
-from snowflake.cli.api.fqn import FQN
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
