@@ -88,7 +88,7 @@ class ObjectManager(SqlExecutionMixin):
     def _url_exists(self, url):
         try:
             result = self._send_rest_request(url, method="get")
-            return bool(result)
+            return bool(result) or result == []
         except InterfaceError as err:
             if "404 Not Found" in str(err):
                 return False
