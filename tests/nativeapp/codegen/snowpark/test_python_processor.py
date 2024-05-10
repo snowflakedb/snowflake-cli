@@ -288,10 +288,6 @@ def test_execute_in_sandbox_none_entity_case2(mock_jinja, mock_sandbox):
     assert entity is None
 
 
-def test_generate_create_sql_ddl_statements_returns_empty_from_exception():
-    assert generate_create_sql_ddl_statements({}) == ""
-
-
 def test_generate_create_sql_ddl_statements_w_all_entries(
     native_app_codegen_instance, snapshot
 ):

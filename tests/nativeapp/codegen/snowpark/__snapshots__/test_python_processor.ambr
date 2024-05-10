@@ -9,7 +9,7 @@
   IMPORTS=('path_one', 'path_two')
   PACKAGES=('package_one', 'package_two')
   HANDLER='dummy_handler'
-  EXECUTE AS OWNER
+  EXECUTE AS owner
   AS $$
   dummy_inline_code
   $$

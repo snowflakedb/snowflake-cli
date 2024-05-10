@@ -24,6 +24,7 @@ from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.extension_function_utils import (
     _enrich_entity,
     _get_object_type_as_text,
+    add_defaults_to_extension_function,
 )
 from snowflake.cli.plugins.nativeapp.utils import (
     filter_files,
@@ -210,8 +211,6 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                     )
                     collected_entities = None
 
-                dest_file_py_file_to_collected_entities[dest_file] = collected_entities
-
                 if collected_entities is None:
                     continue
 
@@ -221,12 +220,20 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
 
                 # 4. Enrich entities by setting additional properties
                 for entity in collected_entities:
+                    can_proceed = add_defaults_to_extension_function(entity)
+                    if not can_proceed:
+                        cc.warning(
+                            f"Skipping generation of 'CREATE FUNCTION/PROCEDURE ...' SQL statement for this object."
+                        )
+                        continue
                     _enrich_entity(
                         entity=entity,
                         py_file=dest_file,
                         deploy_root=self.deploy_root,
                         suffix_str=".py",
                     )
+
+                dest_file_py_file_to_collected_entities[dest_file] = collected_entities
 
         dest_file_py_file_to_ddl_map = self.generate_sql_ddl_statements(
             dest_file_py_file_to_collected_entities
@@ -336,12 +343,6 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
 
             ddl_lst_per_ef: List[str] = []
             for extension_function in collected_entities:
-                can_proceed = add_defaults_to_extension_function(extension_function)
-                if not can_proceed:
-                    cc.warning(
-                        f"Skipping generation of 'CREATE FUNCTION/PROCEDURE ...' SQL statement for this object."
-                    )
-                    continue
                 ddl_lst_per_ef.append(
                     generate_create_sql_ddl_statements(extension_function)
                 )
@@ -352,96 +353,6 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
             dest_file_py_file_to_ddl_map[py_file] = "\n".join(ddl_lst_per_ef)
 
         return dest_file_py_file_to_ddl_map
-
-
-def add_defaults_to_extension_function(ex_fn: Dict[str, Any]) -> bool:
-    """
-    Helper function to add in defaults for keys that do not exist in the dictionary or contain empty strings when they should not.
-    This helper function is needed because different callback sources can create dictionaries with different/missing keys, and since
-    Snowflake CLI may not own all callback implementations, the dictionaries need to have the minimum set of keys and their default
-    values to be used in creation of the SQL DDL statements.
-
-    Returns:
-    A boolean value, True if everything has been successfully validated and assigned, False if an error was encountered.
-    """
-
-    # Must have keys
-    try:
-        ex_fn["object_type"] = ex_fn["object_type"].upper()
-        assert ex_fn["object_type"] is not ""
-        ex_fn["object_name"] = ex_fn["object_name"].upper()
-        assert ex_fn["object_name"] is not ""
-        ex_fn["return_sql"] = ex_fn["return_sql"].upper()
-        assert ex_fn["return_sql"] is not ""
-    except KeyError as err:
-        cc.warning(f"{err}")
-        return False
-    except AssertionError as err:
-        cc.warning(f"{err}")
-        return False
-
-    # Other optional keys
-    ex_fn["anonymous"] = ex_fn.get("anonymous", False)
-    ex_fn["replace"] = ex_fn.get("replace", False)
-    ex_fn["if_not_exists"] = ex_fn.get("if_not_exists", False)
-
-    if ex_fn["replace"] and ex_fn["if_not_exists"]:
-        cc.warning("Options 'replace' and 'if_not_exists' are incompatible.")
-        return False
-
-    try:
-        assert len(ex_fn["input_args"]) == len(ex_fn["input_sql_types"])
-    except AssertionError as err:
-        cc.warning(
-            "The number of function parameters does not match the number of parameter types."
-        )
-        return False
-
-    has_imports = ex_fn.get("all_imports", None) and len(ex_fn["all_imports"]) > 0
-    ex_fn["all_imports"] = ex_fn["all_imports"] if has_imports else None
-
-    has_packages = ex_fn.get("all_packages", None) and len(ex_fn["all_packages"]) > 0
-    ex_fn["all_packages"] = ex_fn["all_packages"] if has_packages else None
-
-    has_eai = (
-        ex_fn.get("external_access_integrations", None)
-        and len(ex_fn["external_access_integrations"]) > 0
-    )
-    ex_fn["external_access_integrations"] = (
-        ex_fn["external_access_integrations"] if has_eai else None
-    )
-
-    has_secrets = ex_fn.get("secrets", None) and len(ex_fn["secrets"]) > 0
-    ex_fn["secrets"] = ex_fn["secrets"] if has_secrets else None
-
-    has_execute_as = ex_fn.get("execute_as", None) and len(ex_fn["execute_as"]) > 0
-    ex_fn["execute_as"] = ex_fn["execute_as"].upper() if has_execute_as else None
-
-    has_inline_code = (
-        ex_fn["inline_python_code"] and len(ex_fn["inline_python_code"]) > 0
-    )
-    ex_fn["inline_python_code"] = (
-        ex_fn["inline_python_code"] if has_inline_code else None
-    )
-
-    # Cannot use KeyError check has only Java, Python and Scala need this value
-    has_runtime_version = ex_fn["runtime_version"] and len(ex_fn["runtime_version"]) > 0
-    ex_fn["runtime_version"] = ex_fn["runtime_version"] if has_runtime_version else None
-
-    # Cannot use KeyError check has only Java, Python and Scala need this value
-    has_handler = ex_fn["handler"] and len(ex_fn["handler"]) > 0
-    ex_fn["handler"] = ex_fn["handler"] if has_handler else None
-
-    has_app_roles = (
-        ex_fn.get("application_roles", None) and len(ex_fn["application_roles"]) > 0
-    )
-    ex_fn["application_roles"] = (
-        [app_role.upper() for app_role in ex_fn["application_roles"]]
-        if has_app_roles
-        else None
-    )
-
-    return True
 
 
 def generate_create_sql_ddl_statements(ex_fn: Dict[str, Any]) -> str:
