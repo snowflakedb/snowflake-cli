@@ -338,3 +338,54 @@ def native_app_project_instance():
             },
         }
     )
+
+
+@pytest.fixture()
+def native_app_codegen_instance():
+    return {
+        "object_type": "TABLE_FUNCTION",
+        "object_name": "SNOWPARK_TEMP_FUNCTION_WZUNHMZJKA",
+        "input_args": [{"name": "arg1", "datatype": "IntegerType"}],
+        "input_sql_types": ["INT"],
+        "return_sql": "RETURNS INT",
+        "runtime_version": "3.11",
+        "all_imports": "",
+        "all_packages": "",
+        "handler": "dummy_handler",
+        "external_access_integrations": None,
+        "secrets": None,
+        "inline_python_code": "dummy_inline_code",
+        "raw_imports": None,
+        "all_packages": "'package_one', 'package_two'",
+        "all_imports": "'path_one', 'path_two'",
+        "replace": True,
+        "if_not_exists": False,
+        "execute_as": "owner",
+        "anonymous": False,
+        "func": "<lambda>",
+        "schema": "data",
+        "application_roles": ["app_admin", "app_viewer"],
+    }
+
+    # {
+    #     "object_type": "FUNCTION",
+    #     "object_name": "SNOWPARK_TEMP_FUNCTION_S782HXBR30",
+    #     "input_args": [],
+    #     "input_sql_types": [],
+    #     "return_sql": "RETURNS BIGINT",
+    #     "runtime_version": "3.11",
+    #     "all_imports": "",
+    #     "all_packages": "",
+    #     "handler": None,
+    #     "external_access_integrations": None,
+    #     "secrets": None,
+    #     "inline_python_code": None,
+    #     "raw_imports": None,
+    #     "replace": False,
+    #     "if_not_exists": False,
+    #     "execute_as": None,
+    #     "anonymous": False,
+    #     "func": "minus_one",
+    #     "schema": None,
+    #     "application_roles": None,
+    # }

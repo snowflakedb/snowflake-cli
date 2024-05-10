@@ -12,6 +12,7 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
     _determine_virtual_env,
     _execute_in_sandbox,
+    generate_create_sql_ddl_statements,
 )
 
 from tests.testing_utils.files_and_dirs import temp_local_dir
@@ -230,8 +231,7 @@ def test_process_exception(mock_sandbox, native_app_project_instance):
             artifact_to_process=artifact_to_process,
             processor_mapping=ProcessorMapping(name="SNOWPARK"),
         )
-        assert len(result_1) == 1
-        assert list(result_1.values())[0] is None
+        assert len(result_1) == 0
 
 
 @mock.patch(
@@ -286,3 +286,13 @@ def test_execute_in_sandbox_none_entity_case2(mock_jinja, mock_sandbox):
         py_file="some_file", deploy_root=Path("some/path"), kwargs={}
     )
     assert entity is None
+
+
+def test_generate_create_sql_ddl_statements_returns_empty_from_exception():
+    assert generate_create_sql_ddl_statements({}) == ""
+
+
+def test_generate_create_sql_ddl_statements_w_all_entries(
+    native_app_codegen_instance, snapshot
+):
+    assert generate_create_sql_ddl_statements(native_app_codegen_instance) == snapshot

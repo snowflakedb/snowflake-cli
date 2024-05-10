@@ -1,0 +1,18 @@
+# serializer version: 1
+# name: test_generate_create_sql_ddl_statements_w_all_entries
+  '''
+  CREATE OR REPLACE 
+  TABLE FUNCTION SNOWPARK_TEMP_FUNCTION_WZUNHMZJKA(arg1 INT)
+  RETURNS INT
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11 
+  IMPORTS=('path_one', 'path_two')
+  PACKAGES=('package_one', 'package_two')
+  HANDLER='dummy_handler'
+  EXECUTE AS OWNER
+  AS $$
+  dummy_inline_code
+  $$
+  
+  '''
+# ---
