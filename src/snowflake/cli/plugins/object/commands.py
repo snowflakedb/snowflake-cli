@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import typer
 from click import ClickException
@@ -23,13 +23,15 @@ NameArgument = typer.Argument(help="Name of the object")
 ObjectArgument = typer.Argument(
     help="Type of object. For example table, procedure, streamlit.",
     case_sensitive=False,
+    show_default=False,
 )
 ObjectDefinitionArgument = typer.Argument(
-    help="""Object definition in JSON format, for example \'{"name": "my_database"}\'.
+    help="""Object definition in JSON format, for example \'{"name": "my_database", "owner": "owner_role"}\',
+or provided as a list of key=value pairs, for example: name=my_database owner=owner_role.
 Check https://docs.snowflake.com/LIMITEDACCESS/rest-api/reference/ for the full list of available parameters
 for every object.
-    """,
-    default=None,
+""",
+    show_default=False,
 )
 LikeOption = like_option(
     help_example='`list function --like "my%"` lists all functions that begin with “my”',
@@ -97,24 +99,45 @@ def describe(
     )
 
 
-def _parse_payload(payload: Optional[str]) -> Dict[str, Any]:
-    if payload is None:
-        return {}
+def _parse_object_definition(object_definition: List[str]) -> Dict[str, Any]:
     import json
 
-    return json.loads(payload)
+    def _parse_list_to_dict(object_definition: List[str]) -> Dict[str, Any]:
+        payload = {}
+        for item in object_definition:
+            try:
+                key, value = item.split("=", 1)
+                # try to parse non-string values
+                payload[key] = json.loads(value)
+            except json.JSONDecodeError:
+                payload[key] = value
+            except ValueError:
+                raise ClickException(f"expected key=value format, got {item}")
+        return payload
+
+    if len(object_definition) != 1:
+        return _parse_list_to_dict(object_definition)
+
+    # for list of length 1, prefer json error message
+    try:
+        return json.loads(object_definition[0])
+    except json.JSONDecodeError as json_err:
+        try:
+            return _parse_list_to_dict(object_definition)
+        except ClickException:
+            raise json_err
 
 
 @app.command(name="create", requires_connection=True)
 def create(
     object_type: str = ObjectArgument,
-    object_definition: Optional[str] = ObjectDefinitionArgument,
+    object_definition: List[str] = ObjectDefinitionArgument,
     **options,
 ):
     """Create an object of a given type. List of supported objects
     and parameters: https://docs.snowflake.com/LIMITEDACCESS/rest-api/reference/"""
 
     # TODO add support for multiple arguments for payload: name=mordo mode=XD
-    payload = _parse_payload(object_definition)
+    payload = _parse_object_definition(object_definition)
     result = ObjectManager().create(object_type=object_type, payload=payload)
     return MessageResult(result)
