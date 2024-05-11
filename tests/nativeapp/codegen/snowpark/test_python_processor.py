@@ -16,6 +16,8 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
 
 from tests.testing_utils.files_and_dirs import temp_local_dir
 
+PROJECT_ROOT = Path("/path/to/project")
+
 
 @pytest.mark.parametrize(
     "input_param, expected",
@@ -33,7 +35,16 @@ from tests.testing_utils.files_and_dirs import temp_local_dir
             ProcessorMapping(
                 name="dummy", properties={"env": {"type": "venv", "path": "some/path"}}
             ),
-            {"env_type": ExecutionEnvironmentType.VENV, "path": "some/path"},
+            {
+                "env_type": ExecutionEnvironmentType.VENV,
+                "path": PROJECT_ROOT / "some/path",
+            },
+        ),
+        (
+            ProcessorMapping(
+                name="dummy", properties={"env": {"type": "venv", "path": "/some/path"}}
+            ),
+            {"env_type": ExecutionEnvironmentType.VENV, "path": Path("/some/path")},
         ),
         (
             ProcessorMapping(name="dummy", properties={"env": {"type": "current"}}),
@@ -43,7 +54,7 @@ from tests.testing_utils.files_and_dirs import temp_local_dir
     ],
 )
 def test_determine_virtual_env(input_param, expected):
-    actual = _determine_virtual_env(processor=input_param)
+    actual = _determine_virtual_env(project_root=PROJECT_ROOT, processor=input_param)
     assert actual == expected
 
 
@@ -61,7 +72,7 @@ def test_determine_virtual_env(input_param, expected):
     ],
 )
 def test_determine_virtual_env_with_none(input_param, expected):
-    _determine_virtual_env(processor=input_param) == expected
+    assert _determine_virtual_env(PROJECT_ROOT, processor=input_param) == expected
 
 
 def test_get_src_py_file_to_dest_py_file_map_case1(native_app_project_instance):
@@ -248,6 +259,7 @@ def test_execute_in_sandbox_none_entity_case1(mock_jinja, mock_sandbox):
 def test_execute_in_sandbox_full_entity(mock_jinja, mock_sandbox):
     mock_completed_process = mock.MagicMock(spec=subprocess.CompletedProcess)
     mock_completed_process.stdout = '[{"name": "john"}, {"name": "jane"}]'
+    mock_completed_process.stderr = ""
     mock_completed_process.returncode = 0
     mock_sandbox.return_value = mock_completed_process
 

@@ -66,9 +66,11 @@ def _determine_virtual_env(
             cc.warning(
                 "No path found in project definition file for the conda environment to run the Snowpark processor in. Will attempt to auto-detect the current venv path."
             )
-        env_path = Path(env_path_str)
-        if not env_path.is_absolute():
-            env_path = project_root / env_path
+            env_path = None
+        else:
+            env_path = Path(env_path_str)
+            if not env_path.is_absolute():
+                env_path = project_root / env_path
         return {
             "env_type": ExecutionEnvironmentType.VENV,
             "path": env_path,
