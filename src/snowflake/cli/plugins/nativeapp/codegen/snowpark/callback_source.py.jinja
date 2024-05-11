@@ -114,4 +114,5 @@ except Exception as exc:  # Catch any error
     print("An exception occurred while executing file: ", exc, file=sys.stderr)
     sys.exit(1)
 
-print(__snowflake_cli_native_app_internal_callback_return_list)
+import json
+print(json.dumps(__snowflake_cli_native_app_internal_callback_return_list))
