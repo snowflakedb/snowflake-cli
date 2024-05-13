@@ -5,15 +5,58 @@ from typing import (
     List,
     Optional,
     Tuple,
+    Type,
     Union,
 )
 
-from snowflake.cli.api.console import cli_console as cc
+from click.exceptions import ClickException
+
+
+class MalformedExtensionFunctionError(ClickException):
+    """Required extension function attribute is missing."""
+
+    def __init__(self, message: str):
+        super().__init__(message=message)
+
 
 TEMP_OBJECT_NAME_PREFIX = "SNOWPARK_TEMP_"
 
 
-def add_defaults_to_extension_function(ex_fn: Dict[str, Any]) -> bool:
+def _sanitize_ex_fn_attribute(
+    attr: str,
+    ex_fn: Dict[str, Any],
+    make_uppercase: bool = False,
+    expected_type: Type = str,
+):
+    has_attr = ex_fn.get(attr, None) and len(ex_fn[attr]) > 0
+    if has_attr:
+        if not isinstance(ex_fn[attr], expected_type):
+            raise MalformedExtensionFunctionError(
+                f"Attribute '{attr}' of extension function must be of type '{expected_type}'."
+            )
+        if expected_type == str and make_uppercase:
+            ex_fn[attr] = ex_fn[attr].upper()
+        else:
+            ex_fn[attr] = ex_fn[attr]
+    else:
+        ex_fn[attr] = None
+
+
+def _create_missing_attr_str(attribute: str, py_file: Path):
+    return f"Required attribute '{attribute}' of extension function is missing for an extension function defined in python file {py_file.absolute()}."
+
+
+def _is_function_wellformed(ex_fn: Dict[str, Any]) -> bool:
+    tuple_type: Tuple = ()
+    if ex_fn.get("func", None):
+        if isinstance(ex_fn["func"], str):
+            return ex_fn["func"].strip() != ""
+        elif isinstance(ex_fn["func"], type(tuple_type)):
+            return isinstance(ex_fn["func"][1], str) and ex_fn["func"][1].strip() != ""
+    return False
+
+
+def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path) -> bool:
     """
     Helper function to add in defaults for keys that do not exist in the dictionary or contain empty strings when they should not.
     This helper function is needed because different callback sources can create dictionaries with different/missing keys, and since
@@ -24,20 +67,52 @@ def add_defaults_to_extension_function(ex_fn: Dict[str, Any]) -> bool:
     A boolean value, True if everything has been successfully validated and assigned, False if an error was encountered.
     """
 
-    # Must have keys
-    try:
-        ex_fn["object_type"] = ex_fn["object_type"].upper()
-        assert ex_fn["object_type"] is not ""
-        ex_fn["object_name"] = ex_fn["object_name"].upper()
-        assert ex_fn["object_name"] is not ""
-        ex_fn["return_sql"] = ex_fn["return_sql"].upper()
-        assert ex_fn["return_sql"] is not ""
-    except KeyError as err:
-        cc.warning(f"{err}")
-        return False
-    except AssertionError as err:
-        cc.warning(f"{err}")
-        return False
+    # Must have keys to create an extension function in SQL for Native Apps
+    _sanitize_ex_fn_attribute(
+        attr="object_type", ex_fn=ex_fn, make_uppercase=True, expected_type=str
+    )
+    if ex_fn["object_type"] is None:
+        raise MalformedExtensionFunctionError(
+            _create_missing_attr_str(attribute="object_type", py_file=py_file)
+        )
+
+    _sanitize_ex_fn_attribute(
+        attr="object_name", ex_fn=ex_fn, make_uppercase=True, expected_type=str
+    )
+    if ex_fn["object_name"] is None:
+        raise MalformedExtensionFunctionError(
+            _create_missing_attr_str(attribute="object_name", py_file=py_file)
+        )
+
+    _sanitize_ex_fn_attribute(
+        attr="return_sql", ex_fn=ex_fn, make_uppercase=True, expected_type=str
+    )
+    if ex_fn["return_sql"] is None:
+        raise MalformedExtensionFunctionError(
+            _create_missing_attr_str(attribute="return_sql", py_file=py_file)
+        )
+
+    if not _is_function_wellformed(ex_fn=ex_fn):
+        raise MalformedExtensionFunctionError(
+            _create_missing_attr_str(attribute="func", py_file=py_file)
+        )
+
+    optional_expected_type: Optional[List] = []
+    _sanitize_ex_fn_attribute(
+        attr="raw_imports", ex_fn=ex_fn, expected_type=type(optional_expected_type)
+    )
+    if ex_fn["raw_imports"] is None:
+        raise MalformedExtensionFunctionError(
+            _create_missing_attr_str(attribute="raw_imports", py_file=py_file)
+        )
+
+    _sanitize_ex_fn_attribute(
+        attr="schema", ex_fn=ex_fn, make_uppercase=True, expected_type=str
+    )
+    if ex_fn["schema"] is None:
+        raise MalformedExtensionFunctionError(
+            f"Required attribute 'schema' in 'native_app_params' of extension function is missing for an extension function defined in python file {py_file.absolute()}."
+        )
 
     # Other optional keys
     ex_fn["anonymous"] = ex_fn.get("anonymous", False)
@@ -45,71 +120,52 @@ def add_defaults_to_extension_function(ex_fn: Dict[str, Any]) -> bool:
     ex_fn["if_not_exists"] = ex_fn.get("if_not_exists", False)
 
     if ex_fn["replace"] and ex_fn["if_not_exists"]:
-        cc.warning("Options 'replace' and 'if_not_exists' are incompatible.")
-        return False
-
-    try:
-        assert len(ex_fn["input_args"]) == len(ex_fn["input_sql_types"])
-    except AssertionError as err:
-        cc.warning(
-            "The number of function parameters does not match the number of parameter types."
+        raise MalformedExtensionFunctionError(
+            "Options 'replace' and 'if_not_exists' are incompatible."
         )
-        return False
 
-    has_imports = ex_fn.get("all_imports", None) and len(ex_fn["all_imports"]) > 0
-    ex_fn["all_imports"] = ex_fn["all_imports"] if has_imports else None
-
-    has_packages = ex_fn.get("all_packages", None) and len(ex_fn["all_packages"]) > 0
-    ex_fn["all_packages"] = ex_fn["all_packages"] if has_packages else None
-
-    has_eai = (
-        ex_fn.get("external_access_integrations", None)
-        and len(ex_fn["external_access_integrations"]) > 0
+    _sanitize_ex_fn_attribute(
+        attr="input_args", ex_fn=ex_fn, expected_type=type(optional_expected_type)
     )
-    ex_fn["external_access_integrations"] = (
-        ex_fn["external_access_integrations"] if has_eai else None
+    _sanitize_ex_fn_attribute(
+        attr="input_sql_types", ex_fn=ex_fn, expected_type=type(optional_expected_type)
     )
+    # input_args and input_sql_types can be None as a function may not accept any arguments
+    if (
+        isinstance(ex_fn["input_args"], List)
+        and isinstance(ex_fn["input_sql_types"], List)
+    ) and len(ex_fn["input_args"]) != len(ex_fn["input_sql_types"]):
+        raise MalformedExtensionFunctionError(
+            "The number of extension function parameters does not match the number of parameter types."
+        )
 
-    has_secrets = ex_fn.get("secrets", None) and len(ex_fn["secrets"]) > 0
-    ex_fn["secrets"] = ex_fn["secrets"] if has_secrets else None
-
-    has_execute_as = ex_fn.get("execute_as", None) and len(ex_fn["execute_as"]) > 0
-    ex_fn["execute_as"] = ex_fn["execute_as"].upper() if has_execute_as else None
-
-    has_inline_code = (
-        ex_fn.get("inline_python_code", None) and len(ex_fn["inline_python_code"]) > 0
+    _sanitize_ex_fn_attribute(attr="all_imports", ex_fn=ex_fn, expected_type=str)
+    _sanitize_ex_fn_attribute(attr="all_packages", ex_fn=ex_fn, expected_type=str)
+    _sanitize_ex_fn_attribute(
+        attr="external_access_integrations", ex_fn=ex_fn, expected_type=str
     )
-    ex_fn["inline_python_code"] = (
-        ex_fn["inline_python_code"] if has_inline_code else None
+    _sanitize_ex_fn_attribute(attr="secrets", ex_fn=ex_fn, expected_type=str)
+    _sanitize_ex_fn_attribute(attr="inline_python_code", ex_fn=ex_fn, expected_type=str)
+    _sanitize_ex_fn_attribute(
+        attr="execute_as", ex_fn=ex_fn, make_uppercase=True, expected_type=str
     )
+    _sanitize_ex_fn_attribute(attr="runtime_version", ex_fn=ex_fn, expected_type=str)
+    _sanitize_ex_fn_attribute(attr="handler", ex_fn=ex_fn, expected_type=str)
 
-    # Cannot use KeyError check as only Java, Python and Scala need this value
-    has_runtime_version = (
-        ex_fn.get("runtime_version", None) and len(ex_fn["runtime_version"]) > 0
-    )
-    ex_fn["runtime_version"] = ex_fn["runtime_version"] if has_runtime_version else None
-
-    # Cannot use KeyError check as only Java, Python and Scala need this value
-    has_handler = ex_fn.get("handler", None) and len(ex_fn["handler"]) > 0
-    ex_fn["handler"] = ex_fn["handler"] if has_handler else None
-
-    # Cannot use KeyError check as only Native App Extension Functions need this value
-    has_schema = ex_fn.get("schema", None) and len(ex_fn["schema"]) > 0
-    ex_fn["schema"] = ex_fn["schema"] if has_schema else None
-
-    # Cannot use KeyError check as only Native App Extension Functions need this value
     has_app_roles = (
         ex_fn.get("application_roles", None) and len(ex_fn["application_roles"]) > 0
     )
-    ex_fn["application_roles"] = (
-        [app_role.upper() for app_role in ex_fn["application_roles"]]
-        if has_app_roles
-        else None
-    )
-
-    # Cannot use KeyError check as only Native App Extension Functions need this value
-    has_raw_imports = ex_fn.get("raw_imports", None) and len(ex_fn["raw_imports"]) > 0
-    ex_fn["raw_imports"] = ex_fn["raw_imports"] if has_raw_imports else None
+    if has_app_roles:
+        if all(isinstance(app_role, str) for app_role in ex_fn["application_roles"]):
+            ex_fn["application_roles"] = [
+                app_role.upper() for app_role in ex_fn["application_roles"]
+            ]
+        else:
+            raise MalformedExtensionFunctionError(
+                f"Attribute 'application_roles' of extension function must be a list of strings."
+            )
+    else:
+        ex_fn["application_roles"] = None
 
     return True
 
@@ -131,7 +187,7 @@ def _get_handler_path_without_suffix(
     return "NotImplementedHandler"
 
 
-def _get_object_type_as_text(object_type: str) -> str:
+def get_object_type_as_text(object_type: str) -> str:
     return object_type.replace("_", " ")
 
 
@@ -146,39 +202,38 @@ def _get_handler(
     else:
         # isinstance(self.func, Tuple[str, str]) is only possible if using decorator.register_from_file(), which is not allowed in codegen as of now.
         # When allowed, refer to https://github.com/snowflakedb/snowpark-python/blob/v1.15.0/src/snowflake/snowpark/_internal/udf_utils.py#L1092 on resolving handler name
-        cc.warning(
-            f"Could not determine handler name for {func[1]}, proceeding without the handler."
+        raise MalformedExtensionFunctionError(
+            f"Could not determine handler name for {func[1]}."
         )
-        return None
 
 
 def _get_schema_and_name_for_extension_function(
-    object_name: str, schema: str, handler: str
+    object_name: str, schema: str, func: str
 ) -> Optional[str]:
     """
     Gets the name of the extension function to be used in the creation of the SQL statement.
-    It will use the schema and the handler as the object name if the function name is determined to be a Snowpark-generated placeholder.
+    It will use the schema and the python function's name as the object name if the function name is determined to be a Snowpark-generated placeholder.
     Otherwise, it will honor the user's input for object name.
 
     """
     if object_name.startswith(TEMP_OBJECT_NAME_PREFIX):
-        return f"{schema}.{handler}"
+        return f"{schema}.{func}"
     else:
         return f"{schema}.{object_name}"
 
 
-def is_single_quoted(name: str) -> bool:
+def _is_single_quoted(name: str) -> bool:
     """
     Helper function to do a generic check on whether the provided string is surrounded by single quotes.
     """
     return name.startswith("'") and name.endswith("'")
 
 
-def ensure_single_quoted(obj_lst: List[str]) -> List[str]:
+def _ensure_single_quoted(obj_lst: List[str]) -> List[str]:
     """
     Helper function to ensure that a list of object strings is transformed to a list of object strings surrounded by single quotes.
     """
-    return [obj if is_single_quoted(obj) else f"'{obj}'" for obj in obj_lst]
+    return [obj if _is_single_quoted(obj) else f"'{obj}'" for obj in obj_lst]
 
 
 def _get_all_imports(
@@ -214,10 +269,10 @@ def _get_all_imports(
             else:
                 file_path = "/".join(stage_import.split("."))
                 all_urls.append(file_path)
-    return ",".join(ensure_single_quoted(all_urls))
+    return ",".join(_ensure_single_quoted(all_urls))
 
 
-def _enrich_entity(
+def enrich_entity(
     entity: Dict[str, Any], py_file: Path, deploy_root: Path, suffix_str: str
 ):
     """
@@ -229,7 +284,7 @@ def _enrich_entity(
     entity["object_name"] = _get_schema_and_name_for_extension_function(
         object_name=entity["object_name"],
         schema=entity["schema"],
-        handler=entity["handler"],
+        func=entity["func"],
     )
     entity["all_imports"] = _get_all_imports(
         raw_imports=entity["raw_imports"] or [], suffix_str=suffix_str

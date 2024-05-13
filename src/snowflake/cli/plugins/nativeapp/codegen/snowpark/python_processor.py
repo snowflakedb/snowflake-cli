@@ -22,9 +22,9 @@ from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
     execute_script_in_sandbox,
 )
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.extension_function_utils import (
-    _enrich_entity,
-    _get_object_type_as_text,
-    add_defaults_to_extension_function,
+    enrich_entity,
+    get_object_type_as_text,
+    sanitize_extension_function_data,
 )
 from snowflake.cli.plugins.nativeapp.utils import (
     filter_files,
@@ -220,13 +220,15 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
 
                 # 4. Enrich entities by setting additional properties
                 for entity in collected_entities:
-                    can_proceed = add_defaults_to_extension_function(entity)
+                    can_proceed = sanitize_extension_function_data(
+                        ex_fn=entity, py_file=dest_file
+                    )
                     if not can_proceed:
                         cc.warning(
                             f"Skipping generation of 'CREATE FUNCTION/PROCEDURE ...' SQL statement for this object."
                         )
                         continue
-                    _enrich_entity(
+                    enrich_entity(
                         entity=entity,
                         py_file=dest_file,
                         deploy_root=self.deploy_root,
@@ -235,6 +237,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
 
                 dest_file_py_file_to_collected_entities[dest_file] = collected_entities
 
+        # 4. For each entity, generate its related SQL statements
         dest_file_py_file_to_ddl_map = self.generate_sql_ddl_statements(
             dest_file_py_file_to_collected_entities
         )
@@ -343,19 +346,19 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
 
             ddl_lst_per_ef: List[str] = []
             for extension_function in collected_entities:
-                ddl_lst_per_ef.append(
-                    generate_create_sql_ddl_statements(extension_function)
-                )
-                ddl_lst_per_ef.append(
-                    generate_grant_sql_ddl_statements(extension_function)
-                )
+                create_sql = generate_create_sql_ddl_statements(extension_function)
+                grant_sql = generate_grant_sql_ddl_statements(extension_function)
+                if create_sql:
+                    ddl_lst_per_ef.append(create_sql)
+                    if grant_sql:
+                        ddl_lst_per_ef.append(grant_sql)
 
             dest_file_py_file_to_ddl_map[py_file] = "\n".join(ddl_lst_per_ef)
 
         return dest_file_py_file_to_ddl_map
 
 
-def generate_create_sql_ddl_statements(ex_fn: Dict[str, Any]) -> str:
+def generate_create_sql_ddl_statements(ex_fn: Dict[str, Any]) -> Optional[str]:
     """
     Generates a "CREATE FUNCTION/PROCEDURE ... " SQL DDL statement based on a dictionary of extension function properties.
     Logic for this create statement has been lifted from snowflake-snowpark-python v1.15.0 package.
@@ -364,14 +367,14 @@ def generate_create_sql_ddl_statements(ex_fn: Dict[str, Any]) -> str:
     object_type = ex_fn["object_type"]
     object_name = ex_fn["object_name"]
 
-    if object_type == "PROCEDURE" and ex_fn.get("anonymous", False):
+    if object_type == "PROCEDURE" and ex_fn["anonymous"]:
         cc.warning(
             dedent(
                 f"""{object_type.replace(' ', '-')} {object_name} cannot be an anonymous procedure in a Snowflake Native App.
                     Skipping generation of 'CREATE FUNCTION/PROCEDURE ...' SQL statement for this object."""
             )
         )
-        return ""
+        return None
 
     replace_in_sql = f" OR REPLACE " if ex_fn["replace"] else ""
 
@@ -425,12 +428,12 @@ $$
         assert ex_fn["handler"] is not None
     except AssertionError as err:
         cc.warning(f"Could not generate SQL DDL due to incorrect information:\n{err}")
-        return ""
+        return None
 
     create_query = dedent(
         f"""\
 CREATE{replace_in_sql}
-{_get_object_type_as_text(object_type)} {'IF NOT EXISTS' if ex_fn["if_not_exists"] else ''}{object_name}({sql_func_args})
+{get_object_type_as_text(object_type)} {'IF NOT EXISTS' if ex_fn["if_not_exists"] else ''}{object_name}({sql_func_args})
 {ex_fn["return_sql"]}
 LANGUAGE PYTHON
 RUNTIME_VERSION={ex_fn["runtime_version"]} {imports_in_sql}{packages_in_sql}{external_access_integrations_in_sql}{secrets_in_sql}
@@ -441,7 +444,7 @@ HANDLER='{ex_fn["handler"]}'{execute_as_sql}
     return create_query
 
 
-def generate_grant_sql_ddl_statements(ex_fn: Dict[str, Any]) -> str:
+def generate_grant_sql_ddl_statements(ex_fn: Dict[str, Any]) -> Optional[str]:
     """
     Generates a "GRANT USAGE TO ... " SQL DDL statement based on a dictionary of extension function properties.
     """
@@ -450,13 +453,13 @@ def generate_grant_sql_ddl_statements(ex_fn: Dict[str, Any]) -> str:
         cc.warning(
             "Skipping generation of 'GRANT USAGE ON ...' SQL statement for this object due to lack of application roles."
         )
-        return ""
+        return None
 
     grant_sql_statements = []
     for app_role in ex_fn["application_roles"]:
         grant_sql_statement = dedent(
             f"""\
-            GRANT USAGE ON {_get_object_type_as_text(ex_fn["object_type"])} {ex_fn["object_name"]}
+            GRANT USAGE ON {get_object_type_as_text(ex_fn["object_type"])} {ex_fn["object_name"]}
             TO APPLICATION ROLE {app_role};
             """
         )
