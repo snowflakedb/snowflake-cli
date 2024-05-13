@@ -1,4 +1,5 @@
 import json
+import pprint
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -37,7 +38,9 @@ def is_python_file(file_path: Path):
     return file_path.suffix == ".py"
 
 
-def _determine_virtual_env(processor: ProcessorMapping) -> Dict[str, Any]:
+def _determine_virtual_env(
+    project_root: Path, processor: ProcessorMapping
+) -> Dict[str, Any]:
     """
     Determines a virtual environment to run the Snowpark processor in, either through the project definition or by querying the current environment.
     """
@@ -58,11 +61,16 @@ def _determine_virtual_env(processor: ProcessorMapping) -> Dict[str, Any]:
             )
         return {"env_type": ExecutionEnvironmentType.CONDA, "name": env_name}
     elif env_type.upper() == ExecutionEnvironmentType.VENV.name:
-        env_path = env_props.get("path", None)
-        if env_path is None:
+        env_path_str = env_props.get("path", None)
+        if env_path_str is None:
             cc.warning(
                 "No path found in project definition file for the conda environment to run the Snowpark processor in. Will attempt to auto-detect the current venv path."
             )
+            env_path = None
+        else:
+            env_path = Path(env_path_str)
+            if not env_path.is_absolute():
+                env_path = project_root / env_path
         return {
             "env_type": ExecutionEnvironmentType.VENV,
             "path": env_path,
@@ -74,12 +82,15 @@ def _determine_virtual_env(processor: ProcessorMapping) -> Dict[str, Any]:
     return {}
 
 
+TEMPLATE_PATH = Path(__file__).parent / "callback_source.py.jinja"
+
+
 def _execute_in_sandbox(
     py_file: str, deploy_root: Path, kwargs: Dict[str, Any]
 ) -> Optional[List[Dict[str, Any]]]:
     # Create the code snippet to be executed in the sandbox
     script_source = jinja_render_from_file(
-        template_path=Path("./callback_source.py.jinja"), data={"py_file": py_file}
+        template_path=TEMPLATE_PATH, data={"py_file": py_file}
     )
 
     try:
@@ -89,6 +100,8 @@ def _execute_in_sandbox(
             timeout=DEFAULT_TIMEOUT,
             **kwargs,
         )
+        cc.message(f"stdout: {completed_process.stdout}")
+        cc.message(f"stderr: {completed_process.stderr}")
     except SandboxExecutionError as sdbx_err:
         cc.warning(
             f"Could not fetch Snowpark objects from {py_file} due to {sdbx_err}, continuing execution for the rest of the python files."
@@ -157,6 +170,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         self,
         artifact_to_process: PathMapping,
         processor_mapping: Optional[ProcessorMapping],
+        **kwargs,
     ) -> Dict[Path, Optional[Any]]:
         """
         Intended to be the main method which can perform all relevant processing, and/or write to a target file, which depends on the type of processor.
@@ -164,7 +178,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         """
 
         kwargs = (
-            _determine_virtual_env(processor_mapping)
+            _determine_virtual_env(self.project_root, processor_mapping)
             if processor_mapping is not None
             else {}
         )
@@ -202,7 +216,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
 
                 cc.message(f"This is the file path in deploy root: {dest_file}\n")
                 cc.message("This is the list of collected entities:")
-                cc.message(collected_entities)
+                cc.message(pprint.pformat(collected_entities))
 
                 # 4. Enrich entities by setting additional properties
                 for entity in collected_entities:
