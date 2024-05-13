@@ -79,6 +79,8 @@ def snowflake_session():
         "user": _get_from_env("USER"),
         "password": _get_from_env("PASSWORD"),
         "host": _get_from_env("HOST", allow_none=True),
+        "warehouse": _get_from_env("WAREHOUSE", allow_none=True),
+        "role": _get_from_env("ROLE", allow_none=True),
     }
     config = {k: v for k, v in config.items() if v is not None}
     connection = connector.connect(**config)

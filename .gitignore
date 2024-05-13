@@ -15,6 +15,7 @@ dist/
 .coverage
 gen_docs/
 /venv/
+.env
 
 ^app.zip
 ^snowflake.yml
