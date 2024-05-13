@@ -8,11 +8,24 @@
   RUNTIME_VERSION=3.11 
   IMPORTS=('path_one', 'path_two')
   PACKAGES=('package_one', 'package_two')
+  EXTERNAL_ACCESS_INTEGRATIONS=(integration_one,integration_two)
+  SECRETS=('key1'=secret_one,'key2'=integration_two)
   HANDLER='dummy_handler'
-  EXECUTE AS owner
+  EXECUTE AS OWNER
   AS $$
   dummy_inline_code
   $$
+  
+  '''
+# ---
+# name: test_generate_create_sql_ddl_statements_w_select_entries
+  '''
+  CREATE
+  TABLE FUNCTION SNOWPARK_TEMP_FUNCTION_WZUNHMZJKA(arg1 INT)
+  RETURNS INT
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11 
+  HANDLER='dummy_handler'
   
   '''
 # ---

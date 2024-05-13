@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 from unittest import mock
 
 import pytest
@@ -27,22 +27,37 @@ def test_sanitize_ex_fn_attribute():
     )
     assert ex_fn["team"] == "NADE"
 
+    optional_expected_type: Optional[List] = []
     with pytest.raises(ef_utils.MalformedExtensionFunctionError):
         ef_utils._sanitize_ex_fn_attribute(  # noqa: SLF001
-            attr="team", ex_fn=ex_fn, make_uppercase=True, expected_type=Optional[List]
+            attr="team",
+            ex_fn=ex_fn,
+            make_uppercase=True,
+            expected_type=type(optional_expected_type),
         )
 
     ex_fn["team"] = None
     ef_utils._sanitize_ex_fn_attribute(  # noqa: SLF001
-        attr="team", ex_fn=ex_fn, make_uppercase=True, expected_type=Optional[List]
+        attr="team",
+        ex_fn=ex_fn,
+        make_uppercase=True,
+        expected_type=type(optional_expected_type),
     )
     assert ex_fn["team"] is None
 
     ex_fn["team"] = ["nade"]
     ef_utils._sanitize_ex_fn_attribute(  # noqa: SLF001
-        attr="team", ex_fn=ex_fn, make_uppercase=True, expected_type=Optional[List]
+        attr="team",
+        ex_fn=ex_fn,
+        make_uppercase=True,
+        expected_type=type(optional_expected_type),
     )
     assert ex_fn["team"] == ["nade"]
+
+    with pytest.raises(ef_utils.MalformedExtensionFunctionError):
+        ef_utils._sanitize_ex_fn_attribute(  # noqa: SLF001
+            attr="team", ex_fn=ex_fn, make_uppercase=True, expected_type=Dict
+        )
 
 
 def test_create_missing_attr_str():

@@ -142,9 +142,9 @@ def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path) -> bo
     _sanitize_ex_fn_attribute(attr="all_imports", ex_fn=ex_fn, expected_type=str)
     _sanitize_ex_fn_attribute(attr="all_packages", ex_fn=ex_fn, expected_type=str)
     _sanitize_ex_fn_attribute(
-        attr="external_access_integrations", ex_fn=ex_fn, expected_type=str
+        attr="external_access_integrations", ex_fn=ex_fn, expected_type=List
     )
-    _sanitize_ex_fn_attribute(attr="secrets", ex_fn=ex_fn, expected_type=str)
+    _sanitize_ex_fn_attribute(attr="secrets", ex_fn=ex_fn, expected_type=Dict)
     _sanitize_ex_fn_attribute(attr="inline_python_code", ex_fn=ex_fn, expected_type=str)
     _sanitize_ex_fn_attribute(
         attr="execute_as", ex_fn=ex_fn, make_uppercase=True, expected_type=str

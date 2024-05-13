@@ -402,7 +402,7 @@ def generate_create_sql_ddl_statements(ex_fn: Dict[str, Any]) -> Optional[str]:
 
     secrets = ex_fn["secrets"]
     secrets_in_sql = (
-        f"""\nSECRETS=({",".join([f"'{k}'={v}" for k, v in secrets.items()])})\n"""
+        f"""\nSECRETS=({",".join([f"'{k}'={v}" for k, v in secrets.items()])})"""
         if secrets
         else ""
     )

@@ -13,6 +13,7 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     _determine_virtual_env,
     _execute_in_sandbox,
     generate_create_sql_ddl_statements,
+    generate_grant_sql_ddl_statements,
 )
 
 from tests.testing_utils.files_and_dirs import temp_local_dir
@@ -292,3 +293,40 @@ def test_generate_create_sql_ddl_statements_w_all_entries(
     native_app_codegen_instance, snapshot
 ):
     assert generate_create_sql_ddl_statements(native_app_codegen_instance) == snapshot
+
+
+def test_generate_create_sql_ddl_statements_none():
+    ex_fn = {
+        "object_type": "PROCEDURE",
+        "object_name": "CORE.MYFUNC",
+        "anonymous": True,
+    }
+    assert generate_create_sql_ddl_statements(ex_fn=ex_fn) is None
+
+
+def test_generate_create_sql_ddl_statements_w_select_entries(
+    native_app_codegen_instance, snapshot
+):
+    native_app_codegen_instance["replace"] = False
+    native_app_codegen_instance["all_imports"] = ""
+    native_app_codegen_instance["all_packages"] = ""
+    native_app_codegen_instance["external_access_integrations"] = None
+    native_app_codegen_instance["secrets"] = None
+    native_app_codegen_instance["execute_as"] = None
+    native_app_codegen_instance["inline_python_code"] = None
+    assert generate_create_sql_ddl_statements(native_app_codegen_instance) == snapshot
+
+
+def test_generate_grant_sql_ddl_statements_none():
+    ex_fn = {"application_roles": None}
+    assert generate_grant_sql_ddl_statements(ex_fn=ex_fn) is None
+
+
+def test_generate_grant_sql_ddl_statements():
+    ex_fn = {
+        "object_type": "TABLE_FUNCTION",
+        "object_name": "CORE.MYFUNC",
+        "application_roles": ["APP_ADMIN", "APP_VIEWER"],
+    }
+    actual = generate_grant_sql_ddl_statements(ex_fn=ex_fn)
+    expected = "GRANT USAGE ON TABLE FUNCTION CORE.MYFUNC\nTO APPLICATION ROLE APP_ADMIN;\n\nGRANT USAGE ON TABLE FUNCTION CORE.MYFUNC\nTO APPLICATION ROLE APP_VIEWER;\n"
