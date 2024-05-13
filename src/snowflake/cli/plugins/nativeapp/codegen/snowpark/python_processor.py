@@ -174,7 +174,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         artifact_to_process: PathMapping,
         processor_mapping: Optional[ProcessorMapping],
         **kwargs,
-    ) -> Dict[Path, Optional[Any]]:
+    ) -> Dict[Path, str]:
         """
         Intended to be the main method which can perform all relevant processing, and/or write to a target file, which depends on the type of processor.
         For SnowparkAnnotationProcessor, the target file is the setup script.
@@ -238,9 +238,9 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                 dest_file_py_file_to_collected_entities[dest_file] = collected_entities
 
         # 4. For each entity, generate its related SQL statements
-        dest_file_py_file_to_ddl_map = self.generate_sql_ddl_statements(
-            dest_file_py_file_to_collected_entities
-        )
+        dest_file_py_file_to_ddl_map: Dict[
+            Path, str
+        ] = self.generate_sql_ddl_statements(dest_file_py_file_to_collected_entities)
 
         # TODO: Temporary for testing, while feature is being built in phases
         return dest_file_py_file_to_ddl_map
@@ -347,13 +347,14 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
             ddl_lst_per_ef: List[str] = []
             for extension_function in collected_entities:
                 create_sql = generate_create_sql_ddl_statements(extension_function)
-                grant_sql = generate_grant_sql_ddl_statements(extension_function)
                 if create_sql:
                     ddl_lst_per_ef.append(create_sql)
+                    grant_sql = generate_grant_sql_ddl_statements(extension_function)
                     if grant_sql:
                         ddl_lst_per_ef.append(grant_sql)
 
-            dest_file_py_file_to_ddl_map[py_file] = "\n".join(ddl_lst_per_ef)
+            if len(ddl_lst_per_ef) > 0:
+                dest_file_py_file_to_ddl_map[py_file] = "\n".join(ddl_lst_per_ef)
 
         return dest_file_py_file_to_ddl_map
 
@@ -423,13 +424,6 @@ $$
     else:
         inline_python_code_in_sql = ""
 
-    try:
-        assert ex_fn["runtime_version"] is not None
-        assert ex_fn["handler"] is not None
-    except AssertionError as err:
-        cc.warning(f"Could not generate SQL DDL due to incorrect information:\n{err}")
-        return None
-
     create_query = dedent(
         f"""\
 CREATE{replace_in_sql}
@@ -464,4 +458,7 @@ def generate_grant_sql_ddl_statements(ex_fn: Dict[str, Any]) -> Optional[str]:
             """
         )
         grant_sql_statements.append(grant_sql_statement)
+
+    if len(grant_sql_statements) == 0:
+        return None
     return "\n".join(grant_sql_statements)

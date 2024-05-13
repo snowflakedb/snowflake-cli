@@ -27,6 +27,7 @@ def _sanitize_ex_fn_attribute(
     ex_fn: Dict[str, Any],
     make_uppercase: bool = False,
     expected_type: Type = str,
+    default_value: Any = None,
 ):
     has_attr = ex_fn.get(attr, None) and len(ex_fn[attr]) > 0
     if has_attr:
@@ -39,7 +40,7 @@ def _sanitize_ex_fn_attribute(
         else:
             ex_fn[attr] = ex_fn[attr]
     else:
-        ex_fn[attr] = None
+        ex_fn[attr] = default_value
 
 
 def _create_missing_attr_str(attribute: str, py_file: Path):
@@ -98,10 +99,14 @@ def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path) -> bo
         )
 
     optional_expected_type: Optional[List] = []
+    default_raw_imports: List[Union[str, Tuple[str, str]]] = []
     _sanitize_ex_fn_attribute(
-        attr="raw_imports", ex_fn=ex_fn, expected_type=type(optional_expected_type)
+        attr="raw_imports",
+        ex_fn=ex_fn,
+        expected_type=type(optional_expected_type),
+        default_value=default_raw_imports,
     )
-    if ex_fn["raw_imports"] is None:
+    if len(ex_fn["raw_imports"]) == 0:
         raise MalformedExtensionFunctionError(
             _create_missing_attr_str(attribute="raw_imports", py_file=py_file)
         )
@@ -124,11 +129,20 @@ def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path) -> bo
             "Options 'replace' and 'if_not_exists' are incompatible."
         )
 
+    default_input_args: List[Dict[str, Any]] = []
     _sanitize_ex_fn_attribute(
-        attr="input_args", ex_fn=ex_fn, expected_type=type(optional_expected_type)
+        attr="input_args",
+        ex_fn=ex_fn,
+        expected_type=type(optional_expected_type),
+        default_value=default_input_args,
     )
+
+    default_input_types: List[str] = []
     _sanitize_ex_fn_attribute(
-        attr="input_sql_types", ex_fn=ex_fn, expected_type=type(optional_expected_type)
+        attr="input_sql_types",
+        ex_fn=ex_fn,
+        expected_type=type(optional_expected_type),
+        default_value=default_input_types,
     )
     # input_args and input_sql_types can be None as a function may not accept any arguments
     if (
@@ -149,8 +163,13 @@ def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path) -> bo
     _sanitize_ex_fn_attribute(
         attr="execute_as", ex_fn=ex_fn, make_uppercase=True, expected_type=str
     )
-    _sanitize_ex_fn_attribute(attr="runtime_version", ex_fn=ex_fn, expected_type=str)
     _sanitize_ex_fn_attribute(attr="handler", ex_fn=ex_fn, expected_type=str)
+
+    _sanitize_ex_fn_attribute(attr="runtime_version", ex_fn=ex_fn, expected_type=str)
+    if ex_fn["runtime_version"] is None:
+        raise MalformedExtensionFunctionError(
+            _create_missing_attr_str(attribute="runtime_version", py_file=py_file)
+        )
 
     has_app_roles = (
         ex_fn.get("application_roles", None) and len(ex_fn["application_roles"]) > 0
@@ -165,7 +184,7 @@ def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path) -> bo
                 f"Attribute 'application_roles' of extension function must be a list of strings."
             )
     else:
-        ex_fn["application_roles"] = None
+        ex_fn["application_roles"] = []
 
     return True
 
@@ -208,7 +227,7 @@ def _get_handler(
 
 
 def _get_schema_and_name_for_extension_function(
-    object_name: str, schema: str, func: str
+    object_name: str, schema: Optional[str], func: str
 ) -> Optional[str]:
     """
     Gets the name of the extension function to be used in the creation of the SQL statement.
@@ -217,9 +236,9 @@ def _get_schema_and_name_for_extension_function(
 
     """
     if object_name.startswith(TEMP_OBJECT_NAME_PREFIX):
-        return f"{schema}.{func}"
+        return f"{schema}.{func}" if schema else func
     else:
-        return f"{schema}.{object_name}"
+        return f"{schema}.{object_name}" if schema else object_name
 
 
 def _is_single_quoted(name: str) -> bool:

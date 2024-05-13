@@ -364,26 +364,3 @@ def native_app_codegen_instance():
         "schema": "DATA",
         "application_roles": ["APP_ADMIN", "APP_VIEWER"],
     }
-
-    # {
-    #     "object_type": "FUNCTION",
-    #     "object_name": "SNOWPARK_TEMP_FUNCTION_S782HXBR30",
-    #     "input_args": [],
-    #     "input_sql_types": [],
-    #     "return_sql": "RETURNS BIGINT",
-    #     "runtime_version": "3.11",
-    #     "all_imports": "",
-    #     "all_packages": "",
-    #     "handler": None,
-    #     "external_access_integrations": None,
-    #     "secrets": None,
-    #     "inline_python_code": None,
-    #     "raw_imports": None,
-    #     "replace": False,
-    #     "if_not_exists": False,
-    #     "execute_as": None,
-    #     "anonymous": False,
-    #     "func": "minus_one",
-    #     "schema": None,
-    #     "application_roles": None,
-    # }

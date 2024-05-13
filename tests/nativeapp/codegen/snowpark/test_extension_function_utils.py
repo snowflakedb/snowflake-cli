@@ -238,6 +238,11 @@ def test_add_defaults_to_extension_function_required_keys():
     assert err.value.message.__contains__("schema")
 
     ex_fn["schema"] = "core"
+    with pytest.raises(ef_utils.MalformedExtensionFunctionError) as err:
+        ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
+    assert err.value.message.__contains__("runtime_version")
+
+    ex_fn["runtime_version"] = "3.8"
     assert ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
     # This check is because we cannot stop the function execution beyond required keys, but there are other tests below that go in depth
 
@@ -250,17 +255,17 @@ def test_add_defaults_to_extension_function_required_keys():
     assert not ex_fn["anonymous"]
     assert not ex_fn["replace"]
     assert not ex_fn["if_not_exists"]
-    assert ex_fn["input_args"] is None
+    assert ex_fn["input_args"] == []
     assert ex_fn["all_imports"] is None
-    assert ex_fn["input_sql_types"] is None
+    assert ex_fn["input_sql_types"] == []
     assert ex_fn["all_packages"] is None
     assert ex_fn["external_access_integrations"] is None
     assert ex_fn["secrets"] is None
     assert ex_fn["inline_python_code"] is None
     assert ex_fn["execute_as"] is None
-    assert ex_fn["runtime_version"] is None
+    assert ex_fn["runtime_version"] is "3.8"
     assert ex_fn["handler"] is None
-    assert ex_fn["application_roles"] is None
+    assert ex_fn["application_roles"] == []
 
 
 def test_add_defaults_to_extension_function_other_malformed_keys():
@@ -273,6 +278,7 @@ def test_add_defaults_to_extension_function_other_malformed_keys():
         "schema": "core",
         "replace": True,
         "if_not_exists": True,
+        "runtime_version": "3.8",
     }
     some_path = Path("some/path")
 
@@ -289,7 +295,7 @@ def test_add_defaults_to_extension_function_other_malformed_keys():
 
     ex_fn["input_sql_types"] = ["dummy"]
     ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
-    assert ex_fn["application_roles"] is None
+    assert ex_fn["application_roles"] == []
 
     ex_fn["application_roles"] = ["app_viewer", None, {}]
     with pytest.raises(ef_utils.MalformedExtensionFunctionError) as err:

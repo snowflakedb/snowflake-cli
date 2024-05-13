@@ -1,5 +1,6 @@
 import subprocess
 from pathlib import Path
+from typing import Any, Dict, Optional
 from unittest import mock
 
 import pytest
@@ -320,6 +321,8 @@ def test_generate_create_sql_ddl_statements_w_select_entries(
 def test_generate_grant_sql_ddl_statements_none():
     ex_fn = {"application_roles": None}
     assert generate_grant_sql_ddl_statements(ex_fn=ex_fn) is None
+    ex_fn["application_roles"] = []
+    assert generate_grant_sql_ddl_statements(ex_fn=ex_fn) is None
 
 
 def test_generate_grant_sql_ddl_statements():
@@ -330,3 +333,102 @@ def test_generate_grant_sql_ddl_statements():
     }
     actual = generate_grant_sql_ddl_statements(ex_fn=ex_fn)
     expected = "GRANT USAGE ON TABLE FUNCTION CORE.MYFUNC\nTO APPLICATION ROLE APP_ADMIN;\n\nGRANT USAGE ON TABLE FUNCTION CORE.MYFUNC\nTO APPLICATION ROLE APP_VIEWER;\n"
+    assert actual == expected
+
+
+def test_generate_sql_ddl_statements_empty(native_app_project_instance):
+    dir_structure = {
+        "a/b/c/main.py": "# this is a file\n",
+        "a/b/c/data.py": "# this is a file\n",
+        "output/deploy": None,
+    }
+    with temp_local_dir(dir_structure) as local_path:
+        native_app_project_instance.native_app.artifacts = [
+            {"dest": "stagepath/", "src": "a/b/c/*.py", "processors": ["SNOWPARK"]}
+        ]
+        snowpark_processor = SnowparkAnnotationProcessor(
+            project_definition=native_app_project_instance,
+            project_root=local_path,
+            deploy_root=Path(local_path, "output/deploy"),
+        )
+        dest_file_py_file_to_collected_entities: Dict[Path, Optional[Any]] = {
+            Path("stagepath", "main.py"): None,
+            Path("stagepath", "data.py"): [],
+        }
+        result = snowpark_processor.generate_sql_ddl_statements(
+            dest_file_py_file_to_collected_entities
+        )
+        assert len(result) == 0
+
+
+def test_generate_sql_ddl_statements(
+    native_app_project_instance, native_app_codegen_instance
+):
+    dir_structure = {
+        "a/b/c/main.py": "# this is a file\n",
+        "a/b/c/data.py": "# this is a file\n",
+        "output/deploy": None,
+    }
+    with temp_local_dir(dir_structure) as local_path:
+        native_app_project_instance.native_app.artifacts = [
+            {"dest": "stagepath/", "src": "a/b/c/*.py", "processors": ["SNOWPARK"]}
+        ]
+        snowpark_processor = SnowparkAnnotationProcessor(
+            project_definition=native_app_project_instance,
+            project_root=local_path,
+            deploy_root=Path(local_path, "output/deploy"),
+        )
+        dest_file_py_file_to_collected_entities: Dict[Path, Optional[Any]] = {
+            Path("stagepath", "main.py"): [native_app_codegen_instance]
+        }
+        result = snowpark_processor.generate_sql_ddl_statements(
+            dest_file_py_file_to_collected_entities
+        )
+        assert len(result) == 1
+
+
+@mock.patch(
+    "snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor.generate_grant_sql_ddl_statements"
+)
+def test_generate_sql_ddl_statements_conditional_create(
+    mock_generate, native_app_project_instance, native_app_codegen_instance
+):
+    dir_structure = {
+        "a/b/c/main.py": "# this is a file\n",
+        "a/b/c/data.py": "# this is a file\n",
+        "output/deploy": None,
+    }
+    with temp_local_dir(dir_structure) as local_path:
+        native_app_project_instance.native_app.artifacts = [
+            {"dest": "stagepath/", "src": "a/b/c/*.py", "processors": ["SNOWPARK"]}
+        ]
+        snowpark_processor = SnowparkAnnotationProcessor(
+            project_definition=native_app_project_instance,
+            project_root=local_path,
+            deploy_root=Path(local_path, "output/deploy"),
+        )
+
+        ex_fn: Dict = {
+            "object_type": "PROCEDURE",
+            "anonymous": True,
+            "object_name": "CORE.DUMMY_FUNC",
+            "application_roles": ["app_viewer"],
+        }
+        dest_file_py_file_to_collected_entities: Dict[Path, Optional[Any]] = {
+            Path("stagepath", "main.py"): [ex_fn]
+        }
+        result = snowpark_processor.generate_sql_ddl_statements(
+            dest_file_py_file_to_collected_entities
+        )
+        assert len(result) == 0
+        mock_generate.assert_not_called()
+
+        dest_file_py_file_to_collected_entities: Dict[Path, Optional[Any]] = {
+            Path("stagepath", "main.py"): [native_app_codegen_instance]
+        }
+        mock_generate.return_value = "SOME_STRING"
+        result = snowpark_processor.generate_sql_ddl_statements(
+            dest_file_py_file_to_collected_entities
+        )
+        assert len(result) == 1
+        mock_generate.assert_called_once()
