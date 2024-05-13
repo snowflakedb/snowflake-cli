@@ -214,6 +214,12 @@ def app_open(
 @with_project_definition("native_app")
 def app_teardown(
     force: Optional[bool] = ForceOption,
+    cascade: Optional[bool] = typer.Option(
+        None,
+        help=f"""Whether to drop all application objects owned by the application within the account. Default: false.""",
+        show_default=False,
+    ),
+    interactive: Optional[bool] = InteractiveOption,
     **options,
 ) -> CommandResult:
     """
@@ -223,7 +229,9 @@ def app_teardown(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    processor.process(force)
+    if interactive is None:
+        interactive = is_tty_interactive()
+    processor.process(interactive, force, cascade)
     return MessageResult(f"Teardown is now complete.")
 
 
