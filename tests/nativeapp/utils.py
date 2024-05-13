@@ -4,6 +4,7 @@ from textwrap import dedent
 NATIVEAPP_MODULE = "snowflake.cli.plugins.nativeapp.manager"
 TEARDOWN_MODULE = "snowflake.cli.plugins.nativeapp.teardown_processor"
 TYPER_CONFIRM = "typer.confirm"
+TYPER_PROMPT = "typer.prompt"
 RUN_MODULE = "snowflake.cli.plugins.nativeapp.run_processor"
 VERSION_MODULE = "snowflake.cli.plugins.nativeapp.version.version_processor"
 
@@ -21,6 +22,9 @@ NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME = (
 )
 NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO = (
     f"{NATIVEAPP_MANAGER}.get_existing_app_pkg_info"
+)
+NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION = (
+    f"{NATIVEAPP_MANAGER}.get_objects_owned_by_application"
 )
 
 TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO = f"{TEARDOWN_PROCESSOR}.get_existing_app_info"

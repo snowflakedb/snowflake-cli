@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Optional
+from typing import List, Optional, TypedDict
 
 import jinja2
 from snowflake.cli.api.console import cli_console as cc
@@ -58,6 +58,8 @@ from snowflake.cli.plugins.stage.diff import (
 )
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
+
+ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
 
 
 def generic_sql_error_handler(
@@ -428,6 +430,16 @@ class NativeAppManager(SqlExecutionMixin):
             return self.show_specific_object(
                 "application packages", self.package_name, name_col=NAME_COL
             )
+
+    def get_objects_owned_by_application(self) -> List[ApplicationOwnedObject]:
+        """
+        Returns all application objects owned by this application.
+        """
+        with self.use_role(self.app_role):
+            results = self._execute_query(
+                f"show objects owned by application {self.app_name}"
+            ).fetchall()
+            return [{"name": row[1], "type": row[2]} for row in results]
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
