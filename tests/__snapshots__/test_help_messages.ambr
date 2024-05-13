@@ -1754,9 +1754,9 @@
    Usage: default object describe [OPTIONS] OBJECT_TYPE OBJECT_NAME               
                                                                                   
    Provides description of an object of given type.                               
-   Supported types: compute-pool, database, function, git-repository,             
-   integration, network-rule, procedure, role, schema, secret, service, stage,    
-   stream, streamlit, table, task, user, view, warehouse                          
+   Supported types: compute-pool, database, external-access-integration,          
+   function, git-repository, integration, network-rule, procedure, role, schema,  
+   secret, service, stage, stream, streamlit, table, task, user, view, warehouse  
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    object_type      TEXT  Type of object. For example table, procedure,    │
@@ -1829,9 +1829,10 @@
    Usage: default object drop [OPTIONS] OBJECT_TYPE OBJECT_NAME                   
                                                                                   
    Drops Snowflake object of given name and type.                                 
-   Supported types: compute-pool, database, function, git-repository,             
-   image-repository, integration, network-rule, procedure, role, schema, secret,  
-   service, stage, stream, streamlit, table, task, user, view, warehouse          
+   Supported types: compute-pool, database, external-access-integration,          
+   function, git-repository, image-repository, integration, network-rule,         
+   procedure, role, schema, secret, service, stage, stream, streamlit, table,     
+   task, user, view, warehouse                                                    
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    object_type      TEXT  Type of object. For example table, procedure,    │
@@ -1904,9 +1905,10 @@
    Usage: default object list [OPTIONS] OBJECT_TYPE                               
                                                                                   
    Lists all available Snowflake objects of given type.                           
-   Supported types: compute-pool, database, function, git-repository,             
-   image-repository, integration, network-rule, procedure, role, schema, secret,  
-   service, stage, stream, streamlit, table, task, user, view, warehouse          
+   Supported types: compute-pool, database, external-access-integration,          
+   function, git-repository, image-repository, integration, network-rule,         
+   procedure, role, schema, secret, service, stage, stream, streamlit, table,     
+   task, user, view, warehouse                                                    
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    object_type      TEXT  Type of object. For example table, procedure,    │
