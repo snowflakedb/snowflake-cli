@@ -4,7 +4,7 @@
 ## Deprecations
 
 ## New additions
-
+ * Add external access integration to snow object commands
 ## Fixes and improvements
 
 
