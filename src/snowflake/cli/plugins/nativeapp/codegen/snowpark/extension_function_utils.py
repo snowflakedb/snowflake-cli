@@ -131,5 +131,5 @@ def _enrich_entity(
         handler=entity["handler"],
     )
     entity["all_imports"] = _get_all_imports(
-        raw_imports=entity["raw_imports"], suffix_str=suffix_str
+        raw_imports=entity["raw_imports"] or [], suffix_str=suffix_str
     )
