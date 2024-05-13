@@ -1,9 +1,14 @@
 * @snowflakedb/snowcli
 
+# Shared ownership
+tests/__snapshots__/ @snowflakedb/snowcli @snowflakedb/nade
+tests_integration/__snapshots__/ @snowflakedb/snowcli @snowflakedb/nade
+tests_e2e/__snapshots__/  @snowflakedb/snowcli @snowflakedb/nade
+
 # Native Apps Owners
 src/snowflake/cli/plugins/nativeapp/ @snowflakedb/nade
 tests/nativeapp/ @snowflakedb/nade
-tests_integration/test_nativeapp.py @snowflakedb/nade
+tests_integration/nativeapp/ @snowflakedb/nade
 
 # Project Definition Owners
 src/snowflake/cli/api/project/schemas/native_app.py @snowflakedb/nade
