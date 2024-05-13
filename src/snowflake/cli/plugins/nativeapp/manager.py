@@ -24,11 +24,10 @@ from snowflake.cli.api.project.util import (
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.connection.util import make_snowsight_url
 from snowflake.cli.plugins.nativeapp.artifacts import (
-    ArtifactDeploymentMap,
     ArtifactMapping,
+    BundleMap,
     build_bundle,
     resolve_without_follow,
-    source_path_to_deploy_path,
     translate_artifact,
 )
 from snowflake.cli.plugins.nativeapp.constants import (
@@ -307,7 +306,7 @@ class NativeAppManager(SqlExecutionMixin):
             return False
         return True
 
-    def build_bundle(self) -> ArtifactDeploymentMap:
+    def build_bundle(self) -> BundleMap:
         """
         Populates the local deploy root from artifact sources.
         """
@@ -319,7 +318,7 @@ class NativeAppManager(SqlExecutionMixin):
         prune: bool,
         recursive: bool,
         local_paths_to_sync: List[Path] | None = None,
-        mapped_files: Optional[ArtifactDeploymentMap] = None,
+        bundle_map: Optional[BundleMap] = None,
     ) -> DiffResult:
         """
         Ensures that the files on our remote stage match the artifacts we have in
@@ -331,7 +330,7 @@ class NativeAppManager(SqlExecutionMixin):
             recursive (bool): Whether to traverse directories recursively.
             local_paths_to_sync (List[Path], optional): List of local paths to sync. Defaults to None to sync all
              local paths. Note that providing an empty list here is equivalent to None.
-            mapped_files: the file mapping computed during the `bundle` step. Required when local_paths_to_sync is
+            bundle_map: the artifact mapping computed during the `bundle` step. Required when local_paths_to_sync is
              provided.
 
         Returns:
@@ -361,7 +360,7 @@ class NativeAppManager(SqlExecutionMixin):
 
         files_not_removed = []
         if local_paths_to_sync:
-            assert mapped_files is not None
+            assert bundle_map is not None
 
             # Deploying specific files/directories
             resolved_paths_to_sync = [
@@ -370,8 +369,7 @@ class NativeAppManager(SqlExecutionMixin):
             if not recursive:
                 verify_no_directories(resolved_paths_to_sync)
             deploy_paths_to_sync = [
-                source_path_to_deploy_path(p, mapped_files)
-                for p in resolved_paths_to_sync
+                bundle_map.to_deploy_path(p) for p in resolved_paths_to_sync
             ]
             verify_exists(deploy_paths_to_sync)
             stage_paths_to_sync = _get_stage_paths_to_sync(
@@ -534,7 +532,7 @@ class NativeAppManager(SqlExecutionMixin):
         prune: bool,
         recursive: bool,
         local_paths_to_sync: List[Path] | None = None,
-        mapped_files: Optional[ArtifactDeploymentMap] = None,
+        bundle_map: Optional[BundleMap] = None,
     ) -> DiffResult:
         """app deploy process"""
 
@@ -547,7 +545,7 @@ class NativeAppManager(SqlExecutionMixin):
 
             # 3. Upload files from deploy root local folder to the above stage
             diff = self.sync_deploy_root_with_stage(
-                self.package_role, prune, recursive, local_paths_to_sync, mapped_files
+                self.package_role, prune, recursive, local_paths_to_sync, bundle_map
             )
 
         return diff
