@@ -19,7 +19,7 @@ class ProcessorMapping(UpdatableModel):
 class PathMapping(UpdatableModel):
     src: str
     dest: Optional[str] = None
-    processors: Optional[List[Union[str, ProcessorMapping]]] = None
+    processors: Optional[List[Union[str, ProcessorMapping]]] = []
 
     @field_validator("processors")
     @classmethod
@@ -27,7 +27,7 @@ class PathMapping(UpdatableModel):
         cls, input_values: Optional[List[Union[str, Dict, ProcessorMapping]]]
     ):
         if input_values is None:
-            return None
+            return []
 
         transformed_processors: List[ProcessorMapping] = []
         for input_processor in input_values:
