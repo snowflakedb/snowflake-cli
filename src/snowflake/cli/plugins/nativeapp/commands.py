@@ -126,8 +126,8 @@ def app_bundle(
     Prepares a local folder with configured app artifacts.
     """
     manager = NativeAppManager(
-        project_definition=cli_context.project_definition,
-        project_root=cli_context.project_root.native_app,
+        project_definition=cli_context.project_definition.native_app,
+        project_root=cli_context.project_root,
     )
     manager.build_bundle()
     return MessageResult(f"Bundle generated at {manager.deploy_root}")
@@ -173,8 +173,8 @@ def app_run(
         policy = DenyAlwaysPolicy()
 
     processor = NativeAppRunProcessor(
-        project_definition=cli_context.project_definition,
-        project_root=cli_context.project_root.native_app,
+        project_definition=cli_context.project_definition.native_app,
+        project_root=cli_context.project_root,
     )
     processor.build_bundle()
     processor.process(
@@ -200,8 +200,8 @@ def app_open(
     once it has been installed in your account.
     """
     manager = NativeAppManager(
-        project_definition=cli_context.project_definition,
-        project_root=cli_context.project_root.native_app,
+        project_definition=cli_context.project_definition.native_app,
+        project_root=cli_context.project_root,
     )
     if manager.get_existing_app_info():
         typer.launch(manager.get_snowsight_url())
@@ -228,8 +228,8 @@ def app_teardown(
     Attempts to drop both the application object and application package as defined in the project definition file.
     """
     processor = NativeAppTeardownProcessor(
-        project_definition=cli_context.project_definition,
-        project_root=cli_context.project_root.native_app,
+        project_definition=cli_context.project_definition.native_app,
+        project_root=cli_context.project_root,
     )
     if interactive is None:
         interactive = is_tty_interactive()
@@ -272,8 +272,8 @@ def app_deploy(
             recursive = False
 
     manager = NativeAppManager(
-        project_definition=cli_context.project_definition,
-        project_root=cli_context.project_root.native_app,
+        project_definition=cli_context.project_definition.native_app,
+        project_root=cli_context.project_root,
     )
 
     mapped_files = manager.build_bundle()
