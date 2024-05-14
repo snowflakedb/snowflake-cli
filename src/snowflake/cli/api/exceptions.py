@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from click import ClickException
 from click.exceptions import ClickException
 from snowflake.cli.api.constants import ObjectType
 
