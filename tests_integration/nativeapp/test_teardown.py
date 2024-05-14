@@ -16,7 +16,6 @@ USER_NAME = f"user_{uuid.uuid4().hex}"
 TEST_ENV = generate_user_env(USER_NAME)
 
 
-@pytest.mark.skip("Insufficient privileges for CI integration_tests role")
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "command,expected_error",
