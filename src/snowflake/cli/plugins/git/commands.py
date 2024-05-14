@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import typer
 from click import ClickException
@@ -16,6 +16,18 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import CollectionResult, CommandResult, QueryResult
 from snowflake.cli.api.utils.path_utils import is_stage_path
 from snowflake.cli.plugins.git.manager import GitManager
+from snowflake.cli.plugins.object.commands import (
+    ScopeOption,
+)
+from snowflake.cli.plugins.object.commands import (
+    describe as object_describe,
+)
+from snowflake.cli.plugins.object.commands import (
+    drop as object_drop,
+)
+from snowflake.cli.plugins.object.commands import (
+    list_ as object_list,
+)
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.stage.commands import get
 from snowflake.cli.plugins.stage.manager import OnErrorType
@@ -50,6 +62,10 @@ RepoPathArgument = typer.Argument(
     ),
     callback=_repo_path_argument_callback,
 )
+GitRepositoryLikeOption = like_option(
+    help_example='`list --like "my%"` lists all git repositories with name that begin with “my”',
+)
+GIT_REPOSITORY_OBJECT_TYPE = ObjectType.GIT_REPOSITORY.value.cli_name
 
 
 def _assure_repository_does_not_exist(om: ObjectManager, repository_name: str) -> None:
@@ -258,3 +274,31 @@ def execute(
         stage_path=repository_path, on_error=on_error, variables=variables
     )
     return CollectionResult(results)
+
+
+@app.command("list", requires_connection=True)
+def list_(
+    like: str = GitRepositoryLikeOption,
+    scope: Tuple[str, str] = ScopeOption,
+    **options,
+):
+    """Lists all available git repository stages."""
+    object_list(
+        object_type=GIT_REPOSITORY_OBJECT_TYPE, like=like, scope=scope, **options
+    )
+
+
+@app.command("drop", requires_connection=True)
+def drop(repository_name: str = RepoNameArgument, **options):
+    """Drop git repository stage of given name."""
+    object_drop(
+        object_type=GIT_REPOSITORY_OBJECT_TYPE, object_name=repository_name, **options
+    )
+
+
+@app.command("describe", requires_connection=True)
+def describe(repository_name: str = RepoNameArgument, **options):
+    """Provides description of a git repository stage."""
+    object_describe(
+        object_type=GIT_REPOSITORY_OBJECT_TYPE, object_name=repository_name, **options
+    )
