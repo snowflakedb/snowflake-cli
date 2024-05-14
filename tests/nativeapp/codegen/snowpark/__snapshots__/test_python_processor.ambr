@@ -29,3 +29,88 @@
   
   '''
 # ---
+# name: test_generate_grant_sql_ddl_statements
+  '''
+  GRANT USAGE ON TABLE FUNCTION CORE.MYFUNC
+  TO APPLICATION ROLE APP_ADMIN;
+  
+  GRANT USAGE ON TABLE FUNCTION CORE.MYFUNC
+  TO APPLICATION ROLE APP_VIEWER;
+  
+  '''
+# ---
+# name: test_generate_sql_ddl_statements
+  '''
+  CREATE OR REPLACE 
+  TABLE FUNCTION DATA.<lambda>(arg1 INT)
+  RETURNS INT
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11 
+  IMPORTS=('a/b/c.py')
+  PACKAGES=('package_one', 'package_two')
+  EXTERNAL_ACCESS_INTEGRATIONS=(integration_one,integration_two)
+  SECRETS=('key1'=secret_one,'key2'=integration_two)
+  HANDLER='NotImplementedHandler.<lambda>'
+  EXECUTE AS OWNER
+  AS $$
+  dummy_inline_code
+  $$
+  
+  GRANT USAGE ON TABLE FUNCTION DATA.<lambda>
+  TO APPLICATION ROLE APP_ADMIN;
+  
+  GRANT USAGE ON TABLE FUNCTION DATA.<lambda>
+  TO APPLICATION ROLE APP_VIEWER;
+  
+  '''
+# ---
+# name: test_generate_sql_ddl_statements.1
+  '''
+  CREATE OR REPLACE 
+  TABLE FUNCTION DATA.<lambda>(arg1 INT)
+  RETURNS INT
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11 
+  IMPORTS=('a/b/c.py')
+  PACKAGES=('package_one', 'package_two')
+  EXTERNAL_ACCESS_INTEGRATIONS=(integration_one,integration_two)
+  SECRETS=('key1'=secret_one,'key2'=integration_two)
+  HANDLER='NotImplementedHandler.<lambda>'
+  EXECUTE AS OWNER
+  AS $$
+  dummy_inline_code
+  $$
+  
+  GRANT USAGE ON TABLE FUNCTION DATA.<lambda>
+  TO APPLICATION ROLE APP_ADMIN;
+  
+  GRANT USAGE ON TABLE FUNCTION DATA.<lambda>
+  TO APPLICATION ROLE APP_VIEWER;
+  
+  '''
+# ---
+# name: test_generate_sql_ddl_statements_filtered_create
+  '''
+  CREATE OR REPLACE 
+  TABLE FUNCTION DATA.<lambda>(arg1 INT)
+  RETURNS INT
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11 
+  IMPORTS=('a/b/c.py')
+  PACKAGES=('package_one', 'package_two')
+  EXTERNAL_ACCESS_INTEGRATIONS=(integration_one,integration_two)
+  SECRETS=('key1'=secret_one,'key2'=integration_two)
+  HANDLER='NotImplementedHandler.<lambda>'
+  EXECUTE AS OWNER
+  AS $$
+  dummy_inline_code
+  $$
+  
+  GRANT USAGE ON TABLE FUNCTION DATA.<lambda>
+  TO APPLICATION ROLE APP_ADMIN;
+  
+  GRANT USAGE ON TABLE FUNCTION DATA.<lambda>
+  TO APPLICATION ROLE APP_VIEWER;
+  
+  '''
+# ---

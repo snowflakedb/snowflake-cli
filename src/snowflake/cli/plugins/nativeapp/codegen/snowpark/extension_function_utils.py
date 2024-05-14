@@ -19,101 +19,174 @@ class MalformedExtensionFunctionError(ClickException):
         super().__init__(message=message)
 
 
+# This prefix is created by Snowpark for an extension function when the user has not supplied any themselves.
+# TODO: move to sandbox execution to omit object name in this case: https://github.com/snowflakedb/snowflake-cli/pull/1056/files#r1599784063
 TEMP_OBJECT_NAME_PREFIX = "SNOWPARK_TEMP_"
 
 
-def _sanitize_ex_fn_attribute(
-    attr: str,
+def get_object_type_as_text(name: str) -> str:
+    """
+    Replace underscores with spaces in a given string.
+
+    Parameters:
+        name (str): Any arbitrary string
+    Returns:
+        A string that has replaced underscores with spaces.
+    """
+    return name.replace("_", " ")
+
+
+def _sanitize_ex_fn_str_attribute(
     ex_fn: Dict[str, Any],
+    attr: str,
     make_uppercase: bool = False,
-    expected_type: Type = str,
-    default_value: Any = None,
+    py_file: Optional[Path] = None,
+    raise_err: bool = False,
 ):
-    has_attr = ex_fn.get(attr, None) and len(ex_fn[attr]) > 0
-    if has_attr:
+    """
+    Sanitizes a single key-value pair of the specified dictionary. As part of the sanitization,
+    it goes through a few checks. A key must be created if it does not already exist.
+    Then, it checks the type of the value of the key, i.e. if it is of type str, and if it contains any leading or trailing whitespaces.
+    A user is able to specity if they want to re-assign a key to an uppercase instance of its original value.
+    If any of the sanitization checks fail and the user wants to raise an error, it throws a MalformedExtensionFunctionError.
+    """
+    assign_to_none = True
+    if ex_fn.get(attr, None):
+        if not isinstance(ex_fn[attr], str):
+            raise MalformedExtensionFunctionError(
+                f"Attribute '{attr}' of extension function must be of type 'str'."
+            )
+
+        if (
+            len(ex_fn[attr].strip()) > 0
+        ):  # To prevent where attr value is "  " etc, which should still be invalid
+            assign_to_none = False
+            if make_uppercase:
+                ex_fn[attr] = ex_fn[attr].upper()
+
+    if assign_to_none:
+        ex_fn[attr] = None
+
+    if assign_to_none and raise_err:
+        raise MalformedExtensionFunctionError(
+            _create_missing_attr_message(attribute=attr, py_file=py_file)
+        )
+
+
+def _sanitize_ex_fn_list_or_dict_attribute(
+    ex_fn: Dict[str, Any],
+    attr: str,
+    expected_type: Type,
+    default_value: Any = None,
+    py_file: Optional[Path] = None,
+    raise_err: bool = False,
+):
+    """
+    Sanitizes a single key-value pair of the specified dictionary. As part of the sanitization,
+    it goes through a few checks. A key must be created if it does not already exist.
+    Then, it checks the type of the value of the key. It also checks for the length of the value, which is why the value must be of type list or dict.
+    A user is able to specity a default value that they want to assign a newly created key to.
+    If any of the sanitization checks fail and the user wants to raise an error, it throws a MalformedExtensionFunctionError.
+    """
+    assign_to_default = True
+    if ex_fn.get(attr, None):
         if not isinstance(ex_fn[attr], expected_type):
             raise MalformedExtensionFunctionError(
                 f"Attribute '{attr}' of extension function must be of type '{expected_type}'."
             )
-        if expected_type == str and make_uppercase:
-            ex_fn[attr] = ex_fn[attr].upper()
-        else:
-            ex_fn[attr] = ex_fn[attr]
-    else:
+
+        if len(ex_fn[attr]) > 0:
+            assign_to_default = False
+
+    if assign_to_default:
         ex_fn[attr] = default_value
 
+    if assign_to_default and raise_err:
+        raise MalformedExtensionFunctionError(
+            _create_missing_attr_message(attribute=attr, py_file=py_file)
+        )
 
-def _create_missing_attr_str(attribute: str, py_file: Path):
-    return f"Required attribute '{attribute}' of extension function is missing for an extension function defined in python file {py_file.absolute()}."
+
+def _create_missing_attr_message(attribute: str, py_file: Optional[Path]):
+    """
+    This message string is used to create an instance of the MalformedExtensionFunctionError.
+    """
+    if py_file is None:
+        raise ValueError("Python file path must not be None.")
+    return f"Required attribute '{attribute}' of extension function is missing or incorrectly defined for an extension function defined in python file {py_file.absolute()}."
 
 
 def _is_function_wellformed(ex_fn: Dict[str, Any]) -> bool:
-    tuple_type: Tuple = ()
+    """
+    Checks if the specified dictionary contains a key called 'func'.
+    if it does, then the value must be of type str or a list of fixes size 2.
+    It further checks the item at 1st index of this list.
+    """
     if ex_fn.get("func", None):
         if isinstance(ex_fn["func"], str):
             return ex_fn["func"].strip() != ""
-        elif isinstance(ex_fn["func"], type(tuple_type)):
+        elif isinstance(ex_fn["func"], list) and (len(ex_fn["func"]) == 2):
             return isinstance(ex_fn["func"][1], str) and ex_fn["func"][1].strip() != ""
     return False
 
 
-def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path) -> bool:
+def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path):
     """
-    Helper function to add in defaults for keys that do not exist in the dictionary or contain empty strings when they should not.
+    Helper function to sanitize different attributes of a dictionary. As part of the sanitization, validations and default assignments are performed.
     This helper function is needed because different callback sources can create dictionaries with different/missing keys, and since
     Snowflake CLI may not own all callback implementations, the dictionaries need to have the minimum set of keys and their default
     values to be used in creation of the SQL DDL statements.
 
+    Parameters:
+        ex_fn (Dict[str, Any]): A dictionary of key value pairs to sanitize
+        py_file (Path): The python file from which this dictionary was created.
     Returns:
-    A boolean value, True if everything has been successfully validated and assigned, False if an error was encountered.
+        A boolean value, True if everything has been successfully validated and assigned, False if an error was encountered.
     """
+    # TODO: accumulate errors/warnings instead of per-attribute interruption: https://github.com/snowflakedb/snowflake-cli/pull/1056/files#r1599904008
 
     # Must have keys to create an extension function in SQL for Native Apps
-    _sanitize_ex_fn_attribute(
-        attr="object_type", ex_fn=ex_fn, make_uppercase=True, expected_type=str
+    _sanitize_ex_fn_str_attribute(
+        ex_fn=ex_fn,
+        attr="object_type",
+        make_uppercase=True,
+        py_file=py_file,
+        raise_err=True,
     )
-    if ex_fn["object_type"] is None:
-        raise MalformedExtensionFunctionError(
-            _create_missing_attr_str(attribute="object_type", py_file=py_file)
-        )
 
-    _sanitize_ex_fn_attribute(
-        attr="object_name", ex_fn=ex_fn, make_uppercase=True, expected_type=str
+    _sanitize_ex_fn_str_attribute(
+        ex_fn=ex_fn,
+        attr="object_name",
+        make_uppercase=True,
+        py_file=py_file,
+        raise_err=True,
     )
-    if ex_fn["object_name"] is None:
-        raise MalformedExtensionFunctionError(
-            _create_missing_attr_str(attribute="object_name", py_file=py_file)
-        )
 
-    _sanitize_ex_fn_attribute(
-        attr="return_sql", ex_fn=ex_fn, make_uppercase=True, expected_type=str
+    _sanitize_ex_fn_str_attribute(
+        ex_fn=ex_fn,
+        attr="return_sql",
+        make_uppercase=True,
+        py_file=py_file,
+        raise_err=True,
     )
-    if ex_fn["return_sql"] is None:
-        raise MalformedExtensionFunctionError(
-            _create_missing_attr_str(attribute="return_sql", py_file=py_file)
-        )
 
     if not _is_function_wellformed(ex_fn=ex_fn):
         raise MalformedExtensionFunctionError(
-            _create_missing_attr_str(attribute="func", py_file=py_file)
+            _create_missing_attr_message(attribute="func", py_file=py_file)
         )
 
-    optional_expected_type: Optional[List] = []
     default_raw_imports: List[Union[str, Tuple[str, str]]] = []
-    _sanitize_ex_fn_attribute(
-        attr="raw_imports",
+    _sanitize_ex_fn_list_or_dict_attribute(
         ex_fn=ex_fn,
-        expected_type=type(optional_expected_type),
+        attr="raw_imports",
+        expected_type=list,
         default_value=default_raw_imports,
+        py_file=py_file,
+        raise_err=True,
     )
-    if len(ex_fn["raw_imports"]) == 0:
-        raise MalformedExtensionFunctionError(
-            _create_missing_attr_str(attribute="raw_imports", py_file=py_file)
-        )
 
-    _sanitize_ex_fn_attribute(
-        attr="schema", ex_fn=ex_fn, make_uppercase=True, expected_type=str
-    )
+    _sanitize_ex_fn_str_attribute(ex_fn=ex_fn, attr="schema", make_uppercase=True)
+    # Custom message, hence throwing an error separately
     if ex_fn["schema"] is None:
         raise MalformedExtensionFunctionError(
             f"Required attribute 'schema' in 'native_app_params' of extension function is missing for an extension function defined in python file {py_file.absolute()}."
@@ -130,46 +203,38 @@ def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path) -> bo
         )
 
     default_input_args: List[Dict[str, Any]] = []
-    _sanitize_ex_fn_attribute(
-        attr="input_args",
+    _sanitize_ex_fn_list_or_dict_attribute(
         ex_fn=ex_fn,
-        expected_type=type(optional_expected_type),
+        attr="input_args",
+        expected_type=list,
         default_value=default_input_args,
     )
-
     default_input_types: List[str] = []
-    _sanitize_ex_fn_attribute(
-        attr="input_sql_types",
+    _sanitize_ex_fn_list_or_dict_attribute(
         ex_fn=ex_fn,
-        expected_type=type(optional_expected_type),
+        attr="input_sql_types",
+        expected_type=list,
         default_value=default_input_types,
     )
-    # input_args and input_sql_types can be None as a function may not accept any arguments
-    if (
-        isinstance(ex_fn["input_args"], List)
-        and isinstance(ex_fn["input_sql_types"], List)
-    ) and len(ex_fn["input_args"]) != len(ex_fn["input_sql_types"]):
+    if len(ex_fn["input_args"]) != len(ex_fn["input_sql_types"]):
         raise MalformedExtensionFunctionError(
             "The number of extension function parameters does not match the number of parameter types."
         )
 
-    _sanitize_ex_fn_attribute(attr="all_imports", ex_fn=ex_fn, expected_type=str)
-    _sanitize_ex_fn_attribute(attr="all_packages", ex_fn=ex_fn, expected_type=str)
-    _sanitize_ex_fn_attribute(
-        attr="external_access_integrations", ex_fn=ex_fn, expected_type=List
+    _sanitize_ex_fn_str_attribute(ex_fn=ex_fn, attr="all_imports")
+    _sanitize_ex_fn_str_attribute(ex_fn=ex_fn, attr="all_packages")
+    _sanitize_ex_fn_list_or_dict_attribute(
+        ex_fn=ex_fn, attr="external_access_integrations", expected_type=list
     )
-    _sanitize_ex_fn_attribute(attr="secrets", ex_fn=ex_fn, expected_type=Dict)
-    _sanitize_ex_fn_attribute(attr="inline_python_code", ex_fn=ex_fn, expected_type=str)
-    _sanitize_ex_fn_attribute(
-        attr="execute_as", ex_fn=ex_fn, make_uppercase=True, expected_type=str
+    _sanitize_ex_fn_list_or_dict_attribute(
+        ex_fn=ex_fn, attr="secrets", expected_type=dict
     )
-    _sanitize_ex_fn_attribute(attr="handler", ex_fn=ex_fn, expected_type=str)
-
-    _sanitize_ex_fn_attribute(attr="runtime_version", ex_fn=ex_fn, expected_type=str)
-    if ex_fn["runtime_version"] is None:
-        raise MalformedExtensionFunctionError(
-            _create_missing_attr_str(attribute="runtime_version", py_file=py_file)
-        )
+    _sanitize_ex_fn_str_attribute(ex_fn=ex_fn, attr="inline_python_code")
+    _sanitize_ex_fn_str_attribute(ex_fn=ex_fn, attr="execute_as", make_uppercase=True)
+    _sanitize_ex_fn_str_attribute(ex_fn=ex_fn, attr="handler")
+    _sanitize_ex_fn_str_attribute(
+        ex_fn=ex_fn, attr="runtime_version", py_file=py_file, raise_err=True
+    )
 
     has_app_roles = (
         ex_fn.get("application_roles", None) and len(ex_fn["application_roles"]) > 0
@@ -185,8 +250,6 @@ def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path) -> bo
             )
     else:
         ex_fn["application_roles"] = []
-
-    return True
 
 
 def _get_handler_path_without_suffix(
@@ -204,10 +267,6 @@ def _get_handler_path_without_suffix(
     #     file_parts = rel_file_path.parts
     # return ".".join(file_parts)
     return "NotImplementedHandler"
-
-
-def get_object_type_as_text(object_type: str) -> str:
-    return object_type.replace("_", " ")
 
 
 def _get_handler(
@@ -233,7 +292,6 @@ def _get_schema_and_name_for_extension_function(
     Gets the name of the extension function to be used in the creation of the SQL statement.
     It will use the schema and the python function's name as the object name if the function name is determined to be a Snowpark-generated placeholder.
     Otherwise, it will honor the user's input for object name.
-
     """
     if object_name.startswith(TEMP_OBJECT_NAME_PREFIX):
         return f"{schema}.{func}" if schema else func
@@ -255,9 +313,7 @@ def _ensure_single_quoted(obj_lst: List[str]) -> List[str]:
     return [obj if _is_single_quoted(obj) else f"'{obj}'" for obj in obj_lst]
 
 
-def _get_all_imports(
-    raw_imports: List[Union[str, Tuple[str, str]]], suffix_str: str
-) -> str:
+def _get_all_imports(raw_imports: List[Union[str, Tuple[str, str]]]) -> str:
     """
     Creates a string containing all the relevant imports for an extension function. This string is used in the creation of the SQL statement.
 
@@ -267,8 +323,6 @@ def _get_all_imports(
                     Example 1: [("tests/resources/test_udf_dir/test_udf_file.py", "resources.test_udf_dir.test_udf_file")]
                     Example 2: session.add_import("tests/resources/test_udf_dir/test_udf_file.py")
                     Example 3: session.add_import("tests/resources/test_udf_dir/test_udf_file.py", import_path="resources.test_udf_dir.test_udf_file")
-        suffix_str (str): The suffix to add to the import path, if determined by the function. Must contain the "." part of the suffix as well.
-
     Returns:
         A string containing all the imports.
     """
@@ -279,32 +333,36 @@ def _get_all_imports(
         else:  # Example 3
             local_path = Path(raw_import[0])
             stage_import = raw_import[1]
-            suffix_str = local_path.suffix
-            if suffix_str != "":
-                # We use suffix check here instead of local_path.is_file() as local_path may not exist, making is_file() False.
+            local_path_suffix = local_path.suffix
+            if local_path_suffix != "":
+                # 1. We use suffix check here instead of local_path.is_file() as local_path may not exist, making is_file() False.
                 # We do not provide validation on local_path existing, and hence should not fail or treat it differently than any other file.
+                # 2. stage_import may already have a suffix, but we do not provide validation on it.
+                # It is on the user to know and use Snowpark's decorator attributes correctly.
                 without_suffix = "/".join(stage_import.split("."))
-                all_urls.append(f"{without_suffix}{suffix_str}")
+                all_urls.append(f"{without_suffix}{local_path_suffix}")
             else:
                 file_path = "/".join(stage_import.split("."))
                 all_urls.append(file_path)
     return ",".join(_ensure_single_quoted(all_urls))
 
 
-def enrich_entity(
-    entity: Dict[str, Any], py_file: Path, deploy_root: Path, suffix_str: str
-):
+def enrich_ex_fn(ex_fn: Dict[str, Any], py_file: Path, deploy_root: Path):
     """
-    Sets additional properties for a given entity object, that could not be set earlier due to missing information or limited access to the execution context.
+    Sets additional properties for a given extension function dictionary, that could not be set earlier due to missing information or limited access to the execution context.
+    Parameters:
+        ex_fn (Dict[str, Any]): A dictionary of key value pairs to sanitize
+        py_file (Path): The python file from which this dictionary was created.
+        deploy_root (Path): The deploy root of the the project.
+    Returns:
+        The original but edited extension function dictionary
     """
-    entity["handler"] = _get_handler(
-        dest_file=py_file, func=entity["func"], deploy_root=deploy_root
+    ex_fn["handler"] = _get_handler(
+        dest_file=py_file, func=ex_fn["func"], deploy_root=deploy_root
     )
-    entity["object_name"] = _get_schema_and_name_for_extension_function(
-        object_name=entity["object_name"],
-        schema=entity["schema"],
-        func=entity["func"],
+    ex_fn["object_name"] = _get_schema_and_name_for_extension_function(
+        object_name=ex_fn["object_name"],
+        schema=ex_fn["schema"],
+        func=ex_fn["func"],
     )
-    entity["all_imports"] = _get_all_imports(
-        raw_imports=entity["raw_imports"] or [], suffix_str=suffix_str
-    )
+    ex_fn["all_imports"] = _get_all_imports(raw_imports=ex_fn["raw_imports"] or [])
