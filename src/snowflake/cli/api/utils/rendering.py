@@ -4,14 +4,15 @@ import os
 import re
 from pathlib import Path
 from textwrap import dedent
-from typing import Dict, Optional, List, Set
+from typing import Dict, Optional, Set
 
 import jinja2
 from click import ClickException
-from jinja2 import Environment, StrictUndefined, loaders, UndefinedError
-
+from jinja2 import Environment, StrictUndefined, UndefinedError, loaders
 from snowflake.cli.api.cli_global_context import cli_context
-from snowflake.cli.api.project.schemas.project_definition import Variable, ProjectDefinition
+from snowflake.cli.api.project.schemas.project_definition import (
+    ProjectDefinition,
+)
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 
 
@@ -107,6 +108,7 @@ class _EnvGetter:
     """
     This class implements dot access pattern for variables that are defined as environment variables.
     """
+
     def __init__(self, data_dict):
         self._data_dict = data_dict
 
@@ -126,6 +128,7 @@ class _ContextGetter:
     Getter for project definition data. It replaces `env` attribute with _EnvGetter
     that enables fallback to environment variables.
     """
+
     def __init__(self, project_definition: ProjectDefinition):
         self._project = project_definition
         self.variables = {v.name: v.value for v in project_definition.env}
@@ -148,31 +151,40 @@ def _add_project_context(external_data: Dict) -> Dict:
             f"{context_key} in user defined data. The `{context_key}` variable is reserved for CLI usage."
         )
 
-    # variables = cli_context.project_definition.env
-    # variables_data = {v.name: v.value for v in variables}
+    project_definition = cli_context.project_definition
+    context_data = {context_key: {"env": _EnvGetter(os.environ)}}
+    # If there's project definition file then resolve variables from it
+    if project_definition and project_definition.meets_version_requirement("1.1"):
+        context_data = _resolve_variables_in_project(
+            project_definition=project_definition, context_key=context_key
+        )
 
-    ctx = _ContextGetter(project_definition=cli_context.project_definition)
-    context_data = {context_key: ctx}
-    _resolve_variables_in_project(context_data=context_data, variables_data=ctx.variables)
     print({**external_data, **context_data})
     return {**external_data, **context_data}
 
 
-def remove_ctx_env_prefix(text: str) -> str:
+def _remove_ctx_env_prefix(text: str) -> str:
     prefix = "ctx.env."
     if text.startswith(prefix):
-        return text[len(prefix):]
+        return text[len(prefix) :]
     return text
 
 
-def _value_includes_variable(value: str) -> bool:
-    return bool(re.search("&{.+}", value))
+def string_includes_template(text: str) -> bool:
+    return bool(re.search("&{.+}", text))
 
 
-def _resolve_variables_in_project(context_data: Dict, variables_data: Dict):
+def _resolve_variables_in_project(
+    project_definition: ProjectDefinition, context_key: str
+):
+    ctx = _ContextGetter(project_definition=project_definition)
+    context_data = {context_key: ctx}
+    variables_data = ctx.variables
+
     env = get_snowflake_cli_jinja_env()
-
-    variables_with_dependencies = _check_variables_consistency_and_apply_env_values(variables_data)
+    variables_with_dependencies = _check_variables_consistency_and_apply_env_values(
+        variables_data
+    )
 
     # Sort keys so we start from the shortest having lower probability of including more than one variable
     unresolved_keys = sorted(list(variables_with_dependencies), reverse=True)
@@ -184,11 +196,13 @@ def _resolve_variables_in_project(context_data: Dict, variables_data: Dict):
 
         try:  # try to evaluate the template given current state of know variables
             new_value = env.from_string(value).render(context_data)
-            if _value_includes_variable(new_value):
+            if string_includes_template(new_value):
                 unresolved_keys.append(key)
             variables_data[key] = env.from_string(value).render(context_data)
         except UndefinedError:
             unresolved_keys.append(key)
+
+    return context_data
 
 
 def _check_variables_consistency_and_apply_env_values(variables_data: Dict):
@@ -201,8 +215,10 @@ def _check_variables_consistency_and_apply_env_values(variables_data: Dict):
     for key, value in variables_data.items():
         if not isinstance(value, str):
             continue
-        found_variables = re.findall('&{(.+)}', value)
-        required_variables = [remove_ctx_env_prefix(v.strip()) for v in found_variables]
+        found_variables = re.findall("&{(.+)}", value)
+        required_variables = [
+            _remove_ctx_env_prefix(v.strip()) for v in found_variables
+        ]
 
         if required_variables:
             variables_with_dependencies.add(key)
