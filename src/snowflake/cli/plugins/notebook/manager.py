@@ -14,3 +14,6 @@ class NotebookManager(SqlExecutionMixin):
             self._conn,
             f"/#/notebooks/{fqn.url_identifier}",
         )
+
+    def create(self, notebook_name: str, stage: str):
+        raise NotImplemented

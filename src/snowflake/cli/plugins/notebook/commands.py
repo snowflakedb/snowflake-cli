@@ -15,6 +15,9 @@ app = SnowTyper(
 log = logging.getLogger(__name__)
 
 NOTEBOOK_IDENTIFIER = identifier_argument(sf_object="notebook", example="MY_NOTEBOOK")
+NOTEBOOK_STAGE_PATH = identifier_argument(
+    sf_object="stage", example="@MY_STAGE/notebook.ipynb"
+)
 
 
 @app.command(requires_connection=True)
@@ -49,3 +52,11 @@ def open_cmd(
     url = NotebookManager().get_url(notebook_name=identifier)
     typer.launch(url)
     return MessageResult(message=url)
+
+
+@app.command(requires_connection=True)
+def create(
+    identifier: str = NOTEBOOK_IDENTIFIER, stage: str = NOTEBOOK_STAGE_PATH, **options
+):
+    """Creates notebook from stage."""
+    _ = NotebookManager().create(notebook_name=identifier, stage=stage)
