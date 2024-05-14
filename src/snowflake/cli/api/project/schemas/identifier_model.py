@@ -24,7 +24,7 @@ def ObjectIdentifierModel(object_name: str) -> ObjectIdentifierBaseModel:  # noq
     class _ObjectIdentifierModel(ObjectIdentifierBaseModel):
         name: str = Field(title=f"{object_name} name")
         database: Optional[str] = IdentifierField(
-            title=f"Name of the database for the for {object_name}", default=None
+            title=f"Name of the database for the {object_name}", default=None
         )
         schema_name: Optional[str] = IdentifierField(
             title=f"Name of the schema for the {object_name}",

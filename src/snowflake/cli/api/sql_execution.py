@@ -137,7 +137,8 @@ class SqlExecutionMixin:
     @staticmethod
     def _qualified_name_to_in_clause(identifier: FQN) -> Tuple[str, Optional[str]]:
         if identifier.database:
-            in_clause = f"in schema {identifier.database}.{identifier.schema}"
+            schema = identifier.schema or "PUBLIC"
+            in_clause = f"in schema {identifier.database}.{schema}"
         elif identifier.schema:
             in_clause = f"in schema {identifier.schema}"
         else:
