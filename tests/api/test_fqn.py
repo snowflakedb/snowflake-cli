@@ -65,6 +65,8 @@ def test_set_schema():
         ('"dot.db".schema."dot.name"', '"dot.db".schema."dot.name"'),
         ('db.schema."dot.name"', 'db.schema."dot.name"'),
         ('"dot.db".schema."DOT.name"', '"dot.db".schema."DOT.name"'),
+        # Nested quotes
+        ('"abc""this is in nested quotes"""', '"abc""this is in nested quotes"""'),
         # Callables
         (
             "db.schema.function(string, int, variant)",

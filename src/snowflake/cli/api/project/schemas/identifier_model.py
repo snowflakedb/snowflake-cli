@@ -7,12 +7,18 @@ from snowflake.cli.api.project.schemas.updatable_model import IdentifierField
 
 
 class ObjectIdentifierBaseModel:
+    """
+    Type representing a base class defining object that can be identified by fully qualified name (db.schema.name).
+    This is not a Pydantic model and the purpose of this class is to provide typing support to Pydantic models
+    generated using a factory class ObjectIdentifierModel.
+    """
+
     name: str
     database: Optional[str]
     schema_name: Optional[str]
 
 
-def IdentifierModel(object_name: str) -> ObjectIdentifierBaseModel:  # noqa: N802
+def ObjectIdentifierModel(object_name: str) -> ObjectIdentifierBaseModel:  # noqa: N802
     """Generates ObjectIdentifierBaseModel but with object specific descriptions."""
 
     class _ObjectIdentifierModel(ObjectIdentifierBaseModel):

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Union
 
 from pydantic import Field, field_validator
-from snowflake.cli.api.project.schemas.identifier_model import IdentifierModel
+from snowflake.cli.api.project.schemas.identifier_model import ObjectIdentifierModel
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.updatable_model import (
     UpdatableModel,
@@ -45,11 +45,11 @@ class _CallableBase(UpdatableModel):
         return runtime_input
 
 
-class FunctionSchema(_CallableBase, IdentifierModel(object_name="function")):  # type: ignore
+class FunctionSchema(_CallableBase, ObjectIdentifierModel(object_name="function")):  # type: ignore
     pass
 
 
-class ProcedureSchema(_CallableBase, IdentifierModel(object_name="procedure")):  # type: ignore
+class ProcedureSchema(_CallableBase, ObjectIdentifierModel(object_name="procedure")):  # type: ignore
     execute_as_caller: Optional[bool] = Field(
         title="Determine whether the procedure is executed with the privileges of "
         "the owner (you) or with the privileges of the caller",
