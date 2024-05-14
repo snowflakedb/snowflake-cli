@@ -108,7 +108,7 @@ def streamlit_deploy(
     environment.yml and any other pages or folders, if present. If you don’t specify a stage name, the `streamlit`
     stage is used. If the specified stage does not exist, the command creates it.
     """
-    streamlit: Streamlit = cli_context.project_definition
+    streamlit: Streamlit = cli_context.project_definition.streamlit
     if not streamlit:
         return MessageResult("No streamlit were specified in project definition.")
 

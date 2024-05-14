@@ -127,7 +127,7 @@ def app_bundle(
     """
     manager = NativeAppManager(
         project_definition=cli_context.project_definition,
-        project_root=cli_context.project_root,
+        project_root=cli_context.project_root.native_app,
     )
     manager.build_bundle()
     return MessageResult(f"Bundle generated at {manager.deploy_root}")
@@ -174,7 +174,7 @@ def app_run(
 
     processor = NativeAppRunProcessor(
         project_definition=cli_context.project_definition,
-        project_root=cli_context.project_root,
+        project_root=cli_context.project_root.native_app,
     )
     processor.build_bundle()
     processor.process(
@@ -201,7 +201,7 @@ def app_open(
     """
     manager = NativeAppManager(
         project_definition=cli_context.project_definition,
-        project_root=cli_context.project_root,
+        project_root=cli_context.project_root.native_app,
     )
     if manager.get_existing_app_info():
         typer.launch(manager.get_snowsight_url())
@@ -229,7 +229,7 @@ def app_teardown(
     """
     processor = NativeAppTeardownProcessor(
         project_definition=cli_context.project_definition,
-        project_root=cli_context.project_root,
+        project_root=cli_context.project_root.native_app,
     )
     if interactive is None:
         interactive = is_tty_interactive()
@@ -273,7 +273,7 @@ def app_deploy(
 
     manager = NativeAppManager(
         project_definition=cli_context.project_definition,
-        project_root=cli_context.project_root,
+        project_root=cli_context.project_root.native_app,
     )
 
     mapped_files = manager.build_bundle()

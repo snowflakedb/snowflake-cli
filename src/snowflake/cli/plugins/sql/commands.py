@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
+
+from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import parse_key_value_variables
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MultipleResults, QueryResult
@@ -22,6 +24,7 @@ def _parse_key_value(key_value_str: str):
 
 
 @app.command(name="sql", requires_connection=True)
+@with_project_definition("SQL")
 def execute_sql(
     query: Optional[str] = typer.Option(
         None,

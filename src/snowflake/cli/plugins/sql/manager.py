@@ -38,13 +38,11 @@ class SqlManager(SqlExecutionMixin):
         elif file:
             query = SecurePath(file).read_text(file_size_limit_mb=UNLIMITED)
 
-        if data:
-            # Do rendering if any data was provided
-            try:
-                query = transpile_snowsql_templates(query)
-                query = snowflake_cli_jinja_render(content=query, data=data)
-            except UndefinedError as err:
-                raise ClickException(f"SQL template rendering error: {err}")
+        try:
+            query = transpile_snowsql_templates(query)
+            query = snowflake_cli_jinja_render(content=query, data=data)
+        except UndefinedError as err:
+            raise ClickException(f"SQL template rendering error: {err}")
 
         statements = tuple(
             statement

@@ -489,7 +489,7 @@ def project_definition_option(project_name: str):
 
     def _callback(project_path: Optional[str]):
         dm = DefinitionManager(project_path)
-        project_definition = getattr(dm.project_definition, project_name, None)
+        project_definition = dm.project_definition
         project_root = dm.project_root
 
         if not project_definition:
@@ -501,6 +501,7 @@ def project_definition_option(project_name: str):
         cli_context_manager.set_project_root(project_root)
         return project_definition
 
+    # TODO: inline this with decorator
     if project_name == "native_app":
         project_name_help = "Snowflake Native App"
     elif project_name == "streamlit":
