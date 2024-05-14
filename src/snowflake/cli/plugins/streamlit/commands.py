@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Tuple
 
 import click
 import typer
@@ -9,15 +10,28 @@ from snowflake.cli.api.commands.decorators import (
     with_experimental_behaviour,
     with_project_definition,
 )
-from snowflake.cli.api.commands.flags import ReplaceOption
+from snowflake.cli.api.commands.flags import ReplaceOption, like_option
 from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
     SingleQueryResult,
 )
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
+from snowflake.cli.plugins.object.commands import (
+    ScopeOption,
+)
+from snowflake.cli.plugins.object.commands import (
+    describe as object_describe,
+)
+from snowflake.cli.plugins.object.commands import (
+    drop as object_drop,
+)
+from snowflake.cli.plugins.object.commands import (
+    list_ as object_list,
+)
 from snowflake.cli.plugins.streamlit.manager import StreamlitManager
 
 app = SnowTyper(
@@ -27,19 +41,24 @@ app = SnowTyper(
 log = logging.getLogger(__name__)
 
 
+StreamlitNameArgument = typer.Argument(
+    ..., help="Name of the Streamlit app.", show_default=False
+)
 StageNameOption: str = typer.Option(
     "streamlit",
     "--stage",
     help="Name of the stage where you want to upload Streamlit app files.",
 )
-
 OpenOption = typer.Option(
     False,
     "--open",
     help="Whether to open the Streamlit app in a browser.",
     is_flag=True,
 )
-
+StreamlitLikeOption = like_option(
+    help_example='`list --like "my%"` lists all streamlit apps that begin with “my”',
+)
+STREAMLIT_OBJECT_TYPE = ObjectType.STREAMLIT.value.cli_name
 
 add_init_command(
     app,
@@ -51,7 +70,7 @@ add_init_command(
 
 @app.command("share", requires_connection=True)
 def streamlit_share(
-    name: str = typer.Argument(..., help="Name of the Streamlit app to share."),
+    name: str = StreamlitNameArgument,
     to_role: str = typer.Argument(
         ..., help="Role with which to share the Streamlit app."
     ),
@@ -130,7 +149,7 @@ def streamlit_deploy(
 
 @app.command("get-url", requires_connection=True)
 def get_url(
-    name: str = typer.Argument(..., help="Name of the Streamlit app."),
+    name: str = StreamlitNameArgument,
     open_: bool = OpenOption,
     **options,
 ):
@@ -139,3 +158,29 @@ def get_url(
     if open_:
         typer.launch(url)
     return MessageResult(url)
+
+
+@app.command("list", requires_connection=True)
+def list_(
+    like: str = StreamlitLikeOption,
+    scope: Tuple[str, str] = ScopeOption,
+    **options,
+):
+    """Lists all available streamlit apps."""
+    object_list(object_type=STREAMLIT_OBJECT_TYPE, like=like, scope=scope, **options)
+
+
+@app.command("drop", requires_connection=True)
+def drop(streamlit_name: str = StreamlitNameArgument, **options):
+    """Drop streamlit app of given name."""
+    object_drop(
+        object_type=STREAMLIT_OBJECT_TYPE, object_name=streamlit_name, **options
+    )
+
+
+@app.command("describe", requires_connection=True)
+def describe(streamlit_name: str = StreamlitNameArgument, **options):
+    """Provides description of a streamlit app."""
+    object_describe(
+        object_type=STREAMLIT_OBJECT_TYPE, object_name=streamlit_name, **options
+    )
