@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import os
 from typing import Optional, List, Union
 
-from pydantic import Field
+from click import ClickException
+from pydantic import Field, field_validator
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
@@ -32,6 +32,15 @@ class ProjectDefinition(UpdatableModel):
     )
     env: Optional[List[Variable]] = Field(title="Environment specification for this project.", default=None)
 
+    @field_validator('definition_version')
+    @classmethod
+    def _is_supported_version(cls, version: str) -> str:
+        if version not in _supported_version:
+            raise ClickException(
+                f'Version {version} is not supported. Supported versions: {", ".join(_supported_version)}'
+            )
+        return version
+
 
 VariableType = Union[str, bool, int, float]
 
@@ -39,4 +48,3 @@ VariableType = Union[str, bool, int, float]
 class Variable(UpdatableModel):
     name: str = Field(title="Name of variable.")
     value: VariableType = Field(title="Value of variable.")
-
