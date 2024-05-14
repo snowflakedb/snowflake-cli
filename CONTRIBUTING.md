@@ -90,6 +90,7 @@ grant create database on account to role <role_name>;
 grant create role on account to role <role_name>;
 grant usage on warehouse xsmall to role <role_name>;
 grant operate on warehouse xsmall to role <role_name>;
+grant create database on account to role <role_name> with grant option;
 ```
 
 ## Remote debugging with PyCharm or IntelliJ
