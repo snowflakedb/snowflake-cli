@@ -5828,9 +5828,8 @@
    Diffs a stage with a local folder.                                             
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    stage_name       TEXT  Fully qualified name of a stage [default: None]  │
-  │                             [required]                                       │
-  │ *    folder_name      TEXT  Path to local folder [default: None] [required]  │
+  │ *    stage_name       TEXT  Fully qualified name of a stage [required]       │
+  │ *    folder_name      TEXT  Path to local folder [required]                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -6188,8 +6187,7 @@
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    stage_name      TEXT  Name of the stage. [required]                     │
-  │ *    file_name       TEXT  Name of the file to remove. [default: None]       │
-  │                            [required]                                        │
+  │ *    file_name       TEXT  Name of the file to remove. [required]            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
