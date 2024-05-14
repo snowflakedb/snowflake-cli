@@ -10,13 +10,11 @@ from snowflake.cli.api.constants import SUPPORTED_OBJECTS, VALID_SCOPES
 from snowflake.cli.api.output.types import QueryResult
 from snowflake.cli.api.project.util import is_valid_identifier
 from snowflake.cli.plugins.object.manager import ObjectManager
-from snowflake.cli.plugins.object.stage_deprecated.commands import app as stage_app
 
 app = SnowTyper(
     name="object",
     help="Manages Snowflake objects like warehouses and stages",
 )
-app.add_typer(stage_app)
 
 
 NameArgument = typer.Argument(help="Name of the object")
