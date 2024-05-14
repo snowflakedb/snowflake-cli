@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
-
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import parse_key_value_variables
 from snowflake.cli.api.commands.snow_typer import SnowTyper
