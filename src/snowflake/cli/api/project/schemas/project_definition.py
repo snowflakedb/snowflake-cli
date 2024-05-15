@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional, Union
+from typing import Dict, Optional
 
 from click import ClickException
 from packaging.version import Version
@@ -31,7 +31,7 @@ class ProjectDefinition(UpdatableModel):
     streamlit: Optional[Streamlit] = Field(
         title="Streamlit definitions for the project", default=None
     )
-    env: Optional[List[Variable]] = Field(
+    env: Optional[Dict] = Field(
         title="Environment specification for this project.",
         default=None,
         validation_alias="env",
@@ -39,10 +39,8 @@ class ProjectDefinition(UpdatableModel):
 
     @field_validator("env")
     @classmethod
-    def _convert_env(cls, env: Optional[List[Variable]]) -> DictWithEnvironFallback:
-        if env is None:
-            return DictWithEnvironFallback({})
-        return DictWithEnvironFallback({v.name: v.value for v in env})
+    def _convert_env(cls, env: Optional[Dict]) -> DictWithEnvironFallback:
+        return DictWithEnvironFallback(env if env else {})
 
     @field_validator("definition_version")
     @classmethod
@@ -55,19 +53,3 @@ class ProjectDefinition(UpdatableModel):
 
     def meets_version_requirement(self, required_version: str) -> bool:
         return Version(self.definition_version) >= Version(required_version)
-
-
-VariableType = Union[str, bool, int, float]
-
-
-class Variable(UpdatableModel):
-    name: str = Field(title="Name of variable.")
-    value: VariableType = Field(title="Value of variable.")
-
-
-class ProjectDefinitionGetter:
-    def __init__(self, project: ProjectDefinition):
-        self.__project = project
-
-    def __getitem__(self, item):
-        return s

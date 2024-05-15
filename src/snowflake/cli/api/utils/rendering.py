@@ -112,7 +112,6 @@ def _add_project_context(
     if project_definition and project_definition.meets_version_requirement("1.1"):
         context_data = _resolve_variables_in_project(project_definition)
 
-    print({**external_data, **context_data})
     return {**external_data, **context_data}
 
 
