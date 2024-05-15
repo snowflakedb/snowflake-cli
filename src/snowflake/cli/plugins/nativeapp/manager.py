@@ -8,6 +8,7 @@ from textwrap import dedent
 from typing import List, Optional, TypedDict
 
 import jinja2
+from click import ClickException
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.definition import (
@@ -368,10 +369,15 @@ class NativeAppManager(SqlExecutionMixin):
             ]
             if not recursive:
                 verify_no_directories(resolved_paths_to_sync)
-            deploy_paths_to_sync = [
-                bundle_map.to_deploy_path(p) for p in resolved_paths_to_sync
-            ]
-            verify_exists(deploy_paths_to_sync)
+
+            deploy_paths_to_sync = []
+            for resolved_path in resolved_paths_to_sync:
+                verify_exists(resolved_path)
+                deploy_path = bundle_map.to_deploy_path(resolved_path)
+                if deploy_path is None:
+                    raise ClickException(f"No artifact found for {resolved_path}")
+                deploy_paths_to_sync.append(deploy_path)
+
             stage_paths_to_sync = _get_stage_paths_to_sync(
                 deploy_paths_to_sync, resolve_without_follow(self.deploy_root)
             )
