@@ -3,7 +3,7 @@ from __future__ import annotations
 import itertools
 from os import path
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import click
 import typer
@@ -24,18 +24,7 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
 )
 from snowflake.cli.api.utils.path_utils import is_stage_path
-from snowflake.cli.plugins.object.commands import (
-    ScopeOption,
-)
-from snowflake.cli.plugins.object.commands import (
-    describe as object_describe,
-)
-from snowflake.cli.plugins.object.commands import (
-    drop as object_drop,
-)
-from snowflake.cli.plugins.object.commands import (
-    list_ as object_list,
-)
+from snowflake.cli.plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli.plugins.stage.diff import DiffResult, compute_stage_diff
 from snowflake.cli.plugins.stage.manager import OnErrorType, StageManager
 
@@ -45,10 +34,15 @@ app = SnowTyper(
 )
 
 StageNameArgument = typer.Argument(..., help="Name of the stage.", show_default=False)
-StageLikeOption = like_option(
-    help_example='`list --like "my%"` lists all stages that begin with “my”',
+
+add_object_command_aliases(
+    app=app,
+    object_type=ObjectType.STAGE,
+    name_argument=StageNameArgument,
+    like_option=like_option(
+        help_example='`list --like "my%"` lists all stages that begin with “my”',
+    ),
 )
-STAGE_OBJECT_TYPE = ObjectType.STAGE.value.cli_name
 
 
 @app.command("list-files", requires_connection=True)
@@ -183,28 +177,6 @@ def execute(
         stage_path=stage_path, on_error=on_error, variables=variables
     )
     return CollectionResult(results)
-
-
-@app.command("list", requires_connection=True)
-def list_(
-    like: str = StageLikeOption,
-    scope: Tuple[str, str] = ScopeOption,
-    **options,
-):
-    """Lists all available stages."""
-    object_list(object_type=STAGE_OBJECT_TYPE, like=like, scope=scope, **options)
-
-
-@app.command("drop", requires_connection=True)
-def drop(stage_name: str = StageNameArgument, **options):
-    """Drop stage of given name."""
-    object_drop(object_type=STAGE_OBJECT_TYPE, object_name=stage_name, **options)
-
-
-@app.command("describe", requires_connection=True)
-def describe(stage_name: str = StageNameArgument, **options):
-    """Provides description of a stage of given name."""
-    object_describe(object_type=STAGE_OBJECT_TYPE, object_name=stage_name, **options)
 
 
 def get(recursive: bool, source_path: str, destination_path: str, parallel: int):
