@@ -35,4 +35,3 @@ class FeatureFlag(FeatureFlagMixin):
         "ENABLE_STREAMLIT_EMBEDDED_STAGE", False
     )
     ENABLE_NOTEBOOKS = BooleanFlag("ENABLE_NOTEBOOKS", False)
-    ENABLE_CORTEX = BooleanFlag("ENABLE_CORTEX", False)
