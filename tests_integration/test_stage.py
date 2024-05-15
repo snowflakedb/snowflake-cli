@@ -27,7 +27,7 @@ def test_stage(runner, snowflake_session, test_database, tmp_path):
     assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
 
     result = runner.invoke_with_connection_json(["stage", "describe", stage_name])
-    expect = snowflake_session.execute_string(f"describe stage '{stage_name}'")
+    expect = snowflake_session.execute_string(f"describe stage {stage_name}")
     assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
 
     filename = "test.txt"
