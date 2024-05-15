@@ -1038,14 +1038,13 @@
 # name: test_help_messages[git.describe]
   '''
                                                                                   
-   Usage: default git describe [OPTIONS] REPOSITORY_NAME                          
+   Usage: default git describe [OPTIONS] NAME                                     
                                                                                   
-   Provides description of a git repository stage.                                
+   Provides description of git repository.                                        
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    repository_name      TEXT  Identifier of the git repository. For        │
-  │                                 example: my_repo                             │
-  │                                 [required]                                   │
+  │ *    name      TEXT  Identifier of the git repository. For example: my_repo  │
+  │                      [required]                                              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -1108,14 +1107,13 @@
 # name: test_help_messages[git.drop]
   '''
                                                                                   
-   Usage: default git drop [OPTIONS] REPOSITORY_NAME                              
+   Usage: default git drop [OPTIONS] NAME                                         
                                                                                   
-   Drop git repository stage of given name.                                       
+   Drops git repository with given name.                                          
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    repository_name      TEXT  Identifier of the git repository. For        │
-  │                                 example: my_repo                             │
-  │                                 [required]                                   │
+  │ *    name      TEXT  Identifier of the git repository. For example: my_repo  │
+  │                      [required]                                              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -1553,7 +1551,7 @@
                                                                                   
    Usage: default git list [OPTIONS]                                              
                                                                                   
-   Lists all available git repository stages.                                     
+   Lists all available git repositories.                                          
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --like  -l      TEXT            SQL LIKE pattern for filtering objects by    │
@@ -1713,15 +1711,15 @@
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
   │ copy            Copies all files from given state of repository to local     │
   │                 directory or stage.                                          │
-  │ describe        Provides description of a git repository stage.              │
-  │ drop            Drop git repository stage of given name.                     │
+  │ describe        Provides description of git repository.                      │
+  │ drop            Drops git repository with given name.                        │
   │ execute         Execute immediate all files from the repository path. Files  │
   │                 can be filtered with glob like pattern, e.g.                 │
   │                 `@my_repo/branches/main/*.sql`,                              │
   │                 `@my_repo/branches/main/dev/*`. Only files with `.sql`       │
   │                 extension will be executed.                                  │
   │ fetch           Fetch changes from origin to Snowflake repository.           │
-  │ list            Lists all available git repository stages.                   │
+  │ list            Lists all available git repositories.                        │
   │ list-branches   List all branches in the repository.                         │
   │ list-files      List files from given state of git repository.               │
   │ list-tags       List all tags in the repository.                             │
@@ -5755,12 +5753,12 @@
 # name: test_help_messages[stage.describe]
   '''
                                                                                   
-   Usage: default stage describe [OPTIONS] STAGE_NAME                             
+   Usage: default stage describe [OPTIONS] NAME                                   
                                                                                   
-   Provides description of a stage of given name.                                 
+   Provides description of stage.                                                 
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    stage_name      TEXT  Name of the stage. [required]                     │
+  │ *    name      TEXT  Name of the stage. [required]                           │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -5892,12 +5890,12 @@
 # name: test_help_messages[stage.drop]
   '''
                                                                                   
-   Usage: default stage drop [OPTIONS] STAGE_NAME                                 
+   Usage: default stage drop [OPTIONS] NAME                                       
                                                                                   
-   Drop stage of given name.                                                      
+   Drops stage with given name.                                                   
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    stage_name      TEXT  Name of the stage. [required]                     │
+  │ *    name      TEXT  Name of the stage. [required]                           │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -6262,8 +6260,8 @@
   │              works for both uploading to and downloading files from the      │
   │              stage.                                                          │
   │ create       Creates a named stage if it does not already exist.             │
-  │ describe     Provides description of a stage of given name.                  │
-  │ drop         Drop stage of given name.                                       │
+  │ describe     Provides description of stage.                                  │
+  │ drop         Drops stage with given name.                                    │
   │ execute      Execute immediate all files from the stage path. Files can be   │
   │              filtered with glob like pattern, e.g. `@stage/*.sql`,           │
   │              `@stage/dev/*`. Only files with `.sql` extension will be        │
@@ -6352,12 +6350,12 @@
 # name: test_help_messages[streamlit.describe]
   '''
                                                                                   
-   Usage: default streamlit describe [OPTIONS] STREAMLIT_NAME                     
+   Usage: default streamlit describe [OPTIONS] NAME                               
                                                                                   
-   Provides description of a streamlit app.                                       
+   Provides description of streamlit.                                             
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    streamlit_name      TEXT  Name of the Streamlit app. [required]         │
+  │ *    name      TEXT  Name of the Streamlit app. [required]                   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -6420,12 +6418,12 @@
 # name: test_help_messages[streamlit.drop]
   '''
                                                                                   
-   Usage: default streamlit drop [OPTIONS] STREAMLIT_NAME                         
+   Usage: default streamlit drop [OPTIONS] NAME                                   
                                                                                   
-   Drop streamlit app of given name.                                              
+   Drops streamlit with given name.                                               
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    streamlit_name      TEXT  Name of the Streamlit app. [required]         │
+  │ *    name      TEXT  Name of the Streamlit app. [required]                   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -6590,7 +6588,7 @@
                                                                                   
    Usage: default streamlit list [OPTIONS]                                        
                                                                                   
-   Lists all available streamlit apps.                                            
+   Lists all available streamlits.                                                
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --like  -l      TEXT            SQL LIKE pattern for filtering objects by    │
@@ -6747,12 +6745,12 @@
   │            and any other pages or folders, if present. If you don’t specify  │
   │            a stage name, the `streamlit` stage is used. If the specified     │
   │            stage does not exist, the command creates it.                     │
-  │ describe   Provides description of a streamlit app.                          │
-  │ drop       Drop streamlit app of given name.                                 │
+  │ describe   Provides description of streamlit.                                │
+  │ drop       Drops streamlit with given name.                                  │
   │ get-url    Returns a URL to the specified Streamlit app                      │
   │ init       Initializes this directory with a sample set of files for         │
   │            creating a Streamlit app project.                                 │
-  │ list       Lists all available streamlit apps.                               │
+  │ list       Lists all available streamlits.                                   │
   │ share      Shares a Streamlit app with another role.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   

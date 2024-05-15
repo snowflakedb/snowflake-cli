@@ -30,20 +30,20 @@ def add_object_command_aliases(
     list_cmd.__doc__ = f"Lists all available {object_type.value.sf_plural_name}."
 
     @app.command("drop", requires_connection=True)
-    def drop_cmd(streamlit_name: str = name_argument, **options):
+    def drop_cmd(name: str = name_argument, **options):
         drop(
             object_type=object_type.value.cli_name,
-            object_name=streamlit_name,
+            object_name=name,
             **options,
         )
 
     drop_cmd.__doc__ = f"Drops {object_type.value.sf_name} with given name."
 
     @app.command("describe", requires_connection=True)
-    def describe_cmd(streamlit_name: str = name_argument, **options):
+    def describe_cmd(name: str = name_argument, **options):
         describe(
             object_type=object_type.value.cli_name,
-            object_name=streamlit_name,
+            object_name=name,
             **options,
         )
 
