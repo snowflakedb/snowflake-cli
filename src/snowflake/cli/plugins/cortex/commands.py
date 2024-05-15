@@ -3,6 +3,6 @@ from snowflake.cli.api.feature_flags import FeatureFlag
 
 app = SnowTyper(
     name="cortex",
-    help="provides access to Snowflake Cortex LLM",
+    help="Provides access to Snowflake Cortex LLM.",
     hidden=FeatureFlag.ENABLE_CORTEX.is_disabled(),
 )
