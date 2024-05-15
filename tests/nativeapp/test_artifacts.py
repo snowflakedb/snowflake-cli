@@ -192,6 +192,7 @@ def test_bundle_map_can_rename_directories(mapping_factory, bundle_map):
     verify_mappings(
         bundle_map,
         {
+            "app": "deployed",
             "app/setup.sql": "deployed/setup.sql",
             "app/manifest.yml": "deployed/manifest.yml",
         },
@@ -220,13 +221,18 @@ def test_bundle_map_honours_trailing_slashes(mapping_factory, bundle_map):
     verify_mappings(
         bundle_map,
         {
+            "app": "deployed/app",
             "app/manifest.yml": "deployed/app/manifest.yml",
             "app/setup.sql": "deployed/app/setup.sql",
+            "src/snowpark": "deployed/snowpark",
             "src/snowpark/main.py": "deployed/snowpark/main.py",
+            "src/snowpark/a": "deployed/snowpark/a",
             "src/snowpark/a/file1.py": "deployed/snowpark/a/file1.py",
             "src/snowpark/a/file2.py": "deployed/snowpark/a/file2.py",
+            "src/snowpark/a/b": "deployed/snowpark/a/b",
             "src/snowpark/a/b/file3.py": "deployed/snowpark/a/b/file3.py",
             "src/snowpark/a/b/file4.py": "deployed/snowpark/a/b/file4.py",
+            "src/snowpark/a/c": "deployed/snowpark/a/c",
             "src/snowpark/a/c/file5.py": "deployed/snowpark/a/c/file5.py",
             "README.md": "deployed/README.md",
         },
@@ -275,9 +281,12 @@ def test_bundle_map_handles_missing_dest(bundle_map):
     verify_mappings(
         bundle_map,
         {
+            "app": "app",
             "app/setup.sql": "app/setup.sql",
             "app/manifest.yml": "app/manifest.yml",
             "README.md": "README.md",
+            "src/streamlit": "src/streamlit",
+            "src/streamlit/helpers": "src/streamlit/helpers",
             "src/streamlit/main_ui.py": "src/streamlit/main_ui.py",
             "src/streamlit/helpers/file1.py": "src/streamlit/helpers/file1.py",
             "src/streamlit/helpers/file2.py": "src/streamlit/helpers/file2.py",
@@ -361,11 +370,16 @@ def test_bundle_map_all_mappings_can_generates_absolute_directories_when_request
     verify_mappings(
         bundle_map,
         {
+            project_root / "app": deploy_root / "deployed_app",
             project_root / "app/setup.sql": deploy_root / "deployed_app/setup.sql",
             project_root
             / "app/manifest.yml": deploy_root
             / "deployed_app/manifest.yml",
             project_root / "README.md": deploy_root / "deployed_README.md",
+            project_root / "src/streamlit": deploy_root / "deployed_streamlit",
+            project_root
+            / "src/streamlit/helpers": deploy_root
+            / "deployed_streamlit/helpers",
             project_root
             / "src/streamlit/main_ui.py": deploy_root
             / "deployed_streamlit/main_ui.py",
@@ -415,13 +429,20 @@ def test_bundle_map_all_mappings_accepts_predicates(bundle_map):
         },
         absolute=True,
         walk_directories=True,
-        predicate=collecting_predicate(lambda src, dest: src.suffix == ".py"),
+        predicate=collecting_predicate(
+            lambda src, dest: src.is_file() and src.suffix == ".py"
+        ),
     )
 
     assert collected == {
+        project_root / "app": deploy_root / "deployed_app",
         project_root / "app/setup.sql": deploy_root / "deployed_app/setup.sql",
         project_root / "app/manifest.yml": deploy_root / "deployed_app/manifest.yml",
         project_root / "README.md": deploy_root / "deployed_README.md",
+        project_root / "src/streamlit": deploy_root / "deployed_streamlit",
+        project_root
+        / "src/streamlit/helpers": deploy_root
+        / "deployed_streamlit/helpers",
         project_root
         / "src/streamlit/main_ui.py": deploy_root
         / "deployed_streamlit/main_ui.py",
@@ -448,10 +469,13 @@ def test_bundle_map_all_mappings_accepts_predicates(bundle_map):
     )
 
     assert collected == {
+        Path("app"): Path("deployed_app"),
         Path("app/setup.sql"): Path("deployed_app/setup.sql"),
         Path("app/manifest.yml"): Path("deployed_app/manifest.yml"),
         Path("README.md"): Path("deployed_README.md"),
+        Path("src/streamlit"): Path("deployed_streamlit"),
         Path("src/streamlit/main_ui.py"): Path("deployed_streamlit/main_ui.py"),
+        Path("src/streamlit/helpers"): Path("deployed_streamlit/helpers"),
         Path("src/streamlit/helpers/file1.py"): Path(
             "deployed_streamlit/helpers/file1.py"
         ),

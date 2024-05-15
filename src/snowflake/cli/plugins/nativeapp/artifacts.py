@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -219,19 +220,19 @@ class BundleMap:
         else:
             src_for_output, dest_for_output = canonical_src, canonical_dest
 
+        if predicate(src_for_output, dest_for_output):
+            yield src_for_output, dest_for_output
+
         if absolute_src.is_dir() and walk_directories:
             # both src and dest are directories, and walking directories was requested. Traverse src, and map each file
             # to the dest directory
-            for (root, _, files) in os.walk(absolute_src, followlinks=True):
+            for (root, subdirs, files) in os.walk(absolute_src, followlinks=True):
                 relative_root = Path(root).relative_to(absolute_src)
-                for f in files:
-                    src_file_for_output = src_for_output / relative_root / f
-                    dest_file_for_output = dest_for_output / relative_root / f
+                for name in itertools.chain(subdirs, files):
+                    src_file_for_output = src_for_output / relative_root / name
+                    dest_file_for_output = dest_for_output / relative_root / name
                     if predicate(src_file_for_output, dest_file_for_output):
                         yield src_file_for_output, dest_file_for_output
-        else:
-            if predicate(src_for_output, dest_for_output):
-                yield src_for_output, dest_for_output
 
     def all_mappings(
         self,
