@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Tuple
+from typing import List, Tuple, Optional
 
 import typer
+from click import ClickException
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.plugins.object.commands import (
@@ -17,35 +18,51 @@ def add_object_command_aliases(
     app: SnowTyper,
     object_type: ObjectType,
     name_argument: typer.Argument,
-    like_option: typer.Option,
-    scope_option: typer.Option,
+    like_option: Optional[typer.Option],
+    scope_option: Optional[typer.Option],
+    ommit_commands: List[str] = [],
 ):
-    @app.command("list", requires_connection=True)
-    def list_cmd(
-        like: str = like_option,
-        scope: Tuple[str, str] = scope_option,
-        **options,
-    ):
-        list_(object_type=object_type.value.cli_name, like=like, scope=scope, **options)
+    if "list" not in ommit_commands:
+        if not like_option or not scope_option:
+            raise ClickException(
+                '[like_option] and [scope_option] parameters have to be defined for "list" command'
+            )
 
-    list_cmd.__doc__ = f"Lists all available {object_type.value.sf_plural_name}."
-
-    @app.command("drop", requires_connection=True)
-    def drop_cmd(name: str = name_argument, **options):
-        drop(
-            object_type=object_type.value.cli_name,
-            object_name=name,
+        @app.command("list", requires_connection=True)
+        def list_cmd(
+            like: str = like_option,
+            scope: Tuple[str, str] = scope_option,
             **options,
-        )
+        ):
+            list_(
+                object_type=object_type.value.cli_name,
+                like=like,
+                scope=scope,
+                **options,
+            )
 
-    drop_cmd.__doc__ = f"Drops {object_type.value.sf_name} with given name."
+        list_cmd.__doc__ = f"Lists all available {object_type.value.sf_plural_name}."
 
-    @app.command("describe", requires_connection=True)
-    def describe_cmd(name: str = name_argument, **options):
-        describe(
-            object_type=object_type.value.cli_name,
-            object_name=name,
-            **options,
-        )
+    if "drop" not in ommit_commands:
 
-    describe_cmd.__doc__ = f"Provides description of {object_type.value.sf_name}."
+        @app.command("drop", requires_connection=True)
+        def drop_cmd(name: str = name_argument, **options):
+            drop(
+                object_type=object_type.value.cli_name,
+                object_name=name,
+                **options,
+            )
+
+        drop_cmd.__doc__ = f"Drops {object_type.value.sf_name} with given name."
+
+    if "describe" not in ommit_commands:
+
+        @app.command("describe", requires_connection=True)
+        def describe_cmd(name: str = name_argument, **options):
+            describe(
+                object_type=object_type.value.cli_name,
+                object_name=name,
+                **options,
+            )
+
+        describe_cmd.__doc__ = f"Provides description of {object_type.value.sf_name}."

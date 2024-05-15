@@ -6,15 +6,21 @@ from typing import Optional
 import requests
 import typer
 from click import ClickException
-from snowflake.cli.api.commands.flags import IfNotExistsOption, ReplaceOption
+from snowflake.cli.api.commands.flags import (
+    IfNotExistsOption,
+    ReplaceOption,
+    like_option,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import (
     CollectionResult,
     MessageResult,
     SingleQueryResult,
 )
 from snowflake.cli.api.project.util import is_valid_object_name
+from snowflake.cli.plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli.plugins.spcs.image_registry.manager import RegistryManager
 from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
 
@@ -36,6 +42,17 @@ def _repo_name_callback(name: str):
 REPO_NAME_ARGUMENT = typer.Argument(
     help="Name of the image repository.",
     callback=_repo_name_callback,
+    show_default=False,
+)
+
+add_object_command_aliases(
+    app=app,
+    object_type=ObjectType.IMAGE_REPOSITORY,
+    name_argument=REPO_NAME_ARGUMENT,
+    like_option=like_option(
+        help_example='`list --like "my%"` lists all image repositories that begin with “my”.'
+    ),
+    ommit_commands=["describe"],
 )
 
 
@@ -108,6 +125,7 @@ def list_tags(
         "--image_name",
         "-i",
         help="Fully qualified name of the image as shown in the output of list-images",
+        show_default=False,
     ),
     **options,
 ) -> CollectionResult:
