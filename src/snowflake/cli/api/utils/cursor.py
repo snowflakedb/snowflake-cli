@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Callable, List, Optional
 
 from snowflake.connector.cursor import DictCursor
