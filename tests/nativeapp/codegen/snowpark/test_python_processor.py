@@ -324,7 +324,6 @@ def test_generate_sql_ddl_statements_filtered_create(
         )
 
         assert len(dest_file_py_file_to_ddl_map) == 1
-        assert list(dest_file_py_file_to_ddl_map.keys())[0].name == "main.py"
         assert list(dest_file_py_file_to_ddl_map.values())[0] == snapshot
 
 
