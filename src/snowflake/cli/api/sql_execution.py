@@ -14,12 +14,12 @@ from snowflake.cli.api.exceptions import (
     SchemaNotProvidedError,
     SnowflakeSQLExecutionError,
 )
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import (
     identifier_to_show_like_pattern,
     unquote_identifier,
 )
 from snowflake.cli.api.utils.cursor import find_first_row
-from snowflake.cli.api.utils.naming_utils import from_qualified_name
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -128,56 +128,22 @@ class SqlExecutionMixin:
         """
         Checks if a database and schema are provided, either through the connection context or a qualified name.
         """
-        if name:
-            _, schema, database = from_qualified_name(name)
-        else:
-            schema, database = None, None
-        schema = schema or self._conn.schema
-        database = database or self._conn.database
-        if not database:
+        fqn = FQN.from_string(name).using_connection(self._conn)
+        if not fqn.database:
             raise DatabaseNotProvidedError()
-        if not schema:
+        if not fqn.schema:
             raise SchemaNotProvidedError()
 
-    def to_fully_qualified_name(
-        self, name: str, database: Optional[str] = None, schema: Optional[str] = None
-    ):
-        current_parts = name.split(".")
-        if len(current_parts) == 3:
-            # already fully qualified name
-            return name.upper()
-
-        if not database:
-            if not self._conn.database:
-                raise DatabaseNotProvidedError()
-            database = self._conn.database
-
-        if len(current_parts) == 2:
-            # we assume name is in form of `schema.object`
-            return f"{database}.{name}".upper()
-
-        schema = schema or self._conn.schema or "public"
-        database = database or self._conn.database
-        return f"{database}.{schema}.{name}".upper()
-
     @staticmethod
-    def get_name_from_fully_qualified_name(name):
-        """
-        Returns name of the object from the fully-qualified name.
-        Assumes that [name] is in format [[database.]schema.]name
-        """
-        return from_qualified_name(name)[0]
-
-    @staticmethod
-    def _qualified_name_to_in_clause(name: str) -> Tuple[str, Optional[str]]:
-        unqualified_name, schema, database = from_qualified_name(name)
-        if database:
-            in_clause = f"in schema {database}.{schema}"
-        elif schema:
-            in_clause = f"in schema {schema}"
+    def _qualified_name_to_in_clause(identifier: FQN) -> Tuple[str, Optional[str]]:
+        if identifier.database:
+            schema = identifier.schema or "PUBLIC"
+            in_clause = f"in schema {identifier.database}.{schema}"
+        elif identifier.schema:
+            in_clause = f"in schema {identifier.schema}"
         else:
             in_clause = None
-        return unqualified_name, in_clause
+        return identifier.name, in_clause
 
     class InClauseWithQualifiedNameError(ValueError):
         def __init__(self):
@@ -202,7 +168,9 @@ class SqlExecutionMixin:
         the connection or a qualified name, before executing the query.
         """
 
-        unqualified_name, name_in_clause = self._qualified_name_to_in_clause(name)
+        unqualified_name, name_in_clause = self._qualified_name_to_in_clause(
+            FQN.from_string(name)
+        )
         if in_clause and name_in_clause:
             raise self.InClauseWithQualifiedNameError()
         elif name_in_clause:
@@ -230,11 +198,3 @@ class SqlExecutionMixin:
             lambda row: row[name_col] == unquote_identifier(unqualified_name),
         )
         return show_obj_row
-
-    def qualified_name_for_url(
-        self, object_name: str, database: str | None = None, schema: str | None = None
-    ):
-        fqn = self.to_fully_qualified_name(
-            object_name, database=database, schema=schema
-        )
-        return ".".join(unquote_identifier(part) for part in fqn.split("."))
