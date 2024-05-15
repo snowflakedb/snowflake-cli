@@ -10,6 +10,9 @@
    * `snow git` for git repository stages
    * `snow streamlit` for streamlit apps
    * `snow snowpark` for procedures and functions
+   * `snow spcs compute-pool` for compute pools
+   * `snow spcs image-repository` for image repositories
+   * `snow spcs services` for services
 
 ## Fixes and improvements
 
