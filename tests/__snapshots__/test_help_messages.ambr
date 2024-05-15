@@ -4960,18 +4960,16 @@
    Creates a new service in the current schema.                                   
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    name      TEXT  Name of the service. [default: None] [required]         │
+  │ *    name      TEXT  Name of the service. [required]                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ *  --compute-pool                          TEXT             Compute pool to  │
   │                                                             run the service  │
   │                                                             on.              │
-  │                                                             [default: None]  │
   │                                                             [required]       │
   │ *  --spec-path                             FILE             Path to service  │
   │                                                             specification    │
   │                                                             file.            │
-  │                                                             [default: None]  │
   │                                                             [required]       │
   │    --min-instances                         INTEGER RANGE    Minimum number   │
   │                                            [x>=1]           of service       │
@@ -5092,7 +5090,7 @@
    Lists the endpoints in a service.                                              
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    name      TEXT  Name of the service. [default: None] [required]         │
+  │ *    name      TEXT  Name of the service. [required]                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -5160,14 +5158,12 @@
    Retrieves local logs from a service container.                                 
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    name      TEXT  Name of the service. [default: None] [required]         │
+  │ *    name      TEXT  Name of the service. [required]                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ *  --container-name          TEXT     Name of the container. [default: None] │
-  │                                       [required]                             │
+  │ *  --container-name          TEXT     Name of the container. [required]      │
   │ *  --instance-id             TEXT     ID of the service instance, starting   │
   │                                       with 0.                                │
-  │                                       [default: None]                        │
   │                                       [required]                             │
   │    --num-lines               INTEGER  Number of lines to retrieve.           │
   │                                       [default: 500]                         │
@@ -5236,7 +5232,7 @@
    Resumes the service from a SUSPENDED state.                                    
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    name      TEXT  Name of the service. [default: None] [required]         │
+  │ *    name      TEXT  Name of the service. [required]                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -5304,7 +5300,7 @@
    Sets one or more properties for the service.                                   
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    name      TEXT  Name of the service. [default: None] [required]         │
+  │ *    name      TEXT  Name of the service. [required]                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --min-instances                           INTEGER RANGE     Minimum number   │
@@ -5401,7 +5397,7 @@
    Retrieves the status of a service.                                             
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    name      TEXT  Name of the service. [default: None] [required]         │
+  │ *    name      TEXT  Name of the service. [required]                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -5469,7 +5465,7 @@
    Suspends the service, shutting down and deleting all its containers.           
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    name      TEXT  Name of the service. [default: None] [required]         │
+  │ *    name      TEXT  Name of the service. [required]                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -5537,7 +5533,7 @@
    Resets one or more properties for the service to their default value(s).       
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    name      TEXT  Name of the service. [default: None] [required]         │
+  │ *    name      TEXT  Name of the service. [required]                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --min-instances              Reset the MIN_INSTANCES property - Minimum      │
@@ -5618,12 +5614,10 @@
    Updates an existing service with a new specification file.                     
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    name      TEXT  Name of the service. [default: None] [required]         │
+  │ *    name      TEXT  Name of the service. [required]                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ *  --spec-path          FILE  Path to service specification file.            │
-  │                               [default: None]                                │
-  │                               [required]                                     │
+  │ *  --spec-path          FILE  Path to service specification file. [required] │
   │    --help       -h            Show this message and exit.                    │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮

@@ -38,7 +38,10 @@ def _service_name_callback(name: str) -> str:
 
 
 ServiceNameArgument = typer.Argument(
-    ..., help="Name of the service.", callback=_service_name_callback
+    ...,
+    help="Name of the service.",
+    callback=_service_name_callback,
+    show_default=False,
 )
 
 SpecPathOption = typer.Option(
@@ -48,6 +51,7 @@ SpecPathOption = typer.Option(
     file_okay=True,
     dir_okay=False,
     exists=True,
+    show_default=False,
 )
 
 _MIN_INSTANCES_HELP = "Minimum number of service instances to run."
@@ -81,7 +85,10 @@ _COMMENT_HELP = "Comment for the service."
 def create(
     name: str = ServiceNameArgument,
     compute_pool: str = typer.Option(
-        ..., "--compute-pool", help="Compute pool to run the service on."
+        ...,
+        "--compute-pool",
+        help="Compute pool to run the service on.",
+        show_default=False,
     ),
     spec_path: Path = SpecPathOption,
     min_instances: int = MinInstancesOption(),
@@ -133,10 +140,16 @@ def status(name: str = ServiceNameArgument, **options) -> CommandResult:
 def logs(
     name: str = ServiceNameArgument,
     container_name: str = typer.Option(
-        ..., "--container-name", help="Name of the container."
+        ...,
+        "--container-name",
+        help="Name of the container.",
+        show_default=False,
     ),
     instance_id: str = typer.Option(
-        ..., "--instance-id", help="ID of the service instance, starting with 0."
+        ...,
+        "--instance-id",
+        help="ID of the service instance, starting with 0.",
+        show_default=False,
     ),
     num_lines: int = typer.Option(
         500, "--num-lines", help="Number of lines to retrieve."
