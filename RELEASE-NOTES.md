@@ -5,8 +5,9 @@
 
 ## New additions
  * Add external access integration to snow object commands
-## Fixes and improvements
 
+## Fixes and improvements
+* Improved support for quoted identifiers.
 
 # v2.3.0
 
