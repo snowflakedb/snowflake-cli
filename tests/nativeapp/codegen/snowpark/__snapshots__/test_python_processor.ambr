@@ -1,4 +1,24 @@
 # serializer version: 1
+# name: test_create_and_write_to_sql_files_no_existing_generate
+  dict({
+    PosixPath('moduleA/main.py'): PosixPath('__generated/moduleA/main.sql'),
+    PosixPath('moduleB/main.py'): PosixPath('__generated/moduleB/main.sql'),
+  })
+# ---
+# name: test_edit_setup_script_with_exec_imm_sql
+  '''
+  EXECUTE IMMEDIATE FROM '/__generated/moduleB/dummy.sql';
+  EXECUTE IMMEDIATE FROM '/__generated/dummy.sql';
+  
+  '''
+# ---
+# name: test_edit_setup_script_with_exec_imm_sql.1
+  '''
+  create application role app_public;
+  EXECUTE IMMEDIATE FROM '/__generated/__generated.sql';
+  
+  '''
+# ---
 # name: test_generate_create_sql_ddl_statements_w_all_entries
   '''
   CREATE OR REPLACE

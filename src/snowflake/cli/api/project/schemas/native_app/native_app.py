@@ -24,6 +24,10 @@ class NativeApp(UpdatableModel):
         title="Folder at the root of your project where the build step copies the artifacts.",
         default="output/deploy/",
     )
+    generated_root: Optional[str] = Field(
+        title="Folder at the root of your deploy_root where the build step checks in the generated artifacts. This is also the name of the SQL file that will be created.",
+        default="__generated/",
+    )
     source_stage: Optional[str] = Field(
         title="Identifier of the stage that stores the application artifacts.",
         default="app_src.stage",

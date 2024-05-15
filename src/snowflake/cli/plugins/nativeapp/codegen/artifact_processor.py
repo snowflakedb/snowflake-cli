@@ -28,6 +28,7 @@ class ArtifactProcessor(ABC):
         project_definition: NativeApp,
         project_root: Path,
         deploy_root: Path,
+        generated_root: Path,
         **kwargs,
     ) -> None:
         pass
