@@ -29,17 +29,17 @@ def test_snowpark_flow(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{database}.PUBLIC.HELLO_PROCEDURE(name string)",
+                    "object": f"{database}.PUBLIC.hello_procedure(name string)",
                     "status": "created",
                     "type": "procedure",
                 },
                 {
-                    "object": f"{database}.PUBLIC.TEST()",
+                    "object": f"{database}.PUBLIC.test()",
                     "status": "created",
                     "type": "procedure",
                 },
                 {
-                    "object": f"{database}.PUBLIC.HELLO_FUNCTION(name string)",
+                    "object": f"{database}.PUBLIC.hello_function(name string)",
                     "status": "created",
                     "type": "function",
                 },
@@ -47,10 +47,10 @@ def test_snowpark_flow(
         )
 
         _test_steps.assert_those_procedures_are_in_snowflake(
-            "HELLO_PROCEDURE(VARCHAR) RETURN VARCHAR"
+            "hello_procedure(VARCHAR) RETURN VARCHAR"
         )
         _test_steps.assert_those_functions_are_in_snowflake(
-            "HELLO_FUNCTION(VARCHAR) RETURN VARCHAR"
+            "hello_function(VARCHAR) RETURN VARCHAR"
         )
 
         expected_files = [
@@ -73,14 +73,14 @@ def test_snowpark_flow(
         # Created objects can be described
         _test_steps.object_describe_should_return_entity_description(
             object_type="procedure",
-            identifier="HELLO_PROCEDURE(VARCHAR)",
+            identifier="hello_procedure(VARCHAR)",
             signature="(NAME VARCHAR)",
             returns="VARCHAR(16777216)",
         )
 
         _test_steps.object_describe_should_return_entity_description(
             object_type="function",
-            identifier="HELLO_FUNCTION(VARCHAR)",
+            identifier="hello_function(VARCHAR)",
             signature="(NAME VARCHAR)",
             returns="VARCHAR(16777216)",
         )
@@ -120,17 +120,17 @@ def test_snowpark_flow(
             additional_arguments=["--replace"],
             expected_result=[
                 {
-                    "object": f"{database}.PUBLIC.HELLO_PROCEDURE(name string)",
+                    "object": f"{database}.PUBLIC.hello_procedure(name string)",
                     "status": "definition updated",
                     "type": "procedure",
                 },
                 {
-                    "object": f"{database}.PUBLIC.TEST()",
+                    "object": f"{database}.PUBLIC.test()",
                     "status": "packages updated",
                     "type": "procedure",
                 },
                 {
-                    "object": f"{database}.PUBLIC.HELLO_FUNCTION(name string)",
+                    "object": f"{database}.PUBLIC.hello_function(name string)",
                     "status": "definition updated",
                     "type": "function",
                 },
@@ -139,10 +139,10 @@ def test_snowpark_flow(
 
         # Check if objects were updated
         _test_steps.assert_those_procedures_are_in_snowflake(
-            "HELLO_PROCEDURE(VARCHAR) RETURN VARIANT"
+            "hello_procedure(VARCHAR) RETURN VARIANT"
         )
         _test_steps.assert_those_functions_are_in_snowflake(
-            "HELLO_FUNCTION(VARCHAR) RETURN VARIANT"
+            "hello_function(VARCHAR) RETURN VARIANT"
         )
 
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(
@@ -190,17 +190,17 @@ def test_snowpark_flow(
             additional_arguments=["--replace"],
             expected_result=[
                 {
-                    "object": f"{database}.PUBLIC.HELLO_PROCEDURE(name string)",
+                    "object": f"{database}.PUBLIC.hello_procedure(name string)",
                     "status": "packages updated",
                     "type": "procedure",
                 },
                 {
-                    "object": f"{database}.PUBLIC.TEST()",
+                    "object": f"{database}.PUBLIC.test()",
                     "status": "packages updated",
                     "type": "procedure",
                 },
                 {
-                    "object": f"{database}.PUBLIC.HELLO_FUNCTION(name string)",
+                    "object": f"{database}.PUBLIC.hello_function(name string)",
                     "status": "definition updated",
                     "type": "function",
                 },
@@ -256,7 +256,7 @@ def test_snowpark_with_separately_created_package(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.TEST_FUNC(name string)",
+                    "object": f"{test_database.upper()}.PUBLIC.test_func(name string)",
                     "status": "created",
                     "type": "function",
                 },
@@ -288,7 +288,7 @@ def test_snowpark_with_single_dependency_having_no_other_deps(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.TEST_FUNC(name string)",
+                    "object": f"{test_database.upper()}.PUBLIC.test_func(name string)",
                     "type": "function",
                     "status": "created",
                 }
@@ -323,7 +323,7 @@ def test_snowpark_with_single_requirement_having_transient_deps(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.TEST_FUNC(name string)",
+                    "object": f"{test_database.upper()}.PUBLIC.test_func(name string)",
                     "type": "function",
                     "status": "created",
                 }
@@ -365,7 +365,7 @@ def test_snowpark_commands_executed_outside_project_dir(
             additional_arguments=["--project", project_subpath],
             expected_result=[
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.TEST_FUNC(name string)",
+                    "object": f"{test_database.upper()}.PUBLIC.test_func(name string)",
                     "type": "function",
                     "status": "created",
                 }
@@ -390,19 +390,19 @@ def test_snowpark_default_arguments(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{database}.PUBLIC.WHOLE_NEW_WORD_PROCEDURE(base varchar default 'word', "
+                    "object": f"{database}.PUBLIC.whole_new_word_procedure(base varchar default 'word', "
                     "mult number default 2, suffix varchar default ', but a procedure')",
                     "type": "procedure",
                     "status": "created",
                 },
                 {
-                    "object": f"{database}.PUBLIC.WHOLE_NEW_WORD(base string default 'word', "
+                    "object": f"{database}.PUBLIC.whole_new_word(base string default 'word', "
                     "mult int default 2, suffix string default '!')",
                     "type": "function",
                     "status": "created",
                 },
                 {
-                    "object": f"{database}.PUBLIC.CHECK_ALL_TYPES("
+                    "object": f"{database}.PUBLIC.check_all_types("
                     "s string default '<str>', "
                     "i int default 7, "
                     "b1 boolean default true, "
@@ -533,28 +533,28 @@ def test_snowpark_fully_qualified_name(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{database}.{default_schema}.FQN_FUNCTION(name string)",
+                    "object": f"{database}.{default_schema}.fqn_function(name string)",
                     "status": "created",
                     "type": "function",
                 },
                 {
-                    "object": f"{database}.{different_schema}.FQN_FUNCTION2(name string)",
+                    "object": f"{database}.{different_schema}.fqn_function2(name string)",
                     "status": "created",
                     "type": "function",
                 },
                 {
-                    "object": f"{database}.{different_schema}.SCHEMA_FUNCTION(name "
+                    "object": f"{database}.{different_schema}.schema_function(name "
                     "string)",
                     "status": "created",
                     "type": "function",
                 },
                 {
-                    "object": f"{database}.{default_schema}.DATABASE_FUNCTION(name string)",
+                    "object": f"{database}.{default_schema}.database_function(name string)",
                     "status": "created",
                     "type": "function",
                 },
                 {
-                    "object": f"{database}.{different_schema}.DATABASE_SCHEMA_FUNCTION(name "
+                    "object": f"{database}.{different_schema}.database_schema_function(name "
                     "string)",
                     "status": "created",
                     "type": "function",
@@ -565,28 +565,28 @@ def test_snowpark_fully_qualified_name(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{database}.{default_schema}.FQN_FUNCTION(name string)",
+                    "object": f"{database}.{default_schema}.fqn_function(name string)",
                     "status": "packages updated",
                     "type": "function",
                 },
                 {
-                    "object": f"{database}.{different_schema}.FQN_FUNCTION2(name string)",
+                    "object": f"{database}.{different_schema}.fqn_function2(name string)",
                     "status": "packages updated",
                     "type": "function",
                 },
                 {
-                    "object": f"{database}.{different_schema}.SCHEMA_FUNCTION(name "
+                    "object": f"{database}.{different_schema}.schema_function(name "
                     "string)",
                     "status": "packages updated",
                     "type": "function",
                 },
                 {
-                    "object": f"{database}.{default_schema}.DATABASE_FUNCTION(name string)",
+                    "object": f"{database}.{default_schema}.database_function(name string)",
                     "status": "packages updated",
                     "type": "function",
                 },
                 {
-                    "object": f"{database}.{different_schema}.DATABASE_SCHEMA_FUNCTION(name "
+                    "object": f"{database}.{different_schema}.database_schema_function(name "
                     "string)",
                     "status": "packages updated",
                     "type": "function",
@@ -611,7 +611,7 @@ def test_snowpark_vector_function(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{database}.PUBLIC.VECTOR_FUNC(x number(10, 5), y number(10, 5))",
+                    "object": f"{database}.PUBLIC.vector_func(x number(10, 5), y number(10, 5))",
                     "status": "created",
                     "type": "function",
                 },

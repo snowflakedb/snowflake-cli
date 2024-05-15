@@ -9,18 +9,19 @@ STAGE_NAME = "dev_deployment"
 @pytest.mark.integration
 def test_snowpark_external_access(project_directory, _test_steps, test_database):
 
-    with project_directory("snowpark_external_access"):
+    with project_directory("snowpark_external_access") as project_dir:
+
         _test_steps.snowpark_build_should_zip_files()
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.STATUS_PROCEDURE()",
+                    "object": f"{test_database.upper()}.PUBLIC.status_procedure()",
                     "status": "created",
                     "type": "procedure",
                 },
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.STATUS_FUNCTION()",
+                    "object": f"{test_database.upper()}.PUBLIC.status_function()",
                     "status": "created",
                     "type": "function",
                 },
@@ -49,17 +50,17 @@ def test_snowpark_upgrades_with_external_access(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.HELLO_PROCEDURE(name string)",
+                    "object": f"{test_database.upper()}.PUBLIC.hello_procedure(name string)",
                     "status": "created",
                     "type": "procedure",
                 },
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.TEST()",
+                    "object": f"{test_database.upper()}.PUBLIC.test()",
                     "status": "created",
                     "type": "procedure",
                 },
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.HELLO_FUNCTION(name string)",
+                    "object": f"{test_database.upper()}.PUBLIC.hello_function(name string)",
                     "status": "created",
                     "type": "function",
                 },
@@ -80,17 +81,17 @@ def test_snowpark_upgrades_with_external_access(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.HELLO_PROCEDURE(name string)",
+                    "object": f"{test_database.upper()}.PUBLIC.hello_procedure(name string)",
                     "status": "definition updated",
                     "type": "procedure",
                 },
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.TEST()",
+                    "object": f"{test_database.upper()}.PUBLIC.test()",
                     "status": "packages updated",
                     "type": "procedure",
                 },
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.HELLO_FUNCTION(name string)",
+                    "object": f"{test_database.upper()}.PUBLIC.hello_function(name string)",
                     "status": "definition updated",
                     "type": "function",
                 },
@@ -113,17 +114,17 @@ def test_snowpark_upgrades_with_external_access(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.HELLO_PROCEDURE(name string)",
+                    "object": f"{test_database.upper()}.PUBLIC.hello_procedure(name string)",
                     "status": "definition updated",
                     "type": "procedure",
                 },
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.TEST()",
+                    "object": f"{test_database.upper()}.PUBLIC.test()",
                     "status": "packages updated",
                     "type": "procedure",
                 },
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.HELLO_FUNCTION(name string)",
+                    "object": f"{test_database.upper()}.PUBLIC.hello_function(name string)",
                     "status": "definition updated",
                     "type": "function",
                 },
@@ -144,17 +145,17 @@ def test_snowpark_upgrades_with_external_access(
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.HELLO_PROCEDURE(name string)",
+                    "object": f"{test_database.upper()}.PUBLIC.hello_procedure(name string)",
                     "status": "definition updated",
                     "type": "procedure",
                 },
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.TEST()",
+                    "object": f"{test_database.upper()}.PUBLIC.test()",
                     "status": "packages updated",
                     "type": "procedure",
                 },
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.HELLO_FUNCTION(name string)",
+                    "object": f"{test_database.upper()}.PUBLIC.hello_function(name string)",
                     "status": "definition updated",
                     "type": "function",
                 },

@@ -21,13 +21,13 @@
   +------------------------------------------------------------------------------+
   | object                                                  | type     | status  |
   |---------------------------------------------------------+----------+---------|
-  | CUSTOM_DB.CUSTOM_SCHEMA.FQN_FUNCTION(name string)       | function | created |
-  | MOCKDATABASE.CUSTOM_SCHEMA.FQN_FUNCTION_ONLY_SCHEMA(nam | function | created |
+  | custom_db.custom_schema.fqn_function(name string)       | function | created |
+  | MockDatabase.custom_schema.fqn_function_only_schema(nam | function | created |
   | e string)                                               |          |         |
-  | MOCKDATABASE.CUSTOM_SCHEMA.SCHEMA_FUNCTION(name string) | function | created |
-  | CUSTOM_DB.MOCKSCHEMA.DATABASE_FUNCTION(name string)     | function | created |
-  | CUSTOM_DB.CUSTOM_SCHEMA.DATABASE_FUNCTION(name string)  | function | created |
-  | CUSTOM_DATABASE.CUSTOM_SCHEMA.FQN_FUNCTION3(name        | function | created |
+  | MockDatabase.custom_schema.schema_function(name string) | function | created |
+  | custom_db.MockSchema.database_function(name string)     | function | created |
+  | custom_db.custom_schema.database_function(name string)  | function | created |
+  | custom_database.custom_schema.fqn_function3(name        | function | created |
   | string)                                                 |          |         |
   +------------------------------------------------------------------------------+
   
