@@ -373,7 +373,7 @@ class NativeAppManager(SqlExecutionMixin):
             ]
             verify_exists(deploy_paths_to_sync)
             stage_paths_to_sync = _get_stage_paths_to_sync(
-                deploy_paths_to_sync, self.deploy_root.resolve()
+                deploy_paths_to_sync, resolve_without_follow(self.deploy_root)
             )
             diff = preserve_from_diff(diff, stage_paths_to_sync)
         else:
