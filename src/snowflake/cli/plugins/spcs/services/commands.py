@@ -6,8 +6,13 @@ from typing import List, Optional
 
 import typer
 from click import ClickException
-from snowflake.cli.api.commands.flags import IfNotExistsOption, OverrideableOption
+from snowflake.cli.api.commands.flags import (
+    IfNotExistsOption,
+    OverrideableOption,
+    like_option,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import (
     CommandResult,
     QueryJsonValueResult,
@@ -15,6 +20,7 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
 )
 from snowflake.cli.api.project.util import is_valid_object_name
+from snowflake.cli.plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli.plugins.object.common import CommentOption, Tag, TagOption
 from snowflake.cli.plugins.spcs.common import (
     print_log_lines,
@@ -79,6 +85,15 @@ AutoResumeOption = OverrideableOption(
 )
 
 _COMMENT_HELP = "Comment for the service."
+
+add_object_command_aliases(
+    app=app,
+    object_type=ObjectType.SERVICE,
+    name_argument=ServiceNameArgument,
+    like_option=like_option(
+        help_example='`list --like "my%"` lists all services that begin with “my”.'
+    ),
+)
 
 
 @app.command(requires_connection=True)
