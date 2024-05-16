@@ -182,7 +182,3 @@ def identifier_to_show_like_pattern(identifier: str) -> str:
     matching this identifier
     """
     return f"'{escape_like_pattern(unquote_identifier(identifier))}'"
-
-
-def supported_since(version: str):
-    return True

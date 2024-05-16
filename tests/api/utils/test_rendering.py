@@ -2,6 +2,7 @@ import os
 from unittest import mock
 
 import pytest
+from click import ClickException
 from jinja2 import UndefinedError
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
@@ -173,3 +174,30 @@ def test_resolve_variables_in_project_environment_variables_precedence():
             },
         )
     }
+
+
+@pytest.mark.parametrize(
+    "env, cycle",
+    [
+        ({"A": "&{ ctx.env.A }"}, "A"),
+        ({"A": "&{ ctx.env.B }", "B": "&{ ctx.env.A }"}, "A -> B"),
+        (
+            {
+                "A": "&{ ctx.env.B }",
+                "B": "&{ ctx.env.C }",
+                "C": "&{ ctx.env.D }",
+                "D": "&{ ctx.env.A }",
+            },
+            "A -> B -> C -> D",
+        ),
+    ],
+)
+def test_resolve_variables_error_on_cycle(env, cycle):
+    pdf = ProjectDefinition(
+        definition_version="1.1",
+        env=env,
+    )
+    with pytest.raises(ClickException) as err:
+        _add_project_context({}, project_definition=pdf)
+
+    assert err.value.message == f"Cycle detected between variables: {cycle}"

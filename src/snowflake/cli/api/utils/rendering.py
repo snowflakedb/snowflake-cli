@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import re
+from collections import defaultdict, deque
 from pathlib import Path
 from textwrap import dedent
-from typing import Dict, Optional, Set, cast
+from typing import Dict, List, Optional, Set, cast
 
 import jinja2
 from click import ClickException
@@ -107,10 +108,7 @@ def _add_project_context(
             f"{_CONTEXT_KEY} in user defined data. The `{_CONTEXT_KEY}` variable is reserved for CLI usage."
         )
 
-    context_data = {_CONTEXT_KEY: {"env": DictWithEnvironFallback({})}}
-    # If there's project definition file then resolve variables from it
-    if project_definition and project_definition.meets_version_requirement("1.1"):
-        context_data = _resolve_variables_in_project(project_definition)
+    context_data = _resolve_variables_in_project(project_definition)
 
     context_data.update(external_data)
     return context_data
@@ -128,22 +126,22 @@ def string_includes_template(text: str) -> bool:
 
 
 def _resolve_variables_in_project(project_definition: ProjectDefinition):
+    # If there's project definition file then resolve variables from it
+    if not project_definition or not project_definition.meets_version_requirement(
+        "1.1"
+    ):
+        return {_CONTEXT_KEY: {"env": DictWithEnvironFallback({})}}
+
     variables_data: DictWithEnvironFallback = cast(
         DictWithEnvironFallback, project_definition.env
     )
 
-    variables_with_dependencies = _check_variables_consistency(variables_data)
-    # Sort keys so we start from the shortest having lower probability of including more than one variable
-    unresolved_keys = sorted(list(variables_with_dependencies), reverse=True)
-
+    unresolved_keys: List[str] = _check_variables_consistency(variables_data)
     env = get_snowflake_cli_jinja_env()
     context_data = {_CONTEXT_KEY: project_definition}
     while unresolved_keys:
         key = unresolved_keys.pop()
         value = variables_data[key]
-        if not isinstance(value, str):
-            continue
-
         try:  # try to evaluate the template given current state of know variables
             new_value = env.from_string(value).render(context_data)
             if string_includes_template(new_value):
@@ -155,6 +153,20 @@ def _resolve_variables_in_project(project_definition: ProjectDefinition):
     return context_data
 
 
+def _check_for_cycles(nodes: Dict[str, List[str]]):
+    for key in list(nodes):
+        q = deque([key])
+        visited: List[str] = []
+        while q:
+            curr = q.popleft()
+            if curr in visited:
+                raise ClickException(
+                    "Cycle detected between variables: {}".format(" -> ".join(visited))
+                )
+            visited.append(curr)
+            q.extendleft(nodes[curr])
+
+
 def _check_variables_consistency(variables_data: DictWithEnvironFallback):
     """
     Checks consistency of provided dictionary by
@@ -164,7 +176,7 @@ def _check_variables_consistency(variables_data: DictWithEnvironFallback):
     # Variables that are not specified in env section
     missing_variables: Set[str] = set()
     # Variables that require other variables
-    variables_with_dependencies: Set[str] = set()
+    variables_with_dependencies: Dict[str, List[str]] = defaultdict(list)
 
     for key, value in variables_data.items():
         # Templates are reserved only to string variables
@@ -174,13 +186,8 @@ def _check_variables_consistency(variables_data: DictWithEnvironFallback):
         # This value requires
         include_template, required_variables = _search_for_required_variables(value)
 
-        if key in required_variables:
-            raise ClickException(
-                f"Cycle detected in environment definition for `{key}` variable."
-            )
-
         if required_variables or include_template:
-            variables_with_dependencies.add(key)
+            variables_with_dependencies[key] = required_variables
 
         for variable in required_variables:
             if variable not in variables_data:
@@ -193,7 +200,15 @@ def _check_variables_consistency(variables_data: DictWithEnvironFallback):
                 ", ".join(missing_variables)
             )
         )
-    return variables_with_dependencies
+
+    # Look for cycles between variables
+    _check_for_cycles(variables_with_dependencies)
+
+    # Sort by number of dependencies
+    return sorted(
+        list(variables_with_dependencies.keys()),
+        key=lambda k: len(variables_with_dependencies[k]),
+    )
 
 
 def _search_for_required_variables(variable_value: str):
