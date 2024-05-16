@@ -126,7 +126,7 @@ def app_bundle(
     Prepares a local folder with configured app artifacts.
     """
     manager = NativeAppManager(
-        project_definition=cli_context.project_definition.native_app,
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
     manager.build_bundle()
@@ -173,7 +173,7 @@ def app_run(
         policy = DenyAlwaysPolicy()
 
     processor = NativeAppRunProcessor(
-        project_definition=cli_context.project_definition.native_app,
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
     processor.build_bundle()
@@ -200,7 +200,7 @@ def app_open(
     once it has been installed in your account.
     """
     manager = NativeAppManager(
-        project_definition=cli_context.project_definition.native_app,
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
     if manager.get_existing_app_info():
@@ -228,7 +228,7 @@ def app_teardown(
     Attempts to drop both the application object and application package as defined in the project definition file.
     """
     processor = NativeAppTeardownProcessor(
-        project_definition=cli_context.project_definition.native_app,
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
     if interactive is None:
@@ -272,7 +272,7 @@ def app_deploy(
             recursive = False
 
     manager = NativeAppManager(
-        project_definition=cli_context.project_definition.native_app,
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
 

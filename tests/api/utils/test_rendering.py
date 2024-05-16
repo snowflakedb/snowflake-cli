@@ -1,4 +1,5 @@
 import os
+from unittest import mock
 
 import pytest
 from jinja2 import UndefinedError
@@ -74,11 +75,12 @@ def test_contex_can_access_environment_variable():
 
 def test_resolve_variables_in_project_no_cross_variable_dependencies():
     pdf = ProjectDefinition(
+        definition_version="1.1",
         env={
             "number": 1,
             "string": "foo",
             "boolean": True,
-        }
+        },
     )
     result = _add_project_context({}, project_definition=pdf)
     assert result == {
@@ -94,11 +96,12 @@ def test_resolve_variables_in_project_no_cross_variable_dependencies():
 
 def test_resolve_variables_in_project_cross_variable_dependencies():
     pdf = ProjectDefinition(
+        definition_version="1.1",
         env={
             "A": 42,
             "B": "b=&{ ctx.env.A }",
             "C": "&{ ctx.env.B } and &{ ctx.env.A }",
-        }
+        },
     )
     result = _add_project_context({}, project_definition=pdf)
     assert result == {
@@ -114,6 +117,7 @@ def test_resolve_variables_in_project_cross_variable_dependencies():
 
 def test_resolve_variables_in_project_cross_project_dependencies():
     pdf = ProjectDefinition(
+        definition_version="1.1",
         streamlit=Streamlit(name="my_app"),
         env={"app": "name of streamlit is &{ ctx.streamlit.name }"},
     )
@@ -133,5 +137,39 @@ def test_resolve_variables_in_project_cross_project_dependencies():
                 additional_source_files=None,
             ),
             env={"app": "name of streamlit is my_app"},
+        )
+    }
+
+
+def test_resolve_variables_in_project_environment_variables_precedence():
+    pdf = ProjectDefinition(
+        definition_version="1.1",
+        env={
+            "should_be_replace_by_env": "test failed",
+            "test_variable": "&{ ctx.env.lowercase } and &{ ctx.env.UPPERCASE }",
+            "test_variable_2": "&{ ctx.env.should_be_replace_by_env }",
+        },
+    )
+    with mock.patch.dict(
+        os.environ,
+        {
+            "lowercase": "new_lowercase_value",
+            "UPPERCASE": "new_uppercase_value",
+            "should_be_replace_by_env": "test succeeded",
+        },
+    ):
+        result = _add_project_context({}, project_definition=pdf)
+
+    assert result == {
+        "ctx": ProjectDefinition(
+            definition_version="1.1",
+            native_app=None,
+            snowpark=None,
+            streamlit=None,
+            env={
+                "should_be_replace_by_env": "test failed",
+                "test_variable": "new_lowercase_value and new_uppercase_value",
+                "test_variable_2": "test succeeded",
+            },
         )
     }

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
-from click import ClickException
 from packaging.version import Version
 from pydantic import Field, field_validator
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
@@ -17,9 +16,8 @@ _latest_version = "1.1"
 
 
 class ProjectDefinition(UpdatableModel):
-    definition_version: str = Field(
+    definition_version: Union[str, int] = Field(
         title="Version of the project definition schema, which is currently 1",
-        default=_latest_version,
     )
     native_app: Optional[NativeApp] = Field(
         title="Native app definitions for the project", default=None
@@ -45,8 +43,9 @@ class ProjectDefinition(UpdatableModel):
     @field_validator("definition_version")
     @classmethod
     def _is_supported_version(cls, version: str) -> str:
+        version = str(version)
         if version not in _supported_version:
-            raise ClickException(
+            raise ValueError(
                 f'Version {version} is not supported. Supported versions: {", ".join(_supported_version)}'
             )
         return version

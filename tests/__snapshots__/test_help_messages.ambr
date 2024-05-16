@@ -6164,6 +6164,8 @@
   │                           content will be treated as template and rendered   │
   │                           using provided data.                               │
   │                           [default: None]                                    │
+  │ --project   -p      TEXT  Path where Snowflake project resides. Defaults to  │
+  │                           current working directory.                         │
   │ --help      -h            Show this message and exit.                        │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮

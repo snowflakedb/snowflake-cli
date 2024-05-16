@@ -112,7 +112,8 @@ def _add_project_context(
     if project_definition and project_definition.meets_version_requirement("1.1"):
         context_data = _resolve_variables_in_project(project_definition)
 
-    return {**external_data, **context_data}
+    context_data.update(external_data)
+    return context_data
 
 
 def _remove_ctx_env_prefix(text: str) -> str:
