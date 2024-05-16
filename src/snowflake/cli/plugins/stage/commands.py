@@ -11,9 +11,11 @@ from snowflake.cli.api.commands.flags import (
     OnErrorOption,
     PatternOption,
     VariablesOption,
+    like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -22,6 +24,10 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
 )
 from snowflake.cli.api.utils.path_utils import is_stage_path
+from snowflake.cli.plugins.object.command_aliases import (
+    add_object_command_aliases,
+    scope_option,
+)
 from snowflake.cli.plugins.stage.diff import DiffResult, compute_stage_diff
 from snowflake.cli.plugins.stage.manager import OnErrorType, StageManager
 
@@ -31,6 +37,16 @@ app = SnowTyper(
 )
 
 StageNameArgument = typer.Argument(..., help="Name of the stage.", show_default=False)
+
+add_object_command_aliases(
+    app=app,
+    object_type=ObjectType.STAGE,
+    name_argument=StageNameArgument,
+    like_option=like_option(
+        help_example='`list --like "my%"` lists all stages that begin with “my”',
+    ),
+    scope_option=scope_option(help_example="`list --in database my_db`"),
+)
 
 
 @app.command("list-files", requires_connection=True)
@@ -112,7 +128,11 @@ def stage_create(stage_name: str = StageNameArgument, **options) -> CommandResul
 @app.command("remove", requires_connection=True)
 def stage_remove(
     stage_name: str = StageNameArgument,
-    file_name: str = typer.Argument(..., help="Name of the file to remove."),
+    file_name: str = typer.Argument(
+        ...,
+        help="Name of the file to remove.",
+        show_default=False,
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -125,8 +145,14 @@ def stage_remove(
 
 @app.command("diff", hidden=True, requires_connection=True)
 def stage_diff(
-    stage_name: str = typer.Argument(help="Fully qualified name of a stage"),
-    folder_name: str = typer.Argument(help="Path to local folder"),
+    stage_name: str = typer.Argument(
+        help="Fully qualified name of a stage",
+        show_default=False,
+    ),
+    folder_name: str = typer.Argument(
+        help="Path to local folder",
+        show_default=False,
+    ),
     **options,
 ) -> ObjectResult:
     """

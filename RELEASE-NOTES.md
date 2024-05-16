@@ -5,6 +5,13 @@
 
 ## New additions
  * Add external access integration to snow object commands
+ * Add aliases for `snow object list/describe/drop` commands under:
+   * `snow stage` for stages
+   * `snow git` for git repository stages
+   * `snow streamlit` for streamlit apps
+   * `snow snowpark` for procedures and functions
+
+## Fixes and improvements
 
 ## Fixes and improvements
 * Improved support for quoted identifiers.

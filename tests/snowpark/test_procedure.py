@@ -4,6 +4,7 @@ from textwrap import dedent
 from unittest import mock
 from unittest.mock import call
 
+import pytest
 from snowflake.cli.api.constants import ObjectType
 from snowflake.connector import ProgrammingError
 
@@ -454,3 +455,28 @@ def test_init_procedure(mock_create_project_template, runner, temp_dir):
     mock_create_project_template.assert_called_once_with(
         "default_snowpark", project_directory="my_project2"
     )
+
+
+@mock.patch("snowflake.connector.connect")
+@pytest.mark.parametrize(
+    "command, parameters",
+    [
+        ("list", []),
+        ("list", ["--like", "PATTERN"]),
+        ("describe", ["NAME"]),
+        ("drop", ["NAME"]),
+    ],
+)
+def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(["object", command, "procedure", *parameters])
+    assert result.exit_code == 0, result.output
+    result = runner.invoke(
+        ["snowpark", command, "procedure", *parameters], catch_exceptions=False
+    )
+    assert result.exit_code == 0, result.output
+
+    queries = ctx.get_queries()
+    assert queries[0] == queries[1]
