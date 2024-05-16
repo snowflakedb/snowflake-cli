@@ -50,7 +50,7 @@ class TooManyFilesError(ClickException):
 
     def __init__(self, dest_path: Path):
         super().__init__(
-            f"{dedent(str(self.__doc__))})\ndest_path = {dest_path}".strip()
+            f"{dedent(str(self.__doc__))}\ndestination = {dest_path}".strip()
         )
         self.dest_path = dest_path
 
@@ -402,7 +402,9 @@ def delete(path: Path) -> None:
         spath.rmdir(recursive=True)  # remove dir and all contains
 
 
-def symlink_or_copy(src: Path, dst: Path, makedirs=True, overwrite=True) -> None:
+def symlink_or_copy(
+    src: Path, dst: Path, deploy_root: Path, makedirs=True, overwrite=True
+) -> None:
     """
     Tries to create a symlink to src at dst; failing that (i.e. in Windows
     without Administrator / Developer Mode) copies the file from src to dst instead.
@@ -413,6 +415,14 @@ def symlink_or_copy(src: Path, dst: Path, makedirs=True, overwrite=True) -> None
     sdst = SecurePath(dst)
     if makedirs:
         sdst.parent.mkdir(parents=True, exist_ok=True)
+
+    # Verify that the mapping isn't accidentally trying to create a file in the project source through symlinks.
+    # We need to ensure we're resolving symlinks for this check to be effective.
+    resolved_dst = dst.resolve()
+    resolved_deploy_root = deploy_root.resolve()
+    if resolved_deploy_root not in resolved_dst.parents:
+        raise NotInDeployRootError(dest_path=dst, deploy_root=deploy_root, src_path=src)
+
     if overwrite:
         delete(dst)
     try:
@@ -478,7 +488,7 @@ def build_bundle(
     for (absolute_src, absolute_dest) in bundle_map.all_mappings(
         absolute=True, expand_directories=False
     ):
-        symlink_or_copy(absolute_src, absolute_dest)
+        symlink_or_copy(absolute_src, absolute_dest, deploy_root=deploy_root)
 
     return bundle_map
 
