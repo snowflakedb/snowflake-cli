@@ -39,9 +39,6 @@ class ProjectDefinition(UpdatableModel):
     @classmethod
     def _convert_env(cls, env: Optional[Dict]) -> DictWithEnvironFallback:
         variables = DictWithEnvironFallback(env if env else {})
-        for key in variables:
-            # Accessing value first checks for env var, so in this way we update the in-memory state
-            variables[key] = variables[key]
         return variables
 
     @field_validator("definition_version")

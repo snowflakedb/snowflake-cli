@@ -173,12 +173,14 @@ def _check_for_cycles(nodes: defaultdict):
         visited: List[str] = []
         while q:
             curr = q.popleft()
-            if visited and curr == key:
+            if curr in visited:
                 raise ClickException(
                     "Cycle detected between variables: {}".format(" -> ".join(visited))
                 )
-            visited.append(curr)
-            q.extendleft(nodes[curr])
+            # Only nodes that have references can cause cycles
+            if curr in nodes:
+                visited.append(curr)
+                q.extendleft(nodes[curr])
 
 
 def _get_variables_with_dependencies(variables_data: DictWithEnvironFallback):
