@@ -340,3 +340,29 @@ def native_app_project_instance():
             },
         }
     )
+
+
+@pytest.fixture()
+def native_app_codegen_full_json():
+    return {
+        "object_type": "TABLE_FUNCTION",
+        "object_name": "SNOWPARK_TEMP_FUNCTION_WZUNHMZJKA",
+        "input_args": [{"name": "arg1", "datatype": "IntegerType"}],
+        "input_sql_types": ["INT"],
+        "return_sql": "RETURNS INT",
+        "runtime_version": "3.11",
+        "handler": "dummy_handler",
+        "external_access_integrations": ["integration_one", "integration_two"],
+        "secrets": {"key1": "secret_one", "key2": "integration_two"},
+        "inline_python_code": "dummy_inline_code",
+        "raw_imports": ["a/b/c.py"],
+        "all_packages": "'package_one', 'package_two'",
+        "all_imports": "'path_one', 'path_two'",
+        "replace": True,
+        "if_not_exists": False,
+        "execute_as": "OWNER",
+        "anonymous": False,
+        "func": "<lambda>",
+        "schema": "DATA",
+        "application_roles": ["APP_ADMIN", "APP_VIEWER"],
+    }

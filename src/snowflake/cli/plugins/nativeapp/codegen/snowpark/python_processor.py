@@ -1,6 +1,7 @@
 import json
 import pprint
 from pathlib import Path
+from textwrap import dedent
 from typing import Any, Dict, List, Optional
 
 from snowflake.cli.api.console import cli_console as cc
@@ -21,7 +22,9 @@ from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
     execute_script_in_sandbox,
 )
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.extension_function_utils import (
-    _enrich_entity,
+    enrich_ex_fn,
+    get_object_type_as_text,
+    sanitize_extension_function_data,
 )
 from snowflake.cli.plugins.nativeapp.utils import (
     filter_files,
@@ -29,9 +32,10 @@ from snowflake.cli.plugins.nativeapp.utils import (
 )
 
 DEFAULT_TIMEOUT = 30
+TEMPLATE_PATH = Path(__file__).parent / "callback_source.py.jinja"
 
 
-def is_python_file(file_path: Path):
+def _is_python_file(file_path: Path):
     """
     Checks if the given file is a python file.
     """
@@ -80,9 +84,6 @@ def _determine_virtual_env(
             "env_type": ExecutionEnvironmentType.CURRENT,
         }
     return {}
-
-
-TEMPLATE_PATH = Path(__file__).parent / "callback_source.py.jinja"
 
 
 def _execute_in_sandbox(
@@ -171,7 +172,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         artifact_to_process: PathMapping,
         processor_mapping: Optional[ProcessorMapping],
         **kwargs,
-    ) -> Dict[Path, Optional[Any]]:
+    ) -> Dict[Path, str]:
         """
         Intended to be the main method which can perform all relevant processing, and/or write to a target file, which depends on the type of processor.
         For SnowparkAnnotationProcessor, the target file is the setup script.
@@ -189,12 +190,12 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
             artifact_to_process
         )
 
-        # 2. Get entities through Snowpark callback
-        src_py_file_to_collected_entities: Dict[Path, Optional[Any]] = {}
+        # 2. Get raw extension functions through Snowpark callback
+        dest_file_py_file_to_collected_raw_ex_fns: Dict[Path, Optional[Any]] = {}
         for src_file, dest_file in src_py_file_to_dest_py_file_map.items():
             if dest_file.suffix == ".py":
                 try:
-                    collected_entities = _execute_in_sandbox(
+                    collected_raw_ex_fns = _execute_in_sandbox(
                         py_file=str(dest_file.resolve()),
                         deploy_root=self.deploy_root,
                         kwargs=kwargs,
@@ -206,29 +207,49 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                     cc.warning(
                         "Skipping generating code of all objects from this file."
                     )
-                    collected_entities = None
+                    collected_raw_ex_fns = None
 
-                src_py_file_to_collected_entities[dest_file] = collected_entities
-
-                if collected_entities is None:
-                    cc.message("No entities could be collected from the file path.")
+                if (collected_raw_ex_fns is None) or (len(collected_raw_ex_fns) == 0):
                     continue
 
                 cc.message(f"This is the file path in deploy root: {dest_file}\n")
-                cc.message("This is the list of collected entities:")
-                cc.message(pprint.pformat(collected_entities))
+                cc.message("This is the list of collected extension functions:")
+                cc.message(pprint.pformat(collected_raw_ex_fns))
 
-                # 4. Enrich entities by setting additional properties
-                for entity in collected_entities:
-                    _enrich_entity(
-                        entity=entity,
-                        py_file=dest_file,
-                        deploy_root=self.deploy_root,
-                        suffix_str=".py",
+                filtered_collection = list(
+                    filter(
+                        lambda item: (item is not None) and (len(item) > 0),
+                        collected_raw_ex_fns,
+                    )
+                )
+                if len(filtered_collection) != len(collected_raw_ex_fns):
+                    cc.warning(
+                        "Discovered extension functions that have value None or do not contain any information."
+                    )
+                    cc.warning(
+                        "Skipping generating code of all such objects from this file."
                     )
 
+                # 4. Enrich the raw extension functions by setting additional properties
+                for raw_ex_fn in filtered_collection:
+                    sanitize_extension_function_data(ex_fn=raw_ex_fn, py_file=dest_file)
+                    enrich_ex_fn(
+                        ex_fn=raw_ex_fn,
+                        py_file=dest_file,
+                        deploy_root=self.deploy_root,
+                    )
+
+                dest_file_py_file_to_collected_raw_ex_fns[
+                    dest_file
+                ] = filtered_collection
+
+        # 4. For each extension function, generate its related SQL statements
+        dest_file_py_file_to_ddl_map: Dict[
+            Path, str
+        ] = self.generate_sql_ddl_statements(dest_file_py_file_to_collected_raw_ex_fns)
+
         # TODO: Temporary for testing, while feature is being built in phases
-        return src_py_file_to_collected_entities
+        return dest_file_py_file_to_ddl_map
 
     def get_src_py_file_to_dest_py_file_map(
         self,
@@ -258,7 +279,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         ):
             src_files_gen = self.project_root.glob(artifact_src)
             src_py_files_gen = filter_files(
-                generator=src_files_gen, predicate_func=is_python_file
+                generator=src_files_gen, predicate_func=_is_python_file
             )
             for py_file in src_py_files_gen:
                 _add_py_file_dest_to_dict(
@@ -277,7 +298,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                 if path.is_dir():
                     file_gen = get_all_file_paths_under_dir(path)
                     py_file_gen = filter_files(
-                        generator=file_gen, predicate_func=is_python_file
+                        generator=file_gen, predicate_func=_is_python_file
                     )
                     for py_file in py_file_gen:
                         _add_py_file_dest_to_dict(
@@ -313,3 +334,137 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         # TODO: Does this case 5 need to be considered?
 
         return src_py_file_to_dest_py_file_map
+
+    def generate_sql_ddl_statements(
+        self, dest_file_py_file_to_collected_raw_ex_fns: Dict[Path, Optional[Any]]
+    ) -> Dict[Path, str]:
+        """
+        Generates SQL DDL statements based on the entities collected from a set of python files in the artifact_to_process.
+        """
+        dest_file_py_file_to_ddl_map: Dict[Path, str] = {}
+        for py_file in dest_file_py_file_to_collected_raw_ex_fns:
+
+            collected_ex_fns = dest_file_py_file_to_collected_raw_ex_fns[
+                py_file
+            ]  # Collected entities is List[Dict[str, Any]]
+            if collected_ex_fns is None:
+                continue
+
+            ddl_lst_per_ef: List[str] = []
+            for ex_fn in collected_ex_fns:
+                create_sql = generate_create_sql_ddl_statements(ex_fn)
+                if create_sql:
+                    ddl_lst_per_ef.append(create_sql)
+                    grant_sql = generate_grant_sql_ddl_statements(ex_fn)
+                    if grant_sql:
+                        ddl_lst_per_ef.append(grant_sql)
+
+            if len(ddl_lst_per_ef) > 0:
+                dest_file_py_file_to_ddl_map[py_file] = "\n".join(ddl_lst_per_ef)
+
+        return dest_file_py_file_to_ddl_map
+
+
+def generate_create_sql_ddl_statements(ex_fn: Dict[str, Any]) -> Optional[str]:
+    """
+    Generates a "CREATE FUNCTION/PROCEDURE ... " SQL DDL statement based on a dictionary of extension function properties.
+    Logic for this create statement has been lifted from snowflake-snowpark-python v1.15.0 package.
+    """
+
+    object_type = ex_fn["object_type"]
+    object_name = ex_fn["object_name"]
+
+    if object_type == "PROCEDURE" and ex_fn["anonymous"]:
+        cc.warning(
+            dedent(
+                f"""{object_type.replace(' ', '-')} {object_name} cannot be an anonymous procedure in a Snowflake Native App.
+                    Skipping generation of 'CREATE FUNCTION/PROCEDURE ...' SQL statement for this object."""
+            )
+        )
+        return None
+
+    replace_in_sql = f" OR REPLACE " if ex_fn["replace"] else ""
+
+    sql_func_args = ",".join(
+        [
+            f"{a['name']} {t}"
+            for a, t in zip(ex_fn["input_args"], ex_fn["input_sql_types"])
+        ]
+    )
+
+    imports_in_sql = (
+        f"\nIMPORTS=({ex_fn['all_imports']})" if ex_fn["all_imports"] else ""
+    )
+
+    packages_in_sql = (
+        f"\nPACKAGES=({ex_fn['all_packages']})" if ex_fn["all_packages"] else ""
+    )
+
+    external_access_integrations = ex_fn["external_access_integrations"]
+    external_access_integrations_in_sql = (
+        f"""\nEXTERNAL_ACCESS_INTEGRATIONS=({','.join(external_access_integrations)})"""
+        if external_access_integrations
+        else ""
+    )
+
+    secrets = ex_fn["secrets"]
+    secrets_in_sql = (
+        f"""\nSECRETS=({",".join([f"'{k}'={v}" for k, v in secrets.items()])})"""
+        if secrets
+        else ""
+    )
+
+    execute_as = ex_fn["execute_as"]
+    if execute_as is None:
+        execute_as_sql = ""
+    else:
+        execute_as_sql = f"\nEXECUTE AS {execute_as}"
+
+    inline_python_code = ex_fn["inline_python_code"]
+    if inline_python_code:
+        inline_python_code_in_sql = f"""\
+AS $$
+{inline_python_code}
+$$
+"""
+    else:
+        inline_python_code_in_sql = ""
+
+    create_query = dedent(
+        f"""\
+CREATE{replace_in_sql}
+{get_object_type_as_text(object_type)} {'IF NOT EXISTS' if ex_fn["if_not_exists"] else ''}{object_name}({sql_func_args})
+{ex_fn["return_sql"]}
+LANGUAGE PYTHON
+RUNTIME_VERSION={ex_fn["runtime_version"]} {imports_in_sql}{packages_in_sql}{external_access_integrations_in_sql}{secrets_in_sql}
+HANDLER='{ex_fn["handler"]}'{execute_as_sql}
+{inline_python_code_in_sql}"""
+    )
+
+    return create_query
+
+
+def generate_grant_sql_ddl_statements(ex_fn: Dict[str, Any]) -> Optional[str]:
+    """
+    Generates a "GRANT USAGE TO ... " SQL DDL statement based on a dictionary of extension function properties.
+    """
+
+    if ex_fn["application_roles"] is None:
+        cc.warning(
+            "Skipping generation of 'GRANT USAGE ON ...' SQL statement for this object due to lack of application roles."
+        )
+        return None
+
+    grant_sql_statements = []
+    for app_role in ex_fn["application_roles"]:
+        grant_sql_statement = dedent(
+            f"""\
+            GRANT USAGE ON {get_object_type_as_text(ex_fn["object_type"])} {ex_fn["object_name"]}
+            TO APPLICATION ROLE {app_role};
+            """
+        )
+        grant_sql_statements.append(grant_sql_statement)
+
+    if len(grant_sql_statements) == 0:
+        return None
+    return "\n".join(grant_sql_statements)
