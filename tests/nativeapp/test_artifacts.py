@@ -214,7 +214,7 @@ def test_bundle_map_can_rename_directories(mapping_factory, bundle_map):
         {
             "app": "deployed",
         },
-        walk_directories=False,
+        expand_directories=False,
     )
 
     verify_mappings(
@@ -224,7 +224,7 @@ def test_bundle_map_can_rename_directories(mapping_factory, bundle_map):
             "app/setup.sql": "deployed/setup.sql",
             "app/manifest.yml": "deployed/manifest.yml",
         },
-        walk_directories=True,
+        expand_directories=True,
     )
 
 
@@ -264,7 +264,7 @@ def test_bundle_map_honours_trailing_slashes(mapping_factory, bundle_map):
             "src/snowpark/a/c/file5.py": "deployed/snowpark/a/c/file5.py",
             "README.md": "deployed/README.md",
         },
-        walk_directories=True,
+        expand_directories=True,
     )
 
 
@@ -368,7 +368,7 @@ def test_bundle_map_allows_mapping_file_to_multiple_destinations(
                 "deployed/streamlit_copy/helpers/file2.py",
             ],
         },
-        walk_directories=True,
+        expand_directories=True,
     )
 
 
@@ -395,7 +395,7 @@ def test_bundle_map_handles_missing_dest(bundle_map):
             "src/streamlit/helpers/file1.py": "src/streamlit/helpers/file1.py",
             "src/streamlit/helpers/file2.py": "src/streamlit/helpers/file2.py",
         },
-        walk_directories=True,
+        expand_directories=True,
     )
 
 
@@ -436,7 +436,7 @@ def test_bundle_map_allows_deploying_other_sources_to_renamed_directory(
             "src/snowpark/a/c": "snowpark/a/c",
             "src/snowpark/a/c/file5.py": "snowpark/a/c/file5.py",
         },
-        walk_directories=True,
+        expand_directories=True,
     )
 
 
@@ -518,7 +518,7 @@ def test_bundle_map_all_mappings_can_generates_absolute_directories_when_request
             project_root / "src/streamlit": deploy_root / "deployed_streamlit",
         },
         absolute=True,
-        walk_directories=False,
+        expand_directories=False,
     )
 
     verify_mappings(
@@ -545,7 +545,7 @@ def test_bundle_map_all_mappings_can_generates_absolute_directories_when_request
             / "deployed_streamlit/helpers/file2.py",
         },
         absolute=True,
-        walk_directories=True,
+        expand_directories=True,
     )
 
 
@@ -582,7 +582,7 @@ def test_bundle_map_all_mappings_accepts_predicates(bundle_map):
             / "deployed_streamlit/helpers/file2.py",
         },
         absolute=True,
-        walk_directories=True,
+        expand_directories=True,
         predicate=collecting_predicate(
             lambda src, dest: src.is_file() and src.suffix == ".py"
         ),
@@ -618,7 +618,7 @@ def test_bundle_map_all_mappings_accepts_predicates(bundle_map):
             "src/streamlit/helpers/file2.py": "deployed_streamlit/helpers/file2.py",
         },
         absolute=False,
-        walk_directories=True,
+        expand_directories=True,
         predicate=collecting_predicate(lambda src, dest: src.suffix == ".py"),
     )
 

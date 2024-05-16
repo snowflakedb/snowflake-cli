@@ -205,7 +205,7 @@ class BundleMap:
         self,
         src: Path,
         absolute: bool = False,
-        walk_directories: bool = False,
+        expand_directories: bool = False,
         predicate: ArtifactPredicate = lambda src, dest: True,
     ) -> Iterator[Tuple[Path, Path]]:
         canonical_src = self._canonical_src(src)
@@ -220,8 +220,8 @@ class BundleMap:
             if predicate(src_for_output, d):
                 yield src_for_output, d
 
-        if absolute_src.is_dir() and walk_directories:
-            # both src and dest are directories, and walking directories was requested. Traverse src, and map each
+        if absolute_src.is_dir() and expand_directories:
+            # both src and dest are directories, and expanding directories was requested. Traverse src, and map each
             # file to the dest directory
             for (root, subdirs, files) in os.walk(absolute_src, followlinks=True):
                 relative_root = Path(root).relative_to(absolute_src)
@@ -235,7 +235,7 @@ class BundleMap:
     def all_mappings(
         self,
         absolute: bool = False,
-        walk_directories: bool = False,
+        expand_directories: bool = False,
         predicate: ArtifactPredicate = lambda src, dest: True,
     ) -> Iterator[Tuple[Path, Path]]:
         """
@@ -246,7 +246,7 @@ class BundleMap:
             self: this instance
             absolute (bool): Specifies whether the yielded paths should be joined with the project or deploy roots,
              as appropriate.
-            walk_directories (bool): Specifies whether directory to directory mappings should be expanded to
+            expand_directories (bool): Specifies whether directory to directory mappings should be expanded to
              resolve their contained files.
             predicate (PathPredicate): If provided, the predicate is invoked with both the source path and the
              destination path as arguments. Only pairs selected by the predicate are returned.
@@ -258,7 +258,7 @@ class BundleMap:
             for deployed_src, deployed_dest in self._mappings_for_source(
                 src,
                 absolute=absolute,
-                walk_directories=walk_directories,
+                expand_directories=expand_directories,
                 predicate=predicate,
             ):
                 yield deployed_src, deployed_dest
@@ -458,7 +458,7 @@ def build_bundle(
         bundle_map.add(artifact)
 
     for (absolute_src, absolute_dest) in bundle_map.all_mappings(
-        absolute=True, walk_directories=False
+        absolute=True, expand_directories=False
     ):
         symlink_or_copy(absolute_src, absolute_dest)
 
