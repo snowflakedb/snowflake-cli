@@ -4,6 +4,7 @@ import itertools
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from textwrap import dedent
 from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 from click.exceptions import ClickException
@@ -33,11 +34,11 @@ class ArtifactError(ClickException):
 
 class SourceNotFoundError(ClickException):
     """
-    No match was not found for the specified source in the project directory
+    No match was found for the specified source in the project directory
     """
 
     def __init__(self, src: Union[str, Path]):
-        super().__init__(f"{self.__doc__}: {src}")
+        super().__init__(f"{dedent(str(self.__doc__))}: {src}".strip())
 
 
 class TooManyFilesError(ClickException):
@@ -48,7 +49,9 @@ class TooManyFilesError(ClickException):
     dest_path: Path
 
     def __init__(self, dest_path: Path):
-        super().__init__(f"{self.__doc__}\ndest_path = {dest_path}")
+        super().__init__(
+            f"{dedent(str(self.__doc__))})\ndest_path = {dest_path}".strip()
+        )
         self.dest_path = dest_path
 
 
@@ -62,17 +65,24 @@ class NotInDeployRootError(ClickException):
 
     dest_path: Union[str, Path]
     deploy_root: Path
+    src_path: Optional[Union[str, Path]]
 
-    def __init__(self, dest_path: Union[Path, str], deploy_root: Path):
-        super().__init__(
-            f"""
-            {self.__doc__}
-            dest_path = {dest_path}
-            deploy_root = {deploy_root}
-            """
-        )
+    def __init__(
+        self,
+        *,
+        dest_path: Union[Path, str],
+        deploy_root: Path,
+        src_path: Optional[Union[str, Path]] = None,
+    ):
+        message = dedent(str(self.__doc__))
+        message += f"\ndestination = {dest_path}"
+        message += f"\ndeploy root = {deploy_root}"
+        if src_path is not None:
+            message += f"""\nsource = {src_path}"""
+        super().__init__(message.strip())
         self.dest_path = dest_path
         self.deploy_root = deploy_root
+        self.src_path = src_path
 
 
 @dataclass
@@ -117,12 +127,14 @@ class BundleMap:
             map_as_child {bool} -- when True, the source will be added as a child of the specified destination.
         """
         absolute_src = self._absolute_src(src)
-        absolute_dest = self._absolute_dest(dest)
+        absolute_dest = self._absolute_dest(dest, src_path=src)
         dest_is_dir = absolute_src.is_dir() or map_as_child
 
         # Check for the special case of './' as a target ('.' is not allowed)
         if absolute_dest == self._deploy_root and not map_as_child:
-            raise NotInDeployRootError(dest, self._deploy_root)
+            raise NotInDeployRootError(
+                dest_path=dest, deploy_root=self._deploy_root, src_path=src
+            )
 
         if self._deploy_root in absolute_src.parents:
             # ignore this item since it's in the deploy root. This can happen if the bundle map is create
@@ -175,7 +187,11 @@ class BundleMap:
                     # handle '/' as the destination as a special case. This is because specifying only '/' as a
                     # a destination looks like '.' once all forwards slashes are stripped. If we don't handle it
                     # specially here, `dest: /` would incorrectly be allowed.
-                    raise NotInDeployRootError(dest, self._deploy_root)
+                    raise NotInDeployRootError(
+                        dest_path=dest,
+                        deploy_root=self._deploy_root,
+                        src_path=resolved_src,
+                    )
                 dest_path = Path(dest.rstrip("/"))
                 if dest_path.is_absolute():
                     raise ArtifactError("Destination path must be a relative path")
@@ -311,7 +327,7 @@ class BundleMap:
             )
         return resolved_src
 
-    def _absolute_dest(self, dest: Path) -> Path:
+    def _absolute_dest(self, dest: Path, src_path: Optional[Path] = None) -> Path:
         if dest.is_absolute():
             resolved_dest = resolve_without_follow(dest)
         else:
@@ -320,7 +336,9 @@ class BundleMap:
             self._deploy_root != resolved_dest
             and self._deploy_root not in resolved_dest.parents
         ):
-            raise NotInDeployRootError(dest, self._deploy_root)
+            raise NotInDeployRootError(
+                dest_path=dest, deploy_root=self._deploy_root, src_path=src_path
+            )
 
         return resolved_dest
 
