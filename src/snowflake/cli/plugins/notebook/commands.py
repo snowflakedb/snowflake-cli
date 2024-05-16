@@ -7,6 +7,8 @@ from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.types import MessageResult
 from snowflake.cli.plugins.notebook.manager import NotebookManager
 
+from .types import NotebookName, NotebookStagePath
+
 app = SnowTyper(
     name="notebook",
     help="Manages notebooks in Snowflake.",
@@ -16,7 +18,8 @@ log = logging.getLogger(__name__)
 
 NOTEBOOK_IDENTIFIER = identifier_argument(sf_object="notebook", example="MY_NOTEBOOK")
 NOTEBOOK_STAGE_PATH = identifier_argument(
-    sf_object="stage", example="@MY_STAGE/notebook.ipynb"
+    sf_object="stage",
+    example="@MY_STAGE/notebook.ipynb",
 )
 
 
@@ -56,7 +59,10 @@ def open_cmd(
 
 @app.command(requires_connection=True)
 def create(
-    identifier: str = NOTEBOOK_IDENTIFIER, stage: str = NOTEBOOK_STAGE_PATH, **options
+    identifier: NotebookName = NOTEBOOK_IDENTIFIER,
+    notebook_file: NotebookStagePath = NOTEBOOK_STAGE_PATH,
+    **options,
 ):
     """Creates notebook from stage."""
-    _ = NotebookManager().create(notebook_name=identifier, stage=stage)
+    _ = NotebookManager().create(notebook_name=identifier, notebook_file=notebook_file)
+    return MessageResult(f"Notebook {identifier} created.")

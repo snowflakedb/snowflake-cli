@@ -1,6 +1,8 @@
 from unittest import mock
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, PropertyMock
 
+import pytest
+from snowflake.cli.plugins.notebook.exceptions import NotebookStagePathError
 from snowflake.cli.plugins.notebook.manager import NotebookManager
 
 
@@ -21,3 +23,37 @@ def test_get_url(mock_url):
     mock_url.assert_called_once_with(
         conn_mock, f"/#/notebooks/NB_DATABASE.NB_SCHEMA.MY_NOTEBOOK"
     )
+
+
+@mock.patch.object(NotebookManager, "_execute_query")
+@mock.patch("snowflake.cli.plugins.notebook.manager.cli_context")
+def test_create(mock_ctx, mock_execute):
+    type(mock_ctx.connection).warehouse = PropertyMock(return_value="MY_WH")
+
+    _ = NotebookManager().create(
+        notebook_name="my_notebook",
+        notebook_file="@stage/nb file.ipynb",
+    )
+    expected_query = (
+        "CREATE OR REPLACE NOTEBOOK MY_NOTEBOOK FROM '@stage'"
+        " QUERY_WAREHOUSE = 'MY_WH'"
+        " MAIN_FILE = 'nb file.ipynb';\n"
+        "ALTER NOTEBOOK MY_NOTEBOOK ADD LIVE VERSION FROM LAST;"
+    )
+    mock_execute.assert_called_once_with(query=expected_query)
+
+
+@pytest.mark.parametrize(
+    "stage_path",
+    (
+        pytest.param("@stage/", id="no file name"),
+        pytest.param("@stage/with/path", id="stage with path no file"),
+    ),
+)
+@mock.patch.object(NotebookManager, "_execute_query")
+@mock.patch("snowflake.cli.plugins.notebook.manager.cli_context")
+def test_error_parsing_stage(mock_ctx, _, stage_path):
+    type(mock_ctx.connection).warehouse = PropertyMock(return_value="my_wh")
+
+    with pytest.raises(NotebookStagePathError):
+        NotebookManager().create(notebook_name="my_notebook", notebook_file=stage_path)

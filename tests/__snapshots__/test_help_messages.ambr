@@ -1730,19 +1730,19 @@
 # name: test_help_messages[notebook.create]
   '''
                                                                                   
-   Usage: default notebook create [OPTIONS] IDENTIFIER STAGE                      
+   Usage: default notebook create [OPTIONS] IDENTIFIER NOTEBOOK_FILE              
                                                                                   
    Creates notebook from stage.                                                   
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    identifier      TEXT  Identifier of the notebook. For example:          │
-  │                            MY_NOTEBOOK                                       │
-  │                            [default: None]                                   │
-  │                            [required]                                        │
-  │ *    stage           TEXT  Identifier of the stage. For example:             │
-  │                            @MY_STAGE/notebook.ipynb                          │
-  │                            [default: None]                                   │
-  │                            [required]                                        │
+  │ *    identifier         TEXT  Identifier of the notebook. For example:       │
+  │                               MY_NOTEBOOK                                    │
+  │                               [default: None]                                │
+  │                               [required]                                     │
+  │ *    notebook_file      TEXT  Identifier of the stage. For example:          │
+  │                               @MY_STAGE/notebook.ipynb                       │
+  │                               [default: None]                                │
+  │                               [required]                                     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │

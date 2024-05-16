@@ -33,3 +33,17 @@ def test_open(mock_launch, mock_url, runner):
     assert result.output == "http://my.url\n"
     mock_url.assert_called_once_with(notebook_name="my_notebook")
     mock_launch.assert_called_once_with("http://my.url")
+
+
+@mock.patch.object(NotebookManager, "create")
+def test_create(mock_create, runner):
+    notebook_name = "my_notebook"
+    notebook_file = "@stage/notebook.ipynb"
+
+    result = runner.invoke(("notebook", "create", notebook_name, notebook_file))
+    assert result.exit_code == 0, result.output
+    assert result.output == "Notebook my_notebook created.\n"
+    mock_create.assert_called_once_with(
+        notebook_name=notebook_name,
+        notebook_file=notebook_file,
+    )
