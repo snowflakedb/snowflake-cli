@@ -1730,22 +1730,20 @@
 # name: test_help_messages[notebook.create]
   '''
                                                                                   
-   Usage: default notebook create [OPTIONS] IDENTIFIER NOTEBOOK_FILE              
+   Usage: default notebook create [OPTIONS] IDENTIFIER                            
                                                                                   
    Creates notebook from stage.                                                   
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    identifier         TEXT  Identifier of the notebook. For example:       │
-  │                               MY_NOTEBOOK                                    │
-  │                               [default: None]                                │
-  │                               [required]                                     │
-  │ *    notebook_file      TEXT  Identifier of the stage. For example:          │
-  │                               @MY_STAGE/notebook.ipynb                       │
-  │                               [default: None]                                │
-  │                               [required]                                     │
+  │ *    identifier      TEXT  Identifier of the notebook. For example:          │
+  │                            MY_NOTEBOOK                                       │
+  │                            [required]                                        │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --help  -h        Show this message and exit.                                │
+  │ *  --notebook-file  -f      TEXT  Stage path to notebook file.               │
+  │                                   [default: None]                            │
+  │                                   [required]                                 │
+  │    --help           -h            Show this message and exit.                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │

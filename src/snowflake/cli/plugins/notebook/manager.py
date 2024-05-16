@@ -44,5 +44,5 @@ class NotebookManager(SqlExecutionMixin):
             f"ALTER NOTEBOOK {notebook_name.upper()} ADD LIVE VERSION FROM LAST;"
         )
 
-        query = "\n".join((create_query, alter_version_query))
-        return self._execute_query(query=query)
+        queries = "\n".join((create_query, alter_version_query))
+        return self._execute_queries(queries=queries)

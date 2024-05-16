@@ -4,8 +4,9 @@ import typer
 from snowflake.cli.api.commands.flags import identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.feature_flags import FeatureFlag
-from snowflake.cli.api.output.types import MessageResult
+from snowflake.cli.api.output.types import MessageResult, MultipleResults, QueryResult
 from snowflake.cli.plugins.notebook.manager import NotebookManager
+from typing_extensions import Annotated
 
 from .types import NotebookName, NotebookStagePath
 
@@ -17,9 +18,10 @@ app = SnowTyper(
 log = logging.getLogger(__name__)
 
 NOTEBOOK_IDENTIFIER = identifier_argument(sf_object="notebook", example="MY_NOTEBOOK")
-NOTEBOOK_STAGE_PATH = identifier_argument(
-    sf_object="stage",
-    example="@MY_STAGE/notebook.ipynb",
+NotebookFile: NotebookStagePath = typer.Option(
+    "--notebook-file",
+    "-f",
+    help="Stage path to notebook file.",
 )
 
 
@@ -59,10 +61,12 @@ def open_cmd(
 
 @app.command(requires_connection=True)
 def create(
-    identifier: NotebookName = NOTEBOOK_IDENTIFIER,
-    notebook_file: NotebookStagePath = NOTEBOOK_STAGE_PATH,
+    identifier: Annotated[NotebookName, NOTEBOOK_IDENTIFIER],
+    notebook_file: Annotated[NotebookStagePath, NotebookFile],
     **options,
 ):
     """Creates notebook from stage."""
-    _ = NotebookManager().create(notebook_name=identifier, notebook_file=notebook_file)
-    return MessageResult(f"Notebook {identifier} created.")
+    results = NotebookManager().create(
+        notebook_name=identifier, notebook_file=notebook_file
+    )
+    return MultipleResults(QueryResult(c) for c in results)

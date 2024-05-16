@@ -25,7 +25,7 @@ def test_get_url(mock_url):
     )
 
 
-@mock.patch.object(NotebookManager, "_execute_query")
+@mock.patch.object(NotebookManager, "_execute_queries")
 @mock.patch("snowflake.cli.plugins.notebook.manager.cli_context")
 def test_create(mock_ctx, mock_execute):
     type(mock_ctx.connection).warehouse = PropertyMock(return_value="MY_WH")
@@ -40,7 +40,7 @@ def test_create(mock_ctx, mock_execute):
         " MAIN_FILE = 'nb file.ipynb';\n"
         "ALTER NOTEBOOK MY_NOTEBOOK ADD LIVE VERSION FROM LAST;"
     )
-    mock_execute.assert_called_once_with(query=expected_query)
+    mock_execute.assert_called_once_with(queries=expected_query)
 
 
 @pytest.mark.parametrize(
@@ -50,9 +50,8 @@ def test_create(mock_ctx, mock_execute):
         pytest.param("@stage/with/path", id="stage with path no file"),
     ),
 )
-@mock.patch.object(NotebookManager, "_execute_query")
 @mock.patch("snowflake.cli.plugins.notebook.manager.cli_context")
-def test_error_parsing_stage(mock_ctx, _, stage_path):
+def test_error_parsing_stage(mock_ctx, stage_path):
     type(mock_ctx.connection).warehouse = PropertyMock(return_value="my_wh")
 
     with pytest.raises(NotebookStagePathError):

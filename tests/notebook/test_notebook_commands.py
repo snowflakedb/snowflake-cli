@@ -40,9 +40,11 @@ def test_create(mock_create, runner):
     notebook_name = "my_notebook"
     notebook_file = "@stage/notebook.ipynb"
 
-    result = runner.invoke(("notebook", "create", notebook_name, notebook_file))
+    result = runner.invoke(
+        ("notebook", "create", notebook_name, "--notebook-file", notebook_file)
+    )
     assert result.exit_code == 0, result.output
-    assert result.output == "Notebook my_notebook created.\n"
+
     mock_create.assert_called_once_with(
         notebook_name=notebook_name,
         notebook_file=notebook_file,
