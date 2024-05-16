@@ -71,14 +71,14 @@ def test_deploy_only_streamlit_file(
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
+        "create stage if not exists MockDatabase.MockSchema.streamlit",
         _put_query(
-            "streamlit_app.py", "@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/test_streamlit"
+            "streamlit_app.py", "@MockDatabase.MockSchema.streamlit/test_streamlit"
         ),
         dedent(
             f"""
-            CREATE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
-            ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
+            CREATE STREAMLIT MockDatabase.MockSchema.{STREAMLIT_NAME}
+            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
@@ -121,14 +121,14 @@ def test_deploy_only_streamlit_file_no_stage(
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
+        "create stage if not exists MockDatabase.MockSchema.streamlit",
         _put_query(
-            "streamlit_app.py", "@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/test_streamlit"
+            "streamlit_app.py", "@MockDatabase.MockSchema.streamlit/test_streamlit"
         ),
         dedent(
             f"""
-            CREATE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
-            ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
+            CREATE STREAMLIT MockDatabase.MockSchema.{STREAMLIT_NAME}
+            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
@@ -171,14 +171,14 @@ def test_deploy_only_streamlit_file_replace(
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
+        "create stage if not exists MockDatabase.MockSchema.streamlit",
         _put_query(
-            "streamlit_app.py", "@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/test_streamlit"
+            "streamlit_app.py", "@MockDatabase.MockSchema.streamlit/test_streamlit"
         ),
         dedent(
             f"""
-            CREATE OR REPLACE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
-            ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
+            CREATE OR REPLACE STREAMLIT MockDatabase.MockSchema.{STREAMLIT_NAME}
+            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
@@ -236,16 +236,16 @@ def test_deploy_streamlit_and_environment_files(
 
         result = runner.invoke(["streamlit", "deploy"])
 
-    root_path = f"@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}"
+    root_path = f"@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
+        "create stage if not exists MockDatabase.MockSchema.streamlit",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", root_path),
         dedent(
             f"""
-            CREATE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
-            ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
+            CREATE STREAMLIT MockDatabase.MockSchema.{STREAMLIT_NAME}
+            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
@@ -276,16 +276,16 @@ def test_deploy_streamlit_and_pages_files(
         (pdir / "environment.yml").unlink()
         result = runner.invoke(["streamlit", "deploy"])
 
-    root_path = f"@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}"
+    root_path = f"@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
+        "create stage if not exists MockDatabase.MockSchema.streamlit",
         _put_query("streamlit_app.py", root_path),
         _put_query("pages/*.py", f"{root_path}/pages"),
         dedent(
             f"""
-            CREATE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
-            ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
+            CREATE STREAMLIT MockDatabase.MockSchema.{STREAMLIT_NAME}
+            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
@@ -315,10 +315,10 @@ def test_deploy_all_streamlit_files(
     with project_directory("streamlit_full_definition"):
         result = runner.invoke(["streamlit", "deploy"])
 
-    root_path = f"@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}"
+    root_path = f"@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT",
+        "create stage if not exists MockDatabase.MockSchema.streamlit",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", root_path),
         _put_query("pages/*.py", f"{root_path}/pages"),
@@ -326,8 +326,8 @@ def test_deploy_all_streamlit_files(
         _put_query("extra_file.py", root_path),
         dedent(
             f"""
-            CREATE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
-            ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT/{STREAMLIT_NAME}'
+            CREATE STREAMLIT MockDatabase.MockSchema.{STREAMLIT_NAME}
+            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
@@ -360,17 +360,17 @@ def test_deploy_put_files_on_stage(
     ):
         result = runner.invoke(["streamlit", "deploy"])
 
-    root_path = f"@MOCKDATABASE.MOCKSCHEMA.STREAMLIT_STAGE/{STREAMLIT_NAME}"
+    root_path = f"@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT_STAGE",
+        "create stage if not exists MockDatabase.MockSchema.streamlit_stage",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", root_path),
         _put_query("pages/*.py", f"{root_path}/pages"),
         dedent(
             f"""
-            CREATE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
-            ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT_STAGE/{STREAMLIT_NAME}'
+            CREATE STREAMLIT MockDatabase.MockSchema.{STREAMLIT_NAME}
+            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
@@ -400,17 +400,17 @@ def test_deploy_all_streamlit_files_not_defaults(
     with project_directory("example_streamlit_no_defaults"):
         result = runner.invoke(["streamlit", "deploy"])
 
-    root_path = f"@MOCKDATABASE.MOCKSCHEMA.STREAMLIT_STAGE/{STREAMLIT_NAME}"
+    root_path = f"@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.STREAMLIT_STAGE",
+        "create stage if not exists MockDatabase.MockSchema.streamlit_stage",
         _put_query("main.py", root_path),
         _put_query("streamlit_environment.yml", root_path),
         _put_query("streamlit_pages/*.py", f"{root_path}/pages"),
         dedent(
             f"""
-            CREATE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
-            ROOT_LOCATION = '@MOCKDATABASE.MOCKSCHEMA.STREAMLIT_STAGE/{STREAMLIT_NAME}'
+            CREATE STREAMLIT MockDatabase.MockSchema.{STREAMLIT_NAME}
+            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}'
             MAIN_FILE = 'main.py'
             QUERY_WAREHOUSE = streamlit_warehouse
             """
@@ -440,20 +440,17 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
     with project_directory("example_streamlit"):
         result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
-    root_path = (
-        f"@streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
-        "default_checkout"
-    )
+    root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         dedent(
             f"""
-            CREATE STREAMLIT IF NOT EXISTS MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
+            CREATE STREAMLIT IF NOT EXISTS MockDatabase.MockSchema.{STREAMLIT_NAME}
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
         ).strip(),
-        f"ALTER streamlit MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()} CHECKOUT",
+        f"ALTER streamlit MockDatabase.MockSchema.{STREAMLIT_NAME} CHECKOUT",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*.py", f"{root_path}/pages"),
@@ -505,16 +502,13 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
 
     assert result2.exit_code == 0, result2.output
 
-    root_path = (
-        f"@streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
-        "default_checkout"
-    )
+    root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
 
     # Same as normal, except no CHECKOUT query
     assert ctx.get_queries() == [
         dedent(
             f"""
-            CREATE STREAMLIT IF NOT EXISTS MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
+            CREATE STREAMLIT IF NOT EXISTS MockDatabase.MockSchema.{STREAMLIT_NAME}
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
@@ -547,20 +541,17 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
     with project_directory("example_streamlit_no_stage"):
         result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
-    root_path = (
-        f"@streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
-        "default_checkout"
-    )
+    root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         dedent(
             f"""
-            CREATE STREAMLIT IF NOT EXISTS MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
+            CREATE STREAMLIT IF NOT EXISTS MockDatabase.MockSchema.{STREAMLIT_NAME}
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
         ).strip(),
-        f"ALTER streamlit MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()} CHECKOUT",
+        f"ALTER streamlit MockDatabase.MockSchema.{STREAMLIT_NAME} CHECKOUT",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*.py", f"{root_path}/pages"),
@@ -589,20 +580,17 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
     with project_directory("example_streamlit"):
         result = runner.invoke(["streamlit", "deploy", "--experimental", "--replace"])
 
-    root_path = (
-        f"@streamlit/MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}/"
-        "default_checkout"
-    )
+    root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         dedent(
             f"""
-            CREATE OR REPLACE STREAMLIT MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()}
+            CREATE OR REPLACE STREAMLIT MockDatabase.MockSchema.{STREAMLIT_NAME}
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
         ).strip(),
-        f"ALTER streamlit MOCKDATABASE.MOCKSCHEMA.{STREAMLIT_NAME.upper()} CHECKOUT",
+        f"ALTER streamlit MockDatabase.MockSchema.{STREAMLIT_NAME} CHECKOUT",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*.py", f"{root_path}/pages"),

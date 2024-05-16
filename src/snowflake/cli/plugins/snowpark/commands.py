@@ -27,6 +27,7 @@ from snowflake.cli.api.constants import (
 from snowflake.cli.api.exceptions import (
     SecretsWithoutExternalAccessIntegrationError,
 )
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -34,7 +35,6 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
 )
 from snowflake.cli.api.project.schemas.snowpark.callable import (
-    Callable,
     FunctionSchema,
     ProcedureSchema,
 )
@@ -153,7 +153,7 @@ def deploy(
     # Create stage
     stage_name = snowpark.stage_name
     stage_manager = StageManager()
-    stage_name = stage_manager.to_fully_qualified_name(stage_name)
+    stage_name = FQN.from_string(stage_name).using_context()
     stage_manager.create(
         stage_name=stage_name, comment="deployments managed by Snowflake CLI"
     )
@@ -202,7 +202,7 @@ def deploy(
 
 
 def _assert_object_definitions_are_correct(
-    object_type, object_definitions: List[Callable]
+    object_type, object_definitions: List[FunctionSchema | ProcedureSchema]
 ):
     for definition in object_definitions:
         database = definition.database
@@ -277,7 +277,7 @@ def get_app_stage_path(stage_name: Optional[str], project_name: str) -> str:
 def _deploy_single_object(
     manager: FunctionManager | ProcedureManager,
     object_type: ObjectType,
-    object_definition: Callable,
+    object_definition: FunctionSchema | ProcedureSchema,
     existing_objects: Dict[str, Dict],
     snowflake_dependencies: List[str],
     stage_artifact_path: str,

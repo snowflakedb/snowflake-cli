@@ -19,7 +19,7 @@ jobs:
         env:
           TITLE: "${{ github.event.issue.title }}"
         run: |
-          jira=$(echo -n $TITLE | awk '{print $1}' | sed -e 's/://')
+          jira=$(echo -n "${TITLE}" | awk '{print $1}' | sed -e 's/://')
           echo ::set-output name=jira::$jira
       - name: Comment on issue
         uses: atlassian/gajira-comment@master

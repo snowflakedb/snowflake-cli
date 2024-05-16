@@ -13,6 +13,8 @@
 
 ## Fixes and improvements
 
+## Fixes and improvements
+* Improved support for quoted identifiers.
 
 # v2.3.0
 
