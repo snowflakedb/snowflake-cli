@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
 
 import typer
 from click import ClickException
@@ -30,8 +30,8 @@ def add_object_command_aliases(
 
         @app.command("list", requires_connection=True)
         def list_cmd(
-            like: str = like_option,
-            scope: Tuple[str, str] = scope_option,
+            like: str = like_option,  # type: ignore
+            scope: Tuple[str, str] = scope_option,  # type: ignore
             **options,
         ):
             list_(
