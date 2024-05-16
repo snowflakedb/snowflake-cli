@@ -22,8 +22,12 @@ def test_stage(runner, snowflake_session, test_database, tmp_path):
         {"status": f"Stage area {stage_name.upper()} successfully created."},
     )
 
-    result = runner.invoke_with_connection_json(["object", "list", "stage"])
+    result = runner.invoke_with_connection_json(["stage", "list"])
     expect = snowflake_session.execute_string(f"show stages like '{stage_name}'")
+    assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
+
+    result = runner.invoke_with_connection_json(["stage", "describe", stage_name])
+    expect = snowflake_session.execute_string(f"describe stage {stage_name}")
     assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
 
     filename = "test.txt"
@@ -73,7 +77,7 @@ def test_stage(runner, snowflake_session, test_database, tmp_path):
         row_from_snowflake_session(expect), {"name": f"{stage_name}/{filename}"}
     )
 
-    result = runner.invoke_with_connection_json(["object", "drop", "stage", stage_name])
+    result = runner.invoke_with_connection_json(["stage", "drop", stage_name])
     assert contains_row_with(
         result.json,
         {"status": f"{stage_name.upper()} successfully dropped."},

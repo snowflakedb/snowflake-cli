@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 import typer
 from click import ClickException
@@ -14,6 +14,8 @@ from snowflake.cli.api.commands.flags import (
     ReplaceOption,
     deprecated_flag_callback_enum,
     execution_identifier_argument,
+    identifier_argument,
+    like_option,
 )
 from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyper
@@ -37,6 +39,18 @@ from snowflake.cli.api.project.schemas.snowpark.callable import (
     ProcedureSchema,
 )
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.plugins.object.commands import (
+    describe as object_describe,
+)
+from snowflake.cli.plugins.object.commands import (
+    drop as object_drop,
+)
+from snowflake.cli.plugins.object.commands import (
+    list_ as object_list,
+)
+from snowflake.cli.plugins.object.commands import (
+    scope_option,
+)
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.common import (
@@ -73,8 +87,15 @@ app = SnowTyper(
 ObjectTypeArgument = typer.Argument(
     help="Type of Snowpark object",
     case_sensitive=False,
+    show_default=False,
 )
-
+IdentifierArgument = identifier_argument(
+    "function/procedure",
+    example="hello(int, string)",
+)
+LikeOption = like_option(
+    help_example='`list function --like "my%"` lists all functions that begin with “my”',
+)
 add_init_command(app, project_type="Snowpark", template="default_snowpark")
 
 
@@ -465,3 +486,36 @@ def execute(
         "execute", object_type=object_type, execution_identifier=execution_identifier
     )
     return SingleQueryResult(cursor)
+
+
+@app.command("list", requires_connection=True)
+def list_(
+    object_type: _SnowparkObject = ObjectTypeArgument,
+    like: str = LikeOption,
+    scope: Tuple[str, str] = scope_option(
+        help_example="`list function --in database my_db`"
+    ),
+    **options,
+):
+    """Lists all available procedures or functions."""
+    object_list(object_type=object_type.value, like=like, scope=scope, **options)
+
+
+@app.command("drop", requires_connection=True)
+def drop(
+    object_type: _SnowparkObject = ObjectTypeArgument,
+    identifier: str = IdentifierArgument,
+    **options,
+):
+    """Drop procedure or function."""
+    object_drop(object_type=object_type.value, object_name=identifier, **options)
+
+
+@app.command("describe", requires_connection=True)
+def describe(
+    object_type: _SnowparkObject = ObjectTypeArgument,
+    identifier: str = IdentifierArgument,
+    **options,
+):
+    """Provides description of a procedure or function."""
+    object_describe(object_type=object_type.value, object_name=identifier, **options)
