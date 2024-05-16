@@ -136,20 +136,32 @@ def _resolve_variables_in_project(project_definition: ProjectDefinition):
         DictWithEnvironFallback, project_definition.env
     )
 
-    unresolved_keys: List[str] = _check_variables_consistency(variables_data)
+    env_with_unresolved_keys: List[str] = _get_variables_with_dependencies(
+        variables_data
+    )
+    other_env = set(variables_data) - set(env_with_unresolved_keys)
     env = get_snowflake_cli_jinja_env()
     context_data = {_CONTEXT_KEY: project_definition}
-    while unresolved_keys:
-        key = unresolved_keys.pop()
+
+    # Resolve env section dependencies
+    while env_with_unresolved_keys:
+        key = env_with_unresolved_keys.pop()
         value = variables_data[key]
         if not isinstance(value, str):
             continue
         try:  # try to evaluate the template given current state of know variables
             variables_data[key] = env.from_string(value).render(context_data)
             if string_includes_template(variables_data[key]):
-                unresolved_keys.append(key)
+                env_with_unresolved_keys.append(key)
         except UndefinedError:
-            unresolved_keys.append(key)
+            env_with_unresolved_keys.append(key)
+
+    # Resolve templates in variables without references, for example
+    for key in other_env:
+        variable_value = variables_data[key]
+        if not isinstance(variable_value, str):
+            continue
+        variables_data[key] = env.from_string(variables_data[key]).render(context_data)
 
     return context_data
 
@@ -169,7 +181,7 @@ def _check_for_cycles(nodes: defaultdict):
             q.extendleft(nodes[curr])
 
 
-def _check_variables_consistency(variables_data: DictWithEnvironFallback):
+def _get_variables_with_dependencies(variables_data: DictWithEnvironFallback):
     """
     Checks consistency of provided dictionary by
     1. checking reference cycles
@@ -185,9 +197,9 @@ def _check_variables_consistency(variables_data: DictWithEnvironFallback):
         if not isinstance(value, str):
             continue
 
-        include_template, required_variables = _search_for_required_variables(value)
+        required_variables = _search_for_required_variables(value)
 
-        if required_variables or include_template:
+        if required_variables:
             variables_with_dependencies[key] = required_variables
 
         for variable in required_variables:
@@ -224,7 +236,7 @@ def _search_for_required_variables(variable_value: str):
         var: str = variable.strip()
         if var.startswith(ctx_env_prefix):
             required_variables.append(var[len(ctx_env_prefix) :])
-    return len(found_variables), required_variables
+    return required_variables
 
 
 def snowflake_cli_jinja_render(content: str, data: Dict | None = None) -> str:

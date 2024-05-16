@@ -202,3 +202,13 @@ def test_resolve_variables_error_on_cycle(env, cycle):
         _add_project_context({}, project_definition=pdf)
 
     assert err.value.message == f"Cycle detected between variables: {cycle}"
+
+
+def test_resolve_variables_fails_if_referencing_unknown_variable():
+    pdf = ProjectDefinition(
+        definition_version="1.1",
+        env={"app": "&{ bdbdbd }"},
+    )
+    with pytest.raises(UndefinedError) as err:
+        _add_project_context({}, project_definition=pdf)
+    assert str(err.value) == "'bdbdbd' is undefined"
