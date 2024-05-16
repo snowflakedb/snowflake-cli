@@ -280,20 +280,23 @@ class BundleMap:
             # No mapping is possible for this src path
             return []
 
+        output_destinations: List[Path] = []
+
         canonical_dests = self._src_to_dest.get(canonical_src)
         if canonical_dests is not None:
-            return [self._to_output_dest(d, is_absolute) for d in canonical_dests]
+            for d in canonical_dests:
+                output_destinations.append(self._to_output_dest(d, is_absolute))
 
         canonical_parent = canonical_src.parent
         canonical_parent_dests = self.to_deploy_paths(canonical_parent)
         if canonical_parent_dests:
             canonical_child = canonical_src.relative_to(canonical_parent)
-            return [
-                self._to_output_dest(d / canonical_child, is_absolute)
-                for d in canonical_parent_dests
-            ]
+            for d in canonical_parent_dests:
+                output_destinations.append(
+                    self._to_output_dest(d / canonical_child, is_absolute)
+                )
 
-        return []
+        return output_destinations
 
     def _absolute_src(self, src: Path) -> Path:
         if src.is_absolute():

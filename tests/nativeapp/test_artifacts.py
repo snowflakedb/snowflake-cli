@@ -308,10 +308,19 @@ def test_bundle_map_allows_mapping_file_to_multiple_destinations(
 
     verify_mappings(
         bundle_map,
-        {
+        expected_mappings={
             "README.md": ["deployed/README1.md", "deployed/README2.md"],
             "src/streamlit": ["deployed/streamlit_orig", "deployed/streamlit_copy"],
-            "src/streamlit/main_ui.py": "deployed/main_ui.py",
+            "src/streamlit/main_ui.py": ["deployed/main_ui.py"],
+        },
+        expected_deploy_paths={
+            "README.md": ["deployed/README1.md", "deployed/README2.md"],
+            "src/streamlit": ["deployed/streamlit_orig", "deployed/streamlit_copy"],
+            "src/streamlit/main_ui.py": [
+                "deployed/main_ui.py",
+                "deployed/streamlit_orig/main_ui.py",
+                "deployed/streamlit_copy/main_ui.py",
+            ],
         },
     )
 
@@ -341,7 +350,11 @@ def test_bundle_map_allows_mapping_file_to_multiple_destinations(
         expected_deploy_paths={
             "README.md": ["deployed/README1.md", "deployed/README2.md"],
             "src/streamlit": ["deployed/streamlit_orig", "deployed/streamlit_copy"],
-            "src/streamlit/main_ui.py": ["deployed/main_ui.py"],
+            "src/streamlit/main_ui.py": [
+                "deployed/main_ui.py",
+                "deployed/streamlit_orig/main_ui.py",
+                "deployed/streamlit_copy/main_ui.py",
+            ],
             "src/streamlit/helpers": [
                 "deployed/streamlit_orig/helpers",
                 "deployed/streamlit_copy/helpers",
@@ -694,13 +707,13 @@ def test_bundle_map_to_deploy_path_returns_multiple_matches(bundle_map):
         Path("d2/a/b"),
     ]
 
-    # bundle_map.add(PathMapping(src="src/snowpark/a", dest="d3"))
+    bundle_map.add(PathMapping(src="src/snowpark/a", dest="d3"))
 
-    # assert sorted(bundle_map.to_deploy_paths(Path("src/snowpark/a/b/file3.py"))) == [
-    #     Path("d1/a/b/file3.py"),
-    #     Path("d2/a/b/file3.py"),
-    #     Path("d3/b/file3.py"),
-    # ]
+    assert sorted(bundle_map.to_deploy_paths(Path("src/snowpark/a/b/file3.py"))) == [
+        Path("d1/a/b/file3.py"),
+        Path("d2/a/b/file3.py"),
+        Path("d3/b/file3.py"),
+    ]
 
 
 def test_bundle_map_ignores_sources_in_deploy_root(bundle_map):
