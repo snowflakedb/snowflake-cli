@@ -18,7 +18,10 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import CollectionResult, CommandResult, QueryResult
 from snowflake.cli.api.utils.path_utils import is_stage_path
 from snowflake.cli.plugins.git.manager import GitManager
-from snowflake.cli.plugins.object.command_aliases import add_object_command_aliases
+from snowflake.cli.plugins.object.command_aliases import (
+    add_object_command_aliases,
+    scope_option,
+)
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.stage.commands import get
 from snowflake.cli.plugins.stage.manager import OnErrorType
@@ -60,6 +63,7 @@ add_object_command_aliases(
     like_option=like_option(
         help_example='`list --like "my%"` lists all git repositories with name that begin with “my”',
     ),
+    scope_option=scope_option(help_example="`list --in database my_db`"),
 )
 
 

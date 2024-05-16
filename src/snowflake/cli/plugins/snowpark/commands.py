@@ -40,9 +40,6 @@ from snowflake.cli.api.project.schemas.snowpark.callable import (
 )
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.object.commands import (
-    ScopeOption,
-)
-from snowflake.cli.plugins.object.commands import (
     describe as object_describe,
 )
 from snowflake.cli.plugins.object.commands import (
@@ -50,6 +47,9 @@ from snowflake.cli.plugins.object.commands import (
 )
 from snowflake.cli.plugins.object.commands import (
     list_ as object_list,
+)
+from snowflake.cli.plugins.object.commands import (
+    scope_option,
 )
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.snowpark import package_utils
@@ -492,7 +492,9 @@ def execute(
 def list_(
     object_type: _SnowparkObject = ObjectTypeArgument,
     like: str = LikeOption,
-    scope: Tuple[str, str] = ScopeOption,
+    scope: Tuple[str, str] = scope_option(
+        help_example="`list function --in database my_db`"
+    ),
     **options,
 ):
     """Lists all available procedures or functions."""
@@ -505,7 +507,7 @@ def drop(
     identifier: str = IdentifierArgument,
     **options,
 ):
-    """Drop procedure or function of given name."""
+    """Drop procedure or function."""
     object_drop(object_type=object_type.value, object_name=identifier, **options)
 
 
@@ -515,5 +517,5 @@ def describe(
     identifier: str = IdentifierArgument,
     **options,
 ):
-    """Provides description of a procedure or function of given name."""
+    """Provides description of a procedure or function."""
     object_describe(object_type=object_type.value, object_name=identifier, **options)

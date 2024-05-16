@@ -38,10 +38,16 @@ def _scope_validate(object_type: str, scope: Tuple[str, str]):
         raise ClickException("compute-pool scope is only supported for listing service")
 
 
-ScopeOption = typer.Option(
-    (None, None),
-    "--in",
-    help="Specifies the scope of this command using '--in <scope> <name>' (e.g. list tables --in database my_db). Some object types have specialized scopes (e.g. list service --in compute-pool my_pool)",
+def scope_option(help_example: str):
+    return typer.Option(
+        (None, None),
+        "--in",
+        help=f"Specifies the scope of this command using '--in <scope> <name>', for example {help_example}.",
+    )
+
+
+ScopeOption = scope_option(
+    help_example="`list table --in database my_db`. Some object types have specialized scopes (e.g. list service --in compute-pool my_pool)"
 )
 
 SUPPORTED_TYPES_MSG = "\n\nSupported types: " + ", ".join(SUPPORTED_OBJECTS)

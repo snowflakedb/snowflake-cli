@@ -6,10 +6,10 @@ import typer
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.plugins.object.commands import (
-    ScopeOption,
     describe,
     drop,
     list_,
+    scope_option,  # noqa: F401
 )
 
 
@@ -18,11 +18,12 @@ def add_object_command_aliases(
     object_type: ObjectType,
     name_argument: typer.Argument,
     like_option: typer.Option,
+    scope_option: typer.Option,
 ):
     @app.command("list", requires_connection=True)
     def list_cmd(
         like: str = like_option,
-        scope: Tuple[str, str] = ScopeOption,
+        scope: Tuple[str, str] = scope_option,
         **options,
     ):
         list_(object_type=object_type.value.cli_name, like=like, scope=scope, **options)

@@ -24,7 +24,10 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
 )
 from snowflake.cli.api.utils.path_utils import is_stage_path
-from snowflake.cli.plugins.object.command_aliases import add_object_command_aliases
+from snowflake.cli.plugins.object.command_aliases import (
+    add_object_command_aliases,
+    scope_option,
+)
 from snowflake.cli.plugins.stage.diff import DiffResult, compute_stage_diff
 from snowflake.cli.plugins.stage.manager import OnErrorType, StageManager
 
@@ -42,6 +45,7 @@ add_object_command_aliases(
     like_option=like_option(
         help_example='`list --like "my%"` lists all stages that begin with “my”',
     ),
+    scope_option=scope_option(help_example="`list --in database my_db`"),
 )
 
 

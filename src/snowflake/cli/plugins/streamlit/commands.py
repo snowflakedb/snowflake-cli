@@ -22,7 +22,10 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
 )
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
-from snowflake.cli.plugins.object.command_aliases import add_object_command_aliases
+from snowflake.cli.plugins.object.command_aliases import (
+    add_object_command_aliases,
+    scope_option,
+)
 from snowflake.cli.plugins.streamlit.manager import StreamlitManager
 
 app = SnowTyper(
@@ -56,6 +59,7 @@ add_object_command_aliases(
     like_option=like_option(
         help_example='`list --like "my%"` lists all streamlit apps that begin with “my”'
     ),
+    scope_option=scope_option(help_example="`list --in database my_db`"),
 )
 
 

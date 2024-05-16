@@ -1560,10 +1560,8 @@
   │                                 with “my”.                                   │
   │                                 [default: %%]                                │
   │ --in            <TEXT TEXT>...  Specifies the scope of this command using    │
-  │                                 '--in <scope> <name>' (e.g. list tables --in │
-  │                                 database my_db). Some object types have      │
-  │                                 specialized scopes (e.g. list service --in   │
-  │                                 compute-pool my_pool)                        │
+  │                                 '--in <scope> <name>', for example `list     │
+  │                                 --in database my_db`.                        │
   │                                 [default: None, None]                        │
   │ --help  -h                      Show this message and exit.                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -2133,10 +2131,10 @@
   │                                 “my”.                                        │
   │                                 [default: %%]                                │
   │ --in            <TEXT TEXT>...  Specifies the scope of this command using    │
-  │                                 '--in <scope> <name>' (e.g. list tables --in │
-  │                                 database my_db). Some object types have      │
-  │                                 specialized scopes (e.g. list service --in   │
-  │                                 compute-pool my_pool)                        │
+  │                                 '--in <scope> <name>', for example `list     │
+  │                                 table --in database my_db`. Some object      │
+  │                                 types have specialized scopes (e.g. list     │
+  │                                 service --in compute-pool my_pool).          │
   │                                 [default: None, None]                        │
   │ --help  -h                      Show this message and exit.                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -2781,7 +2779,7 @@
    Usage: default snowpark describe [OPTIONS] OBJECT_TYPE:{procedure|function}    
                                     IDENTIFIER                                    
                                                                                   
-   Provides description of a procedure or function of given name.                 
+   Provides description of a procedure or function.                               
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    object_type      OBJECT_TYPE:{procedure|fun  Type of Snowpark object    │
@@ -2856,7 +2854,7 @@
    Usage: default snowpark drop [OPTIONS] OBJECT_TYPE:{procedure|function}        
                                 IDENTIFIER                                        
                                                                                   
-   Drop procedure or function of given name.                                      
+   Drop procedure or function.                                                    
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    object_type      OBJECT_TYPE:{procedure|fun  Type of Snowpark object    │
@@ -3050,10 +3048,8 @@
   │                                 “my”.                                        │
   │                                 [default: %%]                                │
   │ --in            <TEXT TEXT>...  Specifies the scope of this command using    │
-  │                                 '--in <scope> <name>' (e.g. list tables --in │
-  │                                 database my_db). Some object types have      │
-  │                                 specialized scopes (e.g. list service --in   │
-  │                                 compute-pool my_pool)                        │
+  │                                 '--in <scope> <name>', for example `list     │
+  │                                 function --in database my_db`.               │
   │                                 [default: None, None]                        │
   │ --help  -h                      Show this message and exit.                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -3377,8 +3373,8 @@
   │            of the objects exist already the commands will fail unless        │
   │            `--replace` flag is provided. All deployed objects use the same   │
   │            artifact which is deployed only once.                             │
-  │ describe   Provides description of a procedure or function of given name.    │
-  │ drop       Drop procedure or function of given name.                         │
+  │ describe   Provides description of a procedure or function.                  │
+  │ drop       Drop procedure or function.                                       │
   │ execute    Executes a procedure or function in a specified environment.      │
   │ init       Initializes this directory with a sample set of files for         │
   │            creating a Snowpark project.                                      │
@@ -6114,10 +6110,8 @@
   │                                 all stages that begin with “my”.             │
   │                                 [default: %%]                                │
   │ --in            <TEXT TEXT>...  Specifies the scope of this command using    │
-  │                                 '--in <scope> <name>' (e.g. list tables --in │
-  │                                 database my_db). Some object types have      │
-  │                                 specialized scopes (e.g. list service --in   │
-  │                                 compute-pool my_pool)                        │
+  │                                 '--in <scope> <name>', for example `list     │
+  │                                 --in database my_db`.                        │
   │                                 [default: None, None]                        │
   │ --help  -h                      Show this message and exit.                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -6596,10 +6590,8 @@
   │                                 all streamlit apps that begin with “my”.     │
   │                                 [default: %%]                                │
   │ --in            <TEXT TEXT>...  Specifies the scope of this command using    │
-  │                                 '--in <scope> <name>' (e.g. list tables --in │
-  │                                 database my_db). Some object types have      │
-  │                                 specialized scopes (e.g. list service --in   │
-  │                                 compute-pool my_pool)                        │
+  │                                 '--in <scope> <name>', for example `list     │
+  │                                 --in database my_db`.                        │
   │                                 [default: None, None]                        │
   │ --help  -h                      Show this message and exit.                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
