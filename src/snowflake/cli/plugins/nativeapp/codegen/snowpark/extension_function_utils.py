@@ -36,7 +36,7 @@ def get_object_type_as_text(name: str) -> str:
     return name.replace("_", " ")
 
 
-def _sanitize_ex_fn_str_attribute(
+def _sanitize_str_attribute(
     ex_fn: Dict[str, Any],
     attr: str,
     make_uppercase: bool = False,
@@ -73,7 +73,7 @@ def _sanitize_ex_fn_str_attribute(
         )
 
 
-def _sanitize_ex_fn_list_or_dict_attribute(
+def _sanitize_list_or_dict_attribute(
     ex_fn: Dict[str, Any],
     attr: str,
     expected_type: Type,
@@ -146,7 +146,7 @@ def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path):
     # TODO: accumulate errors/warnings instead of per-attribute interruption: https://github.com/snowflakedb/snowflake-cli/pull/1056/files#r1599904008
 
     # Must have keys to create an extension function in SQL for Native Apps
-    _sanitize_ex_fn_str_attribute(
+    _sanitize_str_attribute(
         ex_fn=ex_fn,
         attr="object_type",
         make_uppercase=True,
@@ -154,7 +154,7 @@ def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path):
         raise_err=True,
     )
 
-    _sanitize_ex_fn_str_attribute(
+    _sanitize_str_attribute(
         ex_fn=ex_fn,
         attr="object_name",
         make_uppercase=True,
@@ -162,7 +162,7 @@ def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path):
         raise_err=True,
     )
 
-    _sanitize_ex_fn_str_attribute(
+    _sanitize_str_attribute(
         ex_fn=ex_fn,
         attr="return_sql",
         make_uppercase=True,
@@ -176,7 +176,7 @@ def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path):
         )
 
     default_raw_imports: List[Union[str, Tuple[str, str]]] = []
-    _sanitize_ex_fn_list_or_dict_attribute(
+    _sanitize_list_or_dict_attribute(
         ex_fn=ex_fn,
         attr="raw_imports",
         expected_type=list,
@@ -185,7 +185,7 @@ def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path):
         raise_err=True,
     )
 
-    _sanitize_ex_fn_str_attribute(ex_fn=ex_fn, attr="schema", make_uppercase=True)
+    _sanitize_str_attribute(ex_fn=ex_fn, attr="schema", make_uppercase=True)
     # Custom message, hence throwing an error separately
     if ex_fn["schema"] is None:
         raise MalformedExtensionFunctionError(
@@ -203,14 +203,14 @@ def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path):
         )
 
     default_input_args: List[Dict[str, Any]] = []
-    _sanitize_ex_fn_list_or_dict_attribute(
+    _sanitize_list_or_dict_attribute(
         ex_fn=ex_fn,
         attr="input_args",
         expected_type=list,
         default_value=default_input_args,
     )
     default_input_types: List[str] = []
-    _sanitize_ex_fn_list_or_dict_attribute(
+    _sanitize_list_or_dict_attribute(
         ex_fn=ex_fn,
         attr="input_sql_types",
         expected_type=list,
@@ -221,18 +221,16 @@ def sanitize_extension_function_data(ex_fn: Dict[str, Any], py_file: Path):
             "The number of extension function parameters does not match the number of parameter types."
         )
 
-    _sanitize_ex_fn_str_attribute(ex_fn=ex_fn, attr="all_imports")
-    _sanitize_ex_fn_str_attribute(ex_fn=ex_fn, attr="all_packages")
-    _sanitize_ex_fn_list_or_dict_attribute(
+    _sanitize_str_attribute(ex_fn=ex_fn, attr="all_imports")
+    _sanitize_str_attribute(ex_fn=ex_fn, attr="all_packages")
+    _sanitize_list_or_dict_attribute(
         ex_fn=ex_fn, attr="external_access_integrations", expected_type=list
     )
-    _sanitize_ex_fn_list_or_dict_attribute(
-        ex_fn=ex_fn, attr="secrets", expected_type=dict
-    )
-    _sanitize_ex_fn_str_attribute(ex_fn=ex_fn, attr="inline_python_code")
-    _sanitize_ex_fn_str_attribute(ex_fn=ex_fn, attr="execute_as", make_uppercase=True)
-    _sanitize_ex_fn_str_attribute(ex_fn=ex_fn, attr="handler")
-    _sanitize_ex_fn_str_attribute(
+    _sanitize_list_or_dict_attribute(ex_fn=ex_fn, attr="secrets", expected_type=dict)
+    _sanitize_str_attribute(ex_fn=ex_fn, attr="inline_python_code")
+    _sanitize_str_attribute(ex_fn=ex_fn, attr="execute_as", make_uppercase=True)
+    _sanitize_str_attribute(ex_fn=ex_fn, attr="handler")
+    _sanitize_str_attribute(
         ex_fn=ex_fn, attr="runtime_version", py_file=py_file, raise_err=True
     )
 

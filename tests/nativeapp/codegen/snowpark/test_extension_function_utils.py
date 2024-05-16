@@ -27,66 +27,70 @@ def test_get_object_type_as_text(input_param, expected):
 
 
 def test_sanitize_extension_function_data_required_keys(snapshot):
-
+    """
+    This test will start off with an empty dictionary which will act as the extension function.
+    With every exception sanitize_extension_function_data() hits, we add in the required info
+    to progress to the next exception/execution.
+    """
     ex_fn = {}
     some_path = Path("some/path")
 
     # Test for absence or malformed object_type, object_name and return_sql
     with pytest.raises(ef_utils.MalformedExtensionFunctionError) as err:
         ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
-    assert err.value.message.__contains__("object_type")
+    assert "object_type" in err.value.message
 
     ex_fn["object_type"] = ["function"]
     with pytest.raises(ef_utils.MalformedExtensionFunctionError) as err:
         ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
-    assert err.value.message.__contains__("object_type")
+    assert "object_type" in err.value.message
 
     ex_fn["object_type"] = "function"
     with pytest.raises(ef_utils.MalformedExtensionFunctionError) as err:
         ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
-    assert err.value.message.__contains__("object_name")
+    assert "object_name" in err.value.message
 
     ex_fn["object_name"] = "some_name"
     with pytest.raises(ef_utils.MalformedExtensionFunctionError) as err:
         ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
-    assert err.value.message.__contains__("return_sql")
+    assert "return_sql" in err.value.message
 
     ex_fn["return_sql"] = "returns null"
 
     # Test for absence of func, and malformed func
     with pytest.raises(ef_utils.MalformedExtensionFunctionError) as err:
         ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
-    assert err.value.message.__contains__("func")
+    assert "func" in err.value.message
 
     wrong_func_possibilities = [[], "", " ", (None, ""), (None, " ")]
     for val in wrong_func_possibilities:
         ex_fn["func"] = val
         with pytest.raises(ef_utils.MalformedExtensionFunctionError) as err:
             ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
-        assert err.value.message.__contains__("func")
+        assert "func" in err.value.message
 
     right_func_possibilities = [[None, "dummy"], "dummy"]
     for val in right_func_possibilities:
         ex_fn["func"] = val
         with pytest.raises(ef_utils.MalformedExtensionFunctionError) as err:
             ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
-        assert err.value.message.__contains__("raw_imports")
+        assert "raw_imports" in err.value.message
 
     # Test for absence or malformed schema and runtime_version
     ex_fn["raw_imports"] = {""}
     with pytest.raises(ef_utils.MalformedExtensionFunctionError) as err:
         ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
-    assert err.value.message.__contains__("raw_imports")
+    assert "raw_imports" in err.value.message
 
     ex_fn["raw_imports"] = ["some/path"]
     with pytest.raises(ef_utils.MalformedExtensionFunctionError) as err:
         ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
-    assert err.value.message.__contains__("schema")
+    assert "schema" in err.value.message
 
     ex_fn["schema"] = "core"
     with pytest.raises(ef_utils.MalformedExtensionFunctionError) as err:
         ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
-    assert err.value.message.__contains__("runtime_version")
+    assert "runtime_version" in err.value.message
 
     ex_fn["runtime_version"] = "3.8"
     ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
@@ -110,14 +114,14 @@ def test_sanitize_extension_function_data_other_malformed_keys():
 
     with pytest.raises(ef_utils.MalformedExtensionFunctionError) as err:
         ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
-    assert err.value.message.__contains__("incompatible")
+    assert "incompatible" in err.value.message
 
     ex_fn["if_not_exists"] = False
     ex_fn["input_args"] = ["dummy"]
     ex_fn["input_sql_types"] = ["dummy", "values"]
     with pytest.raises(ef_utils.MalformedExtensionFunctionError) as err:
         ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
-    assert err.value.message.__contains__("number of extension function parameters")
+    assert "number of extension function parameters" in err.value.message
 
     ex_fn["input_sql_types"] = ["dummy"]
     ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
@@ -126,7 +130,7 @@ def test_sanitize_extension_function_data_other_malformed_keys():
     ex_fn["application_roles"] = ["app_viewer", None, {}]
     with pytest.raises(ef_utils.MalformedExtensionFunctionError) as err:
         ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
-    assert err.value.message.__contains__("application_roles")
+    assert "application_roles" in err.value.message
 
     ex_fn["application_roles"] = ["app_viewer", "app_admin"]
     ef_utils.sanitize_extension_function_data(ex_fn=ex_fn, py_file=some_path)
@@ -152,7 +156,7 @@ def test_enrich_ex_fn(snapshot):
             py_file=Path("some", "file.py"),
             deploy_root=Path("output", "deploy"),
         )
-    assert err.value.message.__contains__("determine handler name")
+    assert "determine handler name" in err.value.message
 
     ex_fn["func"] = "dummy"
     ef_utils.enrich_ex_fn(
