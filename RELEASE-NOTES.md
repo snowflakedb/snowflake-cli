@@ -12,9 +12,8 @@
    * `snow snowpark` for procedures and functions
 
 ## Fixes and improvements
-
-## Fixes and improvements
 * Improved support for quoted identifiers.
+* Fixed creating patches with `snow app version create` when there are 2 or more existing patches on a version
 
 # v2.3.0
 
