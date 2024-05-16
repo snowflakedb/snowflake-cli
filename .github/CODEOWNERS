@@ -4,6 +4,8 @@
 tests/__snapshots__/ @snowflakedb/snowcli @snowflakedb/nade
 tests_integration/__snapshots__/ @snowflakedb/snowcli @snowflakedb/nade
 tests_e2e/__snapshots__/  @snowflakedb/snowcli @snowflakedb/nade
+tests/testing_utils/ @snowflakedb/snowcli @snowflakedb/nade
+src/snowflake/cli/api/utils/rendering.py @snowflakedb/snowcli @snowflakedb/nade
 
 # Native Apps Owners
 src/snowflake/cli/plugins/nativeapp/ @snowflakedb/nade
@@ -11,5 +13,5 @@ tests/nativeapp/ @snowflakedb/nade
 tests_integration/nativeapp/ @snowflakedb/nade
 
 # Project Definition Owners
-src/snowflake/cli/api/project/schemas/native_app.py @snowflakedb/nade
+src/snowflake/cli/api/project/schemas/native_app/ @snowflakedb/nade
 tests/project/ @snowflakedb/snowcli @snowflakedb/nade
