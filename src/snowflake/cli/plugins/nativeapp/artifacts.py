@@ -172,7 +172,9 @@ class BundleMap:
             if dest:
                 dest_stem = dest.rstrip("/")
                 if not dest_stem:
-                    # handle '/' as the destination as a special case
+                    # handle '/' as the destination as a special case. This is because specifying only '/' as a
+                    # a destination looks like '.' once all forwards slashes are stripped. If we don't handle it
+                    # specially here, `dest: /` would incorrectly be allowed.
                     raise NotInDeployRootError(dest, self._deploy_root)
                 dest_path = Path(dest.rstrip("/"))
                 if dest_path.is_absolute():

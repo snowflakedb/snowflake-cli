@@ -373,10 +373,10 @@ class NativeAppManager(SqlExecutionMixin):
             deploy_paths_to_sync = []
             for resolved_path in resolved_paths_to_sync:
                 verify_exists(resolved_path)
-                deploy_path = bundle_map.to_deploy_path(resolved_path)
-                if deploy_path is None:
+                deploy_paths = bundle_map.to_deploy_paths(resolved_path)
+                if not deploy_paths:
                     raise ClickException(f"No artifact found for {resolved_path}")
-                deploy_paths_to_sync.append(deploy_path)
+                deploy_paths_to_sync.extend(deploy_paths)
 
             stage_paths_to_sync = _get_stage_paths_to_sync(
                 deploy_paths_to_sync, resolve_without_follow(self.deploy_root)
