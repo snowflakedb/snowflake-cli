@@ -36,7 +36,7 @@ class SourceNotFoundError(ClickException):
     No match was not found for the specified source in the project directory
     """
 
-    def __init__(self, src: str):
+    def __init__(self, src: Union[str, Path]):
         super().__init__(f"{self.__doc__}: {src}")
 
 
@@ -97,7 +97,7 @@ class BundleMap:
     def __init__(self, *, project_root: Path, deploy_root: Path):
         self._project_root: Path = resolve_without_follow(project_root)
         self._deploy_root: Path = resolve_without_follow(deploy_root)
-        self._src_to_dest: Dict[Path, Path] = {}
+        self._src_to_dest: Dict[Path, List[Path]] = {}
         self._dest_to_src: Dict[Path, List[Path]] = {}
         self._dest_is_dir: Dict[Path, bool] = {}
 
@@ -139,9 +139,6 @@ class BundleMap:
             canonical_dest = canonical_dest / canonical_src.name
             dest_is_dir = src.is_dir()
 
-        if canonical_src in self._src_to_dest:
-            raise TooManyFilesError(canonical_dest)
-
         # Verify that multiple files are not being mapped to a single file destination
         current_sources = self._dest_to_src.setdefault(canonical_dest, [])
         if not dest_is_dir:
@@ -151,7 +148,9 @@ class BundleMap:
 
         # Perform all updates together we don't end up with inconsistent state
         self._update_dest_is_dir(canonical_dest, dest_is_dir)
-        self._src_to_dest[canonical_src] = canonical_dest
+        current_dests = self._src_to_dest.setdefault(canonical_src, [])
+        if canonical_dest not in current_dests:
+            current_dests.append(canonical_dest)
         if canonical_src not in current_sources:
             current_sources.append(canonical_src)
 
@@ -208,31 +207,28 @@ class BundleMap:
         predicate: ArtifactPredicate = lambda src, dest: True,
     ) -> Iterator[Tuple[Path, Path]]:
         canonical_src = self._canonical_src(src)
-        canonical_dest = self._src_to_dest.get(canonical_src)
-        if canonical_dest is None:
-            raise SourceNotFoundError(str(src))
+        canonical_dests = self._src_to_dest.get(canonical_src)
+        assert canonical_dests is not None
 
         absolute_src = self._absolute_src(canonical_src)
-        absolute_dest = self._absolute_dest(canonical_dest)
+        src_for_output = self._to_output_src(absolute_src, absolute)
+        dests_for_output = [self._to_output_dest(p, absolute) for p in canonical_dests]
 
-        if absolute:
-            src_for_output, dest_for_output = absolute_src, absolute_dest
-        else:
-            src_for_output, dest_for_output = canonical_src, canonical_dest
-
-        if predicate(src_for_output, dest_for_output):
-            yield src_for_output, dest_for_output
+        for d in dests_for_output:
+            if predicate(src_for_output, d):
+                yield src_for_output, d
 
         if absolute_src.is_dir() and walk_directories:
-            # both src and dest are directories, and walking directories was requested. Traverse src, and map each file
-            # to the dest directory
+            # both src and dest are directories, and walking directories was requested. Traverse src, and map each
+            # file to the dest directory
             for (root, subdirs, files) in os.walk(absolute_src, followlinks=True):
                 relative_root = Path(root).relative_to(absolute_src)
                 for name in itertools.chain(subdirs, files):
-                    src_file_for_output = src_for_output / relative_root / name
-                    dest_file_for_output = dest_for_output / relative_root / name
-                    if predicate(src_file_for_output, dest_file_for_output):
-                        yield src_file_for_output, dest_file_for_output
+                    for d in dests_for_output:
+                        src_file_for_output = src_for_output / relative_root / name
+                        dest_file_for_output = d / relative_root / name
+                        if predicate(src_file_for_output, dest_file_for_output):
+                            yield src_file_for_output, dest_file_for_output
 
     def all_mappings(
         self,
@@ -265,38 +261,39 @@ class BundleMap:
             ):
                 yield deployed_src, deployed_dest
 
-    def to_deploy_path(self, src: Path) -> Optional[Path]:
+    def to_deploy_paths(self, src: Path) -> List[Path]:
         """
         Converts a source path to its corresponding deploy root path. If the input path is relative to the project root,
         a path relative to the deploy root is returned. If the input path is absolute, an absolute path is returned.
 
         Returns:
-            The deploy root path for the given source path, or None if no such path exists.
+            The deploy root paths for the given source path, or an empty list if no such path exists.
         """
         is_absolute = src.is_absolute()
 
         try:
             absolute_src = self._absolute_src(src)
             if not absolute_src.exists():
-                return None
+                return []
             canonical_src = self._canonical_src(absolute_src)
         except ArtifactError:
             # No mapping is possible for this src path
-            return None
+            return []
 
-        canonical_dest = self._src_to_dest.get(canonical_src)
-        if canonical_dest is not None:
-            return self._to_output_dest(canonical_dest, is_absolute)
+        canonical_dests = self._src_to_dest.get(canonical_src)
+        if canonical_dests is not None:
+            return [self._to_output_dest(d, is_absolute) for d in canonical_dests]
 
-        for canonical_parent in canonical_src.parents:
-            canonical_parent_dest = self.to_deploy_path(canonical_parent)
-            if canonical_parent_dest is not None:
-                return self._to_output_dest(
-                    canonical_parent_dest / canonical_src.relative_to(canonical_parent),
-                    is_absolute,
-                )
+        canonical_parent = canonical_src.parent
+        canonical_parent_dests = self.to_deploy_paths(canonical_parent)
+        if canonical_parent_dests:
+            canonical_child = canonical_src.relative_to(canonical_parent)
+            return [
+                self._to_output_dest(d / canonical_child, is_absolute)
+                for d in canonical_parent_dests
+            ]
 
-        return None
+        return []
 
     def _absolute_src(self, src: Path) -> Path:
         if src.is_absolute():

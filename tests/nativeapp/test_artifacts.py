@@ -76,22 +76,50 @@ def ensure_path(path: Union[Path, str]) -> Path:
 
 def verify_mappings(
     bundle_map: BundleMap,
-    expected_mappings: Dict[Union[str, Path], Optional[Union[str, Path]]],
+    expected_mappings: Dict[
+        Union[str, Path], Optional[Union[str, Path, List[str], List[Path]]]
+    ],
+    expected_deploy_paths: Dict[
+        Union[str, Path], Optional[Union[str, Path, List[str], List[Path]]]
+    ]
+    | None = None,
     **kwargs,
 ):
-    for src, dest in expected_mappings.items():
+    def normalize_expected_dest(
+        dest: Optional[Union[str, Path, List[str], List[Path]]]
+    ):
         if dest is None:
-            assert bundle_map.to_deploy_path(ensure_path(src)) is None
+            return []
+        elif isinstance(dest, str):
+            return [ensure_path(dest)]
+        elif isinstance(dest, Path):
+            return [dest]
         else:
-            assert bundle_map.to_deploy_path(ensure_path(src)) == ensure_path(dest)
+            return sorted([ensure_path(d) for d in dest])
 
-    actual_path_mappings = dict(bundle_map.all_mappings(**kwargs))
-    expected_path_mappings = {
-        ensure_path(src): ensure_path(dest)
-        for (src, dest) in expected_mappings.items()
+    normalized_expected_mappings = {
+        ensure_path(src): normalize_expected_dest(dest)
+        for src, dest in expected_mappings.items()
         if dest is not None
     }
-    assert actual_path_mappings == expected_path_mappings
+    if expected_deploy_paths is not None:
+        normalized_expected_deploy_paths = {
+            ensure_path(src): normalize_expected_dest(dest)
+            for src, dest in expected_deploy_paths.items()
+        }
+    else:
+        normalized_expected_deploy_paths = normalized_expected_mappings
+
+    for src, expected_dests in normalized_expected_deploy_paths.items():
+        assert sorted(bundle_map.to_deploy_paths(ensure_path(src))) == expected_dests
+
+    actual_path_mappings: Dict[Path, List[Path]] = {}
+    for src, dest in bundle_map.all_mappings(**kwargs):
+        mappings = actual_path_mappings.setdefault(src, [])
+        mappings.append(dest)
+        mappings.sort()
+
+    assert actual_path_mappings == normalized_expected_mappings
 
 
 def path_mapping_factory(src: str, dest: Optional[str] = None) -> PathMapping:
@@ -268,6 +296,69 @@ def test_bundle_map_disallows_mapping_multiple_to_file(mapping_factory, bundle_m
         bundle_map.add(mapping_factory("**/file1.py", "deployed/"))
 
 
+@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
+def test_bundle_map_allows_mapping_file_to_multiple_destinations(
+    mapping_factory, bundle_map
+):
+    bundle_map.add(mapping_factory("README.md", "deployed/README1.md"))
+    bundle_map.add(mapping_factory("README.md", "deployed/README2.md"))
+    bundle_map.add(mapping_factory("src/streamlit", "deployed/streamlit_orig"))
+    bundle_map.add(mapping_factory("src/streamlit", "deployed/streamlit_copy"))
+    bundle_map.add(mapping_factory("src/streamlit/main_ui.py", "deployed/"))
+
+    verify_mappings(
+        bundle_map,
+        {
+            "README.md": ["deployed/README1.md", "deployed/README2.md"],
+            "src/streamlit": ["deployed/streamlit_orig", "deployed/streamlit_copy"],
+            "src/streamlit/main_ui.py": "deployed/main_ui.py",
+        },
+    )
+
+    verify_mappings(
+        bundle_map,
+        expected_mappings={
+            "README.md": ["deployed/README1.md", "deployed/README2.md"],
+            "src/streamlit": ["deployed/streamlit_orig", "deployed/streamlit_copy"],
+            "src/streamlit/main_ui.py": [
+                "deployed/main_ui.py",
+                "deployed/streamlit_orig/main_ui.py",
+                "deployed/streamlit_copy/main_ui.py",
+            ],
+            "src/streamlit/helpers": [
+                "deployed/streamlit_orig/helpers",
+                "deployed/streamlit_copy/helpers",
+            ],
+            "src/streamlit/helpers/file1.py": [
+                "deployed/streamlit_orig/helpers/file1.py",
+                "deployed/streamlit_copy/helpers/file1.py",
+            ],
+            "src/streamlit/helpers/file2.py": [
+                "deployed/streamlit_orig/helpers/file2.py",
+                "deployed/streamlit_copy/helpers/file2.py",
+            ],
+        },
+        expected_deploy_paths={
+            "README.md": ["deployed/README1.md", "deployed/README2.md"],
+            "src/streamlit": ["deployed/streamlit_orig", "deployed/streamlit_copy"],
+            "src/streamlit/main_ui.py": ["deployed/main_ui.py"],
+            "src/streamlit/helpers": [
+                "deployed/streamlit_orig/helpers",
+                "deployed/streamlit_copy/helpers",
+            ],
+            "src/streamlit/helpers/file1.py": [
+                "deployed/streamlit_orig/helpers/file1.py",
+                "deployed/streamlit_copy/helpers/file1.py",
+            ],
+            "src/streamlit/helpers/file2.py": [
+                "deployed/streamlit_orig/helpers/file2.py",
+                "deployed/streamlit_copy/helpers/file2.py",
+            ],
+        },
+        walk_directories=True,
+    )
+
+
 def test_bundle_map_handles_missing_dest(bundle_map):
     bundle_map.add(PathMapping(src="app"))
     bundle_map.add(PathMapping(src="README.md"))
@@ -300,6 +391,56 @@ def test_bundle_map_disallows_conflicting_dest_types(mapping_factory, bundle_map
     bundle_map.add(mapping_factory("app", "deployed/"))
     with pytest.raises(ArtifactError):
         bundle_map.add(mapping_factory("**/main.py", "deployed"))
+
+
+@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
+def test_bundle_map_allows_deploying_other_sources_to_renamed_directory(
+    mapping_factory, bundle_map
+):
+    bundle_map.add(mapping_factory("src/snowpark", "./snowpark"))
+    bundle_map.add(mapping_factory("README.md", "snowpark/"))
+
+    verify_mappings(
+        bundle_map,
+        {
+            "src/snowpark": "snowpark",
+            "README.md": "snowpark/README.md",
+        },
+    )
+
+    verify_mappings(
+        bundle_map,
+        {
+            "README.md": "snowpark/README.md",
+            "src/snowpark": "snowpark",
+            "src/snowpark/main.py": "snowpark/main.py",
+            "src/snowpark/a": "snowpark/a",
+            "src/snowpark/a/file1.py": "snowpark/a/file1.py",
+            "src/snowpark/a/file2.py": "snowpark/a/file2.py",
+            "src/snowpark/a/b": "snowpark/a/b",
+            "src/snowpark/a/b/file3.py": "snowpark/a/b/file3.py",
+            "src/snowpark/a/b/file4.py": "snowpark/a/b/file4.py",
+            "src/snowpark/a/c": "snowpark/a/c",
+            "src/snowpark/a/c/file5.py": "snowpark/a/c/file5.py",
+        },
+        walk_directories=True,
+    )
+
+
+@pytest.mark.skip(reason="Checking deep tree hierarchies is not yet supported")
+@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
+def test_bundle_map_disallows_collisions_anywhere_in_deployed_hierarchy(
+    mapping_factory, bundle_map
+):
+    bundle_map.add(mapping_factory("src/snowpark", "./snowpark"))
+    bundle_map.add(mapping_factory("README.md", "snowpark/"))
+
+    # if any of the files collide, however, this is not allowed
+    with pytest.raises(TooManyFilesError):
+        bundle_map.add(mapping_factory("app/manifest.yml", "snowpark/README.md"))
+
+    with pytest.raises(TooManyFilesError):
+        bundle_map.add(mapping_factory("app/manifest.yml", "snowpark/a/file1.py"))
 
 
 @pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
@@ -491,49 +632,75 @@ def test_bundle_map_to_deploy_path(bundle_map):
     bundle_map.add(PathMapping(src="src/streamlit", dest="deployed_streamlit"))
 
     # to_deploy_path returns relative paths when relative paths are given as input
-    assert bundle_map.to_deploy_path(Path("app")) == Path("deployed_app")
-    assert bundle_map.to_deploy_path(Path("README.md")) == Path("deployed_README.md")
-    assert bundle_map.to_deploy_path(Path("src/streamlit")) == Path(
-        "deployed_streamlit"
-    )
-    assert bundle_map.to_deploy_path(Path("src/streamlit/main_ui.py")) == Path(
-        "deployed_streamlit/main_ui.py"
-    )
-    assert bundle_map.to_deploy_path(Path("src/streamlit/helpers")) == Path(
-        "deployed_streamlit/helpers"
-    )
-    assert bundle_map.to_deploy_path(Path("src/streamlit/helpers/file1.py")) == Path(
-        "deployed_streamlit/helpers/file1.py"
-    )
-    assert bundle_map.to_deploy_path(Path("src/streamlit/missing.py")) is None
+    assert bundle_map.to_deploy_paths(Path("app")) == [Path("deployed_app")]
+    assert bundle_map.to_deploy_paths(Path("README.md")) == [Path("deployed_README.md")]
+    assert bundle_map.to_deploy_paths(Path("src/streamlit")) == [
+        Path("deployed_streamlit")
+    ]
+    assert bundle_map.to_deploy_paths(Path("src/streamlit/main_ui.py")) == [
+        Path("deployed_streamlit/main_ui.py")
+    ]
+    assert bundle_map.to_deploy_paths(Path("src/streamlit/helpers")) == [
+        Path("deployed_streamlit/helpers")
+    ]
+    assert bundle_map.to_deploy_paths(Path("src/streamlit/helpers/file1.py")) == [
+        Path("deployed_streamlit/helpers/file1.py")
+    ]
+    assert bundle_map.to_deploy_paths(Path("src/streamlit/missing.py")) == []
+    assert bundle_map.to_deploy_paths(Path("missing")) == []
+    assert bundle_map.to_deploy_paths(Path("src/missing/")) == []
+    assert bundle_map.to_deploy_paths(bundle_map.project_root().parent) == []
 
     # to_deploy_path returns absolute paths when absolute paths are given as input
     project_root = bundle_map.project_root()
     deploy_root = bundle_map.deploy_root()
-    assert (
-        bundle_map.to_deploy_path(project_root / "app") == deploy_root / "deployed_app"
-    )
-    assert (
-        bundle_map.to_deploy_path(project_root / "README.md")
-        == deploy_root / "deployed_README.md"
-    )
-    assert (
-        bundle_map.to_deploy_path(project_root / "src/streamlit")
-        == deploy_root / "deployed_streamlit"
-    )
-    assert (
-        bundle_map.to_deploy_path(project_root / "src/streamlit/main_ui.py")
-        == deploy_root / "deployed_streamlit/main_ui.py"
-    )
-    assert (
-        bundle_map.to_deploy_path(project_root / "src/streamlit/helpers")
-        == deploy_root / "deployed_streamlit/helpers"
-    )
-    assert (
-        bundle_map.to_deploy_path(project_root / "src/streamlit/helpers/file1.py")
-        == deploy_root / "deployed_streamlit/helpers/file1.py"
-    )
-    assert bundle_map.to_deploy_path(project_root / "src/streamlit/missing.py") is None
+    assert bundle_map.to_deploy_paths(project_root / "app") == [
+        deploy_root / "deployed_app"
+    ]
+    assert bundle_map.to_deploy_paths(project_root / "README.md") == [
+        deploy_root / "deployed_README.md"
+    ]
+    assert bundle_map.to_deploy_paths(project_root / "src/streamlit") == [
+        deploy_root / "deployed_streamlit"
+    ]
+    assert bundle_map.to_deploy_paths(project_root / "src/streamlit/main_ui.py") == [
+        deploy_root / "deployed_streamlit/main_ui.py"
+    ]
+    assert bundle_map.to_deploy_paths(project_root / "src/streamlit/helpers") == [
+        deploy_root / "deployed_streamlit/helpers"
+    ]
+    assert bundle_map.to_deploy_paths(
+        project_root / "src/streamlit/helpers/file1.py"
+    ) == [deploy_root / "deployed_streamlit/helpers/file1.py"]
+    assert bundle_map.to_deploy_paths(project_root / "src/streamlit/missing.py") == []
+
+
+def test_bundle_map_to_deploy_path_returns_multiple_matches(bundle_map):
+    bundle_map.add(PathMapping(src="src/snowpark", dest="d1"))
+    bundle_map.add(PathMapping(src="src/snowpark", dest="d2"))
+
+    assert sorted(bundle_map.to_deploy_paths(Path("src/snowpark"))) == [
+        Path("d1"),
+        Path("d2"),
+    ]
+
+    assert sorted(bundle_map.to_deploy_paths(Path("src/snowpark/main.py"))) == [
+        Path("d1/main.py"),
+        Path("d2/main.py"),
+    ]
+
+    assert sorted(bundle_map.to_deploy_paths(Path("src/snowpark/a/b"))) == [
+        Path("d1/a/b"),
+        Path("d2/a/b"),
+    ]
+
+    # bundle_map.add(PathMapping(src="src/snowpark/a", dest="d3"))
+
+    # assert sorted(bundle_map.to_deploy_paths(Path("src/snowpark/a/b/file3.py"))) == [
+    #     Path("d1/a/b/file3.py"),
+    #     Path("d2/a/b/file3.py"),
+    #     Path("d3/b/file3.py"),
+    # ]
 
 
 def test_bundle_map_ignores_sources_in_deploy_root(bundle_map):
@@ -731,8 +898,8 @@ def test_source_path_to_deploy_path(
     bundle_map.add(ArtifactMapping("srcdir", "./dir"))
     bundle_map.add(ArtifactMapping("srcfile", "./file"))
 
-    result = bundle_map.to_deploy_path(resolve_without_follow(Path(project_path)))
+    result = bundle_map.to_deploy_paths(resolve_without_follow(Path(project_path)))
     if expected_path:
-        assert result == resolve_without_follow(Path(expected_path))
+        assert result == [resolve_without_follow(Path(expected_path))]
     else:
-        assert result is None
+        assert result == []
