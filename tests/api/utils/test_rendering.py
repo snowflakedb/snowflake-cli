@@ -204,11 +204,19 @@ def test_resolve_variables_error_on_cycle(env, cycle):
     assert err.value.message == f"Cycle detected between variables: {cycle}"
 
 
-def test_resolve_variables_fails_if_referencing_unknown_variable():
+@pytest.mark.parametrize(
+    "env, msg",
+    [
+        ({"app": "&{ bdbdbd }"}, "'bdbdbd' is undefined"),
+        ({"app": "&{ ctx.streamlit.name }"}, "'None' has no attribute 'name'"),
+        ({"app": "&{ ctx.foo }"}, "has no attribute 'foo'"),
+    ],
+)
+def test_resolve_variables_fails_if_referencing_unknown_variable(env, msg):
     pdf = ProjectDefinition(
         definition_version="1.1",
-        env={"app": "&{ bdbdbd }"},
+        env=env,
     )
     with pytest.raises(UndefinedError) as err:
         _add_project_context({}, project_definition=pdf)
-    assert str(err.value) == "'bdbdbd' is undefined"
+    assert msg in str(err.value)

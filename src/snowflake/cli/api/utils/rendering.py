@@ -161,7 +161,7 @@ def _resolve_variables_in_project(project_definition: ProjectDefinition):
         variable_value = variables_data[key]
         if not isinstance(variable_value, str):
             continue
-        variables_data[key] = env.from_string(variables_data[key]).render(context_data)
+        variables_data[key] = env.from_string(variable_value).render(context_data)
 
     return context_data
 
