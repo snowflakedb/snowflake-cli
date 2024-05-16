@@ -20,7 +20,10 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
 )
 from snowflake.cli.api.project.util import is_valid_object_name
-from snowflake.cli.plugins.object.command_aliases import add_object_command_aliases
+from snowflake.cli.plugins.object.command_aliases import (
+    add_object_command_aliases,
+    scope_option,
+)
 from snowflake.cli.plugins.object.common import CommentOption, Tag, TagOption
 from snowflake.cli.plugins.spcs.common import (
     print_log_lines,
@@ -93,6 +96,7 @@ add_object_command_aliases(
     like_option=like_option(
         help_example='`list --like "my%"` lists all services that begin with “my”.'
     ),
+    scope_option=scope_option(help_example="`list --in compute-pool my_pool`"),
 )
 
 
