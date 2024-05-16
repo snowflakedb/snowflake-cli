@@ -142,24 +142,25 @@ def test_resolve_variables_in_project_cross_project_dependencies():
     }
 
 
+@mock.patch.dict(
+    os.environ,
+    {
+        "lowercase": "new_lowercase_value",
+        "UPPERCASE": "new_uppercase_value",
+        "should_be_replace_by_env": "test succeeded",
+        "value_from_env": "this comes from os.environ",
+    },
+)
 def test_resolve_variables_in_project_environment_variables_precedence():
     pdf = ProjectDefinition(
         definition_version="1.1",
         env={
             "should_be_replace_by_env": "test failed",
             "test_variable": "&{ ctx.env.lowercase } and &{ ctx.env.UPPERCASE }",
-            "test_variable_2": "&{ ctx.env.should_be_replace_by_env }",
+            "test_variable_2": "&{ ctx.env.value_from_env }",
         },
     )
-    with mock.patch.dict(
-        os.environ,
-        {
-            "lowercase": "new_lowercase_value",
-            "UPPERCASE": "new_uppercase_value",
-            "should_be_replace_by_env": "test succeeded",
-        },
-    ):
-        result = _add_project_context({}, project_definition=pdf)
+    result = _add_project_context({}, project_definition=pdf)
 
     assert result == {
         "ctx": ProjectDefinition(
@@ -168,9 +169,9 @@ def test_resolve_variables_in_project_environment_variables_precedence():
             snowpark=None,
             streamlit=None,
             env={
-                "should_be_replace_by_env": "test failed",
+                "should_be_replace_by_env": "test succeeded",
                 "test_variable": "new_lowercase_value and new_uppercase_value",
-                "test_variable_2": "test succeeded",
+                "test_variable_2": "this comes from os.environ",
             },
         )
     }

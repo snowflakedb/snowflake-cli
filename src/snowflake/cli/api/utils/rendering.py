@@ -142,24 +142,26 @@ def _resolve_variables_in_project(project_definition: ProjectDefinition):
     while unresolved_keys:
         key = unresolved_keys.pop()
         value = variables_data[key]
+        if not isinstance(value, str):
+            continue
         try:  # try to evaluate the template given current state of know variables
-            new_value = env.from_string(value).render(context_data)
-            if string_includes_template(new_value):
-                unresolved_keys.append(key)
             variables_data[key] = env.from_string(value).render(context_data)
+            if string_includes_template(variables_data[key]):
+                unresolved_keys.append(key)
         except UndefinedError:
             unresolved_keys.append(key)
 
     return context_data
 
 
-def _check_for_cycles(nodes: Dict[str, List[str]]):
+def _check_for_cycles(nodes: defaultdict):
+    nodes = nodes.copy()
     for key in list(nodes):
         q = deque([key])
         visited: List[str] = []
         while q:
             curr = q.popleft()
-            if curr in visited:
+            if visited and curr == key:
                 raise ClickException(
                     "Cycle detected between variables: {}".format(" -> ".join(visited))
                 )
@@ -176,14 +178,13 @@ def _check_variables_consistency(variables_data: DictWithEnvironFallback):
     # Variables that are not specified in env section
     missing_variables: Set[str] = set()
     # Variables that require other variables
-    variables_with_dependencies: Dict[str, List[str]] = defaultdict(list)
+    variables_with_dependencies = defaultdict(list)
 
     for key, value in variables_data.items():
         # Templates are reserved only to string variables
         if not isinstance(value, str):
             continue
 
-        # This value requires
         include_template, required_variables = _search_for_required_variables(value)
 
         if required_variables or include_template:
