@@ -1242,6 +1242,7 @@ def test_get_existing_version_info(mock_execute, temp_dir, mock_cursor):
                             "comment": "some comment",
                             "owner": "PACKAGE_ROLE",
                             "version": version,
+                            "patch": 0,
                         }
                     ],
                     [],
