@@ -7,6 +7,7 @@ from click import ClickException
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.plugins.object.commands import (
+    ScopeOption,
     describe,
     drop,
     list_,
@@ -33,6 +34,7 @@ def add_object_command_aliases(
                 list_(
                     object_type=object_type.value.cli_name,
                     like=like,
+                    scope=ScopeOption.default,
                     **options,
                 )
 
