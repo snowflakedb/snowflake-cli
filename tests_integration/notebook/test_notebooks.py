@@ -32,7 +32,9 @@ def test_create_notebook(runner, test_database, snowflake_session):
     notebook_name = "my_notebook"
     stage_name = "notebook_stage"
     stage_path = f"@{stage_name}/{notebook_name}"
-    notebook_file = Path(__file__).parent / "test_data/notebook/my_notebook.ipynb"
+    notebook_file = (
+        Path(__file__).parent.parent / "test_data/notebook/my_notebook.ipynb"
+    )
 
     snowflake_session.execute_string(
         f"create stage {stage_name};"
