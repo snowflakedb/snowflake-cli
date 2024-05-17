@@ -1,5 +1,4 @@
-# Unreleased version
-
+# v2.3.1
 ## Backward incompatibility
 
 ## Deprecations
@@ -7,7 +6,8 @@
 ## New additions
 
 ## Fixes and improvements
-
+* Improved support for quoted identifiers.
+* Fixed bugs in source artifact mapping logic for native applications
 
 # v2.3.0
 

@@ -7,10 +7,16 @@ from click import UsageError
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
+from snowflake.cli.api.project.util import (
+    identifier_to_show_like_pattern,
+    unquote_identifier,
+)
+from snowflake.cli.api.utils.cursor import find_all_rows
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
     LOOSE_FILES_MAGIC_VERSION,
+    PATCH_COL,
     SPECIAL_COMMENT,
     VERSION_COL,
 )
@@ -28,7 +34,7 @@ from snowflake.cli.plugins.nativeapp.policy import PolicyBase
 from snowflake.cli.plugins.stage.diff import DiffResult
 from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 UPGRADE_RESTRICTION_CODES = {93044, 93055, 93045, 93046}
 
@@ -134,24 +140,34 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
 
     def get_existing_version_info(self, version: str) -> Optional[dict]:
         """
-        Get an existing version, if defined, by the same name in an application package.
-        It executes a 'show versions like ... in application package' query and returns the result as single row, if one exists.
+        Get the latest patch on an existing version by name in the application package.
+        Executes 'show versions like ... in application package' query and returns
+        the latest patch in the version as a single row, if one exists. Otherwise,
+        returns None.
         """
         with self.use_role(self.package_role):
             try:
-                version_obj = self.show_specific_object(
-                    "versions",
-                    version,
-                    name_col=VERSION_COL,
-                    in_clause=f"in application package {self.package_name}",
+                query = f"show versions like {identifier_to_show_like_pattern(version)} in application package {self.package_name}"
+                cursor = self._execute_query(query, cursor_class=DictCursor)
+
+                if cursor.rowcount is None:
+                    raise SnowflakeSQLExecutionError(query)
+
+                matching_rows = find_all_rows(
+                    cursor, lambda row: row[VERSION_COL] == unquote_identifier(version)
                 )
+
+                if not matching_rows:
+                    return None
+
+                return max(matching_rows, key=lambda row: row[PATCH_COL])
+
             except ProgrammingError as err:
                 if err.msg.__contains__("does not exist or not authorized"):
                     raise ApplicationPackageDoesNotExistError(self.package_name)
                 else:
                     generic_sql_error_handler(err=err, role=self.package_role)
-
-            return version_obj
+                    return None
 
     def drop_application_before_upgrade(self, policy: PolicyBase, is_interactive: bool):
         """

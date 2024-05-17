@@ -1,4 +1,7 @@
 import datetime
+import os
+from contextlib import contextmanager
+from pathlib import Path
 from typing import Any, Dict, List
 
 from snowflake.connector.cursor import SnowflakeCursor
@@ -51,3 +54,13 @@ def not_contains_row_with(rows: List[Dict[str, Any]], values: Dict[str, Any]) ->
         if row.items() >= values_items:
             return False
     return True
+
+
+@contextmanager
+def pushd(directory: Path):
+    cwd = os.getcwd()
+    os.chdir(directory)
+    try:
+        yield directory
+    finally:
+        os.chdir(cwd)

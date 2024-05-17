@@ -7,6 +7,7 @@ NAME_COL = "name"
 COMMENT_COL = "comment"
 OWNER_COL = "owner"
 VERSION_COL = "version"
+PATCH_COL = "patch"
 
 INTERNAL_DISTRIBUTION = "internal"
 EXTERNAL_DISTRIBUTION = "external"
