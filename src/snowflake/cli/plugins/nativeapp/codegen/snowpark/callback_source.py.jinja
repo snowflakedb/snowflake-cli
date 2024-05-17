@@ -1,4 +1,5 @@
 import functools
+import inspect
 import sys
 from typing import Any, Callable, List
 
@@ -34,15 +35,34 @@ def __snowflake_cli_native_app_internal_callback_replacement():
     def __snowflake_cli_native_app_internal_transform_snowpark_object_to_json(
         extension_function_properties,
     ):
-
         {% raw %}ext_fn = extension_function_properties
+        input_args = None
+
+        # Try to fetch the original argument names from the extension function
+        if isinstance(ext_fn.func, Callable):
+            try:
+                original_arg_names = inspect.getfullargspec(ext_fn.func)[0]
+                start_index = len(original_arg_names) - len(ext_fn.input_args)
+                input_args = []
+                for i in range(len(ext_fn.input_args)):
+                    input_args.append({
+                        'name': original_arg_names[start_index + i],
+                        'datatype': type(ext_fn.input_args[i].datatype).__name__
+                    })
+            except Exception:
+                pass # ignore, we'll use the fallback strategy
+
+        if input_args is None:
+            # conditions were not met to extract the original argument names, fall back to the generated ones
+            input_args = [
+                {"name": input_arg.name, "datatype": type(input_arg.datatype).__name__}
+                for input_arg in ext_fn.input_args
+            ]
+
         extension_function_dict = {
             "object_type": ext_fn.object_type.name,
             "object_name": ext_fn.object_name,
-            "input_args": [
-                {"name": input_arg.name, "datatype": type(input_arg.datatype).__name__}
-                for input_arg in ext_fn.input_args
-            ],
+            "input_args": input_args,
             "input_sql_types": ext_fn.input_sql_types,
             "return_sql": ext_fn.return_sql,
             "runtime_version": ext_fn.runtime_version,
@@ -58,9 +78,7 @@ def __snowflake_cli_native_app_internal_callback_replacement():
             "execute_as": ext_fn.execute_as,
             "anonymous": ext_fn.anonymous,
             # Set func based on type
-            "func": ext_fn.func.__name__
-            if isinstance(ext_fn.func, Callable)
-            else ext_fn.func,
+            "func": ext_fn.func.__name__ if isinstance(ext_fn.func, Callable) else ext_fn.func,
         }
         # Set native app params based on dictionary
         if ext_fn.native_app_params is not None:
