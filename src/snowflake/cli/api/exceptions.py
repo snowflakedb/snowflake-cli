@@ -128,3 +128,15 @@ class SchemaNotProvidedError(ClickException):
         super().__init__(
             "Schema not specified. Please update connection to add `schema` parameter, or re-run command using `--schema` option. Use `snow connection list` to list existing connections."
         )
+
+
+class FQNNameError(ClickException):
+    def __init__(self, name: str):
+        super().__init__(f"Specified name '{name}' is not valid name.")
+
+
+class FQNInconsistencyError(ClickException):
+    def __init__(self, part: str, name: str):
+        super().__init__(
+            f"{part.capitalize()} provided but name '{name}' is fully qualified name."
+        )

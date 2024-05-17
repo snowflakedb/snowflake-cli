@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 import typer
 from click import ClickException
@@ -14,6 +14,8 @@ from snowflake.cli.api.commands.flags import (
     ReplaceOption,
     deprecated_flag_callback_enum,
     execution_identifier_argument,
+    identifier_argument,
+    like_option,
 )
 from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyper
@@ -25,6 +27,7 @@ from snowflake.cli.api.constants import (
 from snowflake.cli.api.exceptions import (
     SecretsWithoutExternalAccessIntegrationError,
 )
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -32,11 +35,22 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
 )
 from snowflake.cli.api.project.schemas.snowpark.callable import (
-    Callable,
     FunctionSchema,
     ProcedureSchema,
 )
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.plugins.object.commands import (
+    describe as object_describe,
+)
+from snowflake.cli.plugins.object.commands import (
+    drop as object_drop,
+)
+from snowflake.cli.plugins.object.commands import (
+    list_ as object_list,
+)
+from snowflake.cli.plugins.object.commands import (
+    scope_option,
+)
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.common import (
@@ -73,8 +87,15 @@ app = SnowTyper(
 ObjectTypeArgument = typer.Argument(
     help="Type of Snowpark object",
     case_sensitive=False,
+    show_default=False,
 )
-
+IdentifierArgument = identifier_argument(
+    "function/procedure",
+    example="hello(int, string)",
+)
+LikeOption = like_option(
+    help_example='`list function --like "my%"` lists all functions that begin with “my”',
+)
 add_init_command(app, project_type="Snowpark", template="default_snowpark")
 
 
@@ -132,7 +153,7 @@ def deploy(
     # Create stage
     stage_name = snowpark.stage_name
     stage_manager = StageManager()
-    stage_name = stage_manager.to_fully_qualified_name(stage_name)
+    stage_name = FQN.from_string(stage_name).using_context()
     stage_manager.create(
         stage_name=stage_name, comment="deployments managed by Snowflake CLI"
     )
@@ -181,7 +202,7 @@ def deploy(
 
 
 def _assert_object_definitions_are_correct(
-    object_type, object_definitions: List[Callable]
+    object_type, object_definitions: List[FunctionSchema | ProcedureSchema]
 ):
     for definition in object_definitions:
         database = definition.database
@@ -256,7 +277,7 @@ def get_app_stage_path(stage_name: Optional[str], project_name: str) -> str:
 def _deploy_single_object(
     manager: FunctionManager | ProcedureManager,
     object_type: ObjectType,
-    object_definition: Callable,
+    object_definition: FunctionSchema | ProcedureSchema,
     existing_objects: Dict[str, Dict],
     snowflake_dependencies: List[str],
     stage_artifact_path: str,
@@ -465,3 +486,36 @@ def execute(
         "execute", object_type=object_type, execution_identifier=execution_identifier
     )
     return SingleQueryResult(cursor)
+
+
+@app.command("list", requires_connection=True)
+def list_(
+    object_type: _SnowparkObject = ObjectTypeArgument,
+    like: str = LikeOption,
+    scope: Tuple[str, str] = scope_option(
+        help_example="`list function --in database my_db`"
+    ),
+    **options,
+):
+    """Lists all available procedures or functions."""
+    object_list(object_type=object_type.value, like=like, scope=scope, **options)
+
+
+@app.command("drop", requires_connection=True)
+def drop(
+    object_type: _SnowparkObject = ObjectTypeArgument,
+    identifier: str = IdentifierArgument,
+    **options,
+):
+    """Drop procedure or function."""
+    object_drop(object_type=object_type.value, object_name=identifier, **options)
+
+
+@app.command("describe", requires_connection=True)
+def describe(
+    object_type: _SnowparkObject = ObjectTypeArgument,
+    identifier: str = IdentifierArgument,
+    **options,
+):
+    """Provides description of a procedure or function."""
+    object_describe(object_type=object_type.value, object_name=identifier, **options)
