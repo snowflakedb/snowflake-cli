@@ -8,11 +8,10 @@ from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
-from snowflake.cli.api.utils.models import DictWithEnvironFallback
+from snowflake.cli.api.utils.models import EnvironWithDefinedDictFallback
 
 # todo: update examples
 _supported_version = ("1", "1.1")
-_latest_version = "1.1"
 
 
 class ProjectDefinition(UpdatableModel):
@@ -37,8 +36,8 @@ class ProjectDefinition(UpdatableModel):
 
     @field_validator("env")
     @classmethod
-    def _convert_env(cls, env: Optional[Dict]) -> DictWithEnvironFallback:
-        variables = DictWithEnvironFallback(env if env else {})
+    def _convert_env(cls, env: Optional[Dict]) -> EnvironWithDefinedDictFallback:
+        variables = EnvironWithDefinedDictFallback(env if env else {})
         return variables
 
     @field_validator("definition_version")

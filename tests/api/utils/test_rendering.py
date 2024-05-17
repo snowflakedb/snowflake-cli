@@ -1,21 +1,25 @@
 import os
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+from textwrap import dedent
 from unittest import mock
 
 import pytest
 from click import ClickException
 from jinja2 import UndefinedError
+from snowflake.cli.api.project.definition import load_project_definition
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
 )
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
 from snowflake.cli.api.utils.rendering import (
     _add_project_context,
-    snowflake_cli_jinja_render,
+    snowflake_sql_jinja_render,
 )
 
 
 def test_rendering_with_data():
-    assert snowflake_cli_jinja_render("&{ foo }", data={"foo": "bar"}) == "bar"
+    assert snowflake_sql_jinja_render("&{ foo }", data={"foo": "bar"}) == "bar"
 
 
 @pytest.mark.parametrize(
@@ -32,7 +36,7 @@ def test_rendering_with_data():
     ],
 )
 def test_rendering(text, output):
-    assert snowflake_cli_jinja_render(text, data={"foo": "bar"}) == output
+    assert snowflake_sql_jinja_render(text, data={"foo": "bar"}) == output
 
 
 @pytest.mark.parametrize(
@@ -52,26 +56,26 @@ def test_rendering(text, output):
     ],
 )
 def test_that_common_logic_block_are_ignored(text):
-    assert snowflake_cli_jinja_render(text) == text
+    assert snowflake_sql_jinja_render(text) == text
 
 
 def test_that_common_comments_are_respected():
     # Make sure comment are ignored
-    assert snowflake_cli_jinja_render("{# note a comment &{ foo } #}") == ""
+    assert snowflake_sql_jinja_render("{# note a comment &{ foo } #}") == ""
     # Make sure comment's work together with templates
     assert (
-        snowflake_cli_jinja_render("{# note a comment #}&{ foo }", data={"foo": "bar"})
+        snowflake_sql_jinja_render("{# note a comment #}&{ foo }", data={"foo": "bar"})
         == "bar"
     )
 
 
 def test_that_undefined_variables_raise_error():
     with pytest.raises(UndefinedError):
-        snowflake_cli_jinja_render("&{ foo }")
+        snowflake_sql_jinja_render("&{ foo }")
 
 
 def test_contex_can_access_environment_variable():
-    assert snowflake_cli_jinja_render("&{ ctx.env.USER }") == os.environ.get("USER")
+    assert snowflake_sql_jinja_render("&{ ctx.env.USER }") == os.environ.get("USER")
 
 
 def test_resolve_variables_in_project_no_cross_variable_dependencies():
@@ -83,7 +87,7 @@ def test_resolve_variables_in_project_no_cross_variable_dependencies():
             "boolean": True,
         },
     )
-    result = _add_project_context({}, project_definition=pdf)
+    result = _add_project_context(project_definition=pdf)
     assert result == {
         "ctx": ProjectDefinition(
             definition_version="1.1",
@@ -100,11 +104,11 @@ def test_resolve_variables_in_project_cross_variable_dependencies():
         definition_version="1.1",
         env={
             "A": 42,
-            "B": "b=&{ ctx.env.A }",
-            "C": "&{ ctx.env.B } and &{ ctx.env.A }",
+            "B": "b=${ ctx.env.A }",
+            "C": "${ ctx.env.B } and ${ ctx.env.A }",
         },
     )
-    result = _add_project_context({}, project_definition=pdf)
+    result = _add_project_context(project_definition=pdf)
     assert result == {
         "ctx": ProjectDefinition(
             definition_version="1.1",
@@ -120,9 +124,9 @@ def test_resolve_variables_in_project_cross_project_dependencies():
     pdf = ProjectDefinition(
         definition_version="1.1",
         streamlit=Streamlit(name="my_app"),
-        env={"app": "name of streamlit is &{ ctx.streamlit.name }"},
+        env={"app": "name of streamlit is ${ ctx.streamlit.name }"},
     )
-    result = _add_project_context({}, project_definition=pdf)
+    result = _add_project_context(project_definition=pdf)
     assert result == {
         "ctx": ProjectDefinition(
             definition_version="1.1",
@@ -156,11 +160,11 @@ def test_resolve_variables_in_project_environment_variables_precedence():
         definition_version="1.1",
         env={
             "should_be_replace_by_env": "test failed",
-            "test_variable": "&{ ctx.env.lowercase } and &{ ctx.env.UPPERCASE }",
-            "test_variable_2": "&{ ctx.env.value_from_env }",
+            "test_variable": "${ ctx.env.lowercase } and ${ ctx.env.UPPERCASE }",
+            "test_variable_2": "${ ctx.env.value_from_env }",
         },
     )
-    result = _add_project_context({}, project_definition=pdf)
+    result = _add_project_context(project_definition=pdf)
 
     assert result == {
         "ctx": ProjectDefinition(
@@ -180,14 +184,14 @@ def test_resolve_variables_in_project_environment_variables_precedence():
 @pytest.mark.parametrize(
     "env, cycle",
     [
-        ({"A": "&{ ctx.env.A }"}, "A"),
-        ({"A": "&{ ctx.env.B }", "B": "&{ ctx.env.A }"}, "A -> B"),
+        ({"A": "${ ctx.env.A }"}, "A"),
+        ({"A": "${ ctx.env.B }", "B": "${ ctx.env.A }"}, "A -> B"),
         (
             {
-                "A": "&{ ctx.env.B }",
-                "B": "&{ ctx.env.C }",
-                "C": "&{ ctx.env.D }",
-                "D": "&{ ctx.env.A }",
+                "A": "${ ctx.env.B }",
+                "B": "${ ctx.env.C }",
+                "C": "${ ctx.env.D }",
+                "D": "${ ctx.env.A }",
             },
             "A -> B -> C -> D",
         ),
@@ -199,7 +203,7 @@ def test_resolve_variables_error_on_cycle(env, cycle):
         env=env,
     )
     with pytest.raises(ClickException) as err:
-        _add_project_context({}, project_definition=pdf)
+        _add_project_context(project_definition=pdf)
 
     assert err.value.message == f"Cycle detected between variables: {cycle}"
 
@@ -207,9 +211,9 @@ def test_resolve_variables_error_on_cycle(env, cycle):
 @pytest.mark.parametrize(
     "env, msg",
     [
-        ({"app": "&{ bdbdbd }"}, "'bdbdbd' is undefined"),
-        ({"app": "&{ ctx.streamlit.name }"}, "'None' has no attribute 'name'"),
-        ({"app": "&{ ctx.foo }"}, "has no attribute 'foo'"),
+        ({"app": "${ bdbdbd }"}, "'bdbdbd' is undefined"),
+        ({"app": "${ ctx.streamlit.name }"}, "'None' has no attribute 'name'"),
+        ({"app": "${ ctx.foo }"}, "has no attribute 'foo'"),
     ],
 )
 def test_resolve_variables_fails_if_referencing_unknown_variable(env, msg):
@@ -218,5 +222,35 @@ def test_resolve_variables_fails_if_referencing_unknown_variable(env, msg):
         env=env,
     )
     with pytest.raises(UndefinedError) as err:
-        _add_project_context({}, project_definition=pdf)
+        _add_project_context(project_definition=pdf)
     assert msg in str(err.value)
+
+
+def tests_unquoted_template_usage_in_strings_yaml():
+    text = """\
+    definition_version: "1.1"
+    env:
+        value: "Snowflake is great!"
+        single_line: ${ ctx.env.value }
+        flow_multiline_quoted: "this is
+            multiline string with template ${ ctx.env.value }"
+        flow_multiline_not_quoted: this is
+            multiline string with template ${ ctx.env.value }
+        block_multiline: |
+            this is multiline string 
+            with template ${ ctx.env.value }
+    """
+
+    with NamedTemporaryFile(suffix=".yml") as file:
+        p = Path(file.name)
+        p.write_text(dedent(text))
+        definition = load_project_definition([p])
+
+    _add_project_context(project_definition=definition)
+    assert definition.env == {
+        "block_multiline": "this is multiline string \nwith template Snowflake is great!\n",
+        "flow_multiline_not_quoted": "this is multiline string with template Snowflake is great!",
+        "flow_multiline_quoted": "this is multiline string with template Snowflake is great!",
+        "single_line": "Snowflake is great!",
+        "value": "Snowflake is great!",
+    }

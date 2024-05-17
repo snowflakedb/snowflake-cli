@@ -14,7 +14,7 @@ from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
 )
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
-from snowflake.cli.api.utils.models import DictWithEnvironFallback
+from snowflake.cli.api.utils.models import EnvironWithDefinedDictFallback
 
 _CONTEXT_KEY = "ctx"
 
@@ -59,6 +59,21 @@ def get_snowflake_cli_jinja_env():
         Environment(
             loader=loaders.BaseLoader(),
             keep_trailing_newline=True,
+            variable_start_string="${",
+            variable_end_string="}",
+            block_start_string=_random_block,
+            block_end_string=_random_block,
+            undefined=StrictUndefined,
+        )
+    )
+
+
+def get_sql_cli_jinja_env():
+    _random_block = "___very___unique___block___to___disable___logic___blocks___"
+    return _env_bootstrap(
+        Environment(
+            loader=loaders.BaseLoader(),
+            keep_trailing_newline=True,
             variable_start_string="&{",
             variable_end_string="}",
             block_start_string=_random_block,
@@ -97,20 +112,11 @@ def jinja_render_from_file(
         print(rendered_result)
 
 
-def _add_project_context(
-    external_data: Dict, project_definition: ProjectDefinition
-) -> Dict:
+def _add_project_context(project_definition: ProjectDefinition) -> Dict:
     """
     Updates the external data with variables from snowflake.yml definition file.
     """
-    if _CONTEXT_KEY in external_data:
-        raise ClickException(
-            f"{_CONTEXT_KEY} in user defined data. The `{_CONTEXT_KEY}` variable is reserved for CLI usage."
-        )
-
     context_data = _resolve_variables_in_project(project_definition)
-
-    context_data.update(external_data)
     return context_data
 
 
@@ -122,7 +128,7 @@ def _remove_ctx_env_prefix(text: str) -> str:
 
 
 def string_includes_template(text: str) -> bool:
-    return bool(re.search("&{.+}", text))
+    return bool(re.search(r"\${.+}", text))
 
 
 def _resolve_variables_in_project(project_definition: ProjectDefinition):
@@ -130,10 +136,10 @@ def _resolve_variables_in_project(project_definition: ProjectDefinition):
     if not project_definition or not project_definition.meets_version_requirement(
         "1.1"
     ):
-        return {_CONTEXT_KEY: {"env": DictWithEnvironFallback({})}}
+        return {_CONTEXT_KEY: {"env": EnvironWithDefinedDictFallback({})}}
 
-    variables_data: DictWithEnvironFallback = cast(
-        DictWithEnvironFallback, project_definition.env
+    variables_data: EnvironWithDefinedDictFallback = cast(
+        EnvironWithDefinedDictFallback, project_definition.env
     )
 
     env_with_unresolved_keys: List[str] = _get_variables_with_dependencies(
@@ -183,7 +189,7 @@ def _check_for_cycles(nodes: defaultdict):
                 q.extendleft(nodes[curr])
 
 
-def _get_variables_with_dependencies(variables_data: DictWithEnvironFallback):
+def _get_variables_with_dependencies(variables_data: EnvironWithDefinedDictFallback):
     """
     Checks consistency of provided dictionary by
     1. checking reference cycles
@@ -232,7 +238,7 @@ def _search_for_required_variables(variable_value: str):
     to expand this template.`
     """
     ctx_env_prefix = f"{_CONTEXT_KEY}.env."
-    found_variables = re.findall(r"(&{([\.\w ]+)})+", variable_value)
+    found_variables = re.findall(r"(\${([\.\w ]+)})+", variable_value)
     required_variables = []
     for _, variable in found_variables:
         var: str = variable.strip()
@@ -241,8 +247,15 @@ def _search_for_required_variables(variable_value: str):
     return required_variables
 
 
-def snowflake_cli_jinja_render(content: str, data: Dict | None = None) -> str:
-    data = _add_project_context(
-        external_data=data or dict(), project_definition=cli_context.project_definition
+def snowflake_sql_jinja_render(content: str, data: Dict | None = None) -> str:
+    data = data or {}
+    if _CONTEXT_KEY in data:
+        raise ClickException(
+            f"{_CONTEXT_KEY} in user defined data. The `{_CONTEXT_KEY}` variable is reserved for CLI usage."
+        )
+
+    context_data = _add_project_context(
+        project_definition=cli_context.project_definition
     )
-    return get_snowflake_cli_jinja_env().from_string(content).render(**data)
+    context_data.update(data)
+    return get_sql_cli_jinja_env().from_string(content).render(**context_data)

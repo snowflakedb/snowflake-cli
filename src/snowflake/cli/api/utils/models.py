@@ -1,7 +1,7 @@
 import os
 
 
-class DictWithEnvironFallback(dict):
+class EnvironWithDefinedDictFallback(dict):
     def __getattr__(self, item):
         return self[item]
 
