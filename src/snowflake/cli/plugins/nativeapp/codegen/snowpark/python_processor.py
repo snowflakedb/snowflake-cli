@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import pprint
 from pathlib import Path
@@ -12,8 +14,7 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import (
 )
 from snowflake.cli.api.utils.rendering import jinja_render_from_file
 from snowflake.cli.plugins.nativeapp.artifacts import (
-    is_glob,
-    resolve_without_follow,
+    BundleMap,
 )
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import ArtifactProcessor
 from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
@@ -25,10 +26,6 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.extension_function_utils i
     enrich_ex_fn,
     get_object_type_as_text,
     sanitize_extension_function_data,
-)
-from snowflake.cli.plugins.nativeapp.utils import (
-    filter_files,
-    get_all_file_paths_under_dir,
 )
 
 DEFAULT_TIMEOUT = 30
@@ -131,21 +128,6 @@ def _execute_in_sandbox(
         return None
 
 
-def _add_py_file_dest_to_dict(
-    dest_path: Path,
-    py_file: Path,
-    src_py_file_to_dest_py_file_map: Dict[Path, Path],
-    deploy_root: Path,
-):
-    dest_file = dest_path / py_file.name
-    if (
-        dest_file.exists()
-    ):  # Should already exist since bundle is called before processing begins
-        src_py_file_to_dest_py_file_map[py_file] = dest_file
-    else:
-        cc.warning(f"{dest_path} does not exist in {deploy_root}.")
-
-
 class SnowparkAnnotationProcessor(ArtifactProcessor):
     """
     Built-in Processor to discover Snowpark-annotated objects in a given set of python files,
@@ -184,156 +166,72 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
             else {}
         )
 
-        # 1. Get all src.py -> dest.py mapping
-        # TODO: Logic to replaced in a follow up PR by NADE
-        src_py_file_to_dest_py_file_map = self.get_src_py_file_to_dest_py_file_map(
-            artifact_to_process
+        bundle_map = BundleMap(
+            project_root=self.project_root, deploy_root=self.deploy_root
         )
+        bundle_map.add(artifact_to_process)
 
         # 2. Get raw extension functions through Snowpark callback
         dest_file_py_file_to_collected_raw_ex_fns: Dict[Path, Optional[Any]] = {}
-        for src_file, dest_file in src_py_file_to_dest_py_file_map.items():
-            if dest_file.suffix == ".py":
-                try:
-                    collected_raw_ex_fns = _execute_in_sandbox(
-                        py_file=str(dest_file.resolve()),
-                        deploy_root=self.deploy_root,
-                        kwargs=kwargs,
-                    )
-                except Exception as exc:
-                    cc.warning(
-                        f"Error processing extension functions in {src_file}: {exc}"
-                    )  # Display the actual file for the user to inspect
-                    cc.warning(
-                        "Skipping generating code of all objects from this file."
-                    )
-                    collected_raw_ex_fns = None
 
-                if (collected_raw_ex_fns is None) or (len(collected_raw_ex_fns) == 0):
-                    continue
+        def is_python_file_artifact(src: Path, dest: Path):
+            return src.is_file() and src.suffix == ".py"
 
-                cc.message(f"This is the file path in deploy root: {dest_file}\n")
-                cc.message("This is the list of collected extension functions:")
-                cc.message(pprint.pformat(collected_raw_ex_fns))
-
-                filtered_collection = list(
-                    filter(
-                        lambda item: (item is not None) and (len(item) > 0),
-                        collected_raw_ex_fns,
-                    )
+        for src_file, dest_file in bundle_map.all_mappings(
+            absolute=True, expand_directories=True, predicate=is_python_file_artifact
+        ):
+            try:
+                collected_raw_ex_fns = _execute_in_sandbox(
+                    py_file=str(dest_file.resolve()),
+                    deploy_root=self.deploy_root,
+                    kwargs=kwargs,
                 )
-                if len(filtered_collection) != len(collected_raw_ex_fns):
-                    cc.warning(
-                        "Discovered extension functions that have value None or do not contain any information."
-                    )
-                    cc.warning(
-                        "Skipping generating code of all such objects from this file."
-                    )
+            except Exception as exc:
+                cc.warning(
+                    f"Error processing extension functions in {src_file}: {exc}"
+                )  # Display the actual file for the user to inspect
+                cc.warning("Skipping generating code of all objects from this file.")
+                collected_raw_ex_fns = None
 
-                # 4. Enrich the raw extension functions by setting additional properties
-                for raw_ex_fn in filtered_collection:
-                    sanitize_extension_function_data(ex_fn=raw_ex_fn, py_file=dest_file)
-                    enrich_ex_fn(
-                        ex_fn=raw_ex_fn,
-                        py_file=dest_file,
-                        deploy_root=self.deploy_root,
-                    )
+            if (collected_raw_ex_fns is None) or (len(collected_raw_ex_fns) == 0):
+                continue
 
-                dest_file_py_file_to_collected_raw_ex_fns[
-                    dest_file
-                ] = filtered_collection
+            cc.message(f"This is the file path in deploy root: {dest_file}\n")
+            cc.message("This is the list of collected extension functions:")
+            cc.message(pprint.pformat(collected_raw_ex_fns))
 
-        # 4. For each extension function, generate its related SQL statements
+            filtered_collection = list(
+                filter(
+                    lambda item: (item is not None) and (len(item) > 0),
+                    collected_raw_ex_fns,
+                )
+            )
+            if len(filtered_collection) != len(collected_raw_ex_fns):
+                cc.warning(
+                    "Discovered extension functions that have value None or do not contain any information."
+                )
+                cc.warning(
+                    "Skipping generating code of all such objects from this file."
+                )
+
+            # 4. Enrich the raw extension functions by setting additional properties
+            for raw_ex_fn in filtered_collection:
+                sanitize_extension_function_data(ex_fn=raw_ex_fn, py_file=dest_file)
+                enrich_ex_fn(
+                    ex_fn=raw_ex_fn,
+                    py_file=dest_file,
+                    deploy_root=self.deploy_root,
+                )
+
+            dest_file_py_file_to_collected_raw_ex_fns[dest_file] = filtered_collection
+
+        # For each extension function, generate its related SQL statements
         dest_file_py_file_to_ddl_map: Dict[
             Path, str
         ] = self.generate_sql_ddl_statements(dest_file_py_file_to_collected_raw_ex_fns)
 
         # TODO: Temporary for testing, while feature is being built in phases
         return dest_file_py_file_to_ddl_map
-
-    def get_src_py_file_to_dest_py_file_map(
-        self,
-        artifact_to_process: PathMapping,
-    ) -> Dict[Path, Path]:
-        """
-        For the project definition for a native app, find the mapping between src python files and their destination python files.
-        """
-
-        src_py_file_to_dest_py_file_map: Dict[Path, Path] = {}
-        artifact_src = artifact_to_process.src
-
-        resolved_root = self.deploy_root.resolve()
-        dest_path = resolve_without_follow(
-            Path(resolved_root, artifact_to_process.dest)
-        )
-
-        # Case 1: When artifact has the following src/dest pairing
-        # src: john/doe/folder1/*.py OR john/doe/folder1/**/*.py
-        # dest: stagepath/
-        # OR
-        # Case 2: When artifact has the following src/dest pairing
-        # src: john/doe/folder1/**/* (in this case, all files and directories under src need to be considered)
-        # dest: stagepath/
-        if (is_glob(artifact_src) and artifact_src.endswith(".py")) or (
-            "**" in artifact_src
-        ):
-            src_files_gen = self.project_root.glob(artifact_src)
-            src_py_files_gen = filter_files(
-                generator=src_files_gen, predicate_func=_is_python_file
-            )
-            for py_file in src_py_files_gen:
-                _add_py_file_dest_to_dict(
-                    dest_path=dest_path,
-                    py_file=py_file,
-                    src_py_file_to_dest_py_file_map=src_py_file_to_dest_py_file_map,
-                    deploy_root=self.deploy_root,
-                )
-
-        # Case 3: When artifact has the following src/dest pairing
-        # src: john/doe/folder1/*
-        # dest: stagepath/ (in this case, the directories under folder1 will be symlinked, which means files inside those directories also need to be considered due to implicit availability from directory symlink)
-        elif is_glob(artifact_src):
-            src_files_and_dirs = self.project_root.glob(artifact_src)
-            for path in src_files_and_dirs:
-                if path.is_dir():
-                    file_gen = get_all_file_paths_under_dir(path)
-                    py_file_gen = filter_files(
-                        generator=file_gen, predicate_func=_is_python_file
-                    )
-                    for py_file in py_file_gen:
-                        _add_py_file_dest_to_dict(
-                            dest_path=dest_path,
-                            py_file=py_file,
-                            src_py_file_to_dest_py_file_map=src_py_file_to_dest_py_file_map,
-                            deploy_root=self.deploy_root,
-                        )
-                elif path.is_file() and path.suffix == ".py":
-                    _add_py_file_dest_to_dict(
-                        dest_path=dest_path,
-                        py_file=path,
-                        src_py_file_to_dest_py_file_map=src_py_file_to_dest_py_file_map,
-                        deploy_root=self.deploy_root,
-                    )
-
-        # TODO: Unify Case 2 and Case 3 once symlinking "bugfix" is in.
-
-        # Case 4: When artifact has the following src/dest pairing
-        # src: john/doe/folder1/main.py
-        # dest: stagepath/stagemain.py
-        elif artifact_src.endswith(".py") and artifact_to_process.dest.endswith(".py"):
-            if dest_path.exists():
-                src_py_file_to_dest_py_file_map[
-                    Path(self.project_root, artifact_src)
-                ] = dest_path
-            else:
-                cc.warning(f"{dest_path} does not exist in {self.deploy_root}.")
-
-        # Case 5: When artifact has the following src/dest pairing
-        # src: john/doe/folder1.py.zip
-        # dest: stagepath/stagefolder1.py.zip
-        # TODO: Does this case 5 need to be considered?
-
-        return src_py_file_to_dest_py_file_map
 
     def generate_sql_ddl_statements(
         self, dest_file_py_file_to_collected_raw_ex_fns: Dict[Path, Optional[Any]]
