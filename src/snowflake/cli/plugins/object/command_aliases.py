@@ -23,23 +23,33 @@ def add_object_command_aliases(
     ommit_commands: List[str] = [],
 ):
     if "list" not in ommit_commands:
-        if not like_option or not scope_option:
-            raise ClickException(
-                '[like_option] and [scope_option] parameters have to be defined for "list" command'
-            )
+        if not like_option:
+            raise ClickException('[like_option] have to be defined for "list" command')
 
-        @app.command("list", requires_connection=True)
-        def list_cmd(
-            like: str = like_option,  # type: ignore
-            scope: Tuple[str, str] = scope_option,  # type: ignore
-            **options,
-        ):
-            list_(
-                object_type=object_type.value.cli_name,
-                like=like,
-                scope=scope,
+        if not scope_option:
+
+            @app.command("list", requires_connection=True)
+            def list_cmd(like: str = like_option, **options):  # type: ignore
+                list_(
+                    object_type=object_type.value.cli_name,
+                    like=like,
+                    **options,
+                )
+
+        else:
+
+            @app.command("list", requires_connection=True)
+            def list_cmd(
+                like: str = like_option,  # type: ignore
+                scope: Tuple[str, str] = scope_option,  # type: ignore
                 **options,
-            )
+            ):
+                list_(
+                    object_type=object_type.value.cli_name,
+                    like=like,
+                    scope=scope,
+                    **options,
+                )
 
         list_cmd.__doc__ = f"Lists all available {object_type.value.sf_plural_name}."
 

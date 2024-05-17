@@ -15,7 +15,6 @@ from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
 from snowflake.cli.api.project.util import is_valid_object_name
 from snowflake.cli.plugins.object.command_aliases import (
     add_object_command_aliases,
-    scope_option,
 )
 from snowflake.cli.plugins.object.common import CommentOption
 from snowflake.cli.plugins.spcs.common import (
@@ -87,7 +86,7 @@ add_object_command_aliases(
     like_option=like_option(
         help_example='`list --like "my%"` lists all compute pools that begin with “my”.'
     ),
-    scope_option=scope_option(help_example="`list --in database my_db`"),
+    scope_option=None,
 )
 
 

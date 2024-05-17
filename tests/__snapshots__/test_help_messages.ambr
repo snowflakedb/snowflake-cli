@@ -3649,15 +3649,11 @@
    Lists all available compute pools.                                             
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --like  -l      TEXT            SQL LIKE pattern for filtering objects by    │
-  │                                 name. For example, `list --like "my%"` lists │
-  │                                 all compute pools that begin with “my”..     │
-  │                                 [default: %%]                                │
-  │ --in            <TEXT TEXT>...  Specifies the scope of this command using    │
-  │                                 '--in <scope> <name>', for example `list     │
-  │                                 --in database my_db`.                        │
-  │                                 [default: None, None]                        │
-  │ --help  -h                      Show this message and exit.                  │
+  │ --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    │
+  │                       example, `list --like "my%"` lists all compute pools   │
+  │                       that begin with “my”..                                 │
+  │                       [default: %%]                                          │
+  │ --help  -h            Show this message and exit.                            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
