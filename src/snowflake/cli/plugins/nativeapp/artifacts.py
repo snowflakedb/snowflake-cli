@@ -1,18 +1,17 @@
 from __future__ import annotations
 
+import itertools
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from textwrap import dedent
+from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 from click.exceptions import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 from yaml import safe_load
-
-# Map from source directories and files in the project directory to their path in the deploy directory. Both paths are absolute.
-ArtifactDeploymentMap = Dict[Path, Path]
 
 
 class DeployRootError(ClickException):
@@ -33,26 +32,13 @@ class ArtifactError(ClickException):
         super().__init__(msg)
 
 
-class GlobMatchedNothingError(ClickException):
-    """
-    No files were found that matched the provided glob pattern.
-    """
-
-    def __init__(self, src: str):
-        super().__init__(f"{self.__doc__}: {src}")
-
-
 class SourceNotFoundError(ClickException):
     """
-    The specifically-referenced source file or directory was not found
-    in the project directory.
+    No match was found for the specified source in the project directory
     """
 
-    path: Path
-
-    def __init__(self, path: Path):
-        super().__init__(f"{self.__doc__}\npath = {path}")
-        self.path = path
+    def __init__(self, src: Union[str, Path]):
+        super().__init__(f"{dedent(str(self.__doc__))}: {src}".strip())
 
 
 class TooManyFilesError(ClickException):
@@ -63,7 +49,9 @@ class TooManyFilesError(ClickException):
     dest_path: Path
 
     def __init__(self, dest_path: Path):
-        super().__init__(f"{self.__doc__}\ndest_path = {dest_path}")
+        super().__init__(
+            f"{dedent(str(self.__doc__))}\ndestination = {dest_path}".strip()
+        )
         self.dest_path = dest_path
 
 
@@ -75,37 +63,317 @@ class NotInDeployRootError(ClickException):
     (use "./" instead to copy into the deploy root).
     """
 
-    artifact_src: str
-    dest_path: Path
+    dest_path: Union[str, Path]
     deploy_root: Path
+    src_path: Optional[Union[str, Path]]
 
-    def __init__(self, artifact_src: str, dest_path: Path, deploy_root: Path):
-        super().__init__(
-            f"""
-            {self.__doc__}
-            artifact_src = {artifact_src}
-            dest_path = {dest_path}
-            deploy_root = {deploy_root}
-            """
-        )
-        self.artifact_src = artifact_src
+    def __init__(
+        self,
+        *,
+        dest_path: Union[Path, str],
+        deploy_root: Path,
+        src_path: Optional[Union[str, Path]] = None,
+    ):
+        message = dedent(str(self.__doc__))
+        message += f"\ndestination = {dest_path}"
+        message += f"\ndeploy root = {deploy_root}"
+        if src_path is not None:
+            message += f"""\nsource = {src_path}"""
+        super().__init__(message.strip())
         self.dest_path = dest_path
         self.deploy_root = deploy_root
+        self.src_path = src_path
 
 
 @dataclass
 class ArtifactMapping:
     """
-    Used to keep track of equivalent paths / globs so we can copy
-    artifacts from the project folder to the deploy root.
+    Used to keep track of equivalent paths / globs so we can copy artifacts from the project folder to the deploy root.
     """
 
     src: str
     dest: str
 
 
-def is_glob(s: str) -> bool:
-    return "*" in s
+ArtifactPredicate = Callable[[Path, Path], bool]
+
+
+class BundleMap:
+    """
+    Computes the mapping between project directory artifacts (aka source artifacts) to their deploy root location
+    (aka destination artifact). This information is primarily used when bundling a native applications project.
+    """
+
+    def __init__(self, *, project_root: Path, deploy_root: Path):
+        self._project_root: Path = resolve_without_follow(project_root)
+        self._deploy_root: Path = resolve_without_follow(deploy_root)
+        self._src_to_dest: Dict[Path, List[Path]] = {}
+        self._dest_to_src: Dict[Path, List[Path]] = {}
+        self._dest_is_dir: Dict[Path, bool] = {}
+
+    def deploy_root(self) -> Path:
+        return self._deploy_root
+
+    def project_root(self) -> Path:
+        return self._project_root
+
+    def _add(self, src: Path, dest: Path, map_as_child: bool) -> None:
+        """
+        Adds the specified artifact mapping rule to this map.
+
+        Arguments:
+            src {Path} -- the source path
+            dest {Path} -- the destination path
+            map_as_child {bool} -- when True, the source will be added as a child of the specified destination.
+        """
+        absolute_src = self._absolute_src(src)
+        absolute_dest = self._absolute_dest(dest, src_path=src)
+        dest_is_dir = absolute_src.is_dir() or map_as_child
+
+        # Check for the special case of './' as a target ('.' is not allowed)
+        if absolute_dest == self._deploy_root and not map_as_child:
+            raise NotInDeployRootError(
+                dest_path=dest, deploy_root=self._deploy_root, src_path=src
+            )
+
+        if self._deploy_root in absolute_src.parents:
+            # ignore this item since it's in the deploy root. This can happen if the bundle map is create
+            # after the bundle step and a project is using rules that are not sufficiently constrained.
+            # Since the bundle step starts with deleting the deploy root, we wouldn't normally encounter this situation.
+            return
+
+        canonical_src = self._canonical_src(src)
+        canonical_dest = self._canonical_dest(dest)
+
+        src_is_dir = absolute_src.is_dir()
+        if map_as_child:
+            # Make sure the destination is a child of the original, since this was requested
+            canonical_dest = canonical_dest / canonical_src.name
+            dest_is_dir = src.is_dir()
+
+        # Verify that multiple files are not being mapped to a single file destination
+        current_sources = self._dest_to_src.setdefault(canonical_dest, [])
+        if not dest_is_dir:
+            # the destination is a file
+            if (canonical_src not in current_sources) and len(current_sources) > 0:
+                raise TooManyFilesError(dest)
+
+        # Perform all updates together we don't end up with inconsistent state
+        self._update_dest_is_dir(canonical_dest, dest_is_dir)
+        current_dests = self._src_to_dest.setdefault(canonical_src, [])
+        if canonical_dest not in current_dests:
+            current_dests.append(canonical_dest)
+        if canonical_src not in current_sources:
+            current_sources.append(canonical_src)
+
+    def _add_mapping(self, src: str, dest: Optional[str]):
+        """
+        Adds the specified artifact rule to this instance. The source should be relative to the project directory. It
+        is interpreted as a file, directory or glob pattern. If the destination path is not specified, each source match
+        is mapped to an identical path in the deploy root.
+        """
+        match_found = False
+
+        src_path = Path(src)
+        if src_path.is_absolute():
+            raise ArtifactError("Source path must be a relative path")
+
+        for resolved_src in self._project_root.glob(src):
+            match_found = True
+
+            if dest:
+                dest_stem = dest.rstrip("/")
+                if not dest_stem:
+                    # handle '/' as the destination as a special case. This is because specifying only '/' as a
+                    # a destination looks like '.' once all forwards slashes are stripped. If we don't handle it
+                    # specially here, `dest: /` would incorrectly be allowed.
+                    raise NotInDeployRootError(
+                        dest_path=dest,
+                        deploy_root=self._deploy_root,
+                        src_path=resolved_src,
+                    )
+                dest_path = Path(dest.rstrip("/"))
+                if dest_path.is_absolute():
+                    raise ArtifactError("Destination path must be a relative path")
+                self._add(resolved_src, dest_path, specifies_directory(dest))
+            else:
+                self._add(
+                    resolved_src,
+                    resolved_src.relative_to(self._project_root),
+                    False,
+                )
+
+        if not match_found:
+            raise SourceNotFoundError(src)
+
+    def add(self, mapping: Union[ArtifactMapping, PathMapping]) -> None:
+        """
+        Adds an artifact mapping rule to this instance.
+        """
+        if isinstance(mapping, ArtifactMapping):
+            self._add_mapping(mapping.src, mapping.dest)
+        elif isinstance(mapping, PathMapping):
+            self._add_mapping(mapping.src, mapping.dest)
+        else:
+            raise RuntimeError(f"Unsupported mapping type: {type(mapping)}")
+
+    def _mappings_for_source(
+        self,
+        src: Path,
+        absolute: bool = False,
+        expand_directories: bool = False,
+        predicate: ArtifactPredicate = lambda src, dest: True,
+    ) -> Iterator[Tuple[Path, Path]]:
+        canonical_src = self._canonical_src(src)
+        canonical_dests = self._src_to_dest.get(canonical_src)
+        assert canonical_dests is not None
+
+        absolute_src = self._absolute_src(canonical_src)
+        src_for_output = self._to_output_src(absolute_src, absolute)
+        dests_for_output = [self._to_output_dest(p, absolute) for p in canonical_dests]
+
+        for d in dests_for_output:
+            if predicate(src_for_output, d):
+                yield src_for_output, d
+
+        if absolute_src.is_dir() and expand_directories:
+            # both src and dest are directories, and expanding directories was requested. Traverse src, and map each
+            # file to the dest directory
+            for (root, subdirs, files) in os.walk(absolute_src, followlinks=True):
+                relative_root = Path(root).relative_to(absolute_src)
+                for name in itertools.chain(subdirs, files):
+                    for d in dests_for_output:
+                        src_file_for_output = src_for_output / relative_root / name
+                        dest_file_for_output = d / relative_root / name
+                        if predicate(src_file_for_output, dest_file_for_output):
+                            yield src_file_for_output, dest_file_for_output
+
+    def all_mappings(
+        self,
+        absolute: bool = False,
+        expand_directories: bool = False,
+        predicate: ArtifactPredicate = lambda src, dest: True,
+    ) -> Iterator[Tuple[Path, Path]]:
+        """
+        Yields a (src, dest) pair for each deployed artifact in the project. Each pair corresponds to a single file
+        in the project. Source directories are resolved as needed to resolve their contents.
+
+        Arguments:
+            self: this instance
+            absolute (bool): Specifies whether the yielded paths should be joined with the project or deploy roots,
+             as appropriate.
+            expand_directories (bool): Specifies whether directory to directory mappings should be expanded to
+             resolve their contained files.
+            predicate (PathPredicate): If provided, the predicate is invoked with both the source path and the
+             destination path as arguments. Only pairs selected by the predicate are returned.
+
+        Returns:
+          An iterator over all matching deployed artifacts.
+        """
+        for src in self._src_to_dest.keys():
+            for deployed_src, deployed_dest in self._mappings_for_source(
+                src,
+                absolute=absolute,
+                expand_directories=expand_directories,
+                predicate=predicate,
+            ):
+                yield deployed_src, deployed_dest
+
+    def to_deploy_paths(self, src: Path) -> List[Path]:
+        """
+        Converts a source path to its corresponding deploy root path. If the input path is relative to the project root,
+        a path relative to the deploy root is returned. If the input path is absolute, an absolute path is returned.
+
+        Returns:
+            The deploy root paths for the given source path, or an empty list if no such path exists.
+        """
+        is_absolute = src.is_absolute()
+
+        try:
+            absolute_src = self._absolute_src(src)
+            if not absolute_src.exists():
+                return []
+            canonical_src = self._canonical_src(absolute_src)
+        except ArtifactError:
+            # No mapping is possible for this src path
+            return []
+
+        output_destinations: List[Path] = []
+
+        canonical_dests = self._src_to_dest.get(canonical_src)
+        if canonical_dests is not None:
+            for d in canonical_dests:
+                output_destinations.append(self._to_output_dest(d, is_absolute))
+
+        canonical_parent = canonical_src.parent
+        canonical_parent_dests = self.to_deploy_paths(canonical_parent)
+        if canonical_parent_dests:
+            canonical_child = canonical_src.relative_to(canonical_parent)
+            for d in canonical_parent_dests:
+                output_destinations.append(
+                    self._to_output_dest(d / canonical_child, is_absolute)
+                )
+
+        return output_destinations
+
+    def _absolute_src(self, src: Path) -> Path:
+        if src.is_absolute():
+            resolved_src = resolve_without_follow(src)
+        else:
+            resolved_src = resolve_without_follow(self._project_root / src)
+        if self._project_root not in resolved_src.parents:
+            raise ArtifactError(
+                f"Source is not in the project root: {src}, root={self._project_root}"
+            )
+        return resolved_src
+
+    def _absolute_dest(self, dest: Path, src_path: Optional[Path] = None) -> Path:
+        if dest.is_absolute():
+            resolved_dest = resolve_without_follow(dest)
+        else:
+            resolved_dest = resolve_without_follow(self._deploy_root / dest)
+        if (
+            self._deploy_root != resolved_dest
+            and self._deploy_root not in resolved_dest.parents
+        ):
+            raise NotInDeployRootError(
+                dest_path=dest, deploy_root=self._deploy_root, src_path=src_path
+            )
+
+        return resolved_dest
+
+    def _canonical_src(self, src: Path) -> Path:
+        """
+        Returns the canonical version of a source path, relative to the project root.
+        """
+        absolute_src = self._absolute_src(src)
+        return absolute_src.relative_to(self._project_root)
+
+    def _canonical_dest(self, dest: Path) -> Path:
+        """
+        Returns the canonical version of a destination path, relative to the deploy root.
+        """
+        absolute_dest = self._absolute_dest(dest)
+        return absolute_dest.relative_to(self._deploy_root)
+
+    def _to_output_dest(self, dest: Path, absolute: bool) -> Path:
+        return self._absolute_dest(dest) if absolute else self._canonical_dest(dest)
+
+    def _to_output_src(self, src: Path, absolute: bool) -> Path:
+        return self._absolute_src(src) if absolute else self._canonical_src(src)
+
+    def _update_dest_is_dir(self, canonical_dest: Path, is_dir: bool) -> None:
+        current_is_dir = self._dest_is_dir.get(canonical_dest, None)
+        if current_is_dir is not None and is_dir != current_is_dir:
+            raise ArtifactError(
+                "Conflicting type for destination path: {canonical_dest}"
+            )
+
+        parent = canonical_dest.parent
+        if parent != canonical_dest:
+            self._update_dest_is_dir(parent, True)
+
+        self._dest_is_dir[canonical_dest] = is_dir
 
 
 def specifies_directory(s: str) -> bool:
@@ -134,7 +402,9 @@ def delete(path: Path) -> None:
         spath.rmdir(recursive=True)  # remove dir and all contains
 
 
-def symlink_or_copy(src: Path, dst: Path, makedirs=True, overwrite=True) -> None:
+def symlink_or_copy(
+    src: Path, dst: Path, deploy_root: Path, makedirs=True, overwrite=True
+) -> None:
     """
     Tries to create a symlink to src at dst; failing that (i.e. in Windows
     without Administrator / Developer Mode) copies the file from src to dst instead.
@@ -145,6 +415,14 @@ def symlink_or_copy(src: Path, dst: Path, makedirs=True, overwrite=True) -> None
     sdst = SecurePath(dst)
     if makedirs:
         sdst.parent.mkdir(parents=True, exist_ok=True)
+
+    # Verify that the mapping isn't accidentally trying to create a file in the project source through symlinks.
+    # We need to ensure we're resolving symlinks for this check to be effective.
+    resolved_dst = dst.resolve()
+    resolved_deploy_root = deploy_root.resolve()
+    if resolved_deploy_root not in resolved_dst.parents:
+        raise NotInDeployRootError(dest_path=dst, deploy_root=deploy_root, src_path=src)
+
     if overwrite:
         delete(dst)
     try:
@@ -153,7 +431,7 @@ def symlink_or_copy(src: Path, dst: Path, makedirs=True, overwrite=True) -> None
         ssrc.copy(dst)
 
 
-def translate_artifact(item: Union[dict, str]) -> ArtifactMapping:
+def translate_artifact(item: Union[PathMapping, str]) -> ArtifactMapping:
     """
     Builds an artifact mapping from a project definition value.
     Validation is done later when we actually resolve files / folders.
@@ -169,28 +447,6 @@ def translate_artifact(item: Union[dict, str]) -> ArtifactMapping:
     raise ArtifactError("Item is not a valid artifact!")
 
 
-def get_source_paths(artifact: ArtifactMapping, project_root: Path) -> List[Path]:
-    """
-    Expands globs, ensuring at least one file exists that matches artifact.src.
-    Returns a list of paths that resolve to actual files in the project root dir structure.
-    If a glob does not specify a directory (i.e. does not end with a path separator)
-
-    """
-    source_paths: List[Path]
-
-    if is_glob(artifact.src):
-        source_paths = list(project_root.glob(artifact.src))
-        if not source_paths:
-            raise GlobMatchedNothingError(artifact.src)
-    else:
-        source_path = Path(project_root, artifact.src)
-        source_paths = [source_path]
-        if not source_path.exists():
-            raise SourceNotFoundError(source_path)
-
-    return source_paths
-
-
 def resolve_without_follow(path: Path) -> Path:
     """
     Resolves a Path to an absolute version of itself, without following
@@ -203,7 +459,7 @@ def build_bundle(
     project_root: Path,
     deploy_root: Path,
     artifacts: List[ArtifactMapping],
-) -> ArtifactDeploymentMap:
+) -> BundleMap:
     """
     Prepares a local folder (deploy_root) with configured app artifacts.
     This folder can then be uploaded to a stage.
@@ -225,34 +481,16 @@ def build_bundle(
     if resolved_root.exists():
         delete(resolved_root)
 
-    mapped_files: ArtifactDeploymentMap = {}
+    bundle_map = BundleMap(project_root=project_root, deploy_root=deploy_root)
     for artifact in artifacts:
-        dest_path = resolve_without_follow(Path(resolved_root, artifact.dest))
-        source_paths = get_source_paths(artifact, project_root)
+        bundle_map.add(artifact)
 
-        if specifies_directory(artifact.dest):
-            # make sure we are only modifying files / directories inside the deploy root
-            if resolved_root != dest_path and resolved_root not in dest_path.parents:
-                raise NotInDeployRootError(artifact.src, dest_path, resolved_root)
+    for (absolute_src, absolute_dest) in bundle_map.all_mappings(
+        absolute=True, expand_directories=False
+    ):
+        symlink_or_copy(absolute_src, absolute_dest, deploy_root=deploy_root)
 
-            # copy all files as children of the given destination path
-            for source_path in source_paths:
-                dest_child_path = dest_path / source_path.name
-                symlink_or_copy(source_path, dest_child_path)
-                mapped_files[source_path.resolve()] = dest_child_path
-        else:
-            # ensure we are copying into the deploy root, not replacing it!
-            if resolved_root not in dest_path.parents:
-                raise NotInDeployRootError(artifact.src, dest_path, resolved_root)
-
-            if len(source_paths) == 1:
-                # copy a single file as the given destination path
-                symlink_or_copy(source_paths[0], dest_path)
-                mapped_files[source_paths[0].resolve()] = dest_path
-            else:
-                # refuse to map multiple source files to one destination (undefined behaviour)
-                raise TooManyFilesError(dest_path)
-    return mapped_files
+    return bundle_map
 
 
 def find_manifest_file(deploy_root: Path) -> Path:
@@ -296,31 +534,3 @@ def find_version_info_in_manifest_file(
             patch_name = version_info[patch_field]
 
     return version_name, patch_name
-
-
-def source_path_to_deploy_path(
-    source_path: Path, mapped_files: ArtifactDeploymentMap
-) -> Path:
-    """Returns the absolute path where the specified source path was copied to during bundle."""
-
-    source_path = source_path.resolve()
-
-    if source_path in mapped_files:
-        return mapped_files[source_path]
-
-    # Find the first parent directory that exists in mapped_files
-    common_root = source_path
-    while common_root:
-        if common_root in mapped_files:
-            break
-        elif common_root.parent != common_root:
-            common_root = common_root.parent
-        else:
-            raise ClickException(f"Could not find the deploy path of {source_path}")
-
-    # Construct the target deploy path
-    path_to_symlink = mapped_files[common_root]
-    relative_path_to_target = Path(source_path).relative_to(common_root)
-    result = Path(path_to_symlink, relative_path_to_target)
-
-    return result
