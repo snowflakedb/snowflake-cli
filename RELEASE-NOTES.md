@@ -12,7 +12,7 @@
    * `snow snowpark` for procedures and functions
    * `snow spcs compute-pool` for compute pools
    * `snow spcs image-repository` for image repositories
-   * `snow spcs services` for services
+   * `snow spcs service` for services
 
 ## Fixes and improvements
 
