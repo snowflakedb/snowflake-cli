@@ -15,9 +15,8 @@
    * `snow spcs service` for services
 
 ## Fixes and improvements
-
-## Fixes and improvements
 * Improved support for quoted identifiers.
+* Fixed creating patches with `snow app version create` when there are 2 or more existing patches on a version
 * Fixed bugs in source artifact mapping logic for native applications
 
 # v2.3.0
