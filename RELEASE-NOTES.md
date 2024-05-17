@@ -15,6 +15,7 @@
 
 ## Fixes and improvements
 * Improved support for quoted identifiers.
+* Fixed bugs in source artifact mapping logic for native applications
 
 # v2.3.0
 
@@ -41,7 +42,6 @@
 * Fixed handling of stage path separators on Windows
 * Change to `external_access_integrations` in `snowflake.yml` now also triggers function replace
 * The `--info` callback returns info about configured feature flags.
-
 
 # v2.2.0
 

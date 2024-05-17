@@ -346,3 +346,67 @@ def test_nativeapp_deploy_directory_no_recursive(
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+
+
+# Tests that specifying an unknown path to deploy results in an error
+@pytest.mark.integration
+def test_nativeapp_deploy_unknown_path(
+    runner,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    project_dir = "app root"
+    result = runner.invoke_json(
+        ["app", "init", project_dir, "--name", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_dir)):
+        try:
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy", "does_not_exist"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 1
+            assert "The following path does not exist:" in result.output
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
+# Tests that specifying an path with no deploy artifact results in an error
+@pytest.mark.integration
+def test_nativeapp_deploy_path_with_no_mapping(
+    runner,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    project_dir = "app root"
+    result = runner.invoke_json(
+        ["app", "init", project_dir, "--name", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_dir)):
+        try:
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy", "snowflake.yml"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 1
+            assert "No artifact found for" in result.output
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
