@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 
@@ -9,15 +11,21 @@ from snowflake.cli.api.commands.decorators import (
     with_experimental_behaviour,
     with_project_definition,
 )
-from snowflake.cli.api.commands.flags import ReplaceOption
+from snowflake.cli.api.commands.flags import ReplaceOption, like_option
 from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
     SingleQueryResult,
 )
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
+from snowflake.cli.plugins.object.command_aliases import (
+    add_object_command_aliases,
+    scope_option,
+)
 from snowflake.cli.plugins.streamlit.manager import StreamlitManager
 
 app = SnowTyper(
@@ -27,19 +35,15 @@ app = SnowTyper(
 log = logging.getLogger(__name__)
 
 
-StageNameOption: str = typer.Option(
-    "streamlit",
-    "--stage",
-    help="Name of the stage where you want to upload Streamlit app files.",
+StreamlitNameArgument = typer.Argument(
+    ..., help="Name of the Streamlit app.", show_default=False
 )
-
 OpenOption = typer.Option(
     False,
     "--open",
     help="Whether to open the Streamlit app in a browser.",
     is_flag=True,
 )
-
 
 add_init_command(
     app,
@@ -48,10 +52,20 @@ add_init_command(
     help_message="Name of the Streamlit app project directory you want to create. Defaults to `example_streamlit`.",
 )
 
+add_object_command_aliases(
+    app=app,
+    object_type=ObjectType.STREAMLIT,
+    name_argument=StreamlitNameArgument,
+    like_option=like_option(
+        help_example='`list --like "my%"` lists all streamlit apps that begin with “my”'
+    ),
+    scope_option=scope_option(help_example="`list --in database my_db`"),
+)
+
 
 @app.command("share", requires_connection=True)
 def streamlit_share(
-    name: str = typer.Argument(..., help="Name of the Streamlit app to share."),
+    name: str = StreamlitNameArgument,
     to_role: str = typer.Argument(
         ..., help="Role with which to share the Streamlit app."
     ),
@@ -110,8 +124,10 @@ def streamlit_deploy(
     elif pages_dir is None:
         pages_dir = "pages"
 
+    streamlit_name = FQN.from_identifier_model(streamlit).using_context()
+
     url = StreamlitManager().deploy(
-        streamlit_name=streamlit.name,
+        streamlit=streamlit_name,
         environment_file=Path(environment_file),
         pages_dir=Path(pages_dir),
         stage_name=streamlit.stage,
@@ -130,7 +146,7 @@ def streamlit_deploy(
 
 @app.command("get-url", requires_connection=True)
 def get_url(
-    name: str = typer.Argument(..., help="Name of the Streamlit app."),
+    name: str = StreamlitNameArgument,
     open_: bool = OpenOption,
     **options,
 ):

@@ -1,11 +1,21 @@
+from __future__ import annotations
+
 from typing import Optional
 
 import typer
 from click import ClickException
-from snowflake.cli.api.commands.flags import IfNotExistsOption, OverrideableOption
+from snowflake.cli.api.commands.flags import (
+    IfNotExistsOption,
+    OverrideableOption,
+    like_option,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
 from snowflake.cli.api.project.util import is_valid_object_name
+from snowflake.cli.plugins.object.command_aliases import (
+    add_object_command_aliases,
+)
 from snowflake.cli.plugins.object.common import CommentOption
 from snowflake.cli.plugins.spcs.common import (
     validate_and_set_instances,
@@ -69,6 +79,16 @@ AutoSuspendSecsOption = OverrideableOption(
 
 _COMMENT_HELP = "Comment for the compute pool."
 
+add_object_command_aliases(
+    app=app,
+    object_type=ObjectType.COMPUTE_POOL,
+    name_argument=ComputePoolNameArgument,
+    like_option=like_option(
+        help_example='`list --like "my%"` lists all compute pools that begin with “my”.'
+    ),
+    scope_option=None,
+)
+
 
 @app.command(requires_connection=True)
 def create(
@@ -77,6 +97,7 @@ def create(
         ...,
         "--family",
         help="Name of the instance family. For more information about instance families, refer to the SQL CREATE COMPUTE POOL command.",
+        show_default=False,
     ),
     min_nodes: int = MinNodesOption(),
     max_nodes: Optional[int] = MaxNodesOption(),

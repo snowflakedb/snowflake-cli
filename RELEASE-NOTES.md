@@ -1,11 +1,43 @@
 # Unreleased version
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+* Added the `--cascade` option to `snow app teardown` command that drops all application objects owned by the application.
+ * Add external access integration to snow object commands
+ * Add aliases for `snow object list/describe/drop` commands under:
+   * `snow stage` for stages
+   * `snow git` for git repository stages
+   * `snow streamlit` for streamlit apps
+   * `snow snowpark` for procedures and functions
+   * `snow spcs compute-pool` for compute pools
+   * `snow spcs image-repository` for image repositories
+   * `snow spcs service` for services
+
+## Fixes and improvements
+* Improved support for quoted identifiers.
+* Fixed creating patches with `snow app version create` when there are 2 or more existing patches on a version
+
+# v2.3.1
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+* Fixed bugs in source artifact mapping logic for native applications
+
+# v2.3.0
 
 ## Backward incompatibility
 
 ## Deprecations
 
 ## New additions
-* `snow sql` command supports now client-side templating of queries.
+* New `snow sql` functionality:
+  * `-D/--variable` allows variable substitutions in a SQL input (client-side query templating)
 * New `snow app deploy` functionality:
   * Passing files and directories as arguments syncs these only: `snow app deploy some-file some-dir`.
   * `--recursive` syncs all files and subdirectories recursively.
@@ -17,6 +49,10 @@
 * Optimize snowpark dependency search to lower the size of .zip artifacts and
   the number of anaconda dependencies for snowpark projects.
 * Added support for fully qualified stage names in stage and git execute commands.
+* Fixed a bug where `snow app run` was not upgrading the application when the local state and remote stage are identical (for example immediately after `snow app deploy`).
+* Fixed handling of stage path separators on Windows
+* Change to `external_access_integrations` in `snowflake.yml` now also triggers function replace
+* The `--info` callback returns info about configured feature flags.
 
 # v2.2.0
 

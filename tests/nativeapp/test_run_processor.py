@@ -415,6 +415,12 @@ def test_create_dev_app_no_diff_changes(
             ),
             (None, mock.call("use role app_role")),
             (None, mock.call("use warehouse app_warehouse")),
+            (
+                None,
+                mock.call(
+                    "alter application myapp upgrade using @app_pkg.app_src.stage"
+                ),
+            ),
             (None, mock.call("alter application myapp set debug_mode = True")),
             (None, mock.call("use role old_role")),
         ]
@@ -1236,6 +1242,7 @@ def test_get_existing_version_info(mock_execute, temp_dir, mock_cursor):
                             "comment": "some comment",
                             "owner": "PACKAGE_ROLE",
                             "version": version,
+                            "patch": 0,
                         }
                     ],
                     [],

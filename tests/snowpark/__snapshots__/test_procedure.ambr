@@ -12,8 +12,8 @@
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
   │ Following objects already exists. Consider using --replace.                  │
-  │ procedure: MOCKDATABASE.MOCKSCHEMA.PROCEDURENAME(string)                     │
-  │ procedure: MOCKDATABASE.MOCKSCHEMA.TEST()                                    │
+  │ procedure: MockDatabase.MockSchema.procedureName(string)                     │
+  │ procedure: MockDatabase.MockSchema.test()                                    │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   '''
@@ -32,15 +32,15 @@
   +------------------------------------------------------------------------------+
   | object                                                 | type      | status  |
   |--------------------------------------------------------+-----------+---------|
-  | CUSTOM_DB.CUSTOM_SCHEMA.FQN_PROCEDURE(name string)     | procedure | created |
-  | MOCKDATABASE.CUSTOM_SCHEMA.FQN_PROCEDURE_ONLY_SCHEMA(n | procedure | created |
+  | custom_db.custom_schema.fqn_procedure(name string)     | procedure | created |
+  | MockDatabase.custom_schema.fqn_procedure_only_schema(n | procedure | created |
   | ame string)                                            |           |         |
-  | MOCKDATABASE.CUSTOM_SCHEMA.SCHEMA_PROCEDURE(name       | procedure | created |
+  | MockDatabase.custom_schema.schema_procedure(name       | procedure | created |
   | string)                                                |           |         |
-  | CUSTOM_DB.MOCKSCHEMA.DATABASE_PROCEDURE(name string)   | procedure | created |
-  | CUSTOM_DB.CUSTOM_SCHEMA.DATABASE_PROCEDURE(name        | procedure | created |
+  | custom_db.MockSchema.database_procedure(name string)   | procedure | created |
+  | custom_db.custom_schema.database_procedure(name        | procedure | created |
   | string)                                                |           |         |
-  | CUSTOM_DATABASE.CUSTOM_SCHEMA.FQN_PROCEDURE3(name      | procedure | created |
+  | custom_database.custom_schema.fqn_procedure3(name      | procedure | created |
   | string)                                                |           |         |
   +------------------------------------------------------------------------------+
   

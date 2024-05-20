@@ -8,6 +8,7 @@ from typing import Any, Dict, Union
 import click
 from snowflake.cli.__about__ import VERSION
 from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.config import get_feature_flags_section
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.utils.error_handling import ignore_exceptions
 from snowflake.cli.app.constants import PARAM_APPLICATION_NAME
@@ -30,6 +31,8 @@ class CLITelemetryField(Enum):
     COMMAND_GROUP = "command_group"
     COMMAND_FLAGS = "command_flags"
     COMMAND_OUTPUT_TYPE = "command_output_type"
+    # Configuration
+    CONFIG_FEATURE_FLAGS = "config_feature_flags"
     # Information
     EVENT = "event"
     ERROR_MSG = "error_msg"
@@ -84,6 +87,9 @@ class CLITelemetryClient:
             CLITelemetryField.VERSION_CLI: VERSION,
             CLITelemetryField.VERSION_OS: platform.platform(),
             CLITelemetryField.VERSION_PYTHON: python_version(),
+            CLITelemetryField.CONFIG_FEATURE_FLAGS: {
+                k: str(v) for k, v in get_feature_flags_section().items()
+            },
             **_find_command_info(),
             **telemetry_payload,
         }

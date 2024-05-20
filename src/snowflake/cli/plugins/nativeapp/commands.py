@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 from typing import List, Optional
@@ -214,6 +216,12 @@ def app_open(
 @with_project_definition("native_app")
 def app_teardown(
     force: Optional[bool] = ForceOption,
+    cascade: Optional[bool] = typer.Option(
+        None,
+        help=f"""Whether to drop all application objects owned by the application within the account. Default: false.""",
+        show_default=False,
+    ),
+    interactive: Optional[bool] = InteractiveOption,
     **options,
 ) -> CommandResult:
     """
@@ -223,7 +231,9 @@ def app_teardown(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    processor.process(force)
+    if interactive is None:
+        interactive = is_tty_interactive()
+    processor.process(interactive, force, cascade)
     return MessageResult(f"Teardown is now complete.")
 
 
@@ -251,9 +261,8 @@ def app_deploy(
     Creates an application package in your Snowflake account and syncs the local changes to the stage without creating or updating the application.
     Running this command with no arguments at all, as in `snow app deploy`, is a shorthand for `snow app deploy --prune --recursive`.
     """
-    if files is None:
-        files = []
-    if prune is None and recursive is None and len(files) == 0:
+    has_files = files is not None and len(files) > 0
+    if prune is None and recursive is None and not has_files:
         prune = True
         recursive = True
     else:
@@ -270,4 +279,6 @@ def app_deploy(
     mapped_files = manager.build_bundle()
     manager.deploy(prune, recursive, files, mapped_files)
 
-    return MessageResult(f"Deployed successfully.")
+    return MessageResult(
+        f"Deployed successfully. Application package and stage are up-to-date."
+    )

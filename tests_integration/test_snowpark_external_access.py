@@ -1,5 +1,6 @@
 import pytest
 
+from tests.testing_utils.fixtures import alter_snowflake_yml
 from tests_integration.testing_utils import SnowparkTestSetup, SnowparkTestSteps
 
 STAGE_NAME = "dev_deployment"
@@ -8,18 +9,19 @@ STAGE_NAME = "dev_deployment"
 @pytest.mark.integration
 def test_snowpark_external_access(project_directory, _test_steps, test_database):
 
-    with project_directory("snowpark_external_access"):
+    with project_directory("snowpark_external_access") as project_dir:
+
         _test_steps.snowpark_build_should_zip_files()
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.STATUS_PROCEDURE()",
+                    "object": f"{test_database.upper()}.PUBLIC.status_procedure()",
                     "status": "created",
                     "type": "procedure",
                 },
                 {
-                    "object": f"{test_database.upper()}.PUBLIC.STATUS_FUNCTION()",
+                    "object": f"{test_database.upper()}.PUBLIC.status_function()",
                     "status": "created",
                     "type": "function",
                 },
@@ -35,6 +37,130 @@ def test_snowpark_external_access(project_directory, _test_steps, test_database)
             object_type="procedure",
             identifier=f"status_procedure()",
             expected_value="200",
+        )
+
+
+def test_snowpark_upgrades_with_external_access(
+    project_directory, _test_steps, test_database, alter_snowflake_yml
+):
+
+    with project_directory("snowpark") as tmp_dir:
+        _test_steps.snowpark_build_should_zip_files()
+
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            [
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.hello_procedure(name string)",
+                    "status": "created",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.test()",
+                    "status": "created",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.hello_function(name string)",
+                    "status": "created",
+                    "type": "function",
+                },
+            ]
+        )
+
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.functions.0.external_access_integrations",
+            value=["snowflake_docs_access_integration"],
+        )
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.procedures.0.external_access_integrations",
+            value=["snowflake_docs_access_integration"],
+        )
+
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            [
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.hello_procedure(name string)",
+                    "status": "definition updated",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.test()",
+                    "status": "packages updated",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.hello_function(name string)",
+                    "status": "definition updated",
+                    "type": "function",
+                },
+            ],
+            additional_arguments=["--replace"],
+        )
+
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.functions.0.external_access_integrations",
+            value=["CLI_TEST_INTEGRATION"],
+        )
+
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.procedures.0.external_access_integrations",
+            value=["CLI_TEST_INTEGRATION"],
+        )
+
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            [
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.hello_procedure(name string)",
+                    "status": "definition updated",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.test()",
+                    "status": "packages updated",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.hello_function(name string)",
+                    "status": "definition updated",
+                    "type": "function",
+                },
+            ],
+            additional_arguments=["--replace"],
+        )
+
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.functions.0.external_access_integrations",
+            value=[],
+        )
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.procedures.0.external_access_integrations",
+            value=[],
+        )
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            [
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.hello_procedure(name string)",
+                    "status": "definition updated",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.test()",
+                    "status": "packages updated",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{test_database.upper()}.PUBLIC.hello_function(name string)",
+                    "status": "definition updated",
+                    "type": "function",
+                },
+            ],
+            additional_arguments=["--replace"],
         )
 
 

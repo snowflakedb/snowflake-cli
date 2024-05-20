@@ -19,7 +19,7 @@ dependencies = [
   "requirements-parser==0.9.0",
   "setuptools==69.5.1",
   "snowflake-connector-python[secure-local-storage]==3.10.0",
-  "tomlkit==0.12.3",
+  "tomlkit==0.12.5",
   "typer==0.12.3",
   "urllib3>=1.21.1,<2.3",
   "GitPython==3.1.43",
@@ -96,11 +96,12 @@ template = "integration"
 pre-install-commands = [
   "pip install test_external_plugins/snowpark_hello_single_command",
   "pip install test_external_plugins/multilingual_hello_command_group",
+  "pip install pytest-xdist",
 ]
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
-test = ["pytest -m integration --snapshot-warn-unused"]
+test = ["pytest -m integration -n4 --dist=loadfile --snapshot-warn-unused"]
 test-experimental = [
   "pytest -m integration_experimental --snapshot-warn-unused",
 ]
@@ -125,6 +126,7 @@ select = [
   "SLF",    # Accessing private methods
   "F401",   # unused imports
   "F403",   # star imports
+  "FA100",  # Missing from __future__ import annotations
 ]
 
 [tool.pytest.ini_options]

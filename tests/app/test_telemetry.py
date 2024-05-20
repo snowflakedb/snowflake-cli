@@ -1,3 +1,4 @@
+import os
 from unittest import mock
 
 from snowflake.connector.version import VERSION as DRIVER_VERSION
@@ -10,6 +11,7 @@ from snowflake.connector.version import VERSION as DRIVER_VERSION
 @mock.patch("snowflake.cli.app.telemetry.get_time_millis")
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
+@mock.patch.dict(os.environ, {"SNOWFLAKE_CLI_FEATURES_FOO": "False"})
 def test_executing_command_sends_telemetry_data(
     _, mock_conn, mock_time, mock_platform, mock_version, runner
 ):
@@ -21,9 +23,10 @@ def test_executing_command_sends_telemetry_data(
     assert result.exit_code == 0, result.output
 
     # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
-    assert mock_conn.return_value._telemetry.try_add_log_to_batch.call_args.args[  # noqa: SLF001
+    actual_call = mock_conn.return_value._telemetry.try_add_log_to_batch.call_args.args[  # noqa: SLF001
         0
-    ].to_dict() == {
+    ].to_dict()
+    assert actual_call == {
         "message": {
             "driver_type": "PythonConnector",
             "driver_version": ".".join(str(s) for s in DRIVER_VERSION[:3]),
@@ -36,6 +39,11 @@ def test_executing_command_sends_telemetry_data(
             "command_flags": {"diag_log_path": "DEFAULT", "format": "DEFAULT"},
             "command_output_type": "TABLE",
             "type": "executing_command",
+            "config_feature_flags": {
+                "dummy_flag": "True",
+                "foo": "False",
+                "wrong_type_flag": "UNKNOWN",
+            },
         },
         "timestamp": "123",
     }

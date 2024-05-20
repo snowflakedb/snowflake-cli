@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import hashlib
 import logging
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Dict, List, Optional, Set
+from pathlib import Path, PurePosixPath
+from typing import Collection, Dict, List, Optional
 
 from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
@@ -18,24 +20,25 @@ CHUNK_SIZE_BYTES = 8192
 
 log = logging.getLogger(__name__)
 
+StagePath = PurePosixPath  # alias PurePosixPath as StagePath for clarity
+
 
 @dataclass
 class DiffResult:
     """
-    Each collection is a list of relative paths, either from
-    the stage root or from the root of the compared local directory.
+    Each collection is a list of stage paths ('/'-separated, regardless of the platform), relative to the stage root.
     """
 
-    identical: List[str] = field(default_factory=list)
+    identical: List[StagePath] = field(default_factory=list)
     "Files with matching md5sums"
 
-    different: List[str] = field(default_factory=list)
+    different: List[StagePath] = field(default_factory=list)
     "Files that may be different between the stage and the local directory"
 
-    only_local: List[str] = field(default_factory=list)
+    only_local: List[StagePath] = field(default_factory=list)
     "Files that only exist in the local directory"
 
-    only_on_stage: List[str] = field(default_factory=list)
+    only_on_stage: List[StagePath] = field(default_factory=list)
     "Files that only exist on the stage"
 
     def has_changes(self) -> bool:
@@ -72,16 +75,26 @@ class DiffResult:
             )
 
         if self.only_local:
-            components.extend(["New files only on your local:", *self.only_local])
+            components.extend(
+                ["New files only on your local:", *[str(p) for p in self.only_local]]
+            )
         if self.only_on_stage:
-            components.extend(["New files only on the stage:", *self.only_on_stage])
+            components.extend(
+                ["New files only on the stage:", *[str(p) for p in self.only_on_stage]]
+            )
         if self.different:
             components.extend(
-                ["Existing files modified or status unknown:", *self.different]
+                [
+                    "Existing files modified or status unknown:",
+                    *[str(p) for p in self.different],
+                ]
             )
         if self.identical:
             components.extend(
-                ["Existing files identical to the stage:", *self.identical]
+                [
+                    "Existing files identical to the stage:",
+                    *[str(p) for p in self.identical],
+                ]
             )
 
         return "\n".join(components)
@@ -141,12 +154,12 @@ def enumerate_files(path: Path) -> List[Path]:
     return paths
 
 
-def strip_stage_name(path: str) -> str:
+def strip_stage_name(path: str) -> StagePath:
     """Returns the given stage path without the stage name as the first part."""
-    return "/".join(path.split("/")[1:])
+    return StagePath(*path.split("/")[1:])
 
 
-def build_md5_map(list_stage_cursor: DictCursor) -> Dict[str, str]:
+def build_md5_map(list_stage_cursor: DictCursor) -> Dict[StagePath, str]:
     """
     Returns a mapping of relative stage paths to their md5sums.
     """
@@ -156,101 +169,117 @@ def build_md5_map(list_stage_cursor: DictCursor) -> Dict[str, str]:
     }
 
 
-def filter_from_diff(
-    diff: DiffResult, paths_to_sync: Set[str], prune: bool
-) -> List[str]:
-    """Modifies the given diff, keeping only the provided paths. If prune is false, remote-only paths will be empty and the non-removed paths will be returned."""
-    diff.different = [i for i in diff.different if i in paths_to_sync]
-    diff.only_local = [i for i in diff.only_local if i in paths_to_sync]
-    only_on_stage = [i for i in diff.only_on_stage if i in paths_to_sync]
-    files_not_removed = []
-    if prune:
-        diff.only_on_stage = only_on_stage
-    else:
-        files_not_removed = only_on_stage
-        diff.only_on_stage = []
-    return files_not_removed
+def preserve_from_diff(
+    diff: DiffResult, stage_paths_to_sync: Collection[StagePath]
+) -> DiffResult:
+    """
+    Returns a filtered version of the provided diff, keeping only the provided stage paths.
+    """
+    paths_to_preserve = set(stage_paths_to_sync)
+    preserved_diff: DiffResult = DiffResult()
+    preserved_diff.identical = [i for i in diff.identical if i in paths_to_preserve]
+    preserved_diff.different = [i for i in diff.different if i in paths_to_preserve]
+    preserved_diff.only_local = [i for i in diff.only_local if i in paths_to_preserve]
+    preserved_diff.only_on_stage = [
+        i for i in diff.only_on_stage if i in paths_to_preserve
+    ]
+    return preserved_diff
 
 
-def stage_diff(
-    local_path: Path,
+def compute_stage_diff(
+    local_root: Path,
     stage_fqn: str,
 ) -> DiffResult:
     """
     Diffs the files in a stage with a local folder.
     """
     stage_manager = StageManager()
-    local_files = enumerate_files(local_path)
+    local_files = enumerate_files(local_root)
     remote_md5 = build_md5_map(stage_manager.list_files(stage_fqn))
 
     result: DiffResult = DiffResult()
 
     for local_file in local_files:
-        relpath = str(local_file.relative_to(local_path))
-        if relpath not in remote_md5:
+        relpath = local_file.relative_to(local_root)
+        stage_filename = to_stage_path(relpath)
+        if stage_filename not in remote_md5:
             # doesn't exist on the stage
-            result.only_local.append(relpath)
+            result.only_local.append(stage_filename)
         else:
             # N.B. we could compare local size vs remote size to skip the relatively-
             # expensive md5sum operation, but after seeing a comment that says the value
             # may not always be correctly populated, we'll ignore that column.
-            stage_md5sum = remote_md5[relpath]
+            stage_md5sum = remote_md5[stage_filename]
             if is_valid_md5sum(stage_md5sum) and stage_md5sum == compute_md5sum(
                 local_file
             ):
                 # the file definitely hasn't changed
-                result.identical.append(relpath)
+                result.identical.append(stage_filename)
             else:
                 # either the file has changed, or we can't tell if it has
-                result.different.append(relpath)
+                result.different.append(stage_filename)
 
             # mark this file as seen
-            del remote_md5[relpath]
+            del remote_md5[stage_filename]
 
     # every entry here is a file we never saw locally
-    for relpath in remote_md5.keys():
-        result.only_on_stage.append(relpath)
+    for stage_filename in remote_md5.keys():
+        result.only_on_stage.append(stage_filename)
 
     return result
 
 
-def get_stage_path_from_file(filepath: str):
-    parent = str(Path(filepath).parent)
-    stage_path = "" if parent == "." else parent
-    return stage_path
+def get_stage_subpath(stage_path: StagePath) -> str:
+    """
+    Returns the parent portion of a stage path, as a string, for inclusion in the fully qualified stage path. Note that
+    '.' treated specially here, and so the return value of this call is not a `StagePath` instance.
+    """
+    parent = str(stage_path.parent)
+    return "" if parent == "." else parent
+
+
+def to_stage_path(filename: Path) -> StagePath:
+    """
+    Returns the stage file name, with the path separator suitably transformed if needed.
+    """
+    return StagePath(*filename.parts)
+
+
+def to_local_path(stage_path: StagePath) -> Path:
+    return Path(*stage_path.parts)
 
 
 def delete_only_on_stage_files(
     stage_manager: StageManager,
     stage_fqn: str,
-    only_on_stage: List[str],
+    only_on_stage: List[StagePath],
     role: Optional[str] = None,
 ):
     """
     Deletes all files from a Snowflake stage according to the input list of filenames, using a custom role.
     """
-    for _file in only_on_stage:
-        stage_manager.remove(stage_name=stage_fqn, path=_file, role=role)
+    for _stage_filename in only_on_stage:
+        stage_manager.remove(stage_name=stage_fqn, path=str(_stage_filename), role=role)
 
 
 def put_files_on_stage(
     stage_manager: StageManager,
     stage_fqn: str,
     deploy_root_path: Path,
-    files: List[str],
+    stage_paths: List[StagePath],
     role: Optional[str] = None,
     overwrite: bool = False,
 ):
     """
     Uploads all files given input list of filenames on your local filesystem, to a Snowflake stage, using a custom role.
     """
-    for _file in files:
-        stage_sub_path = get_stage_path_from_file(_file)
+    for _stage_path in stage_paths:
+        stage_sub_path = get_stage_subpath(_stage_path)
         full_stage_path = (
             f"{stage_fqn}/{stage_sub_path}" if stage_sub_path else stage_fqn
         )
         stage_manager.put(
-            local_path=deploy_root_path / _file,
+            local_path=deploy_root_path / to_local_path(_stage_path),
             stage_path=full_stage_path,
             role=role,
             overwrite=overwrite,
@@ -258,7 +287,7 @@ def put_files_on_stage(
 
 
 def sync_local_diff_with_stage(
-    role: str, deploy_root_path: Path, diff_result: DiffResult, stage_path: str
+    role: str, deploy_root_path: Path, diff_result: DiffResult, stage_fqn: str
 ):
     """
     Syncs a given local directory's contents with a Snowflake stage, including removing old files, and re-uploading modified and new files.
@@ -271,18 +300,18 @@ def sync_local_diff_with_stage(
 
     try:
         delete_only_on_stage_files(
-            stage_manager, stage_path, diff_result.only_on_stage, role
+            stage_manager, stage_fqn, diff_result.only_on_stage, role
         )
         put_files_on_stage(
             stage_manager,
-            stage_path,
+            stage_fqn,
             deploy_root_path,
             diff_result.different,
             role,
             overwrite=True,
         )
         put_files_on_stage(
-            stage_manager, stage_path, deploy_root_path, diff_result.only_local, role
+            stage_manager, stage_fqn, deploy_root_path, diff_result.only_local, role
         )
     except Exception as err:
         # Could be ProgrammingError or IntegrityError from SnowflakeCursor

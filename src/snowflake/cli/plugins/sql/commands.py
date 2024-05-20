@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 from typing import List, Optional
 
@@ -45,7 +47,7 @@ def execute_sql(
     ),
     data_override: List[str] = typer.Option(
         None,
-        "--data",
+        "--variable",
         "-D",
         help="String in format of key=value. If provided the SQL content will "
         "be treated as template and rendered using provided data.",

@@ -12,17 +12,6 @@
   
   '''
 # ---
-# name: test_execute[@db.schema.repo/branches/main/s1.sql-@db.schema.repo/branches/main/-expected_files0]
-  '''
-  SUCCESS - @db.schema.repo/branches/main/s1.sql
-  +--------------------------------------------------------+
-  | File                                 | Status  | Error |
-  |--------------------------------------+---------+-------|
-  | @db.schema.repo/branches/main/s1.sql | SUCCESS | None  |
-  +--------------------------------------------------------+
-  
-  '''
-# ---
 # name: test_execute[@db.schema.repo/branches/main/s1.sql-@db.schema.repo/branches/main/-expected_files3]
   '''
   SUCCESS - @db.schema.repo/branches/main/s1.sql

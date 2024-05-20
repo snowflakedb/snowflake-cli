@@ -8,13 +8,22 @@ import json
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("object_type", ["warehouse", "schema"])
-def test_show(object_type, runner, test_database, snowflake_session):
+@pytest.mark.parametrize(
+    "object_type,plural_object_type",
+    [
+        ("warehouse", "warehouses"),
+        ("schema", "schemas"),
+        ("external-access-integration", "external access integrations"),
+    ],
+)
+def test_show(
+    object_type, plural_object_type, runner, test_database, snowflake_session
+):
     result = runner.invoke_with_connection_json(
         ["object", "list", object_type, "--format", "json"]
     )
 
-    curr = snowflake_session.execute_string(f"show {object_type}s")
+    curr = snowflake_session.execute_string(f"show {plural_object_type}")
     expected = row_from_cursor(curr[-1])
 
     actual = result.json

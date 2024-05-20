@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from os import PathLike
 from pathlib import Path
 from sys import stdin, stdout
@@ -77,7 +79,6 @@ def verify_no_directories(paths_to_sync: List[Path]):
             )
 
 
-def verify_exists(paths_to_sync: List[Path]):
-    for path in paths_to_sync:
-        if not path.exists():
-            raise ClickException(f"The following path does not exist: {path}")
+def verify_exists(path: Path):
+    if not path.exists():
+        raise ClickException(f"The following path does not exist: {path}")

@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from pathlib import Path
 from textwrap import dedent
-from typing import Dict
+from typing import Dict, Optional
 
 import typer
 from snowflake.cli.api.console import cli_console as cc
@@ -16,11 +18,14 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
 )
 from snowflake.cli.plugins.nativeapp.manager import (
+    ApplicationOwnedObject,
     NativeAppCommandProcessor,
     NativeAppManager,
     ensure_correct_owner,
 )
-from snowflake.cli.plugins.nativeapp.utils import needs_confirmation
+from snowflake.cli.plugins.nativeapp.utils import (
+    needs_confirmation,
+)
 from snowflake.connector.cursor import DictCursor
 
 
@@ -28,13 +33,17 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
     def __init__(self, project_definition: Dict, project_root: Path):
         super().__init__(project_definition, project_root)
 
-    def drop_generic_object(self, object_type: str, object_name: str, role: str):
+    def drop_generic_object(
+        self, object_type: str, object_name: str, role: str, cascade: bool = False
+    ):
         """
         Drop object using the given role.
         """
         with self.use_role(role):
             cc.step(f"Dropping {object_type} {object_name} now.")
             drop_query = f"drop {object_type} {object_name}"
+            if cascade:
+                drop_query += " cascade"
             try:
                 self._execute_query(drop_query)
             except:
@@ -42,7 +51,23 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
 
             cc.message(f"Dropped {object_type} {object_name} successfully.")
 
-    def drop_application(self, auto_yes: bool):
+    def _application_objects_to_str(
+        self, application_objects: ApplicationOwnedObject
+    ) -> str:
+        """
+        Returns a list in an "(Object Type) Object Name" format. Database-level and schema-level object names are fully qualified:
+        (COMPUTE_POOL) POOL_NAME
+        (DATABASE) DB_NAME
+        (SCHEMA) DB_NAME.PUBLIC
+        ...
+        """
+        return "\n".join(
+            [f"({obj['type']}) {obj['name']}" for obj in application_objects]
+        )
+
+    def drop_application(
+        self, auto_yes: bool, interactive: bool = False, cascade: Optional[bool] = None
+    ):
         """
         Attempts to drop the application object if all validations and user prompts allow so.
         """
@@ -89,9 +114,45 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                     cc.message(f"Did not drop application object {self.app_name}.")
                     return  # The user desires to keep the app, therefore exit gracefully
 
-        # 4. All validations have passed, drop object
+        # 4. Check for application objects owned by the application
+        application_objects = self.get_objects_owned_by_application()
+        if len(application_objects) > 0:
+            application_objects_str = self._application_objects_to_str(
+                application_objects
+            )
+            if cascade is True:
+                cc.message(
+                    f"The following objects are owned by application {self.app_name} and will be dropped:\n{application_objects_str}"
+                )
+            elif cascade is False:
+                cc.message(
+                    f"The following objects are owned by application {self.app_name}:\n{application_objects_str}"
+                )
+            elif interactive:
+                if interactive:
+                    api_integration = typer.prompt(
+                        f"The following objects are owned by application {self.app_name}:\n{application_objects_str}\n\nWould you like to drop these objects in addition to the application? [y/n/ABORT]"
+                    )
+                    if api_integration in ["y", "yes", "Y", "Yes", "YES"]:
+                        cascade = True
+                    elif api_integration in ["n", "no", "N", "No", "NO"]:
+                        cascade = False
+                    else:
+                        raise typer.Abort()
+            else:
+                cc.message(
+                    f"The following application objects are owned by application {self.app_name}:\n{application_objects_str}\n\nRe-run teardown again with --cascade or --no-cascade to specify whether these objects should be dropped along with the application."
+                )
+                raise typer.Abort()
+        elif cascade is None:
+            cascade = False
+
+        # 5. All validations have passed, drop object
         self.drop_generic_object(
-            object_type="application", object_name=self.app_name, role=self.app_role
+            object_type="application",
+            object_name=self.app_name,
+            role=self.app_role,
+            cascade=cascade,
         )
         return  # The application object was successfully dropped, therefore exit gracefully
 
@@ -176,10 +237,19 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
         )
         return  # The application package was successfully dropped, therefore exit gracefully
 
-    def process(self, force_drop: bool = False, *args, **kwargs):
+    def process(
+        self,
+        interactive: bool,
+        force_drop: bool = False,
+        cascade: Optional[bool] = None,
+        *args,
+        **kwargs,
+    ):
 
         # Drop the application object
-        self.drop_application(auto_yes=force_drop)
+        self.drop_application(
+            auto_yes=force_drop, interactive=interactive, cascade=cascade
+        )
 
         # Drop the application package
         self.drop_package(auto_yes=force_drop)

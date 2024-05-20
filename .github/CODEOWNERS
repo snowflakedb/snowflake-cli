@@ -1,10 +1,16 @@
 * @snowflakedb/snowcli
 
+# Shared ownership
+**/__snapshots__/ @snowflakedb/snowcli @snowflakedb/nade
+tests/testing_utils/ @snowflakedb/snowcli @snowflakedb/nade
+src/snowflake/cli/api/utils/ @snowflakedb/snowcli @snowflakedb/nade
+
 # Native Apps Owners
-src/snowflake/cli/plugins/nativeapp/ @snowflakedb/nade
-tests/nativeapp/ @sfc-gh-bgoel @snowflakedb/nade
-tests_integration/test_nativeapp.py @snowflakedb/nade
+**/nativeapp/ @snowflakedb/nade
+**/native_app/ @snowflakedb/nade
 
 # Project Definition Owners
-src/snowflake/cli/api/project/schemas/native_app.py @snowflakedb/nade
 tests/project/ @snowflakedb/snowcli @snowflakedb/nade
+
+# No ownership to reduce friction
+RELEASE-NOTES.md

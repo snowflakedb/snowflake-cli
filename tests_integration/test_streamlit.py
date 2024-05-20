@@ -1,4 +1,5 @@
 import uuid
+from pathlib import Path
 
 import pytest
 
@@ -24,7 +25,7 @@ def test_streamlit_deploy(
         result = runner.invoke_with_connection_json(["streamlit", "deploy"])
         assert result.exit_code == 0
 
-        result = runner.invoke_with_connection_json(["object", "list", "streamlit"])
+        result = runner.invoke_with_connection_json(["streamlit", "list"])
         assert_that_result_is_successful(result)
 
         expect = snowflake_session.execute_string(
@@ -33,7 +34,7 @@ def test_streamlit_deploy(
         assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
 
         result = runner.invoke_with_connection_json(
-            ["object", "describe", "streamlit", streamlit_name]
+            ["streamlit", "describe", streamlit_name]
         )
         expect = snowflake_session.execute_string(
             f"describe streamlit {streamlit_name}"
@@ -62,9 +63,7 @@ def test_streamlit_deploy(
             rows_from_snowflake_session(expect)[1], {"name": streamlit_name.upper()}
         )
 
-    result = runner.invoke_with_connection_json(
-        ["object", "drop", "streamlit", streamlit_name]
-    )
+    result = runner.invoke_with_connection_json(["streamlit", "drop", streamlit_name])
     assert contains_row_with(
         result.json,
         {"status": f"{streamlit_name.upper()} successfully dropped."},
@@ -100,7 +99,7 @@ def test_streamlit_deploy_experimental_twice(
         )
         assert result.exit_code == 0
 
-        result = runner.invoke_with_connection_json(["object", "list", "streamlit"])
+        result = runner.invoke_with_connection_json(["streamlit", "list"])
         assert_that_result_is_successful(result)
 
         expect = snowflake_session.execute_string(
@@ -109,7 +108,7 @@ def test_streamlit_deploy_experimental_twice(
         assert result.json == row_from_snowflake_session(expect)[0]
 
         result = runner.invoke_with_connection_json(
-            ["object", "describe", "streamlit", streamlit_name]
+            ["streamlit", "describe", streamlit_name]
         )
         expect = snowflake_session.execute_string(
             f"describe streamlit {streamlit_name}"
@@ -193,7 +192,7 @@ def test_fully_qualified_name(
             f"https://app.snowflake.com/SFENGINEERING/snowcli_it/#/streamlit-apps/{database}.{different_schema}.{streamlit_name.upper()}",
         }
 
-        # FQN with just schema provided - should update
+        # FQN with just schema provided - should require update
         alter_snowflake_yml(
             snowflake_yml,
             parameter_path="streamlit.name",
@@ -203,6 +202,23 @@ def test_fully_qualified_name(
             ["streamlit", "deploy"], catch_exceptions=True
         )
         assert result.exit_code == 1
+        # Same if name is not fqn but schema is specified
+        alter_snowflake_yml(
+            snowflake_yml,
+            parameter_path="streamlit.name",
+            value=streamlit_name,
+        )
+        alter_snowflake_yml(
+            snowflake_yml,
+            parameter_path="streamlit.schema",
+            value=different_schema,
+        )
+        result = runner.invoke_with_connection(
+            ["streamlit", "deploy"], catch_exceptions=True
+        )
+        assert result.exit_code == 1
+
+        # Should succeed with --replace flag
         result = runner.invoke_with_connection_json(
             ["streamlit", "deploy", "--replace"]
         )

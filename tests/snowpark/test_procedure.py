@@ -4,6 +4,7 @@ from textwrap import dedent
 from unittest import mock
 from unittest.mock import call
 
+import pytest
 from snowflake.cli.api.constants import ObjectType
 from snowflake.connector import ProgrammingError
 
@@ -52,26 +53,26 @@ def test_deploy_procedure(
         ]
     )
     assert ctx.get_queries() == [
-        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(tmp).resolve()}/app.zip @MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
+        "create stage if not exists MockDatabase.MockSchema.dev_deployment comment='deployments managed by Snowflake CLI'",
+        f"put file://{Path(tmp).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace procedure MOCKDATABASE.MOCKSCHEMA.PROCEDURENAME(name string)
+            create or replace procedure MockDatabase.MockSchema.procedureName(name string)
             returns string
             language python
             runtime_version=3.8
-            imports=('@MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project/app.zip')
+            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.zip')
             handler='hello'
             packages=()
             """
         ).strip(),
         dedent(
             """\
-            create or replace procedure MOCKDATABASE.MOCKSCHEMA.TEST()
+            create or replace procedure MockDatabase.MockSchema.test()
             returns string
             language python
             runtime_version=3.10
-            imports=('@MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project/app.zip')
+            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.zip')
             handler='test'
             packages=()
             """
@@ -112,21 +113,21 @@ def test_deploy_procedure_with_external_access(
         [
             call(
                 object_type=str(ObjectType.PROCEDURE),
-                name="MOCKDATABASE.MOCKSCHEMA.PROCEDURENAME(string)",
+                name="MockDatabase.MockSchema.procedureName(string)",
             ),
         ]
     )
     assert ctx.get_queries() == [
-        "create stage if not exists MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/app.zip @MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project"
+        "create stage if not exists MockDatabase.MockSchema.dev_deployment comment='deployments managed by Snowflake CLI'",
+        f"put file://{Path(project_dir).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace procedure MOCKDATABASE.MOCKSCHEMA.PROCEDURENAME(name string)
+            create or replace procedure MockDatabase.MockSchema.procedureName(name string)
             returns string
             language python
             runtime_version=3.8
-            imports=('@MOCKDATABASE.MOCKSCHEMA.DEV_DEPLOYMENT/my_snowpark_project/app.zip')
+            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.zip')
             handler='app.hello'
             packages=()
             external_access_integrations=(external_1,external_2)
@@ -254,7 +255,7 @@ def test_deploy_procedure_replace_nothing_to_update(
                 ("packages", "[]"),
                 ("handler", "hello"),
                 ("returns", "string"),
-                ("imports", "DEV_DEPLOYMENT/my_snowpark_project/app.zip"),
+                ("imports", "dev_deployment/my_snowpark_project/app.zip"),
             ],
             columns=["key", "value"],
         ),
@@ -263,7 +264,7 @@ def test_deploy_procedure_replace_nothing_to_update(
                 ("packages", "[]"),
                 ("handler", "test"),
                 ("returns", "string"),
-                ("imports", "DEV_DEPLOYMENT/my_snowpark_project/app.zip"),
+                ("imports", "dev_deployment/my_snowpark_project/app.zip"),
             ],
             columns=["key", "value"],
         ),
@@ -277,12 +278,12 @@ def test_deploy_procedure_replace_nothing_to_update(
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == [
         {
-            "object": "MOCKDATABASE.MOCKSCHEMA.PROCEDURENAME(name string)",
+            "object": "MockDatabase.MockSchema.procedureName(name string)",
             "status": "packages updated",
             "type": "procedure",
         },
         {
-            "object": "MOCKDATABASE.MOCKSCHEMA.TEST()",
+            "object": "MockDatabase.MockSchema.test()",
             "status": "packages updated",
             "type": "procedure",
         },
@@ -307,7 +308,7 @@ def test_deploy_procedure_replace_updates_single_object(
                 ("packages", "[]"),
                 ("handler", "hello"),
                 ("returns", "string"),
-                ("imports", "DEV_DEPLOYMENT/my_snowpark_project/app.zip"),
+                ("imports", "dev_deployment/my_snowpark_project/app.zip"),
             ],
             columns=["key", "value"],
         ),
@@ -316,7 +317,7 @@ def test_deploy_procedure_replace_updates_single_object(
                 ("packages", "[]"),
                 ("handler", "foo"),
                 ("returns", "string"),
-                ("imports", "DEV_DEPLOYMENT/my_snowpark_project/app.zip"),
+                ("imports", "dev_deployment/my_snowpark_project/app.zip"),
             ],
             columns=["key", "value"],
         ),
@@ -330,12 +331,12 @@ def test_deploy_procedure_replace_updates_single_object(
     assert result.exit_code == 0
     assert json.loads(result.output) == [
         {
-            "object": "MOCKDATABASE.MOCKSCHEMA.PROCEDURENAME(name string)",
+            "object": "MockDatabase.MockSchema.procedureName(name string)",
             "status": "packages updated",
             "type": "procedure",
         },
         {
-            "object": "MOCKDATABASE.MOCKSCHEMA.TEST()",
+            "object": "MockDatabase.MockSchema.test()",
             "status": "definition updated",
             "type": "procedure",
         },
@@ -360,7 +361,7 @@ def test_deploy_procedure_replace_creates_missing_object(
                 ("packages", "[]"),
                 ("handler", "hello"),
                 ("returns", "string"),
-                ("imports", "DEV_DEPLOYMENT/my_snowpark_project/app.zip"),
+                ("imports", "dev_deployment/my_snowpark_project/app.zip"),
             ],
             columns=["key", "value"],
         ),
@@ -375,12 +376,12 @@ def test_deploy_procedure_replace_creates_missing_object(
     assert result.exit_code == 0
     assert json.loads(result.output) == [
         {
-            "object": "MOCKDATABASE.MOCKSCHEMA.PROCEDURENAME(name string)",
+            "object": "MockDatabase.MockSchema.procedureName(name string)",
             "status": "packages updated",
             "type": "procedure",
         },
         {
-            "object": "MOCKDATABASE.MOCKSCHEMA.TEST()",
+            "object": "MockDatabase.MockSchema.test()",
             "status": "created",
             "type": "procedure",
         },
@@ -454,3 +455,28 @@ def test_init_procedure(mock_create_project_template, runner, temp_dir):
     mock_create_project_template.assert_called_once_with(
         "default_snowpark", project_directory="my_project2"
     )
+
+
+@mock.patch("snowflake.connector.connect")
+@pytest.mark.parametrize(
+    "command, parameters",
+    [
+        ("list", []),
+        ("list", ["--like", "PATTERN"]),
+        ("describe", ["NAME"]),
+        ("drop", ["NAME"]),
+    ],
+)
+def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(["object", command, "procedure", *parameters])
+    assert result.exit_code == 0, result.output
+    result = runner.invoke(
+        ["snowpark", command, "procedure", *parameters], catch_exceptions=False
+    )
+    assert result.exit_code == 0, result.output
+
+    queries = ctx.get_queries()
+    assert queries[0] == queries[1]

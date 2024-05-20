@@ -2,6 +2,7 @@ import os
 from unittest import mock
 
 import pytest
+from click import Abort
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.constants import (
     SPECIAL_COMMENT,
@@ -21,6 +22,7 @@ from snowflake.connector.cursor import DictCursor
 from tests.nativeapp.patch_utils import mock_get_app_pkg_distribution_in_sf
 from tests.nativeapp.utils import (
     NATIVEAPP_MANAGER_EXECUTE,
+    NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION,
     NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME,
     TEARDOWN_MODULE,
     TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT,
@@ -28,6 +30,7 @@ from tests.nativeapp.utils import (
     TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO,
     TEARDOWN_PROCESSOR_IS_CORRECT_OWNER,
     TYPER_CONFIRM,
+    TYPER_PROMPT,
     mock_execute_helper,
     mock_snowflake_yml_file,
     quoted_override_yml_file,
@@ -169,6 +172,7 @@ def test_drop_application_incorrect_owner(
 @mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
+@mock.patch(NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
 @pytest.mark.parametrize(
     "auto_yes_param, special_comment",  # auto_yes should have no effect on the test
     [
@@ -179,6 +183,7 @@ def test_drop_application_incorrect_owner(
     ],
 )
 def test_drop_application_has_special_comment(
+    mock_get_objects_owned_by_application,
     mock_drop_generic_object,
     mock_is_correct_owner,
     mock_get_existing_app_info,
@@ -208,6 +213,7 @@ def test_drop_application_has_special_comment(
 
 # Test drop_application() successfully when it has special comment but is a quoted string
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
 @pytest.mark.parametrize(
     "auto_yes_param, special_comment",  # auto_yes should have no effect on the test
     [
@@ -218,6 +224,7 @@ def test_drop_application_has_special_comment(
     ],
 )
 def test_drop_application_has_special_comment_and_quoted_name(
+    mock_get_objects_owned_by_application,
     mock_execute,
     auto_yes_param,
     special_comment,
@@ -324,11 +331,13 @@ def test_drop_application_user_prohibits_drop(
 @mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=True)
+@mock.patch(NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
 @pytest.mark.parametrize(
     "auto_yes_param",
     [False, True],
 )
 def test_drop_application_user_allows_drop(
+    mock_get_objects_owned_by_application,
     mock_confirm,
     mock_execute,
     mock_drop_generic_object,
@@ -378,11 +387,13 @@ def test_drop_application_user_allows_drop(
 @mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
+@mock.patch(NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
 @pytest.mark.parametrize(
     "auto_yes_param",
     [False, True],  # This should have no effect on the test
 )
 def test_drop_application_idempotent(
+    mock_get_objects_owned_by_application,
     mock_drop_generic_object,
     mock_is_correct_owner,
     mock_get_existing_app_info,
@@ -1004,3 +1015,67 @@ def test_drop_package_idempotent(
     mock_is_correct_owner.assert_called_once()
     mock_drop_generic_object.assert_called_once()
     mock_execute.mock_calls == expected
+
+
+@mock.patch(f"{TEARDOWN_MODULE}.{TYPER_PROMPT}")
+@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
+@mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
+@mock.patch(NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION)
+@pytest.mark.parametrize(
+    "cascade,application_objects,interactive_response,expected_cascade",
+    [
+        # Cascade true
+        [True, [], None, True],
+        [True, [{"type": "DATABASE", "name": "db"}], None, True],
+        # Cascade false
+        [False, [], None, False],
+        [False, [{"type": "DATABASE", "name": "db"}], None, False],
+        # Cascade unset
+        [None, [], None, False],
+        [None, [{"type": "DATABASE", "name": "db"}], None, None],
+        # Interactive
+        [None, [{"type": "DATABASE", "name": "db"}], "yes", True],
+        [None, [{"type": "DATABASE", "name": "db"}], "no", False],
+        [None, [{"type": "DATABASE", "name": "db"}], "abort", None],
+    ],
+)
+def test_drop_application_cascade(
+    mock_get_objects_owned_by_application,
+    mock_drop_generic_object,
+    mock_is_correct_owner,
+    mock_get_existing_app_info,
+    mock_typer_prompt,
+    cascade,
+    application_objects,
+    interactive_response,
+    expected_cascade,
+    temp_dir,
+):
+    mock_get_objects_owned_by_application.return_value = application_objects
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "owner": "app_role",
+        "comment": SPECIAL_COMMENT,
+    }
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+    interactive = interactive_response is not None
+    mock_typer_prompt.return_value = interactive_response
+
+    teardown_processor = _get_na_teardown_processor()
+    if expected_cascade is None:
+        with pytest.raises(Abort):
+            teardown_processor.drop_application(False, interactive, cascade)
+    else:
+        teardown_processor.drop_application(False, interactive, cascade)
+        mock_drop_generic_object.assert_called_once_with(
+            object_type="application",
+            object_name="myapp",
+            role="app_role",
+            cascade=expected_cascade,
+        )
