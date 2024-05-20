@@ -478,3 +478,28 @@ def test_status_cli(mock_status, mock_statement_success, runner):
     result = runner.invoke(["spcs", "compute-pool", "status", pool_name])
     mock_status.assert_called_once_with(pool_name=pool_name)
     assert_that_result_is_successful_and_executed_successfully(result)
+
+
+@patch("snowflake.connector.connect")
+@pytest.mark.parametrize(
+    "command, parameters",
+    [
+        ("list", []),
+        ("list", ["--like", "PATTERN"]),
+        ("describe", ["NAME"]),
+        ("drop", ["NAME"]),
+    ],
+)
+def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(["object", command, "compute-pool", *parameters])
+    assert result.exit_code == 0, result.output
+    result = runner.invoke(
+        ["spcs", "compute-pool", command, *parameters], catch_exceptions=False
+    )
+    assert result.exit_code == 0, result.output
+
+    queries = ctx.get_queries()
+    assert queries[0] == queries[1]
