@@ -123,6 +123,10 @@ class ObjectManager(SqlExecutionMixin):
         # TODO: nice exception handling (if possible) - "sth wrong" is not enough
         response = self._send_rest_request(url=url, method="post", data=object_data)
         if not response:
+            # 409 conflict - ignored
+            # {}, {"named": "text"} - 400 bad request - raised
+            # 404 - not exists - ignored
+            # 401 - not authorized - ignored
             return (
                 "Something went wrong ¯\_(ツ)_/¯. Try again with --debug for more info."
             )
