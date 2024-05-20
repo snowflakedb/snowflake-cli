@@ -6,9 +6,8 @@ from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.types import MessageResult, MultipleResults, QueryResult
 from snowflake.cli.plugins.notebook.manager import NotebookManager
+from snowflake.cli.plugins.notebook.types import NotebookName, NotebookStagePath
 from typing_extensions import Annotated
-
-from .types import NotebookName, NotebookStagePath
 
 app = SnowTyper(
     name="notebook",

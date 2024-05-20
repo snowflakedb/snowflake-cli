@@ -5,9 +5,8 @@ from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.connection.util import make_snowsight_url
-
-from .exceptions import NotebookStagePathError
-from .types import NotebookName, NotebookStagePath
+from snowflake.cli.plugins.notebook.exceptions import NotebookStagePathError
+from snowflake.cli.plugins.notebook.types import NotebookName, NotebookStagePath
 
 
 class NotebookManager(SqlExecutionMixin):
