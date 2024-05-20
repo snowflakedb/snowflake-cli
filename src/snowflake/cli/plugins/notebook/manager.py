@@ -23,6 +23,7 @@ class NotebookManager(SqlExecutionMixin):
 
     @staticmethod
     def _parse_stage_path(notebook_file: NotebookName) -> Path:
+        """Parses notebook file path to pathlib.Path."""
         if not notebook_file.endswith(".ipynb"):
             raise NotebookStagePathError(notebook_file)
         stage_path = Path(notebook_file)
@@ -32,16 +33,17 @@ class NotebookManager(SqlExecutionMixin):
         return stage_path
 
     def create(self, notebook_name: NotebookName, notebook_file: NotebookStagePath):
+        notebook_fqn = FQN.from_string(notebook_name)
         stage_path = self._parse_stage_path(notebook_file)
 
         queries = dedent(
             f"""
-            CREATE OR REPLACE NOTEBOOK {notebook_name.upper()}
+            CREATE OR REPLACE NOTEBOOK {notebook_fqn.identifier}
             FROM '{stage_path.parent}'
             QUERY_WAREHOUSE = '{cli_context.connection.warehouse}'
             MAIN_FILE = '{stage_path.name}';
 
-            ALTER NOTEBOOK {notebook_name.upper()} ADD LIVE VERSION FROM LAST;
+            ALTER NOTEBOOK {notebook_fqn.identifier} ADD LIVE VERSION FROM LAST;
             """
         )
 

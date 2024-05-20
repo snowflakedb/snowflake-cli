@@ -66,6 +66,7 @@ def create(
 ):
     """Creates notebook from stage."""
     results = NotebookManager().create(
-        notebook_name=identifier, notebook_file=notebook_file
+        notebook_name=identifier,
+        notebook_file=notebook_file,
     )
     return MultipleResults(QueryResult(c) for c in results)
