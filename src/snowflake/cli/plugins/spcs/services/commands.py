@@ -6,8 +6,13 @@ from typing import List, Optional
 
 import typer
 from click import ClickException
-from snowflake.cli.api.commands.flags import IfNotExistsOption, OverrideableOption
+from snowflake.cli.api.commands.flags import (
+    IfNotExistsOption,
+    OverrideableOption,
+    like_option,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import (
     CommandResult,
     QueryJsonValueResult,
@@ -15,6 +20,10 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
 )
 from snowflake.cli.api.project.util import is_valid_object_name
+from snowflake.cli.plugins.object.command_aliases import (
+    add_object_command_aliases,
+    scope_option,
+)
 from snowflake.cli.plugins.object.common import CommentOption, Tag, TagOption
 from snowflake.cli.plugins.spcs.common import (
     print_log_lines,
@@ -38,7 +47,10 @@ def _service_name_callback(name: str) -> str:
 
 
 ServiceNameArgument = typer.Argument(
-    ..., help="Name of the service.", callback=_service_name_callback
+    ...,
+    help="Name of the service.",
+    callback=_service_name_callback,
+    show_default=False,
 )
 
 SpecPathOption = typer.Option(
@@ -48,6 +60,7 @@ SpecPathOption = typer.Option(
     file_okay=True,
     dir_okay=False,
     exists=True,
+    show_default=False,
 )
 
 _MIN_INSTANCES_HELP = "Minimum number of service instances to run."
@@ -76,12 +89,25 @@ AutoResumeOption = OverrideableOption(
 
 _COMMENT_HELP = "Comment for the service."
 
+add_object_command_aliases(
+    app=app,
+    object_type=ObjectType.SERVICE,
+    name_argument=ServiceNameArgument,
+    like_option=like_option(
+        help_example='`list --like "my%"` lists all services that begin with “my”.'
+    ),
+    scope_option=scope_option(help_example="`list --in compute-pool my_pool`"),
+)
+
 
 @app.command(requires_connection=True)
 def create(
     name: str = ServiceNameArgument,
     compute_pool: str = typer.Option(
-        ..., "--compute-pool", help="Compute pool to run the service on."
+        ...,
+        "--compute-pool",
+        help="Compute pool to run the service on.",
+        show_default=False,
     ),
     spec_path: Path = SpecPathOption,
     min_instances: int = MinInstancesOption(),
@@ -133,10 +159,16 @@ def status(name: str = ServiceNameArgument, **options) -> CommandResult:
 def logs(
     name: str = ServiceNameArgument,
     container_name: str = typer.Option(
-        ..., "--container-name", help="Name of the container."
+        ...,
+        "--container-name",
+        help="Name of the container.",
+        show_default=False,
     ),
     instance_id: str = typer.Option(
-        ..., "--instance-id", help="ID of the service instance, starting with 0."
+        ...,
+        "--instance-id",
+        help="ID of the service instance, starting with 0.",
+        show_default=False,
     ),
     num_lines: int = typer.Option(
         500, "--num-lines", help="Number of lines to retrieve."

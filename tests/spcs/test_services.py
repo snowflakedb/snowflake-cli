@@ -623,3 +623,28 @@ def test_service_name_parser_invalid_object_name(mock_is_valid_object_name):
     with pytest.raises(ClickException) as e:
         _service_name_callback(invalid_service_name)
     assert f"'{invalid_service_name}' is not a valid service name." in e.value.message
+
+
+@patch("snowflake.connector.connect")
+@pytest.mark.parametrize(
+    "command, parameters",
+    [
+        ("list", []),
+        ("list", ["--like", "PATTERN"]),
+        ("describe", ["NAME"]),
+        ("drop", ["NAME"]),
+    ],
+)
+def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(["object", command, "service", *parameters])
+    assert result.exit_code == 0, result.output
+    result = runner.invoke(
+        ["spcs", "service", command, *parameters], catch_exceptions=False
+    )
+    assert result.exit_code == 0, result.output
+
+    queries = ctx.get_queries()
+    assert queries[0] == queries[1]
