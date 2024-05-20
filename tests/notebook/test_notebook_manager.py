@@ -38,7 +38,7 @@ def test_create(mock_ctx, mock_execute):
     expected_query = dedent(
         """
         CREATE OR REPLACE NOTEBOOK my_notebook
-        fROM '@stage'
+        FROM '@stage'
         QUERY_WAREHOUSE = 'MY_WH'
         MAIN_FILE = 'nb file.ipynb';
 
