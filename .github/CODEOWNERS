@@ -1,7 +1,6 @@
 * @snowflakedb/snowcli
 
 # Shared ownership
-RELEASE-NOTES.md @snowflakedb/snowcli @snowflakedb/nade
 **/__snapshots__/ @snowflakedb/snowcli @snowflakedb/nade
 tests/testing_utils/ @snowflakedb/snowcli @snowflakedb/nade
 src/snowflake/cli/api/utils/ @snowflakedb/snowcli @snowflakedb/nade
@@ -12,3 +11,6 @@ src/snowflake/cli/api/utils/ @snowflakedb/snowcli @snowflakedb/nade
 
 # Project Definition Owners
 tests/project/ @snowflakedb/snowcli @snowflakedb/nade
+
+# No ownership to reduce friction
+RELEASE-NOTES.md
