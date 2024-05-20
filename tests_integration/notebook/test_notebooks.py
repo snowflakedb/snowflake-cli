@@ -54,8 +54,6 @@ def test_create_notebook(runner, test_database, snowflake_session):
 
     assert result.exit_code == 0
 
-    expected = [
-        [{"status": "Notebook MY_NOTEBOOK successfully created."}],
-        [{"status": "Live version successfully created."}],
-    ]
-    assert result.json == expected, result.json
+    message: str = result.json.get("message", "")
+    assert message.startswith("https://app.snowflake.com/")
+    assert message.endswith("MY_NOTEBOOK")

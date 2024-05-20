@@ -32,8 +32,12 @@ class NotebookManager(SqlExecutionMixin):
 
         return stage_path
 
-    def create(self, notebook_name: NotebookName, notebook_file: NotebookStagePath):
-        notebook_fqn = FQN.from_string(notebook_name)
+    def create(
+        self,
+        notebook_name: NotebookName,
+        notebook_file: NotebookStagePath,
+    ) -> str:
+        notebook_fqn = FQN.from_string(notebook_name).using_connection(self._conn)
         stage_path = self._parse_stage_path(notebook_file)
 
         queries = dedent(
@@ -46,5 +50,8 @@ class NotebookManager(SqlExecutionMixin):
             ALTER NOTEBOOK {notebook_fqn.identifier} ADD LIVE VERSION FROM LAST;
             """
         )
+        self._execute_queries(queries=queries)
 
-        return self._execute_queries(queries=queries)
+        return make_snowsight_url(
+            self._conn, f"/#/notebooks/{notebook_fqn.url_identifier}"
+        )
