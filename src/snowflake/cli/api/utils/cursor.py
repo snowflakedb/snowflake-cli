@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Callable, List, Optional
+from typing import Callable, Iterable, List, Optional
 
-from snowflake.connector.cursor import DictCursor
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 
 def _rows_generator(cursor: DictCursor, predicate: Callable[[dict], bool]):
@@ -18,3 +18,9 @@ def find_first_row(
 ) -> Optional[dict]:
     """Returns the first row that matches the predicate, or None."""
     return next(_rows_generator(cursor, predicate), None)
+
+
+def join_cursors(cursors: List[Iterable[SnowflakeCursor]]) -> Iterable[SnowflakeCursor]:
+    while cursors:
+        cur = cursors.pop(0)
+        yield from cur
