@@ -20,7 +20,7 @@ NOTEBOOK_IDENTIFIER = identifier_argument(sf_object="notebook", example="MY_NOTE
 NotebookFile: NotebookStagePath = typer.Option(
     "--notebook-file",
     "-f",
-    help="Stage path to notebook file.",
+    help="Stage path with notebook file. For example `@stage/path/to/notebook.ipynb`",
 )
 
 

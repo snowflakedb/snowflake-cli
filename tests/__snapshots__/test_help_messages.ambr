@@ -1740,7 +1740,8 @@
   │                            [required]                                        │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ *  --notebook-file  -f      TEXT  Stage path to notebook file.               │
+  │ *  --notebook-file  -f      TEXT  Stage path with notebook file. For example │
+  │                                   `@stage/path/to/notebook.ipynb`            │
   │                                   [default: None]                            │
   │                                   [required]                                 │
   │    --help           -h            Show this message and exit.                │
