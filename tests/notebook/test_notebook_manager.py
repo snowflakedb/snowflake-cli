@@ -1,3 +1,4 @@
+from textwrap import dedent
 from unittest import mock
 from unittest.mock import MagicMock, PropertyMock
 
@@ -34,11 +35,15 @@ def test_create(mock_ctx, mock_execute):
         notebook_name="my_notebook",
         notebook_file="@stage/nb file.ipynb",
     )
-    expected_query = (
-        "CREATE OR REPLACE NOTEBOOK MY_NOTEBOOK FROM '@stage'"
-        " QUERY_WAREHOUSE = 'MY_WH'"
-        " MAIN_FILE = 'nb file.ipynb';\n"
-        "ALTER NOTEBOOK MY_NOTEBOOK ADD LIVE VERSION FROM LAST;"
+    expected_query = dedent(
+        """
+        CREATE OR REPLACE NOTEBOOK MY_NOTEBOOK
+        FROM '@stage'
+        QUERY_WAREHOUSE = 'MY_WH'
+        MAIN_FILE = 'nb file.ipynb';
+
+        ALTER NOTEBOOK MY_NOTEBOOK ADD LIVE VERSION FROM LAST;
+        """
     )
     mock_execute.assert_called_once_with(queries=expected_query)
 

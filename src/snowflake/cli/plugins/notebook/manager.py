@@ -1,4 +1,5 @@
 from pathlib import Path
+from textwrap import dedent
 
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.identifiers import FQN
@@ -34,15 +35,15 @@ class NotebookManager(SqlExecutionMixin):
     def create(self, notebook_name: NotebookName, notebook_file: NotebookStagePath):
         stage_path = self._parse_stage_path(notebook_file)
 
-        create_query = (
-            f"CREATE OR REPLACE NOTEBOOK {notebook_name.upper()}"
-            f" FROM '{stage_path.parent}'"
-            f" QUERY_WAREHOUSE = '{cli_context.connection.warehouse}'"
-            f" MAIN_FILE = '{stage_path.name}';"
-        )
-        alter_version_query = (
-            f"ALTER NOTEBOOK {notebook_name.upper()} ADD LIVE VERSION FROM LAST;"
+        queries = dedent(
+            f"""
+            CREATE OR REPLACE NOTEBOOK {notebook_name.upper()}
+            FROM '{stage_path.parent}'
+            QUERY_WAREHOUSE = '{cli_context.connection.warehouse}'
+            MAIN_FILE = '{stage_path.name}';
+
+            ALTER NOTEBOOK {notebook_name.upper()} ADD LIVE VERSION FROM LAST;
+            """
         )
 
-        queries = "\n".join((create_query, alter_version_query))
         return self._execute_queries(queries=queries)
