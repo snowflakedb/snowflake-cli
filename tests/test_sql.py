@@ -284,21 +284,6 @@ def test_rendering_of_sql(mock_execute_query, query, runner):
     mock_execute_query.assert_called_once_with("select foo.bar")
 
 
-@pytest.mark.parametrize(
-    "query",
-    [
-        "select &{ aaa }.&{ bbb }",
-        "select &aaa.&bbb",
-        "select &aaa.&{ bbb }",
-    ],
-)
-@mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
-def test_no_rendering_of_sql_if_no_data(mock_execute_query, query, runner):
-    result = runner.invoke(["sql", "-q", query])
-    assert result.exit_code == 0, result.output
-    mock_execute_query.assert_called_once_with(query)
-
-
 @pytest.mark.parametrize("query", ["select &{ foo }", "select &foo"])
 def test_execution_fails_if_unknown_variable(runner, query):
     result = runner.invoke(["sql", "-q", query, "-D", "bbb=1"])
@@ -321,3 +306,33 @@ def test_execution_fails_if_unknown_variable(runner, query):
 )
 def test_snowsql_compatibility(text, expected):
     assert transpile_snowsql_templates(text) == expected
+
+
+@mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
+def test_uses_variables_from_snowflake_yml(
+    mock_execute_query, project_directory, runner
+):
+    with project_directory("sql_templating"):
+        result = runner.invoke(["sql", "-q", "select &{ ctx.env.sf_var }"])
+
+    assert result.exit_code == 0
+    mock_execute_query.assert_called_once_with("select foo_value")
+
+
+@mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
+def test_uses_variables_from_cli_are_added_outside_context(
+    mock_execute_query, project_directory, runner
+):
+    with project_directory("sql_templating"):
+        result = runner.invoke(
+            [
+                "sql",
+                "-q",
+                "select &{ ctx.env.sf_var } &{ other }",
+                "-D",
+                "other=other_value",
+            ]
+        )
+
+    assert result.exit_code == 0, result.output
+    mock_execute_query.assert_called_once_with("select foo_value other_value")
