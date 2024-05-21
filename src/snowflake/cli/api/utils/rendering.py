@@ -234,7 +234,7 @@ def _get_variables_with_dependencies(variables_data: EnvironWithDefinedDictFallb
 
 def _search_for_required_variables(variable_value: str):
     """
-    Look for &{...} pattern in  variable value. Returns a list of env variables required
+    Look for ${...} pattern in  variable value. Returns a list of env variables required
     to expand this template.`
     """
     ctx_env_prefix = f"{_CONTEXT_KEY}.env."
