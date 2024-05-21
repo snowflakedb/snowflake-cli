@@ -268,6 +268,8 @@ def generate_create_sql_ddl_statements(ex_fn: Dict[str, Any]) -> Optional[str]:
     """
     Generates a "CREATE FUNCTION/PROCEDURE ... " SQL DDL statement based on a dictionary of extension function properties.
     Logic for this create statement has been lifted from snowflake-snowpark-python v1.15.0 package.
+    Anonymous procedures are not allowed in Native Apps, and hence if a user passes in the two corresponding properties,
+    this function will skip the DDL generation.
     """
 
     object_type = ex_fn["object_type"]
@@ -344,6 +346,7 @@ HANDLER='{ex_fn["handler"]}'{execute_as_sql}
 def generate_grant_sql_ddl_statements(ex_fn: Dict[str, Any]) -> Optional[str]:
     """
     Generates a "GRANT USAGE TO ... " SQL DDL statement based on a dictionary of extension function properties.
+    If no application roles are present, then the function returns None.
     """
 
     if ex_fn["application_roles"] is None:

@@ -6,10 +6,7 @@ from snowflake.cli.api.project.schemas.project_definition import ProjectDefiniti
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
     UnsupportedArtifactProcessorError,
 )
-from snowflake.cli.plugins.nativeapp.codegen.compiler import (
-    _find_and_execute_processors,
-    _try_create_processor,
-)
+from snowflake.cli.plugins.nativeapp.codegen.compiler import NativeAppCompiler
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
 )
@@ -39,14 +36,17 @@ proj_def = ProjectDefinition(
     }
 )
 
+compiler = NativeAppCompiler(
+    project_definition=proj_def.native_app,
+    project_root=Path("some/dummy/path"),
+    deploy_root=Path("some/dummy/path"),
+)
+
 
 def test_try_create_processor_returns_none():
     artifact_to_process = proj_def.native_app.artifacts[2]
-    result = _try_create_processor(
+    result = compiler._try_create_processor(  # noqa: SLF001
         processor_mapping=artifact_to_process.processors[0],
-        project_definition=proj_def.native_app,
-        project_root=Path("some/dummy/path"),
-        deploy_root=Path("some/dummy/path"),
         artifact_to_process=artifact_to_process,
     )
     assert result is None
@@ -57,11 +57,8 @@ def test_try_create_processor_returns_none():
     [proj_def.native_app.artifacts[3], proj_def.native_app.artifacts[4]],
 )
 def test_try_create_processor_returns_processor(artifact_to_process):
-    result = _try_create_processor(
+    result = compiler._try_create_processor(  # noqa: SLF001
         processor_mapping=artifact_to_process.processors[0],
-        project_definition=proj_def.native_app,
-        project_root=Path("some/dummy/path"),
-        deploy_root=Path("some/dummy/path"),
         artifact_to_process=artifact_to_process,
     )
     assert isinstance(result, SnowparkAnnotationProcessor)
@@ -72,10 +69,11 @@ def test_find_and_execute_processors_exception():
     test_proj_def.native_app.artifacts = [
         {"dest": "./", "src": "app/*", "processors": ["DUMMY"]}
     ]
+    test_compiler = NativeAppCompiler(
+        project_definition=test_proj_def.native_app,
+        project_root=Path("some/dummy/path"),
+        deploy_root=Path("some/dummy/path"),
+    )
 
     with pytest.raises(UnsupportedArtifactProcessorError):
-        _find_and_execute_processors(
-            project_definition=test_proj_def.native_app,
-            project_root=Path("some/dummy/path"),
-            deploy_root=Path("some/dummy/path"),
-        )
+        test_compiler.compile_artifacts()
