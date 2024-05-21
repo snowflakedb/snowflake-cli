@@ -59,9 +59,6 @@ def test_create(mock_ctx, mock_execute, mock_url):
         pytest.param("@stage/with/path", id="stage with path no file"),
     ),
 )
-@mock.patch("snowflake.cli.plugins.notebook.manager.cli_context")
-def test_error_parsing_stage(mock_ctx, stage_path):
-    type(mock_ctx.connection).warehouse = PropertyMock(return_value="my_wh")
-
+def test_error_parsing_stage(stage_path):
     with pytest.raises(NotebookStagePathError):
-        NotebookManager().create(notebook_name="my_notebook", notebook_file=stage_path)
+        NotebookManager.parse_stage_as_path(stage_path)
