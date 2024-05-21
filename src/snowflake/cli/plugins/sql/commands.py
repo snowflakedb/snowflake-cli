@@ -4,7 +4,10 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
-from snowflake.cli.api.commands.flags import parse_key_value_variables
+from snowflake.cli.api.commands.flags import (
+    parse_key_value_variables,
+    project_definition_option,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MultipleResults, QueryResult
 from snowflake.cli.plugins.sql.manager import SqlManager
@@ -52,6 +55,7 @@ def execute_sql(
         help="String in format of key=value. If provided the SQL content will "
         "be treated as template and rendered using provided data.",
     ),
+    _: Optional[str] = project_definition_option(optional=True),
     **options,
 ) -> CommandResult:
     """

@@ -12,6 +12,7 @@ import typer
 from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context_manager
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.output.formats import OutputFormat
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
@@ -483,7 +484,7 @@ def execution_identifier_argument(sf_object: str, example: str) -> typer.Argumen
     )
 
 
-def project_definition_option(project_name: str):
+def project_type_option(project_name: str):
     from snowflake.cli.api.exceptions import NoProjectDefinitionError
     from snowflake.cli.api.project.definition_manager import DefinitionManager
 
@@ -514,6 +515,34 @@ def project_definition_option(project_name: str):
         "--project",
         help=f"Path where the {project_name_help} project resides. "
         f"Defaults to current working directory.",
+        callback=_callback,
+        show_default=False,
+    )
+
+
+def project_definition_option(optional: bool = False):
+    from snowflake.cli.api.project.definition_manager import DefinitionManager
+
+    def _callback(project_path: Optional[str]):
+        try:
+            dm = DefinitionManager(project_path)
+            project_definition = dm.project_definition
+            project_root = dm.project_root
+        except MissingConfiguration:
+            if optional:
+                project_definition = None
+                project_root = None
+            else:
+                raise
+        cli_context_manager.set_project_definition(project_definition)
+        cli_context_manager.set_project_root(project_root)
+        return project_definition
+
+    return typer.Option(
+        None,
+        "-p",
+        "--project",
+        help=f"Path where Snowflake project resides. Defaults to current working directory.",
         callback=_callback,
         show_default=False,
     )
