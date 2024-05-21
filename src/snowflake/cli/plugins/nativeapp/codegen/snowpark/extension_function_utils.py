@@ -49,7 +49,7 @@ def _sanitize_str_attribute(
     Sanitizes a single key-value pair of the specified dictionary. As part of the sanitization,
     it goes through a few checks. A key must be created if it does not already exist.
     Then, it checks the type of the value of the key, i.e. if it is of type str, and if it contains any leading or trailing whitespaces.
-    A user is able to specity if they want to re-assign a key to an uppercase instance of its original value.
+    A user is able to specify if they want to re-assign a key to an uppercase instance of its original value.
     If any of the sanitization checks fail and the user wants to raise an error, it throws a MalformedExtensionFunctionError.
     """
     assign_to_none = True
@@ -121,7 +121,7 @@ def _create_missing_attr_message(attribute: str, py_file: Optional[Path]):
 def _is_function_wellformed(ex_fn: Dict[str, Any]) -> bool:
     """
     Checks if the specified dictionary contains a key called 'func'.
-    if it does, then the value must be of type str or a list of fixes size 2.
+    if it does, then the value must be of type str or a list of fixed size 2.
     It further checks the item at 1st index of this list.
     """
     if ex_fn.get("func", None):
@@ -259,13 +259,6 @@ def _get_handler_path_without_suffix(
     Get a handler for an extension function based on the file path on the stage. If a specific suffix needs to be removed from the path,
     then that is also taken into account.
     """
-    # rel_file_path = file_path.absolute().relative_to(deploy_root.resolve())  # No leading slash
-    # stem, suffix = os.path.splitext(rel_file_path)
-    # if (suffix_str_to_rm is not None) and (suffix == suffix_str_to_rm):
-    #     file_parts = Path(stem).parts
-    # else:
-    #     file_parts = rel_file_path.parts
-    # return ".".join(file_parts)
     return "NotImplementedHandler"
 
 

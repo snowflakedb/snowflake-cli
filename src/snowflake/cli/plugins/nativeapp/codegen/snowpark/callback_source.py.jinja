@@ -59,8 +59,8 @@ def __snowflake_cli_native_app_internal_callback_replacement():
             "anonymous": ext_fn.anonymous,
             # Set func based on type
             "func": ext_fn.func.__name__
-            if isinstance(ext_fn.func, Callable)
-            else ext_fn.func,
+                if isinstance(ext_fn.func, Callable)
+                else ext_fn.func,
         }
         # Set native app params based on dictionary
         if ext_fn.native_app_params is not None:

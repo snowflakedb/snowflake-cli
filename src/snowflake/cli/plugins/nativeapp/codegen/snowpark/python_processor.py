@@ -166,6 +166,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
             else {}
         )
 
+        # 1. Get the artifact src to dest mapping
         bundle_map = BundleMap(
             project_root=self.project_root, deploy_root=self.deploy_root
         )
@@ -193,7 +194,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                 cc.warning("Skipping generating code of all objects from this file.")
                 collected_raw_ex_fns = None
 
-            if (collected_raw_ex_fns is None) or (len(collected_raw_ex_fns) == 0):
+            if not collected_raw_ex_fns:
                 continue
 
             cc.message(f"This is the file path in deploy root: {dest_file}\n")
@@ -328,8 +329,7 @@ $$
     else:
         inline_python_code_in_sql = ""
 
-    create_query = dedent(
-        f"""\
+    create_query = f"""\
 CREATE{replace_in_sql}
 {get_object_type_as_text(object_type)} {'IF NOT EXISTS' if ex_fn["if_not_exists"] else ''}{object_name}({sql_func_args})
 {ex_fn["return_sql"]}
@@ -337,7 +337,6 @@ LANGUAGE PYTHON
 RUNTIME_VERSION={ex_fn["runtime_version"]} {imports_in_sql}{packages_in_sql}{external_access_integrations_in_sql}{secrets_in_sql}
 HANDLER='{ex_fn["handler"]}'{execute_as_sql}
 {inline_python_code_in_sql}"""
-    )
 
     return create_query
 
