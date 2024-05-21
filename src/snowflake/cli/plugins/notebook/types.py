@@ -1,0 +1,2 @@
+NotebookName = str
+NotebookStagePath = str
