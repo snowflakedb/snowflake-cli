@@ -42,3 +42,28 @@ API_ALLOWED_PREFIXES = ('https://github.com/snowflakedb/')
 ALLOWED_AUTHENTICATION_SECRETS = ()
 ENABLED = true;
 GRANT USAGE ON INTEGRATION snowcli_testing_repo_api_integration TO ROLE INTEGRATION_TESTS;
+
+-- CORTEX SEARCH SETUP
+CREATE TABLE transcripts (
+    transcript_text VARCHAR,
+    region VARCHAR,
+    agent_id VARCHAR
+);
+
+INSERT INTO transcripts VALUES('Ah, I see you have the machine that goes "ping!". This is my favourite.', 'Meaning of Life', '01'),
+    ('First shalt thou take out the Holy Pin. Then shalt thou count to three, no more, no less.', 'Holy Grail', '02'),
+    ('And the beast shall be huge and black, and the eyes thereof red with the blood of living creatures', 'Life of Brian', '03'),
+    ('This parrot is no more! It has ceased to be! It`s expired and gone to meet its maker!', 'Flying Circus', '04');
+
+CREATE OR REPLACE CORTEX SEARCH SERVICE  transcript_search_service
+  ON transcript_text
+  ATTRIBUTES region
+  WAREHOUSE = mywh
+  TARGET_LAG = '1 day'
+  AS (
+    SELECT
+        transcript_text,
+        region,
+        agent_id
+    FROM support_transcripts
+);
