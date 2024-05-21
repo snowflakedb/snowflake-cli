@@ -16,7 +16,7 @@ dependencies = [
   "PyYAML==6.0.1",
   "packaging",
   "rich==13.7.1",
-  "requests==2.31.0",
+  "requests==2.32.1",
   "requirements-parser==0.9.0",
   "setuptools==69.5.1",
   "snowflake-connector-python[secure-local-storage]==3.10.0",
