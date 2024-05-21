@@ -14,6 +14,8 @@
    * `snow spcs compute-pool` for compute pools
    * `snow spcs image-repository` for image repositories
    * `snow spcs service` for services
+ * `snow sql` works now with `snowflake.yml` file. The variables defined in the new `env` section
+       of `snowflake.yml` will be used to expand templates.
 
 ## Fixes and improvements
 * Improved support for quoted identifiers.
