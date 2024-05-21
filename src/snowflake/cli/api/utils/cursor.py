@@ -21,6 +21,5 @@ def find_first_row(
 
 
 def join_cursors(cursors: List[Iterable[SnowflakeCursor]]) -> Iterable[SnowflakeCursor]:
-    while cursors:
-        cur = cursors.pop(0)
+    for cur in cursors:
         yield from cur

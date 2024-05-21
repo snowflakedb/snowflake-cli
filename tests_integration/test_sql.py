@@ -33,7 +33,17 @@ def test_multi_queries_from_file(runner, snowflake_session, test_root_path):
 @pytest.mark.integration
 def test_multiple_files(runner, snowflake_session, test_root_path, snapshot):
     query_file = f"{test_root_path}/test_data/sql_multi_queries.sql"
-    result = runner.invoke_with_connection(["sql", "-f", query_file, "-f", query_file])
+    result = runner.invoke_with_connection(
+        [
+            "sql",
+            "-f",
+            query_file,
+            "-f",
+            f"{test_root_path}/test_data/empty.sql",
+            "-f",
+            query_file,
+        ]
+    )
 
     assert result.exit_code == 0
     assert result.output == snapshot

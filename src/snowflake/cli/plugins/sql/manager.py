@@ -35,23 +35,25 @@ class SqlManager(SqlExecutionMixin):
 
         if std_in:
             query = sys.stdin.read()
-        elif files and len(files) == 1:
-            # If there's only one file we need to handle case of single query
-            query = SecurePath(files[0]).read_text(file_size_limit_mb=UNLIMITED)
-
         if query:
             return self._execute_single_query(query=query, data=data)
 
         if files:
             # Multiple files
             results = []
+            single_statement = False
             for file in files:
                 query_from_file = SecurePath(file).read_text(
                     file_size_limit_mb=UNLIMITED
                 )
-                _, result = self._execute_single_query(query=query_from_file, data=data)
+                single_statement, result = self._execute_single_query(
+                    query=query_from_file, data=data
+                )
                 results.append(result)
-            return False, join_cursors(results)
+
+            # Use single_statement if there's only one, otherwise this is multi statement result
+            single_statement = len(files) == 1 and single_statement
+            return single_statement, join_cursors(results)
 
         # At that point, no stdin, query or files were provided
         raise UsageError("Use either query, filename or input option.")
