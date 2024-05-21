@@ -7,6 +7,7 @@ from textwrap import dedent
 from typing import Any, Dict, List, Optional
 
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
@@ -23,9 +24,10 @@ from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
     execute_script_in_sandbox,
 )
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.extension_function_utils import (
-    enrich_ex_fn,
     get_object_type_as_text,
-    sanitize_extension_function_data,
+)
+from snowflake.cli.plugins.nativeapp.codegen.snowpark.models import (
+    NativeAppExtensionFunction,
 )
 
 DEFAULT_TIMEOUT = 30
@@ -98,8 +100,6 @@ def _execute_in_sandbox(
             timeout=DEFAULT_TIMEOUT,
             **kwargs,
         )
-        cc.message(f"stdout: {completed_process.stdout}")
-        cc.message(f"stderr: {completed_process.stderr}")
     except SandboxExecutionError as sdbx_err:
         cc.warning(
             f"Could not fetch Snowpark objects from {py_file} due to {sdbx_err}, continuing execution for the rest of the python files."
@@ -181,58 +181,50 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         for src_file, dest_file in bundle_map.all_mappings(
             absolute=True, expand_directories=True, predicate=is_python_file_artifact
         ):
-            try:
-                collected_raw_ex_fns = _execute_in_sandbox(
-                    py_file=str(dest_file.resolve()),
-                    deploy_root=self.deploy_root,
-                    kwargs=kwargs,
-                )
-            except Exception as exc:
-                cc.warning(
-                    f"Error processing extension functions in {src_file}: {exc}"
-                )  # Display the actual file for the user to inspect
-                cc.warning("Skipping generating code of all objects from this file.")
-                collected_raw_ex_fns = None
+            collected_extension_function_json = _execute_in_sandbox(
+                py_file=str(dest_file.resolve()),
+                deploy_root=self.deploy_root,
+                kwargs=kwargs,
+            )
 
-            if not collected_raw_ex_fns:
+            if collected_extension_function_json is None:
+                cc.warning(f"Error processing extension functions in {src_file}")
+                cc.warning("Skipping generating code of all objects from this file.")
                 continue
+
+            collected_extension_functions = []
+            for extension_function_json in collected_extension_function_json:
+                try:
+                    collected_extension_functions.append(
+                        NativeAppExtensionFunction(**extension_function_json)
+                    )
+                except SchemaValidationError:
+                    cc.warning("Invalid extension function definition in line ")
 
             cc.message(f"This is the file path in deploy root: {dest_file}\n")
             cc.message("This is the list of collected extension functions:")
-            cc.message(pprint.pformat(collected_raw_ex_fns))
+            cc.message(pprint.pformat(collected_extension_functions))
 
-            filtered_collection = list(
-                filter(
-                    lambda item: (item is not None) and (len(item) > 0),
-                    collected_raw_ex_fns,
-                )
-            )
-            if len(filtered_collection) != len(collected_raw_ex_fns):
-                cc.warning(
-                    "Discovered extension functions that have value None or do not contain any information."
-                )
-                cc.warning(
-                    "Skipping generating code of all such objects from this file."
-                )
-
-            # 4. Enrich the raw extension functions by setting additional properties
-            for raw_ex_fn in filtered_collection:
-                sanitize_extension_function_data(ex_fn=raw_ex_fn, py_file=dest_file)
-                enrich_ex_fn(
-                    ex_fn=raw_ex_fn,
-                    py_file=dest_file,
-                    deploy_root=self.deploy_root,
-                )
-
-            dest_file_py_file_to_collected_raw_ex_fns[dest_file] = filtered_collection
+            #
+            # # 4. Enrich the raw extension functions by setting additional properties
+            # for raw_ex_fn in filtered_collection:
+            #     sanitize_extension_function_data(ex_fn=raw_ex_fn, py_file=dest_file)
+            #     enrich_ex_fn(
+            #         ex_fn=raw_ex_fn,
+            #         py_file=dest_file,
+            #         deploy_root=self.deploy_root,
+            #     )
+            #
+            # dest_file_py_file_to_collected_raw_ex_fns[dest_file] = filtered_collection
 
         # For each extension function, generate its related SQL statements
-        dest_file_py_file_to_ddl_map: Dict[
-            Path, str
-        ] = self.generate_sql_ddl_statements(dest_file_py_file_to_collected_raw_ex_fns)
-
-        # TODO: Temporary for testing, while feature is being built in phases
-        return dest_file_py_file_to_ddl_map
+        # dest_file_py_file_to_ddl_map: Dict[
+        #     Path, str
+        # ] = self.generate_sql_ddl_statements(dest_file_py_file_to_collected_raw_ex_fns)
+        #
+        # # TODO: Temporary for testing, while feature is being built in phases
+        # return dest_file_py_file_to_ddl_map
+        return {}
 
     def generate_sql_ddl_statements(
         self, dest_file_py_file_to_collected_raw_ex_fns: Dict[Path, Optional[Any]]
