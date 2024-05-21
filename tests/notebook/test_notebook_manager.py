@@ -26,26 +26,30 @@ def test_get_url(mock_url):
     )
 
 
+@mock.patch("snowflake.cli.plugins.notebook.manager.make_snowsight_url")
 @mock.patch.object(NotebookManager, "_execute_queries")
 @mock.patch("snowflake.cli.plugins.notebook.manager.cli_context")
-def test_create(mock_ctx, mock_execute):
+def test_create(mock_ctx, mock_execute, mock_url):
     type(mock_ctx.connection).warehouse = PropertyMock(return_value="MY_WH")
+    mock_url.return_value = "nb_url"
+    cn_mock = MagicMock(database="nb_db", schema="nb_schema")
 
-    _ = NotebookManager().create(
-        notebook_name="my_notebook",
-        notebook_file="@stage/nb file.ipynb",
-    )
-    expected_query = dedent(
-        """
-        CREATE OR REPLACE NOTEBOOK my_notebook
-        FROM '@stage'
-        QUERY_WAREHOUSE = 'MY_WH'
-        MAIN_FILE = 'nb file.ipynb';
+    with mock.patch.object(NotebookManager, "_conn", cn_mock):
+        _ = NotebookManager().create(
+            notebook_name="my_notebook",
+            notebook_file="@stage/nb file.ipynb",
+        )
+        expected_query = dedent(
+            """
+            CREATE OR REPLACE NOTEBOOK nb_db.nb_schema.my_notebook
+            FROM '@stage'
+            QUERY_WAREHOUSE = 'MY_WH'
+            MAIN_FILE = 'nb file.ipynb';
 
-        ALTER NOTEBOOK my_notebook ADD LIVE VERSION FROM LAST;
-        """
-    )
-    mock_execute.assert_called_once_with(queries=expected_query)
+            ALTER NOTEBOOK nb_db.nb_schema.my_notebook ADD LIVE VERSION FROM LAST;
+            """
+        )
+        mock_execute.assert_called_once_with(queries=expected_query)
 
 
 @pytest.mark.parametrize(
