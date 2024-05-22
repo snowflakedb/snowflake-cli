@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import sys
 from typing import List, Optional
 
 import typer
+from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CollectionResult
-from snowflake.core import Root
 
 app = SnowTyper(
     name="cortex",
@@ -28,18 +29,25 @@ def search(
     """
     Allows access to Cortex Search Services
     """
-    query_filter: dict = {}
+    if sys.version_info < (3.12,):
+        from snowflake.core import Root
 
-    conn = cli_context.connection
-    search_service = (
-        Root(conn)
-        .databases[conn.database]
-        .schemas[conn.schema]
-        .cortex_search_services[service]
-    )
+        query_filter: dict = {}
 
-    response = search_service.search(
-        query=query, columns=columns, limit=limit, filter=query_filter
-    )
+        conn = cli_context.connection
+        search_service = (
+            Root(conn)
+            .databases[conn.database]
+            .schemas[conn.schema]
+            .cortex_search_services[service]
+        )
 
-    return CollectionResult(response.results)
+        response = search_service.search(
+            query=query, columns=columns, limit=limit, filter=query_filter
+        )
+
+        return CollectionResult(response.results)
+    else:
+        raise ClickException(
+            "Snowflake Python API currently does not support Python 3.12 and greater"
+        )

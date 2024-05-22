@@ -1,8 +1,14 @@
+import sys
+
 import pytest
 
 
 @pytest.mark.integration
 @pytest.mark.skip  # TODO: when we have Cortex activated on test account, unskip this and setup part in sql script
+@pytest.mark.skipif(
+    sys.version_info >= (3.12,),
+    reason="Snowflake Python API currently does not support Python 3.12 and greater",
+)
 def test_cortex_search(runner):
     result = runner.invoke_with_connection_json(
         [
