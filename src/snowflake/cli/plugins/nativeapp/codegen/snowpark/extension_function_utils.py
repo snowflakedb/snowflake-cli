@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import ast
 from typing import (
+    Any,
     List,
     Optional,
     Sequence,
@@ -83,3 +85,93 @@ def ensure_all_string_literals(values: Sequence[str]) -> List[str]:
         A list with all values transformed to be valid string literals (as necessary).
     """
     return [ensure_string_literal(value) for value in values]
+
+
+class _FunctionDefAccumulator(ast.NodeVisitor):
+    def __init__(self, functions: Sequence[NativeAppExtensionFunction]):
+        self._wanted_functions_by_name = {
+            fn.handler.split(".")[-1]: fn for fn in functions
+        }
+        self.definitions: List[Any] = []
+
+    def visit_FunctionDef(self, node: ast.FunctionDef):  # noqa: N802
+        if self._want(node):
+            self.definitions.append(node)
+        self.generic_visit(node)
+
+    def visit_AsyncFunctionDef(self, node):  # noqa: N802
+        if self._want(node):
+            self.definitions.append(node)
+        self.generic_visit(node)
+
+    def _want(self, node: Any) -> bool:
+        if isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
+            if not node.decorator_list:
+                # No decorators for this definition, ignore it
+                return False
+
+            if node.name in self._wanted_functions_by_name:
+                lineno = self._wanted_functions_by_name[node.name].lineno
+                if lineno is not None:
+                    return node.lineno == lineno
+
+                # The function doesn't have a line specified, assume it's a match
+                return True
+
+        return False
+
+
+def _get_decorator_id(node: ast.AST) -> Optional[str]:
+    if isinstance(node, ast.Name):
+        return node.id
+    elif isinstance(node, ast.Attribute):
+        return f"{_get_decorator_id(node.value)}.{node.attr}"
+    if isinstance(node, ast.Call):
+        return _get_decorator_id(node.func)
+    else:
+        return None
+
+
+def _collect_ast_function_definitions(
+    tree: ast.AST, extension_functions: Sequence[NativeAppExtensionFunction]
+) -> Sequence[ast.FunctionDef]:
+    accumulator = _FunctionDefAccumulator(extension_functions)
+    accumulator.visit(tree)
+    return accumulator.definitions
+
+
+def deannotate(
+    module_source: str,
+    extension_functions: Sequence[NativeAppExtensionFunction],
+    annotations_to_preserve: Sequence[str] = (),
+) -> str:
+
+    tree = ast.parse(module_source)
+
+    definitions = _collect_ast_function_definitions(tree, extension_functions)
+    if not definitions:
+        return module_source
+
+    module_lines = module_source.splitlines()
+    for definition in definitions:
+        # Comment out all decorators. As per the python grammar, decorators must be terminated by a
+        # new line, so the line ranges can't overlap.
+        for decorator in definition.decorator_list:
+            decorator_id = _get_decorator_id(decorator)
+            if decorator_id is None:
+                continue
+            if annotations_to_preserve and decorator_id in annotations_to_preserve:
+                continue
+
+            # AST indices are 1-based
+            start_lineno = decorator.lineno - 1
+            if decorator.end_lineno is not None:
+                end_lineno = decorator.end_lineno - 1
+            else:
+                end_lineno = start_lineno
+
+            for lineno in range(start_lineno, end_lineno + 1):
+                module_lines[lineno] = "#: " + module_lines[lineno]
+
+    # we're writing files in text mode, so we should use '\n' regardless of the platform
+    return "\n".join(module_lines)

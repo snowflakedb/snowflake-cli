@@ -30,7 +30,7 @@ __snowflake_global_collected_extension_fn_json = []
 def __snowflake_internal_create_extension_fn_registration_callback():
     def __snowflake_internal_try_extract_lineno(extension_fn):
         try:
-            return inspect.getsourcelines(extension_fn)[1]
+            return inspect.getsourcelines(extension_fn)[1] + 1
         except Exception:
             return None
 
