@@ -1,5 +1,5 @@
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest import mock
 
 import pytest
@@ -36,6 +36,23 @@ def test_sql_execute_file(mock_execute, runner, mock_cursor):
 
     assert result.exit_code == 0
     mock_execute.assert_called_once_with(query)
+
+
+@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_execute_multiple_file(mock_execute, runner, mock_cursor):
+    mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
+    query = "query from file"
+
+    with TemporaryDirectory() as tmp_dir:
+        f1 = Path(tmp_dir).joinpath("f1.sql")
+        f2 = Path(tmp_dir).joinpath("f2.sql")
+
+        f1.write_text(query)
+        f2.write_text(query)
+        result = runner.invoke(["sql", "-f", f1, "-f", f2])
+
+    assert result.exit_code == 0
+    mock_execute.has_calls([mock.call(query), mock.call(query)])
 
 
 @mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")

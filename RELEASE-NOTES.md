@@ -16,11 +16,14 @@
    * `snow spcs service` for services
  * `snow sql` works now with `snowflake.yml` file. The variables defined in the new `env` section
        of `snowflake.yml` will be used to expand templates.
- * `snow connection test` command accepts all connection parameters including support for temporary connection.
+ * `snow sql` support executing multiple files. Users can use `-f/--file` flag more than once to execute queries
+      from many files.
+ *  `snow connection test` command accepts all connection parameters including support for temporary connection.
 
 ## Fixes and improvements
 * Improved support for quoted identifiers.
 * Fixed creating patches with `snow app version create` when there are 2 or more existing patches on a version
+* Using `--format=json` adds trailing new line to avoid `%` being added by some terminals to signal no new line at the end of output.
 
 # v2.3.1
 ## Backward incompatibility
