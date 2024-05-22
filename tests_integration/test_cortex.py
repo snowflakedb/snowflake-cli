@@ -8,5 +8,14 @@ def test_cortex_search(runner):
         [
             "cortex",
             "search",
+            "parrot",
+            "--service",
+            "test_service",
+            "--limit",
+            "1",
+            "--columns",
         ]
     )
+
+    assert result.exit_code == 0
+    assert "It has ceased to be!" in result.json[0].get("TRANSCRIPT_TEXT")

@@ -25,7 +25,6 @@ def search(
     limit: int = typer.Option(help="Maximum number of results retrieved"),
     **options,
 ):
-
     query_filter: dict = {}
 
     conn = cli_context.connection
@@ -39,4 +38,5 @@ def search(
     response = search_service.search(
         query=query, columns=columns, limit=limit, filter=query_filter
     )
+
     return CollectionResult(response.results)
