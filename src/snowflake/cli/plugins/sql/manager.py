@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from io import StringIO
+from itertools import chain
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
@@ -9,13 +10,12 @@ from click import ClickException, UsageError
 from jinja2 import UndefinedError
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
-from snowflake.cli.api.utils.cursor import join_cursors
 from snowflake.cli.api.utils.rendering import snowflake_sql_jinja_render
 from snowflake.cli.plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.util_text import split_statements
 
-SingleStatement = bool
+IsSingleStatement = bool
 
 
 class SqlManager(SqlExecutionMixin):
@@ -25,7 +25,7 @@ class SqlManager(SqlExecutionMixin):
         files: List[Path] | None,
         std_in: bool,
         data: Dict | None = None,
-    ) -> Tuple[SingleStatement, Iterable[SnowflakeCursor]]:
+    ) -> Tuple[IsSingleStatement, Iterable[SnowflakeCursor]]:
         inputs = [query, files, std_in]
         # Check if any two inputs were provided simultaneously
         if len([i for i in inputs if i]) > 1:
@@ -53,14 +53,14 @@ class SqlManager(SqlExecutionMixin):
 
             # Use single_statement if there's only one, otherwise this is multi statement result
             single_statement = len(files) == 1 and single_statement
-            return single_statement, join_cursors(results)
+            return single_statement, chain.from_iterable(results)
 
         # At that point, no stdin, query or files were provided
         raise UsageError("Use either query, filename or input option.")
 
     def _execute_single_query(
         self, query: str, data: Dict | None = None
-    ) -> Tuple[SingleStatement, Iterable[SnowflakeCursor]]:
+    ) -> Tuple[IsSingleStatement, Iterable[SnowflakeCursor]]:
         try:
             query = transpile_snowsql_templates(query)
             query = snowflake_sql_jinja_render(content=query, data=data)
