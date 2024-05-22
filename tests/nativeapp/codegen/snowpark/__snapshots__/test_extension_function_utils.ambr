@@ -1,33 +1,97 @@
 # serializer version: 1
-# name: test_enrich_ex_fn
-  "'a/b/c.py','a/b/c','a/b/c.py','a/b/c.jar','a/b/c'"
+# name: test_deannotate_preserves_specified_annotations
+  '''
+  import snowflake.snowpark
+  
+  from typing import Optional
+  from snowflake.snowpark.session import Session
+  from snowflake.snowpark.functions import col, sum, sproc
+  
+  
+  @custom
+  #: @sproc(native_app_params={'schema': 'math', 'application_roles': ['app_public', 'app_admin']})
+  def sproc_sum(session: Session, first: int, second: int) -> int:
+      return first + second
+  
+  #: @udf(native_app_params={'schema': 'math', 'application_roles': ['app_public', 'app_admin']})
+  #: @module.annotation
+  def udf_sum(first: int, second: int) -> int:
+      return first + second
+  
+  @custom
+  def helper():
+      pass
+  '''
 # ---
-# name: test_sanitize_extension_function_data_required_keys
-  dict({
-    'all_imports': None,
-    'all_packages': None,
-    'anonymous': False,
-    'application_roles': list([
-    ]),
-    'execute_as': None,
-    'external_access_integrations': None,
-    'func': 'dummy',
-    'handler': None,
-    'if_not_exists': False,
-    'inline_python_code': None,
-    'input_args': list([
-    ]),
-    'input_sql_types': list([
-    ]),
-    'object_name': 'SOME_NAME',
-    'object_type': 'FUNCTION',
-    'raw_imports': list([
-      'some/path',
-    ]),
-    'replace': False,
-    'return_sql': 'RETURNS NULL',
-    'runtime_version': '3.8',
-    'schema': 'CORE',
-    'secrets': None,
-  })
+# name: test_deannotate_preserves_specified_annotations.1
+  '''
+  import snowflake.snowpark
+  
+  from typing import Optional
+  from snowflake.snowpark.session import Session
+  from snowflake.snowpark.functions import col, sum, sproc
+  
+  
+  #: @custom
+  #: @sproc(native_app_params={'schema': 'math', 'application_roles': ['app_public', 'app_admin']})
+  def sproc_sum(session: Session, first: int, second: int) -> int:
+      return first + second
+  
+  #: @udf(native_app_params={'schema': 'math', 'application_roles': ['app_public', 'app_admin']})
+  @module.annotation
+  def udf_sum(first: int, second: int) -> int:
+      return first + second
+  
+  @custom
+  def helper():
+      pass
+  '''
+# ---
+# name: test_deannotate_removes_all_annotations
+  '''
+  import snowflake.snowpark
+  
+  from typing import Optional
+  from snowflake.snowpark.session import Session
+  from snowflake.snowpark.functions import col, sum, sproc
+  
+  
+  #: @custom
+  #: @sproc(native_app_params={'schema': 'math', 'application_roles': ['app_public', 'app_admin']})
+  def sproc_sum(session: Session, first: int, second: int) -> int:
+      return first + second
+  
+  #: @udf(native_app_params={'schema': 'math', 'application_roles': ['app_public', 'app_admin']})
+  #: @module.annotation
+  def udf_sum(first: int, second: int) -> int:
+      return first + second
+  
+  @custom
+  def helper():
+      pass
+  '''
+# ---
+# name: test_deannotate_uses_line_numbers_if_provided
+  '''
+  import snowflake.snowpark
+  
+  from typing import Optional
+  from snowflake.snowpark.session import Session
+  from snowflake.snowpark.functions import col, sum, sproc
+  
+  
+  #: @custom
+  #: @sproc(native_app_params={'schema': 'math', 'application_roles': ['app_public', 'app_admin']})
+  def sproc_sum(session: Session, first: int, second: int) -> int:
+      return first + second
+  
+  @udf(native_app_params={'schema': 'math', 'application_roles': ['app_public', 'app_admin']})
+  @module.annotation
+  def udf_sum(first: int, second: int) -> int:
+      return first + second
+  
+  @custom
+  def helper():
+      pass
+  '''
 # ---

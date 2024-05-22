@@ -99,24 +99,18 @@ class _FunctionDefAccumulator(ast.NodeVisitor):
             self.definitions.append(node)
         self.generic_visit(node)
 
-    def visit_AsyncFunctionDef(self, node):  # noqa: N802
-        if self._want(node):
-            self.definitions.append(node)
-        self.generic_visit(node)
-
     def _want(self, node: Any) -> bool:
-        if isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
-            if not node.decorator_list:
-                # No decorators for this definition, ignore it
-                return False
+        if not node.decorator_list:
+            # No decorators for this definition, ignore it
+            return False
 
-            if node.name in self._wanted_functions_by_name:
-                lineno = self._wanted_functions_by_name[node.name].lineno
-                if lineno is not None:
-                    return node.lineno == lineno
+        if node.name in self._wanted_functions_by_name:
+            lineno = self._wanted_functions_by_name[node.name].lineno
+            if lineno is not None:
+                return node.lineno == lineno
 
-                # The function doesn't have a line specified, assume it's a match
-                return True
+            # The function doesn't have a line specified, assume it's a match
+            return True
 
         return False
 
