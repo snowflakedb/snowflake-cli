@@ -14,21 +14,18 @@ except ModuleNotFoundError as exc:
     )
     sys.exit(1)
 
-# Copy a clean global context before introducing global state used by this driver
-orig_globals = globals().copy()
-
-found_correct_version = hasattr(
+__snowflake_internal_found_correct_version = hasattr(
     snowflake.snowpark.context, "_is_execution_environment_sandboxed_for_client"
 ) and hasattr(snowflake.snowpark.context, "_should_continue_registration")
 
-if not found_correct_version:
+if not __snowflake_internal_found_correct_version:
     print(
         "Did not find the minimum required version for snowflake-snowpark-python package. Please upgrade to v1.15.0 or higher.",
         file=sys.stderr,
     )
     sys.exit(1)
 
-__snowflake_internal_collected_extension_fn_json = []
+__snowflake_global_collected_extension_fn_json = []
 
 def __snowflake_internal_create_extension_fn_registration_callback():
     def __snowflake_internal_try_extract_lineno(extension_fn):
@@ -125,13 +122,8 @@ def __snowflake_internal_create_extension_fn_registration_callback():
 
     return functools.partial(
         __snowflake_internal_collect_extension_fn,
-        __snowflake_internal_collected_extension_fn_json,
+        __snowflake_global_collected_extension_fn_json,
     )
-
-
-with open("{{py_file}}", mode="r", encoding="utf-8") as udf_code:
-   code = udf_code.read()
-
 
 snowflake.snowpark.context._is_execution_environment_sandboxed_for_client = (  # noqa: SLF001
     True
@@ -143,15 +135,23 @@ snowflake.snowpark.session._is_execution_environment_sandboxed_for_client = (  #
     True
 )
 
+for global_key in list(globals().keys()):
+    if global_key.startswith("__snowflake_internal"):
+        del globals()[global_key]
+
+del globals()["global_key"] # make sure to clean up the loop variable as well
 
 try:
+    import importlib
     with contextlib.redirect_stdout(None):
         with contextlib.redirect_stderr(None):
-            exec(code, orig_globals)
+            __snowflake_internal_spec = importlib.util.spec_from_file_location("<string>", "{{py_file}}")
+            __snowflake_internal_module = importlib.util.module_from_spec(__snowflake_internal_spec)
+            __snowflake_internal_spec.loader.exec_module(__snowflake_internal_module)
 except Exception as exc:  # Catch any error
     print("An exception occurred while executing file: ", exc, file=sys.stderr)
     sys.exit(1)
 
 
 import json
-print(json.dumps(__snowflake_internal_collected_extension_fn_json))
+print(json.dumps(__snowflake_global_collected_extension_fn_json))
