@@ -284,6 +284,10 @@ class _CliGlobalContextAccess:
         return self._manager.connection
 
     @property
+    def connection_context(self) -> _ConnectionContext:
+        return self._manager.connection_context
+
+    @property
     def enable_tracebacks(self) -> bool:
         return self._manager.enable_tracebacks
 
