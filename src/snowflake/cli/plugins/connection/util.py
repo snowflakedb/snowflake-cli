@@ -37,7 +37,7 @@ def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
         return cursor.fetchone()["REGIONLESS"].lower() == "true"
     except:
         # by default, assume that
-        log.exception("Cannot determine regionless redirect; assuming True.")
+        log.warning("Cannot determine regionless redirect; assuming True.")
         return True
 
 

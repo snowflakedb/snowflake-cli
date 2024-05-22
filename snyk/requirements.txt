@@ -1,6 +1,7 @@
 jinja2==3.1.4
 pluggy==1.5.0
 PyYAML==6.0.1
+packaging
 rich==13.7.1
 requests==2.31.0
 requirements-parser==0.9.0

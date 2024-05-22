@@ -8,6 +8,7 @@ from textwrap import dedent
 from typing import List, Optional, TypedDict
 
 import jinja2
+from click import ClickException
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.definition import (
@@ -24,12 +25,14 @@ from snowflake.cli.api.project.util import (
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.connection.util import make_snowsight_url
 from snowflake.cli.plugins.nativeapp.artifacts import (
-    ArtifactDeploymentMap,
     ArtifactMapping,
+    BundleMap,
     build_bundle,
     resolve_without_follow,
-    source_path_to_deploy_path,
     translate_artifact,
+)
+from snowflake.cli.plugins.nativeapp.codegen.compiler import (
+    NativeAppCompiler,
 )
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
@@ -47,6 +50,7 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
     MissingPackageScriptError,
     UnexpectedOwnerError,
 )
+from snowflake.cli.plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli.plugins.nativeapp.utils import verify_exists, verify_no_directories
 from snowflake.cli.plugins.stage.diff import (
     DiffResult,
@@ -307,11 +311,19 @@ class NativeAppManager(SqlExecutionMixin):
             return False
         return True
 
-    def build_bundle(self) -> ArtifactDeploymentMap:
+    def build_bundle(self) -> BundleMap:
         """
         Populates the local deploy root from artifact sources.
         """
-        return build_bundle(self.project_root, self.deploy_root, self.artifacts)
+        mapped_files = build_bundle(self.project_root, self.deploy_root, self.artifacts)
+        if FeatureFlag.ENABLE_SETUP_SCRIPT_GENERATION.is_enabled():
+            compiler = NativeAppCompiler(
+                project_definition=self._project_definition,
+                project_root=self.project_root,
+                deploy_root=self.deploy_root,
+            )
+            compiler.compile_artifacts()
+        return mapped_files
 
     def sync_deploy_root_with_stage(
         self,
@@ -319,7 +331,7 @@ class NativeAppManager(SqlExecutionMixin):
         prune: bool,
         recursive: bool,
         local_paths_to_sync: List[Path] | None = None,
-        mapped_files: Optional[ArtifactDeploymentMap] = None,
+        bundle_map: Optional[BundleMap] = None,
     ) -> DiffResult:
         """
         Ensures that the files on our remote stage match the artifacts we have in
@@ -331,7 +343,7 @@ class NativeAppManager(SqlExecutionMixin):
             recursive (bool): Whether to traverse directories recursively.
             local_paths_to_sync (List[Path], optional): List of local paths to sync. Defaults to None to sync all
              local paths. Note that providing an empty list here is equivalent to None.
-            mapped_files: the file mapping computed during the `bundle` step. Required when local_paths_to_sync is
+            bundle_map: the artifact mapping computed during the `bundle` step. Required when local_paths_to_sync is
              provided.
 
         Returns:
@@ -361,7 +373,7 @@ class NativeAppManager(SqlExecutionMixin):
 
         files_not_removed = []
         if local_paths_to_sync:
-            assert mapped_files is not None
+            assert bundle_map is not None
 
             # Deploying specific files/directories
             resolved_paths_to_sync = [
@@ -369,13 +381,17 @@ class NativeAppManager(SqlExecutionMixin):
             ]
             if not recursive:
                 verify_no_directories(resolved_paths_to_sync)
-            deploy_paths_to_sync = [
-                source_path_to_deploy_path(p, mapped_files)
-                for p in resolved_paths_to_sync
-            ]
-            verify_exists(deploy_paths_to_sync)
+
+            deploy_paths_to_sync = []
+            for resolved_path in resolved_paths_to_sync:
+                verify_exists(resolved_path)
+                deploy_paths = bundle_map.to_deploy_paths(resolved_path)
+                if not deploy_paths:
+                    raise ClickException(f"No artifact found for {resolved_path}")
+                deploy_paths_to_sync.extend(deploy_paths)
+
             stage_paths_to_sync = _get_stage_paths_to_sync(
-                deploy_paths_to_sync, self.deploy_root.resolve()
+                deploy_paths_to_sync, resolve_without_follow(self.deploy_root)
             )
             diff = preserve_from_diff(diff, stage_paths_to_sync)
         else:
@@ -534,7 +550,7 @@ class NativeAppManager(SqlExecutionMixin):
         prune: bool,
         recursive: bool,
         local_paths_to_sync: List[Path] | None = None,
-        mapped_files: Optional[ArtifactDeploymentMap] = None,
+        bundle_map: Optional[BundleMap] = None,
     ) -> DiffResult:
         """app deploy process"""
 
@@ -547,7 +563,7 @@ class NativeAppManager(SqlExecutionMixin):
 
             # 3. Upload files from deploy root local folder to the above stage
             diff = self.sync_deploy_root_with_stage(
-                self.package_role, prune, recursive, local_paths_to_sync, mapped_files
+                self.package_role, prune, recursive, local_paths_to_sync, bundle_map
             )
 
         return diff

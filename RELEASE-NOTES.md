@@ -4,17 +4,32 @@
 ## Deprecations
 
 ## New additions
+* Added the `--cascade` option to `snow app teardown` command that drops all application objects owned by the application.
  * Add external access integration to snow object commands
  * Add aliases for `snow object list/describe/drop` commands under:
    * `snow stage` for stages
    * `snow git` for git repository stages
    * `snow streamlit` for streamlit apps
    * `snow snowpark` for procedures and functions
-
-## Fixes and improvements
+   * `snow spcs compute-pool` for compute pools
+   * `snow spcs image-repository` for image repositories
+   * `snow spcs service` for services
+ * `snow sql` works now with `snowflake.yml` file. The variables defined in the new `env` section
+       of `snowflake.yml` will be used to expand templates.
 
 ## Fixes and improvements
 * Improved support for quoted identifiers.
+* Fixed creating patches with `snow app version create` when there are 2 or more existing patches on a version
+
+# v2.3.1
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+* Fixed bugs in source artifact mapping logic for native applications
 
 # v2.3.0
 
@@ -29,7 +44,6 @@
   * Passing files and directories as arguments syncs these only: `snow app deploy some-file some-dir`.
   * `--recursive` syncs all files and subdirectories recursively.
   * `--prune` deletes specified files from the stage if they don't exist locally.
-* Added the `--cascade` option to `snow app teardown` command that drops all application objects owned by the application.
 
 ## Fixes and improvements
 * More human-friendly errors in case of corrupted `config.toml` file.
@@ -41,7 +55,6 @@
 * Fixed handling of stage path separators on Windows
 * Change to `external_access_integrations` in `snowflake.yml` now also triggers function replace
 * The `--info` callback returns info about configured feature flags.
-
 
 # v2.2.0
 

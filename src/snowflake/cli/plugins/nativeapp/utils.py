@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from os import PathLike
+import os
 from pathlib import Path
 from sys import stdin, stdout
 from typing import List, Optional, Union
@@ -45,7 +45,7 @@ def get_first_paragraph_from_markdown_file(file_path: Path) -> Optional[str]:
         return paragraph_text
 
 
-def shallow_git_clone(url: Union[str, PathLike], to_path: Union[str, PathLike]):
+def shallow_git_clone(url: Union[str, os.PathLike], to_path: Union[str, os.PathLike]):
     """
     Performs a shallow clone of the repository at the provided url to the path specified
 
@@ -79,7 +79,6 @@ def verify_no_directories(paths_to_sync: List[Path]):
             )
 
 
-def verify_exists(paths_to_sync: List[Path]):
-    for path in paths_to_sync:
-        if not path.exists():
-            raise ClickException(f"The following path does not exist: {path}")
+def verify_exists(path: Path):
+    if not path.exists():
+        raise ClickException(f"The following path does not exist: {path}")
