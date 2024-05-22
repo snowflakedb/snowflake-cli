@@ -134,13 +134,7 @@ def test_show_drop_image_repository(runner, test_database, snowflake_session):
                 "comment": "test_schema = schema for testing stuff",
             },
         ),
-        # TODO: check bad requests
-        # table - bad request - to check
-        # warehouse - probably not enough permissions
-        # compute-pool - bad request
-        # task - bad request, but locally works (permissions)?
         ("image-repository", {"name": "test_image_repo"}),
-        # ("task", {"name": "test_task_for_testing", "definition": "select 5"}),
     ],
 )
 @pytest.mark.integration
