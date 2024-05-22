@@ -9,16 +9,16 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.models import (
 @pytest.mark.parametrize(
     "function_type, expected",
     [
-        ("PROCEDURE", "PROCEDURE"),
-        ("FUNCTION", "FUNCTION"),
-        ("AGGREGATE_FUNCTION", "AGGREGATE FUNCTION"),
-        ("TABLE_FUNCTION", "FUNCTION"),
+        ("procedure", "PROCEDURE"),
+        ("function", "FUNCTION"),
+        ("aggregate function", "AGGREGATE FUNCTION"),
+        ("table function", "FUNCTION"),
     ],
 )
-def test_get_object_type_as_text(
+def test_get_sql_object_type(
     function_type, expected, native_app_extension_function_raw_data
 ):
-    native_app_extension_function_raw_data["function_type"] = function_type
+    native_app_extension_function_raw_data["type"] = function_type
     extension_fn = NativeAppExtensionFunction(**native_app_extension_function_raw_data)
     assert ef_utils.get_sql_object_type(extension_fn) == expected
 

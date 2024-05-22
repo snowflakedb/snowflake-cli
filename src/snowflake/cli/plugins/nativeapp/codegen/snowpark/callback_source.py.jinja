@@ -34,7 +34,7 @@ def __snowflake_internal_create_extension_fn_registration_callback():
         except Exception:
             return None
 
-    def __snowflake_internal_extract_name(extension_fn):
+    def __snowflake_internal_extract_extension_fn_name(extension_fn):
         try:
             import snowflake.snowpark._internal.utils as snowpark_utils
 
@@ -80,16 +80,27 @@ def __snowflake_internal_create_extension_fn_registration_callback():
             for (input_arg, input_type) in zip(extension_fn.input_args, extension_fn.input_sql_types)
         ]
 
+    def __snowflake_internal_to_extension_fn_type(object_type):
+        if object_type.name == "AGGREGATE_FUNCTION":
+            return "aggregate function"
+        if object_type.name == "TABLE_FUNCTION":
+            return "table function"
+        return object_type.name.lower()
+
     def __snowflake_internal_extension_fn_to_json(extension_fn):
         if not isinstance(extension_fn.func, Callable):
             # Unsupported case: extension function is a tuple
             return
 
+        if extension_fn.anonymous:
+            # unsupported, native application extension functions need to be explicitly named
+            return
+
         # Collect basic properties of the extension function
         extension_fn_json = {
-            "function_type": extension_fn.object_type.name,
+            "type": __snowflake_internal_to_extension_fn_type(extension_fn.object_type),
             "lineno": __snowflake_internal_try_extract_lineno(extension_fn.func),
-            "name": __snowflake_internal_extract_name(extension_fn),
+            "name": __snowflake_internal_extract_extension_fn_name(extension_fn),
             "handler": extension_fn.func.__name__,
             "imports": extension_fn.all_imports or [],
             "packages": __snowflake_internal_create_package_list(extension_fn),

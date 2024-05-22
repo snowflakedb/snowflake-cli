@@ -24,6 +24,8 @@ from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
     execute_script_in_sandbox,
 )
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.extension_function_utils import (
+    ensure_all_string_literals,
+    ensure_string_literal,
     get_qualified_object_name,
     get_sql_argument_signature,
     get_sql_object_type,
@@ -291,18 +293,20 @@ def generate_create_sql_ddl_statement(
     ).strip()
 
     if extension_fn.imports:
-        create_query += f"\nIMPORTS=({extension_fn.imports})"
+        create_query += (
+            f"\nIMPORTS=({', '.join(ensure_all_string_literals(extension_fn.imports))})"
+        )
 
     if extension_fn.packages:
-        create_query += f"\nPACKAGES=({', '.join(extension_fn.packages)})"
+        create_query += f"\nPACKAGES=({', '.join(ensure_all_string_literals(extension_fn.packages))})"
 
     if extension_fn.external_access_integrations:
-        create_query += f"\nEXTERNAL_ACCESS_INTEGRATIONS=({', '.join(extension_fn.external_access_integrations)})"
+        create_query += f"\nEXTERNAL_ACCESS_INTEGRATIONS=({', '.join(ensure_all_string_literals(extension_fn.external_access_integrations))})"
 
     if extension_fn.secrets:
-        create_query += f"""\nSECRETS=({', '.join([f"'{k}'={v}" for k, v in extension_fn.secrets.items()])})"""
+        create_query += f"""\nSECRETS=({', '.join([f"{ensure_string_literal(k)}={v}" for k, v in extension_fn.secrets.items()])})"""
 
-    create_query += f"\nHANDLER='{extension_fn.handler}'"
+    create_query += f"\nHANDLER={ensure_string_literal(extension_fn.handler)}"
 
     if extension_fn.function_type == ExtensionFunctionTypeEnum.PROCEDURE:
         if extension_fn.execute_as_caller:

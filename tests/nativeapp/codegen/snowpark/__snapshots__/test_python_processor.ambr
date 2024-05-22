@@ -6,9 +6,9 @@
   RETURNS int
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
-  IMPORTS=(['/path/to/import1.py', '/path/to/import2.zip'])
-  PACKAGES=(package_one==1.0.2, package_two)
-  EXTERNAL_ACCESS_INTEGRATIONS=(integration_one, integration_two)
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip')
+  PACKAGES=('package_one==1.0.2', 'package_two')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='my_function_handler'
   EXECUTE AS OWNER;
@@ -46,9 +46,9 @@
   RETURNS int
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
-  IMPORTS=(['/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py'])
-  PACKAGES=(package_one==1.0.2, package_two)
-  EXTERNAL_ACCESS_INTEGRATIONS=(integration_one, integration_two)
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('package_one==1.0.2', 'package_two')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='main.my_function_handler'
   EXECUTE AS OWNER;
@@ -63,9 +63,9 @@
   RETURNS int
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
-  IMPORTS=(['/path/to/import1.py', '/path/to/import2.zip', '/stagepath/data.py'])
-  PACKAGES=(package_one==1.0.2, package_two)
-  EXTERNAL_ACCESS_INTEGRATIONS=(integration_one, integration_two)
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/data.py')
+  PACKAGES=('package_one==1.0.2', 'package_two')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='data.my_function_handler'
   EXECUTE AS OWNER;

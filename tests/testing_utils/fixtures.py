@@ -348,7 +348,7 @@ def native_app_project_instance():
 @pytest.fixture
 def native_app_extension_function_raw_data() -> Dict[str, Any]:
     return {
-        "function_type": "PROCEDURE",
+        "type": "procedure",
         "lineno": 42,
         "name": "my_function",
         "signature": [{"name": "first", "type": "int", "default": "42"}],

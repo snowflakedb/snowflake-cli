@@ -9,18 +9,23 @@ from snowflake.cli.api.project.schemas.updatable_model import IdentifierField
 
 
 class ExtensionFunctionTypeEnum(str, Enum):
-    PROCEDURE = "PROCEDURE"
-    FUNCTION = "FUNCTION"
-    TABLE_FUNCTION = "TABLE_FUNCTION"
-    AGGREGATE_FUNCTION = "AGGREGATE_FUNCTION"
+    PROCEDURE = "procedure"
+    FUNCTION = "function"
+    TABLE_FUNCTION = "table function"
+    AGGREGATE_FUNCTION = "aggregate function"
 
 
 class NativeAppExtensionFunction(_CallableBase):
-    function_type: ExtensionFunctionTypeEnum
+    function_type: ExtensionFunctionTypeEnum = Field(
+        title="The type of extension function, one of 'procedure', 'function', 'table function' or 'aggregate function'.",
+        alias="type",
+    )
     lineno: Optional[int] = Field(
         title="The line number of the extension function", default=None
     )
-    name: Optional[str] = Field(title="The name of the external function", default=None)
+    name: Optional[str] = Field(
+        title="The name of the extension function", default=None
+    )
     packages: Optional[List[str]] = Field(
         title="List of packages (with optional version constraints) to be loaded for the function",
         default={},
@@ -37,5 +42,5 @@ class NativeAppExtensionFunction(_CallableBase):
     execute_as_caller: Optional[bool] = Field(
         title="Determine whether the procedure is executed with the privileges of "
         "the owner or with the privileges of the caller",
-        default=None,
+        default=False,
     )
