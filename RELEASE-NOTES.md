@@ -16,6 +16,8 @@
    * `snow spcs service` for services
  * `snow sql` works now with `snowflake.yml` file. The variables defined in the new `env` section
        of `snowflake.yml` will be used to expand templates.
+ * Added integration with Cortex AI using commands:
+   * `snow cortex search` for integration with Cortex Search Service
 
 ## Fixes and improvements
 * Improved support for quoted identifiers.
