@@ -35,7 +35,7 @@ def iter_through_all_commands_and_subcommands_paths():
     iter_through_all_commands_and_subcommands_paths(),
     ids=(".".join(cmd) for cmd in iter_through_all_commands_and_subcommands_paths()),
 )
-def test_help_messages_invocation(runner, snapshot, command):
+def test_help_messages_commands_with_subcommands(runner, snapshot, command):
     """
     Check help messages against the snapshot
     """
@@ -49,37 +49,27 @@ def iter_through_all_commands_paths():
     Generator iterating through all commands.
     Paths are yielded as List[str]
     """
-    ignore_plugins = ["render"]
+    ignore_plugins = ["render", "sql"]
 
     no_command = []
     yield no_command
 
-    def _iter_through_commands(command, path):
-        yield list(path)
-        if not plugin.plugin_name in ignore_plugins:
-            yield from _iter_through_commands(
-                spec.command, spec.full_command_path.path_segments
-            )
-
-    yield []  # "snow" with no commands
     builtin_plugins = load_only_builtin_command_plugins()
     for plugin in builtin_plugins:
         spec = plugin.command_spec
         if not plugin.plugin_name in ignore_plugins:
-            yield from _iter_through_commands(
-                spec.command, spec.full_command_path.path_segments
-            )
+            yield spec.full_command_path.path_segments
 
 
 @pytest.mark.parametrize(
     "command",
-    iter_through_all_commands_and_subcommands_paths(),
-    ids=(".".join(cmd) for cmd in iter_through_all_commands_and_subcommands_paths()),
+    iter_through_all_commands_paths(),
+    ids=(".".join(cmd) for cmd in iter_through_all_commands_paths()),
 )
 def test_help_messages_command_only(runner, snapshot, command):
     """
     Check help messages against the snapshot
     """
-    result = runner.invoke(command + ["--help"])
+    result = runner.invoke(command)
     assert result.exit_code == 0
     assert result.output == snapshot
