@@ -2075,12 +2075,15 @@
   │                                                   [required]                 │
   │ *    object_definition      OBJECT_DEFINITION...  Object definition in JSON  │
   │                                                   format, for example        │
-  │                                                   '{"name": "my_database",   │
-  │                                                   "owner": "owner_role"}',   │
-  │                                                   or provided as a list of   │
+  │                                                   '{"name": "my_db",         │
+  │                                                   "comment": "created with   │
+  │                                                   Snowflake CLI"}', or       │
+  │                                                   provided as a list of      │
   │                                                   key=value pairs, for       │
-  │                                                   example: name=my_database  │
-  │                                                   owner=owner_role. Check    │
+  │                                                   example: name=my_db        │
+  │                                                   'comment=created with      │
+  │                                                   Snowflake CLI'.            │
+  │                                                   Check                      │
   │                                                   https://docs.snowflake.co… │
   │                                                   for the full list of       │
   │                                                   available parameters for   │
@@ -2793,9 +2796,6 @@
   │ --help  -h        Show this message and exit.                                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-  │ create     Create an object of a given type. List of                         │
-  │            supported objects and parameters:                                 │
-  │            https://docs.snowflake.com/LIMITEDACCESS/rest-api…                │
   │ describe   Provides description of an object of given type.                  │
   │ drop       Drops Snowflake object of given name and type.                    │
   │ list       Lists all available Snowflake objects of given                    │

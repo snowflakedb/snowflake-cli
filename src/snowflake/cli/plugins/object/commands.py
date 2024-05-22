@@ -134,7 +134,7 @@ def _parse_object_definition(object_definition: List[str]) -> Dict[str, Any]:
             raise json_err
 
 
-@app.command(name="create", requires_connection=True)
+@app.command(name="create", requires_connection=True, hidden=True)
 def create(
     object_type: str = ObjectArgument,
     object_definition: List[str] = ObjectDefinitionArgument,
