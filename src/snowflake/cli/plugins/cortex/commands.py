@@ -9,7 +9,7 @@ from snowflake.cli.api.output.types import CollectionResult
 
 app = SnowTyper(
     name="cortex",
-    help="Provides access to Snowflake Cortex LLM.",
+    help="Provides access to Snowflake Cortex.",
 )
 
 
