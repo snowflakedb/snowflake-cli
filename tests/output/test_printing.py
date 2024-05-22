@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from textwrap import dedent
 from typing import NamedTuple
@@ -288,18 +289,24 @@ def test_print_with_no_data_table(capsys):
 
 def test_print_with_no_data_in_query_json(capsys, _empty_cursor):
     print_result(QueryResult(_empty_cursor()), output_format=OutputFormat.JSON)
-    assert get_output(capsys) == "[]"
+    json_str = get_output(capsys)
+    json.loads(json_str)
+    assert json_str == "[]\n"
 
 
 def test_print_with_no_data_in_single_value_query_json(capsys, _empty_cursor):
     print_result(SingleQueryResult(_empty_cursor()), output_format=OutputFormat.JSON)
-    assert get_output(capsys) == "null"
+    json_str = get_output(capsys)
+    json.loads(json_str)
+    assert json_str == "null\n"
 
 
 def test_print_with_no_response_json(capsys):
     print_result(None, output_format=OutputFormat.JSON)
 
-    assert get_output(capsys) == "null"
+    json_str = get_output(capsys)
+    json.loads(json_str)
+    assert json_str == "null\n"
 
 
 @pytest.fixture
