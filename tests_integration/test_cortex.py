@@ -17,11 +17,16 @@ def test_cortex_search(runner):
             "parrot",
             "--service",
             "test_service",
-            "--limit",
-            "1",
             "--columns",
+            "region",
         ]
     )
 
+    expected_result = [
+        {
+            "": "This parrot is no more! It has ceased to be! It`s expired and gone to meet its maker!",
+            "region": "Flying Circus",
+        }
+    ]
     assert result.exit_code == 0
-    assert "It has ceased to be!" in result.json[0].get("TRANSCRIPT_TEXT")
+    assert result.json == expected_result
