@@ -43,4 +43,3 @@ def search(
     )
 
     return CollectionResult(response.results)
-
