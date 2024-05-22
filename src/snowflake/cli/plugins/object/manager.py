@@ -76,7 +76,7 @@ class ObjectManager(SqlExecutionMixin):
             HTTP_HEADER_ACCEPT: CONTENT_TYPE_APPLICATION_JSON,
             HTTP_HEADER_USER_AGENT: PYTHON_CONNECTOR_USER_AGENT,
         }
-        return self._conn.rest.fetch(
+        return rest.fetch(
             method=method,
             full_url=full_url,
             headers=headers,
