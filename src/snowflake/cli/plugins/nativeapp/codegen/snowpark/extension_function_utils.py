@@ -139,6 +139,21 @@ def deannotate(
     extension_functions: Sequence[NativeAppExtensionFunction],
     annotations_to_preserve: Sequence[str] = (),
 ) -> str:
+    """
+    Removes annotations from a set of specified extension functions.
+
+    Arguments:
+        module_source (str): The source code of the module to deannotate.
+        extension_functions (Sequence[NativeAppExtensionFunction]): The list of extension functions
+         to deannotate. Other functions encountered will be ignored.
+        annotations_to_preserve (Sequence[str], optional): The list of annotations to preserve. The
+         names should appear as they are found in the source code, e.g. "foo" for @foo or
+         "annotations.bar" for @annotations.bar.
+
+    Returns:
+        A de-annotated version of the module source if any match was found. In order to preserve
+        line numbers, annotations are simply commented out instead of completely removed.
+    """
 
     tree = ast.parse(module_source)
 
