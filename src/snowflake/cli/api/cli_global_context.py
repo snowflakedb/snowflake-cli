@@ -6,6 +6,7 @@ from typing import Dict, Optional
 
 from snowflake.cli.api.exceptions import InvalidSchemaError
 from snowflake.cli.api.output.formats import OutputFormat
+from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.connector import SnowflakeConnection
 
 schema_pattern = re.compile(r".+\..+")
@@ -283,6 +284,10 @@ class _CliGlobalContextAccess:
         return self._manager.connection
 
     @property
+    def connection_context(self) -> _ConnectionContext:
+        return self._manager.connection_context
+
+    @property
     def enable_tracebacks(self) -> bool:
         return self._manager.enable_tracebacks
 
@@ -299,7 +304,7 @@ class _CliGlobalContextAccess:
         return self._manager.experimental
 
     @property
-    def project_definition(self):
+    def project_definition(self) -> ProjectDefinition | None:
         return self._manager.project_definition
 
     @property

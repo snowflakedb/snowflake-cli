@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import os
 import uuid
+from contextlib import contextmanager
+from unittest import mock
 
 import pytest
 from snowflake import connector
 from snowflake.cli.api.exceptions import EnvironmentVariableNotFoundError
-from contextlib import contextmanager
-from unittest import mock
 
 _ENV_PARAMETER_PREFIX = "SNOWFLAKE_CONNECTIONS_INTEGRATION"
 SCHEMA_ENV_PARAMETER = f"{_ENV_PARAMETER_PREFIX}_SCHEMA"

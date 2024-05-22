@@ -9,11 +9,6 @@ from click.types import StringParamType
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import (
     PLAIN_PASSWORD_MSG,
-    ConnectionOption,
-    DiagAllowlistPathOption,
-    DiagLogPathOption,
-    EnableDiagOption,
-    MfaPasscodeOption,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.config import (
@@ -237,13 +232,8 @@ def add(
     )
 
 
-@app.command(requires_connection=False)
+@app.command(requires_connection=True)
 def test(
-    connection: str = ConnectionOption,
-    mfa_passcode: str = MfaPasscodeOption,
-    enable_diag: bool = EnableDiagOption,
-    diag_log_path: str = DiagLogPathOption,
-    diag_allowlist_path: str = DiagAllowlistPathOption,
     **options,
 ) -> CommandResult:
     """
@@ -272,8 +262,9 @@ def test(
     except ProgrammingError as err:
         raise ClickException(str(err))
 
+    conn_ctx = cli_context.connection_context
     result = {
-        "Connection name": connection,
+        "Connection name": conn_ctx.connection_name,
         "Status": "OK",
         "Host": conn.host,
         "Account": conn.account,
@@ -283,10 +274,10 @@ def test(
         "Warehouse": f'{conn.warehouse or "not set"}',
     }
 
-    if enable_diag:
+    if conn_ctx.enable_diag:
         result[
             "Diag Report Location"
-        ] = f"{diag_log_path}/SnowflakeConnectionTestReport.txt"
+        ] = f"{conn_ctx.diag_log_path}/SnowflakeConnectionTestReport.txt"
 
     return ObjectResult(result)
 
