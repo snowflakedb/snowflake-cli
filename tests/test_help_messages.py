@@ -21,7 +21,6 @@ def iter_through_all_commands_and_subcommands_paths():
             yield from _iter_through_commands(subcommand, path)
             path.pop()
 
-    # yield []  # "snow" with no commands
     builtin_plugins = load_only_builtin_command_plugins()
     for plugin in builtin_plugins:
         spec = plugin.command_spec
