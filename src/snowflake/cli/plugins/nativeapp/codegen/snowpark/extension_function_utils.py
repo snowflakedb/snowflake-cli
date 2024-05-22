@@ -44,7 +44,7 @@ def get_sql_object_type(extension_fn: NativeAppExtensionFunction) -> Optional[st
 def get_sql_argument_signature(arg: Argument) -> str:
     formatted = f"{arg.name} {arg.arg_type}"
     if arg.default is not None:
-        formatted = f"{formatted} DEFAULT {arg.default_value}"
+        formatted = f"{formatted} DEFAULT {arg.default}"
     return formatted
 
 

@@ -162,7 +162,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         artifact_to_process: PathMapping,
         processor_mapping: Optional[ProcessorMapping],
         **kwargs,
-    ) -> None:
+    ) -> str:  # String output is temporary until we have better e2e testing mechanism
         """
         Collects code annotations from Snowpark python files containing extension functions and augments the existing
         setup script with generated SQL that registers these functions.
@@ -176,6 +176,8 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         collected_extension_functions_by_path = self.collect_extension_functions(
             bundle_map, processor_mapping
         )
+
+        collected_output = []
         for py_file, extension_fns in collected_extension_functions_by_path.items():
             for extension_fn in extension_fns:
                 create_stmt = generate_create_sql_ddl_statement(extension_fn)
@@ -186,10 +188,17 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                     "-- Generating Snowpark annotation SQL code for {}".format(py_file)
                 )
                 cc.message(create_stmt)
+                collected_output.append(
+                    f"-- {py_file.relative_to(bundle_map.deploy_root())}"
+                )
+                collected_output.append(create_stmt)
 
                 grant_statements = generate_grant_sql_ddl_statements(extension_fn)
                 if grant_statements is not None:
                     cc.message(grant_statements)
+                    collected_output.append(grant_statements)
+
+        return "\n".join(collected_output)
 
     def _normalize(self, extension_fn: NativeAppExtensionFunction, py_file: Path):
         if extension_fn.name is None:

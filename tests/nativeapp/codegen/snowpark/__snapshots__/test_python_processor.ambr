@@ -1,116 +1,78 @@
 # serializer version: 1
 # name: test_generate_create_sql_ddl_statements_w_all_entries
   '''
-  CREATE OR REPLACE 
-  TABLE FUNCTION SNOWPARK_TEMP_FUNCTION_WZUNHMZJKA(arg1 INT)
-  RETURNS INT
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
   LANGUAGE PYTHON
-  RUNTIME_VERSION=3.11 
-  IMPORTS=('path_one', 'path_two')
-  PACKAGES=('package_one', 'package_two')
-  EXTERNAL_ACCESS_INTEGRATIONS=(integration_one,integration_two)
-  SECRETS=('key1'=secret_one,'key2'=integration_two)
-  HANDLER='dummy_handler'
-  EXECUTE AS OWNER
-  AS $$
-  dummy_inline_code
-  $$
+  RUNTIME_VERSION=3.11
+  IMPORTS=(['/path/to/import1.py', '/path/to/import2.zip'])
+  PACKAGES=(package_one==1.0.2, package_two)
+  EXTERNAL_ACCESS_INTEGRATIONS=(integration_one, integration_two)
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='my_function_handler'
+  EXECUTE AS OWNER;
   
   '''
 # ---
 # name: test_generate_create_sql_ddl_statements_w_select_entries
   '''
-  CREATE
-  TABLE FUNCTION SNOWPARK_TEMP_FUNCTION_WZUNHMZJKA(arg1 INT)
-  RETURNS INT
+  CREATE OR REPLACE
+  PROCEDURE my_function(first int DEFAULT 42)
+  RETURNS int
   LANGUAGE PYTHON
-  RUNTIME_VERSION=3.11 
-  HANDLER='dummy_handler'
+  RUNTIME_VERSION=3.11
+  HANDLER='my_function_handler'
+  EXECUTE AS OWNER;
   
   '''
 # ---
 # name: test_generate_grant_sql_ddl_statements
   '''
-  GRANT USAGE ON TABLE FUNCTION CORE.MYFUNC
+  GRANT USAGE ON PROCEDURE DATA.my_function
   TO APPLICATION ROLE APP_ADMIN;
-  
-  GRANT USAGE ON TABLE FUNCTION CORE.MYFUNC
+  GRANT USAGE ON PROCEDURE DATA.my_function
   TO APPLICATION ROLE APP_VIEWER;
-  
   '''
 # ---
-# name: test_generate_sql_ddl_statements
-  '''
-  CREATE OR REPLACE 
-  TABLE FUNCTION DATA.<lambda>(arg1 INT)
-  RETURNS INT
-  LANGUAGE PYTHON
-  RUNTIME_VERSION=3.11 
-  IMPORTS=('a/b/c.py')
-  PACKAGES=('package_one', 'package_two')
-  EXTERNAL_ACCESS_INTEGRATIONS=(integration_one,integration_two)
-  SECRETS=('key1'=secret_one,'key2'=integration_two)
-  HANDLER='NotImplementedHandler.<lambda>'
-  EXECUTE AS OWNER
-  AS $$
-  dummy_inline_code
-  $$
-  
-  GRANT USAGE ON TABLE FUNCTION DATA.<lambda>
-  TO APPLICATION ROLE APP_ADMIN;
-  
-  GRANT USAGE ON TABLE FUNCTION DATA.<lambda>
-  TO APPLICATION ROLE APP_VIEWER;
-  
-  '''
+# name: test_process_no_collected_functions
+  ''
 # ---
-# name: test_generate_sql_ddl_statements.1
+# name: test_process_with_collected_functions
   '''
-  CREATE OR REPLACE 
-  TABLE FUNCTION DATA.<lambda>(arg1 INT)
-  RETURNS INT
+  -- stagepath/main.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
   LANGUAGE PYTHON
-  RUNTIME_VERSION=3.11 
-  IMPORTS=('a/b/c.py')
-  PACKAGES=('package_one', 'package_two')
-  EXTERNAL_ACCESS_INTEGRATIONS=(integration_one,integration_two)
-  SECRETS=('key1'=secret_one,'key2'=integration_two)
-  HANDLER='NotImplementedHandler.<lambda>'
-  EXECUTE AS OWNER
-  AS $$
-  dummy_inline_code
-  $$
+  RUNTIME_VERSION=3.11
+  IMPORTS=(['/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py'])
+  PACKAGES=(package_one==1.0.2, package_two)
+  EXTERNAL_ACCESS_INTEGRATIONS=(integration_one, integration_two)
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
   
-  GRANT USAGE ON TABLE FUNCTION DATA.<lambda>
+  GRANT USAGE ON PROCEDURE DATA.my_function
   TO APPLICATION ROLE APP_ADMIN;
-  
-  GRANT USAGE ON TABLE FUNCTION DATA.<lambda>
+  GRANT USAGE ON PROCEDURE DATA.my_function
   TO APPLICATION ROLE APP_VIEWER;
-  
-  '''
-# ---
-# name: test_generate_sql_ddl_statements_filtered_create
-  '''
-  CREATE OR REPLACE 
-  TABLE FUNCTION DATA.<lambda>(arg1 INT)
-  RETURNS INT
+  -- stagepath/data.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
   LANGUAGE PYTHON
-  RUNTIME_VERSION=3.11 
-  IMPORTS=('a/b/c.py')
-  PACKAGES=('package_one', 'package_two')
-  EXTERNAL_ACCESS_INTEGRATIONS=(integration_one,integration_two)
-  SECRETS=('key1'=secret_one,'key2'=integration_two)
-  HANDLER='NotImplementedHandler.<lambda>'
-  EXECUTE AS OWNER
-  AS $$
-  dummy_inline_code
-  $$
+  RUNTIME_VERSION=3.11
+  IMPORTS=(['/path/to/import1.py', '/path/to/import2.zip', '/stagepath/data.py'])
+  PACKAGES=(package_one==1.0.2, package_two)
+  EXTERNAL_ACCESS_INTEGRATIONS=(integration_one, integration_two)
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='data.my_function_handler'
+  EXECUTE AS OWNER;
   
-  GRANT USAGE ON TABLE FUNCTION DATA.<lambda>
+  GRANT USAGE ON PROCEDURE DATA.my_function
   TO APPLICATION ROLE APP_ADMIN;
-  
-  GRANT USAGE ON TABLE FUNCTION DATA.<lambda>
+  GRANT USAGE ON PROCEDURE DATA.my_function
   TO APPLICATION ROLE APP_VIEWER;
-  
   '''
 # ---

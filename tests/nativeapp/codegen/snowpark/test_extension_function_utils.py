@@ -1,5 +1,6 @@
 import pytest
 import snowflake.cli.plugins.nativeapp.codegen.snowpark.extension_function_utils as ef_utils
+from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.models import (
     NativeAppExtensionFunction,
 )
@@ -20,6 +21,14 @@ def test_get_object_type_as_text(
     native_app_extension_function_raw_data["function_type"] = function_type
     extension_fn = NativeAppExtensionFunction(**native_app_extension_function_raw_data)
     assert ef_utils.get_sql_object_type(extension_fn) == expected
+
+
+def test_get_sql_argument_signature():
+    arg = Argument(name="foo", type="int")
+    assert ef_utils.get_sql_argument_signature(arg) == "foo int"
+
+    arg = Argument(name="foo", type="int", default="42")
+    assert ef_utils.get_sql_argument_signature(arg) == "foo int DEFAULT 42"
 
 
 def test_get_qualified_object_name(native_app_extension_function):
