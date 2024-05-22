@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 
 
-class AnnotationProcessor(UpdatableModel):
+class ProcessorMapping(UpdatableModel):
     name: str = Field(
         title="Name of a processor to invoke on a collection of artifacts."
     )
@@ -19,4 +19,22 @@ class AnnotationProcessor(UpdatableModel):
 class PathMapping(UpdatableModel):
     src: str
     dest: Optional[str] = None
-    processors: Optional[List[Union[str, AnnotationProcessor]]] = None
+    processors: Optional[List[Union[str, ProcessorMapping]]] = []
+
+    @field_validator("processors")
+    @classmethod
+    def transform_processors(
+        cls, input_values: Optional[List[Union[str, Dict, ProcessorMapping]]]
+    ):
+        if input_values is None:
+            return []
+
+        transformed_processors: List[ProcessorMapping] = []
+        for input_processor in input_values:
+            if isinstance(input_processor, str):
+                transformed_processors.append(ProcessorMapping(name=input_processor))
+            elif isinstance(input_processor, Dict):
+                transformed_processors.append(ProcessorMapping(**input_processor))
+            else:
+                transformed_processors.append(input_processor)
+        return transformed_processors
