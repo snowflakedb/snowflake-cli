@@ -61,13 +61,11 @@ class SqlManager(SqlExecutionMixin):
     def _execute_single_query(
         self, query: str, data: Dict | None = None
     ) -> Tuple[SingleStatement, Iterable[SnowflakeCursor]]:
-        if data:
-            # Do rendering if any data was provided
-            try:
-                query = transpile_snowsql_templates(query)
-                query = snowflake_sql_jinja_render(content=query, data=data)
-            except UndefinedError as err:
-                raise ClickException(f"SQL template rendering error: {err}")
+        try:
+            query = transpile_snowsql_templates(query)
+            query = snowflake_sql_jinja_render(content=query, data=data)
+        except UndefinedError as err:
+            raise ClickException(f"SQL template rendering error: {err}")
 
         statements = tuple(
             statement
