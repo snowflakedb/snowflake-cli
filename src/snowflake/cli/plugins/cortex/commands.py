@@ -51,3 +51,11 @@ def search(
         raise ClickException(
             "Snowflake Python API currently does not support Python 3.12 and greater"
         )
+
+
+@app.command()
+def complete():
+    """
+    Dummy command placeholder. This is added to register whole group. Command will be added with sfc-gh-pjob PR
+    """
+    pass
