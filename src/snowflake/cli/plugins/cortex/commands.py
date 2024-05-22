@@ -25,6 +25,9 @@ def search(
     limit: int = typer.Option(help="Maximum number of results retrieved"),
     **options,
 ):
+    """
+    Allows access to Cortex Search Services
+    """
     query_filter: dict = {}
 
     conn = cli_context.connection
