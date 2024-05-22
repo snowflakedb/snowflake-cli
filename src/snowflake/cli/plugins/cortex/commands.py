@@ -22,7 +22,7 @@ def search(
         help="Cortex search service to be used. Example: --service my_cortex_service",
     ),
     columns: Optional[List[str]] = typer.Option(
-        help="Columns that will be returned with the results. If none is provided, only search column will be included in results",
+        help='Columns that will be returned with the results. If none is provided, only search column will be included in results. Example --columns "foo" --columns "bar"',
         default=None,
     ),
     limit: int = typer.Option(help="Maximum number of results retrieved", default=1),
@@ -48,7 +48,7 @@ def search(
     response = search_service.search(
         query=query, columns=columns, limit=limit, filter={}
     )
-    print(response)
+
     return CollectionResult(response.results)
 
 
