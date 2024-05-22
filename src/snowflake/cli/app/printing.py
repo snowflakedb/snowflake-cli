@@ -84,7 +84,9 @@ def print_structured(result: CommandResult):
     if isinstance(result, MultipleResults):
         _stream_json(result)
     else:
-        return json.dump(result, sys.stdout, cls=CustomJSONEncoder, indent=4)
+        json.dump(result, sys.stdout, cls=CustomJSONEncoder, indent=4)
+    # Adds empty line at the end
+    print()
 
 
 def _stream_json(result):
