@@ -35,7 +35,7 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.models import (
 from snowflake.cli.plugins.stage.diff import to_stage_path
 
 DEFAULT_TIMEOUT = 30
-TEMPLATE_PATH = Path(__file__).parent / "collect_extension_functions.py.jinja"
+TEMPLATE_PATH = Path(__file__).parent / "callback_source.py.jinja"
 
 
 def _is_python_file(file_path: Path):
