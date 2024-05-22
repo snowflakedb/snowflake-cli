@@ -32,7 +32,7 @@ def execute_sql(
         "-q",
         help="Query to execute.",
     ),
-    file: Optional[Path] = typer.Option(
+    files: Optional[List[Path]] = typer.Option(
         None,
         "--filename",
         "-f",
@@ -71,7 +71,7 @@ def execute_sql(
     if data_override:
         data = {v.key: v.value for v in parse_key_value_variables(data_override)}
 
-    single_statement, cursors = SqlManager().execute(query, file, std_in, data=data)
+    single_statement, cursors = SqlManager().execute(query, files, std_in, data=data)
     if single_statement:
         return QueryResult(next(cursors))
     return MultipleResults((QueryResult(c) for c in cursors))
