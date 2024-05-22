@@ -23,6 +23,7 @@
 ## Fixes and improvements
 * Improved support for quoted identifiers.
 * Fixed creating patches with `snow app version create` when there are 2 or more existing patches on a version
+* Using `--format=json` adds trailing new line to avoid `%` being added by some terminals to signal no new line at the end of output.
 
 # v2.3.1
 ## Backward incompatibility
