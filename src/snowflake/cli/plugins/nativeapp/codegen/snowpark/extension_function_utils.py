@@ -9,6 +9,7 @@ from typing import (
 from click.exceptions import ClickException
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.util import (
+    is_valid_identifier,
     is_valid_string_literal,
     to_identifier,
     to_string_literal,
@@ -50,25 +51,35 @@ def get_sql_argument_signature(arg: Argument) -> str:
 def get_qualified_object_name(extension_fn: NativeAppExtensionFunction) -> str:
     qualified_name = to_identifier(extension_fn.name)
     if extension_fn.schema_name:
-        qualified_name = f"{to_identifier(extension_fn.schema_name)}.{qualified_name}"
+        if is_valid_identifier(extension_fn.schema_name):
+            qualified_name = f"{extension_fn.schema_name}.{qualified_name}"
+        else:
+            full_schema = ".".join(
+                [
+                    to_identifier(schema_part)
+                    for schema_part in extension_fn.schema_name.split(".")
+                ]
+            )
+            qualified_name = f"{full_schema}.{qualified_name}"
+
     return qualified_name
 
 
-def _is_single_quoted(name: str) -> bool:
+def ensure_string_literal(value: str) -> str:
     """
-    Helper function to do a generic check on whether the provided string is surrounded by single quotes.
+    Returns the string literal representation of the given value, or the value itself if
+    it was already a valid string literal.
     """
-    return name.startswith("'") and name.endswith("'")
-
-
-def _ensure_single_quoted(value: str) -> str:
     if is_valid_string_literal(value):
         return value
     return to_string_literal(value)
 
 
-def _ensure_all_single_quoted(values: Sequence[str]) -> List[str]:
+def ensure_all_string_literals(values: Sequence[str]) -> List[str]:
     """
-    Helper function to ensure that a list of object strings is transformed to a list of object strings surrounded by single quotes.
+    Ensures that all provided values are valid string literals.
+
+    Returns:
+        A list with all values transformed to be valid string literals (as necessary).
     """
-    return [_ensure_single_quoted(value) for value in values]
+    return [ensure_string_literal(value) for value in values]

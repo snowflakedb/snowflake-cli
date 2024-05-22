@@ -9,7 +9,7 @@ import tempfile
 from contextlib import contextmanager
 from io import StringIO
 from pathlib import Path
-from typing import Generator, List, NamedTuple, Optional, Union
+from typing import Any, Dict, Generator, List, NamedTuple, Optional, Union
 from unittest import mock
 
 import pytest
@@ -18,6 +18,9 @@ from snowflake.cli.api.project.schemas.project_definition import ProjectDefiniti
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
 from snowflake.cli.app.cli_app import app_factory
+from snowflake.cli.plugins.nativeapp.codegen.snowpark.models import (
+    NativeAppExtensionFunction,
+)
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 from typer import Typer
@@ -342,27 +345,28 @@ def native_app_project_instance():
     )
 
 
-@pytest.fixture()
-def native_app_codegen_full_json():
+@pytest.fixture
+def native_app_extension_function_raw_data() -> Dict[str, Any]:
     return {
-        "object_type": "TABLE_FUNCTION",
-        "object_name": "SNOWPARK_TEMP_FUNCTION_WZUNHMZJKA",
-        "input_args": [{"name": "arg1", "datatype": "IntegerType"}],
-        "input_sql_types": ["INT"],
-        "return_sql": "RETURNS INT",
-        "runtime_version": "3.11",
-        "handler": "dummy_handler",
+        "function_type": "PROCEDURE",
+        "lineno": 42,
+        "name": "my_function",
+        "signature": [{"name": "first", "type": "int", "default": "42"}],
+        "returns": "int",
+        "runtime": "3.11",
+        "handler": "my_function_handler",
         "external_access_integrations": ["integration_one", "integration_two"],
         "secrets": {"key1": "secret_one", "key2": "integration_two"},
-        "inline_python_code": "dummy_inline_code",
-        "raw_imports": ["a/b/c.py"],
-        "all_packages": "'package_one', 'package_two'",
-        "all_imports": "'path_one', 'path_two'",
-        "replace": True,
-        "if_not_exists": False,
-        "execute_as": "OWNER",
-        "anonymous": False,
-        "func": "<lambda>",
+        "packages": ["package_one==1.0.2", "package_two"],
+        "imports": ["/path/to/import1.py", "/path/to/import2.zip"],
+        "execute_as_caller": False,
         "schema": "DATA",
         "application_roles": ["APP_ADMIN", "APP_VIEWER"],
     }
+
+
+@pytest.fixture
+def native_app_extension_function(
+    native_app_extension_function_raw_data,
+) -> NativeAppExtensionFunction:
+    return NativeAppExtensionFunction(**native_app_extension_function_raw_data)

@@ -13,7 +13,7 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
     _determine_virtual_env,
     _execute_in_sandbox,
-    generate_create_sql_ddl_statements,
+    generate_create_sql_ddl_statement,
     generate_grant_sql_ddl_statements,
 )
 
@@ -145,7 +145,7 @@ def test_execute_in_sandbox_all_possible_none_cases(mock_sandbox):
 def test_generate_create_sql_ddl_statements_w_all_entries(
     native_app_codegen_full_json, snapshot
 ):
-    assert generate_create_sql_ddl_statements(native_app_codegen_full_json) == snapshot
+    assert generate_create_sql_ddl_statement(native_app_codegen_full_json) == snapshot
 
 
 def test_generate_create_sql_ddl_statements_w_select_entries(
@@ -158,7 +158,7 @@ def test_generate_create_sql_ddl_statements_w_select_entries(
     native_app_codegen_full_json["secrets"] = None
     native_app_codegen_full_json["execute_as"] = None
     native_app_codegen_full_json["inline_python_code"] = None
-    assert generate_create_sql_ddl_statements(native_app_codegen_full_json) == snapshot
+    assert generate_create_sql_ddl_statement(native_app_codegen_full_json) == snapshot
 
 
 def test_generate_create_sql_ddl_statements_none():
@@ -167,7 +167,7 @@ def test_generate_create_sql_ddl_statements_none():
         "object_name": "CORE.MYFUNC",
         "anonymous": True,
     }
-    assert generate_create_sql_ddl_statements(ex_fn=ex_fn) is None
+    assert generate_create_sql_ddl_statement(ex_fn=ex_fn) is None
 
 
 # --------------------------------------------------------
