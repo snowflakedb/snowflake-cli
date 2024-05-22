@@ -1011,22 +1011,24 @@
                                                                                   
    Usage: default cortex search [OPTIONS] QUERY                                   
                                                                                   
-   Allows access to Cortex Search Services                                        
+   Performs query search using Cortex Search Services                             
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    query      TEXT  Query to look for in your data [default: None]         │
   │                       [required]                                             │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ *  --service          TEXT     Cortex search service to be used              │
+  │ *  --service          TEXT     Cortex search service to be used. Example:    │
+  │                                --service my_cortex_service                   │
   │                                [default: None]                               │
   │                                [required]                                    │
   │    --columns          TEXT     Columns that will be returned with the        │
-  │                                results. If set to none, only search column   │
-  │                                will be included in results                   │
-  │ *  --limit            INTEGER  Maximum number of results retrieved           │
+  │                                results. If none is provided, only search     │
+  │                                column will be included in results. Example   │
+  │                                --columns "foo" --columns "bar"               │
   │                                [default: None]                               │
-  │                                [required]                                    │
+  │    --limit            INTEGER  Maximum number of results retrieved           │
+  │                                [default: 1]                                  │
   │    --help     -h               Show this message and exit.                   │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -1097,7 +1099,7 @@
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
   │ complete   Dummy command placeholder. This is added to register whole group. │
   │            Command will be added with sfc-gh-pjob PR                         │
-  │ search     Allows access to Cortex Search Services                           │
+  │ search     Performs query search using Cortex Search Services                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   
