@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from textwrap import dedent
 from typing import Any, Dict, Optional, Tuple, Union
 
 from click import ClickException
@@ -8,7 +9,7 @@ from snowflake.cli.api.constants import OBJECT_TO_NAMES, ObjectNames
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
-from snowflake.connector.errors import InterfaceError
+from snowflake.connector.errors import BadRequest, InterfaceError
 
 
 def _get_object_names(object_type: str) -> ObjectNames:
@@ -58,8 +59,8 @@ class ObjectManager(SqlExecutionMixin):
     def _send_rest_request(
         self, url: str, method: str, data: Optional[Dict[str, Any]] = None
     ):
-        # SnowflakeRestful.request assumes that API response is always a dict with "code" key.
-        # This is not true in case of this API, so we need to do this workaround:
+        # SnowflakeRestful.request assumes that API response is always a dict,
+        # which is not true in case of this API, so we need to do this workaround:
         from snowflake.connector.network import (
             CONTENT_TYPE_APPLICATION_JSON,
             HTTP_HEADER_ACCEPT,
@@ -120,14 +121,17 @@ class ObjectManager(SqlExecutionMixin):
         url = self._get_rest_api_create_url(object_type)
         if not url:
             return f"Create operation for type {object_type} is not supported. Try using `sql -q 'CREATE ...'` command"
-        # TODO: nice exception handling (if possible) - "sth wrong" is not enough
-        response = self._send_rest_request(url=url, method="post", data=object_data)
-        if not response:
-            # 409 conflict - ignored
-            # {}, {"named": "text"} - 400 bad request - raised
-            # 404 - not exists - ignored
-            # 401 - not authorized - ignored
-            return (
-                "Something went wrong ¯\_(ツ)_/¯. Try again with --debug for more info."
-            )
-        return response["status"]
+        try:
+            response = self._send_rest_request(url=url, method="post", data=object_data)
+            if not response:
+                raise ClickException(
+                    dedent(
+                        """                An unexpected error occurred while creating the object. Try again with --debug for more info.
+                Most probable reasons:
+                  * object you are trying to create already exists
+                  * role you are using do not have permissions to create this object"""
+                    )
+                )
+            return response["status"]
+        except BadRequest:
+            raise ClickException("Incorrect object definition.")
