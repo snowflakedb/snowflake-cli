@@ -2,6 +2,12 @@ import sys
 
 import pytest
 
+from tests_integration.conftest import TEST_DIR
+from tests_integration.testing_utils.assertions.test_result_assertions import (
+    assert_successful_result_message,
+    assert_that_result_is_successful,
+)
+
 
 @pytest.mark.integration
 @pytest.mark.skip  # TODO: when we have Cortex activated on test account, unskip this and setup part in sql script
@@ -30,13 +36,6 @@ def test_cortex_search(runner):
     ]
     assert result.exit_code == 0
     assert result.json == expected_result
-import pytest
-
-from tests_integration.conftest import TEST_DIR
-from tests_integration.testing_utils.assertions.test_result_assertions import (
-    assert_successful_result_message,
-    assert_that_result_is_successful,
-)
 
 
 @pytest.mark.integration

@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import typer
 from click import UsageError
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import readable_file_option
 from snowflake.cli.api.commands.snow_typer import SnowTyper
-from snowflake.cli.api.output.types import CollectionResult
-from snowflake.cli.api.output.types import CommandResult, MessageResult
+from snowflake.cli.api.output.types import (
+    CollectionResult,
+    CommandResult,
+    MessageResult,
+)
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.cortex.constants import DEFAULT_MODEL
 from snowflake.cli.plugins.cortex.manager import CortexManager
@@ -63,14 +67,6 @@ def search(
     )
 
     return CollectionResult(response.results)
-
-
-@app.command()
-def complete():
-    """
-    Dummy command placeholder. This is added to register whole group. Command will be added with sfc-gh-pjob PR
-    """
-    pass
 
 
 @app.command(
