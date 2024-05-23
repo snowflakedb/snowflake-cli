@@ -547,6 +547,19 @@ def project_definition_option(optional: bool = False):
     )
 
 
+def readable_file_option(param_name: str, help_str: str) -> typer.Option:
+    return typer.Option(
+        None,
+        param_name,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        help=help_str,
+        show_default=False,
+    )
+
+
 def deprecated_flag_callback(msg: str):
     def _warning_callback(ctx: click.Context, param: click.Parameter, value: Any):
         if ctx.get_parameter_source(param.name) != click.core.ParameterSource.DEFAULT:  # type: ignore[attr-defined]

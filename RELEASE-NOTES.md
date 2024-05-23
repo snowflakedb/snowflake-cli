@@ -20,6 +20,14 @@
       from many files.
  *  `snow connection test` command accepts all connection parameters including support for temporary connection.
  * `snow git execute` and `snow stage execute` support passing input variables for SQL execution.
+* Added `snow cortex` commands:
+    * `complete` - Given a prompt, the command generates a response using your choice of language model.
+      In the simplest use case, the prompt is a single string. You may also provide a JSON file with conversation history including multiple prompts and responses for interactive chat-style usage.
+    * `extract-answer` - Extracts an answer to a given question from a text document.
+      The document may be a plain-English document or a string representation of a semi-structured (JSON) data object.
+    * `sentiment` - Returns sentiment as a score between -1 to 1 (with -1 being the most negative and 1 the most positive, with values around 0 neutral) for the given English-language input text.
+    * `summarize` - Summarizes the given English-language input text.
+    * `translate` - Translates text from the indicated or detected source language to a target language.
 
 ## Fixes and improvements
 * Improved support for quoted identifiers.
