@@ -1349,6 +1349,9 @@
   │ --on-error          [break|continue]  What to do when an error occurs.       │
   │                                       Defaults to break.                     │
   │                                       [default: break]                       │
+  │ --variable  -D      TEXT              Variables for the template. For        │
+  │                                       example: `-D "<key>=<value>"`, string  │
+  │                                       values must be in `''`.                │
   │ --help      -h                        Show this message and exit.            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -6752,6 +6755,9 @@
   │ --on-error          [break|continue]  What to do when an error occurs.       │
   │                                       Defaults to break.                     │
   │                                       [default: break]                       │
+  │ --variable  -D      TEXT              Variables for the template. For        │
+  │                                       example: `-D "<key>=<value>"`, string  │
+  │                                       values must be in `''`.                │
   │ --help      -h                        Show this message and exit.            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
