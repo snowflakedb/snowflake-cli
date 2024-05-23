@@ -23,12 +23,13 @@ ObjectArgument = typer.Argument(
     case_sensitive=False,
     show_default=False,
 )
+# TODO: add documentation link
 ObjectDefinitionArgument = typer.Argument(
     help="""Object definition in JSON format, for example
 \'{"name": "my_db", "comment": "created with Snowflake CLI"}\', or provided as a list of key=value pairs,
 for example: name=my_db 'comment=created with Snowflake CLI'.
 
-Check https://docs.snowflake.com/LIMITEDACCESS/rest-api/reference/ for the full list of available parameters
+Check documentation for the full list of available parameters
 for every object.
 """,
     show_default=False,
