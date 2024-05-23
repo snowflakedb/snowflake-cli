@@ -59,40 +59,5 @@
   ''
 # ---
 # name: test_process_with_collected_functions
-  '''
-  -- stagepath/main.py
-  CREATE OR REPLACE
-  PROCEDURE DATA.my_function(first int DEFAULT 42)
-  RETURNS int
-  LANGUAGE PYTHON
-  RUNTIME_VERSION=3.11
-  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('package_one==1.0.2', 'package_two')
-  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
-  SECRETS=('key1'=secret_one, 'key2'=integration_two)
-  HANDLER='main.my_function_handler'
-  EXECUTE AS OWNER;
-  
-  GRANT USAGE ON PROCEDURE DATA.my_function
-  TO APPLICATION ROLE APP_ADMIN;
-  GRANT USAGE ON PROCEDURE DATA.my_function
-  TO APPLICATION ROLE APP_VIEWER;
-  -- stagepath/data.py
-  CREATE OR REPLACE
-  PROCEDURE DATA.my_function(first int DEFAULT 42)
-  RETURNS int
-  LANGUAGE PYTHON
-  RUNTIME_VERSION=3.11
-  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/data.py')
-  PACKAGES=('package_one==1.0.2', 'package_two')
-  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
-  SECRETS=('key1'=secret_one, 'key2'=integration_two)
-  HANDLER='data.my_function_handler'
-  EXECUTE AS OWNER;
-  
-  GRANT USAGE ON PROCEDURE DATA.my_function
-  TO APPLICATION ROLE APP_ADMIN;
-  GRANT USAGE ON PROCEDURE DATA.my_function
-  TO APPLICATION ROLE APP_VIEWER;
-  '''
+  dict_values(["-- stagepath/main.py\nCREATE OR REPLACE\nPROCEDURE DATA.my_function(first int DEFAULT 42)\nRETURNS int\nLANGUAGE PYTHON\nRUNTIME_VERSION=3.11\nIMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')\nPACKAGES=('package_one==1.0.2', 'package_two')\nEXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')\nSECRETS=('key1'=secret_one, 'key2'=integration_two)\nHANDLER='main.my_function_handler'\nEXECUTE AS OWNER;\n\nGRANT USAGE ON PROCEDURE DATA.my_function\nTO APPLICATION ROLE APP_ADMIN;\nGRANT USAGE ON PROCEDURE DATA.my_function\nTO APPLICATION ROLE APP_VIEWER;", "-- stagepath/data.py\nCREATE OR REPLACE\nPROCEDURE DATA.my_function(first int DEFAULT 42)\nRETURNS int\nLANGUAGE PYTHON\nRUNTIME_VERSION=3.11\nIMPORTS=('/stagepath/data.py', '@dummy_stage_str', '@dummy_stage_tuple', '/', '/', '/stagepath/extra_import1.zip', '/stagepath/extra_import2.zip', '/stagepath/some_dir_str', '/stagepath/some_dir2_tuple', '/stagepath/main.py', '/stagepath/main.py')\nPACKAGES=('package_one==1.0.2', 'package_two')\nEXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')\nSECRETS=('key1'=secret_one, 'key2'=integration_two)\nHANDLER='data.my_function_handler'\nEXECUTE AS OWNER;\n\nGRANT USAGE ON PROCEDURE DATA.my_function\nTO APPLICATION ROLE APP_ADMIN;\nGRANT USAGE ON PROCEDURE DATA.my_function\nTO APPLICATION ROLE APP_VIEWER;"])
 # ---

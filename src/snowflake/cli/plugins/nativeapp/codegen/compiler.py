@@ -29,11 +29,17 @@ class NativeAppCompiler:
     """
 
     def __init__(
-        self, project_definition: NativeApp, project_root: Path, deploy_root: Path
+        self,
+        project_definition: NativeApp,
+        project_root: Path,
+        deploy_root: Path,
+        generated_root: Path,
     ):
         self.project_definition = project_definition
         self.project_root = project_root
         self.deploy_root = deploy_root
+        self.generated_root = generated_root
+
         self.artifacts = [
             artifact
             for artifact in project_definition.artifacts
@@ -79,6 +85,7 @@ class NativeAppCompiler:
                     project_definition=self.project_definition,
                     project_root=self.project_root,
                     deploy_root=self.deploy_root,
+                    generated_root=self.generated_root,
                 )
                 self.cached_processors[SNOWPARK_PROCESSOR] = curr_processor
                 return curr_processor

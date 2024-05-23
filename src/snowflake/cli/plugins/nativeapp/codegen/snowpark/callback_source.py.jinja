@@ -102,6 +102,7 @@ def __snowflake_internal_create_extension_fn_registration_callback():
             "lineno": __snowflake_internal_try_extract_lineno(extension_fn.func),
             "name": __snowflake_internal_extract_extension_fn_name(extension_fn),
             "handler": extension_fn.func.__name__,
+            "raw_imports": extension_fn.raw_imports or [],
             "imports": extension_fn.all_imports or [],
             "packages": __snowflake_internal_create_package_list(extension_fn),
             "runtime": extension_fn.runtime_version,

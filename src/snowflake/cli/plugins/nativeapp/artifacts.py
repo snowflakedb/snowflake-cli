@@ -5,7 +5,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent
-from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 from click.exceptions import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
@@ -534,7 +534,6 @@ def find_setup_script_file(deploy_root: Path) -> Path:
         setup_script in manifest_content[artifacts]
     ):
         setup_script_rel_path = manifest_content[artifacts][setup_script]
-        # src_path = os.path.realpath(setup_script_rel_path)
         file_name = Path(deploy_root / setup_script_rel_path)
         if file_name.is_file():
             return file_name

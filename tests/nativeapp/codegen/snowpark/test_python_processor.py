@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 import subprocess
 from pathlib import Path
@@ -16,6 +18,8 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
     _determine_virtual_env,
     _execute_in_sandbox,
+    create_and_write_to_sql_files,
+    edit_setup_script_with_exec_imm_sql,
     generate_create_sql_ddl_statement,
     generate_grant_sql_ddl_statements,
     generate_new_sql_file_name,
@@ -363,44 +367,41 @@ def test_edit_setup_script_with_exec_imm_sql_fails():
 # ------------- SnowparkAnnotationProcessor --------------
 # --------------------------------------------------------
 
-default_dir_structure = {
-    "a/b/c/main.py": "# this is a file\n",
-    "a/b/c/d/main.py": "# this is a file\n",
-    "a/b/c/main.txt": "# this is a file\n",
-    "a/b/c/d/main.txt": "# this is a file\n",
-    "a/b/main.py": "# this is a file\n",
-    "a/b/main.txt": "# this is a file\n",
-    "output/deploy": None,
-    "output/deploy/stagepath/main.py": "# this is a file\n",
-}
-
 minimal_dir_structure = {
     "a/b/c/main.py": "# this is a file\n",
     "a/b/c/data.py": "# this is a file\n",
     "output/deploy": None,
     "output/deploy/stagepath/main.py": "# this is a file\n",
     "output/deploy/stagepath/data.py": "# this is a file\n",
+    "output/deploy/stagepath/extra_import1.zip": None,
+    "output/deploy/stagepath/extra_import2.zip": None,
 }
 
 
 @mock.patch(
     "snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor._execute_in_sandbox",
 )
-def test_process_no_collected_functions(
-    mock_sandbox, native_app_project_instance, snapshot
-):
+def test_process_no_collected_functions(mock_sandbox, native_app_project_instance):
     with temp_local_dir(minimal_dir_structure) as local_path:
         native_app_project_instance.native_app.artifacts = [
             {"src": "a/b/c/*.py", "dest": "stagepath/", "processors": ["SNOWPARK"]}
         ]
         mock_sandbox.side_effect = [None, []]
-        output = SnowparkAnnotationProcessor(
+        deploy_root = Path(local_path, "output/deploy")
+        generated_root = Path(deploy_root, "__generated")
+        dest_file_py_file_to_ddl_map = SnowparkAnnotationProcessor(
             project_definition=native_app_project_instance,
             project_root=local_path,
             deploy_root=deploy_root,
             generated_root=generated_root,
+        ).process(
+            artifact_to_process=native_app_project_instance.native_app.artifacts[0],
+            processor_mapping=ProcessorMapping(name="SNOWPARK"),
+            write_to_sql=False,  # For testing
         )
-        assert output == snapshot
+        assert len(dest_file_py_file_to_ddl_map) == 0
+        assert not Path(generated_root, "stagepath/main.sql").exists()
+        assert not Path(generated_root, "stagepath/data.sql").exists()
 
 
 @mock.patch(
@@ -413,6 +414,22 @@ def test_process_with_collected_functions(
     snapshot,
 ):
     with temp_local_dir(minimal_dir_structure) as local_path:
+        imports_variation = copy.deepcopy(native_app_extension_function_raw_data)
+        imports_variation["imports"] = []
+        imports_variation["raw_imports"] = [
+            "@dummy_stage_str",
+            ("@dummy_stage_tuple", "dummy_val"),
+            "/",
+            ("/", "dummy_val"),
+            "stagepath/extra_import1.zip",
+            ("stagepath/extra_import2.zip", "dummy_val"),
+            "stagepath/some_dir_str",
+            ("stagepath/some_dir2_tuple", "dummy_val"),
+            "stagepath/main.py",
+            ("stagepath/main.py", "dummy_val"),
+            "stagepath/data.py",
+            ("stagepath/data.py", "dummy_val"),
+        ]
         processor_mapping = ProcessorMapping(
             name="snowpark",
             properties={"env": {"type": "conda", "name": "snowpark-dev"}},
@@ -426,12 +443,19 @@ def test_process_with_collected_functions(
         ]
         mock_sandbox.side_effect = [
             [native_app_extension_function_raw_data],
-            [copy.deepcopy(native_app_extension_function_raw_data)],
+            [imports_variation],
         ]
+        deploy_root = Path(local_path, "output/deploy")
+        generated_root = Path(deploy_root, "__generated")
         output = SnowparkAnnotationProcessor(
             project_definition=native_app_project_instance,
             project_root=local_path,
             deploy_root=deploy_root,
             generated_root=generated_root,
+        ).process(
+            artifact_to_process=native_app_project_instance.native_app.artifacts[0],
+            processor_mapping=processor_mapping,
+            write_to_sql=False,  # For testing
         )
-        assert output == snapshot
+        # Cannot compare keys as these are temporary paths that change per test run
+        assert output.values() == snapshot
