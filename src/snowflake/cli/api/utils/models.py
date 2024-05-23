@@ -8,8 +8,8 @@ class EnvironWithDefinedDictFallback(Dict):
     def __getattr__(self, item):
         try:
             return self[item]
-        except KeyError:
-            raise AttributeError
+        except KeyError as e:
+            raise AttributeError(e)
 
     def __getitem__(self, item):
         if item in os.environ:
