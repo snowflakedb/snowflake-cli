@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_help_messages_command_only[]
+# name: test_help_messages[]
   '''
                                                                                   
    Usage: default [OPTIONS] COMMAND [ARGS]...                                     
@@ -1167,6 +1167,7 @@
   '''
 # ---
 # name: test_help_messages_commands_with_subcommands[app.bundle]
+# name: test_help_messages[app.bundle]
   '''
                                                                                   
    Usage: default app bundle [OPTIONS]                                            
@@ -1192,7 +1193,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[app.deploy]
+# name: test_help_messages[app.deploy]
   '''
                                                                                   
    Usage: default app deploy [OPTIONS] [FILES]...                                 
@@ -1281,7 +1282,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[app.init]
+# name: test_help_messages[app.init]
   '''
                                                                                   
    Usage: default app init [OPTIONS] PATH                                         
@@ -1342,7 +1343,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[app.list-templates]
+# name: test_help_messages[app.list-templates]
   '''
                                                                                   
    Usage: default app list-templates [OPTIONS]                                    
@@ -1367,7 +1368,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[app.open]
+# name: test_help_messages[app.open]
   '''
                                                                                   
    Usage: default app open [OPTIONS]                                              
@@ -1435,7 +1436,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[app.run]
+# name: test_help_messages[app.run]
   '''
                                                                                   
    Usage: default app run [OPTIONS]                                               
@@ -1543,7 +1544,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[app.teardown]
+# name: test_help_messages[app.teardown]
   '''
                                                                                   
    Usage: default app teardown [OPTIONS]                                          
@@ -1627,7 +1628,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[app.version.create]
+# name: test_help_messages[app.version.create]
   '''
                                                                                   
    Usage: default app version create [OPTIONS] [VERSION]                          
@@ -1722,7 +1723,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[app.version.drop]
+# name: test_help_messages[app.version.drop]
   '''
                                                                                   
    Usage: default app version drop [OPTIONS] [VERSION]                            
@@ -1806,7 +1807,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[app.version.list]
+# name: test_help_messages[app.version.list]
   '''
                                                                                   
    Usage: default app version list [OPTIONS]                                      
@@ -1873,7 +1874,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[app.version]
+# name: test_help_messages[app.version]
   '''
                                                                                   
    Usage: default app version [OPTIONS] COMMAND [ARGS]...                         
@@ -1896,7 +1897,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[app]
+# name: test_help_messages[app]
   '''
                                                                                   
    Usage: default app [OPTIONS] COMMAND [ARGS]...                                 
@@ -1926,7 +1927,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[connection.add]
+# name: test_help_messages[connection.add]
   '''
                                                                                   
    Usage: default connection add [OPTIONS]                                        
@@ -1977,7 +1978,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[connection.list]
+# name: test_help_messages[connection.list]
   '''
                                                                                   
    Usage: default connection list [OPTIONS]                                       
@@ -2001,7 +2002,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[connection.set-default]
+# name: test_help_messages[connection.set-default]
   '''
                                                                                   
    Usage: default connection set-default [OPTIONS] NAME                           
@@ -2031,7 +2032,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[connection.test]
+# name: test_help_messages[connection.test]
   '''
                                                                                   
    Usage: default connection test [OPTIONS]                                       
@@ -2096,7 +2097,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[connection]
+# name: test_help_messages[connection]
   '''
                                                                                   
    Usage: default connection [OPTIONS] COMMAND [ARGS]...                          
@@ -2116,7 +2117,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[git.copy]
+# name: test_help_messages[git.copy]
   '''
                                                                                   
    Usage: default git copy [OPTIONS] REPOSITORY_PATH DESTINATION_PATH             
@@ -2200,7 +2201,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[git.describe]
+# name: test_help_messages[git.describe]
   '''
                                                                                   
    Usage: default git describe [OPTIONS] NAME                                     
@@ -2269,7 +2270,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[git.drop]
+# name: test_help_messages[git.drop]
   '''
                                                                                   
    Usage: default git drop [OPTIONS] NAME                                         
@@ -2338,7 +2339,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[git.execute]
+# name: test_help_messages[git.execute]
   '''
                                                                                   
    Usage: default git execute [OPTIONS] REPOSITORY_PATH                           
@@ -2420,7 +2421,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[git.fetch]
+# name: test_help_messages[git.fetch]
   '''
                                                                                   
    Usage: default git fetch [OPTIONS] REPOSITORY_NAME                             
@@ -2490,7 +2491,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[git.list-branches]
+# name: test_help_messages[git.list-branches]
   '''
                                                                                   
    Usage: default git list-branches [OPTIONS] REPOSITORY_NAME                     
@@ -2564,7 +2565,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[git.list-files]
+# name: test_help_messages[git.list-files]
   '''
                                                                                   
    Usage: default git list-files [OPTIONS] REPOSITORY_PATH                        
@@ -2640,7 +2641,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[git.list-tags]
+# name: test_help_messages[git.list-tags]
   '''
                                                                                   
    Usage: default git list-tags [OPTIONS] REPOSITORY_NAME                         
@@ -2714,7 +2715,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[git.list]
+# name: test_help_messages[git.list]
   '''
                                                                                   
    Usage: default git list [OPTIONS]                                              
@@ -2788,7 +2789,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[git.setup]
+# name: test_help_messages[git.setup]
   '''
                                                                                   
    Usage: default git setup [OPTIONS] REPOSITORY_NAME                             
@@ -2864,7 +2865,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[git]
+# name: test_help_messages[git]
   '''
                                                                                   
    Usage: default git [OPTIONS] COMMAND [ARGS]...                                 
@@ -2895,7 +2896,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[notebook.create]
+# name: test_help_messages[notebook.create]
   '''
                                                                                   
    Usage: default notebook create [OPTIONS] IDENTIFIER                            
@@ -2969,7 +2970,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[notebook.execute]
+# name: test_help_messages[notebook.execute]
   '''
                                                                                   
    Usage: default notebook execute [OPTIONS] IDENTIFIER                           
@@ -3039,7 +3040,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[notebook.get-url]
+# name: test_help_messages[notebook.get-url]
   '''
                                                                                   
    Usage: default notebook get-url [OPTIONS] IDENTIFIER                           
@@ -3109,7 +3110,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[notebook.open]
+# name: test_help_messages[notebook.open]
   '''
                                                                                   
    Usage: default notebook open [OPTIONS] IDENTIFIER                              
@@ -3179,7 +3180,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[notebook]
+# name: test_help_messages[notebook]
   '''
                                                                                   
    Usage: default notebook [OPTIONS] COMMAND [ARGS]...                            
@@ -3199,7 +3200,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[object.describe]
+# name: test_help_messages[object.describe]
   '''
                                                                                   
    Usage: default object describe [OPTIONS] OBJECT_TYPE OBJECT_NAME               
@@ -3274,7 +3275,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[object.drop]
+# name: test_help_messages[object.drop]
   '''
                                                                                   
    Usage: default object drop [OPTIONS] OBJECT_TYPE OBJECT_NAME                   
@@ -3350,7 +3351,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[object.list]
+# name: test_help_messages[object.list]
   '''
                                                                                   
    Usage: default object list [OPTIONS] OBJECT_TYPE                               
@@ -3436,7 +3437,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[object.stage.copy]
+# name: test_help_messages[object.stage.copy]
   '''
   DeprecationWarning: The command 'stage' is deprecated.
   `snow object stage` command group is deprecated. Please use `snow stage` instead.
@@ -3525,7 +3526,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[object.stage.create]
+# name: test_help_messages[object.stage.create]
   '''
   DeprecationWarning: The command 'stage' is deprecated.
   `snow object stage` command group is deprecated. Please use `snow stage` instead.
@@ -3596,7 +3597,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[object.stage.diff]
+# name: test_help_messages[object.stage.diff]
   '''
   DeprecationWarning: The command 'stage' is deprecated.
   `snow object stage` command group is deprecated. Please use `snow stage` instead.
@@ -3669,7 +3670,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[object.stage.list]
+# name: test_help_messages[object.stage.list]
   '''
   DeprecationWarning: The command 'stage' is deprecated.
   `snow object stage` command group is deprecated. Please use `snow stage` instead.
@@ -3743,7 +3744,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[object.stage.remove]
+# name: test_help_messages[object.stage.remove]
   '''
   DeprecationWarning: The command 'stage' is deprecated.
   `snow object stage` command group is deprecated. Please use `snow stage` instead.
@@ -3816,7 +3817,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[object.stage]
+# name: test_help_messages[object.stage]
   '''
                                                                                   
    Usage: default object stage [OPTIONS] COMMAND [ARGS]...                        
@@ -3839,7 +3840,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[object]
+# name: test_help_messages[object]
   '''
                                                                                   
    Usage: default object [OPTIONS] COMMAND [ARGS]...                              
@@ -3860,7 +3861,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[snowpark.build]
+# name: test_help_messages[snowpark.build]
   '''
                                                                                   
    Usage: default snowpark build [OPTIONS]                                        
@@ -3944,7 +3945,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[snowpark.deploy]
+# name: test_help_messages[snowpark.deploy]
   '''
                                                                                   
    Usage: default snowpark deploy [OPTIONS]                                       
@@ -4016,7 +4017,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[snowpark.describe]
+# name: test_help_messages[snowpark.describe]
   '''
                                                                                   
    Usage: default snowpark describe [OPTIONS] OBJECT_TYPE:{procedure|function}    
@@ -4091,7 +4092,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[snowpark.drop]
+# name: test_help_messages[snowpark.drop]
   '''
                                                                                   
    Usage: default snowpark drop [OPTIONS] OBJECT_TYPE:{procedure|function}        
@@ -4166,7 +4167,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[snowpark.execute]
+# name: test_help_messages[snowpark.execute]
   '''
                                                                                   
    Usage: default snowpark execute [OPTIONS] OBJECT_TYPE:{procedure|function}     
@@ -4243,7 +4244,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[snowpark.init]
+# name: test_help_messages[snowpark.init]
   '''
                                                                                   
    Usage: default snowpark init [OPTIONS] [PROJECT_NAME]                          
@@ -4273,7 +4274,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[snowpark.list]
+# name: test_help_messages[snowpark.list]
   '''
                                                                                   
    Usage: default snowpark list [OPTIONS] OBJECT_TYPE:{procedure|function}        
@@ -4351,7 +4352,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[snowpark.package.create]
+# name: test_help_messages[snowpark.package.create]
   '''
                                                                                   
    Usage: default snowpark package create [OPTIONS] NAME                          
@@ -4435,7 +4436,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[snowpark.package.lookup]
+# name: test_help_messages[snowpark.package.lookup]
   '''
                                                                                   
    Usage: default snowpark package lookup [OPTIONS] PACKAGE_NAME                  
@@ -4503,7 +4504,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[snowpark.package.upload]
+# name: test_help_messages[snowpark.package.upload]
   '''
                                                                                   
    Usage: default snowpark package upload [OPTIONS]                               
@@ -4576,7 +4577,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[snowpark.package]
+# name: test_help_messages[snowpark.package]
   '''
                                                                                   
    Usage: default snowpark package [OPTIONS] COMMAND [ARGS]...                    
@@ -4597,7 +4598,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[snowpark]
+# name: test_help_messages[snowpark]
   '''
                                                                                   
    Usage: default snowpark [OPTIONS] COMMAND [ARGS]...                            
@@ -4628,7 +4629,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.compute-pool.create]
+# name: test_help_messages[spcs.compute-pool.create]
   '''
                                                                                   
    Usage: default spcs compute-pool create [OPTIONS] NAME                         
@@ -4748,7 +4749,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.compute-pool.describe]
+# name: test_help_messages[spcs.compute-pool.describe]
   '''
                                                                                   
    Usage: default spcs compute-pool describe [OPTIONS] NAME                       
@@ -4816,7 +4817,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.compute-pool.drop]
+# name: test_help_messages[spcs.compute-pool.drop]
   '''
                                                                                   
    Usage: default spcs compute-pool drop [OPTIONS] NAME                           
@@ -4884,7 +4885,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.compute-pool.list]
+# name: test_help_messages[spcs.compute-pool.list]
   '''
                                                                                   
    Usage: default spcs compute-pool list [OPTIONS]                                
@@ -4953,7 +4954,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.compute-pool.resume]
+# name: test_help_messages[spcs.compute-pool.resume]
   '''
                                                                                   
    Usage: default spcs compute-pool resume [OPTIONS] NAME                         
@@ -5021,7 +5022,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.compute-pool.set]
+# name: test_help_messages[spcs.compute-pool.set]
   '''
                                                                                   
    Usage: default spcs compute-pool set [OPTIONS] NAME                            
@@ -5114,7 +5115,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.compute-pool.status]
+# name: test_help_messages[spcs.compute-pool.status]
   '''
                                                                                   
    Usage: default spcs compute-pool status [OPTIONS] POOL_NAME                    
@@ -5183,7 +5184,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.compute-pool.stop-all]
+# name: test_help_messages[spcs.compute-pool.stop-all]
   '''
                                                                                   
    Usage: default spcs compute-pool stop-all [OPTIONS] NAME                       
@@ -5251,7 +5252,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.compute-pool.suspend]
+# name: test_help_messages[spcs.compute-pool.suspend]
   '''
                                                                                   
    Usage: default spcs compute-pool suspend [OPTIONS] NAME                        
@@ -5320,7 +5321,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.compute-pool.unset]
+# name: test_help_messages[spcs.compute-pool.unset]
   '''
                                                                                   
    Usage: default spcs compute-pool unset [OPTIONS] NAME                          
@@ -5397,7 +5398,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.compute-pool]
+# name: test_help_messages[spcs.compute-pool]
   '''
                                                                                   
    Usage: default spcs compute-pool [OPTIONS] COMMAND [ARGS]...                   
@@ -5426,7 +5427,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.image-registry.login]
+# name: test_help_messages[spcs.image-registry.login]
   '''
                                                                                   
    Usage: default spcs image-registry login [OPTIONS]                             
@@ -5494,7 +5495,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.image-registry.token]
+# name: test_help_messages[spcs.image-registry.token]
   '''
                                                                                   
    Usage: default spcs image-registry token [OPTIONS]                             
@@ -5568,7 +5569,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.image-registry.url]
+# name: test_help_messages[spcs.image-registry.url]
   '''
                                                                                   
    Usage: default spcs image-registry url [OPTIONS]                               
@@ -5635,7 +5636,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.image-registry]
+# name: test_help_messages[spcs.image-registry]
   '''
                                                                                   
    Usage: default spcs image-registry [OPTIONS] COMMAND [ARGS]...                 
@@ -5656,7 +5657,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.image-repository.create]
+# name: test_help_messages[spcs.image-repository.create]
   '''
                                                                                   
    Usage: default spcs image-repository create [OPTIONS] NAME                     
@@ -5727,7 +5728,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.image-repository.drop]
+# name: test_help_messages[spcs.image-repository.drop]
   '''
                                                                                   
    Usage: default spcs image-repository drop [OPTIONS] NAME                       
@@ -5795,7 +5796,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.image-repository.list-images]
+# name: test_help_messages[spcs.image-repository.list-images]
   '''
                                                                                   
    Usage: default spcs image-repository list-images [OPTIONS] NAME                
@@ -5863,7 +5864,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.image-repository.list-tags]
+# name: test_help_messages[spcs.image-repository.list-tags]
   '''
                                                                                   
    Usage: default spcs image-repository list-tags [OPTIONS] NAME                  
@@ -5935,7 +5936,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.image-repository.list]
+# name: test_help_messages[spcs.image-repository.list]
   '''
                                                                                   
    Usage: default spcs image-repository list [OPTIONS]                            
@@ -6009,7 +6010,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.image-repository.url]
+# name: test_help_messages[spcs.image-repository.url]
   '''
                                                                                   
    Usage: default spcs image-repository url [OPTIONS] NAME                        
@@ -6077,7 +6078,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.image-repository]
+# name: test_help_messages[spcs.image-repository]
   '''
                                                                                   
    Usage: default spcs image-repository [OPTIONS] COMMAND [ARGS]...               
@@ -6099,7 +6100,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.job.create]
+# name: test_help_messages[spcs.job.create]
   '''
                                                                                   
    Usage: default spcs job create [OPTIONS]                                       
@@ -6171,7 +6172,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.job.logs]
+# name: test_help_messages[spcs.job.logs]
   '''
                                                                                   
    Usage: default spcs job logs [OPTIONS] IDENTIFIER                              
@@ -6241,7 +6242,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.job.status]
+# name: test_help_messages[spcs.job.status]
   '''
                                                                                   
    Usage: default spcs job status [OPTIONS] IDENTIFIER                            
@@ -6309,7 +6310,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.job]
+# name: test_help_messages[spcs.job]
   '''
                                                                                   
    Usage: default spcs job [OPTIONS] COMMAND [ARGS]...                            
@@ -6328,7 +6329,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.service.create]
+# name: test_help_messages[spcs.service.create]
   '''
                                                                                   
    Usage: default spcs service create [OPTIONS] NAME                              
@@ -6458,7 +6459,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.service.describe]
+# name: test_help_messages[spcs.service.describe]
   '''
                                                                                   
    Usage: default spcs service describe [OPTIONS] NAME                            
@@ -6526,7 +6527,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.service.drop]
+# name: test_help_messages[spcs.service.drop]
   '''
                                                                                   
    Usage: default spcs service drop [OPTIONS] NAME                                
@@ -6594,7 +6595,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.service.list-endpoints]
+# name: test_help_messages[spcs.service.list-endpoints]
   '''
                                                                                   
    Usage: default spcs service list-endpoints [OPTIONS] NAME                      
@@ -6662,7 +6663,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.service.list]
+# name: test_help_messages[spcs.service.list]
   '''
                                                                                   
    Usage: default spcs service list [OPTIONS]                                     
@@ -6735,7 +6736,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.service.logs]
+# name: test_help_messages[spcs.service.logs]
   '''
                                                                                   
    Usage: default spcs service logs [OPTIONS] NAME                                
@@ -6809,7 +6810,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.service.resume]
+# name: test_help_messages[spcs.service.resume]
   '''
                                                                                   
    Usage: default spcs service resume [OPTIONS] NAME                              
@@ -6877,7 +6878,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.service.set]
+# name: test_help_messages[spcs.service.set]
   '''
                                                                                   
    Usage: default spcs service set [OPTIONS] NAME                                 
@@ -6974,7 +6975,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.service.status]
+# name: test_help_messages[spcs.service.status]
   '''
                                                                                   
    Usage: default spcs service status [OPTIONS] NAME                              
@@ -7042,7 +7043,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.service.suspend]
+# name: test_help_messages[spcs.service.suspend]
   '''
                                                                                   
    Usage: default spcs service suspend [OPTIONS] NAME                             
@@ -7110,7 +7111,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.service.unset]
+# name: test_help_messages[spcs.service.unset]
   '''
                                                                                   
    Usage: default spcs service unset [OPTIONS] NAME                               
@@ -7191,7 +7192,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.service.upgrade]
+# name: test_help_messages[spcs.service.upgrade]
   '''
                                                                                   
    Usage: default spcs service upgrade [OPTIONS] NAME                             
@@ -7260,7 +7261,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs.service]
+# name: test_help_messages[spcs.service]
   '''
                                                                                   
    Usage: default spcs service [OPTIONS] COMMAND [ARGS]...                        
@@ -7290,7 +7291,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[spcs]
+# name: test_help_messages[spcs]
   '''
                                                                                   
    Usage: default spcs [OPTIONS] COMMAND [ARGS]...                                
@@ -7311,7 +7312,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[sql]
+# name: test_help_messages[sql]
   '''
                                                                                   
    Usage: default sql [OPTIONS]                                                   
@@ -7392,7 +7393,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[stage.copy]
+# name: test_help_messages[stage.copy]
   '''
                                                                                   
    Usage: default stage copy [OPTIONS] SOURCE_PATH DESTINATION_PATH               
@@ -7476,7 +7477,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[stage.create]
+# name: test_help_messages[stage.create]
   '''
                                                                                   
    Usage: default stage create [OPTIONS] STAGE_NAME                               
@@ -7544,7 +7545,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[stage.describe]
+# name: test_help_messages[stage.describe]
   '''
                                                                                   
    Usage: default stage describe [OPTIONS] NAME                                   
@@ -7612,7 +7613,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[stage.diff]
+# name: test_help_messages[stage.diff]
   '''
                                                                                   
    Usage: default stage diff [OPTIONS] STAGE_NAME FOLDER_NAME                     
@@ -7681,7 +7682,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[stage.drop]
+# name: test_help_messages[stage.drop]
   '''
                                                                                   
    Usage: default stage drop [OPTIONS] NAME                                       
@@ -7749,7 +7750,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[stage.execute]
+# name: test_help_messages[stage.execute]
   '''
                                                                                   
    Usage: default stage execute [OPTIONS] STAGE_PATH                              
@@ -7827,7 +7828,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[stage.list-files]
+# name: test_help_messages[stage.list-files]
   '''
                                                                                   
    Usage: default stage list-files [OPTIONS] STAGE_NAME                           
@@ -7898,7 +7899,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[stage.list]
+# name: test_help_messages[stage.list]
   '''
                                                                                   
    Usage: default stage list [OPTIONS]                                            
@@ -7971,7 +7972,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[stage.remove]
+# name: test_help_messages[stage.remove]
   '''
                                                                                   
    Usage: default stage remove [OPTIONS] STAGE_NAME FILE_NAME                     
@@ -8040,7 +8041,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[stage]
+# name: test_help_messages[stage]
   '''
                                                                                   
    Usage: default stage [OPTIONS] COMMAND [ARGS]...                               
@@ -8069,7 +8070,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[streamlit.deploy]
+# name: test_help_messages[streamlit.deploy]
   '''
                                                                                   
    Usage: default streamlit deploy [OPTIONS]                                      
@@ -8142,7 +8143,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[streamlit.describe]
+# name: test_help_messages[streamlit.describe]
   '''
                                                                                   
    Usage: default streamlit describe [OPTIONS] NAME                               
@@ -8210,7 +8211,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[streamlit.drop]
+# name: test_help_messages[streamlit.drop]
   '''
                                                                                   
    Usage: default streamlit drop [OPTIONS] NAME                                   
@@ -8278,7 +8279,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[streamlit.get-url]
+# name: test_help_messages[streamlit.get-url]
   '''
                                                                                   
    Usage: default streamlit get-url [OPTIONS] NAME                                
@@ -8347,7 +8348,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[streamlit.init]
+# name: test_help_messages[streamlit.init]
   '''
                                                                                   
    Usage: default streamlit init [OPTIONS] [PROJECT_NAME]                         
@@ -8378,7 +8379,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[streamlit.list]
+# name: test_help_messages[streamlit.list]
   '''
                                                                                   
    Usage: default streamlit list [OPTIONS]                                        
@@ -8451,7 +8452,7 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[streamlit.share]
+# name: test_help_messages[streamlit.share]
   '''
                                                                                   
    Usage: default streamlit share [OPTIONS] NAME TO_ROLE                          
@@ -8522,7 +8523,457 @@
   
   '''
 # ---
-# name: test_help_messages_commands_with_subcommands[streamlit]
+# name: test_help_messages[streamlit]
+  '''
+                                                                                  
+   Usage: default streamlit [OPTIONS] COMMAND [ARGS]...                           
+                                                                                  
+   Manages a Streamlit app in Snowflake.                                          
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ deploy     Deploys a Streamlit app defined in the project definition file    │
+  │            (snowflake.yml). By default, the command uploads environment.yml  │
+  │            and any other pages or folders, if present. If you don’t specify  │
+  │            a stage name, the `streamlit` stage is used. If the specified     │
+  │            stage does not exist, the command creates it.                     │
+  │ describe   Provides description of streamlit.                                │
+  │ drop       Drops streamlit with given name.                                  │
+  │ get-url    Returns a URL to the specified Streamlit app                      │
+  │ init       Initializes this directory with a sample set of files for         │
+  │            creating a Streamlit app project.                                 │
+  │ list       Lists all available streamlits.                                   │
+  │ share      Shares a Streamlit app with another role.                         │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[]
+  '''
+                                                                                  
+   Usage: default [OPTIONS] COMMAND [ARGS]...                                     
+                                                                                  
+   Snowflake CLI tool for developers.                                             
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --version                    Shows version of the Snowflake CLI              │
+  │ --info                       Shows information about the Snowflake CLI       │
+  │ --config-file          FILE  Specifies Snowflake CLI configuration file that │
+  │                              should be used                                  │
+  │                              [default: None]                                 │
+  │ --help         -h            Show this message and exit.                     │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ app          Manages a Snowflake Native App                                  │
+  │ connection   Manages connections to Snowflake.                               │
+  │ git          Manages git repositories in Snowflake.                          │
+  │ object       Manages Snowflake objects like warehouses and stages            │
+  │ snowpark     Manages procedures and functions.                               │
+  │ spcs         Manages Snowpark Container Services compute pools, services,    │
+  │              image registries, and image repositories.                       │
+  │ sql          Executes Snowflake query.                                       │
+  │ stage        Manages stages.                                                 │
+  │ streamlit    Manages a Streamlit app in Snowflake.                           │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[app.version]
+  '''
+                                                                                  
+   Usage: default app version [OPTIONS] COMMAND [ARGS]...                         
+                                                                                  
+   Manages versions defined in an application package                             
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ create   Adds a new patch to the provided version defined in your            │
+  │          application package. If the version does not exist, creates a       │
+  │          version with patch 0.                                               │
+  │ drop     Drops a version defined in your application package. Versions can   │
+  │          either be passed in as an argument to the command or read from the  │
+  │          `manifest.yml` file. Dropping patches is not allowed.               │
+  │ list     Lists all versions defined in an application package.               │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[app]
+  '''
+                                                                                  
+   Usage: default app [OPTIONS] COMMAND [ARGS]...                                 
+                                                                                  
+   Manages a Snowflake Native App                                                 
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ deploy     Creates an application package in your Snowflake account and      │
+  │            syncs the local changes to the stage without creating or updating │
+  │            the application. Running this command with no arguments at all,   │
+  │            as in `snow app deploy`, is a shorthand for `snow app deploy      │
+  │            --prune --recursive`.                                             │
+  │ init       Initializes a Snowflake Native App project.                       │
+  │ open       Opens the Snowflake Native App inside of your browser, once it    │
+  │            has been installed in your account.                               │
+  │ run        Creates an application package in your Snowflake account, uploads │
+  │            code files to its stage, then creates or upgrades an application  │
+  │            object from the application package.                              │
+  │ teardown   Attempts to drop both the application object and application      │
+  │            package as defined in the project definition file.                │
+  │ version    Manages versions defined in an application package                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[connection]
+  '''
+                                                                                  
+   Usage: default connection [OPTIONS] COMMAND [ARGS]...                          
+                                                                                  
+   Manages connections to Snowflake.                                              
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ add           Adds a connection to configuration file.                       │
+  │ list          Lists configured connections.                                  │
+  │ set-default   Changes default connection to provided value.                  │
+  │ test          Tests the connection to Snowflake.                             │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[git]
+  '''
+                                                                                  
+   Usage: default git [OPTIONS] COMMAND [ARGS]...                                 
+                                                                                  
+   Manages git repositories in Snowflake.                                         
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ copy            Copies all files from given state of repository to local     │
+  │                 directory or stage.                                          │
+  │ describe        Provides description of git repository.                      │
+  │ drop            Drops git repository with given name.                        │
+  │ execute         Execute immediate all files from the repository path. Files  │
+  │                 can be filtered with glob like pattern, e.g.                 │
+  │                 `@my_repo/branches/main/*.sql`,                              │
+  │                 `@my_repo/branches/main/dev/*`. Only files with `.sql`       │
+  │                 extension will be executed.                                  │
+  │ fetch           Fetch changes from origin to Snowflake repository.           │
+  │ list            Lists all available git repositories.                        │
+  │ list-branches   List all branches in the repository.                         │
+  │ list-files      List files from given state of git repository.               │
+  │ list-tags       List all tags in the repository.                             │
+  │ setup           Sets up a git repository object.                             │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[notebook]
+  '''
+                                                                                  
+   Usage: default notebook [OPTIONS] COMMAND [ARGS]...                            
+                                                                                  
+   Manages notebooks in Snowflake.                                                
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ create    Creates notebook from stage.                                       │
+  │ execute   Executes a notebook in a headless mode.                            │
+  │ get-url   Return a url to a notebook.                                        │
+  │ open      Opens a notebook in default browser                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[object.stage]
+  '''
+                                                                                  
+   Usage: default object stage [OPTIONS] COMMAND [ARGS]...                        
+                                                                                  
+   (deprecated)                                                                   
+   Manages stages.                                                                
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ copy     Copies all files from target path to target           (deprecated)  │
+  │          directory. This works for both uploading to and                     │
+  │          downloading files from the stage.                                   │
+  │ create   Creates a named stage if it does not already exist.   (deprecated)  │
+  │ list     Lists the stage contents.                             (deprecated)  │
+  │ remove   Removes a file from a stage.                          (deprecated)  │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[object]
+  '''
+                                                                                  
+   Usage: default object [OPTIONS] COMMAND [ARGS]...                              
+                                                                                  
+   Manages Snowflake objects like warehouses and stages                           
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ describe   Provides description of an object of given type.                  │
+  │ drop       Drops Snowflake object of given name and type.                    │
+  │ list       Lists all available Snowflake objects of given                    │
+  │            type.                                                             │
+  │ stage      Manages stages.                                     (deprecated)  │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[snowpark.package]
+  '''
+                                                                                  
+   Usage: default snowpark package [OPTIONS] COMMAND [ARGS]...                    
+                                                                                  
+   Manages custom Python packages for Snowpark                                    
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ create   Creates a Python package as a zip file that can be uploaded to a    │
+  │          stage and imported for a Snowpark Python app.                       │
+  │ lookup   Checks if a package is available on the Snowflake Anaconda channel. │
+  │ upload   Uploads a Python package zip file to a Snowflake stage so it can be │
+  │          referenced in the imports of a procedure or function.               │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[snowpark]
+  '''
+                                                                                  
+   Usage: default snowpark [OPTIONS] COMMAND [ARGS]...                            
+                                                                                  
+   Manages procedures and functions.                                              
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ build      Builds the Snowpark project as a `.zip` archive that can be used  │
+  │            by `deploy` command. The archive is built using only the `src`    │
+  │            directory specified in the project file.                          │
+  │ deploy     Deploys procedures and functions defined in project. Deploying    │
+  │            the project alters all objects defined in it. By default, if any  │
+  │            of the objects exist already the commands will fail unless        │
+  │            `--replace` flag is provided. All deployed objects use the same   │
+  │            artifact which is deployed only once.                             │
+  │ describe   Provides description of a procedure or function.                  │
+  │ drop       Drop procedure or function.                                       │
+  │ execute    Executes a procedure or function in a specified environment.      │
+  │ init       Initializes this directory with a sample set of files for         │
+  │            creating a Snowpark project.                                      │
+  │ list       Lists all available procedures or functions.                      │
+  │ package    Manages custom Python packages for Snowpark                       │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[spcs.compute-pool]
+  '''
+                                                                                  
+   Usage: default spcs compute-pool [OPTIONS] COMMAND [ARGS]...                   
+                                                                                  
+   Manages Snowpark Container Services compute pools.                             
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ create     Creates a new compute pool.                                       │
+  │ describe   Provides description of compute pool.                             │
+  │ drop       Drops compute pool with given name.                               │
+  │ list       Lists all available compute pools.                                │
+  │ resume     Resumes the compute pool from a SUSPENDED state.                  │
+  │ set        Sets one or more properties for the compute pool.                 │
+  │ status     Retrieves the status of a compute pool along with a relevant      │
+  │            message, if one exists.                                           │
+  │ stop-all   Deletes all services running on the compute pool.                 │
+  │ suspend    Suspends the compute pool by suspending all currently running     │
+  │            services and then releasing compute pool nodes.                   │
+  │ unset      Resets one or more properties for the compute pool to their       │
+  │            default value(s).                                                 │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[spcs.image-registry]
+  '''
+                                                                                  
+   Usage: default spcs image-registry [OPTIONS] COMMAND [ARGS]...                 
+                                                                                  
+   Manages Snowpark Container Services image registries.                          
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ login   Logs in to the account image registry with the current user's        │
+  │         credentials through Docker.                                          │
+  │ token   Retrieves a registry authentication token based on your current      │
+  │         connection.                                                          │
+  │ url     Gets the image registry URL for the current account.                 │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[spcs.image-repository]
+  '''
+                                                                                  
+   Usage: default spcs image-repository [OPTIONS] COMMAND [ARGS]...               
+                                                                                  
+   Manages Snowpark Container Services image repositories.                        
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ create        Creates a new image repository in the current schema.          │
+  │ drop          Drops image repository with given name.                        │
+  │ list          Lists all available image repositories.                        │
+  │ list-images   Lists images in the given repository.                          │
+  │ list-tags     Lists tags for the given image in a repository.                │
+  │ url           Returns the URL for the given repository.                      │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[spcs.job]
+  '''
+                                                                                  
+   Usage: default spcs job [OPTIONS] COMMAND [ARGS]...                            
+                                                                                  
+   Manages Snowpark jobs.                                                         
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ create   Creates a job to run in a compute pool.                             │
+  │ logs     Retrieves local logs from a job container.                          │
+  │ status   Returns the status of a named Snowpark Container Services job.      │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[spcs.service]
+  '''
+                                                                                  
+   Usage: default spcs service [OPTIONS] COMMAND [ARGS]...                        
+                                                                                  
+   Manages Snowpark Container Services services.                                  
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ create           Creates a new service in the current schema.                │
+  │ describe         Provides description of service.                            │
+  │ drop             Drops service with given name.                              │
+  │ list             Lists all available services.                               │
+  │ list-endpoints   Lists the endpoints in a service.                           │
+  │ logs             Retrieves local logs from a service container.              │
+  │ resume           Resumes the service from a SUSPENDED state.                 │
+  │ set              Sets one or more properties for the service.                │
+  │ status           Retrieves the status of a service.                          │
+  │ suspend          Suspends the service, shutting down and deleting all its    │
+  │                  containers.                                                 │
+  │ unset            Resets one or more properties for the service to their      │
+  │                  default value(s).                                           │
+  │ upgrade          Updates an existing service with a new specification file.  │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[spcs]
+  '''
+                                                                                  
+   Usage: default spcs [OPTIONS] COMMAND [ARGS]...                                
+                                                                                  
+   Manages Snowpark Container Services compute pools, services, image registries, 
+   and image repositories.                                                        
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ compute-pool       Manages compute pools.                                    │
+  │ image-registry     Manages image registries.                                 │
+  │ image-repository   Manages image repositories.                               │
+  │ service            Manages services.                                         │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[stage]
+  '''
+                                                                                  
+   Usage: default stage [OPTIONS] COMMAND [ARGS]...                               
+                                                                                  
+   Manages stages.                                                                
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ copy         Copies all files from target path to target directory. This     │
+  │              works for both uploading to and downloading files from the      │
+  │              stage.                                                          │
+  │ create       Creates a named stage if it does not already exist.             │
+  │ describe     Provides description of stage.                                  │
+  │ drop         Drops stage with given name.                                    │
+  │ execute      Execute immediate all files from the stage path. Files can be   │
+  │              filtered with glob like pattern, e.g. `@stage/*.sql`,           │
+  │              `@stage/dev/*`. Only files with `.sql` extension will be        │
+  │              executed.                                                       │
+  │ list         Lists all available stages.                                     │
+  │ list-files   Lists the stage contents.                                       │
+  │ remove       Removes a file from a stage.                                    │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[streamlit]
   '''
                                                                                   
    Usage: default streamlit [OPTIONS] COMMAND [ARGS]...                           
