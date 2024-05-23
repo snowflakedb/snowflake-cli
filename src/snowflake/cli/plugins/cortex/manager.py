@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-from textwrap import dedent
 from typing import Callable, Optional
 
 from click import ClickException
@@ -11,7 +10,6 @@ from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.cortex.types import (
-    CortexQuery,
     Language,
     Model,
     Question,
@@ -30,15 +28,11 @@ class CortexManager(SqlExecutionMixin):
         text: Text,
         model: Model,
     ) -> str:
-        query = CortexQuery(
-            dedent(
-                f"""\
-                SELECT SNOWFLAKE.CORTEX.COMPLETE(
-                    '{model}',
-                    '{self._escape_input(text)}'
-                ) AS CORTEX_RESULT;"""
-            )
-        )
+        query = f"""\
+            SELECT SNOWFLAKE.CORTEX.COMPLETE(
+                '{model}',
+                '{self._escape_input(text)}'
+            ) AS CORTEX_RESULT;"""
         return self._query_cortex_result_str(query)
 
     def complete_for_conversation(
@@ -49,16 +43,12 @@ class CortexManager(SqlExecutionMixin):
         json_content = conversation_json_file.read_text(
             file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB
         )
-        query = CortexQuery(
-            dedent(
-                f"""\
-                SELECT SNOWFLAKE.CORTEX.COMPLETE(
-                    '{model}',
-                    PARSE_JSON('{self._escape_input(json_content)}'),
-                    {{}}
-                ) AS CORTEX_RESULT;"""
-            )
-        )
+        query = f"""\
+            SELECT SNOWFLAKE.CORTEX.COMPLETE(
+                '{model}',
+                PARSE_JSON('{self._escape_input(json_content)}'),
+                {{}}
+            ) AS CORTEX_RESULT;"""
         raw_result = self._query_cortex_result_str(query)
         json_result = json.loads(raw_result)
         return self._extract_text_result_from_json_result(
@@ -70,15 +60,11 @@ class CortexManager(SqlExecutionMixin):
         source_document: SourceDocument,
         question: Question,
     ) -> str:
-        query = CortexQuery(
-            dedent(
-                f"""\
-                SELECT SNOWFLAKE.CORTEX.EXTRACT_ANSWER(
-                    '{self._escape_input(source_document)}',
-                    '{self._escape_input(question)}'
-                ) AS CORTEX_RESULT;"""
-            )
-        )
+        query = f"""\
+            SELECT SNOWFLAKE.CORTEX.EXTRACT_ANSWER(
+                '{self._escape_input(source_document)}',
+                '{self._escape_input(question)}'
+            ) AS CORTEX_RESULT;"""
         raw_result = self._query_cortex_result_str(query)
         json_result = json.loads(raw_result)
         return self._extract_text_result_from_json_result(
@@ -101,14 +87,10 @@ class CortexManager(SqlExecutionMixin):
         self,
         text: Text,
     ) -> str:
-        query = CortexQuery(
-            dedent(
-                f"""\
-                SELECT SNOWFLAKE.CORTEX.SENTIMENT(
-                    '{self._escape_input(text)}'
-                ) AS CORTEX_RESULT;"""
-            )
-        )
+        query = f"""\
+            SELECT SNOWFLAKE.CORTEX.SENTIMENT(
+                '{self._escape_input(text)}'
+            ) AS CORTEX_RESULT;"""
         return self._query_cortex_result_str(query)
 
     def calculate_sentiment_for_text_file(
@@ -124,14 +106,10 @@ class CortexManager(SqlExecutionMixin):
         self,
         text: Text,
     ) -> str:
-        query = CortexQuery(
-            dedent(
-                f"""\
-                SELECT SNOWFLAKE.CORTEX.SUMMARIZE(
-                    '{self._escape_input(text)}'
-                ) AS CORTEX_RESULT;"""
-            )
-        )
+        query = f"""\
+            SELECT SNOWFLAKE.CORTEX.SUMMARIZE(
+                '{self._escape_input(text)}'
+            ) AS CORTEX_RESULT;"""
         return self._query_cortex_result_str(query)
 
     def summarize_text_file(
@@ -149,16 +127,12 @@ class CortexManager(SqlExecutionMixin):
         source_language: Optional[Language],
         target_language: Language,
     ) -> str:
-        query = CortexQuery(
-            dedent(
-                f"""\
-                SELECT SNOWFLAKE.CORTEX.TRANSLATE(
-                    '{self._escape_input(text)}',
-                    '{source_language or ""}',
-                    '{target_language}'
-                ) AS CORTEX_RESULT;"""
-            )
-        )
+        query = f"""\
+            SELECT SNOWFLAKE.CORTEX.TRANSLATE(
+                '{self._escape_input(text)}',
+                '{source_language or ""}',
+                '{target_language}'
+            ) AS CORTEX_RESULT;"""
         return self._query_cortex_result_str(query)
 
     def translate_text_file(
@@ -190,7 +164,7 @@ class CortexManager(SqlExecutionMixin):
             log.debug("Cannot find Cortex result message in a response", exc_info=ex)
             raise ClickException("Unexpected format of response from Snowflake")
 
-    def _query_cortex_result_str(self, query: CortexQuery) -> str:
+    def _query_cortex_result_str(self, query: str) -> str:
         try:
             cursor = self._execute_query(query, cursor_class=DictCursor)
             if cursor.rowcount is None:
