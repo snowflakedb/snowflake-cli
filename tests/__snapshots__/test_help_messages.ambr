@@ -17,7 +17,7 @@
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
   │ app          Manages a Snowflake Native App                                  │
   │ connection   Manages connections to Snowflake.                               │
-  │ cortex       Provides access to Snowflake Cortex LLM.                        │
+  │ cortex       Provides access to Snowflake Cortex.                            │
   │ git          Manages git repositories in Snowflake.                          │
   │ object       Manages Snowflake objects like warehouses and stages            │
   │ snowpark     Manages procedures and functions.                               │
@@ -1091,7 +1091,7 @@
                                                                                   
    Usage: default cortex [OPTIONS] COMMAND [ARGS]...                              
                                                                                   
-   Provides access to Snowflake Cortex LLM.                                       
+   Provides access to Snowflake Cortex.                                           
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │

@@ -18,7 +18,6 @@
        of `snowflake.yml` will be used to expand templates.
  * `snow sql` support executing multiple files. Users can use `-f/--file` flag more than once to execute queries
       from many files.
- *  `snow connection test` command accepts all connection parameters including support for temporary connection.
  * `snow connection test` command accepts all connection parameters including support for temporary connection.
  * Added integration with Cortex AI using commands:
    * `snow cortex search` for integration with Cortex Search Service
