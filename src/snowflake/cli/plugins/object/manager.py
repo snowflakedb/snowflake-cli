@@ -96,9 +96,11 @@ class ObjectManager(SqlExecutionMixin):
             raise err
 
     def _get_rest_api_create_url(self, object_type: str):
-        plural_object_type = _get_object_names(object_type).sf_plural_name.replace(
-            " ", "-"
-        )
+        if object_type.endswith("y"):
+            plural_object_type = object_type[:-1].lower() + "ies"
+        else:
+            plural_object_type = object_type.lower() + "s"
+
         url_prefix = "/api/v2"
 
         url = f"{url_prefix}/{plural_object_type}/"
