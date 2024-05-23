@@ -17,6 +17,8 @@ from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.cli.api.utils.models import EnvironWithDefinedDictFallback
 
 _CONTEXT_KEY = "ctx"
+_YML_TEMPLATE_START = "<%"
+_YML_TEMPLATE_END = "%>"
 
 
 def read_file_content(file_name: str):
@@ -59,8 +61,8 @@ def get_snowflake_cli_jinja_env():
         Environment(
             loader=loaders.BaseLoader(),
             keep_trailing_newline=True,
-            variable_start_string="${",
-            variable_end_string="}",
+            variable_start_string=_YML_TEMPLATE_START,
+            variable_end_string=_YML_TEMPLATE_END,
             block_start_string=_random_block,
             block_end_string=_random_block,
             undefined=StrictUndefined,
@@ -129,7 +131,7 @@ def _remove_ctx_env_prefix(text: str) -> str:
 
 
 def string_includes_template(text: str) -> bool:
-    return bool(re.search(r"\${.+}", text))
+    return bool(re.search(rf"{_YML_TEMPLATE_START}.+{_YML_TEMPLATE_END}", text))
 
 
 def _resolve_variables_in_project(project_definition: ProjectDefinition):
@@ -235,11 +237,13 @@ def _get_variables_with_dependencies(variables_data: EnvironWithDefinedDictFallb
 
 def _search_for_required_variables(variable_value: str):
     """
-    Look for ${...} pattern in  variable value. Returns a list of env variables required
+    Look for pattern in  variable value. Returns a list of env variables required
     to expand this template.`
     """
     ctx_env_prefix = f"{_CONTEXT_KEY}.env."
-    found_variables = re.findall(r"(\${([\.\w ]+)})+", variable_value)
+    found_variables = re.findall(
+        rf"({_YML_TEMPLATE_START}([\.\w ]+){_YML_TEMPLATE_END})+", variable_value
+    )
     required_variables = []
     for _, variable in found_variables:
         var: str = variable.strip()
