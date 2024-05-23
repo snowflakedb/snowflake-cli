@@ -19,6 +19,7 @@
  * `snow sql` support executing multiple files. Users can use `-f/--file` flag more than once to execute queries
       from many files.
  *  `snow connection test` command accepts all connection parameters including support for temporary connection.
+ * `snow git execute` and `snow stage execute` support passing input variables for SQL execution.
 
 ## Fixes and improvements
 * Improved support for quoted identifiers.
