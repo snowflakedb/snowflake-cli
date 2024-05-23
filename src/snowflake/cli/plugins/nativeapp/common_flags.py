@@ -1,10 +1,11 @@
 import typer
+from snowflake.cli.plugins.nativeapp.utils import is_tty_interactive
 
 InteractiveOption = typer.Option(
-    False,
+    is_tty_interactive(),
     "--interactive",
     "-i",
-    help=f"""When enabled, this option displays prompts even if the standard input and output are not terminal devices. Defaults to unset.""",
+    help=f"""When enabled, this option displays prompts even if the standard input and output are not terminal devices. Defaults to True in an interactive shell environment, and False otherwise.""",
     is_flag=True,
 )
 
