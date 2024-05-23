@@ -7,7 +7,7 @@ from snowflake.connector.cursor import SnowflakeCursor
 
 
 class JobManager(SqlExecutionMixin):
-    def create(self, compute_pool: str, spec_path: Path, name: str | None) -> SnowflakeCursor:
+    def create(self, compute_pool: str, spec_path: Path, name: str) -> SnowflakeCursor:
         spec = self._read_yaml(spec_path)
         return self._execute_schema_query(
             f"""\
@@ -16,14 +16,7 @@ class JobManager(SqlExecutionMixin):
             NAME={name}
             FROM SPECIFICATION $$
             {spec}
-            $$
-            """ if name else f"""\
-            EXECUTE JOB SERVICE
-            IN COMPUTE POOL {compute_pool}
-            FROM SPECIFICATION $$
-            {spec}
-            $$
-            """
+            $$"""
         )
 
     def _read_yaml(self, path: Path) -> str:

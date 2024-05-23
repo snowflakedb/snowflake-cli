@@ -28,14 +28,18 @@ def create(
         exists=True,
     ),
     name: str = typer.Option(
-        None, "--name", help="Name of the job. If not provided, a random name is generated."
+        ...,
+        "--name",
+        help="Name of the job.",
     ),
     **options,
 ) -> CommandResult:
     """
     Creates a job to run in a compute pool.
     """
-    cursor = JobManager().create(compute_pool=compute_pool, spec_path=spec_path, name=name)
+    cursor = JobManager().create(
+        compute_pool=compute_pool, spec_path=spec_path, name=name
+    )
     return SingleQueryResult(cursor)
 
 
