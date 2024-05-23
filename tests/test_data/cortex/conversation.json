@@ -1,0 +1,14 @@
+[
+  {
+    "role": "user",
+    "content": "how does a \"snowflake\" get its 'unique' pattern?"
+  },
+  {
+    "role": "system",
+    "content": "I don't know"
+  },
+  {
+    "role": "user",
+    "content": "I thought \"you\" are smarter"
+  }
+]

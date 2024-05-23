@@ -96,7 +96,9 @@ class SnowCLIRunner(CliRunner):
         if result.output == "" or result.output.strip() == "Done":
             return CommandResult(result.exit_code, json=[])
         try:
-            return CommandResult(result.exit_code, json.loads(result.output))
+            return CommandResult(
+                result.exit_code, json.loads(result.output), output=result.output
+            )
         except JSONDecodeError:
             return CommandResult(result.exit_code, output=result.output)
 
