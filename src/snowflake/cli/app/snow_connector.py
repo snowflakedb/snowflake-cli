@@ -157,8 +157,9 @@ def _update_connection_application_name(connection_parameters: Dict):
     """Update version and name of app handling connection."""
     connection_application_params = {
         "application_name": PARAM_APPLICATION_NAME,
-        "_internal_application_name": PARAM_INTERNAL_APPLICATION_NAME,
-        "_internal_application_version": VERSION,
+        "application": PARAM_APPLICATION_NAME,
+        "internal_application_name": PARAM_INTERNAL_APPLICATION_NAME,
+        "internal_application_version": VERSION,
     }
     connection_parameters.update(connection_application_params)
 
