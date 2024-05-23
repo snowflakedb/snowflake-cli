@@ -1,0 +1,14 @@
+[
+  {
+    "role": "user",
+    "content": "Is 5 more than 4? Please answer using one word without a period."
+  },
+  {
+    "role": "system",
+    "content": "I don't know"
+  },
+  {
+    "role": "user",
+    "content": "I think you know. Please answer using one word without a period."
+  }
+]
