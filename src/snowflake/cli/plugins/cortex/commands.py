@@ -11,7 +11,7 @@ from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.cortex.constants import DEFAULT_MODEL
 from snowflake.cli.plugins.cortex.manager import CortexManager
-from snowflake.cli.plugins.cortex.models import (
+from snowflake.cli.plugins.cortex.types import (
     Language,
     Model,
     Question,
@@ -42,7 +42,7 @@ def complete(
     ),
     file: Optional[Path] = readable_file_option(
         param_name="--file",
-        help_str="File containing conversation history to be used to generate a completion. Cannot be combined with TEXT argument.",
+        help_str="JSON file containing conversation history to be used to generate a completion. Cannot be combined with TEXT argument.",
     ),
     **options,
 ) -> CommandResult:
@@ -84,7 +84,7 @@ def extract_answer(
     ),
     source_document_text: Optional[str] = typer.Argument(
         None,
-        help="String containing the plain-text or JSON document that contains the answer to the question.",
+        help="String containing the plain-text or JSON document that contains the answer to the question. Cannot be combined with --file option.",
         show_default=False,
     ),
     file: Optional[Path] = readable_file_option(
@@ -129,12 +129,12 @@ def extract_answer(
 def sentiment(
     text: Optional[str] = typer.Argument(
         None,
-        help="String containing the text for which a sentiment score should be calculated.",
+        help="String containing the text for which a sentiment score should be calculated. Cannot be combined with --file option.",
         show_default=False,
     ),
     file: Optional[Path] = readable_file_option(
         param_name="--file",
-        help_str="File containing the text for which a sentiment score should be calculated.",
+        help_str="File containing the text for which a sentiment score should be calculated. Cannot be combined with TEXT argument.",
     ),
     **options,
 ) -> CommandResult:
@@ -169,12 +169,12 @@ def sentiment(
 def summarize(
     text: Optional[str] = typer.Argument(
         None,
-        help="String containing the English text from which a summary should be generated.",
+        help="String containing the English text from which a summary should be generated. Cannot be combined with --file option.",
         show_default=False,
     ),
     file: Optional[Path] = readable_file_option(
         param_name="--file",
-        help_str="File containing the English text from which a summary should be generated.",
+        help_str="File containing the English text from which a summary should be generated. Cannot be combined with TEXT argument.",
     ),
     **options,
 ) -> CommandResult:
@@ -207,7 +207,7 @@ def summarize(
 def translate(
     text: Optional[str] = typer.Argument(
         None,
-        help="String containing the text to be translated.",
+        help="String containing the text to be translated. Cannot be combined with --file option.",
         show_default=False,
     ),
     from_language: Optional[str] = typer.Option(
@@ -224,7 +224,7 @@ def translate(
     ),
     file: Optional[Path] = readable_file_option(
         param_name="--file",
-        help_str="File containing the text to be translated.",
+        help_str="File containing the text to be translated. Cannot be combined with TEXT argument.",
     ),
     **options,
 ) -> CommandResult:

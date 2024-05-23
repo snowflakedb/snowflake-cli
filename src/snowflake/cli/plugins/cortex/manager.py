@@ -10,9 +10,8 @@ from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
-from snowflake.cli.plugins.cortex.models import (
+from snowflake.cli.plugins.cortex.types import (
     CortexQuery,
-    CortexResultText,
     Language,
     Model,
     Question,
@@ -30,7 +29,7 @@ class CortexManager(SqlExecutionMixin):
         self,
         text: Text,
         model: Model,
-    ) -> CortexResultText:
+    ) -> str:
         query = CortexQuery(
             dedent(
                 f"""\
@@ -40,14 +39,13 @@ class CortexManager(SqlExecutionMixin):
                 ) AS CORTEX_RESULT;"""
             )
         )
-        result = self._query_cortex_result_str(query)
-        return CortexResultText(result)
+        return self._query_cortex_result_str(query)
 
     def complete_for_conversation(
         self,
         conversation_json_file: SecurePath,
         model: Model,
-    ) -> CortexResultText:
+    ) -> str:
         json_content = conversation_json_file.read_text(
             file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB
         )
@@ -71,7 +69,7 @@ class CortexManager(SqlExecutionMixin):
         self,
         source_document: SourceDocument,
         question: Question,
-    ) -> CortexResultText:
+    ) -> str:
         query = CortexQuery(
             dedent(
                 f"""\
@@ -91,7 +89,7 @@ class CortexManager(SqlExecutionMixin):
         self,
         source_document_input_file: SecurePath,
         question: Question,
-    ) -> CortexResultText:
+    ) -> str:
         source_document_content = source_document_input_file.read_text(
             file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB
         )
@@ -102,7 +100,7 @@ class CortexManager(SqlExecutionMixin):
     def calculate_sentiment_for_text(
         self,
         text: Text,
-    ) -> CortexResultText:
+    ) -> str:
         query = CortexQuery(
             dedent(
                 f"""\
@@ -111,13 +109,12 @@ class CortexManager(SqlExecutionMixin):
                 ) AS CORTEX_RESULT;"""
             )
         )
-        result = self._query_cortex_result_str(query)
-        return CortexResultText(result)
+        return self._query_cortex_result_str(query)
 
     def calculate_sentiment_for_text_file(
         self,
         text_file: SecurePath,
-    ) -> CortexResultText:
+    ) -> str:
         file_content = text_file.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB)
         return self.calculate_sentiment_for_text(
             text=Text(file_content),
@@ -126,7 +123,7 @@ class CortexManager(SqlExecutionMixin):
     def summarize_text(
         self,
         text: Text,
-    ) -> CortexResultText:
+    ) -> str:
         query = CortexQuery(
             dedent(
                 f"""\
@@ -135,13 +132,12 @@ class CortexManager(SqlExecutionMixin):
                 ) AS CORTEX_RESULT;"""
             )
         )
-        result = self._query_cortex_result_str(query)
-        return CortexResultText(result)
+        return self._query_cortex_result_str(query)
 
     def summarize_text_file(
         self,
         text_file: SecurePath,
-    ) -> CortexResultText:
+    ) -> str:
         file_content = text_file.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB)
         return self.summarize_text(
             text=Text(file_content),
@@ -152,7 +148,7 @@ class CortexManager(SqlExecutionMixin):
         text: Text,
         source_language: Optional[Language],
         target_language: Language,
-    ) -> CortexResultText:
+    ) -> str:
         query = CortexQuery(
             dedent(
                 f"""\
@@ -163,15 +159,14 @@ class CortexManager(SqlExecutionMixin):
                 ) AS CORTEX_RESULT;"""
             )
         )
-        result = self._query_cortex_result_str(query)
-        return CortexResultText(result)
+        return self._query_cortex_result_str(query)
 
     def translate_text_file(
         self,
         text_file: SecurePath,
         source_language: Optional[Language],
         target_language: Language,
-    ) -> CortexResultText:
+    ) -> str:
         file_content = text_file.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB)
         return self.translate_text(
             text=Text(file_content),
@@ -187,10 +182,10 @@ class CortexManager(SqlExecutionMixin):
 
     @staticmethod
     def _extract_text_result_from_json_result(
-        extract_function: Callable[[], CortexResultText]
-    ) -> CortexResultText:
+        extract_function: Callable[[], str]
+    ) -> str:
         try:
-            return CortexResultText(extract_function())
+            return extract_function()
         except (KeyError, IndexError) as ex:
             log.debug("Cannot find Cortex result message in a response", exc_info=ex)
             raise ClickException("Unexpected format of response from Snowflake")

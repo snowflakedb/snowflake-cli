@@ -998,9 +998,9 @@
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --model          TEXT  String specifying the model to be used.               │
   │                        [default: snowflake-arctic]                           │
-  │ --file           FILE  File containing conversation history to be used to    │
-  │                        generate a completion. Cannot be combined with TEXT   │
-  │                        argument.                                             │
+  │ --file           FILE  JSON file containing conversation history to be used  │
+  │                        to generate a completion. Cannot be combined with     │
+  │                        TEXT argument.                                        │
   │ --help   -h            Show this message and exit.                           │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -1075,7 +1075,9 @@
   │                                                     plain-text or JSON       │
   │                                                     document that contains   │
   │                                                     the answer to the        │
-  │                                                     question.                │
+  │                                                     question. Cannot be      │
+  │                                                     combined with --file     │
+  │                                                     option.                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --file          FILE  File containing the plain-text or JSON document that   │
@@ -1149,11 +1151,13 @@
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │   text      [TEXT]  String containing the text for which a sentiment score   │
-  │                     should be calculated.                                    │
+  │                     should be calculated. Cannot be combined with --file     │
+  │                     option.                                                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --file          FILE  File containing the text for which a sentiment score   │
-  │                       should be calculated.                                  │
+  │                       should be calculated. Cannot be combined with TEXT     │
+  │                       argument.                                              │
   │ --help  -h            Show this message and exit.                            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -1220,11 +1224,13 @@
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │   text      [TEXT]  String containing the English text from which a summary  │
-  │                     should be generated.                                     │
+  │                     should be generated. Cannot be combined with --file      │
+  │                     option.                                                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --file          FILE  File containing the English text from which a summary  │
-  │                       should be generated.                                   │
+  │                       should be generated. Cannot be combined with TEXT      │
+  │                       argument.                                              │
   │ --help  -h            Show this message and exit.                            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -1291,7 +1297,8 @@
    language.                                                                      
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │   text      [TEXT]  String containing the text to be translated.             │
+  │   text      [TEXT]  String containing the text to be translated. Cannot be   │
+  │                     combined with --file option.                             │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │    --from          TEXT  String specifying the language code for the         │
@@ -1303,7 +1310,8 @@
   │                          documentation for a list of supported language      │
   │                          codes.                                              │
   │                          [required]                                          │
-  │    --file          FILE  File containing the text to be translated.          │
+  │    --file          FILE  File containing the text to be translated. Cannot   │
+  │                          be combined with TEXT argument.                     │
   │    --help  -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
