@@ -14,6 +14,7 @@
         }),
       ]),
       'deploy_root': 'output/deploy/',
+      'generated_root': '__generated/',
       'name': 'integration',
       'package': dict({
         'distribution': 'internal',
@@ -46,6 +47,7 @@
         }),
       ]),
       'deploy_root': 'output/deploy/',
+      'generated_root': '__generated/',
       'name': 'integration_external',
       'package': dict({
         'distribution': 'external',
@@ -74,6 +76,7 @@
         'README.md',
       ]),
       'deploy_root': 'output/deploy/',
+      'generated_root': '__generated/',
       'name': 'minimal',
       'package': None,
       'source_stage': 'app_src.stage',
@@ -104,6 +107,7 @@
         }),
       ]),
       'deploy_root': 'output/deploy/',
+      'generated_root': '__generated/',
       'name': 'myapp',
       'package': dict({
         'distribution': 'internal',
@@ -143,6 +147,7 @@
         }),
       ]),
       'deploy_root': 'output/deploy/',
+      'generated_root': '__generated/',
       'name': 'myapp',
       'package': dict({
         'distribution': 'internal',
