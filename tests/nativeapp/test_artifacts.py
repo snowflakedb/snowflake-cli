@@ -17,7 +17,6 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     SourceNotFoundError,
     TooManyFilesError,
     build_bundle,
-    find_setup_script_file,
     resolve_without_follow,
     translate_artifact,
 )
