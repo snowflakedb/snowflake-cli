@@ -20,7 +20,6 @@ def iter_through_all_commands(command_groups_only: bool = False):
     yield no_command
 
     def _iter_through_commands(command, path):
-        print(path, type(command))
         if not command_groups_only or isinstance(command, TyperGroup):
             yield list(path)
 
