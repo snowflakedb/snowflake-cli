@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_deannotate_preserves_specified_annotations
+# name: test_deannotate_module_source_preserves_specified_annotations
   '''
   import snowflake.snowpark
   
@@ -13,7 +13,10 @@
   def sproc_sum(session: Session, first: int, second: int) -> int:
       return first + second
   
-  #: @udf(native_app_params={'schema': 'math', 'application_roles': ['app_public', 'app_admin']})
+  #: @udf(native_app_params={
+  #:     'schema': 'math',
+  #:     'application_roles': ['app_public', 'app_admin']
+  #: })
   #: @module.annotation
   def udf_sum(first: int, second: int) -> int:
       return first + second
@@ -23,7 +26,7 @@
       pass
   '''
 # ---
-# name: test_deannotate_preserves_specified_annotations.1
+# name: test_deannotate_module_source_preserves_specified_annotations.1
   '''
   import snowflake.snowpark
   
@@ -37,7 +40,10 @@
   def sproc_sum(session: Session, first: int, second: int) -> int:
       return first + second
   
-  #: @udf(native_app_params={'schema': 'math', 'application_roles': ['app_public', 'app_admin']})
+  #: @udf(native_app_params={
+  #:     'schema': 'math',
+  #:     'application_roles': ['app_public', 'app_admin']
+  #: })
   @module.annotation
   def udf_sum(first: int, second: int) -> int:
       return first + second
@@ -47,7 +53,7 @@
       pass
   '''
 # ---
-# name: test_deannotate_removes_all_annotations
+# name: test_deannotate_module_source_removes_all_annotations
   '''
   import snowflake.snowpark
   
@@ -61,32 +67,11 @@
   def sproc_sum(session: Session, first: int, second: int) -> int:
       return first + second
   
-  #: @udf(native_app_params={'schema': 'math', 'application_roles': ['app_public', 'app_admin']})
+  #: @udf(native_app_params={
+  #:     'schema': 'math',
+  #:     'application_roles': ['app_public', 'app_admin']
+  #: })
   #: @module.annotation
-  def udf_sum(first: int, second: int) -> int:
-      return first + second
-  
-  @custom
-  def helper():
-      pass
-  '''
-# ---
-# name: test_deannotate_uses_line_numbers_if_provided
-  '''
-  import snowflake.snowpark
-  
-  from typing import Optional
-  from snowflake.snowpark.session import Session
-  from snowflake.snowpark.functions import col, sum, sproc
-  
-  
-  #: @custom
-  #: @sproc(native_app_params={'schema': 'math', 'application_roles': ['app_public', 'app_admin']})
-  def sproc_sum(session: Session, first: int, second: int) -> int:
-      return first + second
-  
-  @udf(native_app_params={'schema': 'math', 'application_roles': ['app_public', 'app_admin']})
-  @module.annotation
   def udf_sum(first: int, second: int) -> int:
       return first + second
   

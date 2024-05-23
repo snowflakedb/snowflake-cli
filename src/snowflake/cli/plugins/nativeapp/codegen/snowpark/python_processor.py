@@ -24,7 +24,7 @@ from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
     execute_script_in_sandbox,
 )
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.extension_function_utils import (
-    deannotate,
+    deannotate_module_source,
     ensure_all_string_literals,
     ensure_string_literal,
     get_qualified_object_name,
@@ -277,7 +277,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
             # if the file is a symlink, make sure we don't overwrite the original
             py_file.unlink()
 
-        new_code = deannotate(code, extension_fns)
+        new_code = deannotate_module_source(code, extension_fns)
 
         with open(py_file, "w", encoding="utf-8") as f:
             f.write(new_code)

@@ -104,7 +104,10 @@ from snowflake.snowpark.functions import col, sum, sproc
 def sproc_sum(session: Session, first: int, second: int) -> int:
     return first + second
 
-@udf(native_app_params={'schema': 'math', 'application_roles': ['app_public', 'app_admin']})
+@udf(native_app_params={
+    'schema': 'math',
+    'application_roles': ['app_public', 'app_admin']
+})
 @module.annotation
 def udf_sum(first: int, second: int) -> int:
     return first + second
@@ -116,53 +119,7 @@ def helper():
 ).strip()
 
 
-def test_deannotate_removes_all_annotations(snapshot):
-    sproc = NativeAppExtensionFunction(
-        type="procedure",
-        handler="math_fns.sproc_sum",
-        returns="int",
-        signature=[
-            Argument(name="first", type="int"),
-            Argument(name="second", type="int"),
-        ],
-    )
-    udf = NativeAppExtensionFunction(
-        type="function",
-        handler="math_fns.udf_sum",
-        returns="int",
-        signature=[
-            Argument(name="first", type="int"),
-            Argument(name="second", type="int"),
-        ],
-    )
-    assert ef_utils.deannotate(TEST_SNOWPARK_CODE, [sproc, udf]) == snapshot
-
-
-def test_deannotate_uses_line_numbers_if_provided(snapshot):
-    sproc = NativeAppExtensionFunction(
-        type="procedure",
-        handler="math_fns.sproc_sum",
-        returns="int",
-        signature=[
-            Argument(name="first", type="int"),
-            Argument(name="second", type="int"),
-        ],
-        lineno=10,
-    )
-    udf = NativeAppExtensionFunction(
-        type="function",
-        handler="math_fns.udf_sum",
-        returns="int",
-        signature=[
-            Argument(name="first", type="int"),
-            Argument(name="second", type="int"),
-        ],
-        lineno=11,  # lineno mismatch, the function will not be deannotated
-    )
-    assert ef_utils.deannotate(TEST_SNOWPARK_CODE, [sproc, udf]) == snapshot
-
-
-def test_deannotate_preserves_specified_annotations(snapshot):
+def test_deannotate_module_source_removes_all_annotations(snapshot):
     sproc = NativeAppExtensionFunction(
         type="procedure",
         handler="math_fns.sproc_sum",
@@ -182,13 +139,37 @@ def test_deannotate_preserves_specified_annotations(snapshot):
         ],
     )
     assert (
-        ef_utils.deannotate(
+        ef_utils.deannotate_module_source(TEST_SNOWPARK_CODE, [sproc, udf]) == snapshot
+    )
+
+
+def test_deannotate_module_source_preserves_specified_annotations(snapshot):
+    sproc = NativeAppExtensionFunction(
+        type="procedure",
+        handler="math_fns.sproc_sum",
+        returns="int",
+        signature=[
+            Argument(name="first", type="int"),
+            Argument(name="second", type="int"),
+        ],
+    )
+    udf = NativeAppExtensionFunction(
+        type="function",
+        handler="math_fns.udf_sum",
+        returns="int",
+        signature=[
+            Argument(name="first", type="int"),
+            Argument(name="second", type="int"),
+        ],
+    )
+    assert (
+        ef_utils.deannotate_module_source(
             TEST_SNOWPARK_CODE, [sproc, udf], annotations_to_preserve=["custom"]
         )
         == snapshot
     )
     assert (
-        ef_utils.deannotate(
+        ef_utils.deannotate_module_source(
             TEST_SNOWPARK_CODE,
             [sproc, udf],
             annotations_to_preserve=["module.annotation"],
@@ -197,7 +178,7 @@ def test_deannotate_preserves_specified_annotations(snapshot):
     )
 
 
-def test_deannotate_is_identity_when_no_functions_present(snapshot):
+def test_deannotate_module_source_is_identity_when_no_functions_present(snapshot):
     sproc = NativeAppExtensionFunction(
         type="procedure",
         handler="math_fns.sproc_sum",
@@ -225,14 +206,16 @@ def test_deannotate_is_identity_when_no_functions_present(snapshot):
     )
 
     assert (
-        ef_utils.deannotate(
+        ef_utils.deannotate_module_source(
             non_annotated_code, [sproc, udf], annotations_to_preserve=["custom"]
         )
         == non_annotated_code
     )
 
 
-def test_deannotate_is_identity_when_no_annotated_functions_present(snapshot):
+def test_deannotate_module_source_is_identity_when_no_annotated_functions_present(
+    snapshot,
+):
     sproc = NativeAppExtensionFunction(
         type="procedure",
         handler="math_fns.sproc_sum",
@@ -260,14 +243,16 @@ def test_deannotate_is_identity_when_no_annotated_functions_present(snapshot):
     )
 
     assert (
-        ef_utils.deannotate(
+        ef_utils.deannotate_module_source(
             non_annotated_code, [sproc, udf], annotations_to_preserve=["custom"]
         )
         == non_annotated_code
     )
 
 
-def test_deannotate_is_identity_when_extension_function_does_not_match(snapshot):
+def test_deannotate_module_source_is_identity_when_extension_function_does_not_match(
+    snapshot,
+):
     sproc = NativeAppExtensionFunction(
         type="procedure",
         handler="math_fns.my_sproc_sum",  # trigger mismatch
@@ -287,4 +272,7 @@ def test_deannotate_is_identity_when_extension_function_does_not_match(snapshot)
         ],
     )
 
-    assert ef_utils.deannotate(TEST_SNOWPARK_CODE, [sproc, udf]) == TEST_SNOWPARK_CODE
+    assert (
+        ef_utils.deannotate_module_source(TEST_SNOWPARK_CODE, [sproc, udf])
+        == TEST_SNOWPARK_CODE
+    )

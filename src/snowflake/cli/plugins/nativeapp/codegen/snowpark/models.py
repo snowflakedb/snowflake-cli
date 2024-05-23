@@ -21,7 +21,8 @@ class NativeAppExtensionFunction(_CallableBase):
         alias="type",
     )
     lineno: Optional[int] = Field(
-        title="The start line number of the extension function (1-based)", default=None
+        title="The starting line number of the extension function (1-based)",
+        default=None,
     )
     name: Optional[str] = Field(
         title="The name of the extension function", default=None

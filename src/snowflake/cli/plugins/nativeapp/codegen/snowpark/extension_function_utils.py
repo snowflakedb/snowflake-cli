@@ -88,6 +88,12 @@ def ensure_all_string_literals(values: Sequence[str]) -> List[str]:
 
 
 class _FunctionDefAccumulator(ast.NodeVisitor):
+    """
+    A NodeVisitor that collects AST nodes corresponding to function declarations, filtered by a list
+    of wanted functions. This is used to identify all Snowpark extension functions in a module's
+    source code.
+    """
+
     def __init__(self, functions: Sequence[NativeAppExtensionFunction]):
         self._wanted_functions_by_name = {
             fn.handler.split(".")[-1]: fn for fn in functions
@@ -104,23 +110,18 @@ class _FunctionDefAccumulator(ast.NodeVisitor):
             # No decorators for this definition, ignore it
             return False
 
-        if node.name in self._wanted_functions_by_name:
-            lineno = self._wanted_functions_by_name[node.name].lineno
-            if lineno is not None:
-                return node.lineno == lineno
-
-            # The function doesn't have a line specified, assume it's a match
-            return True
-
-        return False
+        return node.name in self._wanted_functions_by_name
 
 
 def _get_decorator_id(node: ast.AST) -> Optional[str]:
+    """
+    Returns the fully qualified identifier for a decorator, e.g. "foo" or "foo.bar".
+    """
     if isinstance(node, ast.Name):
         return node.id
     elif isinstance(node, ast.Attribute):
         return f"{_get_decorator_id(node.value)}.{node.attr}"
-    if isinstance(node, ast.Call):
+    elif isinstance(node, ast.Call):
         return _get_decorator_id(node.func)
     else:
         return None
@@ -134,7 +135,7 @@ def _collect_ast_function_definitions(
     return accumulator.definitions
 
 
-def deannotate(
+def deannotate_module_source(
     module_source: str,
     extension_functions: Sequence[NativeAppExtensionFunction],
     annotations_to_preserve: Sequence[str] = (),
