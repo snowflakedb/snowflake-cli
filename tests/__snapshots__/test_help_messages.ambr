@@ -6606,7 +6606,7 @@
    queries from file will be executed) or via stdin by piping output from other   
    command. For example `cat my.sql | snow sql -i`.                               
    The command supports variable substitution that happens on client-side. Both   
-   $VARIABLE or ${ VARIABLE } syntax are supported.                               
+   &VARIABLE or &{ VARIABLE } syntax are supported.                               
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --query     -q      TEXT  Query to execute. [default: None]                  │
