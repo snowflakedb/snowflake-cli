@@ -417,7 +417,6 @@ VariablesOption = typer.Option(
     "--variable",
     "-D",
     help="Variables for the template. For example: `-D \"<key>=<value>\"`, string values must be in `''`.",
-    hidden=True,
     show_default=False,
 )
 
