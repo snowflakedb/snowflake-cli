@@ -7,6 +7,7 @@ from textwrap import dedent
 from typing import Any, Dict, List, Optional
 
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
@@ -23,10 +24,17 @@ from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
     execute_script_in_sandbox,
 )
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.extension_function_utils import (
-    enrich_ex_fn,
-    get_object_type_as_text,
-    sanitize_extension_function_data,
+    ensure_all_string_literals,
+    ensure_string_literal,
+    get_qualified_object_name,
+    get_sql_argument_signature,
+    get_sql_object_type,
 )
+from snowflake.cli.plugins.nativeapp.codegen.snowpark.models import (
+    ExtensionFunctionTypeEnum,
+    NativeAppExtensionFunction,
+)
+from snowflake.cli.plugins.stage.diff import to_stage_path
 
 DEFAULT_TIMEOUT = 30
 TEMPLATE_PATH = Path(__file__).parent / "callback_source.py.jinja"
@@ -83,6 +91,10 @@ def _determine_virtual_env(
     return {}
 
 
+def _is_python_file_artifact(src: Path, dest: Path):
+    return src.is_file() and src.suffix == ".py"
+
+
 def _execute_in_sandbox(
     py_file: str, deploy_root: Path, kwargs: Dict[str, Any]
 ) -> Optional[List[Dict[str, Any]]]:
@@ -98,8 +110,6 @@ def _execute_in_sandbox(
             timeout=DEFAULT_TIMEOUT,
             **kwargs,
         )
-        cc.message(f"stdout: {completed_process.stdout}")
-        cc.message(f"stderr: {completed_process.stderr}")
     except SandboxExecutionError as sdbx_err:
         cc.warning(
             f"Could not fetch Snowpark objects from {py_file} due to {sdbx_err}, continuing execution for the rest of the python files."
@@ -154,217 +164,182 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         artifact_to_process: PathMapping,
         processor_mapping: Optional[ProcessorMapping],
         **kwargs,
-    ) -> Dict[Path, str]:
+    ) -> str:  # String output is temporary until we have better e2e testing mechanism
         """
-        Intended to be the main method which can perform all relevant processing, and/or write to a target file, which depends on the type of processor.
-        For SnowparkAnnotationProcessor, the target file is the setup script.
+        Collects code annotations from Snowpark python files containing extension functions and augments the existing
+        setup script with generated SQL that registers these functions.
         """
 
+        bundle_map = BundleMap(
+            project_root=self.project_root, deploy_root=self.deploy_root
+        )
+        bundle_map.add(artifact_to_process)
+
+        collected_extension_functions_by_path = self.collect_extension_functions(
+            bundle_map, processor_mapping
+        )
+
+        collected_output = []
+        for py_file, extension_fns in collected_extension_functions_by_path.items():
+            for extension_fn in extension_fns:
+                create_stmt = generate_create_sql_ddl_statement(extension_fn)
+                if create_stmt is None:
+                    continue
+
+                cc.message(
+                    "-- Generating Snowpark annotation SQL code for {}".format(py_file)
+                )
+                cc.message(create_stmt)
+                collected_output.append(
+                    f"-- {py_file.relative_to(bundle_map.deploy_root())}"
+                )
+                collected_output.append(create_stmt)
+
+                grant_statements = generate_grant_sql_ddl_statements(extension_fn)
+                if grant_statements is not None:
+                    cc.message(grant_statements)
+                    collected_output.append(grant_statements)
+
+        return "\n".join(collected_output)
+
+    def _normalize(self, extension_fn: NativeAppExtensionFunction, py_file: Path):
+        if extension_fn.name is None:
+            # The extension function was not named explicitly, use the name of the Python function object as its name
+            extension_fn.name = extension_fn.handler
+
+        # Compute the fully qualified handler
+        extension_fn.handler = f"{py_file.stem}.{extension_fn.handler}"
+
+        if extension_fn.imports is None:
+            extension_fn.imports = []
+        extension_fn.imports.append(f"/{to_stage_path(py_file)}")
+
+    def collect_extension_functions(
+        self, bundle_map: BundleMap, processor_mapping: Optional[ProcessorMapping]
+    ) -> Dict[Path, List[NativeAppExtensionFunction]]:
         kwargs = (
             _determine_virtual_env(self.project_root, processor_mapping)
             if processor_mapping is not None
             else {}
         )
 
-        # 1. Get the artifact src to dest mapping
-        bundle_map = BundleMap(
-            project_root=self.project_root, deploy_root=self.deploy_root
-        )
-        bundle_map.add(artifact_to_process)
-
-        # 2. Get raw extension functions through Snowpark callback
-        dest_file_py_file_to_collected_raw_ex_fns: Dict[Path, Optional[Any]] = {}
-
-        def is_python_file_artifact(src: Path, dest: Path):
-            return src.is_file() and src.suffix == ".py"
+        collected_extension_fns_by_path: Dict[
+            Path, List[NativeAppExtensionFunction]
+        ] = {}
 
         for src_file, dest_file in bundle_map.all_mappings(
-            absolute=True, expand_directories=True, predicate=is_python_file_artifact
+            absolute=True, expand_directories=True, predicate=_is_python_file_artifact
         ):
-            try:
-                collected_raw_ex_fns = _execute_in_sandbox(
-                    py_file=str(dest_file.resolve()),
-                    deploy_root=self.deploy_root,
-                    kwargs=kwargs,
-                )
-            except Exception as exc:
-                cc.warning(
-                    f"Error processing extension functions in {src_file}: {exc}"
-                )  # Display the actual file for the user to inspect
+            collected_extension_function_json = _execute_in_sandbox(
+                py_file=str(dest_file.resolve()),
+                deploy_root=self.deploy_root,
+                kwargs=kwargs,
+            )
+
+            if collected_extension_function_json is None:
+                cc.warning(f"Error processing extension functions in {src_file}")
                 cc.warning("Skipping generating code of all objects from this file.")
-                collected_raw_ex_fns = None
-
-            if not collected_raw_ex_fns:
                 continue
 
-            cc.message(f"This is the file path in deploy root: {dest_file}\n")
-            cc.message("This is the list of collected extension functions:")
-            cc.message(pprint.pformat(collected_raw_ex_fns))
+            collected_extension_functions = []
+            for extension_function_json in collected_extension_function_json:
+                try:
+                    extension_fn = NativeAppExtensionFunction(**extension_function_json)
+                    self._normalize(
+                        extension_fn,
+                        py_file=dest_file.relative_to(bundle_map.deploy_root()),
+                    )
+                    collected_extension_functions.append(extension_fn)
+                except SchemaValidationError:
+                    cc.warning("Invalid extension function definition")
 
-            filtered_collection = list(
-                filter(
-                    lambda item: (item is not None) and (len(item) > 0),
-                    collected_raw_ex_fns,
-                )
-            )
-            if len(filtered_collection) != len(collected_raw_ex_fns):
-                cc.warning(
-                    "Discovered extension functions that have value None or do not contain any information."
-                )
-                cc.warning(
-                    "Skipping generating code of all such objects from this file."
-                )
+            if collected_extension_functions:
+                cc.message(f"This is the file path in deploy root: {dest_file}\n")
+                cc.message("This is the list of collected extension functions:")
+                cc.message(pprint.pformat(collected_extension_functions))
 
-            # 4. Enrich the raw extension functions by setting additional properties
-            for raw_ex_fn in filtered_collection:
-                sanitize_extension_function_data(ex_fn=raw_ex_fn, py_file=dest_file)
-                enrich_ex_fn(
-                    ex_fn=raw_ex_fn,
-                    py_file=dest_file,
-                    deploy_root=self.deploy_root,
-                )
+                collected_extension_fns_by_path[
+                    dest_file
+                ] = collected_extension_functions
 
-            dest_file_py_file_to_collected_raw_ex_fns[dest_file] = filtered_collection
-
-        # For each extension function, generate its related SQL statements
-        dest_file_py_file_to_ddl_map: Dict[
-            Path, str
-        ] = self.generate_sql_ddl_statements(dest_file_py_file_to_collected_raw_ex_fns)
-
-        # TODO: Temporary for testing, while feature is being built in phases
-        return dest_file_py_file_to_ddl_map
-
-    def generate_sql_ddl_statements(
-        self, dest_file_py_file_to_collected_raw_ex_fns: Dict[Path, Optional[Any]]
-    ) -> Dict[Path, str]:
-        """
-        Generates SQL DDL statements based on the entities collected from a set of python files in the artifact_to_process.
-        """
-        dest_file_py_file_to_ddl_map: Dict[Path, str] = {}
-        for py_file in dest_file_py_file_to_collected_raw_ex_fns:
-
-            collected_ex_fns = dest_file_py_file_to_collected_raw_ex_fns[
-                py_file
-            ]  # Collected entities is List[Dict[str, Any]]
-            if collected_ex_fns is None:
-                continue
-
-            ddl_lst_per_ef: List[str] = []
-            for ex_fn in collected_ex_fns:
-                create_sql = generate_create_sql_ddl_statements(ex_fn)
-                if create_sql:
-                    ddl_lst_per_ef.append(create_sql)
-                    grant_sql = generate_grant_sql_ddl_statements(ex_fn)
-                    if grant_sql:
-                        ddl_lst_per_ef.append(grant_sql)
-
-            if len(ddl_lst_per_ef) > 0:
-                dest_file_py_file_to_ddl_map[py_file] = "\n".join(ddl_lst_per_ef)
-
-        return dest_file_py_file_to_ddl_map
+        return collected_extension_fns_by_path
 
 
-def generate_create_sql_ddl_statements(ex_fn: Dict[str, Any]) -> Optional[str]:
+def generate_create_sql_ddl_statement(
+    extension_fn: NativeAppExtensionFunction,
+) -> Optional[str]:
     """
-    Generates a "CREATE FUNCTION/PROCEDURE ... " SQL DDL statement based on a dictionary of extension function properties.
+    Generates a "CREATE FUNCTION/PROCEDURE ... " SQL DDL statement based on an extension function definition.
     Logic for this create statement has been lifted from snowflake-snowpark-python v1.15.0 package.
-    Anonymous procedures are not allowed in Native Apps, and hence if a user passes in the two corresponding properties,
-    this function will skip the DDL generation.
     """
 
-    object_type = ex_fn["object_type"]
-    object_name = ex_fn["object_name"]
-
-    if object_type == "PROCEDURE" and ex_fn["anonymous"]:
-        cc.warning(
-            dedent(
-                f"""{object_type.replace(' ', '-')} {object_name} cannot be an anonymous procedure in a Snowflake Native App.
-                    Skipping generation of 'CREATE FUNCTION/PROCEDURE ...' SQL statement for this object."""
-            )
-        )
+    object_type = get_sql_object_type(extension_fn)
+    if object_type is None:
+        cc.warning(f"Unsupported extension function type: {extension_fn.function_type}")
         return None
 
-    replace_in_sql = f" OR REPLACE " if ex_fn["replace"] else ""
-
-    sql_func_args = ",".join(
-        [
-            f"{a['name']} {t}"
-            for a, t in zip(ex_fn["input_args"], ex_fn["input_sql_types"])
-        ]
+    arguments_in_sql = ", ".join(
+        [get_sql_argument_signature(arg) for arg in extension_fn.signature]
     )
 
-    imports_in_sql = (
-        f"\nIMPORTS=({ex_fn['all_imports']})" if ex_fn["all_imports"] else ""
-    )
+    create_query = dedent(
+        f"""
+               CREATE OR REPLACE
+               {object_type} {get_qualified_object_name(extension_fn)}({arguments_in_sql})
+               RETURNS {extension_fn.returns}
+               LANGUAGE PYTHON
+               RUNTIME_VERSION={extension_fn.runtime}
+    """
+    ).strip()
 
-    packages_in_sql = (
-        f"\nPACKAGES=({ex_fn['all_packages']})" if ex_fn["all_packages"] else ""
-    )
+    if extension_fn.imports:
+        create_query += (
+            f"\nIMPORTS=({', '.join(ensure_all_string_literals(extension_fn.imports))})"
+        )
 
-    external_access_integrations = ex_fn["external_access_integrations"]
-    external_access_integrations_in_sql = (
-        f"""\nEXTERNAL_ACCESS_INTEGRATIONS=({','.join(external_access_integrations)})"""
-        if external_access_integrations
-        else ""
-    )
+    if extension_fn.packages:
+        create_query += f"\nPACKAGES=({', '.join(ensure_all_string_literals(extension_fn.packages))})"
 
-    secrets = ex_fn["secrets"]
-    secrets_in_sql = (
-        f"""\nSECRETS=({",".join([f"'{k}'={v}" for k, v in secrets.items()])})"""
-        if secrets
-        else ""
-    )
+    if extension_fn.external_access_integrations:
+        create_query += f"\nEXTERNAL_ACCESS_INTEGRATIONS=({', '.join(ensure_all_string_literals(extension_fn.external_access_integrations))})"
 
-    execute_as = ex_fn["execute_as"]
-    if execute_as is None:
-        execute_as_sql = ""
-    else:
-        execute_as_sql = f"\nEXECUTE AS {execute_as}"
+    if extension_fn.secrets:
+        create_query += f"""\nSECRETS=({', '.join([f"{ensure_string_literal(k)}={v}" for k, v in extension_fn.secrets.items()])})"""
 
-    inline_python_code = ex_fn["inline_python_code"]
-    if inline_python_code:
-        inline_python_code_in_sql = f"""\
-AS $$
-{inline_python_code}
-$$
-"""
-    else:
-        inline_python_code_in_sql = ""
+    create_query += f"\nHANDLER={ensure_string_literal(extension_fn.handler)}"
 
-    create_query = f"""\
-CREATE{replace_in_sql}
-{get_object_type_as_text(object_type)} {'IF NOT EXISTS' if ex_fn["if_not_exists"] else ''}{object_name}({sql_func_args})
-{ex_fn["return_sql"]}
-LANGUAGE PYTHON
-RUNTIME_VERSION={ex_fn["runtime_version"]} {imports_in_sql}{packages_in_sql}{external_access_integrations_in_sql}{secrets_in_sql}
-HANDLER='{ex_fn["handler"]}'{execute_as_sql}
-{inline_python_code_in_sql}"""
+    if extension_fn.function_type == ExtensionFunctionTypeEnum.PROCEDURE:
+        if extension_fn.execute_as_caller:
+            create_query += f"\nEXECUTE AS CALLER"
+        else:
+            create_query += f"\nEXECUTE AS OWNER"
+    create_query += ";\n"
 
     return create_query
 
 
-def generate_grant_sql_ddl_statements(ex_fn: Dict[str, Any]) -> Optional[str]:
+def generate_grant_sql_ddl_statements(
+    extension_fn: NativeAppExtensionFunction,
+) -> Optional[str]:
     """
     Generates a "GRANT USAGE TO ... " SQL DDL statement based on a dictionary of extension function properties.
     If no application roles are present, then the function returns None.
     """
 
-    if ex_fn["application_roles"] is None:
+    if not extension_fn.application_roles:
         cc.warning(
             "Skipping generation of 'GRANT USAGE ON ...' SQL statement for this object due to lack of application roles."
         )
         return None
 
     grant_sql_statements = []
-    for app_role in ex_fn["application_roles"]:
+    for app_role in extension_fn.application_roles:
         grant_sql_statement = dedent(
             f"""\
-            GRANT USAGE ON {get_object_type_as_text(ex_fn["object_type"])} {ex_fn["object_name"]}
+            GRANT USAGE ON {get_sql_object_type(extension_fn)} {get_qualified_object_name(extension_fn)}
             TO APPLICATION ROLE {app_role};
             """
-        )
+        ).strip()
         grant_sql_statements.append(grant_sql_statement)
 
-    if len(grant_sql_statements) == 0:
-        return None
     return "\n".join(grant_sql_statements)
