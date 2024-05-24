@@ -33,7 +33,6 @@ from snowflake.cli.plugins.nativeapp.teardown_processor import (
 )
 from snowflake.cli.plugins.nativeapp.utils import (
     get_first_paragraph_from_markdown_file,
-    is_tty_interactive,
     shallow_git_clone,
 )
 from snowflake.cli.plugins.nativeapp.version.commands import app as versions_app
@@ -154,7 +153,7 @@ def app_run(
         The command fails if no release directive exists for your Snowflake account for a given application package, which is determined from the project definition file. Default: unset.""",
         is_flag=True,
     ),
-    interactive: Optional[bool] = InteractiveOption,
+    interactive: bool = InteractiveOption,
     force: Optional[bool] = ForceOption,
     **options,
 ) -> CommandResult:
@@ -166,7 +165,7 @@ def app_run(
     is_interactive = False
     if force:
         policy = AllowAlwaysPolicy()
-    elif interactive or is_tty_interactive():
+    elif interactive:
         is_interactive = True
         policy = AskAlwaysPolicy()
     else:
@@ -221,7 +220,7 @@ def app_teardown(
         help=f"""Whether to drop all application objects owned by the application within the account. Default: false.""",
         show_default=False,
     ),
-    interactive: Optional[bool] = InteractiveOption,
+    interactive: bool = InteractiveOption,
     **options,
 ) -> CommandResult:
     """
@@ -231,8 +230,6 @@ def app_teardown(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    if interactive is None:
-        interactive = is_tty_interactive()
     processor.process(interactive, force, cascade)
     return MessageResult(f"Teardown is now complete.")
 
