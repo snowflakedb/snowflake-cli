@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional
 
 from pydantic import Field
 from snowflake.cli.api.project.schemas.snowpark.callable import _CallableBase
@@ -31,10 +31,10 @@ class NativeAppExtensionFunction(_CallableBase):
         title="List of packages (with optional version constraints) to be loaded for the function",
         default=[],
     )
-    raw_imports: Optional[List[Union[str, Tuple[str, str]]]] = Field(
-        title="The list of imports to be validated and added to the 'imports' property for the function",
-        default=[],
-    )
+    # raw_imports: Optional[List[Union[str, Tuple[str, str]]]] = Field(
+    #     title="The list of imports to be validated and added to the 'imports' property for the function",
+    #     default=[],
+    # )
     schema_name: Optional[str] = IdentifierField(
         title=f"Name of the schema for the function",
         default=None,

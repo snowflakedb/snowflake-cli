@@ -87,6 +87,16 @@ def __snowflake_internal_create_extension_fn_registration_callback():
             return "table function"
         return object_type.name.lower()
 
+    def __snowflake_internal_imports_union_to_str_type(raw_imports):
+        final_imports = []
+        for raw_import in raw_imports:
+            if isinstance(raw_import, str):
+                final_imports.append(raw_import)
+            else:
+                final_imports.append(raw_import[0])
+        return final_imports
+
+
     def __snowflake_internal_extension_fn_to_json(extension_fn):
         if not isinstance(extension_fn.func, Callable):
             # Unsupported case: extension function is a tuple
@@ -102,8 +112,7 @@ def __snowflake_internal_create_extension_fn_registration_callback():
             "lineno": __snowflake_internal_try_extract_lineno(extension_fn.func),
             "name": __snowflake_internal_extract_extension_fn_name(extension_fn),
             "handler": extension_fn.func.__name__,
-            "raw_imports": extension_fn.raw_imports or [],
-            "imports": extension_fn.all_imports or [],
+            "imports": __snowflake_internal_imports_union_to_str_type(extension_fn.raw_imports),
             "packages": __snowflake_internal_create_package_list(extension_fn),
             "runtime": extension_fn.runtime_version,
             "returns": extension_fn.return_sql.upper().replace("RETURNS ", "").strip(),
