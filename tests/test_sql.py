@@ -66,12 +66,10 @@ def test_sql_execute_from_stdin(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with(query)
 
 
-def test_sql_fails_if_no_query_file_or_stdin(runner):
+def test_sql_help_if_no_query_file_or_stdin(runner, snapshot):
     result = runner.invoke(["sql"])
-
-    assert_that_result_is_usage_error(
-        result, "Use either query, filename or input option."
-    )
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot
 
 
 @pytest.mark.parametrize("inputs", [("-i", "-q", "foo"), ("-i",), ("-q", "foo")])

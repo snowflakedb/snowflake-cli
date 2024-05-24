@@ -28,6 +28,7 @@
     * `sentiment` - Returns sentiment as a score between -1 to 1 (with -1 being the most negative and 1 the most positive, with values around 0 neutral) for the given English-language input text.
     * `summarize` - Summarizes the given English-language input text.
     * `translate` - Translates text from the indicated or detected source language to a target language.
+* When invoked without command help is displayed by default with list of available commands.
 
 ## Fixes and improvements
 * Improved support for quoted identifiers.
