@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import pprint
+import re
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Dict, List, Optional, Set
@@ -43,6 +44,7 @@ from snowflake.cli.plugins.stage.diff import to_stage_path
 DEFAULT_TIMEOUT = 30
 TEMPLATE_PATH = Path(__file__).parent / "callback_source.py.jinja"
 SNOWPARK_LIB_NAME = "snowflake-snowpark-python"
+SNOWPARK_LIB_REGEX = rf"'{SNOWPARK_LIB_NAME}((<|<=|!=|==|>=|>|~=|===)[a-zA-Z0-9_.*+!-]+)?'"  # support PEP 508, even though not all of it is support in Snowflake yet
 STAGE_PREFIX = "@"
 
 
@@ -198,13 +200,14 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                 if create_stmt is None:
                     continue
 
+                relative_py_file = py_file.relative_to(bundle_map.deploy_root())
                 cc.message(
-                    "-- Generating Snowpark annotation SQL code for {}".format(py_file)
+                    "-- Generating Snowpark annotation SQL code for {}".format(
+                        relative_py_file
+                    )
                 )
                 cc.message(create_stmt)
-                collected_output.append(
-                    f"-- {py_file.relative_to(bundle_map.deploy_root())}"
-                )
+                collected_output.append(f"-- {relative_py_file}")
                 collected_output.append(create_stmt)
 
                 grant_statements = generate_grant_sql_ddl_statements(extension_fn)
@@ -273,9 +276,11 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         extension_fn.handler = f"{py_file.stem}.{extension_fn.handler}"
 
         snowpark_lib_found = False
+        snowpark_lib_regex = re.compile(SNOWPARK_LIB_REGEX)
         for pkg in extension_fn.packages:
-            if pkg == SNOWPARK_LIB_NAME or pkg.startswith(SNOWPARK_LIB_NAME + "=="):
+            if snowpark_lib_regex.fullmatch(ensure_string_literal(pkg)):
                 snowpark_lib_found = True
+                break
         if not snowpark_lib_found:
             extension_fn.packages.append(SNOWPARK_LIB_NAME)
 

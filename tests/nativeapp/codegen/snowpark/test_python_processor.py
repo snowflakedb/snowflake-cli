@@ -163,16 +163,6 @@ def test_generate_create_sql_ddl_statements_w_select_entries(
     assert generate_create_sql_ddl_statement(native_app_extension_function) == snapshot
 
 
-def test_generate_create_sql_ddl_statements_w_existing_snowpark_dependency(
-    native_app_extension_function, snapshot
-):
-    native_app_extension_function.packages = ["snowflake-snowpark-python"]
-    assert generate_create_sql_ddl_statement(native_app_extension_function) == snapshot
-
-    native_app_extension_function.packages = ["snowflake-snowpark-python==0.15.0"]
-    assert generate_create_sql_ddl_statement(native_app_extension_function) == snapshot
-
-
 # --------------------------------------------------------
 # ------- generate_grant_sql_ddl_statements --------------
 # --------------------------------------------------------
@@ -428,3 +418,61 @@ def test_process_with_collected_functions(
             Path(local_path, "output/deploy/__generated/stagepath/data.sql"), "r"
         ) as f:
             assert f.read() == snapshot
+
+
+@pytest.mark.parametrize(
+    "package_decl",
+    [
+        ["snowflake-snowpark-python"],
+        ["'snowflake-snowpark-python'"],
+        ["other-package", "'snowflake-snowpark-python'"],
+        ["snowflake-snowpark-python==0.15.0"],
+        ["'snowflake-snowpark-python==0.15.0'"],
+        ["snowflake-snowpark-python<0.16.0"],
+        ["snowflake-snowpark-python<=0.17.0"],
+        ["snowflake-snowpark-python>=0.14.0"],
+        ["snowflake-snowpark-python>0.13.0"],
+        ["snowflake-snowpark-python===0.15.0"],
+        ["snowflake-snowpark-python===0.15.0-rc1"],
+        ["'snowflake-snowpark-python===0.15.0-rc1'"],
+        ["snowflake-snowpark-python<<0.15.0"],  # not PEP 508 compliant
+        ["snowflake-snowpark-python2"],  # not a match
+    ],
+)
+@mock.patch(
+    "snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor._execute_in_sandbox",
+)
+def test_package_normalization(
+    mock_sandbox,
+    package_decl,
+    native_app_project_instance,
+    native_app_extension_function_raw_data,
+    snapshot,
+):
+
+    with temp_local_dir(minimal_dir_structure) as local_path:
+        processor_mapping = ProcessorMapping(
+            name="snowpark",
+        )
+        native_app_project_instance.native_app.artifacts = [
+            {
+                "src": "a/b/c/main.py",
+                "dest": "stagepath/",
+                "processors": [processor_mapping],
+            }
+        ]
+        native_app_extension_function_raw_data["packages"] = package_decl
+        mock_sandbox.side_effect = [[native_app_extension_function_raw_data]]
+        deploy_root = Path(local_path, "output/deploy")
+        generated_root = Path(deploy_root, "__generated")
+        output = SnowparkAnnotationProcessor(
+            project_definition=native_app_project_instance,
+            project_root=local_path,
+            deploy_root=deploy_root,
+            generated_root=generated_root,
+        ).process(
+            artifact_to_process=native_app_project_instance.native_app.artifacts[0],
+            processor_mapping=processor_mapping,
+        )
+
+        assert output == snapshot
