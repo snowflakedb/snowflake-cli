@@ -29,6 +29,7 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.extension_function_utils i
     deannotate_module_source,
     ensure_all_string_literals,
     ensure_string_literal,
+    get_function_type_signature_for_grant,
     get_qualified_object_name,
     get_sql_argument_signature,
     get_sql_object_type,
@@ -431,7 +432,7 @@ def generate_grant_sql_ddl_statements(
     for app_role in extension_fn.application_roles:
         grant_sql_statement = dedent(
             f"""\
-            GRANT USAGE ON {get_sql_object_type(extension_fn)} {get_qualified_object_name(extension_fn)}
+            GRANT USAGE ON {get_sql_object_type(extension_fn)} {get_qualified_object_name(extension_fn)}({get_function_type_signature_for_grant(extension_fn)})
             TO APPLICATION ROLE {app_role};
             """
         ).strip()
