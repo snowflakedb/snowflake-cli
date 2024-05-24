@@ -50,6 +50,15 @@ def get_sql_argument_signature(arg: Argument) -> str:
     return formatted
 
 
+def get_function_type_signature_for_grant(
+    extension_fn: NativeAppExtensionFunction,
+) -> str:
+    """
+    Returns the type signature for the specified function, e.g. "int, varchar", suitable for inclusion in a GRANT statement.
+    """
+    return ", ".join([arg.arg_type for arg in extension_fn.signature])
+
+
 def get_qualified_object_name(extension_fn: NativeAppExtensionFunction) -> str:
     qualified_name = to_identifier(extension_fn.name)
     if extension_fn.schema_name:
