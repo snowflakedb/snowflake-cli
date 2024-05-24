@@ -31,7 +31,9 @@ class ArtifactProcessor(ABC):
         generated_root: Path,
         **kwargs,
     ) -> None:
-        pass
+        assert project_root.is_absolute()
+        assert deploy_root.is_absolute()
+        assert generated_root.is_absolute()
 
     @abstractmethod
     def process(

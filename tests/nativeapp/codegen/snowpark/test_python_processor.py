@@ -19,7 +19,6 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     edit_setup_script_with_exec_imm_sql,
     generate_create_sql_ddl_statement,
     generate_grant_sql_ddl_statements,
-    generate_new_sql_file_name,
 )
 
 from tests.testing_utils.files_and_dirs import temp_local_dir
@@ -174,105 +173,6 @@ def test_generate_grant_sql_ddl_statements(native_app_extension_function, snapsh
 
 
 # --------------------------------------------------------
-# --------- generate_new_sql_file_name ----------------
-# --------------------------------------------------------
-
-
-@pytest.mark.parametrize("py_file", ["stagepath/main.py", "stagepath/mod/add.py"])
-def test_generate_new_sql_file_name(py_file):
-    dir_structure = {
-        "output/deploy": None,
-        "output/deploy/stagepath/main.py": "# this is a file\n",
-        "output/deploy/stagepath/mod/add.py": "# this is a file\n",
-    }
-
-    # With a real directory structure
-    with temp_local_dir(dir_structure=dir_structure) as local_path:
-        deploy_root = Path(local_path, "output", "deploy")
-        generated_root = Path(deploy_root, "__generated")
-        sql_file_path = generate_new_sql_file_name(
-            deploy_root=deploy_root,
-            generated_root=generated_root,
-            py_file=Path(deploy_root, py_file),
-        )
-        assert sql_file_path == Path(generated_root, Path(py_file).with_suffix(".sql"))
-
-
-# --------------------------------------------------------
-# --------- create_and_write_to_sql_files ----------------
-# --------------------------------------------------------
-
-
-# def test_create_and_write_to_sql_files_no_existing_generate(snapshot):
-#     dir_structure = {
-#         "output/deploy/main.py": "# this is a file\n",
-#         "output/deploy/moduleA/main.py": "# this is a file\n",
-#         "output/deploy/moduleB/main.py": "# this is a file\n",
-#     }
-#     with temp_local_dir(dir_structure) as local_path:
-#         deploy_root = Path(local_path, "output", "deploy")
-#         dest_file_py_file_to_ddl_map: Dict[Path, Path] = {
-#             Path(deploy_root, "main.py"): "  ",
-#             Path(deploy_root, "moduleA", "main.py"): "some text",
-#             Path(deploy_root, "moduleB", "main.py"): "some text",
-#         }
-
-#         dest_file_to_sql_files = create_and_write_to_sql_files(
-#             dest_file_py_file_to_ddl_map=dest_file_py_file_to_ddl_map,
-#             deploy_root=deploy_root,
-#             generated_root=Path(deploy_root, "__generated"),
-#         )
-
-#         assert len(dest_file_to_sql_files) == 2
-#         relative_paths_dict: Dict[Path, Path] = {}
-#         absolute_deploy = resolve_without_follow(deploy_root)
-#         for dest_file, sql_file in dest_file_to_sql_files.items():
-#             absolute_dest = resolve_without_follow(dest_file)
-#             relative_dest = absolute_dest.relative_to(absolute_deploy)
-#             absolute_sql = resolve_without_follow(sql_file)
-#             relative_sql = absolute_sql.relative_to(absolute_deploy)
-#             relative_paths_dict[relative_dest] = relative_sql
-
-#             with open(sql_file, "r") as f:
-#                 assert f.read() == "some text"
-
-#         assert relative_paths_dict == snapshot
-
-
-# def test_create_and_write_to_sql_files_w_existing_generate(snapshot):
-#     dir_structure = {
-#         "output/deploy/moduleA/main.py": "# this is a file\n",
-#         "output/deploy/moduleB/main.py": "# this is a file\n",
-#         "output/deploy/__generated/moduleB/main.sql": "#this is a file",
-#     }
-#     with temp_local_dir(dir_structure) as local_path:
-#         deploy_root = Path(local_path, "output", "deploy")
-#         dest_file_py_file_to_ddl_map: Dict[Path, Path] = {
-#             Path(deploy_root, "moduleA", "main.py"): "some text",
-#             Path(deploy_root, "moduleB", "main.py"): "some text",
-#         }
-
-#         dest_file_to_sql_files = create_and_write_to_sql_files(
-#             dest_file_py_file_to_ddl_map=dest_file_py_file_to_ddl_map,
-#             deploy_root=deploy_root,
-#             generated_root=Path(deploy_root, "__generated"),
-#         )
-
-#         assert len(dest_file_to_sql_files) == 1
-#         absolute_deploy = resolve_without_follow(deploy_root)
-#         for dest_file, sql_file in dest_file_to_sql_files.items():
-#             absolute_dest = resolve_without_follow(dest_file)
-#             relative_dest = absolute_dest.relative_to(absolute_deploy)
-#             absolute_sql = resolve_without_follow(sql_file)
-#             relative_sql = absolute_sql.relative_to(absolute_deploy)
-#             assert relative_dest == Path("moduleA/main.py")
-#             assert relative_sql == Path("__generated/moduleA/main.sql")
-
-#             with open(sql_file, "r") as f:
-#                 assert f.read() == "some text"
-
-
-# --------------------------------------------------------
 # --------- edit_setup_script_with_exec_imm_sql ----------
 # --------------------------------------------------------
 
@@ -363,7 +263,6 @@ def test_edit_setup_script_with_exec_imm_sql_symlink(snapshot):
     dir_structure = {
         "setup.sql": "create application role admin;",
         "output/deploy/manifest.yml": manifest_contents,
-        # "output/deploy/__generated/__generated.sql": "#some text",
     }
 
     with temp_local_dir(dir_structure=dir_structure) as local_path:
@@ -497,8 +396,7 @@ def test_process_with_collected_functions(
             artifact_to_process=native_app_project_instance.native_app.artifacts[0],
             processor_mapping=processor_mapping,
         )
-        # Cannot compare keys as these are temporary paths that change per test run
-        # assert output == snapshot
+        assert output == snapshot
 
         main_file = Path(deploy_root, "__generated", "__generated.sql")
         assert main_file.is_file()
