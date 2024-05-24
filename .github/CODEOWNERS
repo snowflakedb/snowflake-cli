@@ -4,6 +4,7 @@
 **/__snapshots__/ @snowflakedb/snowcli @snowflakedb/nade
 tests/testing_utils/ @snowflakedb/snowcli @snowflakedb/nade
 src/snowflake/cli/api/utils/ @snowflakedb/snowcli @snowflakedb/nade
+tests/test_data @snowflakedb/snowcli @snowflakedb/nade
 
 # Native Apps Owners
 **/nativeapp/ @snowflakedb/nade
