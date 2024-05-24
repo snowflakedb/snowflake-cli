@@ -28,6 +28,7 @@
     * `summarize` - Summarizes the given English-language input text.
     * `translate` - Translates text from the indicated or detected source language to a target language.
     * `search`    - for integration with Cortex Search Service
+* When invoked without command help is displayed by default with list of available commands.
 
 ## Fixes and improvements
 * Improved support for quoted identifiers.
