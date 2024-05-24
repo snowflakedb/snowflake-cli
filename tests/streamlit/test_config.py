@@ -14,15 +14,15 @@ ANOTHER_FILE_WITH_SINGLE_ITEM = TEST_DATA / "another_file_with_single_item.yml"
 @pytest.mark.parametrize(
     "test_files,expected",
     [
-        # (
-        #     [FILE_WITH_LONG_LIST, FILE_WITH_SINGLE_ITEM_LIST],
-        #     "a_tree_cut_down_with_a_herring",
-        # ),
-        # ([FILE_WITH_SINGLE_ITEM_LIST, FILE_WITH_LONG_LIST], "a_shrubbery.py"),
-        # (
-        #     [FILE_WITH_SINGLE_ITEM_LIST, ANOTHER_FILE_WITH_SINGLE_ITEM],
-        #     "another_shrubbery_but_a_bit_higher",
-        # ),
+        (
+            [FILE_WITH_LONG_LIST, FILE_WITH_SINGLE_ITEM_LIST],
+            "a_tree_cut_down_with_a_herring",
+        ),
+        ([FILE_WITH_SINGLE_ITEM_LIST, FILE_WITH_LONG_LIST], "a_shrubbery.py"),
+        (
+            [FILE_WITH_SINGLE_ITEM_LIST, ANOTHER_FILE_WITH_SINGLE_ITEM],
+            "another_shrubbery_but_a_bit_higher",
+        ),
         ([FILE_WITH_LONG_LIST, ANOTHER_FILE_WITH_LONG_LIST], "boing.py"),
     ],
 )
