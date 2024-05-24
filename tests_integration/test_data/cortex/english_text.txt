@@ -1,0 +1,12 @@
+Snowflake Cortex gives you instant access to industry-leading large language models (LLMs) trained by researchers at companies like Mistral, Reka, Meta, and Google, including Snowflake Arctic, an open enterprise-grade model developed by Snowflake.
+
+Since these LLMs are fully hosted and managed by Snowflake, using them requires no setup. Your data stays within Snowflake, giving you the performance, scalability, and governance you expect.
+
+Snowflake Cortex features are provided as SQL functions and are also available in Python. The available functions are summarized below.
+
+COMPLETE: Given a prompt, returns a response that completes the prompt. This function accepts either a single prompt or a conversation with multiple prompts and responses.
+EMBED_TEXT_768: Given a piece of text, returns a vector embedding that represents that text.
+EXTRACT_ANSWER: Given a question and unstructured data, returns the answer to the question if it can be found in the data.
+SENTIMENT: Returns a sentiment score, from -1 to 1, representing the detected positive or negative sentiment of the given text.
+SUMMARIZE: Returns a summary of the given text.
+TRANSLATE: Translates given text from any supported language to any other.
