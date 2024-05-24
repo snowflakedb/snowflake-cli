@@ -335,6 +335,17 @@ def test_uses_variables_from_snowflake_yml(
 
 
 @mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
+def test_uses_variables_from_snowflake_local_yml(
+    mock_execute_query, project_directory, runner
+):
+    with project_directory("sql_templating"):
+        result = runner.invoke(["sql", "-q", "select &{ ctx.env.sf_var_override }"])
+
+    assert result.exit_code == 0
+    mock_execute_query.assert_called_once_with("select foo_value_override")
+
+
+@mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
 def test_uses_variables_from_cli_are_added_outside_context(
     mock_execute_query, project_directory, runner
 ):
