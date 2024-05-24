@@ -276,7 +276,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         for pkg in extension_fn.packages:
             if pkg == SNOWPARK_LIB_NAME or pkg.startswith(SNOWPARK_LIB_NAME + "=="):
                 snowpark_lib_found = True
-        if snowpark_lib_found:
+        if not snowpark_lib_found:
             extension_fn.packages.append(SNOWPARK_LIB_NAME)
 
         if extension_fn.imports is None:

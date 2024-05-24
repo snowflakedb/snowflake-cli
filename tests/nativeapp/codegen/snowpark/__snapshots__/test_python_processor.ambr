@@ -49,6 +49,38 @@
   
   '''
 # ---
+# name: test_generate_create_sql_ddl_statements_w_existing_snowpark_dependency
+  '''
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip')
+  PACKAGES=('snowflake-snowpark-python')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='my_function_handler'
+  EXECUTE AS OWNER;
+  
+  '''
+# ---
+# name: test_generate_create_sql_ddl_statements_w_existing_snowpark_dependency.1
+  '''
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip')
+  PACKAGES=('snowflake-snowpark-python==0.15.0')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='my_function_handler'
+  EXECUTE AS OWNER;
+  
+  '''
+# ---
 # name: test_generate_create_sql_ddl_statements_w_select_entries
   '''
   CREATE OR REPLACE
@@ -81,7 +113,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('package_one==1.0.2', 'package_two')
+  PACKAGES=('package_one==1.0.2', 'package_two', 'snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='main.my_function_handler'
@@ -98,7 +130,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/', '/stagepath/data.py', '/stagepath/extra_import1.zip', '/stagepath/some_dir_str', '/stagepath/withslash.py', '@dummy_stage_str')
-  PACKAGES=('package_one==1.0.2', 'package_two')
+  PACKAGES=('package_one==1.0.2', 'package_two', 'snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='data.my_function_handler'
@@ -133,7 +165,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('package_one==1.0.2', 'package_two')
+  PACKAGES=('package_one==1.0.2', 'package_two', 'snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='main.my_function_handler'
@@ -154,7 +186,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/', '/stagepath/data.py', '/stagepath/extra_import1.zip', '/stagepath/some_dir_str', '/stagepath/withslash.py', '@dummy_stage_str')
-  PACKAGES=('package_one==1.0.2', 'package_two')
+  PACKAGES=('package_one==1.0.2', 'package_two', 'snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='data.my_function_handler'

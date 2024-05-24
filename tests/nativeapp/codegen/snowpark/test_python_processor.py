@@ -163,6 +163,16 @@ def test_generate_create_sql_ddl_statements_w_select_entries(
     assert generate_create_sql_ddl_statement(native_app_extension_function) == snapshot
 
 
+def test_generate_create_sql_ddl_statements_w_existing_snowpark_dependency(
+    native_app_extension_function, snapshot
+):
+    native_app_extension_function.packages = ["snowflake-snowpark-python"]
+    assert generate_create_sql_ddl_statement(native_app_extension_function) == snapshot
+
+    native_app_extension_function.packages = ["snowflake-snowpark-python==0.15.0"]
+    assert generate_create_sql_ddl_statement(native_app_extension_function) == snapshot
+
+
 # --------------------------------------------------------
 # ------- generate_grant_sql_ddl_statements --------------
 # --------------------------------------------------------
