@@ -1,6 +1,5 @@
 import pytest
 from pydantic import ValidationError
-from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
@@ -72,7 +71,7 @@ def test_project_definition_work_for_int_version():
 
 
 def test_project_definition_fails_for_unknown_version():
-    with pytest.raises(SchemaValidationError) as err:
+    with pytest.raises(ValueError) as err:
         ProjectDefinition(definition_version="6.2.3")
 
-    assert "Version 6.2.3 is not supported" in str(err.value)
+    assert "Unknown schema version: 6.2.3. Supported version:" in str(err.value)
