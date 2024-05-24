@@ -17,7 +17,7 @@ class ExtensionFunctionTypeEnum(str, Enum):
 
 class NativeAppExtensionFunction(_CallableBase):
     function_type: ExtensionFunctionTypeEnum = Field(
-        title="The type of extension function, one of 'procedure', 'function', 'table function' or 'aggregate function'.",
+        title="The type of extension function, one of 'procedure', 'function', 'table function' or 'aggregate function'",
         alias="type",
     )
     lineno: Optional[int] = Field(
@@ -29,7 +29,7 @@ class NativeAppExtensionFunction(_CallableBase):
     )
     packages: Optional[List[str]] = Field(
         title="List of packages (with optional version constraints) to be loaded for the function",
-        default={},
+        default=[],
     )
     schema_name: Optional[str] = IdentifierField(
         title=f"Name of the schema for the function",

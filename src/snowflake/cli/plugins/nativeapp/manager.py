@@ -166,6 +166,10 @@ class NativeAppManager(SqlExecutionMixin):
         return Path(self.project_root, self.definition.deploy_root)
 
     @cached_property
+    def generated_root(self) -> Path:
+        return Path(self.deploy_root, self.definition.generated_root)
+
+    @cached_property
     def package_scripts(self) -> List[str]:
         """
         Relative paths to package scripts from the project root.
@@ -321,6 +325,7 @@ class NativeAppManager(SqlExecutionMixin):
                 project_definition=self._project_definition,
                 project_root=self.project_root,
                 deploy_root=self.deploy_root,
+                generated_root=self.generated_root,
             )
             compiler.compile_artifacts()
         return mapped_files
