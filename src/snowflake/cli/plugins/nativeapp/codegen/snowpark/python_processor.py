@@ -42,6 +42,7 @@ from snowflake.cli.plugins.stage.diff import to_stage_path
 
 DEFAULT_TIMEOUT = 30
 TEMPLATE_PATH = Path(__file__).parent / "callback_source.py.jinja"
+SNOWPARK_LIB_NAME = "snowflake-snowpark-python"
 STAGE_PREFIX = "@"
 
 
@@ -270,6 +271,13 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         # Compute the fully qualified handler
         # If user defined their udf as @udf(lambda: x, ...) then extension_fn.handler is <lambda>.
         extension_fn.handler = f"{py_file.stem}.{extension_fn.handler}"
+
+        snowpark_lib_found = False
+        for pkg in extension_fn.packages:
+            if pkg == SNOWPARK_LIB_NAME or pkg.startswith(SNOWPARK_LIB_NAME + "=="):
+                snowpark_lib_found = True
+        if snowpark_lib_found:
+            extension_fn.packages.append(SNOWPARK_LIB_NAME)
 
         if extension_fn.imports is None:
             extension_fn.imports = []
