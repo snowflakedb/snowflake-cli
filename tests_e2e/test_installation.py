@@ -19,7 +19,7 @@ def test_snow_sql(snowcli, test_root_path, snapshot):
             test_root_path / "config" / "config.toml",
             "sql",
             "-q",
-            "select ln(10)",
+            "select round(ln(10), 2)",
             "-c",
             "integration",
         ],

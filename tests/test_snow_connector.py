@@ -49,8 +49,8 @@ def test_command_context_is_passed_to_snowflake_connection(
         warehouse="xs",
         password="dummy_password",
         application_name="snowcli",
-        _internal_application_name="snowcli",
-        _internal_application_version="0.0.0-test_patched",
+        internal_application_name="snowcli",
+        internal_application_version="0.0.0-test_patched",
     )
 
 
