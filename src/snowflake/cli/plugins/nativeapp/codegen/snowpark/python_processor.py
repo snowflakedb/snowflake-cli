@@ -4,8 +4,9 @@ import json
 import pprint
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
+from click import ClickException
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
@@ -16,6 +17,7 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import (
 from snowflake.cli.api.utils.rendering import jinja_render_from_file
 from snowflake.cli.plugins.nativeapp.artifacts import (
     BundleMap,
+    find_setup_script_file,
 )
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import ArtifactProcessor
 from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
@@ -39,13 +41,7 @@ from snowflake.cli.plugins.stage.diff import to_stage_path
 
 DEFAULT_TIMEOUT = 30
 TEMPLATE_PATH = Path(__file__).parent / "callback_source.py.jinja"
-
-
-def _is_python_file(file_path: Path):
-    """
-    Checks if the given file is a python file.
-    """
-    return file_path.suffix == ".py"
+STAGE_PREFIX = "@"
 
 
 def _determine_virtual_env(
@@ -150,15 +146,23 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         project_definition: NativeApp,
         project_root: Path,
         deploy_root: Path,
+        generated_root: Path,
     ):
         super().__init__(
             project_definition=project_definition,
             project_root=project_root,
             deploy_root=deploy_root,
+            generated_root=generated_root,
         )
         self.project_definition = project_definition
         self.project_root = project_root
         self.deploy_root = deploy_root
+        self.generated_root = generated_root
+
+        if self.generated_root.exists():
+            raise ClickException(
+                f"Path {self.generated_root} already exists. Please choose a different name for your generated directory in the project definition file."
+            )
 
     def process(
         self,
@@ -181,7 +185,12 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         )
 
         collected_output = []
+        collected_sql_files: List[Path] = []
         for py_file, extension_fns in collected_extension_functions_by_path.items():
+            sql_file = self.generate_new_sql_file_name(
+                py_file=py_file,
+            )
+            collected_sql_files.append(sql_file)
             for extension_fn in extension_fns:
                 create_stmt = generate_create_sql_ddl_statement(extension_fn)
                 if create_stmt is None:
@@ -201,21 +210,73 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                     cc.message(grant_statements)
                     collected_output.append(grant_statements)
 
-                self.deannotate(py_file, extension_fns)
+                with open(sql_file, "a") as file:
+                    file.write("\n")
+                    file.write(create_stmt)
+                    if grant_statements is not None:
+                        file.write("\n")
+                        file.write(grant_statements)
+
+            self.deannotate(py_file, extension_fns)
+
+        if collected_sql_files:
+            edit_setup_script_with_exec_imm_sql(
+                collected_sql_files=collected_sql_files,
+                deploy_root=bundle_map.deploy_root(),
+                generated_root=self.generated_root,
+            )
 
         return "\n".join(collected_output)
 
-    def _normalize(self, extension_fn: NativeAppExtensionFunction, py_file: Path):
+    def _normalize_imports(
+        self,
+        extension_fn: NativeAppExtensionFunction,
+        py_file: Path,
+        deploy_root: Path,
+    ):
+        normalized_imports: Set[str] = set()
+        # Add the py_file, which is the source of the extension function
+        normalized_imports.add(f"/{to_stage_path(py_file)}")
+
+        for raw_import in extension_fn.imports:
+            if not Path(deploy_root, raw_import).exists():
+                # This should capture import_str of different forms: stagenames, malformed paths etc
+                # But this will also return True if import_str == "/". Regardless, we append it all to normalized_imports
+                cc.warning(
+                    f"{raw_import} does not exist in the deploy root. Skipping validation of this import."
+                )
+
+            if raw_import.startswith(STAGE_PREFIX) or raw_import.startswith("/"):
+                normalized_imports.add(raw_import)
+            else:
+                normalized_imports.add(f"/{to_stage_path(Path(raw_import))}")
+
+        # To ensure order when running tests
+        sorted_imports = list(normalized_imports)
+        sorted_imports.sort()
+        extension_fn.imports = sorted_imports
+
+    def _normalize(
+        self,
+        extension_fn: NativeAppExtensionFunction,
+        py_file: Path,
+        deploy_root: Path,
+    ):
         if extension_fn.name is None:
             # The extension function was not named explicitly, use the name of the Python function object as its name
             extension_fn.name = extension_fn.handler
 
         # Compute the fully qualified handler
+        # If user defined their udf as @udf(lambda: x, ...) then extension_fn.handler is <lambda>.
         extension_fn.handler = f"{py_file.stem}.{extension_fn.handler}"
 
         if extension_fn.imports is None:
             extension_fn.imports = []
-        extension_fn.imports.append(f"/{to_stage_path(py_file)}")
+        self._normalize_imports(
+            extension_fn=extension_fn,
+            py_file=py_file,
+            deploy_root=deploy_root,
+        )
 
     def collect_extension_functions(
         self, bundle_map: BundleMap, processor_mapping: Optional[ProcessorMapping]
@@ -251,6 +312,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                     self._normalize(
                         extension_fn,
                         py_file=dest_file.relative_to(bundle_map.deploy_root()),
+                        deploy_root=bundle_map.deploy_root(),
                     )
                     collected_extension_functions.append(extension_fn)
                 except SchemaValidationError:
@@ -266,6 +328,21 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                 ] = collected_extension_functions
 
         return collected_extension_fns_by_path
+
+    def generate_new_sql_file_name(self, py_file: Path) -> Path:
+        """
+        Generates a SQL filename for the generated root from the python file, and creates its parent directories.
+        """
+        relative_py_file = py_file.relative_to(self.deploy_root)
+        sql_file = Path(self.generated_root, relative_py_file.with_suffix(".sql"))
+        if sql_file.exists():
+            cc.warning(
+                f"""\
+                File {sql_file} already exists, will append SQL statements to this file.
+            """
+            )
+        sql_file.parent.mkdir(exist_ok=True, parents=True)
+        return sql_file
 
     def deannotate(
         self, py_file: Path, extension_fns: List[NativeAppExtensionFunction]
@@ -361,3 +438,45 @@ def generate_grant_sql_ddl_statements(
         grant_sql_statements.append(grant_sql_statement)
 
     return "\n".join(grant_sql_statements)
+
+
+def edit_setup_script_with_exec_imm_sql(
+    collected_sql_files: List[Path], deploy_root: Path, generated_root: Path
+):
+    """
+    Adds an 'execute immediate' to setup script for every SQL file in the map
+    """
+    # Create a __generated.sql in the __generated folder
+    generated_file_path = Path(generated_root, f"{generated_root.stem}.sql")
+    generated_file_path.parent.mkdir(exist_ok=True, parents=True)
+
+    if generated_file_path.exists():
+        cc.warning(
+            f"""\
+            File {generated_file_path} already exists.
+            Could not complete code generation of Snowpark Extension Functions.
+            """
+        )
+        return
+
+    # For every SQL file, add SQL statement 'execute immediate' to __generated.sql script.
+    with open(generated_file_path, "a") as file:
+        for sql_file in collected_sql_files:
+            sql_file_relative_path = sql_file.relative_to(
+                deploy_root
+            )  # Path on stage, without the leading slash
+            file.write(f"\nEXECUTE IMMEDIATE FROM '/{sql_file_relative_path}';")
+
+    # Find the setup script in the deploy root.
+    setup_file_path = find_setup_script_file(deploy_root=deploy_root)
+    with open(setup_file_path, "r", encoding="utf-8") as file:
+        code = file.read()
+    # Unlink to prevent over-writing source file
+    if setup_file_path.is_symlink():
+        setup_file_path.unlink()
+
+    # Write original contents and the execute immediate sql to the setup script
+    generated_file_relative_path = generated_file_path.relative_to(deploy_root)
+    with open(setup_file_path, "w", encoding="utf-8") as file:
+        file.write(code)
+        file.write(f"\nEXECUTE IMMEDIATE FROM '/{generated_file_relative_path}';\n")

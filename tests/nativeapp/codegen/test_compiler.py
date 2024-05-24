@@ -45,6 +45,7 @@ def test_compiler(test_proj_def):
         project_definition=test_proj_def.native_app,
         project_root=Path("some/dummy/path"),
         deploy_root=Path("some/dummy/path"),
+        generated_root=Path("some/dummy/path"),
     )
 
 
@@ -52,7 +53,6 @@ def test_try_create_processor_returns_none(test_proj_def, test_compiler):
     artifact_to_process = test_proj_def.native_app.artifacts[2]
     result = test_compiler._try_create_processor(  # noqa: SLF001
         processor_mapping=artifact_to_process.processors[0],
-        artifact_to_process=artifact_to_process,
     )
     assert result is None
 
@@ -67,7 +67,6 @@ def test_try_create_processor_returns_processor(
     mapping = test_proj_def.native_app.artifacts[artifact_index]
     result = test_compiler._try_create_processor(  # noqa: SLF001
         processor_mapping=mapping.processors[0],
-        artifact_to_process=mapping,
     )
     assert isinstance(result, SnowparkAnnotationProcessor)
 
@@ -80,6 +79,7 @@ def test_find_and_execute_processors_exception(test_proj_def, test_compiler):
         project_definition=test_proj_def.native_app,
         project_root=Path("some/dummy/path"),
         deploy_root=Path("some/dummy/path"),
+        generated_root=Path("some/dummy/path"),
     )
 
     with pytest.raises(UnsupportedArtifactProcessorError):

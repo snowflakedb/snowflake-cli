@@ -8,6 +8,7 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
     ProcessorMapping,
 )
+from snowflake.cli.plugins.nativeapp.artifacts import resolve_without_follow
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
     ArtifactProcessor,
     UnsupportedArtifactProcessorError,
@@ -29,11 +30,17 @@ class NativeAppCompiler:
     """
 
     def __init__(
-        self, project_definition: NativeApp, project_root: Path, deploy_root: Path
+        self,
+        project_definition: NativeApp,
+        project_root: Path,
+        deploy_root: Path,
+        generated_root: Path,
     ):
         self.project_definition = project_definition
         self.project_root = project_root
         self.deploy_root = deploy_root
+        self.generated_root = generated_root
+
         self.artifacts = [
             artifact
             for artifact in project_definition.artifacts
@@ -77,8 +84,9 @@ class NativeAppCompiler:
             else:
                 curr_processor = SnowparkAnnotationProcessor(
                     project_definition=self.project_definition,
-                    project_root=self.project_root,
-                    deploy_root=self.deploy_root,
+                    project_root=resolve_without_follow(self.project_root),
+                    deploy_root=resolve_without_follow(self.deploy_root),
+                    generated_root=resolve_without_follow(self.generated_root),
                 )
                 self.cached_processors[SNOWPARK_PROCESSOR] = curr_processor
                 return curr_processor
