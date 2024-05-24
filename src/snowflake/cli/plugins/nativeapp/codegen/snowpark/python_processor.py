@@ -24,6 +24,7 @@ from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
     execute_script_in_sandbox,
 )
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.extension_function_utils import (
+    deannotate_module_source,
     ensure_all_string_literals,
     ensure_string_literal,
     get_qualified_object_name,
@@ -200,6 +201,8 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                     cc.message(grant_statements)
                     collected_output.append(grant_statements)
 
+                self.deannotate(py_file, extension_fns)
+
         return "\n".join(collected_output)
 
     def _normalize(self, extension_fn: NativeAppExtensionFunction, py_file: Path):
@@ -263,6 +266,21 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                 ] = collected_extension_functions
 
         return collected_extension_fns_by_path
+
+    def deannotate(
+        self, py_file: Path, extension_fns: List[NativeAppExtensionFunction]
+    ):
+        with open(py_file, "r", encoding="utf-8") as f:
+            code = f.read()
+
+        if py_file.is_symlink():
+            # if the file is a symlink, make sure we don't overwrite the original
+            py_file.unlink()
+
+        new_code = deannotate_module_source(code, extension_fns)
+
+        with open(py_file, "w", encoding="utf-8") as f:
+            f.write(new_code)
 
 
 def generate_create_sql_ddl_statement(

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import ast
 from typing import (
+    Any,
     List,
     Optional,
     Sequence,
@@ -83,3 +85,103 @@ def ensure_all_string_literals(values: Sequence[str]) -> List[str]:
         A list with all values transformed to be valid string literals (as necessary).
     """
     return [ensure_string_literal(value) for value in values]
+
+
+class _FunctionDefAccumulator(ast.NodeVisitor):
+    """
+    A NodeVisitor that collects AST nodes corresponding to function declarations, filtered by a list
+    of wanted functions. This is used to identify all Snowpark extension functions in a module's
+    source code.
+    """
+
+    def __init__(self, functions: Sequence[NativeAppExtensionFunction]):
+        self._wanted_functions_by_name = {
+            fn.handler.split(".")[-1]: fn for fn in functions
+        }
+        self.definitions: List[Any] = []
+
+    def visit_FunctionDef(self, node: ast.FunctionDef):  # noqa: N802
+        if self._want(node):
+            self.definitions.append(node)
+        self.generic_visit(node)
+
+    def _want(self, node: Any) -> bool:
+        if not node.decorator_list:
+            # No decorators for this definition, ignore it
+            return False
+
+        return node.name in self._wanted_functions_by_name
+
+
+def _get_decorator_id(node: ast.AST) -> Optional[str]:
+    """
+    Returns the fully qualified identifier for a decorator, e.g. "foo" or "foo.bar".
+    """
+    if isinstance(node, ast.Name):
+        return node.id
+    elif isinstance(node, ast.Attribute):
+        return f"{_get_decorator_id(node.value)}.{node.attr}"
+    elif isinstance(node, ast.Call):
+        return _get_decorator_id(node.func)
+    else:
+        return None
+
+
+def _collect_ast_function_definitions(
+    tree: ast.AST, extension_functions: Sequence[NativeAppExtensionFunction]
+) -> Sequence[ast.FunctionDef]:
+    accumulator = _FunctionDefAccumulator(extension_functions)
+    accumulator.visit(tree)
+    return accumulator.definitions
+
+
+def deannotate_module_source(
+    module_source: str,
+    extension_functions: Sequence[NativeAppExtensionFunction],
+    annotations_to_preserve: Sequence[str] = (),
+) -> str:
+    """
+    Removes annotations from a set of specified extension functions.
+
+    Arguments:
+        module_source (str): The source code of the module to deannotate.
+        extension_functions (Sequence[NativeAppExtensionFunction]): The list of extension functions
+         to deannotate. Other functions encountered will be ignored.
+        annotations_to_preserve (Sequence[str], optional): The list of annotations to preserve. The
+         names should appear as they are found in the source code, e.g. "foo" for @foo or
+         "annotations.bar" for @annotations.bar.
+
+    Returns:
+        A de-annotated version of the module source if any match was found. In order to preserve
+        line numbers, annotations are simply commented out instead of completely removed.
+    """
+
+    tree = ast.parse(module_source)
+
+    definitions = _collect_ast_function_definitions(tree, extension_functions)
+    if not definitions:
+        return module_source
+
+    module_lines = module_source.splitlines()
+    for definition in definitions:
+        # Comment out all decorators. As per the python grammar, decorators must be terminated by a
+        # new line, so the line ranges can't overlap.
+        for decorator in definition.decorator_list:
+            decorator_id = _get_decorator_id(decorator)
+            if decorator_id is None:
+                continue
+            if annotations_to_preserve and decorator_id in annotations_to_preserve:
+                continue
+
+            # AST indices are 1-based
+            start_lineno = decorator.lineno - 1
+            if decorator.end_lineno is not None:
+                end_lineno = decorator.end_lineno - 1
+            else:
+                end_lineno = start_lineno
+
+            for lineno in range(start_lineno, end_lineno + 1):
+                module_lines[lineno] = "#: " + module_lines[lineno]
+
+    # we're writing files in text mode, so we should use '\n' regardless of the platform
+    return "\n".join(module_lines)
