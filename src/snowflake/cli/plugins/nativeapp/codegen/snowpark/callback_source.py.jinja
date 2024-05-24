@@ -89,11 +89,12 @@ def __snowflake_internal_create_extension_fn_registration_callback():
 
     def __snowflake_internal_imports_union_to_str_type(raw_imports):
         final_imports = []
-        for raw_import in raw_imports:
-            if isinstance(raw_import, str):
-                final_imports.append(raw_import)
-            else:
-                final_imports.append(raw_import[0])
+        if raw_imports:
+            for raw_import in raw_imports:
+                if isinstance(raw_import, str):
+                    final_imports.append(raw_import)
+                else:
+                    final_imports.append(raw_import[0])
         return final_imports
 
 
