@@ -24,7 +24,7 @@ def _parse_key_value(key_value_str: str):
     return parts[0], "=".join(parts[1:])
 
 
-@app.command(name="sql", requires_connection=True)
+@app.command(name="sql", requires_connection=True, no_args_is_help=True)
 def execute_sql(
     query: Optional[str] = typer.Option(
         None,
@@ -60,6 +60,8 @@ def execute_sql(
 ) -> CommandResult:
     """
     Executes Snowflake query.
+
+    Use either query, filename or input option.
 
     Query to execute can be specified using query option, filename option (all queries from file will be executed)
     or via stdin by piping output from other command. For example `cat my.sql | snow sql -i`.
