@@ -47,7 +47,8 @@ repos:
           ^src/snowflake/cli/templates/.*$|
           ^src/snowflake/cli/api/utils/rendering.py$|
           ^src/snowflake/cli/plugins/spcs/common.py$|
-          ^src/snowflake/cli/plugins/snowpark/venv.py$
+          ^src/snowflake/cli/plugins/snowpark/venv.py$|
+          ^src/snowflake/cli/app/cli_app.py$
       - id: check-app-imports-in-api
         language: pygrep
         name: "No top level cli.app imports in cli.api"

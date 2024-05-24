@@ -1,0 +1,82 @@
+# serializer version: 1
+# name: test_sql_help_if_no_query_file_or_stdin
+  '''
+                                                                                  
+   Usage: default sql [OPTIONS]                                                   
+                                                                                  
+   Executes Snowflake query.                                                      
+   Use either query, filename or input option.                                    
+   Query to execute can be specified using query option, filename option (all     
+   queries from file will be executed) or via stdin by piping output from other   
+   command. For example `cat my.sql | snow sql -i`.                               
+   The command supports variable substitution that happens on client-side. Both   
+   &VARIABLE or &{ VARIABLE } syntax are supported.                               
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --query     -q      TEXT  Query to execute. [default: None]                  │
+  │ --filename  -f      FILE  File to execute. [default: None]                   │
+  │ --stdin     -i            Read the query from standard input. Use it when    │
+  │                           piping input to this command.                      │
+  │ --variable  -D      TEXT  String in format of key=value. If provided the SQL │
+  │                           content will be treated as template and rendered   │
+  │                           using provided data.                               │
+  │                           [default: None]                                    │
+  │ --project   -p      TEXT  Path where Snowflake project resides. Defaults to  │
+  │                           current working directory.                         │
+  │ --help      -h            Show this message and exit.                        │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Connection configuration ───────────────────────────────────────────────────╮
+  │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
+  │                                           in your `config.toml`. Default:    │
+  │                                           `default`.                         │
+  │ --account,--accountname             TEXT  Name assigned to your Snowflake    │
+  │                                           account. Overrides the value       │
+  │                                           specified for the connection.      │
+  │ --user,--username                   TEXT  Username to connect to Snowflake.  │
+  │                                           Overrides the value specified for  │
+  │                                           the connection.                    │
+  │ --password                          TEXT  Snowflake password. Overrides the  │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --authenticator                     TEXT  Snowflake authenticator. Overrides │
+  │                                           the value specified for the        │
+  │                                           connection.                        │
+  │ --private-key-path                  TEXT  Snowflake private key path.        │
+  │                                           Overrides the value specified for  │
+  │                                           the connection.                    │
+  │ --database,--dbname                 TEXT  Database to use. Overrides the     │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --schema,--schemaname               TEXT  Database schema to use. Overrides  │
+  │                                           the value specified for the        │
+  │                                           connection.                        │
+  │ --role,--rolename                   TEXT  Role to use. Overrides the value   │
+  │                                           specified for the connection.      │
+  │ --warehouse                         TEXT  Warehouse to use. Overrides the    │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --temporary-connection      -x            Uses connection defined with       │
+  │                                           command line parameters, instead   │
+  │                                           of one defined in config           │
+  │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
+  │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Global configuration ───────────────────────────────────────────────────────╮
+  │ --format           [TABLE|JSON]  Specifies the output format.                │
+  │                                  [default: TABLE]                            │
+  │ --verbose  -v                    Displays log entries for log levels `info`  │
+  │                                  and higher.                                 │
+  │ --debug                          Displays log entries for log levels `debug` │
+  │                                  and higher; debug logs contains additional  │
+  │                                  information.                                │
+  │ --silent                         Turns off intermediate output to console.   │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
