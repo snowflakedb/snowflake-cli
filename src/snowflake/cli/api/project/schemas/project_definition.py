@@ -59,8 +59,8 @@ class _DefinitionV11(_DefinitionV10):
 
 class ProjectDefinition(_DefinitionV11):
     def __init__(self, **kwargs):
-        self._validate(kwargs)
         super().__init__(**kwargs)
+        self._validate(kwargs)
 
     @staticmethod
     def _validate(data: Any):
