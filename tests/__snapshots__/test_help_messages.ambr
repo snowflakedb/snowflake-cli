@@ -7991,7 +7991,7 @@
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
   │ app          Manages a Snowflake Native App                                  │
   │ connection   Manages connections to Snowflake.                               │
-  │ cortex       Provides access to Snowflake Cortex LLM.                        │
+  │ cortex       Provides access to Snowflake Cortex.                            │
   │ git          Manages git repositories in Snowflake.                          │
   │ object       Manages Snowflake objects like warehouses and stages            │
   │ snowpark     Manages procedures and functions.                               │
@@ -8083,7 +8083,7 @@
                                                                                   
    Usage: default cortex [OPTIONS] COMMAND [ARGS]...                              
                                                                                   
-   Provides access to Snowflake Cortex LLM.                                       
+   Provides access to Snowflake Cortex.                                           
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --help  -h        Show this message and exit.                                │
@@ -8098,6 +8098,7 @@
   │                  document. The document may be a plain-English document or a │
   │                  string representation of a semi-structured (JSON) data      │
   │                  object.                                                     │
+  │ search           Performs query search using Cortex Search Services          │
   │ sentiment        Returns sentiment as a score between -1 to 1 (with -1 being │
   │                  the most negative and 1 the most positive, with values      │
   │                  around 0 neutral) for the given English-language input      │
