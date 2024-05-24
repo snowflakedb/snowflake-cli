@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import sys
 from contextlib import contextmanager
 from typing import Any, Optional
 from unittest import mock
@@ -227,3 +228,41 @@ def test_cortex_translate_file(_mock_cortex_result, runner):
         assert_successful_result_message(
             result, expected_msg="John ma samochód. Samochód Johna jest niebieski."
         )
+
+
+@pytest.mark.skipif(
+    sys.version_info > (3, 11),
+    reason="Test designed to check command behaviour in Python 3.12 and above",
+)
+def test_if_search_is_hidden_for_312(runner):
+    print(sys.version_info)
+    result = runner.invoke(["cortex", "-h"])
+
+    assert "Performs query search using Cortex Search Services" not in result.output
+
+
+@pytest.mark.skipif(
+    sys.version_info <= (3, 11),
+    reason="Cortex search command should be visible in python 3.11 and below",
+)
+def test_if_search_is_visible_for_311_and_below(runner):
+    result = runner.invoke(["cortex", "-h"])
+    assert "Performs query search using Cortex Search Services" in result.output
+
+
+@mock.patch("sys.version_info", new=(3, 12, 1, "final", 0))
+def test_if_search_raises_exception_for_312(runner, snapshot):
+
+    result = runner.invoke(
+        [
+            "cortex",
+            "search",
+            "parrot",
+            "--service",
+            "test_service",
+            "--columns",
+            "region",
+        ]
+    )
+    assert result.exit_code == 1
+    assert result.output == snapshot

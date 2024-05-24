@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import List, Optional
 
+import click
 import typer
 from click import UsageError
 from snowflake.cli.api.cli_global_context import cli_context
@@ -30,9 +32,7 @@ app = SnowTyper(
 )
 
 
-@app.command(
-    requires_connection=True,
-)
+@app.command(requires_connection=True, hidden=(sys.version_info.minor >= 12))
 def search(
     query: str = typer.Argument(help="Query to look for in your data"),
     service: str = typer.Option(
@@ -48,6 +48,12 @@ def search(
     """
     Performs query search using Cortex Search Services
     """
+
+    if sys.version_info >= (3, 12):
+        raise click.ClickException(
+            "Cortex Search uses Snowflake Python API that currently does not support your Python version"
+        )
+
     from snowflake.core import Root
 
     if not columns:
