@@ -231,7 +231,7 @@ def test_cortex_translate_file(_mock_cortex_result, runner):
 
 
 @pytest.mark.skipif(
-    sys.version_info > (3, 11),
+    sys.version_info <= (3, 11),
     reason="Test designed to check command behaviour in Python 3.12 and above",
 )
 def test_if_search_is_hidden_for_312(runner):
@@ -242,7 +242,7 @@ def test_if_search_is_hidden_for_312(runner):
 
 
 @pytest.mark.skipif(
-    sys.version_info <= (3, 11),
+    sys.version_info > (3, 11),
     reason="Cortex search command should be visible in python 3.11 and below",
 )
 def test_if_search_is_visible_for_311_and_below(runner):
