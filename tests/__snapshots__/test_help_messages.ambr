@@ -7,12 +7,18 @@
    Snowflake CLI tool for developers.                                             
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --version                    Shows version of the Snowflake CLI              │
-  │ --info                       Shows information about the Snowflake CLI       │
-  │ --config-file          FILE  Specifies Snowflake CLI configuration file that │
-  │                              should be used                                  │
-  │                              [default: None]                                 │
-  │ --help         -h            Show this message and exit.                     │
+  │ --version                           Shows version of the Snowflake CLI       │
+  │ --info                              Shows information about the Snowflake    │
+  │                                     CLI                                      │
+  │ --config-file                 FILE  Specifies Snowflake CLI configuration    │
+  │                                     file that should be used                 │
+  │                                     [default: None]                          │
+  │ --install-completion                Install completion for the current       │
+  │                                     shell.                                   │
+  │ --show-completion                   Show completion for the current shell,   │
+  │                                     to copy it or customize the              │
+  │                                     installation.                            │
+  │ --help                -h            Show this message and exit.              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
   │ app          Manages a Snowflake Native App                                  │
@@ -7900,12 +7906,18 @@
    Snowflake CLI tool for developers.                                             
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --version                    Shows version of the Snowflake CLI              │
-  │ --info                       Shows information about the Snowflake CLI       │
-  │ --config-file          FILE  Specifies Snowflake CLI configuration file that │
-  │                              should be used                                  │
-  │                              [default: None]                                 │
-  │ --help         -h            Show this message and exit.                     │
+  │ --version                           Shows version of the Snowflake CLI       │
+  │ --info                              Shows information about the Snowflake    │
+  │                                     CLI                                      │
+  │ --config-file                 FILE  Specifies Snowflake CLI configuration    │
+  │                                     file that should be used                 │
+  │                                     [default: None]                          │
+  │ --install-completion                Install completion for the current       │
+  │                                     shell.                                   │
+  │ --show-completion                   Show completion for the current shell,   │
+  │                                     to copy it or customize the              │
+  │                                     installation.                            │
+  │ --help                -h            Show this message and exit.              │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Commands ───────────────────────────────────────────────────────────────────╮
   │ app          Manages a Snowflake Native App                                  │
