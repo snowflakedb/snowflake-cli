@@ -12,8 +12,8 @@ def test_failing_plugin(runner, test_root_path, _install_plugin, caplog):
     result = runner.invoke(["--config-file", config_path, "connection", "list"])
 
     assert (
-        caplog.messages[0]
-        == "Cannot register plugin [failing_plugin]: Some error in plugin"
+        "Cannot register plugin [failing_plugin]: Some error in plugin"
+        in caplog.messages
     )
     assert result.output == dedent(
         """\
