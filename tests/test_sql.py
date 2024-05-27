@@ -52,7 +52,7 @@ def test_sql_execute_multiple_file(mock_execute, runner, mock_cursor):
         result = runner.invoke(["sql", "-f", f1, "-f", f2])
 
     assert result.exit_code == 0
-    mock_execute.has_calls([mock.call(query), mock.call(query)])
+    mock_execute.assert_has_calls([mock.call(query), mock.call(query)])
 
 
 @mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
