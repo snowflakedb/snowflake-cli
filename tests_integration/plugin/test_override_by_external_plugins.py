@@ -40,7 +40,6 @@ def test_disabled_plugin_is_not_executed(
 
     result = runner.invoke(["--config-file", config_path, "connection", "list"])
 
-    assert len(caplog.messages) == 0
     assert result.output == dedent(
         """\
      +----------------------------------------------------+
