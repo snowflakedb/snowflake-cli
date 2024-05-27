@@ -57,11 +57,12 @@ class CliConsole(AbstractConsole):
         self._print(self._format_message(enter_message, Output.PHASE))
         self._in_phase = True
 
-        yield self.step
-
-        self._in_phase = False
-        if exit_message:
-            self._print(self._format_message(exit_message, Output.PHASE))
+        try:
+            yield self.step
+        finally:
+            self._in_phase = False
+            if exit_message:
+                self._print(self._format_message(exit_message, Output.PHASE))
 
     def step(self, message: str):
         """Displays a message to output.
