@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import List, Optional
 
@@ -35,13 +34,8 @@ app = SnowTyper(
 
 @app.command(
     requires_connection=True,
-    hidden=(
-        sys.version_info
-        >= (
-            3,
-            12,
-        )
-    ),
+    hidden=FeatureFlag.ENABLE_CORTEX_SEARCH.is_disabled(),
+    is_enabled=FeatureFlag.ENABLE_CORTEX_SEARCH.is_enabled,
 )
 def search(
     query: str = typer.Argument(help="The search query string"),

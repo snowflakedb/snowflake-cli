@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import sys
 from contextlib import contextmanager
 from typing import Any, Optional
 from unittest import mock
@@ -230,31 +229,11 @@ def test_cortex_translate_file(_mock_cortex_result, runner):
         )
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 12),
-    reason="Test designed to check command behaviour in Python 3.12 and above",
-)
-def test_if_search_is_hidden_for_312(runner):
-
-    result = runner.invoke(["cortex", "-h"])
-
-    assert "Performs query search using Cortex Search Services" not in result.output
-
-
-@pytest.mark.skipif(
-    sys.version_info > (3, 11),
-    reason="Cortex search command should be visible in python 3.11 and below",
-)
-def test_if_search_is_visible_for_311_and_below(runner):
-    result = runner.invoke(["cortex", "-h"])
-    assert "Performs query search using Cortex Search Services" in result.output
-
-
 @mock.patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_CORTEX_SEARCH.is_disabled"
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_CORTEX_SEARCH.is_enabled"
 )
 def test_if_search_raises_exception_for_312(mock_flag, runner, snapshot):
-    mock_flag.return_value = True
+    mock_flag.return_value = False
 
     result = runner.invoke(
         [
@@ -272,12 +251,11 @@ def test_if_search_raises_exception_for_312(mock_flag, runner, snapshot):
 
 
 @mock.patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_CORTEX_SEARCH.is_disabled"
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_CORTEX_SEARCH.is_enabled"
 )
 def test_hidden(mock_flag, runner):
-
-    mock_flag.return_value = True
+    mock_flag.return_value = False
 
     result = runner.invoke(["cortex", "-h"])
-
+    assert result.exit_code == 0
     assert "Performs query search using Cortex Search Services" not in result.output
