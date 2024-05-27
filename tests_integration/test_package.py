@@ -5,7 +5,8 @@ from typing import List
 from zipfile import ZipFile
 
 import pytest
-import logging
+from pkg_resources.extern.packaging.requirements import InvalidRequirement
+
 
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
 
@@ -194,6 +195,19 @@ class TestPackage:
         )
         assert result.exit_code == 1
         assert "at https://support.anaconda.com/" in result.output
+
+    @pytest.mark.integration
+    def test_incorrect_input(self, runner):
+        try:
+            runner.invoke_with_connection(
+                ["snowpark", "package", "create", "this is incorrect"]
+            )
+            raise "InvalidRequirement exception should be raised"
+        except InvalidRequirement as err:
+            assert (
+                "Expected end or semicolon (after name and no valid version specifier)"
+                in str(err)
+            )
 
     @pytest.fixture(scope="function")
     def directory_for_test(self):
