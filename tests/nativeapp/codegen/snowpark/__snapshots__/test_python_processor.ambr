@@ -69,6 +69,321 @@
   TO APPLICATION ROLE APP_VIEWER;
   '''
 # ---
+# name: test_package_normalization[package_decl0]
+  '''
+  -- stagepath/main.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('snowflake-snowpark-python')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_package_normalization[package_decl10]
+  '''
+  -- stagepath/main.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('snowflake-snowpark-python===0.15.0-rc1')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_package_normalization[package_decl11]
+  '''
+  -- stagepath/main.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('snowflake-snowpark-python===0.15.0-rc1')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_package_normalization[package_decl12]
+  '''
+  -- stagepath/main.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('snowflake-snowpark-python<<0.15.0', 'snowflake-snowpark-python')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_package_normalization[package_decl13]
+  '''
+  -- stagepath/main.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('snowflake-snowpark-python2', 'snowflake-snowpark-python')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_package_normalization[package_decl14]
+  '''
+  -- stagepath/main.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('snowflake-snowpark-python  ==  0.15.0')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_package_normalization[package_decl1]
+  '''
+  -- stagepath/main.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('snowflake-snowpark-python')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_package_normalization[package_decl2]
+  '''
+  -- stagepath/main.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('other-package', 'snowflake-snowpark-python')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_package_normalization[package_decl3]
+  '''
+  -- stagepath/main.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('snowflake-snowpark-python==0.15.0')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_package_normalization[package_decl4]
+  '''
+  -- stagepath/main.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('snowflake-snowpark-python==0.15.0')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_package_normalization[package_decl5]
+  '''
+  -- stagepath/main.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('snowflake-snowpark-python<0.16.0')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_package_normalization[package_decl6]
+  '''
+  -- stagepath/main.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('snowflake-snowpark-python<=0.17.0')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_package_normalization[package_decl7]
+  '''
+  -- stagepath/main.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('snowflake-snowpark-python>=0.14.0')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_package_normalization[package_decl8]
+  '''
+  -- stagepath/main.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('snowflake-snowpark-python>0.13.0')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_package_normalization[package_decl9]
+  '''
+  -- stagepath/main.py
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('snowflake-snowpark-python===0.15.0')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
 # name: test_process_no_collected_functions
   ''
 # ---
@@ -81,7 +396,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('package_one==1.0.2', 'package_two')
+  PACKAGES=('package_one==1.0.2', 'package_two', 'snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='main.my_function_handler'
@@ -98,7 +413,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/', '/stagepath/data.py', '/stagepath/extra_import1.zip', '/stagepath/some_dir_str', '/stagepath/withslash.py', '@dummy_stage_str')
-  PACKAGES=('package_one==1.0.2', 'package_two')
+  PACKAGES=('package_one==1.0.2', 'package_two', 'snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='data.my_function_handler'
@@ -133,7 +448,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('package_one==1.0.2', 'package_two')
+  PACKAGES=('package_one==1.0.2', 'package_two', 'snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='main.my_function_handler'
@@ -154,7 +469,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/', '/stagepath/data.py', '/stagepath/extra_import1.zip', '/stagepath/some_dir_str', '/stagepath/withslash.py', '@dummy_stage_str')
-  PACKAGES=('package_one==1.0.2', 'package_two')
+  PACKAGES=('package_one==1.0.2', 'package_two', 'snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='data.my_function_handler'

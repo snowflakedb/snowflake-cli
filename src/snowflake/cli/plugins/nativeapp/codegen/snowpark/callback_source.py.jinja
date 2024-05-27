@@ -50,6 +50,8 @@ def __snowflake_internal_create_extension_fn_registration_callback():
         return extension_fn.object_name
 
     def __snowflake_internal_create_package_list(extension_fn):
+        if not extension_fn.all_packages.strip():
+            return []
         return [pkg_spec.strip() for pkg_spec in extension_fn.all_packages.split(",")]
 
     def __snowflake_internal_make_extension_fn_signature(extension_fn):
