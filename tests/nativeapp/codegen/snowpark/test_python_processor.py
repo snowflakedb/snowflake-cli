@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import contextlib
 import copy
+import os
 import subprocess
 from pathlib import Path
 from textwrap import dedent
+from typing import Iterator, List, Set
 from unittest import mock
 
 import pytest
@@ -24,6 +27,56 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
 from tests.testing_utils.files_and_dirs import temp_local_dir
 
 PROJECT_ROOT = Path("/path/to/project")
+
+
+# contextlib.chdir isn't available before Python 3.11, so this is an alternative for older versions
+@contextlib.contextmanager
+def in_cwd(path: Path) -> Iterator[None]:
+    old_cwd = os.getcwd()
+    os.chdir(str(path))
+    try:
+        yield
+    except Exception:
+        pass
+
+    os.chdir(old_cwd)
+
+
+def stringify(p: Path):
+    if p.is_dir():
+        return f"d {p}"
+    else:
+        return f"f {p}"
+
+
+def all_paths_under_dir(root: Path) -> List[Path]:
+    assert root.is_dir()
+
+    paths: Set[Path] = set()
+    for subdir, dirs, files in os.walk(root):
+        subdir_path = Path(subdir)
+        paths.add(subdir_path)
+        for d in dirs:
+            paths.add(subdir_path / d)
+        for f in files:
+            paths.add(subdir_path / f)
+
+    return sorted(paths)
+
+
+def assert_dir_snapshot(root: Path, snapshot) -> None:
+    all_paths = all_paths_under_dir(root)
+
+    # Verify the contents of the directory matches expectations
+    assert "\n".join([stringify(p) for p in all_paths]) == snapshot
+
+    # Verify that each file under the directory matches expectations
+    for path in all_paths:
+        if path.is_file():
+            snapshot_contents = f"===== Contents of: {path} =====\n"
+            snapshot_contents += path.read_text(encoding="utf-8")
+            assert snapshot_contents == snapshot
+
 
 # --------------------------------------------------------
 # ------------- _determine_virtual_env -------------------
@@ -194,27 +247,21 @@ def test_edit_setup_script_with_exec_imm_sql(snapshot):
     }
 
     with temp_local_dir(dir_structure=dir_structure) as local_path:
-        deploy_root = Path(local_path, "output", "deploy")
-        generated_root = Path(deploy_root, "__generated")
-        collected_sql_files = [
-            Path(generated_root, "moduleB", "dummy.sql"),
-            Path(generated_root, "dummy.sql"),
-        ]
+        with in_cwd(local_path):
+            deploy_root = Path(local_path, "output", "deploy")
+            generated_root = Path(deploy_root, "__generated")
+            collected_sql_files = [
+                Path(generated_root, "moduleB", "dummy.sql"),
+                Path(generated_root, "dummy.sql"),
+            ]
 
-        edit_setup_script_with_exec_imm_sql(
-            collected_sql_files=collected_sql_files,
-            deploy_root=deploy_root,
-            generated_root=generated_root,
-        )
+            edit_setup_script_with_exec_imm_sql(
+                collected_sql_files=collected_sql_files,
+                deploy_root=deploy_root,
+                generated_root=generated_root,
+            )
 
-        main_file = Path(deploy_root, "__generated", "__generated.sql")
-        assert main_file.is_file()
-        with open(main_file, "r") as f:
-            assert f.read() == snapshot
-
-        setup_file = Path(deploy_root, "moduleA", "moduleC", "setup.sql")
-        with open(setup_file, "r") as f:
-            assert f.read() == snapshot
+            assert_dir_snapshot(deploy_root.relative_to(local_path), snapshot)
 
 
 def test_edit_setup_script_with_exec_imm_sql_noop(snapshot):
@@ -233,22 +280,18 @@ def test_edit_setup_script_with_exec_imm_sql_noop(snapshot):
     }
 
     with temp_local_dir(dir_structure=dir_structure) as local_path:
-        deploy_root = Path(local_path, "output", "deploy")
-        collected_sql_files = [
-            Path(deploy_root, "__generated", "dummy.sql"),
-        ]
-        edit_setup_script_with_exec_imm_sql(
-            collected_sql_files=collected_sql_files,
-            deploy_root=deploy_root,
-            generated_root=Path(deploy_root, "__generated"),
-        )
-        main_file = Path(deploy_root, "__generated", "__generated.sql")
-        assert main_file.is_file()
-        with open(main_file, "r") as f:
-            assert f.read() == snapshot
+        with in_cwd(local_path):
+            deploy_root = Path(local_path, "output", "deploy")
+            collected_sql_files = [
+                Path(deploy_root, "__generated", "dummy.sql"),
+            ]
+            edit_setup_script_with_exec_imm_sql(
+                collected_sql_files=collected_sql_files,
+                deploy_root=deploy_root,
+                generated_root=Path(deploy_root, "__generated"),
+            )
 
-        dummy_file = Path(deploy_root, "__generated", "dummy.sql")
-        assert not dummy_file.exists()
+            assert_dir_snapshot(deploy_root.relative_to(local_path), snapshot)
 
 
 def test_edit_setup_script_with_exec_imm_sql_symlink(snapshot):
@@ -266,35 +309,24 @@ def test_edit_setup_script_with_exec_imm_sql_symlink(snapshot):
     }
 
     with temp_local_dir(dir_structure=dir_structure) as local_path:
-        deploy_root = Path(local_path, "output", "deploy")
+        with in_cwd(local_path):
+            deploy_root = Path(local_path, "output", "deploy")
 
-        deploy_root_setup_script = Path(deploy_root, "setup.sql")
-        deploy_root_setup_script.symlink_to(Path(local_path, "setup.sql"))
+            deploy_root_setup_script = Path(deploy_root, "setup.sql")
+            deploy_root_setup_script.symlink_to(Path(local_path, "setup.sql"))
 
-        generated_root = Path(deploy_root, "__generated")
-        collected_sql_files = [
-            Path(generated_root, "moduleB", "dummy.sql"),
-            Path(generated_root, "dummy.sql"),
-        ]
-        edit_setup_script_with_exec_imm_sql(
-            collected_sql_files=collected_sql_files,
-            deploy_root=deploy_root,
-            generated_root=Path(deploy_root, "__generated"),
-        )
+            generated_root = Path(deploy_root, "__generated")
+            collected_sql_files = [
+                Path(generated_root, "moduleB", "dummy.sql"),
+                Path(generated_root, "dummy.sql"),
+            ]
+            edit_setup_script_with_exec_imm_sql(
+                collected_sql_files=collected_sql_files,
+                deploy_root=deploy_root,
+                generated_root=Path(deploy_root, "__generated"),
+            )
 
-        main_file = Path(deploy_root, "__generated", "__generated.sql")
-        assert main_file.is_file()
-        with open(main_file, "r") as f:
-            assert f.read() == snapshot
-
-        # Should not be a symlink anymore
-        assert not deploy_root_setup_script.is_symlink()
-
-        with open(deploy_root_setup_script, "r") as f:
-            assert f.read() == snapshot
-
-        with open(Path(local_path, "setup.sql"), "r") as f:
-            assert f.read() == snapshot
+            assert_dir_snapshot(deploy_root.relative_to(local_path), snapshot)
 
 
 # --------------------------------------------------------
@@ -329,25 +361,25 @@ def test_process_no_collected_functions(
     mock_sandbox, native_app_project_instance, snapshot
 ):
     with temp_local_dir(minimal_dir_structure) as local_path:
-        native_app_project_instance.native_app.artifacts = [
-            {"src": "a/b/c/*.py", "dest": "stagepath/", "processors": ["SNOWPARK"]}
-        ]
-        mock_sandbox.side_effect = [None, []]
-        deploy_root = Path(local_path, "output/deploy")
-        generated_root = Path(deploy_root, "__generated")
-        output = SnowparkAnnotationProcessor(
-            project_definition=native_app_project_instance,
-            project_root=local_path,
-            deploy_root=deploy_root,
-            generated_root=generated_root,
-        ).process(
-            artifact_to_process=native_app_project_instance.native_app.artifacts[0],
-            processor_mapping=ProcessorMapping(name="SNOWPARK"),
-            write_to_sql=False,  # For testing
-        )
-        assert output == snapshot
-        assert not Path(generated_root, "stagepath/main.sql").exists()
-        assert not Path(generated_root, "stagepath/data.sql").exists()
+        with in_cwd(local_path):
+            native_app_project_instance.native_app.artifacts = [
+                {"src": "a/b/c/*.py", "dest": "stagepath/", "processors": ["SNOWPARK"]}
+            ]
+            mock_sandbox.side_effect = [None, []]
+            deploy_root = Path(local_path, "output/deploy")
+            generated_root = Path(deploy_root, "__generated")
+            SnowparkAnnotationProcessor(
+                project_definition=native_app_project_instance,
+                project_root=local_path,
+                deploy_root=deploy_root,
+                generated_root=generated_root,
+            ).process(
+                artifact_to_process=native_app_project_instance.native_app.artifacts[0],
+                processor_mapping=ProcessorMapping(name="SNOWPARK"),
+                write_to_sql=False,  # For testing
+            )
+
+            assert_dir_snapshot(deploy_root.relative_to(local_path), snapshot)
 
 
 @mock.patch(
@@ -361,63 +393,44 @@ def test_process_with_collected_functions(
 ):
 
     with temp_local_dir(minimal_dir_structure) as local_path:
-        imports_variation = copy.deepcopy(native_app_extension_function_raw_data)
-        imports_variation["imports"] = [
-            "@dummy_stage_str",
-            "/",
-            "stagepath/extra_import1.zip",
-            "stagepath/some_dir_str",
-            "/stagepath/withslash.py",
-            "stagepath/data.py",
-        ]
-        processor_mapping = ProcessorMapping(
-            name="snowpark",
-            properties={"env": {"type": "conda", "name": "snowpark-dev"}},
-        )
-        native_app_project_instance.native_app.artifacts = [
-            {
-                "src": "a/b/c/*.py",
-                "dest": "stagepath/",
-                "processors": [processor_mapping],
-            }
-        ]
-        mock_sandbox.side_effect = [
-            [native_app_extension_function_raw_data],
-            [imports_variation],
-        ]
-        deploy_root = Path(local_path, "output/deploy")
-        generated_root = Path(deploy_root, "__generated")
-        output = SnowparkAnnotationProcessor(
-            project_definition=native_app_project_instance,
-            project_root=local_path,
-            deploy_root=deploy_root,
-            generated_root=generated_root,
-        ).process(
-            artifact_to_process=native_app_project_instance.native_app.artifacts[0],
-            processor_mapping=processor_mapping,
-        )
-        assert output == snapshot
+        with in_cwd(local_path):
+            imports_variation = copy.deepcopy(native_app_extension_function_raw_data)
+            imports_variation["imports"] = [
+                "@dummy_stage_str",
+                "/",
+                "stagepath/extra_import1.zip",
+                "stagepath/some_dir_str",
+                "/stagepath/withslash.py",
+                "stagepath/data.py",
+            ]
+            processor_mapping = ProcessorMapping(
+                name="snowpark",
+                properties={"env": {"type": "conda", "name": "snowpark-dev"}},
+            )
+            native_app_project_instance.native_app.artifacts = [
+                {
+                    "src": "a/b/c/*.py",
+                    "dest": "stagepath/",
+                    "processors": [processor_mapping],
+                }
+            ]
+            mock_sandbox.side_effect = [
+                [native_app_extension_function_raw_data],
+                [imports_variation],
+            ]
+            deploy_root = Path(local_path, "output/deploy")
+            generated_root = Path(deploy_root, "__generated")
+            SnowparkAnnotationProcessor(
+                project_definition=native_app_project_instance,
+                project_root=local_path,
+                deploy_root=deploy_root,
+                generated_root=generated_root,
+            ).process(
+                artifact_to_process=native_app_project_instance.native_app.artifacts[0],
+                processor_mapping=processor_mapping,
+            )
 
-        main_file = Path(deploy_root, "__generated", "__generated.sql")
-        assert main_file.is_file()
-        with open(main_file, "r") as f:
-            assert f.read() == snapshot
-
-        # Should have execute imm
-        with open(
-            Path(local_path, "output/deploy/moduleA/moduleC/setup.sql"), "r"
-        ) as f:
-            assert f.read() == snapshot
-
-        with open(
-            Path(local_path, "output/deploy/__generated/stagepath/main.sql"), "r"
-        ) as f:
-            assert f.read() == snapshot
-
-        with open(
-            Path(local_path, "output/deploy/__generated/stagepath/data.sql"), "r"
-        ) as f:
-            assert f.read() == snapshot
+            assert_dir_snapshot(deploy_root.relative_to(local_path), snapshot)
 
 
 @pytest.mark.parametrize(
@@ -452,28 +465,31 @@ def test_package_normalization(
 ):
 
     with temp_local_dir(minimal_dir_structure) as local_path:
-        processor_mapping = ProcessorMapping(
-            name="snowpark",
-        )
-        native_app_project_instance.native_app.artifacts = [
-            {
-                "src": "a/b/c/main.py",
-                "dest": "stagepath/",
-                "processors": [processor_mapping],
-            }
-        ]
-        native_app_extension_function_raw_data["packages"] = package_decl
-        mock_sandbox.side_effect = [[native_app_extension_function_raw_data]]
-        deploy_root = Path(local_path, "output/deploy")
-        generated_root = Path(deploy_root, "__generated")
-        output = SnowparkAnnotationProcessor(
-            project_definition=native_app_project_instance,
-            project_root=local_path,
-            deploy_root=deploy_root,
-            generated_root=generated_root,
-        ).process(
-            artifact_to_process=native_app_project_instance.native_app.artifacts[0],
-            processor_mapping=processor_mapping,
-        )
+        with in_cwd(local_path):
+            processor_mapping = ProcessorMapping(
+                name="snowpark",
+            )
+            native_app_project_instance.native_app.artifacts = [
+                {
+                    "src": "a/b/c/main.py",
+                    "dest": "stagepath/",
+                    "processors": [processor_mapping],
+                }
+            ]
+            native_app_extension_function_raw_data["packages"] = package_decl
+            mock_sandbox.side_effect = [[native_app_extension_function_raw_data]]
+            deploy_root = Path(local_path, "output/deploy")
+            generated_root = Path(deploy_root, "__generated")
+            SnowparkAnnotationProcessor(
+                project_definition=native_app_project_instance,
+                project_root=local_path,
+                deploy_root=deploy_root,
+                generated_root=generated_root,
+            ).process(
+                artifact_to_process=native_app_project_instance.native_app.artifacts[0],
+                processor_mapping=processor_mapping,
+            )
 
-        assert output == snapshot
+            dest_file = generated_root / "stagepath" / "main.py"
+            assert dest_file.is_file()
+            assert dest_file.read_text(encoding="utf-8") == snapshot
