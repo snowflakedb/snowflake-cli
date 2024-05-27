@@ -44,7 +44,7 @@ from snowflake.cli.plugins.stage.diff import to_stage_path
 DEFAULT_TIMEOUT = 30
 TEMPLATE_PATH = Path(__file__).parent / "callback_source.py.jinja"
 SNOWPARK_LIB_NAME = "snowflake-snowpark-python"
-SNOWPARK_LIB_REGEX = rf"'{SNOWPARK_LIB_NAME}((<|<=|!=|==|>=|>|~=|===)[a-zA-Z0-9_.*+!-]+)?'"  # support PEP 508, even though not all of it is supported in Snowflake yet
+SNOWPARK_LIB_REGEX = rf"'{SNOWPARK_LIB_NAME}\s*((<|<=|!=|==|>=|>|~=|===)\s*[a-zA-Z0-9_.*+!-]+)?'"  # support PEP 508, even though not all of it is supported in Snowflake yet
 STAGE_PREFIX = "@"
 
 
@@ -278,7 +278,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         snowpark_lib_found = False
         snowpark_lib_regex = re.compile(SNOWPARK_LIB_REGEX)
         for pkg in extension_fn.packages:
-            if snowpark_lib_regex.fullmatch(ensure_string_literal(pkg)):
+            if snowpark_lib_regex.fullmatch(ensure_string_literal(pkg.strip())):
                 snowpark_lib_found = True
                 break
         if not snowpark_lib_found:
@@ -407,7 +407,7 @@ def generate_create_sql_ddl_statement(
         )
 
     if extension_fn.packages:
-        create_query += f"\nPACKAGES=({', '.join(ensure_all_string_literals(extension_fn.packages))})"
+        create_query += f"\nPACKAGES=({', '.join(ensure_all_string_literals([pkg.strip() for pkg in extension_fn.packages]))})"
 
     if extension_fn.external_access_integrations:
         create_query += f"\nEXTERNAL_ACCESS_INTEGRATIONS=({', '.join(ensure_all_string_literals(extension_fn.external_access_integrations))})"

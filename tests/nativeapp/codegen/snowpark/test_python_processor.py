@@ -437,6 +437,7 @@ def test_process_with_collected_functions(
         ["'snowflake-snowpark-python===0.15.0-rc1'"],
         ["snowflake-snowpark-python<<0.15.0"],  # not PEP 508 compliant
         ["snowflake-snowpark-python2"],  # not a match
+        ["   snowflake-snowpark-python  ==  0.15.0   "],  # whitespace is ignored
     ],
 )
 @mock.patch(
