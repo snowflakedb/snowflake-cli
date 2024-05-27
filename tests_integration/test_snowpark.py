@@ -13,6 +13,7 @@ from tests_integration.testing_utils.snowpark_utils import (
 )
 from typing import List
 from zipfile import ZipFile
+from pkg_resources.extern.packaging.requirements import InvalidRequirement
 
 
 STAGE_NAME = "dev_deployment"
@@ -772,6 +773,20 @@ def test_ignore_anaconda_uses_version_from_zip(
         assert result.exit_code == 0, result.output
         # earliest mypy 1.* version is 1.5
         assert result.json == {"CHECK_MYPY_VERSION()": "1.3.0"}
+
+
+@pytest.mark.integration
+def test_incorrect_requirements(project_directory, runner, alter_requirements_txt):
+    with project_directory("snowpark") as tmp_dir:
+        alter_requirements_txt(
+            tmp_dir / "requirements.txt", ["this is incorrect requirement"]
+        )
+        with pytest.raises(InvalidRequirement) as err:
+            runner.invoke_with_connection(["snowpark", "build"])
+        assert (
+            "Expected end or semicolon (after name and no valid version specifier)"
+            in str(err)
+        )
 
 
 @pytest.fixture

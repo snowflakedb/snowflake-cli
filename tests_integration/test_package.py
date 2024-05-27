@@ -5,6 +5,8 @@ from typing import List
 from zipfile import ZipFile
 
 import pytest
+from pkg_resources.extern.packaging.requirements import InvalidRequirement
+
 
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
 
@@ -52,7 +54,7 @@ class TestPackage:
         ],
     )
     def test_package_create_with_non_anaconda_package(
-        self, directory_for_test, runner, extra_flags
+        self, directory_for_test, runner, extra_flags, caplog
     ):
         result = runner.invoke_with_connection_json(
             [
@@ -73,6 +75,12 @@ class TestPackage:
             "dummy_pkg_for_tests_with_deps/shrubbery.py"
             in self._get_filenames_from_zip("dummy_pkg_for_tests_with_deps.zip")
         )
+
+        def _assert_message_in_logs(expected_message):
+            return any(expected_message in record.message for record in caplog.records)
+
+        _assert_message_in_logs("Running pip wheel with command: %s")
+        _assert_message_in_logs("Pip wheel command executed successfully")
 
     @pytest.mark.integration
     @pytest.mark.parametrize("ignore_anaconda", (True, False))
@@ -187,6 +195,17 @@ class TestPackage:
         )
         assert result.exit_code == 1
         assert "at https://support.anaconda.com/" in result.output
+
+    @pytest.mark.integration
+    def test_incorrect_input(self, runner):
+        with pytest.raises(InvalidRequirement) as err:
+            runner.invoke_with_connection(
+                ["snowpark", "package", "create", "this is incorrect"]
+            )
+        assert (
+            "Expected end or semicolon (after name and no valid version specifier)"
+            in str(err)
+        )
 
     @pytest.fixture(scope="function")
     def directory_for_test(self):
