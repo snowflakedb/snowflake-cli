@@ -1,0 +1,10 @@
+# serializer version: 1
+# name: test_if_search_raises_exception_for_312
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Cortex Search uses Snowflake Python API that currently does not support your │
+  │ Python version                                                               │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
