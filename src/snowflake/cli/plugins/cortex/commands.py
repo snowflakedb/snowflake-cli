@@ -31,12 +31,12 @@ app = SnowTyper(
     help="Provides access to Snowflake Cortex.",
 )
 
-search_command_enabled = sys.version_info < (3, 12)
+SEARCH_COMMAND_ENABLED = sys.version_info < (3, 12)
 
 
 @app.command(
     requires_connection=True,
-    hidden=not search_command_enabled,
+    hidden=not SEARCH_COMMAND_ENABLED,
 )
 def search(
     query: str = typer.Argument(help="The search query string"),
@@ -54,7 +54,7 @@ def search(
     Performs query search using Cortex Search Services.
     """
 
-    if not search_command_enabled:
+    if not SEARCH_COMMAND_ENABLED:
         raise click.ClickException(
             "Cortex Search uses Snowflake Python API that currently does not support your Python version"
         )
