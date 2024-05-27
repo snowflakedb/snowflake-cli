@@ -299,7 +299,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         for src_file, dest_file in bundle_map.all_mappings(
             absolute=True, expand_directories=True, predicate=_is_python_file_artifact
         ):
-            cc.message(
+            cc.step(
                 "Processing Snowpark annotations from {}".format(
                     dest_file.relative_to(bundle_map.deploy_root())
                 )
