@@ -53,6 +53,7 @@ class TestPackage:
         temp_dir,
         runner,
         extra_flags,
+        mock_available_packages_sql_result,
     ) -> None:
         mock_pip_wheel.return_value = 9
 
@@ -140,7 +141,9 @@ class TestPackage:
     @patch(
         "snowflake.cli.plugins.snowpark.package.commands.AnacondaPackagesManager.find_packages_available_in_snowflake_anaconda"
     )
-    def test_lookup_install_flag_are_deprecated(self, _, flags, runner):
+    def test_lookup_install_flag_are_deprecated(
+        self, _, flags, runner, mock_available_packages_sql_result
+    ):
         result = runner.invoke(["snowpark", "package", "lookup", "foo", *flags])
         assert (
             "is deprecated. Lookup command no longer checks for package in PyPi"
@@ -150,7 +153,9 @@ class TestPackage:
     @patch(
         "snowflake.cli.plugins.snowpark.package.commands.AnacondaPackagesManager.find_packages_available_in_snowflake_anaconda"
     )
-    def test_lookup_install_without_flags_does_not_warn(self, _, runner):
+    def test_lookup_install_without_flags_does_not_warn(
+        self, _, runner, mock_available_packages_sql_result
+    ):
         result = runner.invoke(["snowpark", "package", "lookup", "foo"])
         assert (
             "is deprecated. Lookup command no longer checks for package in PyPi"
@@ -174,7 +179,13 @@ class TestPackage:
         "snowflake.cli.plugins.snowpark.package.commands.get_package_name_from_pip_wheel"
     )
     def test_create_install_flag_are_deprecated(
-        self, _mock_pip_wheel, _mock_zip, _mock_download, flags, runner
+        self,
+        _mock_pip_wheel,
+        _mock_zip,
+        _mock_download,
+        flags,
+        runner,
+        mock_available_packages_sql_result,
     ):
         result = runner.invoke(["snowpark", "package", "create", "foo", *flags])
         assert (
@@ -198,7 +209,13 @@ class TestPackage:
         "snowflake.cli.plugins.snowpark.package.commands.get_package_name_from_pip_wheel"
     )
     def test_create_deprecated_flags_throw_warning(
-        self, _mock_pip_wheel, _mock_zip, _mock_download, flags, runner
+        self,
+        _mock_pip_wheel,
+        _mock_zip,
+        _mock_download,
+        flags,
+        runner,
+        mock_available_packages_sql_result,
     ):
         result = runner.invoke(["snowpark", "package", "create", "foo", *flags])
         assert "is deprecated." in result.output
@@ -211,7 +228,12 @@ class TestPackage:
         "snowflake.cli.plugins.snowpark.package.commands.get_package_name_from_pip_wheel"
     )
     def test_create_without_flags_does_not_warn(
-        self, _mock_pip_wheel, _mock_zip, _mock_download, runner
+        self,
+        _mock_pip_wheel,
+        _mock_zip,
+        _mock_download,
+        runner,
+        mock_available_packages_sql_result,
     ):
         result = runner.invoke(["snowpark", "package", "create", "foo"])
         assert "is deprecated" not in result.output
