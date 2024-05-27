@@ -5,6 +5,7 @@ from typing import List
 from zipfile import ZipFile
 
 import pytest
+import logging
 
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
 
@@ -52,7 +53,7 @@ class TestPackage:
         ],
     )
     def test_package_create_with_non_anaconda_package(
-        self, directory_for_test, runner, extra_flags
+        self, directory_for_test, runner, extra_flags, caplog
     ):
         result = runner.invoke_with_connection_json(
             [
@@ -73,6 +74,12 @@ class TestPackage:
             "dummy_pkg_for_tests_with_deps/shrubbery.py"
             in self._get_filenames_from_zip("dummy_pkg_for_tests_with_deps.zip")
         )
+
+        def _assert_message_in_logs(expected_message):
+            return any(expected_message in record.message for record in caplog.records)
+
+        _assert_message_in_logs("Running pip wheel with command: %s")
+        _assert_message_in_logs("Pip wheel command executed successfully")
 
     @pytest.mark.integration
     @pytest.mark.parametrize("ignore_anaconda", (True, False))
