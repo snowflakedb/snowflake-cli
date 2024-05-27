@@ -250,8 +250,11 @@ def test_if_search_is_visible_for_311_and_below(runner):
     assert "Performs query search using Cortex Search Services" in result.output
 
 
-@mock.patch("sys.version_info", new=(3, 12, 1, "final", 0))
-def test_if_search_raises_exception_for_312(runner, snapshot):
+@mock.patch(
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_CORTEX_SEARCH.is_disabled"
+)
+def test_if_search_raises_exception_for_312(mock_flag, runner, snapshot):
+    mock_flag.return_value = True
 
     result = runner.invoke(
         [
@@ -267,10 +270,14 @@ def test_if_search_raises_exception_for_312(runner, snapshot):
     assert result.exit_code == 1
     assert result.output == snapshot
 
-def test_hidden(runner):
 
-    with mock.patch('sys.version_info', (3,12,1,'final',0)):
+@mock.patch(
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_CORTEX_SEARCH.is_disabled"
+)
+def test_hidden(mock_flag, runner):
 
-        result = runner.invoke(["cortex", "-h"])
+    mock_flag.return_value = True
+
+    result = runner.invoke(["cortex", "-h"])
 
     assert "Performs query search using Cortex Search Services" not in result.output

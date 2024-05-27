@@ -33,7 +33,16 @@ app = SnowTyper(
 )
 
 
-@app.command(requires_connection=True, hidden=(sys.version_info >= (3, 12,)))
+@app.command(
+    requires_connection=True,
+    hidden=(
+        sys.version_info
+        >= (
+            3,
+            12,
+        )
+    ),
+)
 def search(
     query: str = typer.Argument(help="The search query string"),
     service: str = typer.Option(
