@@ -55,8 +55,12 @@ class NativeAppCompiler:
         Go through every artifact object in the project definition of a native app, and execute processors in order of specification for each of the artifact object.
         May have side-effects on the filesystem by either directly editing source files or the deploy root.
         """
-        if not any([artifact.processors for artifact in self.artifacts]):
-            # nothing to do, make sure we don't start spurious phase on the console
+        should_proceed = False
+        for artifact in self.artifacts:
+            if artifact.processors:
+                should_proceed = True
+                break
+        if not should_proceed:
             return
 
         with cc.phase("Invoking artifact processors"):
