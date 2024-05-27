@@ -39,6 +39,7 @@ def test_snowpark_external_access(project_directory, _test_steps, test_database)
             expected_value="200",
         )
 
+
 @pytest.mark.integation
 def test_snowpark_upgrades_with_external_access(
     project_directory, _test_steps, test_database, alter_snowflake_yml
