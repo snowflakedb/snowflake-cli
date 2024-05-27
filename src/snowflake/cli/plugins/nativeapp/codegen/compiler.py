@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Optional
 
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
@@ -54,19 +55,28 @@ class NativeAppCompiler:
         Go through every artifact object in the project definition of a native app, and execute processors in order of specification for each of the artifact object.
         May have side-effects on the filesystem by either directly editing source files or the deploy root.
         """
+        should_proceed = False
         for artifact in self.artifacts:
-            for processor in artifact.processors:
-                artifact_processor = self._try_create_processor(
-                    processor_mapping=processor,
-                )
-                if artifact_processor is None:
-                    raise UnsupportedArtifactProcessorError(
-                        processor_name=processor.name
+            if artifact.processors:
+                should_proceed = True
+                break
+        if not should_proceed:
+            return
+
+        with cc.phase("Invoking artifact processors"):
+            for artifact in self.artifacts:
+                for processor in artifact.processors:
+                    artifact_processor = self._try_create_processor(
+                        processor_mapping=processor,
                     )
-                else:
-                    artifact_processor.process(
-                        artifact_to_process=artifact, processor_mapping=processor
-                    )
+                    if artifact_processor is None:
+                        raise UnsupportedArtifactProcessorError(
+                            processor_name=processor.name
+                        )
+                    else:
+                        artifact_processor.process(
+                            artifact_to_process=artifact, processor_mapping=processor
+                        )
 
     def _try_create_processor(
         self,
