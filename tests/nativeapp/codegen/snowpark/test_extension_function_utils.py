@@ -72,6 +72,28 @@ def test_get_qualified_object_name(native_app_extension_function):
     )
 
 
+def test_get_function_type_signature_for_grant(native_app_extension_function):
+    assert (
+        ef_utils.get_function_type_signature_for_grant(native_app_extension_function)
+        == "int"
+    )
+
+    native_app_extension_function.signature = []
+    assert (
+        ef_utils.get_function_type_signature_for_grant(native_app_extension_function)
+        == ""
+    )
+
+    native_app_extension_function.signature = [
+        Argument(name="foo", type="int", default="42"),
+        Argument(name="bar", type="varchar"),
+    ]
+    assert (
+        ef_utils.get_function_type_signature_for_grant(native_app_extension_function)
+        == "int, varchar"
+    )
+
+
 def test_ensure_string_literal():
     assert ef_utils.ensure_string_literal("") == "''"
     assert ef_utils.ensure_string_literal("abc") == "'abc'"

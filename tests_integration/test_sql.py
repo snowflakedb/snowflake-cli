@@ -24,9 +24,9 @@ def test_multi_queries_from_file(runner, snowflake_session, test_root_path):
 
     assert result.exit_code == 0
     assert _round_values_for_multi_queries(result.json) == [
-        [{"LN(1)": 0.00}],
-        [{"LN(10)": 2.30}],
-        [{"LN(100)": 4.61}],
+        [{"ROUND(LN(1), 4)": 0.0}],
+        [{"ROUND(LN(10), 4)": 2.3}],
+        [{"ROUND(LN(100), 4)": 4.61}],
     ]
 
 

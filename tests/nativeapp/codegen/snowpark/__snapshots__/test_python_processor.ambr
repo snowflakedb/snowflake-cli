@@ -1,4 +1,38 @@
 # serializer version: 1
+# name: test_edit_setup_script_with_exec_imm_sql
+  '''
+  
+  EXECUTE IMMEDIATE FROM '/__generated/moduleB/dummy.sql';
+  EXECUTE IMMEDIATE FROM '/__generated/dummy.sql';
+  '''
+# ---
+# name: test_edit_setup_script_with_exec_imm_sql.1
+  '''
+  create application role app_public;
+  EXECUTE IMMEDIATE FROM '/__generated/__generated.sql';
+  
+  '''
+# ---
+# name: test_edit_setup_script_with_exec_imm_sql_noop
+  '#some text'
+# ---
+# name: test_edit_setup_script_with_exec_imm_sql_symlink
+  '''
+  
+  EXECUTE IMMEDIATE FROM '/__generated/moduleB/dummy.sql';
+  EXECUTE IMMEDIATE FROM '/__generated/dummy.sql';
+  '''
+# ---
+# name: test_edit_setup_script_with_exec_imm_sql_symlink.1
+  '''
+  create application role admin;
+  EXECUTE IMMEDIATE FROM '/__generated/__generated.sql';
+  
+  '''
+# ---
+# name: test_edit_setup_script_with_exec_imm_sql_symlink.2
+  'create application role admin;'
+# ---
 # name: test_generate_create_sql_ddl_statements_w_all_entries
   '''
   CREATE OR REPLACE
@@ -29,9 +63,9 @@
 # ---
 # name: test_generate_grant_sql_ddl_statements
   '''
-  GRANT USAGE ON PROCEDURE DATA.my_function
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
   TO APPLICATION ROLE APP_ADMIN;
-  GRANT USAGE ON PROCEDURE DATA.my_function
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
   TO APPLICATION ROLE APP_VIEWER;
   '''
 # ---
@@ -53,9 +87,9 @@
   HANDLER='main.my_function_handler'
   EXECUTE AS OWNER;
   
-  GRANT USAGE ON PROCEDURE DATA.my_function
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
   TO APPLICATION ROLE APP_ADMIN;
-  GRANT USAGE ON PROCEDURE DATA.my_function
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
   TO APPLICATION ROLE APP_VIEWER;
   -- stagepath/data.py
   CREATE OR REPLACE
@@ -63,16 +97,72 @@
   RETURNS int
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
-  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/data.py')
+  IMPORTS=('/', '/stagepath/data.py', '/stagepath/extra_import1.zip', '/stagepath/some_dir_str', '/stagepath/withslash.py', '@dummy_stage_str')
   PACKAGES=('package_one==1.0.2', 'package_two')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='data.my_function_handler'
   EXECUTE AS OWNER;
   
-  GRANT USAGE ON PROCEDURE DATA.my_function
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
   TO APPLICATION ROLE APP_ADMIN;
-  GRANT USAGE ON PROCEDURE DATA.my_function
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_process_with_collected_functions.1
+  '''
+  
+  EXECUTE IMMEDIATE FROM '/__generated/stagepath/main.sql';
+  EXECUTE IMMEDIATE FROM '/__generated/stagepath/data.sql';
+  '''
+# ---
+# name: test_process_with_collected_functions.2
+  '''
+  create application role app_public;
+  EXECUTE IMMEDIATE FROM '/__generated/__generated.sql';
+  
+  '''
+# ---
+# name: test_process_with_collected_functions.3
+  '''
+  
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
+  PACKAGES=('package_one==1.0.2', 'package_two')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='main.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_process_with_collected_functions.4
+  '''
+  
+  CREATE OR REPLACE
+  PROCEDURE DATA.my_function(first int DEFAULT 42)
+  RETURNS int
+  LANGUAGE PYTHON
+  RUNTIME_VERSION=3.11
+  IMPORTS=('/', '/stagepath/data.py', '/stagepath/extra_import1.zip', '/stagepath/some_dir_str', '/stagepath/withslash.py', '@dummy_stage_str')
+  PACKAGES=('package_one==1.0.2', 'package_two')
+  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
+  SECRETS=('key1'=secret_one, 'key2'=integration_two)
+  HANDLER='data.my_function_handler'
+  EXECUTE AS OWNER;
+  
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
+  TO APPLICATION ROLE APP_ADMIN;
+  GRANT USAGE ON PROCEDURE DATA.my_function(int)
   TO APPLICATION ROLE APP_VIEWER;
   '''
 # ---

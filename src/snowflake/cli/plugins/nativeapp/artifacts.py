@@ -5,7 +5,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent
-from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 from click.exceptions import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
@@ -508,6 +508,43 @@ def find_manifest_file(deploy_root: Path) -> Path:
     )
 
 
+def find_and_read_manifest_file(deploy_root: Path) -> Dict[str, Any]:
+    """
+    Finds the manifest file in the deploy root of the project, and reads the contents and returns them
+    as a dictionary.
+    """
+    manifest_file = find_manifest_file(deploy_root=deploy_root)
+    with SecurePath(manifest_file).open(
+        "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
+    ) as file:
+        manifest_content = safe_load(file.read())
+    return manifest_content
+
+
+def find_setup_script_file(deploy_root: Path) -> Path:
+    """
+    Find the setup script file, if available, in the deploy_root of the Snowflake Native App project.
+    """
+    artifacts = "artifacts"
+    setup_script = "setup_script"
+
+    manifest_content = find_and_read_manifest_file(deploy_root=deploy_root)
+
+    if (artifacts in manifest_content) and (
+        setup_script in manifest_content[artifacts]
+    ):
+        setup_script_rel_path = manifest_content[artifacts][setup_script]
+        file_name = Path(deploy_root / setup_script_rel_path)
+        if file_name.is_file():
+            return file_name
+        else:
+            raise ClickException(f"Could not find setup script file at {file_name}.")
+    else:
+        raise ClickException(
+            "Manifest.yml file must contain an artifacts section to specify the location of the setup script."
+        )
+
+
 def find_version_info_in_manifest_file(
     deploy_root: Path,
 ) -> Tuple[Optional[str], Optional[str]]:
@@ -518,11 +555,7 @@ def find_version_info_in_manifest_file(
     name_field = "name"
     patch_field = "patch"
 
-    manifest_file = find_manifest_file(deploy_root)
-    with SecurePath(manifest_file).open(
-        "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
-    ) as file:
-        manifest_content = safe_load(file.read())
+    manifest_content = find_and_read_manifest_file(deploy_root=deploy_root)
 
     version_name: Optional[str] = None
     patch_name: Optional[str] = None
