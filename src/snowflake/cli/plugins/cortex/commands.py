@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import List, Optional
 
@@ -34,8 +35,8 @@ app = SnowTyper(
 
 @app.command(
     requires_connection=True,
-    hidden=FeatureFlag.ENABLE_CORTEX_SEARCH.is_disabled(),
-    is_enabled=FeatureFlag.ENABLE_CORTEX_SEARCH.is_enabled,
+    hidden=(sys.version_info >= (3,12)),
+
 )
 def search(
     query: str = typer.Argument(help="The search query string"),
@@ -50,10 +51,10 @@ def search(
     **options,
 ):
     """
-    Performs query search using Cortex Search Services
+    Performs query search using Cortex Search Services.
     """
 
-    if FeatureFlag.ENABLE_CORTEX_SEARCH.is_disabled():
+    if sys.version_info >= (3,12,):
         raise click.ClickException(
             "Cortex Search uses Snowflake Python API that currently does not support your Python version"
         )

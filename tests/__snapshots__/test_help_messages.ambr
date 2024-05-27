@@ -1208,11 +1208,10 @@
                                                                                   
    Usage: default cortex search [OPTIONS] QUERY                                   
                                                                                   
-   Performs query search using Cortex Search Services                             
+   Performs query search using Cortex Search Services.                            
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    query      TEXT  Query to look for in your data [default: None]         │
-  │                       [required]                                             │
+  │ *    query      TEXT  The search query string [default: None] [required]     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ *  --service          TEXT     Cortex search service to be used. Example:    │
@@ -1532,7 +1531,7 @@
   │                  document. The document may be a plain-English document or a │
   │                  string representation of a semi-structured (JSON) data      │
   │                  object.                                                     │
-  │ search           Performs query search using Cortex Search Services          │
+  │ search           Performs query search using Cortex Search Services.         │
   │ sentiment        Returns sentiment as a score between -1 to 1 (with -1 being │
   │                  the most negative and 1 the most positive, with values      │
   │                  around 0 neutral) for the given English-language input      │
@@ -8110,7 +8109,7 @@
   │                  document. The document may be a plain-English document or a │
   │                  string representation of a semi-structured (JSON) data      │
   │                  object.                                                     │
-  │ search           Performs query search using Cortex Search Services          │
+  │ search           Performs query search using Cortex Search Services.         │
   │ sentiment        Returns sentiment as a score between -1 to 1 (with -1 being │
   │                  the most negative and 1 the most positive, with values      │
   │                  around 0 neutral) for the given English-language input      │
