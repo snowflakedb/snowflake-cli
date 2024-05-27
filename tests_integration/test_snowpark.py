@@ -781,14 +781,12 @@ def test_incorrect_requirements(project_directory, runner, alter_requirements_tx
         alter_requirements_txt(
             tmp_dir / "requirements.txt", ["this is incorrect requirement"]
         )
-        try:
+        with pytest.raises(InvalidRequirement) as err:
             runner.invoke_with_connection(["snowpark", "build"])
-            raise "InvalidRequirement exception should be raised"
-        except InvalidRequirement as err:
-            assert (
-                "Expected end or semicolon (after name and no valid version specifier)"
-                in str(err)
-            )
+        assert (
+            "Expected end or semicolon (after name and no valid version specifier)"
+            in str(err)
+        )
 
 
 @pytest.fixture

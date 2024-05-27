@@ -198,16 +198,14 @@ class TestPackage:
 
     @pytest.mark.integration
     def test_incorrect_input(self, runner):
-        try:
+        with pytest.raises(InvalidRequirement) as err:
             runner.invoke_with_connection(
                 ["snowpark", "package", "create", "this is incorrect"]
             )
-            raise "InvalidRequirement exception should be raised"
-        except InvalidRequirement as err:
-            assert (
-                "Expected end or semicolon (after name and no valid version specifier)"
-                in str(err)
-            )
+        assert (
+            "Expected end or semicolon (after name and no valid version specifier)"
+            in str(err)
+        )
 
     @pytest.fixture(scope="function")
     def directory_for_test(self):
