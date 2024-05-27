@@ -228,8 +228,9 @@ def test_cortex_translate_file(_mock_cortex_result, runner):
             result, expected_msg="John ma samochód. Samochód Johna jest niebieski."
         )
 
+
 @mock.patch(
-    "snowflake.cli.plugins.cortex.commands.sys.version_info", new=(3,12,1,"final",0)
+    "snowflake.cli.plugins.cortex.commands.sys.version_info", new=(3, 12, 1, "final", 0)
 )
 def test_if_search_raises_exception_for_312(runner, snapshot):
 
@@ -246,5 +247,3 @@ def test_if_search_raises_exception_for_312(runner, snapshot):
     )
     assert result.exit_code == 1
     assert result.output == snapshot
-
-
