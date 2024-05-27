@@ -75,4 +75,6 @@ def test_project_definition_fails_for_unknown_version():
     with pytest.raises(SchemaValidationError) as err:
         ProjectDefinition(definition_version="6.2.3")
 
-    assert "Version 6.2.3 is not supported" in str(err.value)
+    assert "Version 6.2.3 is not supported. Supported versions: 1, 1.1" in str(
+        err.value
+    )
