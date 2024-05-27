@@ -235,7 +235,7 @@ def test_cortex_translate_file(_mock_cortex_result, runner):
     reason="Test designed to check command behaviour in Python 3.12 and above",
 )
 def test_if_search_is_hidden_for_312(runner):
-    print(sys.version_info)
+
     result = runner.invoke(["cortex", "-h"])
 
     assert "Performs query search using Cortex Search Services" not in result.output
@@ -266,3 +266,11 @@ def test_if_search_raises_exception_for_312(runner, snapshot):
     )
     assert result.exit_code == 1
     assert result.output == snapshot
+
+def test_hidden(runner):
+
+    with mock.patch('sys.version_info', (3,12,1,'final',0)):
+
+        result = runner.invoke(["cortex", "-h"])
+
+    assert "Performs query search using Cortex Search Services" not in result.output

@@ -1,3 +1,4 @@
+import sys
 from enum import Enum, unique
 from typing import NamedTuple
 
@@ -35,3 +36,8 @@ class FeatureFlag(FeatureFlagMixin):
         "ENABLE_STREAMLIT_EMBEDDED_STAGE", False
     )
     ENABLE_NOTEBOOKS = BooleanFlag("ENABLE_NOTEBOOKS", False)
+
+    ENABLE_CORTEX_SEARCH = BooleanFlag('ENABLE_CORTEX_SEARCH',(sys.version_info < (3,12,)))
+
+
+

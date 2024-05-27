@@ -10,6 +10,7 @@ from click import UsageError
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import readable_file_option
 from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -32,9 +33,9 @@ app = SnowTyper(
 )
 
 
-@app.command(requires_connection=True, hidden=(sys.version_info.minor >= 12))
+@app.command(requires_connection=True, hidden=(sys.version_info >= (3, 12,)))
 def search(
-    query: str = typer.Argument(help="Query to look for in your data"),
+    query: str = typer.Argument(help="The search query string"),
     service: str = typer.Option(
         help="Cortex search service to be used. Example: --service my_cortex_service",
     ),
@@ -49,7 +50,7 @@ def search(
     Performs query search using Cortex Search Services
     """
 
-    if sys.version_info >= (3, 12):
+    if FeatureFlag.ENABLE_CORTEX_SEARCH.is_disabled():
         raise click.ClickException(
             "Cortex Search uses Snowflake Python API that currently does not support your Python version"
         )
