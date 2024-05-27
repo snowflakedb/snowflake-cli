@@ -159,7 +159,7 @@ def test_execute_in_conda_env_fails_when_conda_not_found(
             PYTHON_SCRIPT, sandbox.ExecutionEnvironmentType.CONDA, name="foo"
         )
 
-    assert mock_which.called_once_with("conda")
+    mock_which.assert_has_calls((mock.call("conda"),))
     assert not mock_run.called
 
 
@@ -445,8 +445,8 @@ def test_execute_system_python_falls_back_to_python(mock_which, mock_run, mock_e
     assert actual.stdout == SCRIPT_OUT
     assert actual.stderr == SCRIPT_ERR
 
-    assert mock_which.called_once_with("python3")
-    assert mock_which.called_once_with("python")
+    assert mock_which.call_count == 2, mock_which.call_count
+    mock_which.assert_has_calls((mock.call("python3"), mock.call("python")))
 
 
 @mock.patch("subprocess.run")
@@ -481,8 +481,8 @@ def test_execute_system_python_falls_back_to_current_interpreter(
     assert actual.stdout == SCRIPT_OUT
     assert actual.stderr == SCRIPT_ERR
 
-    assert mock_which.called_once_with("python3")
-    assert mock_which.called_once_with("python")
+    assert mock_which.call_count == 2, mock_which.call_count
+    mock_which.assert_has_calls((mock.call("python3"), mock.call("python")))
 
 
 @mock.patch("subprocess.run")
@@ -499,8 +499,8 @@ def test_execute_system_python_fails_when_no_interpreter_available(
         )
 
     assert not mock_run.called
-    assert mock_which.called_once_with("python3")
-    assert mock_which.called_once_with("python")
+    assert mock_which.call_count == 2, mock_which.call_count
+    mock_which.assert_has_calls((mock.call("python3"), mock.call("python")))
 
 
 @pytest.mark.parametrize(
@@ -652,8 +652,6 @@ def test_execute_auto_detect_falls_back_to_system_python(
     assert actual.returncode == 0
     assert actual.stdout == SCRIPT_OUT
     assert actual.stderr == SCRIPT_ERR
-
-    assert mock_run.called_once_with("python3")
 
 
 @mock.patch("subprocess.run")
