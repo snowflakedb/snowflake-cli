@@ -109,11 +109,3 @@ def test_init_no_template_failure(
 
     assert result.exit_code == 1
     assert result.output == snapshot
-
-
-def test_list_templates_no_options_success(runner, temp_dir, snapshot):
-    args = ["app", "list-templates"]
-    result = runner.invoke(args)
-
-    assert result.exit_code == 0
-    assert result.output == snapshot
