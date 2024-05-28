@@ -64,3 +64,13 @@ def test_phase_nesting_not_allowed(cli_console):
         with pytest.raises(CliConsoleNestingProhibitedError):
             with cli_console.phase("Enter 2"):
                 pass
+
+
+def test_phase_is_cleaned_up_on_exception(cli_console):
+    with pytest.raises(RuntimeError):
+        with cli_console.phase("Enter 1"):
+            raise RuntimeError("Phase failed")
+
+    # If the phase is cleaned up correctly, this will no raise any exception
+    with cli_console.phase("Enter 2") as step:
+        pass

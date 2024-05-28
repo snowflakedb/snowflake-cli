@@ -1,37 +1,117 @@
 # serializer version: 1
 # name: test_edit_setup_script_with_exec_imm_sql
   '''
+  d output/deploy
+  d output/deploy/__generated
+  f output/deploy/__generated/__generated.sql
+  f output/deploy/__generated/dummy.sql
+  d output/deploy/__generated/moduleB
+  f output/deploy/__generated/moduleB/dummy.sql
+  f output/deploy/manifest.yml
+  d output/deploy/moduleA
+  d output/deploy/moduleA/moduleC
+  f output/deploy/moduleA/moduleC/setup.sql
+  '''
+# ---
+# name: test_edit_setup_script_with_exec_imm_sql.1
+  '''
+  ===== Contents of: output/deploy/__generated/__generated.sql =====
   
   EXECUTE IMMEDIATE FROM '/__generated/moduleB/dummy.sql';
   EXECUTE IMMEDIATE FROM '/__generated/dummy.sql';
   '''
 # ---
-# name: test_edit_setup_script_with_exec_imm_sql.1
+# name: test_edit_setup_script_with_exec_imm_sql.2
   '''
+  ===== Contents of: output/deploy/__generated/dummy.sql =====
+  #this is a file
+  '''
+# ---
+# name: test_edit_setup_script_with_exec_imm_sql.3
+  '''
+  ===== Contents of: output/deploy/__generated/moduleB/dummy.sql =====
+  #this is a file
+  '''
+# ---
+# name: test_edit_setup_script_with_exec_imm_sql.4
+  '''
+  ===== Contents of: output/deploy/manifest.yml =====
+  manifest_version: 1
+  
+  artifacts:
+      setup_script: moduleA/moduleC/setup.sql
+  
+  '''
+# ---
+# name: test_edit_setup_script_with_exec_imm_sql.5
+  '''
+  ===== Contents of: output/deploy/moduleA/moduleC/setup.sql =====
   create application role app_public;
   EXECUTE IMMEDIATE FROM '/__generated/__generated.sql';
   
   '''
 # ---
 # name: test_edit_setup_script_with_exec_imm_sql_noop
-  '#some text'
+  '''
+  d output/deploy
+  d output/deploy/__generated
+  f output/deploy/__generated/__generated.sql
+  f output/deploy/manifest.yml
+  d output/deploy/moduleA
+  d output/deploy/moduleA/moduleC
+  d output/deploy/moduleA/moduleC/setup.sql
+  '''
+# ---
+# name: test_edit_setup_script_with_exec_imm_sql_noop.1
+  '''
+  ===== Contents of: output/deploy/__generated/__generated.sql =====
+  #some text
+  '''
+# ---
+# name: test_edit_setup_script_with_exec_imm_sql_noop.2
+  '''
+  ===== Contents of: output/deploy/manifest.yml =====
+  manifest_version: 1
+  
+  artifacts:
+      setup_script: moduleA/moduleC/setup.sql
+  
+  '''
 # ---
 # name: test_edit_setup_script_with_exec_imm_sql_symlink
   '''
+  d output/deploy
+  d output/deploy/__generated
+  f output/deploy/__generated/__generated.sql
+  f output/deploy/manifest.yml
+  f output/deploy/setup.sql
+  '''
+# ---
+# name: test_edit_setup_script_with_exec_imm_sql_symlink.1
+  '''
+  ===== Contents of: output/deploy/__generated/__generated.sql =====
   
   EXECUTE IMMEDIATE FROM '/__generated/moduleB/dummy.sql';
   EXECUTE IMMEDIATE FROM '/__generated/dummy.sql';
   '''
 # ---
-# name: test_edit_setup_script_with_exec_imm_sql_symlink.1
+# name: test_edit_setup_script_with_exec_imm_sql_symlink.2
   '''
+  ===== Contents of: output/deploy/manifest.yml =====
+  manifest_version: 1
+  
+  artifacts:
+      setup_script: setup.sql
+  
+  '''
+# ---
+# name: test_edit_setup_script_with_exec_imm_sql_symlink.3
+  '''
+  ===== Contents of: output/deploy/setup.sql =====
   create application role admin;
   EXECUTE IMMEDIATE FROM '/__generated/__generated.sql';
   
   '''
-# ---
-# name: test_edit_setup_script_with_exec_imm_sql_symlink.2
-  'create application role admin;'
 # ---
 # name: test_generate_create_sql_ddl_statements_w_all_entries
   '''
@@ -70,35 +150,88 @@
   '''
 # ---
 # name: test_process_no_collected_functions
-  ''
+  '''
+  d output/deploy
+  f output/deploy/manifest.yml
+  d output/deploy/moduleA
+  d output/deploy/moduleA/moduleC
+  f output/deploy/moduleA/moduleC/setup.sql
+  d output/deploy/stagepath
+  f output/deploy/stagepath/data.py
+  d output/deploy/stagepath/extra_import1.zip
+  d output/deploy/stagepath/extra_import2.zip
+  f output/deploy/stagepath/main.py
+  '''
+# ---
+# name: test_process_no_collected_functions.1
+  '''
+  ===== Contents of: output/deploy/manifest.yml =====
+  manifest_version: 1
+  
+  artifacts:
+      setup_script: moduleA/moduleC/setup.sql
+  
+  '''
+# ---
+# name: test_process_no_collected_functions.2
+  '''
+  ===== Contents of: output/deploy/moduleA/moduleC/setup.sql =====
+  create application role app_public;
+  '''
+# ---
+# name: test_process_no_collected_functions.3
+  '''
+  ===== Contents of: output/deploy/stagepath/data.py =====
+  # this is a file
+  
+  '''
+# ---
+# name: test_process_no_collected_functions.4
+  '''
+  ===== Contents of: output/deploy/stagepath/main.py =====
+  # this is a file
+  
+  '''
 # ---
 # name: test_process_with_collected_functions
   '''
-  -- stagepath/main.py
-  CREATE OR REPLACE
-  PROCEDURE DATA.my_function(first int DEFAULT 42)
-  RETURNS int
-  LANGUAGE PYTHON
-  RUNTIME_VERSION=3.11
-  IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('package_one==1.0.2', 'package_two')
-  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
-  SECRETS=('key1'=secret_one, 'key2'=integration_two)
-  HANDLER='main.my_function_handler'
-  EXECUTE AS OWNER;
+  d output/deploy
+  d output/deploy/__generated
+  f output/deploy/__generated/__generated.sql
+  d output/deploy/__generated/stagepath
+  f output/deploy/__generated/stagepath/data.sql
+  f output/deploy/__generated/stagepath/main.sql
+  f output/deploy/manifest.yml
+  d output/deploy/moduleA
+  d output/deploy/moduleA/moduleC
+  f output/deploy/moduleA/moduleC/setup.sql
+  d output/deploy/stagepath
+  f output/deploy/stagepath/data.py
+  d output/deploy/stagepath/extra_import1.zip
+  d output/deploy/stagepath/extra_import2.zip
+  f output/deploy/stagepath/main.py
+  '''
+# ---
+# name: test_process_with_collected_functions.1
+  '''
+  ===== Contents of: output/deploy/__generated/__generated.sql =====
   
-  GRANT USAGE ON PROCEDURE DATA.my_function(int)
-  TO APPLICATION ROLE APP_ADMIN;
-  GRANT USAGE ON PROCEDURE DATA.my_function(int)
-  TO APPLICATION ROLE APP_VIEWER;
-  -- stagepath/data.py
+  EXECUTE IMMEDIATE FROM '/__generated/stagepath/main.sql';
+  EXECUTE IMMEDIATE FROM '/__generated/stagepath/data.sql';
+  '''
+# ---
+# name: test_process_with_collected_functions.2
+  '''
+  ===== Contents of: output/deploy/__generated/stagepath/data.sql =====
+  -- Generated by the Snowflake CLI from stagepath/data.py
+  -- DO NOT EDIT
   CREATE OR REPLACE
   PROCEDURE DATA.my_function(first int DEFAULT 42)
   RETURNS int
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/', '/stagepath/data.py', '/stagepath/extra_import1.zip', '/stagepath/some_dir_str', '/stagepath/withslash.py', '@dummy_stage_str')
-  PACKAGES=('package_one==1.0.2', 'package_two')
+  PACKAGES=('package_one==1.0.2', 'package_two', 'snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='data.my_function_handler'
@@ -110,30 +243,18 @@
   TO APPLICATION ROLE APP_VIEWER;
   '''
 # ---
-# name: test_process_with_collected_functions.1
-  '''
-  
-  EXECUTE IMMEDIATE FROM '/__generated/stagepath/main.sql';
-  EXECUTE IMMEDIATE FROM '/__generated/stagepath/data.sql';
-  '''
-# ---
-# name: test_process_with_collected_functions.2
-  '''
-  create application role app_public;
-  EXECUTE IMMEDIATE FROM '/__generated/__generated.sql';
-  
-  '''
-# ---
 # name: test_process_with_collected_functions.3
   '''
-  
+  ===== Contents of: output/deploy/__generated/stagepath/main.sql =====
+  -- Generated by the Snowflake CLI from stagepath/main.py
+  -- DO NOT EDIT
   CREATE OR REPLACE
   PROCEDURE DATA.my_function(first int DEFAULT 42)
   RETURNS int
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('package_one==1.0.2', 'package_two')
+  PACKAGES=('package_one==1.0.2', 'package_two', 'snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='main.my_function_handler'
@@ -147,22 +268,33 @@
 # ---
 # name: test_process_with_collected_functions.4
   '''
+  ===== Contents of: output/deploy/manifest.yml =====
+  manifest_version: 1
   
-  CREATE OR REPLACE
-  PROCEDURE DATA.my_function(first int DEFAULT 42)
-  RETURNS int
-  LANGUAGE PYTHON
-  RUNTIME_VERSION=3.11
-  IMPORTS=('/', '/stagepath/data.py', '/stagepath/extra_import1.zip', '/stagepath/some_dir_str', '/stagepath/withslash.py', '@dummy_stage_str')
-  PACKAGES=('package_one==1.0.2', 'package_two')
-  EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
-  SECRETS=('key1'=secret_one, 'key2'=integration_two)
-  HANDLER='data.my_function_handler'
-  EXECUTE AS OWNER;
+  artifacts:
+      setup_script: moduleA/moduleC/setup.sql
   
-  GRANT USAGE ON PROCEDURE DATA.my_function(int)
-  TO APPLICATION ROLE APP_ADMIN;
-  GRANT USAGE ON PROCEDURE DATA.my_function(int)
-  TO APPLICATION ROLE APP_VIEWER;
+  '''
+# ---
+# name: test_process_with_collected_functions.5
+  '''
+  ===== Contents of: output/deploy/moduleA/moduleC/setup.sql =====
+  create application role app_public;
+  EXECUTE IMMEDIATE FROM '/__generated/__generated.sql';
+  
+  '''
+# ---
+# name: test_process_with_collected_functions.6
+  '''
+  ===== Contents of: output/deploy/stagepath/data.py =====
+  # this is a file
+  
+  '''
+# ---
+# name: test_process_with_collected_functions.7
+  '''
+  ===== Contents of: output/deploy/stagepath/main.py =====
+  # this is a file
+  
   '''
 # ---

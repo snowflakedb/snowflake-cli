@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
+import click
 import typer
 from click import UsageError
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import readable_file_option
 from snowflake.cli.api.commands.snow_typer import SnowTyper
-from snowflake.cli.api.output.types import CommandResult, MessageResult
+from snowflake.cli.api.output.types import (
+    CollectionResult,
+    CommandResult,
+    MessageResult,
+)
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.cortex.constants import DEFAULT_MODEL
 from snowflake.cli.plugins.cortex.manager import CortexManager
@@ -21,8 +28,56 @@ from snowflake.cli.plugins.cortex.types import (
 
 app = SnowTyper(
     name="cortex",
-    help="Provides access to Snowflake Cortex LLM.",
+    help="Provides access to Snowflake Cortex.",
 )
+
+SEARCH_COMMAND_ENABLED = sys.version_info < (3, 12)
+
+
+@app.command(
+    requires_connection=True,
+    hidden=not SEARCH_COMMAND_ENABLED,
+)
+def search(
+    query: str = typer.Argument(help="The search query string"),
+    service: str = typer.Option(
+        help="Cortex search service to be used. Example: --service my_cortex_service",
+    ),
+    columns: Optional[List[str]] = typer.Option(
+        help='Columns that will be returned with the results. If none is provided, only search column will be included in results. Example --columns "foo" --columns "bar"',
+        default=None,
+    ),
+    limit: int = typer.Option(help="Maximum number of results retrieved", default=1),
+    **options,
+):
+    """
+    Performs query search using Cortex Search Services.
+    """
+
+    if not SEARCH_COMMAND_ENABLED:
+        raise click.ClickException(
+            "Cortex Search uses Snowflake Python API that currently does not support your Python version"
+        )
+
+    from snowflake.core import Root
+
+    if not columns:
+        columns = []
+
+    conn = cli_context.connection
+
+    search_service = (
+        Root(conn)
+        .databases[conn.database]
+        .schemas[conn.schema]
+        .cortex_search_services[service]
+    )
+
+    response = search_service.search(
+        query=query, columns=columns, limit=limit, filter={}
+    )
+
+    return CollectionResult(response.results)
 
 
 @app.command(

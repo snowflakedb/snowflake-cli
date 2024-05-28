@@ -18,7 +18,6 @@
        of `snowflake.yml` will be used to expand templates.
  * `snow sql` support executing multiple files. Users can use `-f/--file` flag more than once to execute queries
       from many files.
- *  `snow connection test` command accepts all connection parameters including support for temporary connection.
  * `snow git execute` and `snow stage execute` support passing input variables for SQL execution.
 * Added `snow cortex` commands:
     * `complete` - Given a prompt, the command generates a response using your choice of language model.
@@ -28,6 +27,7 @@
     * `sentiment` - Returns sentiment as a score between -1 to 1 (with -1 being the most negative and 1 the most positive, with values around 0 neutral) for the given English-language input text.
     * `summarize` - Summarizes the given English-language input text.
     * `translate` - Translates text from the indicated or detected source language to a target language.
+    * `search`    - for integration with Cortex Search Service
 * When invoked without command help is displayed by default with list of available commands.
 * Add tab-completion for `snow` command.
 
