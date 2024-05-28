@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import os
+import shutil
 import sys
+from pathlib import Path
+from typing import Union
 
 BUFFER_SIZE = 4096
 
@@ -20,3 +24,12 @@ def path_resolver(path_to_file: str) -> str:
 
 def is_stage_path(path: str) -> bool:
     return path.startswith("@") or path.startswith("snow://")
+
+
+def safe_rmtree(path: Union[Path, str]):
+    def _remove_readonly(func, _path, _):
+        "Clear the readonly bit and reattempt the removal"
+        os.chmod(_path, os.stat.S_IWRITE)
+        func(_path)
+
+    shutil.rmtree(str(path), onerror=_remove_readonly)

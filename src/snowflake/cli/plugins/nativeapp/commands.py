@@ -16,6 +16,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
 )
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.utils.path_utils import safe_rmtree
 from snowflake.cli.plugins.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowflake.cli.plugins.nativeapp.init import (
     OFFICIAL_TEMPLATES_GITHUB_URL,
@@ -89,19 +90,20 @@ def app_list_templates(**options) -> CommandResult:
     Prints information regarding the official templates that can be used with snow app init.
     """
     with SecurePath.temporary_directory() as temp_path:
-        repo = shallow_git_clone(OFFICIAL_TEMPLATES_GITHUB_URL, temp_path.path)
+        repo_path = temp_path / "repo"
+        repo = shallow_git_clone(OFFICIAL_TEMPLATES_GITHUB_URL, repo_path.path)
 
         # Mark a directory as a template if a project definition jinja template is inside
         template_directories = [
             entry.name
             for entry in repo.head.commit.tree
-            if (temp_path / entry.name / "snowflake.yml.jinja").exists()
+            if (repo_path / entry.name / "snowflake.yml.jinja").exists()
         ]
 
         # get the template descriptions from the README.md in its directory
         template_descriptions = [
             get_first_paragraph_from_markdown_file(
-                (temp_path / directory / "README.md").path
+                (repo_path / directory / "README.md").path
             )
             for directory in template_directories
         ]
@@ -112,6 +114,9 @@ def app_list_templates(**options) -> CommandResult:
                 template_directories, template_descriptions
             )
         )
+
+        # don't rely on temporary dir cleanup, it can face permission errors on Windows
+        safe_rmtree(repo_path.path)
 
         return CollectionResult(result)
 
