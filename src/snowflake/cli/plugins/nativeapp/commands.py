@@ -122,7 +122,7 @@ def app_list_templates(**options) -> CommandResult:
         return CollectionResult(result)
 
 
-@app.command("bundle", hidden=True)
+@app.command("bundle")
 @with_project_definition("native_app")
 def app_bundle(
     **options,

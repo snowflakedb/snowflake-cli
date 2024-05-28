@@ -6,7 +6,7 @@ import os
 import subprocess
 from pathlib import Path
 from textwrap import dedent
-from typing import Iterator, List, Set
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -24,6 +24,7 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     generate_grant_sql_ddl_statements,
 )
 
+from tests.nativeapp.utils import assert_dir_snapshot
 from tests.testing_utils.files_and_dirs import temp_local_dir
 
 PROJECT_ROOT = Path("/path/to/project")
@@ -40,42 +41,6 @@ def in_cwd(path: Path) -> Iterator[None]:
         pass
 
     os.chdir(old_cwd)
-
-
-def stringify(p: Path):
-    if p.is_dir():
-        return f"d {p}"
-    else:
-        return f"f {p}"
-
-
-def all_paths_under_dir(root: Path) -> List[Path]:
-    assert root.is_dir()
-
-    paths: Set[Path] = set()
-    for subdir, dirs, files in os.walk(root):
-        subdir_path = Path(subdir)
-        paths.add(subdir_path)
-        for d in dirs:
-            paths.add(subdir_path / d)
-        for f in files:
-            paths.add(subdir_path / f)
-
-    return sorted(paths)
-
-
-def assert_dir_snapshot(root: Path, snapshot) -> None:
-    all_paths = all_paths_under_dir(root)
-
-    # Verify the contents of the directory matches expectations
-    assert "\n".join([stringify(p) for p in all_paths]) == snapshot
-
-    # Verify that each file under the directory matches expectations
-    for path in all_paths:
-        if path.is_file():
-            snapshot_contents = f"===== Contents of: {path} =====\n"
-            snapshot_contents += path.read_text(encoding="utf-8")
-            assert snapshot_contents == snapshot
 
 
 # --------------------------------------------------------
