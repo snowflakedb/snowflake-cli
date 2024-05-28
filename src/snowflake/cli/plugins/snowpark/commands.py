@@ -99,6 +99,35 @@ class _SnowparkObject(Enum):
     FUNCTION = str(ObjectType.FUNCTION)
 
 
+def _check_if_all_defined_integrations_exists(
+    om: ObjectManager,
+    functions: List[FunctionSchema],
+    procedures: List[ProcedureSchema],
+):
+    existing_integrations = {
+        i["name"].lower()
+        for i in om.show(object_type="integration", cursor_class=DictCursor, like=None)
+        if i["type"] == "EXTERNAL_ACCESS"
+    }
+    declared_integration: Set[str] = set()
+    for object_definition in [*functions, *procedures]:
+        external_access_integrations = {
+            s.lower() for s in object_definition.external_access_integrations
+        }
+        secrets = [s.lower() for s in object_definition.secrets]
+
+        if not external_access_integrations and secrets:
+            raise SecretsWithoutExternalAccessIntegrationError(object_definition.name)
+
+        declared_integration = declared_integration | external_access_integrations
+
+    missing = declared_integration - existing_integrations
+    if missing:
+        raise ClickException(
+            f"Following external access integration does not exists in Snowflake: {', '.join(missing)}"
+        )
+
+
 def create_app():
     log = logging.getLogger(__name__)
 
@@ -249,38 +278,6 @@ def create_app():
             except ProgrammingError:
                 pass
         return existing_objects
-
-    def _check_if_all_defined_integrations_exists(
-        om: ObjectManager,
-        functions: List[FunctionSchema],
-        procedures: List[ProcedureSchema],
-    ):
-        existing_integrations = {
-            i["name"].lower()
-            for i in om.show(
-                object_type="integration", cursor_class=DictCursor, like=None
-            )
-            if i["type"] == "EXTERNAL_ACCESS"
-        }
-        declared_integration: Set[str] = set()
-        for object_definition in [*functions, *procedures]:
-            external_access_integrations = {
-                s.lower() for s in object_definition.external_access_integrations
-            }
-            secrets = [s.lower() for s in object_definition.secrets]
-
-            if not external_access_integrations and secrets:
-                raise SecretsWithoutExternalAccessIntegrationError(
-                    object_definition.name
-                )
-
-            declared_integration = declared_integration | external_access_integrations
-
-        missing = declared_integration - existing_integrations
-        if missing:
-            raise ClickException(
-                f"Following external access integration does not exists in Snowflake: {', '.join(missing)}"
-            )
 
     def get_app_stage_path(stage_name: Optional[str], project_name: str) -> str:
         artifact_stage_directory = f"@{(stage_name or DEPLOYMENT_STAGE)}/{project_name}"
