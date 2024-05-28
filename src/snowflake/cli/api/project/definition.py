@@ -14,6 +14,7 @@ from snowflake.cli.api.project.util import (
     to_identifier,
 )
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.utils.definition_rendering import render_project_template
 from yaml import load
 
 DEFAULT_USERNAME = "unknown_user"
@@ -39,7 +40,8 @@ def load_project_definition(paths: List[Path]) -> ProjectDefinition:
             overrides = load(override_yml.read(), Loader=yaml.loader.BaseLoader)
             project.update_from_dict(overrides)
 
-    return project
+    rendered_project = render_project_template(project)
+    return rendered_project
 
 
 def generate_local_override_yml(

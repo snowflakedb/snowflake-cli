@@ -29,6 +29,7 @@ from snowflake.cli.api.commands.flags import (
     VerboseOption,
     WarehouseOption,
     experimental_option,
+    project_definition_option,
     project_type_option,
 )
 from snowflake.cli.api.exceptions import CommandReturnTypeError
@@ -58,7 +59,7 @@ def global_options_with_connection(func: Callable):
     )
 
 
-def with_project_definition(project_name: str):
+def with_project_definition(project_name: Optional[str] = None):
     def _decorator(func: Callable):
         return _options_decorator_factory(
             func,
@@ -67,7 +68,9 @@ def with_project_definition(project_name: str):
                     "project_definition",
                     inspect.Parameter.KEYWORD_ONLY,
                     annotation=Optional[str],
-                    default=project_type_option(project_name),
+                    default=project_type_option(project_name)
+                    if project_name
+                    else project_definition_option(),
                 )
             ],
         )
