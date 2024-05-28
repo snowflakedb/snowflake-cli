@@ -1,0 +1,26 @@
+# serializer version: 1
+# name: test_list_templates_no_options_success
+  '''
+  +------------------------------------------------------------------------------+
+  | template         | description                                               |
+  |------------------+-----------------------------------------------------------|
+  | basic            | This is the basic project template for a Snowflake Native |
+  |                  | App project. It contains minimal code meant to help you   |
+  |                  | set up your first application object in your account      |
+  |                  | quickly.                                                  |
+  | streamlit-java   | This is an example template for a Snowflake Native App    |
+  |                  | project which demonstrates the use of Java extension code |
+  |                  | and adding Streamlit code. This template is meant to      |
+  |                  | guide developers towards a possible project structure on  |
+  |                  | the basis of functionality, as well as to indicate the    |
+  |                  | contents of some common and useful files.                 |
+  | streamlit-python | This is an example template for a Snowflake Native App    |
+  |                  | project which demonstrates the use of Python extension    |
+  |                  | code and adding Streamlit code. This template is meant to |
+  |                  | guide developers towards a possible project structure on  |
+  |                  | the basis of functionality, as well as to indicate the    |
+  |                  | contents of some common and useful files.                 |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
