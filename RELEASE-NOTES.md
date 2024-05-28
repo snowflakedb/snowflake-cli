@@ -4,6 +4,16 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v2.4.0
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
 * Added the `--cascade` option to `snow app teardown` command that drops all application objects owned by the application.
  * Add external access integration to snow object commands
  * Add aliases for `snow object list/describe/drop` commands under:
