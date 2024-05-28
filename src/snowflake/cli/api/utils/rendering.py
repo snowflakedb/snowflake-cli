@@ -55,7 +55,7 @@ def _env_bootstrap(env: Environment) -> Environment:
     return env
 
 
-def get_snowflake_cli_jinja_env():
+def get_snowflake_cli_jinja_env() -> Environment:
     _random_block = "___very___unique___block___to___disable___logic___blocks___"
     return _env_bootstrap(
         Environment(
