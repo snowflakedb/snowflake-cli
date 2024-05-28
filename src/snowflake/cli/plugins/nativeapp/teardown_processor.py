@@ -130,12 +130,14 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                 )
             elif interactive:
                 if interactive:
-                    api_integration = typer.prompt(
-                        f"The following objects are owned by application {self.app_name}:\n{application_objects_str}\n\nWould you like to drop these objects in addition to the application? [y/n/ABORT]"
+                    user_response = typer.prompt(
+                        f"The following objects are owned by application {self.app_name}:\n{application_objects_str}\n\nWould you like to drop these objects in addition to the application? [y/n/ABORT]",
+                        show_default=False,
+                        default="ABORT",
                     )
-                    if api_integration in ["y", "yes", "Y", "Yes", "YES"]:
+                    if user_response in ["y", "yes", "Y", "Yes", "YES"]:
                         cascade = True
-                    elif api_integration in ["n", "no", "N", "No", "NO"]:
+                    elif user_response in ["n", "no", "N", "No", "NO"]:
                         cascade = False
                     else:
                         raise typer.Abort()
