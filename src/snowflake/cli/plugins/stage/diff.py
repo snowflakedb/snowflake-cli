@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Collection, Dict, List, Optional
 
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )
@@ -331,3 +332,24 @@ def sync_local_diff_with_stage(
         # Could be ProgrammingError or IntegrityError from SnowflakeCursor
         log.error(err)
         raise SnowflakeSQLExecutionError()
+
+
+def print_diff_to_console(diff: DiffResult):
+    if not diff.different and not diff.only_local and not diff.only_on_stage:
+        cc.message("Your stage is up-to-date with your local directory")
+        return
+
+    if diff.different:
+        cc.message("Changed files to upload to your stage:")
+        for p in diff.different:
+            cc.message(f"\t{p}")
+
+    if diff.only_local:
+        cc.message("New files to upload to your stage:")
+        for p in diff.only_local:
+            cc.message(f"\t{p}")
+
+    if diff.only_on_stage:
+        cc.message("Deleted files to remove from your stage:")
+        for p in diff.only_on_stage:
+            cc.message(f"\t{p}")

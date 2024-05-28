@@ -74,6 +74,7 @@ from snowflake.cli.plugins.stage.diff import (
     StagePath,
     compute_stage_diff,
     preserve_from_diff,
+    print_diff_to_console,
     sync_local_diff_with_stage,
     to_stage_path,
 )
@@ -446,12 +447,12 @@ class NativeAppManager(SqlExecutionMixin):
                     f"The following files exist only on the stage:\n{files_not_removed_str}\n\nUse the --prune flag to delete them from the stage."
                 )
 
-        cc.message(str(diff))
+        print_diff_to_console(diff)
 
         # Upload diff-ed files to application package stage
         if diff.has_changes():
             cc.step(
-                "Uploading diff-ed files from your local %s directory to the Snowflake stage."
+                "Updating the Snowflake stage from your local %s directory."
                 % self.deploy_root,
             )
             sync_local_diff_with_stage(
