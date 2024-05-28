@@ -11,6 +11,7 @@ from snowflake.cli.api.project.definition import (
     load_project_definition,
 )
 from snowflake.cli.api.project.errors import SchemaValidationError
+from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 
 
@@ -29,7 +30,10 @@ def test_napp_project_1(project_definition_files):
 def test_na_minimal_project(project_definition_files: List[Path]):
     project = load_project_definition(project_definition_files)
     assert project.native_app.name == "minimal"
-    assert project.native_app.artifacts == ["setup.sql", "README.md"]
+    assert project.native_app.artifacts == [
+        PathMapping(src="setup.sql"),
+        PathMapping(src="README.md"),
+    ]
 
     from os import getenv as original_getenv
 
