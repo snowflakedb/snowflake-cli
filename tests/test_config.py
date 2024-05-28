@@ -308,3 +308,28 @@ def test_corrupted_config_raises_human_friendly_error(
 
     assert result.exit_code == 1, result.output
     assert result.output == snapshot
+
+
+@pytest.mark.parametrize(
+    "content", ["[corrupted", "[connections.foo]\n[connections.foo]"]
+)
+def test_corrupted_config_in_default_location(
+    snowflake_home, runner, content, snapshot, test_snowcli_config
+):
+    # test command call in default location
+    corrupted_config = snowflake_home / "config.toml"
+    corrupted_config.write_text(content)
+
+    # corrupted config should not influence runsn when --config-file flag is passed
+    result = runner.invoke_with_config_file(test_snowcli_config, ["--info"])
+    assert result.exit_code == 0, result.output
+
+    # corrupted config should return human-friendly error
+    result_err = runner.invoke(["sql", "-q", "foo"])
+
+    # Run cli help to reset state after config load error
+    corrupted_config.unlink()
+    runner.invoke("--help")
+
+    assert result_err.exit_code == 1, result.output
+    assert result_err.output == snapshot
