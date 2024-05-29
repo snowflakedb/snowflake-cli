@@ -31,7 +31,7 @@ def add_object_command_aliases(
 
             @app.command("list", requires_connection=True)
             def list_cmd(like: str = like_option, **options):  # type: ignore
-                list_(
+                return list_(
                     object_type=object_type.value.cli_name,
                     like=like,
                     scope=ScopeOption.default,
@@ -46,7 +46,7 @@ def add_object_command_aliases(
                 scope: Tuple[str, str] = scope_option,  # type: ignore
                 **options,
             ):
-                list_(
+                return list_(
                     object_type=object_type.value.cli_name,
                     like=like,
                     scope=scope,
@@ -59,7 +59,7 @@ def add_object_command_aliases(
 
         @app.command("drop", requires_connection=True)
         def drop_cmd(name: str = name_argument, **options):
-            drop(
+            return drop(
                 object_type=object_type.value.cli_name,
                 object_name=name,
                 **options,
@@ -71,7 +71,7 @@ def add_object_command_aliases(
 
         @app.command("describe", requires_connection=True)
         def describe_cmd(name: str = name_argument, **options):
-            describe(
+            return describe(
                 object_type=object_type.value.cli_name,
                 object_name=name,
                 **options,
