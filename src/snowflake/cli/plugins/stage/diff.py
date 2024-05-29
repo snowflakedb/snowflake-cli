@@ -22,6 +22,7 @@ from pathlib import Path, PurePosixPath
 from typing import Collection, Dict, List, Optional
 
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )
@@ -62,57 +63,6 @@ class DiffResult:
             or len(self.only_local) > 0
             or len(self.only_on_stage) > 0
         )
-
-    def __str__(self) -> str:
-        """
-        Method override for the standard behavior of string representation for this class.
-        """
-        components: List[
-            str
-        ] = (
-            []
-        )  # py3.8 does not support subscriptions for builtin list, hence using List
-
-        # The specific order of conditionals is for an aesthetically pleasing output and ease of readability.
-        if not self.only_local:
-            components.append(
-                "There are no new files that exist only in your local directory."
-            )
-        if not self.only_on_stage:
-            components.append("There are no new files that exist only on the stage.")
-        if not self.different:
-            components.append(
-                "There are no existing files that have been modified, or their status is unknown."
-            )
-        if not self.identical:
-            components.append(
-                "There are no existing files that are identical to the ones on the stage."
-            )
-
-        if self.only_local:
-            components.extend(
-                ["New files only on your local:", *[str(p) for p in self.only_local]]
-            )
-        if self.only_on_stage:
-            components.extend(
-                ["New files only on the stage:", *[str(p) for p in self.only_on_stage]]
-            )
-        if self.different:
-            components.extend(
-                [
-                    "Existing files modified or status unknown:",
-                    *[str(p) for p in self.different],
-                ]
-            )
-        if self.identical:
-            components.extend(
-                [
-                    "Existing files identical to the stage:",
-                    *[str(p) for p in self.identical],
-                ]
-            )
-
-        return "\n".join(components)
 
 
 def is_valid_md5sum(checksum: str) -> bool:
@@ -334,22 +284,22 @@ def sync_local_diff_with_stage(
         raise SnowflakeSQLExecutionError()
 
 
-def print_diff_to_console(diff: DiffResult):
+def print_diff_to_console(diff: DiffResult, console: AbstractConsole = cc):
     if not diff.different and not diff.only_local and not diff.only_on_stage:
-        cc.message("Your stage is up-to-date with your local directory")
+        console.message("Your stage is up-to-date with your local directory")
         return
 
     if diff.different:
-        cc.message("Changed files to upload to your stage:")
+        console.message("Changed files to upload to your stage:")
         for p in diff.different:
-            cc.message(f"\t{p}")
+            console.message(f"\t{p}")
 
     if diff.only_local:
-        cc.message("New files to upload to your stage:")
+        console.message("New files to upload to your stage:")
         for p in diff.only_local:
-            cc.message(f"\t{p}")
+            console.message(f"\t{p}")
 
     if diff.only_on_stage:
-        cc.message("Deleted files to remove from your stage:")
+        console.message("Deleted files to remove from your stage:")
         for p in diff.only_on_stage:
-            cc.message(f"\t{p}")
+            console.message(f"\t{p}")
