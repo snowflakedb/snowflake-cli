@@ -1,7 +1,5 @@
 import pytest
 
-import re
-
 
 @pytest.mark.integration
 def test_list_templates_no_options_success(runner, snapshot):
