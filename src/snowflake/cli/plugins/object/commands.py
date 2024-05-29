@@ -11,12 +11,6 @@ from snowflake.cli.api.output.types import QueryResult
 from snowflake.cli.api.project.util import is_valid_identifier
 from snowflake.cli.plugins.object.manager import ObjectManager
 
-app = SnowTyper(
-    name="object",
-    help="Manages Snowflake objects like warehouses and stages",
-)
-
-
 NameArgument = typer.Argument(help="Name of the object")
 ObjectArgument = typer.Argument(
     help="Type of object. For example table, procedure, streamlit.",
@@ -52,16 +46,14 @@ ScopeOption = scope_option(
 
 SUPPORTED_TYPES_MSG = "\n\nSupported types: " + ", ".join(SUPPORTED_OBJECTS)
 
+# Image repository is the only supported object that does not have a DESCRIBE command.
+DESCRIBE_SUPPORTED_TYPES_MSG = f"\n\nSupported types: {', '.join(obj for obj in SUPPORTED_OBJECTS if obj != 'image-repository')}"
 
-@app.command(
-    "list",
-    help=f"Lists all available Snowflake objects of given type.{SUPPORTED_TYPES_MSG}",
-    requires_connection=True,
-)
+
 def list_(
-    object_type: str = ObjectArgument,
-    like: str = LikeOption,
-    scope: Tuple[str, str] = ScopeOption,
+    object_type: str,
+    like: str,
+    scope: Tuple[str, str],
     **options,
 ):
     _scope_validate(object_type, scope)
@@ -70,25 +62,53 @@ def list_(
     )
 
 
-@app.command(
-    help=f"Drops Snowflake object of given name and type. {SUPPORTED_TYPES_MSG}",
-    requires_connection=True,
-)
-def drop(object_type: str = ObjectArgument, object_name: str = NameArgument, **options):
+def drop(object_type: str, object_name: str, **options):
     return QueryResult(ObjectManager().drop(object_type=object_type, name=object_name))
 
 
-# Image repository is the only supported object that does not have a DESCRIBE command.
-DESCRIBE_SUPPORTED_TYPES_MSG = f"\n\nSupported types: {', '.join(obj for obj in SUPPORTED_OBJECTS if obj != 'image-repository')}"
-
-
-@app.command(
-    help=f"Provides description of an object of given type. {DESCRIBE_SUPPORTED_TYPES_MSG}",
-    requires_connection=True,
-)
-def describe(
-    object_type: str = ObjectArgument, object_name: str = NameArgument, **options
-):
+def describe(object_type: str, object_name: str, **options):
     return QueryResult(
         ObjectManager().describe(object_type=object_type, name=object_name)
     )
+
+
+def create_app():
+    app = SnowTyper(
+        name="object",
+        help="Manages Snowflake objects like warehouses and stages",
+    )
+
+    @app.command(
+        "list",
+        help=f"Lists all available Snowflake objects of given type.{SUPPORTED_TYPES_MSG}",
+        requires_connection=True,
+    )
+    def list_cmd(
+        object_type: str = ObjectArgument,
+        like: str = LikeOption,
+        scope: Tuple[str, str] = ScopeOption,
+        **options,
+    ):
+        return list_(object_type=object_type, like=like, scope=scope, **options)
+
+    @app.command(
+        "drop",
+        help=f"Drops Snowflake object of given name and type. {SUPPORTED_TYPES_MSG}",
+        requires_connection=True,
+    )
+    def drop_cmd(
+        object_type: str = ObjectArgument, object_name: str = NameArgument, **options
+    ):
+        return drop(object_type=object_type, object_name=object_name, **options)
+
+    @app.command(
+        "describe",
+        help=f"Provides description of an object of given type. {DESCRIBE_SUPPORTED_TYPES_MSG}",
+        requires_connection=True,
+    )
+    def describe_cmd(
+        object_type: str = ObjectArgument, object_name: str = NameArgument, **options
+    ):
+        return describe(object_type=object_type, object_name=object_name, **options)
+
+    return app
