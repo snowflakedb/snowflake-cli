@@ -89,6 +89,8 @@ def app_list_templates(**options) -> CommandResult:
     Prints information regarding the official templates that can be used with snow app init.
     """
     with SecurePath.temporary_directory() as temp_path:
+        from git import rmtree as git_rmtree
+
         repo = shallow_git_clone(OFFICIAL_TEMPLATES_GITHUB_URL, temp_path.path)
 
         # Mark a directory as a template if a project definition jinja template is inside
@@ -112,6 +114,10 @@ def app_list_templates(**options) -> CommandResult:
                 template_directories, template_descriptions
             )
         )
+
+        # proactively clean up here to avoid permission issues on Windows
+        repo.close()
+        git_rmtree(temp_path.path)
 
         return CollectionResult(result)
 
