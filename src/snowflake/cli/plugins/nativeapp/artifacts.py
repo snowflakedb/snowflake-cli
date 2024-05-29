@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import itertools
 import os
-from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
@@ -85,16 +84,6 @@ class NotInDeployRootError(ClickException):
         self.src_path = src_path
 
 
-@dataclass
-class ArtifactMapping:
-    """
-    Used to keep track of equivalent paths / globs so we can copy artifacts from the project folder to the deploy root.
-    """
-
-    src: str
-    dest: str
-
-
 ArtifactPredicate = Callable[[Path, Path], bool]
 
 
@@ -166,7 +155,7 @@ class BundleMap:
         if canonical_src not in current_sources:
             current_sources.append(canonical_src)
 
-    def _add_mapping(self, src: str, dest: Optional[str]):
+    def _add_mapping(self, src: str, dest: Optional[str] = None):
         """
         Adds the specified artifact rule to this instance. The source should be relative to the project directory. It
         is interpreted as a file, directory or glob pattern. If the destination path is not specified, each source match
@@ -206,16 +195,11 @@ class BundleMap:
         if not match_found:
             raise SourceNotFoundError(src)
 
-    def add(self, mapping: Union[ArtifactMapping, PathMapping]) -> None:
+    def add(self, mapping: PathMapping) -> None:
         """
         Adds an artifact mapping rule to this instance.
         """
-        if isinstance(mapping, ArtifactMapping):
-            self._add_mapping(mapping.src, mapping.dest)
-        elif isinstance(mapping, PathMapping):
-            self._add_mapping(mapping.src, mapping.dest)
-        else:
-            raise RuntimeError(f"Unsupported mapping type: {type(mapping)}")
+        self._add_mapping(mapping.src, mapping.dest)
 
     def _mappings_for_source(
         self,
@@ -431,22 +415,6 @@ def symlink_or_copy(
         ssrc.copy(dst)
 
 
-def translate_artifact(item: Union[PathMapping, str]) -> ArtifactMapping:
-    """
-    Builds an artifact mapping from a project definition value.
-    Validation is done later when we actually resolve files / folders.
-    """
-
-    if isinstance(item, PathMapping):
-        return ArtifactMapping(item.src, item.dest if item.dest else item.src)
-
-    elif isinstance(item, str):
-        return ArtifactMapping(item, item)
-
-    # XXX: validation should have caught this
-    raise ArtifactError("Item is not a valid artifact!")
-
-
 def resolve_without_follow(path: Path) -> Path:
     """
     Resolves a Path to an absolute version of itself, without following
@@ -458,7 +426,7 @@ def resolve_without_follow(path: Path) -> Path:
 def build_bundle(
     project_root: Path,
     deploy_root: Path,
-    artifacts: List[ArtifactMapping],
+    artifacts: List[PathMapping],
 ) -> BundleMap:
     """
     Prepares a local folder (deploy_root) with configured app artifacts.

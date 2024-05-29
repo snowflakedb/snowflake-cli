@@ -9,7 +9,6 @@ from snowflake.cli.api.project.definition import load_project_definition
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.plugins.nativeapp.artifacts import (
     ArtifactError,
-    ArtifactMapping,
     ArtifactPredicate,
     BundleMap,
     DeployRootError,
@@ -18,7 +17,6 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     TooManyFilesError,
     build_bundle,
     resolve_without_follow,
-    translate_artifact,
 )
 
 from tests.nativeapp.utils import touch
@@ -122,10 +120,6 @@ def verify_mappings(
     assert actual_path_mappings == normalized_expected_mappings
 
 
-def path_mapping_factory(src: str, dest: Optional[str] = None) -> PathMapping:
-    return PathMapping(src=src, dest=dest)
-
-
 def test_empty_bundle_map(bundle_map):
     mappings = list(bundle_map.all_mappings())
     assert mappings == []
@@ -140,11 +134,10 @@ def test_empty_bundle_map(bundle_map):
     )
 
 
-@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
-def test_bundle_map_handles_file_to_file_mappings(mapping_factory, bundle_map):
-    bundle_map.add(mapping_factory("README.md", "deployed_readme.md"))
-    bundle_map.add(mapping_factory("app/setup.sql", "app_setup.sql"))
-    bundle_map.add(mapping_factory("app/manifest.yml", "manifest.yml"))
+def test_bundle_map_handles_file_to_file_mappings(bundle_map):
+    bundle_map.add(PathMapping(src="README.md", dest="deployed_readme.md"))
+    bundle_map.add(PathMapping(src="app/setup.sql", dest="app_setup.sql"))
+    bundle_map.add(PathMapping(src="app/manifest.yml", dest="manifest.yml"))
 
     verify_mappings(
         bundle_map,
@@ -156,9 +149,8 @@ def test_bundle_map_handles_file_to_file_mappings(mapping_factory, bundle_map):
     )
 
 
-@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
-def test_bundle_map_supports_double_star_glob(mapping_factory, bundle_map):
-    bundle_map.add(mapping_factory("src/snowpark/**/*.py", "deployed/"))
+def test_bundle_map_supports_double_star_glob(bundle_map):
+    bundle_map.add(PathMapping(src="src/snowpark/**/*.py", dest="deployed/"))
 
     verify_mappings(
         bundle_map,
@@ -173,9 +165,8 @@ def test_bundle_map_supports_double_star_glob(mapping_factory, bundle_map):
     )
 
 
-@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
-def test_bundle_map_supports_complex_globbing(mapping_factory, bundle_map):
-    bundle_map.add(mapping_factory("src/s*/**/file[3-5].py", "deployed/"))
+def test_bundle_map_supports_complex_globbing(bundle_map):
+    bundle_map.add(PathMapping(src="src/s*/**/file[3-5].py", dest="deployed/"))
 
     verify_mappings(
         bundle_map,
@@ -190,10 +181,9 @@ def test_bundle_map_supports_complex_globbing(mapping_factory, bundle_map):
     )
 
 
-@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
-def test_bundle_map_handles_mapping_to_deploy_root(mapping_factory, bundle_map):
-    bundle_map.add(mapping_factory("app/*", "./"))
-    bundle_map.add(mapping_factory("README.md", "./"))
+def test_bundle_map_handles_mapping_to_deploy_root(bundle_map):
+    bundle_map.add(PathMapping(src="app/*", dest="./"))
+    bundle_map.add(PathMapping(src="README.md", dest="./"))
 
     verify_mappings(
         bundle_map,
@@ -205,9 +195,8 @@ def test_bundle_map_handles_mapping_to_deploy_root(mapping_factory, bundle_map):
     )
 
 
-@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
-def test_bundle_map_can_rename_directories(mapping_factory, bundle_map):
-    bundle_map.add(mapping_factory("app", "deployed"))
+def test_bundle_map_can_rename_directories(bundle_map):
+    bundle_map.add(PathMapping(src="app", dest="deployed"))
 
     verify_mappings(
         bundle_map,
@@ -228,13 +217,12 @@ def test_bundle_map_can_rename_directories(mapping_factory, bundle_map):
     )
 
 
-@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
-def test_bundle_map_honours_trailing_slashes(mapping_factory, bundle_map):
-    bundle_map.add(mapping_factory("app", "deployed/"))
-    bundle_map.add(mapping_factory("README.md", "deployed/"))
+def test_bundle_map_honours_trailing_slashes(bundle_map):
+    bundle_map.add(PathMapping(src="app", dest="deployed/"))
+    bundle_map.add(PathMapping(src="README.md", dest="deployed/"))
     bundle_map.add(
         # src trailing slash has no effect
-        mapping_factory("src/snowpark/", "deployed/")
+        PathMapping(src="src/snowpark/", dest="deployed/")
     )
 
     verify_mappings(
@@ -268,43 +256,37 @@ def test_bundle_map_honours_trailing_slashes(mapping_factory, bundle_map):
     )
 
 
-@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
-def test_bundle_map_disallows_overwriting_deploy_root(mapping_factory, bundle_map):
+def test_bundle_map_disallows_overwriting_deploy_root(bundle_map):
     with pytest.raises(NotInDeployRootError):
-        bundle_map.add(mapping_factory("app/*", "."))
+        bundle_map.add(PathMapping(src="app/*", dest="."))
 
 
-@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
-def test_bundle_map_disallows_unknown_sources(mapping_factory, bundle_map):
+def test_bundle_map_disallows_unknown_sources(bundle_map):
     with pytest.raises(SourceNotFoundError):
-        bundle_map.add(mapping_factory("missing/*", "deployed/"))
-
-    with pytest.raises(SourceNotFoundError):
-        bundle_map.add(mapping_factory("missing", "deployed/"))
+        bundle_map.add(PathMapping(src="missing/*", dest="deployed/"))
 
     with pytest.raises(SourceNotFoundError):
-        bundle_map.add(mapping_factory("**/*.missing", "deployed/"))
+        bundle_map.add(PathMapping(src="missing", dest="deployed/"))
+
+    with pytest.raises(SourceNotFoundError):
+        bundle_map.add(PathMapping(src="**/*.missing", dest="deployed/"))
 
 
-@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
-def test_bundle_map_disallows_mapping_multiple_to_file(mapping_factory, bundle_map):
+def test_bundle_map_disallows_mapping_multiple_to_file(bundle_map):
     with pytest.raises(TooManyFilesError):
         # multiple files named 'file1.py' would collide
-        bundle_map.add(mapping_factory("**/file1.py", "deployed/"))
+        bundle_map.add(PathMapping(src="**/file1.py", dest="deployed/"))
 
     with pytest.raises(TooManyFilesError):
-        bundle_map.add(mapping_factory("**/file1.py", "deployed/"))
+        bundle_map.add(PathMapping(src="**/file1.py", dest="deployed/"))
 
 
-@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
-def test_bundle_map_allows_mapping_file_to_multiple_destinations(
-    mapping_factory, bundle_map
-):
-    bundle_map.add(mapping_factory("README.md", "deployed/README1.md"))
-    bundle_map.add(mapping_factory("README.md", "deployed/README2.md"))
-    bundle_map.add(mapping_factory("src/streamlit", "deployed/streamlit_orig"))
-    bundle_map.add(mapping_factory("src/streamlit", "deployed/streamlit_copy"))
-    bundle_map.add(mapping_factory("src/streamlit/main_ui.py", "deployed/"))
+def test_bundle_map_allows_mapping_file_to_multiple_destinations(bundle_map):
+    bundle_map.add(PathMapping(src="README.md", dest="deployed/README1.md"))
+    bundle_map.add(PathMapping(src="README.md", dest="deployed/README2.md"))
+    bundle_map.add(PathMapping(src="src/streamlit", dest="deployed/streamlit_orig"))
+    bundle_map.add(PathMapping(src="src/streamlit", dest="deployed/streamlit_copy"))
+    bundle_map.add(PathMapping(src="src/streamlit/main_ui.py", dest="deployed/"))
 
     verify_mappings(
         bundle_map,
@@ -399,19 +381,15 @@ def test_bundle_map_handles_missing_dest(bundle_map):
     )
 
 
-@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
-def test_bundle_map_disallows_conflicting_dest_types(mapping_factory, bundle_map):
-    bundle_map.add(mapping_factory("app", "deployed/"))
+def test_bundle_map_disallows_conflicting_dest_types(bundle_map):
+    bundle_map.add(PathMapping(src="app", dest="deployed/"))
     with pytest.raises(ArtifactError):
-        bundle_map.add(mapping_factory("**/main.py", "deployed"))
+        bundle_map.add(PathMapping(src="**/main.py", dest="deployed"))
 
 
-@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
-def test_bundle_map_allows_deploying_other_sources_to_renamed_directory(
-    mapping_factory, bundle_map
-):
-    bundle_map.add(mapping_factory("src/snowpark", "./snowpark"))
-    bundle_map.add(mapping_factory("README.md", "snowpark/"))
+def test_bundle_map_allows_deploying_other_sources_to_renamed_directory(bundle_map):
+    bundle_map.add(PathMapping(src="src/snowpark", dest="./snowpark"))
+    bundle_map.add(PathMapping(src="README.md", dest="snowpark/"))
 
     verify_mappings(
         bundle_map,
@@ -441,52 +419,41 @@ def test_bundle_map_allows_deploying_other_sources_to_renamed_directory(
 
 
 @pytest.mark.skip(reason="Checking deep tree hierarchies is not yet supported")
-@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
-def test_bundle_map_disallows_collisions_anywhere_in_deployed_hierarchy(
-    mapping_factory, bundle_map
-):
-    bundle_map.add(mapping_factory("src/snowpark", "./snowpark"))
-    bundle_map.add(mapping_factory("README.md", "snowpark/"))
+def test_bundle_map_disallows_collisions_anywhere_in_deployed_hierarchy(bundle_map):
+    bundle_map.add(PathMapping(src="src/snowpark", dest="./snowpark"))
+    bundle_map.add(PathMapping(src="README.md", dest="snowpark/"))
 
     # if any of the files collide, however, this is not allowed
     with pytest.raises(TooManyFilesError):
-        bundle_map.add(mapping_factory("app/manifest.yml", "snowpark/README.md"))
+        bundle_map.add(PathMapping(src="app/manifest.yml", dest="snowpark/README.md"))
 
     with pytest.raises(TooManyFilesError):
-        bundle_map.add(mapping_factory("app/manifest.yml", "snowpark/a/file1.py"))
+        bundle_map.add(PathMapping(src="app/manifest.yml", dest="snowpark/a/file1.py"))
 
 
-@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
-def test_bundle_map_disallows_mapping_outside_deploy_root(mapping_factory, bundle_map):
+def test_bundle_map_disallows_mapping_outside_deploy_root(bundle_map):
     with pytest.raises(NotInDeployRootError):
-        bundle_map.add(mapping_factory("app", "deployed/../../"))
-
-    with pytest.raises(NotInDeployRootError):
-        bundle_map.add(mapping_factory("app", Path().resolve().root))
+        bundle_map.add(PathMapping(src="app", dest="deployed/../../"))
 
     with pytest.raises(NotInDeployRootError):
-        bundle_map.add(mapping_factory("app", "/////"))
+        bundle_map.add(PathMapping(src="app", dest=Path().resolve().root))
+
+    with pytest.raises(NotInDeployRootError):
+        bundle_map.add(PathMapping(src="app", dest="/////"))
 
 
-@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
-def test_bundle_map_disallows_absolute_src(mapping_factory, bundle_map):
+def test_bundle_map_disallows_absolute_src(bundle_map):
     with pytest.raises(ArtifactError):
         absolute_src = bundle_map.project_root() / "app"
         assert absolute_src.is_absolute()
-        bundle_map.add(mapping_factory(str(absolute_src), "deployed"))
+        bundle_map.add(PathMapping(src=str(absolute_src), dest="deployed"))
 
 
-@pytest.mark.parametrize("mapping_factory", [ArtifactMapping, path_mapping_factory])
-def test_bundle_map_disallows_absolute_dest(mapping_factory, bundle_map):
+def test_bundle_map_disallows_absolute_dest(bundle_map):
     with pytest.raises(ArtifactError):
         absolute_dest = bundle_map.deploy_root() / "deployed"
         assert absolute_dest.is_absolute()
-        bundle_map.add(mapping_factory("app", str(absolute_dest)))
-
-
-def test_bundle_map_checks_mapping_type(bundle_map):
-    with pytest.raises(RuntimeError):
-        bundle_map.add({"src": "app", "dest": "deployed"})
+        bundle_map.add(PathMapping(src="app", dest=str(absolute_dest)))
 
 
 def test_bundle_map_all_mappings_can_generates_absolute_directories_when_requested(
@@ -738,8 +705,7 @@ def test_napp_project_1_artifacts(project_definition_files):
     native_app = load_project_definition(project_definition_files).native_app
 
     deploy_root = Path(project_root, native_app.deploy_root)
-    artifacts = [translate_artifact(item) for item in native_app.artifacts]
-    build_bundle(project_root, deploy_root, artifacts)
+    build_bundle(project_root, deploy_root, native_app.artifacts)
 
     assert dir_structure(deploy_root) == [
         "app/README.md",
@@ -756,7 +722,7 @@ def test_napp_project_1_artifacts(project_definition_files):
     assert trimmed_contents(deploy_root / "ui" / "config.py") == "# config.py"
 
     # we should be able to re-bundle without any errors happening
-    build_bundle(project_root, deploy_root, artifacts)
+    build_bundle(project_root, deploy_root, native_app.artifacts)
 
     # any additional files created in the deploy root will be obliterated by re-bundle
     with open(deploy_root / "unknown_file.txt", "w") as handle:
@@ -770,7 +736,7 @@ def test_napp_project_1_artifacts(project_definition_files):
         "unknown_file.txt",
     ]
 
-    build_bundle(project_root, deploy_root, artifacts)
+    build_bundle(project_root, deploy_root, native_app.artifacts)
 
     assert dir_structure(deploy_root) == [
         "app/README.md",
@@ -787,7 +753,7 @@ def test_source_not_found(project_definition_files):
         build_bundle(
             project_root,
             deploy_root=Path(project_root, "deploy"),
-            artifacts=[ArtifactMapping("NOTFOUND.md", "NOTFOUND.md")],
+            artifacts=[PathMapping(src="NOTFOUND.md", dest="NOTFOUND.md")],
         )
 
 
@@ -798,7 +764,7 @@ def test_glob_matched_nothing(project_definition_files):
         build_bundle(
             project_root,
             deploy_root=Path(project_root, "deploy"),
-            artifacts=[ArtifactMapping("**/*.jar", ".")],
+            artifacts=[PathMapping(src="**/*.jar", dest=".")],
         )
 
 
@@ -809,21 +775,21 @@ def test_outside_deploy_root_three_ways(project_definition_files):
         build_bundle(
             project_root,
             deploy_root=Path(project_root, "deploy"),
-            artifacts=[ArtifactMapping("setup.sql", "..")],
+            artifacts=[PathMapping(src="setup.sql", dest="..")],
         )
 
     with pytest.raises(NotInDeployRootError):
         build_bundle(
             project_root,
             deploy_root=Path(project_root, "deploy"),
-            artifacts=[ArtifactMapping("setup.sql", "/")],
+            artifacts=[PathMapping(src="setup.sql", dest="/")],
         )
 
     with pytest.raises(NotInDeployRootError):
         build_bundle(
             project_root,
             deploy_root=Path(project_root, "deploy"),
-            artifacts=[ArtifactMapping("app", ".")],
+            artifacts=[PathMapping(src="app", dest=".")],
         )
 
 
@@ -856,7 +822,9 @@ def test_too_many_files(project_definition_files):
             project_root,
             deploy_root=Path(project_root, "deploy"),
             artifacts=[
-                ArtifactMapping("app/streamlit/*.py", "somehow_combined_streamlits.py")
+                PathMapping(
+                    src="app/streamlit/*.py", dest="somehow_combined_streamlits.py"
+                )
             ],
         )
 
@@ -908,8 +876,8 @@ def test_source_path_to_deploy_path(
     bundle_map = BundleMap(
         project_root=Path().resolve(), deploy_root=Path("deploy").resolve()
     )
-    bundle_map.add(ArtifactMapping("srcdir", "./dir"))
-    bundle_map.add(ArtifactMapping("srcfile", "./file"))
+    bundle_map.add(PathMapping(src="srcdir", dest="./dir"))
+    bundle_map.add(PathMapping(src="srcfile", dest="./file"))
 
     result = bundle_map.to_deploy_paths(resolve_without_follow(Path(project_path)))
     if expected_path:

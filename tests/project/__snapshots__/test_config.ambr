@@ -72,8 +72,18 @@
     'native_app': dict({
       'application': None,
       'artifacts': list([
-        'setup.sql',
-        'README.md',
+        dict({
+          'dest': None,
+          'processors': list([
+          ]),
+          'src': 'setup.sql',
+        }),
+        dict({
+          'dest': None,
+          'processors': list([
+          ]),
+          'src': 'README.md',
+        }),
       ]),
       'deploy_root': 'output/deploy/',
       'generated_root': '__generated/',
@@ -97,8 +107,18 @@
         'warehouse': None,
       }),
       'artifacts': list([
-        'setup.sql',
-        'app/README.md',
+        dict({
+          'dest': None,
+          'processors': list([
+          ]),
+          'src': 'setup.sql',
+        }),
+        dict({
+          'dest': None,
+          'processors': list([
+          ]),
+          'src': 'app/README.md',
+        }),
         dict({
           'dest': 'ui/',
           'processors': list([
@@ -137,8 +157,18 @@
         'warehouse': None,
       }),
       'artifacts': list([
-        'setup.sql',
-        'app/README.md',
+        dict({
+          'dest': None,
+          'processors': list([
+          ]),
+          'src': 'setup.sql',
+        }),
+        dict({
+          'dest': None,
+          'processors': list([
+          ]),
+          'src': 'app/README.md',
+        }),
         dict({
           'dest': 'ui/',
           'processors': list([
