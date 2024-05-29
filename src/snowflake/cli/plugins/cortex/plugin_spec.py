@@ -4,7 +4,7 @@ from snowflake.cli.api.plugins.command import (
     CommandType,
     plugin_hook_impl,
 )
-from snowflake.cli.plugins.cortex import commands
+from snowflake.cli.plugins.cortex.commands import CommandCreator
 
 
 @plugin_hook_impl
@@ -12,5 +12,5 @@ def command_spec():
     return CommandSpec(
         parent_command_path=SNOWCLI_ROOT_COMMAND_PATH,
         command_type=CommandType.COMMAND_GROUP,
-        typer_instance=commands.create_app(),
+        typer_instance=CommandCreator.create_app(),
     )

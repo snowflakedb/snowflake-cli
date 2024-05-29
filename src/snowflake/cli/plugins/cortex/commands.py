@@ -29,16 +29,27 @@ from snowflake.cli.plugins.cortex.types import (
 SEARCH_COMMAND_ENABLED = sys.version_info < (3, 12)
 
 
-def create_app():
-    app = SnowTyper(
-        name="cortex",
-        help="Provides access to Snowflake Cortex.",
-    )
+class CommandCreator:
+    @classmethod
+    def create_app(cls):
+        app = SnowTyper(
+            name="cortex",
+            help="Provides access to Snowflake Cortex.",
+        )
 
-    @app.command(
-        requires_connection=True,
-        hidden=not SEARCH_COMMAND_ENABLED,
-    )
+        app.command(
+            requires_connection=True,
+            hidden=not SEARCH_COMMAND_ENABLED,
+        )(cls.search)
+        app.command(name="complete", requires_connection=True)(cls.complete)
+        app.command(name="extract-answer", requires_connection=True)(cls.extract_answer)
+        app.command(name="sentiment", requires_connection=True)(cls.sentiment)
+        app.command(name="summarize", requires_connection=True)(cls.summarize)
+        app.command(name="translate", requires_connection=True)(cls.translate)
+
+        return app
+
+    @staticmethod
     def search(
         query: str = typer.Argument(help="The search query string"),
         service: str = typer.Option(
@@ -82,10 +93,7 @@ def create_app():
 
         return CollectionResult(response.results)
 
-    @app.command(
-        name="complete",
-        requires_connection=True,
-    )
+    @staticmethod
     def complete(
         text: Optional[str] = typer.Argument(
             None,
@@ -132,10 +140,7 @@ def create_app():
 
         return MessageResult(result_text.strip())
 
-    @app.command(
-        name="extract-answer",
-        requires_connection=True,
-    )
+    @staticmethod
     def extract_answer(
         question: str = typer.Argument(
             None,
@@ -181,10 +186,7 @@ def create_app():
 
         return MessageResult(result_text.strip())
 
-    @app.command(
-        name="sentiment",
-        requires_connection=True,
-    )
+    @staticmethod
     def sentiment(
         text: Optional[str] = typer.Argument(
             None,
@@ -224,10 +226,7 @@ def create_app():
 
         return MessageResult(result_text.strip())
 
-    @app.command(
-        name="summarize",
-        requires_connection=True,
-    )
+    @staticmethod
     def summarize(
         text: Optional[str] = typer.Argument(
             None,
@@ -265,10 +264,7 @@ def create_app():
 
         return MessageResult(result_text.strip())
 
-    @app.command(
-        name="translate",
-        requires_connection=True,
-    )
+    @staticmethod
     def translate(
         text: Optional[str] = typer.Argument(
             None,
@@ -324,5 +320,3 @@ def create_app():
             )
 
         return MessageResult(result_text.strip())
-
-    return app
