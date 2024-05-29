@@ -115,8 +115,9 @@ def app_list_templates(**options) -> CommandResult:
             )
         )
 
-        # don't rely on temporary dir cleanup, it can face permission errors on Windows
-        git_rmtree((temp_path / ".git").path)
+        # proactively clean up here to avoid permission issues on Windows
+        repo.close()
+        git_rmtree(temp_path.path)
 
         return CollectionResult(result)
 
