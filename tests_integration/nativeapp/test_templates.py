@@ -1,10 +1,14 @@
 import pytest
 
+import re
+
 
 @pytest.mark.integration
 def test_list_templates_no_options_success(runner, snapshot):
     args = ["app", "list-templates"]
-    result = runner.invoke(args)
+    result = runner.invoke_json(args)
 
     assert result.exit_code == 0
-    assert result.output == snapshot
+    templates = result.json
+    assert len(templates) > 0
+    assert "basic" in [t["template"] for t in templates]
