@@ -17,6 +17,7 @@ from snowflake.cli.api.project.definition import (
     default_role,
 )
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
+from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
     extract_schema,
     to_identifier,
@@ -25,11 +26,9 @@ from snowflake.cli.api.project.util import (
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.connection.util import make_snowsight_url
 from snowflake.cli.plugins.nativeapp.artifacts import (
-    ArtifactMapping,
     BundleMap,
     build_bundle,
     resolve_without_follow,
-    translate_artifact,
 )
 from snowflake.cli.plugins.nativeapp.codegen.compiler import (
     NativeAppCompiler,
@@ -158,8 +157,8 @@ class NativeAppManager(SqlExecutionMixin):
         return self._project_definition
 
     @cached_property
-    def artifacts(self) -> List[ArtifactMapping]:
-        return [translate_artifact(item) for item in self.definition.artifacts]
+    def artifacts(self) -> List[PathMapping]:
+        return self.definition.artifacts
 
     @cached_property
     def deploy_root(self) -> Path:

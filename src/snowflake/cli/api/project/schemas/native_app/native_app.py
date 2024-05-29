@@ -41,3 +41,20 @@ class NativeApp(UpdatableModel):
         if not re.match(SCHEMA_AND_NAME, input_value):
             raise ValueError("Incorrect value for source_stage value of native_app")
         return input_value
+
+    @field_validator("artifacts")
+    @classmethod
+    def transform_artifacts(
+        cls, orig_artifacts: List[Union[PathMapping, str]]
+    ) -> List[PathMapping]:
+        transformed_artifacts = []
+        if orig_artifacts is None:
+            return transformed_artifacts
+
+        for artifact in orig_artifacts:
+            if isinstance(artifact, PathMapping):
+                transformed_artifacts.append(artifact)
+            else:
+                transformed_artifacts.append(PathMapping(src=artifact))
+
+        return transformed_artifacts
