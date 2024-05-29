@@ -16,9 +16,9 @@
 # name: test_edit_setup_script_with_exec_imm_sql.1
   '''
   ===== Contents of: output/deploy/__generated/__generated.sql =====
-  
   EXECUTE IMMEDIATE FROM '/__generated/moduleB/dummy.sql';
   EXECUTE IMMEDIATE FROM '/__generated/dummy.sql';
+  
   '''
 # ---
 # name: test_edit_setup_script_with_exec_imm_sql.2
@@ -90,9 +90,9 @@
 # name: test_edit_setup_script_with_exec_imm_sql_symlink.1
   '''
   ===== Contents of: output/deploy/__generated/__generated.sql =====
-  
   EXECUTE IMMEDIATE FROM '/__generated/moduleB/dummy.sql';
   EXECUTE IMMEDIATE FROM '/__generated/dummy.sql';
+  
   '''
 # ---
 # name: test_edit_setup_script_with_exec_imm_sql_symlink.2
@@ -215,9 +215,9 @@
 # name: test_process_with_collected_functions.1
   '''
   ===== Contents of: output/deploy/__generated/__generated.sql =====
-  
   EXECUTE IMMEDIATE FROM '/__generated/stagepath/main.sql';
   EXECUTE IMMEDIATE FROM '/__generated/stagepath/data.sql';
+  
   '''
 # ---
 # name: test_process_with_collected_functions.2
