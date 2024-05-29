@@ -81,16 +81,12 @@ List of required parameter keys:
 - user
 - password
 
-### User requirements
+### User setup
 
-The user requires a default role with the following grants
+Run the script with ACCOUNTADMIN role
 
-```snowflake
-grant create database on account to role <role_name>;
-grant create role on account to role <role_name>;
-grant usage on warehouse xsmall to role <role_name>;
-grant operate on warehouse xsmall to role <role_name>;
-grant create database on account to role <role_name> with grant option;
+```bash
+tests_integration/scripts/integration_account_setup.sql
 ```
 
 ## Remote debugging with PyCharm or IntelliJ
