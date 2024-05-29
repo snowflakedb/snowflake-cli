@@ -160,7 +160,7 @@ class StageManager(SqlExecutionMixin):
         with self.use_role(role) if role else nullcontext():
             stage_path = self.get_standard_stage_prefix(stage_path)
             local_resolved_path = path_resolver(str(local_path))
-            log.info("Uploading %s to @%s", local_resolved_path, stage_path)
+            log.info("Uploading %s to %s", local_resolved_path, stage_path)
             cursor = self._execute_query(
                 f"put {self._to_uri(local_resolved_path)} {self.quote_stage_name(stage_path)} "
                 f"auto_compress=false parallel={parallel} overwrite={overwrite}"
