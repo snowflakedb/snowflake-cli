@@ -2,7 +2,7 @@ import pytest
 
 
 @pytest.mark.integration
-def test_list_templates_no_options_success(runner, snapshot):
+def test_list_templates_no_options_success(runner):
     args = ["app", "list-templates"]
     result = runner.invoke_json(args)
 
