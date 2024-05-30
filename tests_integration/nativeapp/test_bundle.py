@@ -32,7 +32,6 @@ def template_setup(runner, temporary_working_directory):
     assert result.exit_code == 0
     # The newly created deploy_root is explicitly deleted here, as bundle should take care of it.
 
-    # TODO: replace with assert_dir_snapshot util once available
     project_root = Path(temporary_working_directory, project_name)
     deploy_root = Path(project_root, "output", "deploy")
     assert Path(deploy_root, "manifest.yml").is_file()
