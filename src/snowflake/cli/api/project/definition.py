@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List
 
 import yaml.loader
 from snowflake.cli.api.cli_global_context import cli_context
@@ -14,10 +14,27 @@ from snowflake.cli.api.project.util import (
     to_identifier,
 )
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.api.utils.definition_rendering import render_project_template
+from snowflake.cli.api.utils.definition_rendering import render_definition_template
 from yaml import load
 
 DEFAULT_USERNAME = "unknown_user"
+
+
+def merge_two_dicts(
+    original_values: Dict[str, Any], update_values: Dict[str, Any]
+):  # TODO update name of function
+    if not isinstance(update_values, dict) or not isinstance(original_values, dict):
+        return
+
+    for field, value in update_values.items():
+        if (
+            field in original_values
+            and isinstance(original_values[field], dict)
+            and isinstance(value, dict)
+        ):
+            merge_two_dicts(original_values[field], value)
+        else:
+            original_values[field] = value
 
 
 def load_project_definition(paths: List[Path]) -> ProjectDefinition:
@@ -31,16 +48,16 @@ def load_project_definition(paths: List[Path]) -> ProjectDefinition:
 
     with spaths[0].open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as base_yml:
         definition = load(base_yml.read(), Loader=yaml.loader.BaseLoader)
-        project = ProjectDefinition(**definition)
 
     for override_path in spaths[1:]:
         with override_path.open(
             "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
         ) as override_yml:
             overrides = load(override_yml.read(), Loader=yaml.loader.BaseLoader)
-            project.update_from_dict(overrides)
+            merge_two_dicts(definition, overrides)
 
-    rendered_project = render_project_template(project)
+    rendered_definition = render_definition_template(definition)
+    rendered_project = ProjectDefinition(**rendered_definition)
     return rendered_project
 
 

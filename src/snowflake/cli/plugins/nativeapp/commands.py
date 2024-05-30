@@ -139,7 +139,7 @@ def app_bundle(
 
 
 @app.command("run", requires_connection=True)
-@with_project_definition()
+@with_project_definition("native_app")
 def app_run(
     version: Optional[str] = typer.Option(
         None,
@@ -178,7 +178,7 @@ def app_run(
         policy = DenyAlwaysPolicy()
 
     processor = NativeAppRunProcessor(
-        project_definition=cli_context.project_definition.native_app,
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
 
