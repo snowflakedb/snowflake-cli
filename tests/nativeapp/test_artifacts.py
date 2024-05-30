@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
@@ -21,7 +20,7 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
 )
 
 from tests.nativeapp.utils import assert_dir_snapshot, touch
-from tests.testing_utils.files_and_dirs import temp_local_dir
+from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
 
 
 def trimmed_contents(path: Path) -> Optional[str]:
@@ -43,18 +42,6 @@ def dir_structure(path: Path, prefix="") -> List[str]:
             parts.append(f"{prefix}{child.name}")
 
     return parts
-
-
-# Borrowed from tests_integration/test_utils.py
-# TODO: remove from here when testing utils become shared
-@contextmanager
-def pushd(directory: Path):
-    cwd = os.getcwd()
-    os.chdir(directory)
-    try:
-        yield directory
-    finally:
-        os.chdir(cwd)
 
 
 @pytest.fixture
