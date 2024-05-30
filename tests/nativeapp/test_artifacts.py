@@ -19,8 +19,8 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     resolve_without_follow,
 )
 
-from tests.nativeapp.utils import touch
-from tests.testing_utils.files_and_dirs import temp_local_dir
+from tests.nativeapp.utils import assert_dir_snapshot, touch
+from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
 
 
 def trimmed_contents(path: Path) -> Optional[str]:
@@ -700,50 +700,26 @@ def test_bundle_map_ignores_sources_in_deploy_root(bundle_map):
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
-def test_napp_project_1_artifacts(project_definition_files):
+def test_napp_project_1_artifacts(project_definition_files, snapshot):
     project_root = project_definition_files[0].parent
     native_app = load_project_definition(project_definition_files).native_app
 
-    deploy_root = Path(project_root, native_app.deploy_root)
-    build_bundle(project_root, deploy_root, native_app.artifacts)
+    with pushd(project_root) as local_path:
+        deploy_root = Path(local_path, native_app.deploy_root)
+        build_bundle(local_path, deploy_root, native_app.artifacts)
 
-    assert dir_structure(deploy_root) == [
-        "app/README.md",
-        "setup.sql",
-        "ui/config.py",
-        "ui/main.py",
-    ]
-    assert (
-        trimmed_contents(deploy_root / "setup.sql")
-        == "create versioned schema myschema;"
-    )
-    assert trimmed_contents(deploy_root / "app" / "README.md") == "app/README.md"
-    assert trimmed_contents(deploy_root / "ui" / "main.py") == "# main.py"
-    assert trimmed_contents(deploy_root / "ui" / "config.py") == "# config.py"
+        assert_dir_snapshot(deploy_root.relative_to(local_path), snapshot)
 
-    # we should be able to re-bundle without any errors happening
-    build_bundle(project_root, deploy_root, native_app.artifacts)
+        # we should be able to re-bundle without any errors happening
+        build_bundle(local_path, deploy_root, native_app.artifacts)
 
-    # any additional files created in the deploy root will be obliterated by re-bundle
-    with open(deploy_root / "unknown_file.txt", "w") as handle:
-        handle.write("I am an unknown file!")
+        # any additional files created in the deploy root will be obliterated by re-bundle
+        with open(deploy_root / "unknown_file.txt", "w") as handle:
+            handle.write("I am an unknown file!")
+        assert_dir_snapshot(deploy_root.relative_to(local_path), snapshot)
 
-    assert dir_structure(deploy_root) == [
-        "app/README.md",
-        "setup.sql",
-        "ui/config.py",
-        "ui/main.py",
-        "unknown_file.txt",
-    ]
-
-    build_bundle(project_root, deploy_root, native_app.artifacts)
-
-    assert dir_structure(deploy_root) == [
-        "app/README.md",
-        "setup.sql",
-        "ui/config.py",
-        "ui/main.py",
-    ]
+        build_bundle(local_path, deploy_root, native_app.artifacts)
+        assert_dir_snapshot(deploy_root.relative_to(local_path), snapshot)
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)

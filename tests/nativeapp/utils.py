@@ -1,5 +1,9 @@
+from __future__ import annotations
+
+import os
 from pathlib import Path
 from textwrap import dedent
+from typing import List, Set
 
 NATIVEAPP_MODULE = "snowflake.cli.plugins.nativeapp.manager"
 TEARDOWN_MODULE = "snowflake.cli.plugins.nativeapp.teardown_processor"
@@ -85,7 +89,49 @@ def mock_execute_helper(mock_input: list):
     return side_effects, expected
 
 
+# TODO: move to shared utils between integration tests and unit tests once available
 def touch(path: str):
     file = Path(path)
     file.parent.mkdir(exist_ok=True, parents=True)
     file.write_text("")
+
+
+# Helper method, currently only used within assert_dir_snapshot
+def _stringify_path(p: Path):
+    if p.is_dir():
+        return f"d {p}"
+    else:
+        return f"f {p}"
+
+
+# Helper method, currently only used within assert_dir_snapshot.
+# For all other directory walks in source code, please use available source utils.
+def _all_paths_under_dir(root: Path) -> List[Path]:
+    check = os.getcwd()
+    assert root.is_dir()
+
+    paths: Set[Path] = set()
+    for subdir, dirs, files in os.walk(root):
+        subdir_path = Path(subdir)
+        paths.add(subdir_path)
+        for d in dirs:
+            paths.add(subdir_path / d)
+        for f in files:
+            paths.add(subdir_path / f)
+
+    return sorted(paths)
+
+
+# TODO: move to shared utils between integration tests and unit tests once available
+def assert_dir_snapshot(root: Path, snapshot) -> None:
+    all_paths = _all_paths_under_dir(root)
+
+    # Verify the contents of the directory matches expectations
+    assert "\n".join([_stringify_path(p) for p in all_paths]) == snapshot
+
+    # Verify that each file under the directory matches expectations
+    for path in all_paths:
+        if path.is_file():
+            snapshot_contents = f"===== Contents of: {path} =====\n"
+            snapshot_contents += path.read_text(encoding="utf-8")
+            assert snapshot_contents == snapshot

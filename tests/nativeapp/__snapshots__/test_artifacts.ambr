@@ -1,0 +1,125 @@
+# serializer version: 1
+# name: test_napp_project_1_artifacts[napp_project_1]
+  '''
+  d output/deploy
+  d output/deploy/app
+  f output/deploy/app/README.md
+  f output/deploy/setup.sql
+  d output/deploy/ui
+  f output/deploy/ui/config.py
+  f output/deploy/ui/main.py
+  '''
+# ---
+# name: test_napp_project_1_artifacts[napp_project_1].1
+  '''
+  ===== Contents of: output/deploy/app/README.md =====
+  app/README.md
+  
+  '''
+# ---
+# name: test_napp_project_1_artifacts[napp_project_1].10
+  '''
+  ===== Contents of: output/deploy/unknown_file.txt =====
+  I am an unknown file!
+  '''
+# ---
+# name: test_napp_project_1_artifacts[napp_project_1].11
+  '''
+  d output/deploy
+  d output/deploy/app
+  f output/deploy/app/README.md
+  f output/deploy/setup.sql
+  d output/deploy/ui
+  f output/deploy/ui/config.py
+  f output/deploy/ui/main.py
+  '''
+# ---
+# name: test_napp_project_1_artifacts[napp_project_1].12
+  '''
+  ===== Contents of: output/deploy/app/README.md =====
+  app/README.md
+  
+  '''
+# ---
+# name: test_napp_project_1_artifacts[napp_project_1].13
+  '''
+  ===== Contents of: output/deploy/setup.sql =====
+  create versioned schema myschema;
+  
+  '''
+# ---
+# name: test_napp_project_1_artifacts[napp_project_1].14
+  '''
+  ===== Contents of: output/deploy/ui/config.py =====
+  # config.py
+  
+  '''
+# ---
+# name: test_napp_project_1_artifacts[napp_project_1].15
+  '''
+  ===== Contents of: output/deploy/ui/main.py =====
+  # main.py
+  
+  '''
+# ---
+# name: test_napp_project_1_artifacts[napp_project_1].2
+  '''
+  ===== Contents of: output/deploy/setup.sql =====
+  create versioned schema myschema;
+  
+  '''
+# ---
+# name: test_napp_project_1_artifacts[napp_project_1].3
+  '''
+  ===== Contents of: output/deploy/ui/config.py =====
+  # config.py
+  
+  '''
+# ---
+# name: test_napp_project_1_artifacts[napp_project_1].4
+  '''
+  ===== Contents of: output/deploy/ui/main.py =====
+  # main.py
+  
+  '''
+# ---
+# name: test_napp_project_1_artifacts[napp_project_1].5
+  '''
+  d output/deploy
+  d output/deploy/app
+  f output/deploy/app/README.md
+  f output/deploy/setup.sql
+  d output/deploy/ui
+  f output/deploy/ui/config.py
+  f output/deploy/ui/main.py
+  f output/deploy/unknown_file.txt
+  '''
+# ---
+# name: test_napp_project_1_artifacts[napp_project_1].6
+  '''
+  ===== Contents of: output/deploy/app/README.md =====
+  app/README.md
+  
+  '''
+# ---
+# name: test_napp_project_1_artifacts[napp_project_1].7
+  '''
+  ===== Contents of: output/deploy/setup.sql =====
+  create versioned schema myschema;
+  
+  '''
+# ---
+# name: test_napp_project_1_artifacts[napp_project_1].8
+  '''
+  ===== Contents of: output/deploy/ui/config.py =====
+  # config.py
+  
+  '''
+# ---
+# name: test_napp_project_1_artifacts[napp_project_1].9
+  '''
+  ===== Contents of: output/deploy/ui/main.py =====
+  # main.py
+  
+  '''
+# ---

@@ -4,6 +4,7 @@
 ## Deprecations
 
 ## New additions
+* Added `snow app bundle` command that prepares a local folder in the project directory with artifacts to be uploaded to a stage as part of creating a Snowflake Native App.
 
 ## Fixes and improvements
 
