@@ -285,6 +285,14 @@ def test_nativeapp_deploy_directory(
 
     with pushd(Path(os.getcwd(), project_dir)):
         touch("app/dir/file.txt")
+        result = runner.invoke_with_connection(
+            ["app", "deploy", "app/dir", "--no-recursive"],
+            env=TEST_ENV,
+        )
+        print("Result output:", result.output)
+        assert result.exit_code == 1
+        assert "-r" in result.output
+
         result = runner.invoke_with_connection_json(
             ["app", "deploy", "app/dir", "-r"],
             env=TEST_ENV,
