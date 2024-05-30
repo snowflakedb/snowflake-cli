@@ -22,7 +22,7 @@ USER_NAME = f"user_{uuid.uuid4().hex}"
 TEST_ENV = generate_user_env(USER_NAME)
 
 
-BOX_LINE_PATTERN = re.compile(r"\s*│(?P<content>.*)│\s*")
+BOX_LINE_PATTERN = re.compile(r"\s*\u2502(?P<content>.*)\u2502\s*")
 
 
 def extract_error_message(raw_output: str) -> Optional[str]:
@@ -31,9 +31,13 @@ def extract_error_message(raw_output: str) -> Optional[str]:
     error_lines: List[str] = []
     for raw_line in raw_lines:
         line = raw_line.strip()
-        if line.startswith("╭─ Error"):
+        if (
+            line.startswith("\u250c\u2500") or line.startswith("╭─")
+        ) and "Error" in line:  # top-left corner
             in_box = True
-        elif in_box and line.startswith("╰─"):
+        elif in_box and (
+            line.startswith("\u2514\u2500") or line.startswith("╰─")
+        ):  # bottom-left corner
             return " ".join(error_lines)
         elif in_box:
             match = BOX_LINE_PATTERN.match(line)
