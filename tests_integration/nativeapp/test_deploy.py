@@ -1,9 +1,5 @@
-from __future__ import annotations
-
 import os
-import re
 import uuid
-from typing import Optional
 
 from snowflake.cli.api.project.util import generate_user_env
 
@@ -17,36 +13,12 @@ from tests_integration.test_utils import (
     pushd,
     row_from_snowflake_session,
 )
+from tests_integration.testing_utils import (
+    assert_that_result_failed_with_message_containing,
+)
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
 TEST_ENV = generate_user_env(USER_NAME)
-
-
-BOX_LINE_PATTERN = re.compile(r"\s*\u2502(?P<content>.*)\u2502\s*")
-
-
-def extract_error_message(raw_output: str) -> Optional[str]:
-    raw_lines = raw_output.splitlines()
-    in_box = False
-    error_lines: List[str] = []
-    for raw_line in raw_lines:
-        line = raw_line.strip()
-        if (
-            line.startswith("\u250c\u2500") or line.startswith("╭─")
-        ) and "Error" in line:  # top-left corner
-            in_box = True
-        elif in_box and (
-            line.startswith("\u2514\u2500") or line.startswith("╰─")
-        ):  # bottom-left corner
-            return " ".join(error_lines)
-        elif in_box:
-            match = BOX_LINE_PATTERN.match(line)
-            if match:
-                error_lines.append(match.group("content").strip())
-            else:
-                raise RuntimeError(f"Unexpected line in box: {line}")
-
-    return None
 
 
 # Tests a simple flow of executing "snow app deploy", verifying that an application package was created, and an application was not
@@ -320,11 +292,9 @@ def test_nativeapp_deploy_directory(
             ["app", "deploy", "app/dir", "--no-recursive"],
             env=TEST_ENV,
         )
-        print("Result output:", result.output)
-        assert result.exit_code == 1
-        error_message = extract_error_message(result.output)
-        assert error_message is not None
-        assert "Add the -r flag to deploy directories." in error_message
+        assert_that_result_failed_with_message_containing(
+            result, "Add the -r flag to deploy directories."
+        )
 
         result = runner.invoke_with_connection_json(
             ["app", "deploy", "app/dir", "-r"],
