@@ -249,7 +249,7 @@ def app_deploy(
     ),
     recursive: Optional[bool] = typer.Option(
         None,
-        "--recursive",
+        "--recursive/--no-recursive",
         "-r",
         help=f"""Whether to traverse and deploy files from subdirectories. If set, the command deploys all files and subdirectories; otherwise, only files in the current directory are deployed.""",
     ),

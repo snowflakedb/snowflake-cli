@@ -1,8 +1,36 @@
 import json
-from typing import Dict, List, Union
+import re
+from typing import Dict, List, Optional, Union
 
 from tests_integration.conftest import CommandResult
 from tests_integration.test_utils import contains_row_with
+
+
+_BOX_LINE_PATTERN = re.compile(r"\s*\u2502(?P<content>.*)\u2502\s*")
+
+
+def extract_error_box_message(raw_output: Optional[str]) -> str:
+    if not raw_output:
+        return ""
+    raw_lines = raw_output.splitlines()
+    in_box = False
+    error_lines: List[str] = []
+    for raw_line in raw_lines:
+        line = raw_line.strip()
+        if "─ Error ─" in line:
+            # top of the box
+            in_box = True
+        elif in_box and "─────" in line:
+            # bottom of the box
+            return " ".join(error_lines)
+        elif in_box:
+            match = _BOX_LINE_PATTERN.match(line)
+            if match:
+                error_lines.append(match.group("content").strip())
+            else:
+                raise RuntimeError(f"Unexpected line in box: {line}")
+
+    return ""
 
 
 def assert_that_result_is_successful(result: CommandResult) -> None:
@@ -66,3 +94,10 @@ def assert_that_result_is_successful_and_executed_successfully(
         assert result.output is not None
         assert "status" in result.output
         assert "Statement executed successfully" in result.output
+
+
+def assert_that_result_failed_with_message_containing(
+    result: CommandResult, msg: str
+) -> None:
+    assert result.exit_code != 0, result.output
+    assert msg in extract_error_box_message(result.output)

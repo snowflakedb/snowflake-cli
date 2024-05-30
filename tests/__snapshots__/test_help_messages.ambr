@@ -81,21 +81,24 @@
   │                          all local changes to the stage.                     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --prune          --no-prune          Whether to delete specified files from  │
-  │                                      the stage if they don't exist locally.  │
-  │                                      If set, the command deletes files that  │
-  │                                      exist in the stage, but not in the      │
-  │                                      local filesystem.                       │
-  │                                      [default: no-prune]                     │
-  │ --recursive  -r                      Whether to traverse and deploy files    │
-  │                                      from subdirectories. If set, the        │
-  │                                      command deploys all files and           │
-  │                                      subdirectories; otherwise, only files   │
-  │                                      in the current directory are deployed.  │
-  │ --project    -p                TEXT  Path where the Snowflake Native App     │
-  │                                      project resides. Defaults to current    │
-  │                                      working directory.                      │
-  │ --help       -h                      Show this message and exit.             │
+  │ --prune          --no-prune              Whether to delete specified files   │
+  │                                          from the stage if they don't exist  │
+  │                                          locally. If set, the command        │
+  │                                          deletes files that exist in the     │
+  │                                          stage, but not in the local         │
+  │                                          filesystem.                         │
+  │                                          [default: no-prune]                 │
+  │ --recursive  -r  --no-recursive          Whether to traverse and deploy      │
+  │                                          files from subdirectories. If set,  │
+  │                                          the command deploys all files and   │
+  │                                          subdirectories; otherwise, only     │
+  │                                          files in the current directory are  │
+  │                                          deployed.                           │
+  │                                          [default: no-recursive]             │
+  │ --project    -p                    TEXT  Path where the Snowflake Native App │
+  │                                          project resides. Defaults to        │
+  │                                          current working directory.          │
+  │ --help       -h                          Show this message and exit.         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
