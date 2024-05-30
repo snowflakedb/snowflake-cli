@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 import os
+import re
 import uuid
+from typing import Optional
 
 from snowflake.cli.api.project.util import generate_user_env
 
@@ -16,6 +20,29 @@ from tests_integration.test_utils import (
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
 TEST_ENV = generate_user_env(USER_NAME)
+
+
+BOX_LINE_PATTERN = re.compile(r"\s*│(?P<content>.*)│\s*")
+
+
+def extract_error_message(raw_output: str) -> Optional[str]:
+    raw_lines = raw_output.splitlines()
+    in_box = False
+    error_lines: List[str] = []
+    for raw_line in raw_lines:
+        line = raw_line.strip()
+        if line.startswith("╭─ Error"):
+            in_box = True
+        elif in_box and line.startswith("╰─"):
+            return " ".join(error_lines)
+        elif in_box:
+            match = BOX_LINE_PATTERN.match(line)
+            if match:
+                error_lines.append(match.group("content").strip())
+            else:
+                raise RuntimeError(f"Unexpected line in box: {line}")
+
+    return None
 
 
 # Tests a simple flow of executing "snow app deploy", verifying that an application package was created, and an application was not
@@ -291,7 +318,9 @@ def test_nativeapp_deploy_directory(
         )
         print("Result output:", result.output)
         assert result.exit_code == 1
-        assert "-r" in result.output
+        error_message = extract_error_message(result.output)
+        assert error_message is not None
+        assert "Add the -r flag to deploy directories." in error_message
 
         result = runner.invoke_with_connection_json(
             ["app", "deploy", "app/dir", "-r"],
