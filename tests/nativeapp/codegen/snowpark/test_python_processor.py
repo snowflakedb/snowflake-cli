@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import contextlib
 import copy
-import os
 import subprocess
 from pathlib import Path
 from textwrap import dedent
-from typing import Iterator, List, Set
 from unittest import mock
 
 import pytest
@@ -24,59 +21,10 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     generate_grant_sql_ddl_statements,
 )
 
-from tests.testing_utils.files_and_dirs import temp_local_dir
+from tests.nativeapp.utils import assert_dir_snapshot
+from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
 
 PROJECT_ROOT = Path("/path/to/project")
-
-
-# contextlib.chdir isn't available before Python 3.11, so this is an alternative for older versions
-@contextlib.contextmanager
-def in_cwd(path: Path) -> Iterator[None]:
-    old_cwd = os.getcwd()
-    os.chdir(str(path))
-    try:
-        yield
-    except Exception:
-        pass
-
-    os.chdir(old_cwd)
-
-
-def stringify(p: Path):
-    if p.is_dir():
-        return f"d {p}"
-    else:
-        return f"f {p}"
-
-
-def all_paths_under_dir(root: Path) -> List[Path]:
-    assert root.is_dir()
-
-    paths: Set[Path] = set()
-    for subdir, dirs, files in os.walk(root):
-        subdir_path = Path(subdir)
-        paths.add(subdir_path)
-        for d in dirs:
-            paths.add(subdir_path / d)
-        for f in files:
-            paths.add(subdir_path / f)
-
-    return sorted(paths)
-
-
-def assert_dir_snapshot(root: Path, snapshot) -> None:
-    all_paths = all_paths_under_dir(root)
-
-    # Verify the contents of the directory matches expectations
-    assert "\n".join([stringify(p) for p in all_paths]) == snapshot
-
-    # Verify that each file under the directory matches expectations
-    for path in all_paths:
-        if path.is_file():
-            snapshot_contents = f"===== Contents of: {path} =====\n"
-            snapshot_contents += path.read_text(encoding="utf-8")
-            assert snapshot_contents == snapshot
-
 
 # --------------------------------------------------------
 # ------------- _determine_virtual_env -------------------
@@ -247,7 +195,7 @@ def test_edit_setup_script_with_exec_imm_sql(snapshot):
     }
 
     with temp_local_dir(dir_structure=dir_structure) as local_path:
-        with in_cwd(local_path):
+        with pushd(local_path):
             deploy_root = Path(local_path, "output", "deploy")
             generated_root = Path(deploy_root, "__generated")
             collected_sql_files = [
@@ -280,7 +228,7 @@ def test_edit_setup_script_with_exec_imm_sql_noop(snapshot):
     }
 
     with temp_local_dir(dir_structure=dir_structure) as local_path:
-        with in_cwd(local_path):
+        with pushd(local_path):
             deploy_root = Path(local_path, "output", "deploy")
             collected_sql_files = [
                 Path(deploy_root, "__generated", "dummy.sql"),
@@ -309,7 +257,7 @@ def test_edit_setup_script_with_exec_imm_sql_symlink(snapshot):
     }
 
     with temp_local_dir(dir_structure=dir_structure) as local_path:
-        with in_cwd(local_path):
+        with pushd(local_path):
             deploy_root = Path(local_path, "output", "deploy")
 
             deploy_root_setup_script = Path(deploy_root, "setup.sql")
@@ -361,7 +309,7 @@ def test_process_no_collected_functions(
     mock_sandbox, native_app_project_instance, snapshot
 ):
     with temp_local_dir(minimal_dir_structure) as local_path:
-        with in_cwd(local_path):
+        with pushd(local_path):
             native_app_project_instance.native_app.artifacts = [
                 {"src": "a/b/c/*.py", "dest": "stagepath/", "processors": ["SNOWPARK"]}
             ]
@@ -393,7 +341,7 @@ def test_process_with_collected_functions(
 ):
 
     with temp_local_dir(minimal_dir_structure) as local_path:
-        with in_cwd(local_path):
+        with pushd(local_path):
             imports_variation = copy.deepcopy(native_app_extension_function_raw_data)
             imports_variation["imports"] = [
                 "@dummy_stage_str",
@@ -465,7 +413,7 @@ def test_package_normalization(
 ):
 
     with temp_local_dir(minimal_dir_structure) as local_path:
-        with in_cwd(local_path):
+        with pushd(local_path):
             processor_mapping = ProcessorMapping(
                 name="snowpark",
             )
@@ -490,6 +438,6 @@ def test_package_normalization(
                 processor_mapping=processor_mapping,
             )
 
-            dest_file = generated_root / "stagepath" / "main.py"
+            dest_file = generated_root / "stagepath" / "main.sql"
             assert dest_file.is_file()
             assert dest_file.read_text(encoding="utf-8") == snapshot
