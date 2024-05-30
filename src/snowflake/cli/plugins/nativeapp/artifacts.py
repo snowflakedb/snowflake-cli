@@ -435,6 +435,19 @@ class BundleMap:
 
         return output_destinations
 
+    def all_sources(self, absolute: bool = False) -> Iterator[Path]:
+        """
+        Yields each registered artifact source in the project.
+
+        Arguments:
+            self: this instance
+            absolute (bool): Specifies whether the yielded paths should be joined with the absolute project root.
+        Returns:
+          An iterator over all artifact mapping source paths.
+        """
+        for src in self._src_to_dest.keys():
+            yield self._to_output_src(src, absolute)
+
     def _absolute_src(self, src: Path) -> Path:
         if src.is_absolute():
             resolved_src = resolve_without_follow(src)
