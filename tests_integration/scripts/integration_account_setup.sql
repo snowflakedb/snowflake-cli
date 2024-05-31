@@ -35,6 +35,23 @@ GRANT MONITOR ON COMPUTE POOL SNOWCLI_COMPUTE_POOL TO ROLE INTEGRATION_TESTS;
 
 ALTER COMPUTE POOL SNOWCLI_COMPUTE_POOL SUSPEND;
 
+-- EXTERNAL ACCESS INTEGRATION
+CREATE OR REPLACE NETWORK RULE snowflake_docs_network_rule
+  MODE = EGRESS
+  TYPE = HOST_PORT
+  VALUE_LIST = ('docs.snowflake.com');
+
+CREATE OR REPLACE SECRET test_secret
+  TYPE = GENERIC_STRING
+--   SECRET_STRING = ''; -- provide password
+GRANT READ ON SECRET test_secret TO ROLE integration_tests;
+
+CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION snowflake_docs_access_integration
+  ALLOWED_NETWORK_RULES = (snowflake_docs_network_rule)
+  ALLOWED_AUTHENTICATION_SECRETS = (test_secret)
+  ENABLED = true;
+GRANT USAGE ON INTEGRATION snowflake_docs_access_integration TO ROLE integration_tests;
+
 -- API INTEGRATION FOR SNOWGIT
 CREATE API INTEGRATION snowcli_testing_repo_api_integration
 API_PROVIDER = git_https_api
