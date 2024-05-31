@@ -1,0 +1,5 @@
+[connections.dev]
+[connections.spcs]
+[connections.integration]
+schema = "public"
+schema = "public"
