@@ -6,7 +6,9 @@ from snowflake.cli.api.plugins.command import (
     CommandType,
     plugin_hook_impl,
 )
-from snowflake.cli.plugins.object_stage_deprecated import commands
+from snowflake.cli.plugins.object_stage_deprecated.commands import (
+    app as stage_deprecated_app,
+)
 
 
 @plugin_hook_impl
@@ -14,5 +16,5 @@ def command_spec():
     return CommandSpec(
         parent_command_path=CommandPath(["object"]),
         command_type=CommandType.COMMAND_GROUP,
-        typer_instance=commands.create_app(),
+        typer_instance=stage_deprecated_app,
     )
