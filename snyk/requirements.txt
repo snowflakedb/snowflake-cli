@@ -3,7 +3,7 @@ pluggy==1.5.0
 PyYAML==6.0.1
 packaging
 rich==13.7.1
-requests==2.32.2
+requests==2.32.3
 requirements-parser==0.9.0
 setuptools==69.5.1
 snowflake.core==0.8.0; python_version < "3.12"
