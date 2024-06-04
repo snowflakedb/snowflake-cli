@@ -38,4 +38,4 @@ jobs:
         run: hatch run test-cov
       - name: Run performance tests
         run: hatch run performance:test
-      - uses: codecov/codecov-action@84508663e988701840491b86de86b666e8a86bed
+      - uses: codecov/codecov-action@125fc84a9a348dbcf27191600683ec096ec9021c
