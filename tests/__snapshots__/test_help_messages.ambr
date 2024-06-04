@@ -6335,7 +6335,9 @@
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    source_path           TEXT  Source path for copy operation. Can be      │
-  │                                  either stage path or local.                 │
+  │                                  either stage path or local. You can use a   │
+  │                                  glob pattern for local files but the        │
+  │                                  pattern has to be enclosed in quotes.       │
   │                                  [required]                                  │
   │ *    destination_path      TEXT  Target directory path for copy operation.   │
   │                                  Should be stage if source is local or local │

@@ -63,7 +63,7 @@ def stage_list_files(
 @app.command("copy", requires_connection=True)
 def copy(
     source_path: str = typer.Argument(
-        help="Source path for copy operation. Can be either stage path or local.",
+        help="Source path for copy operation. Can be either stage path or local. You can use a glob pattern for local files but the pattern has to be enclosed in quotes.",
         show_default=False,
     ),
     destination_path: str = typer.Argument(
