@@ -305,3 +305,17 @@ def app_deploy(
     return MessageResult(
         f"Deployed successfully. Application package and stage are up-to-date."
     )
+
+
+@app.command("validate", requires_connection=True)
+@with_project_definition("native_app")
+def app_validate(**options):
+    """
+    Validates a deployed Native App's setup script.
+    """
+    manager = NativeAppManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    manager.validate()
+    return MessageResult("Native App validation succeeded.")

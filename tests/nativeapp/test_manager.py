@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
+import re
 from pathlib import Path
 from textwrap import dedent
 from unittest import mock
@@ -28,6 +30,8 @@ from snowflake.cli.plugins.nativeapp.constants import (
 )
 from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
+    ApplicationPackageDoesNotExistError,
+    SetupScriptFailedValidation,
     UnexpectedOwnerError,
 )
 from snowflake.cli.plugins.nativeapp.manager import (
@@ -826,3 +830,141 @@ def test_get_paths_to_sync(
     paths_to_sync = [Path(p) for p in paths_to_sync]
     result = _get_stage_paths_to_sync(paths_to_sync, Path("deploy/"))
     assert result.sort() == [StagePath(p) for p in expected_result].sort()
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_validate_passing(mock_execute, temp_dir, mock_cursor):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    success_data = dict(status="SUCCESS")
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([[json.dumps(success_data)]], []),
+                mock.call(
+                    "call system$validate_native_app_setup('@app_pkg.app_src.stage')"
+                ),
+            ),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    native_app_manager.validate()
+
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_validate_failing(mock_execute, temp_dir, mock_cursor):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    error_file = "@STAGE/empty.sql"
+    error_cause = "Empty SQL statement."
+    error = dict(
+        message=f"Error in file {error_file}: {error_cause}",
+        cause=error_cause,
+        errorCode="000900",
+        fileName=error_file,
+        line=-1,
+        column=-1,
+    )
+    warning_file = "@STAGE/setup_script.sql"
+    warning_cause = "APPLICATION ROLE should be created with IF NOT EXISTS."
+    warning = dict(
+        message=f"Warning in file {warning_file}: {warning_cause}",
+        cause=warning_cause,
+        errorCode="093352",
+        fileName=warning_file,
+        line=11,
+        column=35,
+    )
+    failure_data = dict(status="FAIL", errors=[error], warnings=[warning])
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([[json.dumps(failure_data)]], []),
+                mock.call(
+                    "call system$validate_native_app_setup('@app_pkg.app_src.stage')"
+                ),
+            ),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    expected_exception_message = ".*".join(
+        rf"{item['message']} \(error code {item['errorCode']}\)"
+        for item in (error, warning)
+    )
+    with pytest.raises(
+        SetupScriptFailedValidation,
+        match=re.compile(expected_exception_message, re.DOTALL),
+    ):
+        native_app_manager.validate()
+
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_validate_query_error(mock_execute, temp_dir, mock_cursor):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "call system$validate_native_app_setup('@app_pkg.app_src.stage')"
+                ),
+            ),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    with pytest.raises(SnowflakeSQLExecutionError):
+        native_app_manager.validate()
+
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_validate_not_deployed(mock_execute, temp_dir, mock_cursor):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                ProgrammingError(
+                    msg="Application package app_pkg does not exist or not authorized."
+                ),
+                mock.call(
+                    "call system$validate_native_app_setup('@app_pkg.app_src.stage')"
+                ),
+            ),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    with pytest.raises(ApplicationPackageDoesNotExistError, match="app_pkg"):
+        native_app_manager.validate()
+
+    assert mock_execute.mock_calls == expected

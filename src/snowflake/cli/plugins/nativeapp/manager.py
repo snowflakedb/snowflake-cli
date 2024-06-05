@@ -14,9 +14,11 @@
 
 from __future__ import annotations
 
+import json
 import os
 from abc import ABC, abstractmethod
 from functools import cached_property
+from itertools import chain
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Optional, TypedDict
@@ -59,8 +61,10 @@ from snowflake.cli.plugins.nativeapp.constants import (
 )
 from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
+    ApplicationPackageDoesNotExistError,
     InvalidPackageScriptError,
     MissingPackageScriptError,
+    SetupScriptFailedValidation,
     UnexpectedOwnerError,
 )
 from snowflake.cli.plugins.nativeapp.feature_flags import FeatureFlag
@@ -73,6 +77,7 @@ from snowflake.cli.plugins.stage.diff import (
     sync_local_diff_with_stage,
     to_stage_path,
 )
+from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -195,6 +200,10 @@ class NativeAppManager(SqlExecutionMixin):
     @cached_property
     def stage_fqn(self) -> str:
         return f"{self.package_name}.{self.definition.source_stage}"
+
+    @cached_property
+    def prefixed_stage_fqn(self) -> str:
+        return StageManager.get_standard_stage_prefix(self.stage_fqn)
 
     @cached_property
     def stage_schema(self) -> Optional[str]:
@@ -587,3 +596,35 @@ class NativeAppManager(SqlExecutionMixin):
             )
 
         return diff
+
+    def validate(self):
+        """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
+        cc.step(f"Validating Native App setup script in stage {self.stage_fqn}.")
+        try:
+            cursor = self._execute_query(
+                f"call system$validate_native_app_setup('{self.prefixed_stage_fqn}')"
+            )
+        except ProgrammingError as err:
+            if err.msg.__contains__("does not exist or not authorized"):
+                raise ApplicationPackageDoesNotExistError(self.package_name)
+            generic_sql_error_handler(err)
+        else:
+            if cursor.rowcount is None or cursor.rowcount == 0:
+                raise SnowflakeSQLExecutionError()
+
+            result_data = json.loads(cursor.fetchone()[0])
+            if result_data["status"] == "FAIL":
+                messages = [
+                    _validation_item_to_str(error)
+                    for error in chain(
+                        result_data.get("errors", []), result_data.get("warnings", [])
+                    )
+                ]
+                raise SetupScriptFailedValidation(messages)
+
+
+def _validation_item_to_str(item: dict[str, str | int]):
+    s = item["message"]
+    if item["errorCode"]:
+        s = f"{s} (error code {item['errorCode']})"
+    return s
