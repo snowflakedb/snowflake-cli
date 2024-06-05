@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import List
 
 import yaml.loader
 from snowflake.cli.api.cli_global_context import cli_context
@@ -15,33 +16,19 @@ from snowflake.cli.api.project.util import (
 )
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
+from snowflake.cli.api.utils.dict_utils import deep_merge_dicts
 from yaml import load
 
 DEFAULT_USERNAME = "unknown_user"
 
 
-def merge_two_dicts(
-    original_values: Dict[str, Any], update_values: Dict[str, Any]
-):  # TODO update name of function
-    if not isinstance(update_values, dict) or not isinstance(original_values, dict):
-        return
-
-    for field, value in update_values.items():
-        if (
-            field in original_values
-            and isinstance(original_values[field], dict)
-            and isinstance(value, dict)
-        ):
-            merge_two_dicts(original_values[field], value)
-        else:
-            original_values[field] = value
+@dataclass
+class ProjectProperties:
+    project_definition: ProjectDefinition
+    raw_project_definition: dict
 
 
-def load_project_definition(paths: List[Path]) -> ProjectDefinition:
-    """
-    Loads project definition, optionally overriding values. Definition values
-    are merged in left-to-right order (increasing precedence).
-    """
+def _get_merged_project_files(paths: List[Path]) -> dict:
     spaths: List[SecurePath] = [SecurePath(p) for p in paths]
     if len(spaths) == 0:
         raise ValueError("Need at least one definition file.")
@@ -54,11 +41,21 @@ def load_project_definition(paths: List[Path]) -> ProjectDefinition:
             "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
         ) as override_yml:
             overrides = load(override_yml.read(), Loader=yaml.loader.BaseLoader)
-            merge_two_dicts(definition, overrides)
+            deep_merge_dicts(definition, overrides)
 
-    rendered_definition = render_definition_template(definition)
-    rendered_project = ProjectDefinition(**rendered_definition)
-    return rendered_project
+    return definition
+
+
+def load_project(paths: List[Path]) -> ProjectProperties:
+    """
+    Loads project definition, optionally overriding values. Definition values
+    are merged in left-to-right order (increasing precedence).
+    """
+    merged_files = _get_merged_project_files(paths)
+    rendered_definition = render_definition_template(merged_files)
+    return ProjectProperties(
+        ProjectDefinition(**rendered_definition), rendered_definition
+    )
 
 
 def generate_local_override_yml(

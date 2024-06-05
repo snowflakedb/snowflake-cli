@@ -1,26 +1,82 @@
 from __future__ import annotations
 
 import os
-from collections import deque
-from dataclasses import dataclass
-from typing import Optional
 
-import yaml
 from jinja2 import Environment, UndefinedError, nodes
-from snowflake.cli.api.utils.graph import Graph
-from snowflake.cli.api.utils.rendering import get_snowflake_cli_jinja_env
+from packaging.version import Version
+from snowflake.cli.api.utils.dict_utils import deep_merge_dicts, deep_traverse
+from snowflake.cli.api.utils.graph import Graph, Node
+from snowflake.cli.api.utils.rendering import CONTEXT_KEY, get_snowflake_cli_jinja_env
 
 
 class Variable:
     def __init__(self, vars_chain):
         self._vars_chain = list(vars_chain)
-        self.value: str | None = None
-
-    def get_vars_hierarchy(self) -> deque[str]:
-        return deque(self._vars_chain)
+        self.templated_value = None
+        self.rendered_value = None
 
     def get_key(self):
         return ".".join(self._vars_chain)
+
+    def is_env_var(self):
+        return (
+            len(self._vars_chain) == 3
+            and self._vars_chain[0] == CONTEXT_KEY
+            and self._vars_chain[1] == "env"
+        )
+
+    def get_env_var_name(self) -> str:
+        if not self.is_env_var():
+            raise KeyError(
+                f"Referenced variable {self.get_key()} is not an environment variable"
+            )
+        return self._vars_chain[2]
+
+    def store_in_context(self, context: dict, value):
+        """
+        Takes a generic context dict to modify, and a value
+
+        Traverse through the multi-level dictionary to the location where this variables goes to.
+        Sets this location to the content of value.
+
+        Example: vars chain contains ['ctx', 'env', 'x'], and context is {}, and value is 'val'.
+        At the end of this call, context content will be: {'ctx': {'env': {'x': 'val'}}}
+        """
+        current_dict_level = context
+        for i, var in enumerate(self._vars_chain):
+            if i == len(self._vars_chain) - 1:
+                current_dict_level[var] = value
+            else:
+                current_dict_level.setdefault(var, {})
+                current_dict_level = current_dict_level[var]
+
+    def read_from_context(self, context):
+        """
+        Takes a context dict as input.
+
+        Traverse through the multi-level dictionary to the location where this variable goes to.
+        Returns the value in that location.
+
+        Raise UndefinedError if the variable is None or not found.
+        """
+        current_dict_level = context
+        for key in self._vars_chain:
+            if (
+                not isinstance(current_dict_level, dict)
+                or key not in current_dict_level
+            ):
+                raise UndefinedError(
+                    f"Could not find template variable {self.get_key()}"
+                )
+            current_dict_level = current_dict_level[key]
+
+        value = current_dict_level
+        if value == None or isinstance(value, dict) or isinstance(value, list):
+            raise UndefinedError(
+                f"Template variable {self.get_key()} does not contain a valid value"
+            )
+
+        return value
 
     def __hash__(self):
         return hash(self.get_key())
@@ -29,135 +85,112 @@ class Variable:
         return self.get_key() == other.get_key()
 
 
-@dataclass(eq=False)
-class TemplateGraphNode(Graph.Node):
-    templated_value: str | None = None
-    rendered_value: str | None = None
-    variable: Variable | None = None
-
-    def store_in_context(self, context):
-        # if graph node is ctx.env.test with value x, context will be built as {'ctx': {'env': {'test': 'x'}}}
-        vars_chain = self.variable.get_vars_hierarchy()
-        self._store_in_context_recursive(context, vars_chain)
-
-    def _store_in_context_recursive(self, context, vars_chain: deque):
-        if len(vars_chain) == 0:
-            return self.rendered_value
-
-        current_level_key = vars_chain.popleft()
-        current_value_in_key = (
-            context[current_level_key] if current_level_key in context else {}
-        )
-        context[current_level_key] = self._store_in_context_recursive(
-            current_value_in_key, vars_chain
-        )
-        return context
-
-
-def _get_referenced_vars(
-    ast_node, variable_attr_chain: deque = deque()
-) -> set[Variable]:
-    # Var nodes end in Name node, and starts with Getattr node.
-    # Example: ctx.env.test will look like Getattr(test) -> Getattr(env) -> Name(ctx)
+def _get_referenced_vars(ast_node, current_attr_chain: list[str] = []) -> set[Variable]:
+    """
+    Traverse Jinja AST to find the variable chain referenced by the template.
+    A variable like ctx.env.test is internally represented in the AST tree as
+    Getattr Node (attr='test') -> Getattr Node (attr='env') -> Name Node (name='ctx')
+    """
     all_referenced_vars = set()
-
-    variable_appended = False
     if isinstance(ast_node, nodes.Getattr):
-        variable_attr_chain.appendleft(getattr(ast_node, "attr"))
-        variable_appended = True
+        current_attr_chain = [getattr(ast_node, "attr")] + current_attr_chain
     elif isinstance(ast_node, nodes.Name):
-        variable_attr_chain.appendleft(getattr(ast_node, "name"))
-        variable_appended = True
-        all_referenced_vars.add(Variable(variable_attr_chain))
+        current_attr_chain = [getattr(ast_node, "name")] + current_attr_chain
+        all_referenced_vars.add(Variable(current_attr_chain))
 
     for child_node in ast_node.iter_child_nodes():
-        all_referenced_vars.update(
-            _get_referenced_vars(child_node, variable_attr_chain)
-        )
-
-    if variable_appended:
-        variable_attr_chain.popleft()
+        all_referenced_vars.update(_get_referenced_vars(child_node, current_attr_chain))
 
     return all_referenced_vars
 
 
-def _get_referenced_vars_from_str(
-    env: Environment, template_str: Optional[str]
-) -> set[Variable]:
-    if template_str == None:
-        return set()
-
+def _get_referenced_vars_from_str(env: Environment, template_str: str) -> set[Variable]:
     ast = env.parse(template_str)
     return _get_referenced_vars(ast)
 
 
-def _get_value_from_var_path(env: Environment, context: dict, var_path: str):
-    # given a variable path (e.g. ctx.env.test), return evaluated value based on context
-    # fall back to env variables and escape them so we stop the chain of variables
-    ref_str = "<% " + var_path + " %>"
-    template = env.from_string(ref_str)
-    try:
-        # check in env variables
-        return f"{env.block_start_string} raw {env.block_end_string}{template.render({'ctx': {'env': os.environ}})}{env.block_start_string} endraw {env.block_end_string}"
-    except UndefinedError as e:
-        try:
-            return template.render(context)
-        except:
-            raise UndefinedError("Could not find template variable " + var_path)
-
-
-def _build_dependency_graph(env, all_vars: set[Variable], context_without_env) -> Graph:
-    dependencies_graph = Graph()
+def _build_dependency_graph(
+    env: Environment, all_vars: set[Variable], context
+) -> Graph[Variable]:
+    dependencies_graph = Graph[Variable]()
     for variable in all_vars:
-        dependencies_graph.add(
-            TemplateGraphNode(key=variable.get_key(), variable=variable)
-        )
+        dependencies_graph.add(Node[Variable](key=variable.get_key(), data=variable))
 
     for variable in all_vars:
-        node: TemplateGraphNode = dependencies_graph.get(key=variable.get_key())
-        node.templated_value = _get_value_from_var_path(
-            env, context_without_env, variable.get_key()
-        )
-        dependencies_vars = _get_referenced_vars_from_str(env, node.templated_value)
-
-        for referenced_var in dependencies_vars:
-            dependencies_graph.add_dependency(
-                variable.get_key(), referenced_var.get_key()
+        if variable.is_env_var() and variable.get_env_var_name() in os.environ:
+            # If variable is found in os.environ, then use the value as is
+            # skip rendering by pre-setting the rendered_value attribute
+            env_value = os.environ.get(variable.get_env_var_name())
+            variable.rendered_value = env_value
+            variable.templated_value = env_value
+        else:
+            variable.templated_value = str(variable.read_from_context(context))
+            dependencies_vars = _get_referenced_vars_from_str(
+                env, variable.templated_value
             )
+            for referenced_var in dependencies_vars:
+                dependencies_graph.add_directed_edge(
+                    variable.get_key(), referenced_var.get_key()
+                )
 
     return dependencies_graph
 
 
-def render_definition_template(definition):
-    jinja_env = get_snowflake_cli_jinja_env()
-    pdf_context = {"ctx": definition}
-    pdf_yaml_str = yaml.dump(definition)
+def _render_graph_node(jinja_env: Environment, node: Node[Variable]):
+    if node.data.rendered_value is not None:
+        # Do not re-evaluate resolved nodes like env variable nodes,
+        # which might contain template-like values
+        return
 
-    referenced_vars = _get_referenced_vars_from_str(jinja_env, pdf_yaml_str)
+    current_context: dict = {}
+    for dep_node in node.neighbors:
+        dep_node.data.store_in_context(current_context, dep_node.data.rendered_value)
+
+    template = jinja_env.from_string(node.data.templated_value)
+    node.data.rendered_value = template.render(current_context)
+
+
+def _render_dict_element(jinja_env: Environment, context, element):
+    if _get_referenced_vars_from_str(jinja_env, element):
+        template = jinja_env.from_string(element)
+        return template.render(context)
+    return element
+
+
+def render_definition_template(definition: dict):
+    if "definition_version" not in definition or Version(
+        definition["definition_version"]
+    ) < Version("1.1"):
+        return definition
+
+    jinja_env = get_snowflake_cli_jinja_env()
+    pdf_context = {CONTEXT_KEY: definition}
+
+    referenced_vars = set()
+
+    def find_any_template_vars(element):
+        referenced_vars.update(_get_referenced_vars_from_str(jinja_env, element))
+
+    deep_traverse(definition, visit_action=find_any_template_vars)
 
     dependencies_graph = _build_dependency_graph(
         jinja_env, referenced_vars, pdf_context
     )
 
-    def evaluate_node(node: TemplateGraphNode):
-        current_context: dict = {}
-        dep_node: TemplateGraphNode
-        for dep_node in node.dependencies:
-            dep_node.store_in_context(current_context)
+    dependencies_graph.dfs(
+        visit_action=lambda node: _render_graph_node(jinja_env, node)
+    )
 
-        template = jinja_env.from_string(node.templated_value)
-        node.rendered_value = template.render(current_context)
-
-    dependencies_graph.dfs(visit_action=evaluate_node)
-
-    # now that we determined value of all referenced vars, use these resolved values as a fresh context to resolve project file later
-    final_context = {}
-    node: TemplateGraphNode
+    # now that we determined the values of all tempalted vars,
+    # use these resolved values as a fresh context to resolve definition
+    final_context: dict = {}
     for node in dependencies_graph.get_all_nodes():
-        node.store_in_context(final_context)
+        node.data.store_in_context(final_context, node.data.rendered_value)
 
-    # resolve combined project file based on final context
-    template = jinja_env.from_string(pdf_yaml_str)
-    rendered_template = template.render(final_context)
-    rendered_definition = yaml.load(rendered_template, Loader=yaml.loader.BaseLoader)
-    return rendered_definition
+    deep_traverse(
+        definition,
+        update_action=lambda val: _render_dict_element(jinja_env, final_context, val),
+    )
+    deep_merge_dicts(definition, {"env": dict(os.environ)})
+
+    return definition

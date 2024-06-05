@@ -9,6 +9,9 @@
 * Added `snow notebook` commands:
   * `snow notebook execute` enabling head-less execution of a notebook.
   * `snow notebook create` proving an option to create a Snowflake Notebook from a file on stage.
+* Added templating support for project definition file.
+  * Templates can now be used within the main section of the project definition file.
+  * Resolved values of the project definition file are available to all modules.
 
 ## Fixes and improvements
 
