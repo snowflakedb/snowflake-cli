@@ -1,0 +1,15 @@
+definition_version: 1
+
+native_app:
+  name: codegen_nativeapp
+  artifacts:
+    - src: manifest.yml
+      dest: manifest.yml
+    - src: setup.sql
+      dest: setup.sql
+    - src: echo.py
+      dest: echo.py
+    - src: README.md
+      dest: README.md
+  deploy_root: output/deploy/
+  source_stage: app_src.stage

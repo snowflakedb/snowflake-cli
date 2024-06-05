@@ -159,4 +159,7 @@ markers = [
 
 
 [tool.codespell]
-skip = 'tests/*'
+skip = [
+  'tests/*',
+  'tests_e2e/__snapshots__/*',
+]

@@ -2,7 +2,7 @@ import contextlib
 import functools
 import inspect
 import sys
-from typing import Callable
+from typing import Callable, Tuple
 
 try:
     import snowflake.snowpark
@@ -101,7 +101,7 @@ def __snowflake_internal_create_extension_fn_registration_callback():
 
 
     def __snowflake_internal_extension_fn_to_json(extension_fn):
-        if not isinstance(extension_fn.func, Callable):
+        if not (isinstance(extension_fn.func, Callable) or isinstance(extension_fn.func, Tuple)):
             # Unsupported case: extension function is a tuple
             return
 
@@ -141,7 +141,8 @@ def __snowflake_internal_create_extension_fn_registration_callback():
         collected_extension_fn_json_list, extension_function_properties
     ):
         extension_fn_json = __snowflake_internal_extension_fn_to_json(extension_function_properties)
-        collected_extension_fn_json_list.append(extension_fn_json)
+        if extension_fn_json: # Do not append if extension_fn_json is None
+            collected_extension_fn_json_list.append(extension_fn_json)
         return False
 
     return functools.partial(
