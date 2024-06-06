@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import Any, List
 
 import yaml.loader
 from snowflake.cli.api.cli_global_context import cli_context
@@ -24,11 +24,25 @@ DEFAULT_USERNAME = "unknown_user"
 
 @dataclass
 class ProjectProperties:
+    """
+    This class stores 2 objects representing the project definition:
+
+    The raw_project_definition object:
+    - Only contains data structures like dict, list, and scalars.
+    - The purpose of the raw_project_defintion object is to represent the same structure as the yaml project definition file.
+    - This can be used as a templating context when users reference variables in the project definition file.
+
+    The project_definition object:
+    - This is a transformed object type through Pydantic, which has been normalized.
+    - This object could have slightly different structure than what the users see in their yaml project definition files.
+    - This should be used for the business logic of snow CLI modules.
+    """
+
     project_definition: ProjectDefinition
-    raw_project_definition: dict
+    raw_project_definition: dict[str, Any]
 
 
-def _get_merged_project_files(paths: List[Path]) -> dict:
+def _get_merged_definitions(paths: List[Path]) -> dict[str, Any]:
     spaths: List[SecurePath] = [SecurePath(p) for p in paths]
     if len(spaths) == 0:
         raise ValueError("Need at least one definition file.")
@@ -50,8 +64,9 @@ def load_project(paths: List[Path]) -> ProjectProperties:
     """
     Loads project definition, optionally overriding values. Definition values
     are merged in left-to-right order (increasing precedence).
+    Templating is also applied after the merging process.
     """
-    merged_files = _get_merged_project_files(paths)
+    merged_files = _get_merged_definitions(paths)
     rendered_definition = render_definition_template(merged_files)
     return ProjectProperties(
         ProjectDefinition(**rendered_definition), rendered_definition

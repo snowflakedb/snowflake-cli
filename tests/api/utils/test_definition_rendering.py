@@ -5,8 +5,8 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from click import ClickException
 from jinja2 import UndefinedError
+from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplate
 from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
 
@@ -182,10 +182,10 @@ def test_env_variables_do_not_get_resolved():
     ],
 )
 def test_resolve_variables_error_on_cycle(definition):
-    with pytest.raises(ClickException) as err:
+    with pytest.raises(CycleDetectedError) as err:
         render_definition_template(definition)
 
-    assert err.value.message == f"Cycle detected"
+    assert err.value.message == f"Cycle detected in templating variables"
 
 
 @pytest.mark.parametrize(
@@ -301,3 +301,45 @@ def test_unquoted_template_usage_in_strings_yaml():
         "single_line": "Snowflake is great!",
         "value": "Snowflake is great!",
     }
+
+
+@mock.patch.dict(os.environ, {"var_with_yml": "    - app/*\n    - src\n"}, clear=True)
+def test_injected_yml_in_env_should_not_be_expanded():
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "test_env": "<% ctx.env.var_with_yml %>",
+        },
+    }
+    result = render_definition_template(definition)
+
+    assert result == {
+        "definition_version": "1.1",
+        "env": {
+            "test_env": "    - app/*\n    - src\n",
+            "var_with_yml": "    - app/*\n    - src\n",
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    "template_value",
+    [
+        "<% ctx.env.0 %>",
+        "<% ctx.env[0] %>",
+        "<% ctx.0.env %>",
+        "<% ctx[definition_version] %>",
+    ],
+)
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_invalid_templating_syntax(template_value):
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "test_env": template_value,
+        },
+    }
+    with pytest.raises(InvalidTemplate) as err:
+        render_definition_template(definition)
+
+    assert err.value.message == f"Unexpected templating syntax in {template_value}"

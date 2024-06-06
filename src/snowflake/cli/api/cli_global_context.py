@@ -261,7 +261,7 @@ class _CliGlobalContextManager:
         self._project_root = project_root
 
     @property
-    def template_context(self):
+    def template_context(self) -> dict:
         return self._template_context
 
     def set_template_context(self, template_context: dict):
@@ -320,7 +320,7 @@ class _CliGlobalContextAccess:
         return self._manager.project_root
 
     @property
-    def template_context(self):
+    def template_context(self) -> dict:
         return self._manager.template_context
 
     @property

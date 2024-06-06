@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from typing import Any
 
-def deep_merge_dicts(original_values: dict, override_values: dict) -> None:
+
+def deep_merge_dicts(
+    original_values: dict[Any, Any], override_values: dict[Any, Any]
+) -> None:
     """
     Takes 2 dictionaries as input: original and override. The original dictionary is modified.
 
@@ -25,9 +29,11 @@ def deep_merge_dicts(original_values: dict, override_values: dict) -> None:
             original_values[field] = value
 
 
-def deep_traverse(
-    element, visit_action=lambda element: None, update_action=lambda element: element
-):
+def traverse(
+    element: Any,
+    visit_action=lambda element: None,
+    update_action=lambda element: element,
+) -> Any:
     """
     Traverse a nested structure (lists, dicts, scalars).
 
@@ -42,11 +48,11 @@ def deep_traverse(
     """
     if isinstance(element, dict):
         for key, value in element.items():
-            element[key] = deep_traverse(value, visit_action, update_action)
+            element[key] = traverse(value, visit_action, update_action)
         return element
     elif isinstance(element, list):
         for index, value in enumerate(element):
-            element[index] = deep_traverse(value, visit_action, update_action)
+            element[index] = traverse(value, visit_action, update_action)
         return element
     else:
         visit_action(element)
