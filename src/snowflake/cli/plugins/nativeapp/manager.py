@@ -601,7 +601,7 @@ class NativeAppManager(SqlExecutionMixin):
                 f"call system$validate_native_app_setup('{stage_name}')"
             )
         except ProgrammingError as err:
-            if err.msg.__contains__("does not exist or not authorized"):
+            if "does not exist or not authorized" in err.msg:
                 raise ApplicationPackageDoesNotExistError(self.package_name)
             generic_sql_error_handler(err)
         else:
