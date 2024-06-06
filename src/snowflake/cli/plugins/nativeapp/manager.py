@@ -18,7 +18,6 @@ import json
 import os
 from abc import ABC, abstractmethod
 from functools import cached_property
-from itertools import chain
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Optional, TypedDict
@@ -611,14 +610,17 @@ class NativeAppManager(SqlExecutionMixin):
         else:
             if cursor.rowcount is None or cursor.rowcount == 0:
                 raise SnowflakeSQLExecutionError()
-
             result_data = json.loads(cursor.fetchone()[0])
+
+            # First print warnings, regardless of the outcome of validation
+            for warning in result_data.get("warnings", []):
+                cc.warning(_validation_item_to_str(warning))
+
+            # Then raise an exception validation failed
             if result_data["status"] == "FAIL":
                 messages = [
                     _validation_item_to_str(error)
-                    for error in chain(
-                        result_data.get("errors", []), result_data.get("warnings", [])
-                    )
+                    for error in (result_data.get("errors", []))
                 ]
                 raise SetupScriptFailedValidation(messages)
 
