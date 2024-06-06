@@ -10,7 +10,7 @@
   * `snow notebook create` proving an option to create a Snowflake Notebook from a file on stage.
 
 ## Fixes and improvements
-
+* Fixed error handling for malformatted `config.toml`
 
 # v2.4.0
 ## Backward incompatibility
