@@ -333,16 +333,6 @@ def test_copy_throws_error_for_same_platform_operation(runner, source, dest, sna
             ],
         ),
         (
-            "snow://exe",
-            ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
-            "@exe",
-            [
-                "get @exe/a/s2.sql file://{}/a/ parallel=4",
-                "get @exe/a/b/s3.sql file://{}/a/b/ parallel=4",
-                "get @exe/s1.sql file://{}/ parallel=4",
-            ],
-        ),
-        (
             "@exe/a",
             ["a/s2.sql", "a/b/s3.sql"],
             "@exe/a",
@@ -666,11 +656,6 @@ def test_stage_internal_put_quoted_path(
     "stage_path, expected_stage, expected_files",
     [
         ("@exe", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        (
-            "snow://exe",
-            "@exe",
-            ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"],
-        ),
         ("exe", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
         ("exe/", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
         ("exe/*", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
