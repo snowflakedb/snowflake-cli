@@ -415,7 +415,7 @@ def test_nativeapp_deploy_unknown_path(
             assert result.exit_code == 0
 
 
-# Tests that specifying an path with no deploy artifact results in an error
+# Tests that specifying a path with no deploy artifact results in an error
 @pytest.mark.integration
 def test_nativeapp_deploy_path_with_no_mapping(
     runner,
@@ -440,6 +440,106 @@ def test_nativeapp_deploy_path_with_no_mapping(
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
+# Tests that specifying a path with no direct mapping falls back to search for prefix matches
+@pytest.mark.integration
+def test_nativeapp_deploy_looks_for_prefix_matches(
+    runner,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    project_dir = "app root"
+    result = runner.invoke_json(
+        ["app", "init", project_dir, "--name", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_dir)):
+        try:
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy", "-r", "app"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
+            stage_files = runner.invoke_with_connection_json(
+                ["stage", "list-files", f"{package_name}.{stage_name}"],
+                env=TEST_ENV,
+            )
+            assert contains_row_with(stage_files.json, {"name": "stage/manifest.yml"})
+            assert contains_row_with(
+                stage_files.json, {"name": "stage/setup_script.sql"}
+            )
+            assert contains_row_with(stage_files.json, {"name": "stage/README.md"})
+
+        finally:
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
+# Tests that snow app deploy . -r --prune is the same as the default deploy command
+@pytest.mark.integration
+def test_nativeapp_deploy_dot(
+    runner,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    project_dir = "app root"
+    result = runner.invoke_json(
+        ["app", "init", project_dir, "--name", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_dir)):
+        try:
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy", "-r", "."],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
+            stage_files = runner.invoke_with_connection_json(
+                ["stage", "list-files", f"{package_name}.{stage_name}"],
+                env=TEST_ENV,
+            )
+            assert contains_row_with(stage_files.json, {"name": "stage/manifest.yml"})
+            assert contains_row_with(
+                stage_files.json, {"name": "stage/setup_script.sql"}
+            )
+            assert contains_row_with(stage_files.json, {"name": "stage/README.md"})
+
+            os.remove(os.path.join("app", "README.md"))
+
+            # deploy
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy", "-r", "--prune", "."],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            stage_files = runner.invoke_with_connection_json(
+                ["stage", "list-files", f"{package_name}.{stage_name}"],
+                env=TEST_ENV,
+            )
+
+            assert contains_row_with(stage_files.json, {"name": "stage/README.md"})
+
+        finally:
             result = runner.invoke_with_connection_json(
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,
