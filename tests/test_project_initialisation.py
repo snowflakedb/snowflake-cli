@@ -25,7 +25,7 @@ def test_adds_init_command(mock_copy):
             Path(tmp_templates),
         ):
             add_init_command(app, "my_project_type", template="my_template")
-            result = runner.invoke(app, ["my_dir"])
+            result = runner.invoke(app.create_app(), ["my_dir"])
         assert result.exit_code == 0
         assert result.output == "Initialized the new project in my_dir/\n"
 
