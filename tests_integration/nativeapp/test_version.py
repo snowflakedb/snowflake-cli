@@ -216,3 +216,94 @@ def test_nativeapp_version_create_3_patches(
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
+def test_nativeapp_version_create_patch_is_integer(
+    runner,
+    snowflake_session,
+    project_definition_files: List[Path],
+):
+    project_name = "integration"
+    project_dir = project_definition_files[0].parent
+    with pushd(project_dir):
+        try:
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+
+            # create initial version
+            result = runner.invoke_with_connection_json(
+                ["app", "version", "create", "v1", "--force", "--skip-git-check"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # create non-integer patch
+            result = runner.invoke_with_connection_json(
+                [
+                    "app",
+                    "version",
+                    "create",
+                    "v1",
+                    "--force",
+                    "--skip-git-check",
+                    "--patch",
+                    "foo",
+                ],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 2
+            assert (
+                "Invalid value for '--patch': 'foo' is not a valid integer."
+                in result.output
+            )
+
+            # create integer patch
+            result = runner.invoke_with_connection_json(
+                [
+                    "app",
+                    "version",
+                    "create",
+                    "v1",
+                    "--force",
+                    "--skip-git-check",
+                    "--patch",
+                    "1",
+                ],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # drop the version
+            result_drop = runner.invoke_with_connection_json(
+                ["app", "version", "drop", "v1", "--force"],
+                env=TEST_ENV,
+            )
+            assert result_drop.exit_code == 0
+
+            # ensure there are no versions now
+            actual = runner.invoke_with_connection_json(
+                ["app", "version", "list"], env=TEST_ENV
+            )
+            assert len(actual.json) == 0
+
+            # make sure we always delete the package
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            expect = snowflake_session.execute_string(
+                f"show application packages like '{package_name}'"
+            )
+            assert not_contains_row_with(
+                row_from_snowflake_session(expect), {"name": package_name}
+            )
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
