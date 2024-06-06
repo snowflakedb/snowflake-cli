@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import ast
 from typing import (
-    Any,
     List,
     Optional,
     Sequence,
+    Union,
 )
 
 from click.exceptions import ClickException
@@ -20,6 +20,8 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.models import (
     ExtensionFunctionTypeEnum,
     NativeAppExtensionFunction,
 )
+
+ASTDefNode = Union[ast.FunctionDef, ast.ClassDef]
 
 
 class MalformedExtensionFunctionError(ClickException):
@@ -96,30 +98,35 @@ def ensure_all_string_literals(values: Sequence[str]) -> List[str]:
     return [ensure_string_literal(value) for value in values]
 
 
-class _FunctionDefAccumulator(ast.NodeVisitor):
+class _SnowparkHandlerAccumulator(ast.NodeVisitor):
     """
-    A NodeVisitor that collects AST nodes corresponding to function declarations, filtered by a list
-    of wanted functions. This is used to identify all Snowpark extension functions in a module's
-    source code.
+    A NodeVisitor that collects AST nodes corresponding to a provided list of Snowpark external functions.
+    The returned nodes are filtered using the handlers provided for each of the Snowpark functions.
+    Returned definitions can be either function definition or class definition AST nodes.
     """
 
     def __init__(self, functions: Sequence[NativeAppExtensionFunction]):
-        self._wanted_functions_by_name = {
+        self._wanted_handlers_by_name = {
             fn.handler.split(".")[-1]: fn for fn in functions
         }
-        self.definitions: List[Any] = []
+        self.definitions: List[ASTDefNode] = []
 
     def visit_FunctionDef(self, node: ast.FunctionDef):  # noqa: N802
         if self._want(node):
             self.definitions.append(node)
         self.generic_visit(node)
 
-    def _want(self, node: Any) -> bool:
+    def visit_ClassDef(self, node: ast.ClassDef):  # noqa: N802
+        if self._want(node):
+            self.definitions.append(node)
+        self.generic_visit(node)
+
+    def _want(self, node: ASTDefNode) -> bool:
         if not node.decorator_list:
             # No decorators for this definition, ignore it
             return False
 
-        return node.name in self._wanted_functions_by_name
+        return node.name in self._wanted_handlers_by_name
 
 
 def _get_decorator_id(node: ast.AST) -> Optional[str]:
@@ -136,10 +143,10 @@ def _get_decorator_id(node: ast.AST) -> Optional[str]:
         return None
 
 
-def _collect_ast_function_definitions(
+def _collect_ast_handler_definitions(
     tree: ast.AST, extension_functions: Sequence[NativeAppExtensionFunction]
-) -> Sequence[ast.FunctionDef]:
-    accumulator = _FunctionDefAccumulator(extension_functions)
+) -> Sequence[ASTDefNode]:
+    accumulator = _SnowparkHandlerAccumulator(extension_functions)
     accumulator.visit(tree)
     return accumulator.definitions
 
@@ -167,7 +174,7 @@ def deannotate_module_source(
 
     tree = ast.parse(module_source)
 
-    definitions = _collect_ast_function_definitions(tree, extension_functions)
+    definitions = _collect_ast_handler_definitions(tree, extension_functions)
     if not definitions:
         return module_source
 
