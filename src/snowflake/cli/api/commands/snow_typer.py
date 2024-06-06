@@ -17,7 +17,7 @@ from snowflake.cli.api.output.types import CommandResult
 log = logging.getLogger(__name__)
 
 
-class SnowTyperApp(typer.Typer):
+class SnowTyperInstance(typer.Typer):
     def __init__(self, /, **kwargs):
         super().__init__(
             **kwargs,
@@ -64,7 +64,7 @@ class SnowTyperApp(typer.Typer):
                 finally:
                     self.post_execute()
 
-            return super(SnowTyperApp, self).command(name=name, **kwargs)(
+            return super(SnowTyperInstance, self).command(name=name, **kwargs)(
                 command_callable_decorator
             )
 
@@ -124,18 +124,44 @@ class SnowTyperCommandData:
 class SnowTyper:
     """
     SnowTyperApp factory. Usage is similar to typer.Typer, except that create_app()
-    creates actual SnowTyperApp instance.
+    creates actual SnowTyperInstance instance.
     """
 
-    def __init__(self, /, **typer_kwargs):
-        self.typer_kwargs: Dict[str, Any] = typer_kwargs
+    def __init__(
+        self,
+        /,
+        name: Optional[str] = None,
+        help: Optional[str] = None,  # noqa: A002
+        short_help: Optional[str] = None,
+        is_hidden: Optional[Callable[[], bool]] = None,
+        deprecated: bool = False,
+    ):
+        self.name = name
+        self.help = help
+        self.short_help = short_help
+        self.is_hidden = is_hidden
+        self.deprecated = deprecated
         self.commands_to_register: List[SnowTyperCommandData] = []
         self.subapps_to_register: List[SnowTyper] = []
         self.callbacks_to_register: List[Callable] = []
 
-    def create_app(self) -> SnowTyperApp:
-        app = SnowTyperApp(**self.typer_kwargs)
-        self._register_commands(app)
+    def create_app(self) -> SnowTyperInstance:
+        app = SnowTyperInstance(
+            name=self.name,
+            help=self.help,
+            short_help=self.short_help,
+            hidden=self.is_hidden() if self.is_hidden else False,
+            deprecated=self.deprecated,
+        )
+        # register commands
+        for command in self.commands_to_register:
+            app.command(*command.args, **command.kwargs)(command.func)
+        # register callbacks
+        for callback in self.callbacks_to_register:
+            app.callback()(callback)
+        # add subgroups
+        for subapp in self.subapps_to_register:
+            app.add_typer(subapp.create_app())
         return app
 
     def command(self, *args, **kwargs):
@@ -156,11 +182,3 @@ class SnowTyper:
             return callback
 
         return decorator
-
-    def _register_commands(self, app: SnowTyperApp) -> None:
-        for command in self.commands_to_register:
-            app.command(*command.args, **command.kwargs)(command.func)
-        for callback in self.callbacks_to_register:
-            app.callback()(callback)
-        for subapp in self.subapps_to_register:
-            app.add_typer(subapp.create_app())
