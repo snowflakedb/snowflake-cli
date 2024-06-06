@@ -201,10 +201,6 @@ class NativeAppManager(SqlExecutionMixin):
         return f"{self.package_name}.{self.definition.source_stage}"
 
     @cached_property
-    def prefixed_stage_fqn(self) -> str:
-        return StageManager.get_standard_stage_prefix(self.stage_fqn)
-
-    @cached_property
     def stage_schema(self) -> Optional[str]:
         return extract_schema(self.stage_fqn)
 
@@ -598,10 +594,11 @@ class NativeAppManager(SqlExecutionMixin):
 
     def validate(self):
         """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
-        cc.step(f"Validating Native App setup script in stage {self.stage_fqn}.")
+        cc.step(f"Validating Native App setup script.")
+        stage_name = StageManager.get_standard_stage_prefix(self.stage_fqn)
         try:
             cursor = self._execute_query(
-                f"call system$validate_native_app_setup('{self.prefixed_stage_fqn}')"
+                f"call system$validate_native_app_setup('{stage_name}')"
             )
         except ProgrammingError as err:
             if err.msg.__contains__("does not exist or not authorized"):
