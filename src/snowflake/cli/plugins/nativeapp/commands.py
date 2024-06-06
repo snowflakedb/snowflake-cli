@@ -82,7 +82,7 @@ def app_init(
     ),
     template: str = typer.Option(
         None,
-        help="A specific template name within the template repo to use as template for the Native Apps project. Example: Default is basic if `--template-repo` is https://github.com/snowflakedb/native-apps-templates.git, and None if any other --template-repo is specified.",
+        help="A specific template name within the template repo to use as template for the Snowflake Native App project. Example: Default is basic if `--template-repo` is https://github.com/snowflakedb/native-apps-templates.git, and None if any other --template-repo is specified.",
     ),
     **options,
 ) -> CommandResult:
@@ -311,11 +311,11 @@ def app_deploy(
 @with_project_definition("native_app")
 def app_validate(**options):
     """
-    Validates a deployed Native App's setup script.
+    Validates a deployed Snowflake Native App's setup script.
     """
     manager = NativeAppManager(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
     manager.validate()
-    return MessageResult("Native App validation succeeded.")
+    return MessageResult("Snowflake Native App validation succeeded.")

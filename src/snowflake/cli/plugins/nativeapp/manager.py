@@ -594,7 +594,7 @@ class NativeAppManager(SqlExecutionMixin):
 
     def validate(self):
         """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
-        cc.step(f"Validating Native App setup script.")
+        cc.step(f"Validating Snowflake Native App setup script.")
         stage_name = StageManager.get_standard_stage_prefix(self.stage_fqn)
         try:
             cursor = self._execute_query(

@@ -21,7 +21,7 @@
 
 ## New additions
 * Added `snow app bundle` command that prepares a local folder in the project directory with artifacts to be uploaded to a stage as part of creating a Snowflake Native App.
-* Added `snow app validate` command that validates the deployed setup script SQL for syntax validity, invalid object references, and best practices
+* Added `snow app validate` command that validates the uploaded setup script SQL used to create a Snowflake Native App for syntax validity, invalid object references, and best practices
 * Changed `snow app version create --patch` to require an integer patch number, aligning with what Snowflake expects
 * Added `snow notebook` commands:
   * `snow notebook execute` enabling head-less execution of a notebook.
