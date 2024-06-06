@@ -159,6 +159,7 @@ class SnowTyperCreator:
             self.commands_to_register.append(
                 SnowTyperCommandData(command, args=args, kwargs=kwargs)
             )
+            return command
 
         return decorator
 
