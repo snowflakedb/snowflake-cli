@@ -402,6 +402,9 @@ class BundleMap:
         """
         Converts a source path to its corresponding deploy root path. If the input path is relative to the project root,
         a path relative to the deploy root is returned. If the input path is absolute, an absolute path is returned.
+        Note that the provided source path must be part of a mapping. If the source path is not part of any mapping,
+        an empty list is returned. For example, if `app/*` is specified as the source of a mapping,
+        `to_deploy_paths(Path("app"))` will not yield any result.
 
         Returns:
             The deploy root paths for the given source path, or an empty list if no such path exists.
