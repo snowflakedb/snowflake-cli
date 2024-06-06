@@ -195,7 +195,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         policy: PolicyBase,
         is_interactive: bool,
         version: Optional[str] = None,
-        patch: Optional[str] = None,
+        patch: Optional[int] = None,
     ):
 
         patch_clause = f"patch {patch}" if patch else ""
@@ -280,7 +280,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         self,
         policy: PolicyBase,
         version: Optional[str] = None,
-        patch: Optional[str] = None,
+        patch: Optional[int] = None,
         from_release_directive: bool = False,
         is_interactive: bool = False,
         *args,
