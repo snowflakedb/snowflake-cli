@@ -2,24 +2,16 @@ import logging
 
 import typer
 from snowflake.cli.api.commands.flags import identifier_argument
-from snowflake.cli.api.commands.snow_typer import SnowTyper, SnowTyperCreator
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import MessageResult
 from snowflake.cli.plugins.notebook.manager import NotebookManager
 from snowflake.cli.plugins.notebook.types import NotebookName, NotebookStagePath
 from typing_extensions import Annotated
 
-
-class NotebookAppCreator(SnowTyperCreator):
-    def create_app(self) -> SnowTyper:
-        app = SnowTyper(
-            name="notebook",
-            help="Manages notebooks in Snowflake.",
-        )
-        self.register_commands(app)
-        return app
-
-
-app_creator = NotebookAppCreator()
+app = SnowTyper(
+    name="notebook",
+    help="Manages notebooks in Snowflake.",
+)
 log = logging.getLogger(__name__)
 
 NOTEBOOK_IDENTIFIER = identifier_argument(sf_object="notebook", example="MY_NOTEBOOK")
@@ -30,7 +22,7 @@ NotebookFile: NotebookStagePath = typer.Option(
 )
 
 
-@app_creator.command(requires_connection=True)
+@app.command(requires_connection=True)
 def execute(
     identifier: str = NOTEBOOK_IDENTIFIER,
     **options,
@@ -43,7 +35,7 @@ def execute(
     return MessageResult(f"Notebook {identifier} executed.")
 
 
-@app_creator.command(requires_connection=True)
+@app.command(requires_connection=True)
 def get_url(
     identifier: str = NOTEBOOK_IDENTIFIER,
     **options,
@@ -53,7 +45,7 @@ def get_url(
     return MessageResult(message=url)
 
 
-@app_creator.command(name="open", requires_connection=True)
+@app.command(name="open", requires_connection=True)
 def open_cmd(
     identifier: str = NOTEBOOK_IDENTIFIER,
     **options,
@@ -64,7 +56,7 @@ def open_cmd(
     return MessageResult(message=url)
 
 
-@app_creator.command(requires_connection=True)
+@app.command(requires_connection=True)
 def create(
     identifier: Annotated[NotebookName, NOTEBOOK_IDENTIFIER],
     notebook_file: Annotated[NotebookStagePath, NotebookFile],

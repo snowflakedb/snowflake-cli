@@ -10,7 +10,7 @@ from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import (
     PLAIN_PASSWORD_MSG,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper, SnowTyperCreator
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.config import (
     ConnectionConfig,
     add_connection,
@@ -32,19 +32,10 @@ from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
-
-class ConnectionAppCreator(SnowTyperCreator):
-    def create_app(self) -> SnowTyper:
-        app = SnowTyper(
-            name="connection",
-            help="Manages connections to Snowflake.",
-        )
-        self.register_commands(app)
-        return app
-
-
-app_creator = ConnectionAppCreator()
-
+app = SnowTyper(
+    name="connection",
+    help="Manages connections to Snowflake.",
+)
 log = logging.getLogger(__name__)
 
 
@@ -64,7 +55,7 @@ def _mask_password(connection_params: dict):
     return connection_params
 
 
-@app_creator.command(name="list")
+@app.command(name="list")
 def list_connections(**options) -> CommandResult:
     """
     Lists configured connections.
@@ -102,7 +93,7 @@ def _password_callback(ctx: Context, param: Parameter, value: str):
     return value
 
 
-@app_creator.command()
+@app.command()
 def add(
     connection_name: str = typer.Option(
         None,
@@ -241,7 +232,7 @@ def add(
     )
 
 
-@app_creator.command(requires_connection=True)
+@app.command(requires_connection=True)
 def test(
     **options,
 ) -> CommandResult:
@@ -291,7 +282,7 @@ def test(
     return ObjectResult(result)
 
 
-@app_creator.command(requires_connection=False)
+@app.command(requires_connection=False)
 def set_default(
     name: str = typer.Argument(
         help="Name of the connection, as defined in your `config.toml`"

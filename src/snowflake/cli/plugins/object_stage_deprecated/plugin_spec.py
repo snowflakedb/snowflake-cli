@@ -14,5 +14,5 @@ def command_spec():
     return CommandSpec(
         parent_command_path=CommandPath(["object"]),
         command_type=CommandType.COMMAND_GROUP,
-        typer_instance=commands.app_creator.create_app(),
+        typer_instance=commands.app.create_app(),
     )

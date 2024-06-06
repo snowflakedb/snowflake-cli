@@ -12,7 +12,7 @@ from snowflake.cli.api.commands.flags import (
     identifier_argument,
     like_option,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper, SnowTyperCreator
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import CollectionResult, CommandResult, QueryResult
@@ -26,28 +26,10 @@ from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.stage.commands import get
 from snowflake.cli.plugins.stage.manager import OnErrorType
 
-
-class GitCommandsCreator(SnowTyperCreator):
-    def create_app(self) -> SnowTyper:
-        app = SnowTyper(
-            name="git",
-            help="Manages git repositories in Snowflake.",
-        )
-        add_object_command_aliases(
-            app=app,
-            object_type=ObjectType.GIT_REPOSITORY,
-            name_argument=RepoNameArgument,
-            like_option=like_option(
-                help_example='`list --like "my%"` lists all git repositories with name that begin with “my”',
-            ),
-            scope_option=scope_option(help_example="`list --in database my_db`"),
-        )
-        self.register_commands(app)
-        return app
-
-
-app_creator = GitCommandsCreator()
-
+app = SnowTyper(
+    name="git",
+    help="Manages git repositories in Snowflake.",
+)
 log = logging.getLogger(__name__)
 
 
@@ -74,6 +56,15 @@ RepoPathArgument = typer.Argument(
     ),
     callback=_repo_path_argument_callback,
 )
+add_object_command_aliases(
+    app=app,
+    object_type=ObjectType.GIT_REPOSITORY,
+    name_argument=RepoNameArgument,
+    like_option=like_option(
+        help_example='`list --like "my%"` lists all git repositories with name that begin with “my”',
+    ),
+    scope_option=scope_option(help_example="`list --in database my_db`"),
+)
 
 
 def _assure_repository_does_not_exist(om: ObjectManager, repository_name: str) -> None:
@@ -88,7 +79,7 @@ def _validate_origin_url(url: str) -> None:
         raise ClickException("Url address should start with 'https'")
 
 
-@app_creator.command("setup", requires_connection=True)
+@app.command("setup", requires_connection=True)
 def setup(
     repository_name: str = RepoNameArgument,
     **options,
@@ -165,7 +156,7 @@ def setup(
     )
 
 
-@app_creator.command(
+@app.command(
     "list-branches",
     requires_connection=True,
 )
@@ -182,7 +173,7 @@ def list_branches(
     return QueryResult(GitManager().show_branches(repo_name=repository_name, like=like))
 
 
-@app_creator.command(
+@app.command(
     "list-tags",
     requires_connection=True,
 )
@@ -199,7 +190,7 @@ def list_tags(
     return QueryResult(GitManager().show_tags(repo_name=repository_name, like=like))
 
 
-@app_creator.command(
+@app.command(
     "list-files",
     requires_connection=True,
 )
@@ -216,7 +207,7 @@ def list_files(
     )
 
 
-@app_creator.command(
+@app.command(
     "fetch",
     requires_connection=True,
 )
@@ -230,7 +221,7 @@ def fetch(
     return QueryResult(GitManager().fetch(repo_name=repository_name))
 
 
-@app_creator.command(
+@app.command(
     "copy",
     requires_connection=True,
 )
@@ -266,7 +257,7 @@ def copy(
     )
 
 
-@app_creator.command("execute", requires_connection=True)
+@app.command("execute", requires_connection=True)
 def execute(
     repository_path: str = RepoPathArgument,
     on_error: OnErrorType = OnErrorOption,

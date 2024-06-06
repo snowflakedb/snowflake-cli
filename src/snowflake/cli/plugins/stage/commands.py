@@ -13,7 +13,7 @@ from snowflake.cli.api.commands.flags import (
     VariablesOption,
     like_option,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper, SnowTyperCreator
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import (
@@ -31,32 +31,25 @@ from snowflake.cli.plugins.object.command_aliases import (
 from snowflake.cli.plugins.stage.diff import DiffResult, compute_stage_diff
 from snowflake.cli.plugins.stage.manager import OnErrorType, StageManager
 
+app = SnowTyper(
+    name="stage",
+    help="Manages stages.",
+)
+
 StageNameArgument = typer.Argument(..., help="Name of the stage.", show_default=False)
 
-
-class StageAppCreator(SnowTyperCreator):
-    def create_app(self) -> SnowTyper:
-        app = SnowTyper(
-            name="stage",
-            help="Manages stages.",
-        )
-        self.register_commands(app)
-        add_object_command_aliases(
-            app=app,
-            object_type=ObjectType.STAGE,
-            name_argument=StageNameArgument,
-            like_option=like_option(
-                help_example='`list --like "my%"` lists all stages that begin with “my”',
-            ),
-            scope_option=scope_option(help_example="`list --in database my_db`"),
-        )
-        return app
+add_object_command_aliases(
+    app=app,
+    object_type=ObjectType.STAGE,
+    name_argument=StageNameArgument,
+    like_option=like_option(
+        help_example='`list --like "my%"` lists all stages that begin with “my”',
+    ),
+    scope_option=scope_option(help_example="`list --in database my_db`"),
+)
 
 
-app_creator = StageAppCreator()
-
-
-@app_creator.command("list-files", requires_connection=True)
+@app.command("list-files", requires_connection=True)
 def stage_list_files(
     stage_name: str = StageNameArgument, pattern=PatternOption, **options
 ) -> CommandResult:
@@ -67,7 +60,7 @@ def stage_list_files(
     return QueryResult(cursor)
 
 
-@app_creator.command("copy", requires_connection=True)
+@app.command("copy", requires_connection=True)
 def copy(
     source_path: str = typer.Argument(
         help="Source path for copy operation. Can be either stage path or local. You can use a glob pattern for local files but the pattern has to be enclosed in quotes.",
@@ -123,7 +116,7 @@ def copy(
     )
 
 
-@app_creator.command("create", requires_connection=True)
+@app.command("create", requires_connection=True)
 def stage_create(stage_name: str = StageNameArgument, **options) -> CommandResult:
     """
     Creates a named stage if it does not already exist.
@@ -132,7 +125,7 @@ def stage_create(stage_name: str = StageNameArgument, **options) -> CommandResul
     return SingleQueryResult(cursor)
 
 
-@app_creator.command("remove", requires_connection=True)
+@app.command("remove", requires_connection=True)
 def stage_remove(
     stage_name: str = StageNameArgument,
     file_name: str = typer.Argument(
@@ -150,7 +143,7 @@ def stage_remove(
     return SingleQueryResult(cursor)
 
 
-@app_creator.command("diff", hidden=True, requires_connection=True)
+@app.command("diff", hidden=True, requires_connection=True)
 def stage_diff(
     stage_name: str = typer.Argument(
         help="Fully qualified name of a stage",
@@ -169,7 +162,7 @@ def stage_diff(
     return ObjectResult(str(diff))
 
 
-@app_creator.command("execute", requires_connection=True)
+@app.command("execute", requires_connection=True)
 def execute(
     stage_path: str = typer.Argument(
         ...,

@@ -5,24 +5,17 @@ from typing import Tuple
 import typer
 from click import ClickException
 from snowflake.cli.api.commands.flags import like_option
-from snowflake.cli.api.commands.snow_typer import SnowTyper, SnowTyperCreator
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.constants import SUPPORTED_OBJECTS, VALID_SCOPES
 from snowflake.cli.api.output.types import QueryResult
 from snowflake.cli.api.project.util import is_valid_identifier
 from snowflake.cli.plugins.object.manager import ObjectManager
 
+app = SnowTyper(
+    name="object",
+    help="Manages Snowflake objects like warehouses and stages",
+)
 
-class ObjectAppCreator(SnowTyperCreator):
-    def create_app(self) -> SnowTyper:
-        app = SnowTyper(
-            name="object",
-            help="Manages Snowflake objects like warehouses and stages",
-        )
-        self.register_commands(app)
-        return app
-
-
-app_creator = ObjectAppCreator()
 
 NameArgument = typer.Argument(help="Name of the object")
 ObjectArgument = typer.Argument(
@@ -60,7 +53,7 @@ ScopeOption = scope_option(
 SUPPORTED_TYPES_MSG = "\n\nSupported types: " + ", ".join(SUPPORTED_OBJECTS)
 
 
-@app_creator.command(
+@app.command(
     "list",
     help=f"Lists all available Snowflake objects of given type.{SUPPORTED_TYPES_MSG}",
     requires_connection=True,
@@ -77,7 +70,7 @@ def list_(
     )
 
 
-@app_creator.command(
+@app.command(
     help=f"Drops Snowflake object of given name and type. {SUPPORTED_TYPES_MSG}",
     requires_connection=True,
 )
@@ -89,7 +82,7 @@ def drop(object_type: str = ObjectArgument, object_name: str = NameArgument, **o
 DESCRIBE_SUPPORTED_TYPES_MSG = f"\n\nSupported types: {', '.join(obj for obj in SUPPORTED_OBJECTS if obj != 'image-repository')}"
 
 
-@app_creator.command(
+@app.command(
     help=f"Provides description of an object of given type. {DESCRIBE_SUPPORTED_TYPES_MSG}",
     requires_connection=True,
 )

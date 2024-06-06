@@ -6,7 +6,7 @@ import typer
 from snowflake.cli.api.commands.flags import (
     PatternOption,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper, SnowTyperCreator
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.plugins.command import CommandPath
 from snowflake.cli.plugins.stage.commands import (
@@ -23,23 +23,15 @@ _deprecated_command_msg = (
     f" Please use `{CommandPath(['stage'])}` instead."
 )
 
-
-class ObjectStageAppCreator(SnowTyperCreator):
-    def create_app(self) -> SnowTyper:
-        app = SnowTyper(name="stage", help="Manages stages.", deprecated=True)
-
-        @app.callback()
-        def warn_command_deprecated() -> None:
-            cli_console.warning(_deprecated_command_msg)
-
-        self.register_commands(app)
-        return app
+app = SnowTyper(name="stage", help="Manages stages.", deprecated=True)
 
 
-app_creator = ObjectStageAppCreator()
+@app.callback()
+def warn_command_deprecated() -> None:
+    cli_console.warning(_deprecated_command_msg)
 
 
-@app_creator.command("list", requires_connection=True, deprecated=True)
+@app.command("list", requires_connection=True, deprecated=True)
 def deprecated_stage_list(
     stage_name: str = StageNameArgument, pattern=PatternOption, **options
 ):
@@ -49,7 +41,7 @@ def deprecated_stage_list(
     return stage_list_files(stage_name=stage_name, pattern=pattern, **options)
 
 
-@app_creator.command("copy", requires_connection=True, deprecated=True)
+@app.command("copy", requires_connection=True, deprecated=True)
 def deprecated_copy(
     source_path: str = typer.Argument(
         help="Source path for copy operation. Can be either stage path or local."
@@ -75,7 +67,7 @@ def deprecated_copy(
     Copies all files from target path to target directory. This works for both uploading
     to and downloading files from the stage.
     """
-    return copy(
+    copy(
         source_path=source_path,
         destination_path=destination_path,
         overwrite=overwrite,
@@ -84,15 +76,15 @@ def deprecated_copy(
     )
 
 
-@app_creator.command("create", requires_connection=True, deprecated=True)
+@app.command("create", requires_connection=True, deprecated=True)
 def deprecated_stage_create(stage_name: str = StageNameArgument, **options):
     """
     Creates a named stage if it does not already exist.
     """
-    return stage_create(stage_name=stage_name, **options)
+    stage_create(stage_name=stage_name, **options)
 
 
-@app_creator.command("remove", requires_connection=True, deprecated=True)
+@app.command("remove", requires_connection=True, deprecated=True)
 def deprecated_stage_remove(
     stage_name: str = StageNameArgument,
     file_name: str = typer.Argument(..., help="Name of the file to remove."),
@@ -101,10 +93,10 @@ def deprecated_stage_remove(
     """
     Removes a file from a stage.
     """
-    return stage_remove(stage_name=stage_name, file_name=file_name)
+    stage_remove(stage_name=stage_name, file_name=file_name)
 
 
-@app_creator.command("diff", hidden=True, requires_connection=True, deprecated=True)
+@app.command("diff", hidden=True, requires_connection=True, deprecated=True)
 def deprecated_stage_diff(
     stage_name: str = typer.Argument(None, help="Fully qualified name of a stage"),
     folder_name: str = typer.Argument(None, help="Path to local folder"),

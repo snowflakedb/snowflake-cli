@@ -9,7 +9,7 @@ import typer
 from click import UsageError
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import readable_file_option
-from snowflake.cli.api.commands.snow_typer import SnowTyper, SnowTyperCreator
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -26,23 +26,15 @@ from snowflake.cli.plugins.cortex.types import (
     Text,
 )
 
-
-class CortexAppCreator(SnowTyperCreator):
-    def create_app(self) -> SnowTyper:
-        app = SnowTyper(
-            name="cortex",
-            help="Provides access to Snowflake Cortex.",
-        )
-        self.register_commands(app)
-        return app
-
-
-app_creator = CortexAppCreator()
+app = SnowTyper(
+    name="cortex",
+    help="Provides access to Snowflake Cortex.",
+)
 
 SEARCH_COMMAND_ENABLED = sys.version_info < (3, 12)
 
 
-@app_creator.command(
+@app.command(
     requires_connection=True,
     hidden=not SEARCH_COMMAND_ENABLED,
 )
@@ -88,7 +80,7 @@ def search(
     return CollectionResult(response.results)
 
 
-@app_creator.command(
+@app.command(
     name="complete",
     requires_connection=True,
 )
@@ -135,7 +127,7 @@ def complete(
     return MessageResult(result_text.strip())
 
 
-@app_creator.command(
+@app.command(
     name="extract-answer",
     requires_connection=True,
 )
@@ -185,7 +177,7 @@ def extract_answer(
     return MessageResult(result_text.strip())
 
 
-@app_creator.command(
+@app.command(
     name="sentiment",
     requires_connection=True,
 )
@@ -225,7 +217,7 @@ def sentiment(
     return MessageResult(result_text.strip())
 
 
-@app_creator.command(
+@app.command(
     name="summarize",
     requires_connection=True,
 )
@@ -263,7 +255,7 @@ def summarize(
     return MessageResult(result_text.strip())
 
 
-@app_creator.command(
+@app.command(
     name="translate",
     requires_connection=True,
 )

@@ -8,20 +8,12 @@ from snowflake.cli.api.commands.flags import (
     parse_key_value_variables,
     project_definition_option,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper, SnowTyperCreator
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MultipleResults, QueryResult
 from snowflake.cli.plugins.sql.manager import SqlManager
 
-
-class SqlAppCreator(SnowTyperCreator):
-    def create_app(self) -> SnowTyper:
-        # simple Typer with defaults because it won't become a command group as it contains only one command
-        app = SnowTyper()
-        self.register_commands(app)
-        return app
-
-
-app_creator = SqlAppCreator()
+# simple Typer with defaults because it won't become a command group as it contains only one command
+app = SnowTyper()
 
 
 def _parse_key_value(key_value_str: str):
@@ -32,7 +24,7 @@ def _parse_key_value(key_value_str: str):
     return parts[0], "=".join(parts[1:])
 
 
-@app_creator.command(name="sql", requires_connection=True, no_args_is_help=True)
+@app.command(name="sql", requires_connection=True, no_args_is_help=True)
 def execute_sql(
     query: Optional[str] = typer.Option(
         None,

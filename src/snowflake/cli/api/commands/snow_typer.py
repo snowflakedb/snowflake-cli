@@ -17,7 +17,7 @@ from snowflake.cli.api.output.types import CommandResult
 log = logging.getLogger(__name__)
 
 
-class SnowTyper(typer.Typer):
+class SnowTyperApp(typer.Typer):
     def __init__(self, /, **kwargs):
         super().__init__(
             **kwargs,
@@ -64,7 +64,7 @@ class SnowTyper(typer.Typer):
                 finally:
                     self.post_execute()
 
-            return super(SnowTyper, self).command(name=name, **kwargs)(
+            return super(SnowTyperApp, self).command(name=name, **kwargs)(
                 command_callable_decorator
             )
 
@@ -121,38 +121,22 @@ class SnowTyperCommandData:
     kwargs: Dict[str, Any]
 
 
-class SnowTyperCreator:
+class SnowTyper:
     """
-    SnowTyper factory.
-    It is used to postpone operations needed for SnowTyper constructor,
-    which should not happen during library import (like config reading).
-
-    Usage:
-
-    ```
-    class MySnowTyperCreator(SnowTyperCreator):
-        def create_app(self) -> SnowTyper:
-            app = SnowTyper(...)
-            self.register_commands(app)
-            ...
-            return app
-
-    creator = MySnowTyperCreator()
-
-    @creator.command(...)
-    def actual_command(...):
-        ...
-    ```
+    SnowTyperApp factory. Usage is similar to typer.Typer, except that create_app()
+    creates actual SnowTyperApp instance.
     """
 
-    def __init__(self):
+    def __init__(self, /, **typer_kwargs):
+        self.typer_kwargs: Dict[str, Any] = typer_kwargs
         self.commands_to_register: List[SnowTyperCommandData] = []
+        self.subapps_to_register: List[SnowTyper] = []
+        self.callbacks_to_register: List[Callable] = []
 
-    def create_app(self) -> SnowTyper:
-        """
-        Returns SnowTyper instance.
-        """
-        raise NotImplementedError()
+    def create_app(self) -> SnowTyperApp:
+        app = SnowTyperApp(**self.typer_kwargs)
+        self._register_commands(app)
+        return app
 
     def command(self, *args, **kwargs):
         def decorator(command):
@@ -163,6 +147,20 @@ class SnowTyperCreator:
 
         return decorator
 
-    def register_commands(self, app: SnowTyper) -> None:
+    def add_typer(self, snow_typer: SnowTyper) -> None:
+        self.subapps_to_register.append(snow_typer)
+
+    def callback(self):
+        def decorator(callback):
+            self.callbacks_to_register.append(callback)
+            return callback
+
+        return decorator
+
+    def _register_commands(self, app: SnowTyperApp) -> None:
         for command in self.commands_to_register:
             app.command(*command.args, **command.kwargs)(command.func)
+        for callback in self.callbacks_to_register:
+            app.callback()(callback)
+        for subapp in self.subapps_to_register:
+            app.add_typer(subapp.create_app())
