@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import dataclasses
 import logging
 from functools import wraps
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import typer
 from snowflake.cli.api.commands.decorators import (
@@ -111,3 +112,56 @@ class SnowTyper(typer.Typer):
 
         log.debug("Executing command post execution callback")
         flush_telemetry()
+
+
+@dataclasses.dataclass
+class SnowTyperCommandData:
+    func: Callable
+    args: Tuple[Any, ...]
+    kwargs: Dict[str, Any]
+
+
+class SnowTyperCreator:
+    """
+    SnowTyper factory.
+    It is used to postpone operations needed for SnowTyper constructor,
+    which should not happen during library import (like config reading).
+
+    Usage:
+
+    ```
+    class MySnowTyperCreator(SnowTyperCreator):
+        def create_app(self) -> SnowTyper:
+            app = SnowTyper(...)
+            self.register_commands(app)
+            ...
+            return app
+
+    creator = MySnowTyperCreator()
+
+    @creator.command(...)
+    def actual_command(...):
+        ...
+    ```
+    """
+
+    def __init__(self):
+        self.commands_to_register: List[SnowTyperCommandData] = []
+
+    def create_app(self) -> SnowTyper:
+        """
+        Returns SnowTyper instance.
+        """
+        raise NotImplementedError()
+
+    def command(self, *args, **kwargs):
+        def decorator(command):
+            self.commands_to_register.append(
+                SnowTyperCommandData(command, args=args, kwargs=kwargs)
+            )
+
+        return decorator
+
+    def register_commands(self, app: SnowTyper) -> None:
+        for command in self.commands_to_register:
+            app.command(*command.args, **command.kwargs)(command.func)
