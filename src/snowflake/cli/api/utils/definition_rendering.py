@@ -18,6 +18,7 @@ class Variable:
     def get_key(self):
         return ".".join(self._vars_chain)
 
+    @property
     def is_env_var(self):
         return (
             len(self._vars_chain) == 3
@@ -26,7 +27,7 @@ class Variable:
         )
 
     def get_env_var_name(self) -> str:
-        if not self.is_env_var():
+        if not self.is_env_var:
             raise KeyError(
                 f"Referenced variable {self.get_key()} is not an environment variable"
             )
@@ -43,14 +44,15 @@ class Variable:
         At the end of this call, context content will be: {'ctx': {'env': {'x': 'val'}}}
         """
         current_dict_level = context
-        for i, var in enumerate(self._vars_chain):
-            if i == len(self._vars_chain) - 1:
+        last_element_index = len(self._vars_chain) - 1
+        for index, var in enumerate(self._vars_chain):
+            if index == last_element_index:
                 current_dict_level[var] = value
             else:
                 current_dict_level.setdefault(var, {})
                 current_dict_level = current_dict_level[var]
 
-    def read_from_context(self, context):
+    def read_from_context(self, context: dict):
         """
         Takes a context dict as input.
 
@@ -71,7 +73,7 @@ class Variable:
             current_dict_level = current_dict_level[key]
 
         value = current_dict_level
-        if value == None or isinstance(value, dict) or isinstance(value, list):
+        if value is None or isinstance(value, (dict, list)):
             raise UndefinedError(
                 f"Template variable {self.get_key()} does not contain a valid value"
             )
@@ -117,7 +119,7 @@ def _build_dependency_graph(
         dependencies_graph.add(Node[Variable](key=variable.get_key(), data=variable))
 
     for variable in all_vars:
-        if variable.is_env_var() and variable.get_env_var_name() in os.environ:
+        if variable.is_env_var and variable.get_env_var_name() in os.environ:
             # If variable is found in os.environ, then use the value as is
             # skip rendering by pre-setting the rendered_value attribute
             env_value = os.environ.get(variable.get_env_var_name())

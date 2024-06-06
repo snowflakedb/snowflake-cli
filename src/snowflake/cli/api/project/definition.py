@@ -34,13 +34,13 @@ def _get_merged_project_files(paths: List[Path]) -> dict:
         raise ValueError("Need at least one definition file.")
 
     with spaths[0].open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as base_yml:
-        definition = load(base_yml.read(), Loader=yaml.loader.BaseLoader)
+        definition = load(base_yml.read(), Loader=yaml.loader.BaseLoader) or {}
 
     for override_path in spaths[1:]:
         with override_path.open(
             "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
         ) as override_yml:
-            overrides = load(override_yml.read(), Loader=yaml.loader.BaseLoader)
+            overrides = load(override_yml.read(), Loader=yaml.loader.BaseLoader) or {}
             deep_merge_dicts(definition, overrides)
 
     return definition

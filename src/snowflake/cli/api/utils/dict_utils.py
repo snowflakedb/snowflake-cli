@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 
-def deep_merge_dicts(original_values: dict, override_values: dict):
+def deep_merge_dicts(original_values: dict, override_values: dict) -> None:
     """
-    Takes 2 dictionaries as input: original and override.
+    Takes 2 dictionaries as input: original and override. The original dictionary is modified.
 
     For every key in the override dictionary, override the same key
-    in the original dictionary, or create a new one if it doesn't exist.
+    in the original dictionary, or create a new one if the key is not present.
 
     If the override value and the original value are both dictionaries,
-    instead of overriding, recursively call this function to merge the keys of the sub-dictionaries.
+    instead of overriding, this function recursively calls itself to merge the keys of the sub-dictionaries.
     """
     if not isinstance(override_values, dict) or not isinstance(original_values, dict):
-        return
+        raise ValueError("Arguments are not of type dict")
 
     for field, value in override_values.items():
         if (
