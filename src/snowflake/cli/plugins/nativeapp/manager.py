@@ -414,9 +414,10 @@ class NativeAppManager(SqlExecutionMixin):
                 deploy_paths = bundle_map.to_deploy_paths(resolved_path)
                 if not deploy_paths:
                     if resolved_path.is_dir() and recursive:
-                        # There are no dirNot direct artifact mapping found for this
-                        # path. Check to see if there are subpaths of this directory
-                        # that are matches
+                        # No direct artifact mapping found for this path. Check to see
+                        # if there are subpaths of this directory that are matches. We
+                        # loop over sources because it's likely a much smaller list
+                        # than the project directory.
                         for src in bundle_map.all_sources(absolute=True):
                             if resolved_path in src.parents:
                                 # There is a source that contains this path, get its dest path(s)
