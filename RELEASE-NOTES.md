@@ -5,6 +5,7 @@
 
 ## New additions
 * Added `snow app bundle` command that prepares a local folder in the project directory with artifacts to be uploaded to a stage as part of creating a Snowflake Native App.
+* Changed `snow app version create --patch` to require an integer patch number, aligning with what Snowflake expects
 * Added `snow notebook` commands:
   * `snow notebook execute` enabling head-less execution of a notebook.
   * `snow notebook create` proving an option to create a Snowflake Notebook from a file on stage.
