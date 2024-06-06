@@ -92,7 +92,7 @@ class CouldNotDropApplicationPackageWithVersions(ClickException):
 
 
 class SetupScriptFailedValidation(ClickException):
-    """Application setup script failed validation."""
+    """Native App setup script failed validation."""
 
     def __init__(self, error_messages: Iterable[str]):
         error_message = "\n".join(error_messages)

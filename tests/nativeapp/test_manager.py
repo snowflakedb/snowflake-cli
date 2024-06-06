@@ -14,7 +14,6 @@
 
 import json
 import os
-import re
 from pathlib import Path
 from textwrap import dedent
 from unittest import mock
@@ -946,9 +945,7 @@ def test_validate_failing(mock_warning, mock_execute, temp_dir, mock_cursor):
     native_app_manager = _get_na_manager()
     with pytest.raises(
         SetupScriptFailedValidation,
-        match=re.compile(
-            rf"{error['message']} \(error code {error['errorCode']}\)", re.DOTALL
-        ),
+        match=rf"{error['message']} \(error code {error['errorCode']}\)",
     ):
         native_app_manager.validate()
 

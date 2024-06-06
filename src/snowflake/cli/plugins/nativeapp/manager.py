@@ -608,7 +608,7 @@ class NativeAppManager(SqlExecutionMixin):
                 raise ApplicationPackageDoesNotExistError(self.package_name)
             generic_sql_error_handler(err)
         else:
-            if cursor.rowcount is None or cursor.rowcount == 0:
+            if not cursor.rowcount:
                 raise SnowflakeSQLExecutionError()
             result_data = json.loads(cursor.fetchone()[0])
 
@@ -616,11 +616,11 @@ class NativeAppManager(SqlExecutionMixin):
             for warning in result_data.get("warnings", []):
                 cc.warning(_validation_item_to_str(warning))
 
-            # Then raise an exception validation failed
+            # Then raise an exception if validation failed
             if result_data["status"] == "FAIL":
                 messages = [
                     _validation_item_to_str(error)
-                    for error in (result_data.get("errors", []))
+                    for error in result_data.get("errors", [])
                 ]
                 raise SetupScriptFailedValidation(messages)
 
