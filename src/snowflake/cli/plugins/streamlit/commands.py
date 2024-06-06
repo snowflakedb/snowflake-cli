@@ -13,7 +13,7 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import ReplaceOption, like_option
 from snowflake.cli.api.commands.project_initialisation import add_init_command
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyper, SnowTyperCreator
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
@@ -28,10 +28,6 @@ from snowflake.cli.plugins.object.command_aliases import (
 )
 from snowflake.cli.plugins.streamlit.manager import StreamlitManager
 
-app = SnowTyper(
-    name="streamlit",
-    help="Manages a Streamlit app in Snowflake.",
-)
 log = logging.getLogger(__name__)
 
 
@@ -45,25 +41,36 @@ OpenOption = typer.Option(
     is_flag=True,
 )
 
-add_init_command(
-    app,
-    project_type="Streamlit",
-    template="default_streamlit",
-    help_message="Name of the Streamlit app project directory you want to create. Defaults to `example_streamlit`.",
-)
 
-add_object_command_aliases(
-    app=app,
-    object_type=ObjectType.STREAMLIT,
-    name_argument=StreamlitNameArgument,
-    like_option=like_option(
-        help_example='`list --like "my%"` lists all streamlit apps that begin with “my”'
-    ),
-    scope_option=scope_option(help_example="`list --in database my_db`"),
-)
+class StreamlitAppCreator(SnowTyperCreator):
+    def create_app(self):
+        app = SnowTyper(
+            name="streamlit",
+            help="Manages a Streamlit app in Snowflake.",
+        )
+        self.register_commands(app)
+        add_init_command(
+            app,
+            project_type="Streamlit",
+            template="default_streamlit",
+            help_message="Name of the Streamlit app project directory you want to create. Defaults to `example_streamlit`.",
+        )
+        add_object_command_aliases(
+            app=app,
+            object_type=ObjectType.STREAMLIT,
+            name_argument=StreamlitNameArgument,
+            like_option=like_option(
+                help_example='`list --like "my%"` lists all streamlit apps that begin with “my”'
+            ),
+            scope_option=scope_option(help_example="`list --in database my_db`"),
+        )
+        return app
 
 
-@app.command("share", requires_connection=True)
+app_creator = StreamlitAppCreator()
+
+
+@app_creator.command("share", requires_connection=True)
 def streamlit_share(
     name: str = StreamlitNameArgument,
     to_role: str = typer.Argument(
@@ -93,7 +100,7 @@ def _default_file_callback(param_name: str):
     return _check_file_exists_if_not_default
 
 
-@app.command("deploy", requires_connection=True)
+@app_creator.command("deploy", requires_connection=True)
 @with_project_definition("streamlit")
 @with_experimental_behaviour()
 def streamlit_deploy(
@@ -144,7 +151,7 @@ def streamlit_deploy(
     return MessageResult(f"Streamlit successfully deployed and available under {url}")
 
 
-@app.command("get-url", requires_connection=True)
+@app_creator.command("get-url", requires_connection=True)
 def get_url(
     name: str = StreamlitNameArgument,
     open_: bool = OpenOption,
