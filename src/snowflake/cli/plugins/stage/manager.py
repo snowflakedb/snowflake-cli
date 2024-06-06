@@ -50,11 +50,8 @@ class StageManager(SqlExecutionMixin):
     @staticmethod
     def get_standard_stage_prefix(name: str) -> str:
         # Handle embedded stages
-        if name.startswith("@"):
+        if name.startswith("snow://") or name.startswith("@"):
             return name
-
-        if name.startswith("snow://"):
-            return f"@{name[7:]}"
 
         return f"@{name}"
 
