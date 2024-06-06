@@ -440,7 +440,9 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
     with project_directory("example_streamlit"):
         result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
-    root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+    root_path = (
+        f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+    )
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         dedent(
@@ -502,7 +504,9 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
 
     assert result2.exit_code == 0, result2.output
 
-    root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+    root_path = (
+        f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+    )
 
     # Same as normal, except no CHECKOUT query
     assert ctx.get_queries() == [
@@ -541,7 +545,9 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
     with project_directory("example_streamlit_no_stage"):
         result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
-    root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+    root_path = (
+        f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+    )
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         dedent(
@@ -580,7 +586,9 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
     with project_directory("example_streamlit"):
         result = runner.invoke(["streamlit", "deploy", "--experimental", "--replace"])
 
-    root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+    root_path = (
+        f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+    )
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         dedent(
