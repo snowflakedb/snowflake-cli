@@ -18,7 +18,7 @@ from snowflake.cli.api.commands.flags import (
     like_option,
 )
 from snowflake.cli.api.commands.project_initialisation import add_init_command
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyper, SnowTyperCreator
 from snowflake.cli.api.constants import (
     DEFAULT_SIZE_LIMIT_MB,
     DEPLOYMENT_STAGE,
@@ -63,6 +63,9 @@ from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
     AnacondaPackagesManager,
 )
+from snowflake.cli.plugins.snowpark.package.commands import (
+    app_creator as package_app_creator,
+)
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
@@ -77,12 +80,23 @@ from snowflake.cli.plugins.snowpark.zipper import zip_dir
 from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import DictCursor, ProgrammingError
 
+
+class SnowparkAppCreator(SnowTyperCreator):
+    def create_app(self):
+        app = SnowTyper(
+            name="snowpark",
+            help="Manages procedures and functions.",
+        )
+        app.add_typer(package_app_creator.create_app())
+        add_init_command(app, project_type="Snowpark", template="default_snowpark")
+        self.register_commands(app)
+        return app
+
+
+app_creator = SnowparkAppCreator()
+
 log = logging.getLogger(__name__)
 
-app = SnowTyper(
-    name="snowpark",
-    help="Manages procedures and functions.",
-)
 
 ObjectTypeArgument = typer.Argument(
     help="Type of Snowpark object",
@@ -96,10 +110,9 @@ IdentifierArgument = identifier_argument(
 LikeOption = like_option(
     help_example='`list function --like "my%"` lists all functions that begin with “my”',
 )
-add_init_command(app, project_type="Snowpark", template="default_snowpark")
 
 
-@app.command("deploy", requires_connection=True)
+@app_creator.command("deploy", requires_connection=True)
 @with_project_definition("snowpark")
 def deploy(
     replace: bool = ReplaceOption(
@@ -362,7 +375,7 @@ def _read_snowflake_requrements_file(file_path: SecurePath):
     return file_path.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB).splitlines()
 
 
-@app.command("build", requires_connection=True)
+@app_creator.command("build", requires_connection=True)
 @with_project_definition("snowpark")
 def build(
     ignore_anaconda: bool = IgnoreAnacondaOption,
@@ -473,7 +486,7 @@ def _execute_object_method(
     return getattr(manager, method_name)(**kwargs)
 
 
-@app.command("execute", requires_connection=True)
+@app_creator.command("execute", requires_connection=True)
 def execute(
     object_type: _SnowparkObject = ObjectTypeArgument,
     execution_identifier: str = execution_identifier_argument(
@@ -488,7 +501,7 @@ def execute(
     return SingleQueryResult(cursor)
 
 
-@app.command("list", requires_connection=True)
+@app_creator.command("list", requires_connection=True)
 def list_(
     object_type: _SnowparkObject = ObjectTypeArgument,
     like: str = LikeOption,
@@ -501,7 +514,7 @@ def list_(
     object_list(object_type=object_type.value, like=like, scope=scope, **options)
 
 
-@app.command("drop", requires_connection=True)
+@app_creator.command("drop", requires_connection=True)
 def drop(
     object_type: _SnowparkObject = ObjectTypeArgument,
     identifier: str = IdentifierArgument,
@@ -511,7 +524,7 @@ def drop(
     object_drop(object_type=object_type.value, object_name=identifier, **options)
 
 
-@app.command("describe", requires_connection=True)
+@app_creator.command("describe", requires_connection=True)
 def describe(
     object_type: _SnowparkObject = ObjectTypeArgument,
     identifier: str = IdentifierArgument,

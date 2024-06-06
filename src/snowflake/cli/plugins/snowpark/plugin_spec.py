@@ -4,7 +4,7 @@ from snowflake.cli.api.plugins.command import (
     CommandType,
     plugin_hook_impl,
 )
-from snowflake.cli.plugins.snowpark import app as snowpark_app
+from snowflake.cli.plugins.snowpark import commands
 
 
 @plugin_hook_impl
@@ -12,5 +12,5 @@ def command_spec():
     return CommandSpec(
         parent_command_path=SNOWCLI_ROOT_COMMAND_PATH,
         command_type=CommandType.COMMAND_GROUP,
-        typer_instance=snowpark_app,
+        typer_instance=commands.app_creator.create_app(),
     )

@@ -10,7 +10,7 @@ from click import ClickException
 from snowflake.cli.api.commands.flags import (
     deprecated_flag_callback,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyper, SnowTyperCreator
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
@@ -37,10 +37,18 @@ from snowflake.cli.plugins.snowpark.snowpark_shared import (
 )
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
 
-app = SnowTyper(
-    name="package",
-    help="Manages custom Python packages for Snowpark",
-)
+
+class SnowparkPackageAppCreator(SnowTyperCreator):
+    def create_app(self):
+        app = SnowTyper(
+            name="package",
+            help="Manages custom Python packages for Snowpark",
+        )
+        self.register_commands(app)
+        return app
+
+
+app_creator = SnowparkPackageAppCreator()
 log = logging.getLogger(__name__)
 
 
@@ -66,7 +74,7 @@ lookup_deprecated_install_option = typer.Option(
 )
 
 
-@app.command("lookup", requires_connection=True)
+@app_creator.command("lookup", requires_connection=True)
 def package_lookup(
     package_name: str = typer.Argument(
         ..., help="Name of the package.", show_default=False
@@ -103,7 +111,7 @@ def package_lookup(
     )
 
 
-@app.command("upload", requires_connection=True)
+@app_creator.command("upload", requires_connection=True)
 def package_upload(
     file: Path = typer.Option(
         ...,
@@ -154,7 +162,7 @@ deprecated_install_option = typer.Option(
 )
 
 
-@app.command("create", requires_connection=True)
+@app_creator.command("create", requires_connection=True)
 def package_create(
     name: str = typer.Argument(
         ...,
