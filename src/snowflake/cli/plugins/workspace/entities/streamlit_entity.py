@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
 from snowflake.cli.plugins.workspace.entities.entity_base import Entity
@@ -33,16 +31,7 @@ class StreamlitEntity(Entity):
             name=self.config["name"],
             main_file=self.config["main_file"],
         )
-        streamlit_name = FQN.from_identifier_model(streamlit).using_context()
-        plan.add_sql(
-            f"CREATE STAGE IF NOT EXISTS {db_name}.{schema_name}.{stage_name};"
-        )
-        plan.add_sql(
-            f"""PUT file://{Path(streamlit.main_file)} @{db_name}.{schema_name}.{stage_name}/{streamlit_name}
-    auto_compress=false
-    parallel=4
-    overwrite=True;"""
-        )
+        streamlit_name = FQN.from_identifier_model(streamlit)
         plan.add_sql(
             f"""CREATE OR REPLACE STREAMLIT {db_name}.{schema_name}.{streamlit_name}
     ROOT_LOCATION = '@{db_name}.{schema_name}.{stage_name}/{streamlit_name}'

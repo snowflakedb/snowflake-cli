@@ -40,6 +40,9 @@ class DeployContext:
             raise ValueError(f"No such entity: {key}")
         return self.entities[key]
 
+    def get_wh_name(self):
+        return cli_context.connection.warehouse
+
     def get_db_name(self):
         return cli_context.connection.database
 

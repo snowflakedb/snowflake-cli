@@ -12,7 +12,7 @@ class Entity(ABC):
         plan.add_sql(f"-- <{self.config['key']}>")
         self.compile_artifacts(ctx, plan)
         self.create_deploy_plan_impl(ctx, plan)
-        plan.add_sql(f"-- </{self.config['key']}>")
+        plan.add_sql(f"-- </{self.config['key']}>\n")
 
     @abstractmethod
     def create_deploy_plan_impl(self, ctx, plan, *args, **kwargs):
@@ -22,5 +22,6 @@ class Entity(ABC):
         if "meta" in self.config and "files" in self.config["meta"]:
             if not stage:
                 stage = ctx.get_stage_name()
-            source = self.config["meta"]["files"]
-            plan.add_files(source, f"output/deploy/{stage}")
+            artifacts = self.config["meta"]["files"]
+            for artifact in artifacts:
+                plan.add_artifact(artifact, stage)

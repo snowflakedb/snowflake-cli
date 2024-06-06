@@ -28,7 +28,16 @@ def deploy(
                 "stage": "my_stage",  # used when deployed as standalone
                 "main_file": "src/ui/main.py",
                 "meta": {
-                    "files": "src/ui/**/*",
+                    "files": [
+                        {
+                            "src": "src/ui/main.py",
+                            "dest": "main.py",
+                        },
+                        {
+                            "src": "src/ui/environment.yml",
+                            "dest": "environment.yml",
+                        },
+                    ],
                 },
                 "depends_on": ["datalog"],
             },
@@ -47,7 +56,20 @@ def deploy(
                     }
                 ],
                 "meta": {
-                    "files": "src/app/**/*",
+                    "files": [
+                        {
+                            "src": "src/app/README.md",
+                            "dest": "README.md",
+                        },
+                        {
+                            "src": "src/app/manifest.yml",
+                            "dest": "manifest.yml",
+                        },
+                        {
+                            "src": "src/app/setup_script.sql",
+                            "dest": "setup_script.sql",
+                        },
+                    ],
                 },
             },
             "app": {
