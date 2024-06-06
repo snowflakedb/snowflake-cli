@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import typer
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyper, SnowTyperInstance
 from snowflake.cli.api.output.types import MessageResult
 from typer.testing import CliRunner
 
@@ -15,7 +15,7 @@ def class_factory(
     exception_handler=None,
     post_execute=None,
 ):
-    class _CustomTyper(SnowTyper):
+    class _CustomTyper(SnowTyperInstance):
         @staticmethod
         def pre_execute():
             if pre_execute:
@@ -35,6 +35,9 @@ def class_factory(
         def exception_handler(err):
             if exception_handler:
                 exception_handler(err)
+
+        def create_app(self):
+            return self
 
     return _CustomTyper
 
@@ -69,7 +72,7 @@ def app_factory(typer_cls):
     def cmd_witch_enabled_switch():
         return MessageResult("Enabled")
 
-    return app
+    return app.create_app()
 
 
 @pytest.fixture
