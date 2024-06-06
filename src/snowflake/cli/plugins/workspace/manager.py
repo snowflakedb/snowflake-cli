@@ -20,6 +20,7 @@ class WorkspaceManager:
         # TODO Build dependency graph & topological sort
         if key == "ui":
             deploy_order = [
+                self.ctx.get_entity("datalog"),
                 self.ctx.get_entity("ui"),
             ]
         elif key == "app":

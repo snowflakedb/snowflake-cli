@@ -7,9 +7,7 @@ class ApplicationPackageEntity(Entity):
     def __init__(self, entity_config):
         super().__init__(entity_config)
 
-    def create_deploy_plan(self, ctx, plan, *args, **kwargs):
-        self.compile_artifacts(ctx, plan)
-        plan.add_sql(f"-- <{self.config['key']}>")
+    def create_deploy_plan_impl(self, ctx, plan, *args, **kwargs):
         plan.add_sql(f"CREATE SCHEMA IF NOT EXISTS {ctx.get_schema_name()};")
 
         for child_config in self.config["children"]:
@@ -18,4 +16,3 @@ class ApplicationPackageEntity(Entity):
             child_entity.create_deploy_plan(ctx, plan, self)
 
         plan.add_sql(f"CREATE APPLICATION PACKAGE IF NOT EXISTS {self.config['name']};")
-        plan.add_sql(f"-- </{self.config['key']}>")

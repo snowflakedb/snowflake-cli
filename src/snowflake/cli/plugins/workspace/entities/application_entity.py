@@ -7,15 +7,13 @@ class ApplicationEntity(Entity):
     def __init__(self, entity_config):
         super().__init__(entity_config)
 
-    def create_deploy_plan(self, ctx, plan, *args, **kwargs):
-        self.compile_artifacts(ctx, plan)
+    def create_deploy_plan_impl(self, ctx, plan, *args, **kwargs):
         app_name = self.config["name"]
         pkg_entity = ctx.get_entity(self.config["from"])
         app_pkg_name = pkg_entity.config["name"]
         schema = ctx.get_schema_name()
         stage = ctx.get_stage_name()
-        plan.add_sql(f"-- <{self.config['key']}>")
+
         plan.add_sql(
             f"CREATE APPLICATION IF NOT EXISTS {app_name} USING '@{app_pkg_name}.{schema}.{stage}/src/app';"
         )
-        plan.add_sql(f"-- </{self.config['key']}>")

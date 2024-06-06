@@ -8,7 +8,7 @@ app = SnowTyper(
 )
 
 
-@app.command(requires_connection=False)
+@app.command(requires_connection=True)
 def deploy(
     key: str,
     **options,
@@ -25,10 +25,17 @@ def deploy(
             "ui": {
                 "type": "streamlit",
                 "name": "dashboard",
-                "stage": "stage2",  # used when deployed as standalone
+                "stage": "my_stage",  # used when deployed as standalone
+                "main_file": "src/ui/main.py",
                 "meta": {
                     "files": "src/ui/**/*",
                 },
+                "depends_on": ["datalog"],
+            },
+            "datalog": {
+                "type": "table",
+                "name": "log",
+                "columns": ["value TEXT NOT NULL"],
             },
             "pkg": {
                 "type": "application package",
@@ -43,7 +50,12 @@ def deploy(
                     "files": "src/app/**/*",
                 },
             },
-            "app": {"type": "application", "from": "pkg", "name": "myapp"},
+            "app": {
+                #
+                "type": "application",
+                "from": "pkg",
+                "name": "myapp",
+            },
         },
     }
 
