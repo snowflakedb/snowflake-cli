@@ -10,7 +10,7 @@ from typing_extensions import Annotated
 
 
 class NotebookAppCreator(SnowTyperCreator):
-    def create_app(self):
+    def create_app(self) -> SnowTyper:
         app = SnowTyper(
             name="notebook",
             help="Manages notebooks in Snowflake.",

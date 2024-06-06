@@ -82,7 +82,7 @@ from snowflake.connector import DictCursor, ProgrammingError
 
 
 class SnowparkAppCreator(SnowTyperCreator):
-    def create_app(self):
+    def create_app(self) -> SnowTyper:
         app = SnowTyper(
             name="snowpark",
             help="Manages procedures and functions.",

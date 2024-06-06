@@ -14,7 +14,7 @@ from snowflake.cli.plugins.sql.manager import SqlManager
 
 
 class SqlAppCreator(SnowTyperCreator):
-    def create_app(self):
+    def create_app(self) -> SnowTyper:
         # simple Typer with defaults because it won't become a command group as it contains only one command
         app = SnowTyper()
         self.register_commands(app)

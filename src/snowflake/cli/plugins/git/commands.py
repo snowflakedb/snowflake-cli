@@ -28,7 +28,7 @@ from snowflake.cli.plugins.stage.manager import OnErrorType
 
 
 class GitCommandsCreator(SnowTyperCreator):
-    def create_app(self):
+    def create_app(self) -> SnowTyper:
         app = SnowTyper(
             name="git",
             help="Manages git repositories in Snowflake.",

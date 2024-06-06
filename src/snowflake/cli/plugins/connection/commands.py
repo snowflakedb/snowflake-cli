@@ -34,7 +34,7 @@ from snowflake.connector.config_manager import CONFIG_MANAGER
 
 
 class ConnectionAppCreator(SnowTyperCreator):
-    def create_app(self):
+    def create_app(self) -> SnowTyper:
         app = SnowTyper(
             name="connection",
             help="Manages connections to Snowflake.",

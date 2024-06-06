@@ -28,7 +28,7 @@ from snowflake.cli.plugins.cortex.types import (
 
 
 class CortexAppCreator(SnowTyperCreator):
-    def create_app(self):
+    def create_app(self) -> SnowTyper:
         app = SnowTyper(
             name="cortex",
             help="Provides access to Snowflake Cortex.",

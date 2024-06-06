@@ -43,7 +43,7 @@ OpenOption = typer.Option(
 
 
 class StreamlitAppCreator(SnowTyperCreator):
-    def create_app(self):
+    def create_app(self) -> SnowTyper:
         app = SnowTyper(
             name="streamlit",
             help="Manages a Streamlit app in Snowflake.",
