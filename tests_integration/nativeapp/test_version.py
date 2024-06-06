@@ -252,7 +252,7 @@ def test_nativeapp_version_create_patch_is_integer(
                 ],
                 env=TEST_ENV,
             )
-            assert result.exit_code == 1
+            assert result.exit_code == 2
             assert (
                 "Invalid value for '--patch': 'foo' is not a valid integer."
                 in result.output
