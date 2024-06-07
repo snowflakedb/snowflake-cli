@@ -203,7 +203,7 @@ class NativeAppManager(SqlExecutionMixin):
 
     @cached_property
     def scratch_stage_fqn(self) -> str:
-        return f"{self.stage_fqn}{self.definition.scratch_stage_suffix}"  # TODO use template after Michel's PR is merged
+        return f"{self.package_name}.{self.definition.scratch_stage}"
 
     @cached_property
     def stage_schema(self) -> Optional[str]:
