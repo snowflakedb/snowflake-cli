@@ -29,11 +29,11 @@ class ApplicationPackageAlreadyExistsError(ClickException):
 
 
 class ApplicationPackageDoesNotExistError(ClickException):
-    """An application package of the specified name does not exist in the Snowflake account."""
+    """An application package of the specified name does not exist in the Snowflake account or the current role isn't authorized."""
 
     def __init__(self, name: str):
         super().__init__(
-            f"Application Package {name} does not exist in the Snowflake account."
+            f"Application Package {name} does not exist in the Snowflake account or not authorized."
         )
 
 

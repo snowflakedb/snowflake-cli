@@ -52,6 +52,7 @@ from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
     ERROR_MESSAGE_606,
+    ERROR_MESSAGE_2003,
     ERROR_MESSAGE_2043,
     INTERNAL_DISTRIBUTION,
     NAME_COL,
@@ -621,7 +622,7 @@ class NativeAppManager(SqlExecutionMixin):
                 f"call system$validate_native_app_setup('{prefixed_stage_fqn}')"
             )
         except ProgrammingError as err:
-            if "does not exist or not authorized" in err.msg:
+            if err.errno == 2003 and ERROR_MESSAGE_2003 in err.msg:
                 raise ApplicationPackageDoesNotExistError(self.package_name)
             generic_sql_error_handler(err)
         else:
