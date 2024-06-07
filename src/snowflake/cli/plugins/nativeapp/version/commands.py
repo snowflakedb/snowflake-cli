@@ -38,7 +38,7 @@ def create(
         None,
         help=f"""Version to define in your application package. If the version already exists, an auto-incremented patch is added to the version instead. Defaults to the version specified in the `manifest.yml` file.""",
     ),
-    patch: Optional[str] = typer.Option(
+    patch: Optional[int] = typer.Option(
         None,
         "--patch",
         help=f"""The patch number you want to create for an existing version.

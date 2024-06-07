@@ -25,6 +25,7 @@
   │ connection   Manages connections to Snowflake.                               │
   │ cortex       Provides access to Snowflake Cortex.                            │
   │ git          Manages git repositories in Snowflake.                          │
+  │ notebook     Manages notebooks in Snowflake.                                 │
   │ object       Manages Snowflake objects like warehouses and stages            │
   │ snowpark     Manages procedures and functions.                               │
   │ spcs         Manages Snowpark Container Services compute pools, services,    │
@@ -319,76 +320,79 @@
    application package.                                                           
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --version                                       TEXT  The version defined in │
-  │                                                       an existing            │
-  │                                                       application package    │
-  │                                                       from which you want to │
-  │                                                       create an application  │
-  │                                                       object. The            │
-  │                                                       application object and │
-  │                                                       application package    │
-  │                                                       names are determined   │
-  │                                                       from the project       │
-  │                                                       definition file.       │
-  │                                                       [default: None]        │
-  │ --patch                                         TEXT  The patch number under │
-  │                                                       the given `--version`  │
-  │                                                       defined in an existing │
-  │                                                       application package    │
-  │                                                       that should be used to │
-  │                                                       create an application  │
-  │                                                       object. The            │
-  │                                                       application object and │
-  │                                                       application package    │
-  │                                                       names are determined   │
-  │                                                       from the project       │
-  │                                                       definition file.       │
-  │                                                       [default: None]        │
-  │ --from-release-direct…                                Creates or upgrades an │
-  │                                                       application object to  │
-  │                                                       the version and patch  │
-  │                                                       specified by the       │
-  │                                                       release directive      │
-  │                                                       applicable to your     │
-  │                                                       Snowflake account. The │
-  │                                                       command fails if no    │
-  │                                                       release directive      │
-  │                                                       exists for your        │
-  │                                                       Snowflake account for  │
-  │                                                       a given application    │
-  │                                                       package, which is      │
-  │                                                       determined from the    │
-  │                                                       project definition     │
-  │                                                       file. Default: unset.  │
-  │ --interactive               --no-interactive          When enabled, this     │
-  │                                                       option displays        │
-  │                                                       prompts even if the    │
-  │                                                       standard input and     │
-  │                                                       output are not         │
-  │                                                       terminal devices.      │
-  │                                                       Defaults to True in an │
-  │                                                       interactive shell      │
-  │                                                       environment, and False │
-  │                                                       otherwise.             │
-  │ --force                                               When enabled, this     │
-  │                                                       option causes the      │
-  │                                                       command to implicitly  │
-  │                                                       approve any prompts    │
-  │                                                       that arise. You should │
-  │                                                       enable this option if  │
-  │                                                       interactive mode is    │
-  │                                                       not specified and if   │
-  │                                                       you want perform       │
-  │                                                       potentially            │
-  │                                                       destructive actions.   │
-  │                                                       Defaults to unset.     │
-  │ --project               -p                      TEXT  Path where the         │
-  │                                                       Snowflake Native App   │
-  │                                                       project resides.       │
-  │                                                       Defaults to current    │
-  │                                                       working directory.     │
-  │ --help                  -h                            Show this message and  │
-  │                                                       exit.                  │
+  │ --version                                     TEXT     The version defined   │
+  │                                                        in an existing        │
+  │                                                        application package   │
+  │                                                        from which you want   │
+  │                                                        to create an          │
+  │                                                        application object.   │
+  │                                                        The application       │
+  │                                                        object and            │
+  │                                                        application package   │
+  │                                                        names are determined  │
+  │                                                        from the project      │
+  │                                                        definition file.      │
+  │                                                        [default: None]       │
+  │ --patch                                       INTEGER  The patch number      │
+  │                                                        under the given       │
+  │                                                        `--version` defined   │
+  │                                                        in an existing        │
+  │                                                        application package   │
+  │                                                        that should be used   │
+  │                                                        to create an          │
+  │                                                        application object.   │
+  │                                                        The application       │
+  │                                                        object and            │
+  │                                                        application package   │
+  │                                                        names are determined  │
+  │                                                        from the project      │
+  │                                                        definition file.      │
+  │                                                        [default: None]       │
+  │ --from-release-dire…                                   Creates or upgrades   │
+  │                                                        an application object │
+  │                                                        to the version and    │
+  │                                                        patch specified by    │
+  │                                                        the release directive │
+  │                                                        applicable to your    │
+  │                                                        Snowflake account.    │
+  │                                                        The command fails if  │
+  │                                                        no release directive  │
+  │                                                        exists for your       │
+  │                                                        Snowflake account for │
+  │                                                        a given application   │
+  │                                                        package, which is     │
+  │                                                        determined from the   │
+  │                                                        project definition    │
+  │                                                        file. Default: unset. │
+  │ --interactive             --no-interactive             When enabled, this    │
+  │                                                        option displays       │
+  │                                                        prompts even if the   │
+  │                                                        standard input and    │
+  │                                                        output are not        │
+  │                                                        terminal devices.     │
+  │                                                        Defaults to True in   │
+  │                                                        an interactive shell  │
+  │                                                        environment, and      │
+  │                                                        False otherwise.      │
+  │ --force                                                When enabled, this    │
+  │                                                        option causes the     │
+  │                                                        command to implicitly │
+  │                                                        approve any prompts   │
+  │                                                        that arise. You       │
+  │                                                        should enable this    │
+  │                                                        option if interactive │
+  │                                                        mode is not specified │
+  │                                                        and if you want       │
+  │                                                        perform potentially   │
+  │                                                        destructive actions.  │
+  │                                                        Defaults to unset.    │
+  │ --project             -p                      TEXT     Path where the        │
+  │                                                        Snowflake Native App  │
+  │                                                        project resides.      │
+  │                                                        Defaults to current   │
+  │                                                        working directory.    │
+  │ --help                -h                               Show this message and │
+  │                                                        exit.                 │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
@@ -550,45 +554,49 @@
   │                           [default: None]                                    │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --patch                                   TEXT  The patch number you want to │
-  │                                                 create for an existing       │
-  │                                                 version. Defaults to         │
-  │                                                 undefined if it is not set,  │
-  │                                                 which means the Snowflake    │
-  │                                                 CLI either uses the patch    │
-  │                                                 specified in the             │
-  │                                                 `manifest.yml` file or       │
-  │                                                 automatically generates a    │
-  │                                                 new patch number.            │
-  │                                                 [default: None]              │
-  │ --skip-git-check                                When enabled, the Snowflake  │
-  │                                                 CLI skips checking if your   │
-  │                                                 project has any untracked or │
-  │                                                 stages files in git.         │
-  │                                                 Default: unset.              │
-  │ --interactive         --no-interactive          When enabled, this option    │
-  │                                                 displays prompts even if the │
-  │                                                 standard input and output    │
-  │                                                 are not terminal devices.    │
-  │                                                 Defaults to True in an       │
-  │                                                 interactive shell            │
-  │                                                 environment, and False       │
-  │                                                 otherwise.                   │
-  │ --force                                         When enabled, this option    │
-  │                                                 causes the command to        │
-  │                                                 implicitly approve any       │
-  │                                                 prompts that arise. You      │
-  │                                                 should enable this option if │
-  │                                                 interactive mode is not      │
-  │                                                 specified and if you want    │
-  │                                                 perform potentially          │
-  │                                                 destructive actions.         │
-  │                                                 Defaults to unset.           │
-  │ --project         -p                      TEXT  Path where the Snowflake     │
-  │                                                 Native App project resides.  │
-  │                                                 Defaults to current working  │
-  │                                                 directory.                   │
-  │ --help            -h                            Show this message and exit.  │
+  │ --patch                                   INTEGER  The patch number you want │
+  │                                                    to create for an existing │
+  │                                                    version. Defaults to      │
+  │                                                    undefined if it is not    │
+  │                                                    set, which means the      │
+  │                                                    Snowflake CLI either uses │
+  │                                                    the patch specified in    │
+  │                                                    the `manifest.yml` file   │
+  │                                                    or automatically          │
+  │                                                    generates a new patch     │
+  │                                                    number.                   │
+  │                                                    [default: None]           │
+  │ --skip-git-check                                   When enabled, the         │
+  │                                                    Snowflake CLI skips       │
+  │                                                    checking if your project  │
+  │                                                    has any untracked or      │
+  │                                                    stages files in git.      │
+  │                                                    Default: unset.           │
+  │ --interactive         --no-interactive             When enabled, this option │
+  │                                                    displays prompts even if  │
+  │                                                    the standard input and    │
+  │                                                    output are not terminal   │
+  │                                                    devices. Defaults to True │
+  │                                                    in an interactive shell   │
+  │                                                    environment, and False    │
+  │                                                    otherwise.                │
+  │ --force                                            When enabled, this option │
+  │                                                    causes the command to     │
+  │                                                    implicitly approve any    │
+  │                                                    prompts that arise. You   │
+  │                                                    should enable this option │
+  │                                                    if interactive mode is    │
+  │                                                    not specified and if you  │
+  │                                                    want perform potentially  │
+  │                                                    destructive actions.      │
+  │                                                    Defaults to unset.        │
+  │ --project         -p                      TEXT     Path where the Snowflake  │
+  │                                                    Native App project        │
+  │                                                    resides. Defaults to      │
+  │                                                    current working           │
+  │                                                    directory.                │
+  │ --help            -h                               Show this message and     │
+  │                                                    exit.                     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
@@ -6334,7 +6342,9 @@
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    source_path           TEXT  Source path for copy operation. Can be      │
-  │                                  either stage path or local.                 │
+  │                                  either stage path or local. You can use a   │
+  │                                  glob pattern for local files but the        │
+  │                                  pattern has to be enclosed in quotes.       │
   │                                  [required]                                  │
   │ *    destination_path      TEXT  Target directory path for copy operation.   │
   │                                  Should be stage if source is local or local │
@@ -7508,6 +7518,7 @@
   │ connection   Manages connections to Snowflake.                               │
   │ cortex       Provides access to Snowflake Cortex.                            │
   │ git          Manages git repositories in Snowflake.                          │
+  │ notebook     Manages notebooks in Snowflake.                                 │
   │ object       Manages Snowflake objects like warehouses and stages            │
   │ snowpark     Manages procedures and functions.                               │
   │ spcs         Manages Snowpark Container Services compute pools, services,    │
