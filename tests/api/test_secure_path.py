@@ -1,3 +1,4 @@
+import os
 import re
 import shutil
 import stat
@@ -26,6 +27,13 @@ def save_logs(snowflake_home):
     yield logs_path
 
     shutil.rmtree(logs_path)
+
+
+@pytest.fixture()
+def _widen_umask_for_testing():
+    os.umask(0o000)
+    yield
+    os.umask(0o077)
 
 
 def _read_logs(logs_path: Path) -> str:
@@ -64,7 +72,7 @@ def test_read_text(temp_dir, save_logs):
         SecurePath(save_logs).read_text(file_size_limit_mb=100)
 
 
-def test_write_text(temp_dir, save_logs):
+def test_write_text(temp_dir, save_logs, _widen_umask_for_testing):
     # not existing file
     path = Path(temp_dir) / "file.txt"
     text = "What say you, noble knight?"
@@ -87,7 +95,7 @@ def test_write_text(temp_dir, save_logs):
     )
 
 
-def test_open_write(temp_dir, save_logs):
+def test_open_write(temp_dir, save_logs, _widen_umask_for_testing):
     path = SecurePath(temp_dir) / "file.txt"
     with path.open("w") as fd:
         # permissions are limited on freshly-created file
@@ -148,6 +156,14 @@ def test_iterdir(temp_dir):
     assert counter == 5
 
 
+def test_default_permissions(temp_dir, _widen_umask_for_testing):
+    s_temp_dir = SecurePath(temp_dir)
+    # test default permissions
+    file1 = s_temp_dir / "file1.txt"
+    file1.touch()
+    assert_file_permissions_are_strict(file1.path)
+
+
 def test_permissions(temp_dir, save_logs):
     s_temp_dir = SecurePath(temp_dir)
     # test default permissions
@@ -177,7 +193,7 @@ def test_permissions(temp_dir, save_logs):
     )
 
 
-def test_mkdir(temp_dir, save_logs):
+def test_mkdir(temp_dir, save_logs, _widen_umask_for_testing):
     dir1 = SecurePath(temp_dir) / "dir1"
     dir2 = SecurePath(temp_dir) / "dir2" / "a" / "b" / "c" / "d"
     dir2_regex = "[\/]".join(["dir2", "a", "b", "c", "d"])
@@ -275,7 +291,7 @@ def test_move(temp_dir, save_logs):
         dir_.move("moved_dir")
 
 
-def test_copy_file(temp_dir, save_logs):
+def test_copy_file(temp_dir, save_logs, _widen_umask_for_testing):
     file = SecurePath(temp_dir) / "file.txt"
     file.touch()
     file.chmod(permissions_mask=0o660)
@@ -303,7 +319,7 @@ def test_copy_file(temp_dir, save_logs):
     )
 
 
-def test_copy_directory(temp_dir, save_logs):
+def test_copy_directory(temp_dir, save_logs, _widen_umask_for_testing):
     files = [
         "dir/",
         "dir/file1.txt",
@@ -484,7 +500,7 @@ def test_rm(temp_dir, save_logs):
     _assert_count_matching_logs(save_logs, 2, "Removing directory", "base")
 
 
-def test_temporary_directory(save_logs):
+def test_temporary_directory(save_logs, _widen_umask_for_testing):
     with SecurePath.temporary_directory() as sdir:
         _assert_count_matching_logs(save_logs, 1, "Created temporary directory", "")
 
