@@ -43,7 +43,10 @@ from snowflake.cli.plugins.stage.diff import to_stage_path
 DEFAULT_TIMEOUT = 30
 TEMPLATE_PATH = Path(__file__).parent / "callback_source.py.jinja"
 SNOWPARK_LIB_NAME = "snowflake-snowpark-python"
-SNOWPARK_LIB_REGEX = rf"'{SNOWPARK_LIB_NAME}\s*((<|<=|!=|==|>=|>|~=|===)\s*[a-zA-Z0-9_.*+!-]+)?'"  # support PEP 508, even though not all of it is supported in Snowflake yet
+SNOWPARK_LIB_REGEX = re.compile(
+    # support PEP 508, even though not all of it is supported in Snowflake yet
+    rf"'{SNOWPARK_LIB_NAME}\s*((<|<=|!=|==|>=|>|~=|===)\s*[a-zA-Z0-9_.*+!-]+)?'"
+)
 STAGE_PREFIX = "@"
 
 
@@ -266,14 +269,12 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         # If user defined their udf as @udf(lambda: x, ...) then extension_fn.handler is <lambda>.
         extension_fn.handler = f"{py_file.stem}.{extension_fn.handler}"
 
-        snowpark_lib_found = False
-        snowpark_lib_regex = re.compile(SNOWPARK_LIB_REGEX)
-        for pkg in extension_fn.packages:
-            if snowpark_lib_regex.fullmatch(ensure_string_literal(pkg.strip())):
-                snowpark_lib_found = True
-                break
-        if not snowpark_lib_found:
-            extension_fn.packages.append(SNOWPARK_LIB_NAME)
+        extension_fn.packages = [
+            self._normalize_package_name(pkg) for pkg in extension_fn.packages
+        ]
+        snowpark_lib_name = ensure_string_literal(SNOWPARK_LIB_NAME)
+        if snowpark_lib_name not in extension_fn.packages:
+            extension_fn.packages.append(snowpark_lib_name)
 
         if extension_fn.imports is None:
             extension_fn.imports = []
@@ -282,6 +283,23 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
             py_file=py_file,
             deploy_root=deploy_root,
         )
+
+    def _normalize_package_name(self, pkg: str) -> str:
+        """
+        Returns a normalized version of the provided package name, as a Snowflake SQL string literal. Since the
+        Snowpark library can sometimes add a spurious version to its own package name, we strip this here too so
+        that the native application does not accidentally rely on stale packages once the snowpark library is updated
+        in the cloud.
+
+        Args:
+            pkg (str): The package name to normalize.
+        Returns:
+            A normalized version of the package name, as a Snowflake SQL string literal.
+        """
+        normalized_package_name = ensure_string_literal(pkg.strip())
+        if SNOWPARK_LIB_REGEX.fullmatch(normalized_package_name):
+            return ensure_string_literal(SNOWPARK_LIB_NAME)
+        return normalized_package_name
 
     def collect_extension_functions(
         self, bundle_map: BundleMap, processor_mapping: Optional[ProcessorMapping]
