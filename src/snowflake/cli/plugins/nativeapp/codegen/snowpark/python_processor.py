@@ -271,8 +271,9 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         extension_fn.packages = [
             self._normalize_package_name(pkg) for pkg in extension_fn.packages
         ]
-        if SNOWPARK_LIB_NAME not in extension_fn.packages:
-            extension_fn.packages.append(SNOWPARK_LIB_NAME)
+        snowpark_lib_name = ensure_string_literal(SNOWPARK_LIB_NAME)
+        if snowpark_lib_name not in extension_fn.packages:
+            extension_fn.packages.append(snowpark_lib_name)
 
         if extension_fn.imports is None:
             extension_fn.imports = []
@@ -296,7 +297,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         """
         normalized_package_name = ensure_string_literal(pkg.strip())
         if SNOWPARK_LIB_REGEX.fullmatch(normalized_package_name):
-            return SNOWPARK_LIB_NAME
+            return ensure_string_literal(SNOWPARK_LIB_NAME)
         return normalized_package_name
 
     def collect_extension_functions(
@@ -415,7 +416,7 @@ def generate_create_sql_ddl_statement(
         )
 
     if extension_fn.packages:
-        create_query += f"\nPACKAGES=({', '.join(ensure_all_string_literals([pkg.strip() for pkg in extension_fn.packages]))})"
+        create_query += f"\nPACKAGES=({', '.join(extension_fn.packages)})"
 
     if extension_fn.external_access_integrations:
         create_query += f"\nEXTERNAL_ACCESS_INTEGRATIONS=({', '.join(ensure_all_string_literals(extension_fn.external_access_integrations))})"
