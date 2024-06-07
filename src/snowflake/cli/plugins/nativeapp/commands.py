@@ -24,10 +24,12 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
     MessageResult,
+    ObjectResult,
 )
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.nativeapp.common_flags import (
@@ -325,5 +327,8 @@ def app_validate(**options):
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
+    if cli_context.output_format == OutputFormat.JSON:
+        return ObjectResult(manager.validate_raw(use_scratch_stage=True))
+
     manager.validate(use_scratch_stage=True)
     return MessageResult("Snowflake Native App validation succeeded.")

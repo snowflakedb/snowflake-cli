@@ -611,6 +611,23 @@ class NativeAppManager(SqlExecutionMixin):
     def validate(self, use_scratch_stage: bool = False):
         """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
         cc.step(f"Validating Snowflake Native App setup script.")
+
+        validation_result = self.validate_raw(use_scratch_stage)
+
+        # First print warnings, regardless of the outcome of validation
+        for warning in validation_result.get("warnings", []):
+            cc.warning(_validation_item_to_str(warning))
+
+        # Then raise an exception if validation failed
+        if validation_result["status"] == "FAIL":
+            messages = [
+                _validation_item_to_str(error)
+                for error in validation_result.get("errors", [])
+            ]
+            raise SetupScriptFailedValidation(messages)
+
+    def validate_raw(self, use_scratch_stage: bool):
+        """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
         stage_fqn = self.stage_fqn
         if use_scratch_stage:
             stage_fqn = self.scratch_stage_fqn
@@ -628,19 +645,7 @@ class NativeAppManager(SqlExecutionMixin):
         else:
             if not cursor.rowcount:
                 raise SnowflakeSQLExecutionError()
-            result_data = json.loads(cursor.fetchone()[0])
-
-            # First print warnings, regardless of the outcome of validation
-            for warning in result_data.get("warnings", []):
-                cc.warning(_validation_item_to_str(warning))
-
-            # Then raise an exception if validation failed
-            if result_data["status"] == "FAIL":
-                messages = [
-                    _validation_item_to_str(error)
-                    for error in result_data.get("errors", [])
-                ]
-                raise SetupScriptFailedValidation(messages)
+            return json.loads(cursor.fetchone()[0])
         finally:
             if use_scratch_stage:
                 cc.step(f"Dropping stage {self.scratch_stage_fqn}.")
