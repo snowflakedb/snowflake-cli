@@ -224,6 +224,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 role=self.package_role,
                 prune=True,
                 recursive=True,
+                stage_fqn=self.stage_fqn,
             )
 
         # Warn if the version exists in a release directive(s)
