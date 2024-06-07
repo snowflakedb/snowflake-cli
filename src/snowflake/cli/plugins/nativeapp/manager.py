@@ -377,8 +377,6 @@ class NativeAppManager(SqlExecutionMixin):
 
         files_not_removed = []
         if local_paths_to_sync:
-            assert bundle_map is not None
-
             # Deploying specific files/directories
             resolved_paths_to_sync = [
                 resolve_without_follow(p) for p in local_paths_to_sync
