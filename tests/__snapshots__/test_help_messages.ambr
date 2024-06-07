@@ -96,6 +96,10 @@
   │                                          files in the current directory are  │
   │                                          deployed.                           │
   │                                          [default: no-recursive]             │
+  │ --validate       --no-validate           When enabled, this option triggers  │
+  │                                          validation of a deployed Snowflake  │
+  │                                          Native App's setup script SQL       │
+  │                                          [default: validate]                 │
   │ --project    -p                    TEXT  Path where the Snowflake Native App │
   │                                          project resides. Defaults to        │
   │                                          current working directory.          │
@@ -194,9 +198,9 @@
   │                                modes of authentication.                      │
   │                                [default: None]                               │
   │ --template               TEXT  A specific template name within the template  │
-  │                                repo to use as template for the Native Apps   │
-  │                                project. Example: Default is basic if         │
-  │                                `--template-repo` is                          │
+  │                                repo to use as template for the Snowflake     │
+  │                                Native App project. Example: Default is basic │
+  │                                if `--template-repo` is                       │
   │                                https://github.com/snowflakedb/native-apps-t… │
   │                                and None if any other --template-repo is      │
   │                                specified.                                    │
@@ -386,6 +390,13 @@
   │                                                        perform potentially   │
   │                                                        destructive actions.  │
   │                                                        Defaults to unset.    │
+  │ --validate                --no-validate                When enabled, this    │
+  │                                                        option triggers       │
+  │                                                        validation of a       │
+  │                                                        deployed Snowflake    │
+  │                                                        Native App's setup    │
+  │                                                        script SQL            │
+  │                                                        [default: validate]   │
   │ --project             -p                      TEXT     Path where the        │
   │                                                        Snowflake Native App  │
   │                                                        project resides.      │
@@ -543,7 +554,7 @@
                                                                                   
    Usage: default app validate [OPTIONS]                                          
                                                                                   
-   Validates a deployed Native App's setup script.                                
+   Validates a deployed Snowflake Native App's setup script.                      
                                                                                   
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --project  -p      TEXT  Path where the Snowflake Native App project         │
@@ -927,7 +938,7 @@
   │            object from the application package.                              │
   │ teardown   Attempts to drop both the application object and application      │
   │            package as defined in the project definition file.                │
-  │ validate   Validates a deployed Native App's setup script.                   │
+  │ validate   Validates a deployed Snowflake Native App's setup script.         │
   │ version    Manages versions defined in an application package                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
