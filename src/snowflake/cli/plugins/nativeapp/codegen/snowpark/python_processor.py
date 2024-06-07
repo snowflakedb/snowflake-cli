@@ -44,8 +44,9 @@ DEFAULT_TIMEOUT = 30
 TEMPLATE_PATH = Path(__file__).parent / "callback_source.py.jinja"
 SNOWPARK_LIB_NAME = "snowflake-snowpark-python"
 SNOWPARK_LIB_REGEX = re.compile(
+    # support PEP 508, even though not all of it is supported in Snowflake yet
     rf"'{SNOWPARK_LIB_NAME}\s*((<|<=|!=|==|>=|>|~=|===)\s*[a-zA-Z0-9_.*+!-]+)?'"
-)  # support PEP 508, even though not all of it is supported in Snowflake yet
+)
 STAGE_PREFIX = "@"
 
 
