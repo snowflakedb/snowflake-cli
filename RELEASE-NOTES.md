@@ -51,7 +51,7 @@
 * Improved error message in `snow spcs image-registry login` when docker is not installed.
 * Improved detection of conflicts between artifact rules for native application projects
 * Fixed URL generation for applications, streamlits, and notebooks that use a quoted identifier with spaces.
-* `snow app deploy` now scans specified directories for changes even if there is no artifact rule matching that directory
+* Passing a directory to `snow app deploy` will now deploy any of its subfolders specified in the application's artifact rules
 
 
 # v2.4.0
