@@ -417,7 +417,7 @@ def generate_create_sql_ddl_statement(
         )
 
     if extension_fn.packages:
-        create_query += f"\nPACKAGES=({', '.join(extension_fn.packages)})"
+        create_query += f"\nPACKAGES=({', '.join(ensure_all_string_literals([pkg.strip() for pkg in extension_fn.packages]))})"
 
     if extension_fn.external_access_integrations:
         create_query += f"\nEXTERNAL_ACCESS_INTEGRATIONS=({', '.join(ensure_all_string_literals(extension_fn.external_access_integrations))})"
