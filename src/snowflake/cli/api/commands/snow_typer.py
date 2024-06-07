@@ -116,6 +116,10 @@ class SnowTyper(typer.Typer):
 
 @dataclasses.dataclass
 class SnowTyperCommandData:
+    """
+    Class for storing data of commands to be registered in SnowTyper instances created by SnowTyperFactory.
+    """
+
     func: Callable
     args: Tuple[Any, ...]
     kwargs: Dict[str, Any]
