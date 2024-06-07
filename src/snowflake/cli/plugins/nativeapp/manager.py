@@ -609,9 +609,8 @@ class NativeAppManager(SqlExecutionMixin):
         return diff
 
     def validate(self, use_scratch_stage: bool = False):
-        """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
+        """Validates Native App setup script SQL."""
         cc.step(f"Validating Snowflake Native App setup script.")
-
         validation_result = self.validate_raw(use_scratch_stage)
 
         # First print warnings, regardless of the outcome of validation
