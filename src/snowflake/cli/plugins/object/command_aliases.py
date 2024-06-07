@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple
 
 import typer
 from click import ClickException
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.plugins.object.commands import (
     ScopeOption,
@@ -16,7 +16,7 @@ from snowflake.cli.plugins.object.commands import (
 
 
 def add_object_command_aliases(
-    app: SnowTyper,
+    app: SnowTyperFactory,
     object_type: ObjectType,
     name_argument: typer.Argument,
     like_option: Optional[typer.Option],

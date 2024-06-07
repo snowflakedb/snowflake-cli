@@ -12,7 +12,7 @@ from snowflake.cli.api.commands.flags import (
     identifier_argument,
     like_option,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import CollectionResult, CommandResult, QueryResult
@@ -26,7 +26,7 @@ from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.stage.commands import get
 from snowflake.cli.plugins.stage.manager import OnErrorType
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="git",
     help="Manages git repositories in Snowflake.",
 )

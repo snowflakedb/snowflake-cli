@@ -11,7 +11,7 @@ from snowflake.cli.api.commands.flags import (
     OverrideableOption,
     like_option,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -31,7 +31,7 @@ from snowflake.cli.plugins.spcs.common import (
 )
 from snowflake.cli.plugins.spcs.services.manager import ServiceManager
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="service",
     help="Manages Snowpark Container Services services.",
     short_help="Manages services.",

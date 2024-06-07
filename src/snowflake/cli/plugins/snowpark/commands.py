@@ -18,7 +18,7 @@ from snowflake.cli.api.commands.flags import (
     like_option,
 )
 from snowflake.cli.api.commands.project_initialisation import add_init_command
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import (
     DEFAULT_SIZE_LIMIT_MB,
     DEPLOYMENT_STAGE,
@@ -80,7 +80,7 @@ from snowflake.connector import DictCursor, ProgrammingError
 
 log = logging.getLogger(__name__)
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="snowpark",
     help="Manages procedures and functions.",
 )

@@ -5,13 +5,13 @@ from typing import Tuple
 import typer
 from click import ClickException
 from snowflake.cli.api.commands.flags import like_option
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import SUPPORTED_OBJECTS, VALID_SCOPES
 from snowflake.cli.api.output.types import QueryResult
 from snowflake.cli.api.project.util import is_valid_identifier
 from snowflake.cli.plugins.object.manager import ObjectManager
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="object",
     help="Manages Snowflake objects like warehouses and stages",
 )

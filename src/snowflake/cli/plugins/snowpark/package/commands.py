@@ -10,7 +10,7 @@ from click import ClickException
 from snowflake.cli.api.commands.flags import (
     deprecated_flag_callback,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
@@ -37,7 +37,7 @@ from snowflake.cli.plugins.snowpark.snowpark_shared import (
 )
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="package",
     help="Manages custom Python packages for Snowpark",
 )
