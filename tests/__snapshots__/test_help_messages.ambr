@@ -7660,7 +7660,7 @@
   │            object from the application package.                              │
   │ teardown   Attempts to drop both the application object and application      │
   │            package as defined in the project definition file.                │
-  │ validate   Validates a deployed Native App's setup script.                   │
+  │ validate   Validates a deployed Snowflake Native App's setup script.         │
   │ version    Manages versions defined in an application package                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
