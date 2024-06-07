@@ -106,15 +106,15 @@ def test_parse_requirements(correct_requirements_txt: str):
     result.sort(key=lambda r: r.name)
 
     assert len(result) == 3
-    assert result[0].name == "awesome_lib"
+    assert result[0].name == "dashed_fake_name"
     assert result[0].specifier is True
-    assert result[0].specs == [("==", "3.3.3")]
-    assert result[1].name == "django"
+    assert result[0].specs == [(">=", "3.2.1")]
+    assert result[1].name == "simplefakename"
     assert result[1].specifier is True
-    assert result[1].specs == [("==", "3.2.1")]
-    assert result[2].name == "pytest"
+    assert result[1].specs == [("==", "1.0.0")]
+    assert result[2].name == "underscore_fake_name"
     assert result[2].specifier is True
-    assert result[2].specs == [("==", "1.0.0")]
+    assert result[2].specs == [("<", "3.3.3")]
 
 
 @patch("platform.system")
