@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import os
 from typing import Any, Optional
 
@@ -28,7 +29,8 @@ class TemplateVar:
         self.templated_value: Optional[str] = None
         self.rendered_value: Optional[Any] = None
 
-    def get_key(self) -> str:
+    @property
+    def key(self) -> str:
         return ".".join(self._vars_chain)
 
     @property
@@ -42,7 +44,7 @@ class TemplateVar:
     def get_env_var_name(self) -> str:
         if not self.is_env_var:
             raise KeyError(
-                f"Referenced variable {self.get_key()} is not an environment variable"
+                f"Referenced variable {self.key} is not an environment variable"
             )
         return self._vars_chain[2]
 
@@ -82,24 +84,22 @@ class TemplateVar:
                 not isinstance(current_dict_level, dict)
                 or key not in current_dict_level
             ):
-                raise UndefinedError(
-                    f"Could not find template variable {self.get_key()}"
-                )
+                raise UndefinedError(f"Could not find template variable {self.key}")
             current_dict_level = current_dict_level[key]
 
         value = current_dict_level
         if value is None or isinstance(value, (dict, list)):
             raise UndefinedError(
-                f"Template variable {self.get_key()} does not contain a valid value"
+                f"Template variable {self.key} does not contain a valid value"
             )
 
         return value
 
     def __hash__(self):
-        return hash(self.get_key())
+        return hash(self.key)
 
     def __eq__(self, other):
-        return self.get_key() == other.get_key()
+        return self.key == other.key
 
 
 def _get_referenced_vars(
@@ -145,7 +145,7 @@ def _build_dependency_graph(
 ) -> Graph[TemplateVar]:
     dependencies_graph = Graph[TemplateVar]()
     for variable in all_vars:
-        dependencies_graph.add(Node[TemplateVar](key=variable.get_key(), data=variable))
+        dependencies_graph.add(Node[TemplateVar](key=variable.key, data=variable))
 
     for variable in all_vars:
         if variable.is_env_var and variable.get_env_var_name() in os.environ:
@@ -164,9 +164,7 @@ def _build_dependency_graph(
                 variable.rendered_value = value
 
             for referenced_var in dependencies_vars:
-                dependencies_graph.add_directed_edge(
-                    variable.get_key(), referenced_var.get_key()
-                )
+                dependencies_graph.add_directed_edge(variable.key, referenced_var.key)
 
     return dependencies_graph
 
@@ -194,14 +192,28 @@ def _render_dict_element(
     return element
 
 
-def render_definition_template(definition: dict[str, Any]) -> dict[str, Any]:
+def render_definition_template(original_definition: dict[str, Any]) -> dict[str, Any]:
+    """
+    Takes a definition file as input. An arbitrary structure containing dict|list|scalars,
+    with the top level being a dictionary.
+    Requires item 'definition_version' to be set to a version of 1.1 and higher.
+
+    Searches for any templating in all of the scalar fields, and attempts to resolve them
+    from the definition structure itself or from the environment variable.
+
+    Environment variables take precedence during the rendering process.
+    """
+
+    # protect input from update
+    definition = copy.deepcopy(original_definition)
+
     if "definition_version" not in definition or Version(
         definition["definition_version"]
     ) < Version("1.1"):
         return definition
 
     jinja_env = get_snowflake_cli_jinja_env()
-    pdf_context = {CONTEXT_KEY: definition}
+    project_context = {CONTEXT_KEY: definition}
 
     referenced_vars = set()
 
@@ -211,11 +223,13 @@ def render_definition_template(definition: dict[str, Any]) -> dict[str, Any]:
     traverse(definition, visit_action=find_any_template_vars)
 
     dependencies_graph = _build_dependency_graph(
-        jinja_env, referenced_vars, pdf_context
+        jinja_env, referenced_vars, project_context
     )
 
-    def on_cycle_action():
-        raise CycleDetectedError("Cycle detected in templating variables")
+    def on_cycle_action(node: Node[TemplateVar]):
+        raise CycleDetectedError(
+            f"Cycle detected in templating variable {node.data.key}"
+        )
 
     dependencies_graph.dfs(
         visit_action=lambda node: _render_graph_node(jinja_env, node),

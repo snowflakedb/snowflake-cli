@@ -102,7 +102,7 @@ def test_graph_dfs_with_cycle(nodes: list[Node]):
 
     cycles_detected = {"count": 0}
 
-    def cycle_detected_action():
+    def cycle_detected_action(node):
         cycles_detected["count"] += 1
 
     graph.dfs(on_cycle_action=cycle_detected_action)

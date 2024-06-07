@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 
 def deep_merge_dicts(
@@ -31,8 +31,8 @@ def deep_merge_dicts(
 
 def traverse(
     element: Any,
-    visit_action=lambda element: None,
-    update_action=lambda element: element,
+    visit_action: Callable[[Any], None] = lambda element: None,
+    update_action: Callable[[Any], Any] = lambda element: element,
 ) -> Any:
     """
     Traverse a nested structure (lists, dicts, scalars).

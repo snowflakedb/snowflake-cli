@@ -185,7 +185,7 @@ def test_resolve_variables_error_on_cycle(definition):
     with pytest.raises(CycleDetectedError) as err:
         render_definition_template(definition)
 
-    assert err.value.message == f"Cycle detected in templating variables"
+    assert err.value.message.startswith("Cycle detected in templating variable ")
 
 
 @pytest.mark.parametrize(

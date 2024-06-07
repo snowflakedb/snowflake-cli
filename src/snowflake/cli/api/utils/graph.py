@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Generic, TypeVar
+from typing import Callable, Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -51,8 +51,8 @@ class Graph(Generic[T]):
     def _dfs_visit(
         nodes_status: dict[str, VisitStatus],
         node: Node[T],
-        visit_action,
-        on_cycle_action,
+        visit_action: Callable[[Node[T]], None],
+        on_cycle_action: Callable[[Node[T]], None],
     ) -> None:
         if nodes_status.get(node.key) == VisitStatus.VISITED:
             return
@@ -60,7 +60,7 @@ class Graph(Generic[T]):
         nodes_status[node.key] = VisitStatus.VISITING
         for neighbor_node in node.neighbors:
             if nodes_status.get(neighbor_node.key) == VisitStatus.VISITING:
-                on_cycle_action()
+                on_cycle_action(node)
             else:
                 Graph._dfs_visit(
                     nodes_status, neighbor_node, visit_action, on_cycle_action
@@ -70,7 +70,11 @@ class Graph(Generic[T]):
 
         nodes_status[node.key] = VisitStatus.VISITED
 
-    def dfs(self, visit_action=lambda node: None, on_cycle_action=lambda: None) -> None:
+    def dfs(
+        self,
+        visit_action: Callable[[Node[T]], None] = lambda node: None,
+        on_cycle_action: Callable[[Node[T]], None] = lambda node: None,
+    ) -> None:
         nodes_status: dict[str, VisitStatus] = {}
         for node in self._graph_nodes_map.values():
             Graph._dfs_visit(nodes_status, node, visit_action, on_cycle_action)
