@@ -51,6 +51,8 @@ from tests.nativeapp.patch_utils import (
     mock_get_app_pkg_distribution_in_sf,
 )
 from tests.nativeapp.utils import (
+    NATIVEAPP_MANAGER_BUILD_BUNDLE,
+    NATIVEAPP_MANAGER_DEPLOY,
     NATIVEAPP_MANAGER_EXECUTE,
     NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO,
     NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME,
@@ -108,7 +110,11 @@ def test_sync_deploy_root_with_stage(
     assert mock_diff_result.has_changes()
     mock_bundle_map = mock.Mock(spec=BundleMap)
     native_app_manager.sync_deploy_root_with_stage(
-        bundle_map=mock_bundle_map, role="new_role", prune=True, recursive=True
+        bundle_map=mock_bundle_map,
+        role="new_role",
+        prune=True,
+        recursive=True,
+        stage_fqn=native_app_manager.stage_fqn,
     )
 
     expected = [
@@ -174,7 +180,11 @@ def test_sync_deploy_root_with_stage_prune(
 
     mock_bundle_map = mock.Mock(spec=BundleMap)
     native_app_manager.sync_deploy_root_with_stage(
-        bundle_map=mock_bundle_map, role="new_role", prune=prune, recursive=True
+        bundle_map=mock_bundle_map,
+        role="new_role",
+        prune=prune,
+        recursive=True,
+        stage_fqn=native_app_manager.stage_fqn,
     )
 
     if expected_warn:
@@ -993,7 +1003,8 @@ def test_validate_not_deployed(mock_execute, temp_dir, mock_cursor):
         [
             (
                 ProgrammingError(
-                    msg="Application package app_pkg does not exist or not authorized."
+                    msg="Application package app_pkg does not exist or not authorized.",
+                    errno=2003,
                 ),
                 mock.call(
                     "call system$validate_native_app_setup('@app_pkg.app_src.stage')"
@@ -1007,4 +1018,118 @@ def test_validate_not_deployed(mock_execute, temp_dir, mock_cursor):
     with pytest.raises(ApplicationPackageDoesNotExistError, match="app_pkg"):
         native_app_manager.validate()
 
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_BUILD_BUNDLE)
+@mock.patch(NATIVEAPP_MANAGER_DEPLOY)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_validate_use_scratch_stage(
+    mock_execute, mock_deploy, mock_build_bundle, temp_dir, mock_cursor
+):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    success_data = dict(status="SUCCESS")
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([[json.dumps(success_data)]], []),
+                mock.call(
+                    "call system$validate_native_app_setup('@app_pkg.app_src.stage_snowflake_cli_scratch')"
+                ),
+            ),
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role package_role")),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    f"drop stage if exists app_pkg.app_src.stage_snowflake_cli_scratch"
+                ),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    native_app_manager.validate(use_scratch_stage=True)
+
+    mock_build_bundle.assert_called_once()
+    mock_deploy.assert_called_with(
+        prune=True,
+        recursive=True,
+        stage_fqn=native_app_manager.scratch_stage_fqn,
+        validate=False,
+    )
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_BUILD_BUNDLE)
+@mock.patch(NATIVEAPP_MANAGER_DEPLOY)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_validate_failing_drops_scratch_stage(
+    mock_execute, mock_deploy, mock_build_bundle, temp_dir, mock_cursor
+):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    error_file = "@STAGE/empty.sql"
+    error_cause = "Empty SQL statement."
+    error = dict(
+        message=f"Error in file {error_file}: {error_cause}",
+        cause=error_cause,
+        errorCode="000900",
+        fileName=error_file,
+        line=-1,
+        column=-1,
+    )
+    failure_data = dict(status="FAIL", errors=[error], warnings=[])
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([[json.dumps(failure_data)]], []),
+                mock.call(
+                    "call system$validate_native_app_setup('@app_pkg.app_src.stage_snowflake_cli_scratch')"
+                ),
+            ),
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role package_role")),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    f"drop stage if exists app_pkg.app_src.stage_snowflake_cli_scratch"
+                ),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    with pytest.raises(
+        SetupScriptFailedValidation,
+        match=rf"{error['message']} \(error code {error['errorCode']}\)",
+    ):
+        native_app_manager.validate(use_scratch_stage=True)
+
+    mock_build_bundle.assert_called_once()
+    mock_deploy.assert_called_with(
+        prune=True,
+        recursive=True,
+        stage_fqn=native_app_manager.scratch_stage_fqn,
+        validate=False,
+    )
     assert mock_execute.mock_calls == expected
