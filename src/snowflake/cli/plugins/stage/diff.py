@@ -27,6 +27,7 @@ from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
+from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.connector.cursor import DictCursor
 
 from .manager import StageManager
@@ -284,22 +285,39 @@ def sync_local_diff_with_stage(
         raise SnowflakeSQLExecutionError()
 
 
-def print_diff_to_console(diff: DiffResult, console: AbstractConsole = cc):
+def _to_source_file(bundle_map: BundleMap, dest_file: StagePath) -> Optional[Path]:
+    sources = bundle_map.to_source_paths(to_local_path(dest_file))
+    if not sources:
+        return None
+    if len(sources) == 1:
+        return sources[0]
+    raise RuntimeError(f"Too many sources for {dest_file}!")
+
+
+def print_diff_to_console(
+    diff: DiffResult, bundle_map: BundleMap, console: AbstractConsole = cc
+):
     if not diff.different and not diff.only_local and not diff.only_on_stage:
-        console.message("Your stage is up-to-date with your local directory")
+        console.message("Your stage is up-to-date with your local deploy root")
         return
 
-    if diff.different:
-        console.message("Changed files to upload to your stage:")
-        for p in diff.different:
-            console.message(f"\t{p}")
+    indent = " " * 2
+    if diff.only_local or diff.different:
+        console.message("Local changes to be deployed:")
 
-    if diff.only_local:
-        console.message("New files to upload to your stage:")
+        messages_to_output = []
+        for p in diff.different:
+            src = str(_to_source_file(bundle_map, p) or "<generated>")
+            messages_to_output.append((src, f"modified: {src} -> {p}"))
         for p in diff.only_local:
-            console.message(f"\t{p}")
+            src = str(_to_source_file(bundle_map, p) or "<generated>")
+            messages_to_output.append((src, f"added:    {src} -> {p}"))
+
+        for key, message in sorted(messages_to_output, key=lambda pair: pair[0]):
+            console.message(f"{indent}{message}")
 
     if diff.only_on_stage:
-        console.message("Deleted files to remove from your stage:")
-        for p in diff.only_on_stage:
-            console.message(f"\t{p}")
+        console.message("Deleted paths to remove from your stage:")
+        for p in sorted(diff.only_on_stage):
+            prefix = "deleted:  "
+            console.message(f"{indent}{p}")

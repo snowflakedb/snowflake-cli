@@ -447,7 +447,7 @@ class NativeAppManager(SqlExecutionMixin):
                     f"The following files exist only on the stage:\n{files_not_removed_str}\n\nUse the --prune flag to delete them from the stage."
                 )
 
-        print_diff_to_console(diff)
+        print_diff_to_console(diff, bundle_map)
 
         # Upload diff-ed files to application package stage
         if diff.has_changes():

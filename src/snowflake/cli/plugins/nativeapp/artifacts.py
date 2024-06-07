@@ -457,6 +457,33 @@ class BundleMap:
         for src in self._artifact_map.all_sources():
             yield self._to_output_src(src, absolute)
 
+    def to_source_paths(self, dest: Path) -> List[Path]:
+        is_absolute = dest.is_absolute()
+        try:
+            canonical_dest = self._canonical_dest(dest)
+        except ArtifactError:
+            # No mapping possible for the dest path
+            return []
+
+        output_sources: List[Path] = []
+        canonical_srcs = self._dest_to_src.get(canonical_dest)
+        if canonical_srcs is not None:
+            for src in canonical_srcs:
+                output_sources.append(self._to_output_src(src, is_absolute))
+
+        canonical_parent = canonical_dest.parent
+        if canonical_parent == canonical_dest:
+            return output_sources
+        canonical_parent_srcs = self.to_source_paths(canonical_parent)
+        if canonical_parent_srcs:
+            canonical_child = canonical_dest.relative_to(canonical_parent)
+            for src in canonical_parent_srcs:
+                output_sources.append(
+                    self._to_output_src(src / canonical_child, is_absolute)
+                )
+
+        return output_sources
+
     def _absolute_src(self, src: Path) -> Path:
         if src.is_absolute():
             resolved_src = resolve_without_follow(src)
