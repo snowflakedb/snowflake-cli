@@ -201,6 +201,10 @@ class NativeAppManager(SqlExecutionMixin):
         return f"{self.package_name}.{self.definition.source_stage}"
 
     @cached_property
+    def scratch_stage_fqn(self) -> str:
+        return f"{self.stage_fqn}{self.definition.scratch_stage_suffix}"  # TODO use template after Michel's PR is merged
+
+    @cached_property
     def stage_schema(self) -> Optional[str]:
         return extract_schema(self.stage_fqn)
 
@@ -353,6 +357,7 @@ class NativeAppManager(SqlExecutionMixin):
         role: str,
         prune: bool,
         recursive: bool,
+        stage_fqn: str,
         local_paths_to_sync: List[Path] | None = None,
     ) -> DiffResult:
         """
@@ -367,6 +372,7 @@ class NativeAppManager(SqlExecutionMixin):
              local paths. Note that providing an empty list here is equivalent to None.
             bundle_map: the artifact mapping computed during the `bundle` step. Required when local_paths_to_sync is
              provided.
+            stage_fqn (str): The name of the stage to diff against and upload to.
 
         Returns:
             A `DiffResult` instance describing the changes that were performed.
@@ -374,14 +380,16 @@ class NativeAppManager(SqlExecutionMixin):
 
         # Does a stage already exist within the application package, or we need to create one?
         # Using "if not exists" should take care of either case.
-        cc.step("Checking if stage exists, or creating a new one if none exists.")
+        cc.step(
+            f"Checking if stage {stage_fqn} exists, or creating a new one if none exists."
+        )
         with self.use_role(role):
             self._execute_query(
                 f"create schema if not exists {self.package_name}.{self.stage_schema}"
             )
             self._execute_query(
                 f"""
-                    create stage if not exists {self.stage_fqn}
+                    create stage if not exists {stage_fqn}
                     encryption = (TYPE = 'SNOWFLAKE_SSE')
                     DIRECTORY = (ENABLE = TRUE)"""
             )
@@ -391,7 +399,7 @@ class NativeAppManager(SqlExecutionMixin):
             "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
             % self.deploy_root
         )
-        diff: DiffResult = compute_stage_diff(self.deploy_root, self.stage_fqn)
+        diff: DiffResult = compute_stage_diff(self.deploy_root, stage_fqn)
 
         files_not_removed = []
         if local_paths_to_sync:
@@ -442,7 +450,7 @@ class NativeAppManager(SqlExecutionMixin):
                 role=role,
                 deploy_root_path=self.deploy_root,
                 diff_result=diff,
-                stage_fqn=self.stage_fqn,
+                stage_fqn=stage_fqn,
             )
         return diff
 
@@ -570,7 +578,9 @@ class NativeAppManager(SqlExecutionMixin):
         bundle_map: BundleMap,
         prune: bool,
         recursive: bool,
+        stage_fqn: Optional[str] = None,
         local_paths_to_sync: List[Path] | None = None,
+        validate: bool = True,
     ) -> DiffResult:
         """app deploy process"""
 
@@ -582,23 +592,33 @@ class NativeAppManager(SqlExecutionMixin):
             self._apply_package_scripts()
 
             # 3. Upload files from deploy root local folder to the above stage
+            stage_fqn = stage_fqn or self.stage_fqn
             diff = self.sync_deploy_root_with_stage(
                 bundle_map=bundle_map,
                 role=self.package_role,
                 prune=prune,
                 recursive=recursive,
+                stage_fqn=stage_fqn,
                 local_paths_to_sync=local_paths_to_sync,
             )
 
+        if validate:
+            self.validate(use_scratch_stage=False)
+
         return diff
 
-    def validate(self):
+    def validate(self, use_scratch_stage: bool = False):
         """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
         cc.step(f"Validating Snowflake Native App setup script.")
-        stage_name = StageManager.get_standard_stage_prefix(self.stage_fqn)
+        stage_fqn = self.stage_fqn
+        if use_scratch_stage:
+            stage_fqn = self.scratch_stage_fqn
+            self.build_bundle()
+            self.deploy(prune=True, recursive=True, stage_fqn=stage_fqn, validate=False)
+        prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
         try:
             cursor = self._execute_query(
-                f"call system$validate_native_app_setup('{stage_name}')"
+                f"call system$validate_native_app_setup('{prefixed_stage_fqn}')"
             )
         except ProgrammingError as err:
             if "does not exist or not authorized" in err.msg:
@@ -620,6 +640,13 @@ class NativeAppManager(SqlExecutionMixin):
                     for error in result_data.get("errors", [])
                 ]
                 raise SetupScriptFailedValidation(messages)
+        finally:
+            if use_scratch_stage:
+                cc.step(f"Dropping stage {self.scratch_stage_fqn}.")
+                with self.use_role(self.package_role):
+                    self._execute_query(
+                        f"drop stage if exists {self.scratch_stage_fqn}"
+                    )
 
 
 def _validation_item_to_str(item: dict[str, str | int]):

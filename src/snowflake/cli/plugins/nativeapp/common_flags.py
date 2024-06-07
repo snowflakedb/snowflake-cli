@@ -36,3 +36,9 @@ ForceOption = typer.Option(
     You should enable this option if interactive mode is not specified and if you want perform potentially destructive actions. Defaults to unset.""",
     is_flag=True,
 )
+ValidateOption = typer.Option(
+    True,
+    "--validate/--no-validate",
+    help="""When enabled, this option triggers validation of a deployed Snowflake Native App's setup script SQL""",
+    is_flag=True,
+)
