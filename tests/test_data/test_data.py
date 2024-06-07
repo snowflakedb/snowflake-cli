@@ -1,6 +1,10 @@
 from snowflake.cli.plugins.snowpark.models import Requirement
 
-requirements = ["pytest==1.0.0", "Django==3.2.1", "awesome_lib==3.3.3"]
+requirements = [
+    "simplefakename==1.0.0",
+    "dashed-fake-name>=3.2.1",
+    "Underscore_Fake_Name<3.3.3",
+]
 
 packages = [
     Requirement.parse_line("snowflake-connector-python"),

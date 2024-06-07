@@ -117,7 +117,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 f"Version {version} created for application package {self.package_name}."
             )
 
-    def add_new_patch_to_version(self, version: str, patch: Optional[str] = None):
+    def add_new_patch_to_version(self, version: str, patch: Optional[int] = None):
         """
         Add a new patch, optionally a custom one, to an existing version in an application package.
         """
@@ -149,7 +149,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
     def process(
         self,
         version: Optional[str],
-        patch: Optional[str],
+        patch: Optional[int],
         policy: PolicyBase,
         git_policy: PolicyBase,
         is_interactive: bool,
