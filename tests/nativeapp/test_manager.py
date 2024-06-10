@@ -1177,5 +1177,8 @@ def test_validate_raw_returns_data(mock_execute, temp_dir, mock_cursor):
     mock_execute.side_effect = side_effects
 
     native_app_manager = _get_na_manager()
-    assert native_app_manager.validate_raw(use_scratch_stage=False) == failure_data
+    assert (
+        native_app_manager.get_validation_result(use_scratch_stage=False)
+        == failure_data
+    )
     assert mock_execute.mock_calls == expected

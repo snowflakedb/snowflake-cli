@@ -366,14 +366,14 @@ class NativeAppManager(SqlExecutionMixin):
         the local filesystem.
 
         Args:
+            bundle_map: the artifact mapping computed during the `bundle` step. Required when local_paths_to_sync is
+             provided.
             role (str): The name of the role to use for queries and commands.
             prune (bool): Whether to prune artifacts from the stage that don't exist locally.
             recursive (bool): Whether to traverse directories recursively.
+            stage_fqn (str): The name of the stage to diff against and upload to.
             local_paths_to_sync (List[Path], optional): List of local paths to sync. Defaults to None to sync all
              local paths. Note that providing an empty list here is equivalent to None.
-            bundle_map: the artifact mapping computed during the `bundle` step. Required when local_paths_to_sync is
-             provided.
-            stage_fqn (str): The name of the stage to diff against and upload to.
 
         Returns:
             A `DiffResult` instance describing the changes that were performed.
@@ -611,7 +611,7 @@ class NativeAppManager(SqlExecutionMixin):
     def validate(self, use_scratch_stage: bool = False):
         """Validates Native App setup script SQL."""
         cc.step(f"Validating Snowflake Native App setup script.")
-        validation_result = self.validate_raw(use_scratch_stage)
+        validation_result = self.get_validation_result(use_scratch_stage)
 
         # First print warnings, regardless of the outcome of validation
         for warning in validation_result.get("warnings", []):
@@ -625,13 +625,19 @@ class NativeAppManager(SqlExecutionMixin):
             ]
             raise SetupScriptFailedValidation(messages)
 
-    def validate_raw(self, use_scratch_stage: bool):
+    def get_validation_result(self, use_scratch_stage: bool):
         """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
         stage_fqn = self.stage_fqn
         if use_scratch_stage:
             stage_fqn = self.scratch_stage_fqn
-            self.build_bundle()
-            self.deploy(prune=True, recursive=True, stage_fqn=stage_fqn, validate=False)
+            bundle_map = self.build_bundle()
+            self.deploy(
+                bundle_map=bundle_map,
+                prune=True,
+                recursive=True,
+                stage_fqn=stage_fqn,
+                validate=False,
+            )
         prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
         try:
             cursor = self._execute_query(
