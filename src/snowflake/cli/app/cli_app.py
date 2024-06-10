@@ -132,8 +132,9 @@ def _info_callback(value: bool):
 def app_factory() -> SnowCliMainTyper:
     app = SnowCliMainTyper()
 
-    @app.callback()
+    @app.callback(invoke_without_command=True)
     def default(
+        ctx: typer.Context,
         version: bool = typer.Option(
             None,
             "--version",
@@ -217,6 +218,8 @@ def app_factory() -> SnowCliMainTyper:
         """
         Snowflake CLI tool for developers.
         """
+        if not ctx.invoked_subcommand:
+            typer.echo(ctx.get_help())
         setup_pycharm_remote_debugger_if_provided(
             pycharm_debug_library_path=pycharm_debug_library_path,
             pycharm_debug_server_host=pycharm_debug_server_host,

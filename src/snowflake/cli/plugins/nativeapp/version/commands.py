@@ -18,7 +18,6 @@ from snowflake.cli.plugins.nativeapp.policy import (
     DenyAlwaysPolicy,
 )
 from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
-from snowflake.cli.plugins.nativeapp.utils import is_tty_interactive
 from snowflake.cli.plugins.nativeapp.version.version_processor import (
     NativeAppVersionCreateProcessor,
     NativeAppVersionDropProcessor,
@@ -39,7 +38,7 @@ def create(
         None,
         help=f"""Version to define in your application package. If the version already exists, an auto-incremented patch is added to the version instead. Defaults to the version specified in the `manifest.yml` file.""",
     ),
-    patch: Optional[str] = typer.Option(
+    patch: Optional[int] = typer.Option(
         None,
         "--patch",
         help=f"""The patch number you want to create for an existing version.
@@ -51,7 +50,7 @@ def create(
         help="When enabled, the Snowflake CLI skips checking if your project has any untracked or stages files in git. Default: unset.",
         is_flag=True,
     ),
-    interactive: Optional[bool] = InteractiveOption,
+    interactive: bool = InteractiveOption,
     force: Optional[bool] = ForceOption,
     **options,
 ) -> CommandResult:
@@ -64,7 +63,7 @@ def create(
     is_interactive = False
     if force:
         policy = AllowAlwaysPolicy()
-    elif interactive or is_tty_interactive():
+    elif interactive:
         is_interactive = True
         policy = AskAlwaysPolicy()
     else:
@@ -81,8 +80,9 @@ def create(
     )
 
     # We need build_bundle() to (optionally) find version in manifest.yml and create an application package
-    processor.build_bundle()
+    bundle_map = processor.build_bundle()
     processor.process(
+        bundle_map=bundle_map,
         version=version,
         patch=patch,
         policy=policy,
@@ -115,7 +115,7 @@ def drop(
         None,
         help="Version defined in an application package that you want to drop. Defaults to the version specified in the `manifest.yml` file.",
     ),
-    interactive: Optional[bool] = InteractiveOption,
+    interactive: bool = InteractiveOption,
     force: Optional[bool] = ForceOption,
     **options,
 ) -> CommandResult:
@@ -126,7 +126,7 @@ def drop(
     is_interactive = False
     if force:
         policy = AllowAlwaysPolicy()
-    elif interactive or is_tty_interactive():
+    elif interactive:
         is_interactive = True
         policy = AskAlwaysPolicy()
     else:

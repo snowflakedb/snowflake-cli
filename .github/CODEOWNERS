@@ -2,8 +2,9 @@
 
 # Shared ownership
 **/__snapshots__/ @snowflakedb/snowcli @snowflakedb/nade
-tests/testing_utils/ @snowflakedb/snowcli @snowflakedb/nade
+**/testing_utils/ @snowflakedb/snowcli @snowflakedb/nade
 src/snowflake/cli/api/utils/ @snowflakedb/snowcli @snowflakedb/nade
+**/test_data @snowflakedb/snowcli @snowflakedb/nade
 
 # Native Apps Owners
 **/nativeapp/ @snowflakedb/nade

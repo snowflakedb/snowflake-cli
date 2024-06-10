@@ -11,6 +11,8 @@ from snowflake.cli.api.project.definition import (
     load_project_definition,
 )
 from snowflake.cli.api.project.errors import SchemaValidationError
+from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
@@ -28,7 +30,10 @@ def test_napp_project_1(project_definition_files):
 def test_na_minimal_project(project_definition_files: List[Path]):
     project = load_project_definition(project_definition_files)
     assert project.native_app.name == "minimal"
-    assert project.native_app.artifacts == ["setup.sql", "README.md"]
+    assert project.native_app.artifacts == [
+        PathMapping(src="setup.sql"),
+        PathMapping(src="README.md"),
+    ]
 
     from os import getenv as original_getenv
 
@@ -61,7 +66,7 @@ def test_underspecified_project(project_definition_files):
     with pytest.raises(SchemaValidationError) as exc_info:
         load_project_definition(project_definition_files)
 
-    assert "NativeApp schema" in str(exc_info)
+    assert "NativeApp" in str(exc_info)
     assert "Your project definition is missing following fields: ('artifacts',)" in str(
         exc_info.value
     )
@@ -84,11 +89,11 @@ def test_fails_without_definition_version(project_definition_files):
 @pytest.mark.parametrize("project_definition_files", ["unknown_fields"], indirect=True)
 def test_does_not_accept_unknown_fields(project_definition_files):
     with pytest.raises(SchemaValidationError) as exc_info:
-        project = load_project_definition(project_definition_files)
+        load_project_definition(project_definition_files)
 
-    assert "NativeApp schema" in str(exc_info)
+    assert "NativeApp" in str(exc_info)
     assert (
-        "You provided field '('unknown_fields_accepted',)' with value 'true' that is not present in the schema"
+        "You provided field '('unknown_fields_accepted',)' with value 'true' that is not supported in given version."
         in str(exc_info)
     )
 
@@ -117,3 +122,17 @@ def test_does_not_accept_unknown_fields(project_definition_files):
 def test_fields_are_parsed_correctly(project_definition_files, snapshot):
     result = load_project_definition(project_definition_files).model_dump()
     assert result == snapshot
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"definition_version": "1", "env": {"foo": "bar"}},
+        {"definition_version": "1.1", "unknown": {}},
+    ],
+)
+def test_schema_is_validated_for_version(data):
+    with pytest.raises(SchemaValidationError) as err:
+        ProjectDefinition(**data)
+
+    assert "is not supported in given version" in str(err.value)

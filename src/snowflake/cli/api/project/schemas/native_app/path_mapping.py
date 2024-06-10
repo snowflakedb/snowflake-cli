@@ -25,7 +25,7 @@ class PathMapping(UpdatableModel):
     @classmethod
     def transform_processors(
         cls, input_values: Optional[List[Union[str, Dict, ProcessorMapping]]]
-    ):
+    ) -> List[ProcessorMapping]:
         if input_values is None:
             return []
 

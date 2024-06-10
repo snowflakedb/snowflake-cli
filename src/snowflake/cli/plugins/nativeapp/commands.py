@@ -33,7 +33,6 @@ from snowflake.cli.plugins.nativeapp.teardown_processor import (
 )
 from snowflake.cli.plugins.nativeapp.utils import (
     get_first_paragraph_from_markdown_file,
-    is_tty_interactive,
     shallow_git_clone,
 )
 from snowflake.cli.plugins.nativeapp.version.commands import app as versions_app
@@ -90,6 +89,8 @@ def app_list_templates(**options) -> CommandResult:
     Prints information regarding the official templates that can be used with snow app init.
     """
     with SecurePath.temporary_directory() as temp_path:
+        from git import rmtree as git_rmtree
+
         repo = shallow_git_clone(OFFICIAL_TEMPLATES_GITHUB_URL, temp_path.path)
 
         # Mark a directory as a template if a project definition jinja template is inside
@@ -114,10 +115,14 @@ def app_list_templates(**options) -> CommandResult:
             )
         )
 
+        # proactively clean up here to avoid permission issues on Windows
+        repo.close()
+        git_rmtree(temp_path.path)
+
         return CollectionResult(result)
 
 
-@app.command("bundle", hidden=True)
+@app.command("bundle")
 @with_project_definition("native_app")
 def app_bundle(
     **options,
@@ -141,7 +146,7 @@ def app_run(
         help=f"""The version defined in an existing application package from which you want to create an application object.
         The application object and application package names are determined from the project definition file.""",
     ),
-    patch: Optional[str] = typer.Option(
+    patch: Optional[int] = typer.Option(
         None,
         "--patch",
         help=f"""The patch number under the given `--version` defined in an existing application package that should be used to create an application object.
@@ -154,7 +159,7 @@ def app_run(
         The command fails if no release directive exists for your Snowflake account for a given application package, which is determined from the project definition file. Default: unset.""",
         is_flag=True,
     ),
-    interactive: Optional[bool] = InteractiveOption,
+    interactive: bool = InteractiveOption,
     force: Optional[bool] = ForceOption,
     **options,
 ) -> CommandResult:
@@ -166,7 +171,7 @@ def app_run(
     is_interactive = False
     if force:
         policy = AllowAlwaysPolicy()
-    elif interactive or is_tty_interactive():
+    elif interactive:
         is_interactive = True
         policy = AskAlwaysPolicy()
     else:
@@ -176,8 +181,9 @@ def app_run(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    processor.build_bundle()
+    bundle_map = processor.build_bundle()
     processor.process(
+        bundle_map=bundle_map,
         policy=policy,
         version=version,
         patch=patch,
@@ -221,7 +227,7 @@ def app_teardown(
         help=f"""Whether to drop all application objects owned by the application within the account. Default: false.""",
         show_default=False,
     ),
-    interactive: Optional[bool] = InteractiveOption,
+    interactive: bool = InteractiveOption,
     **options,
 ) -> CommandResult:
     """
@@ -231,8 +237,6 @@ def app_teardown(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    if interactive is None:
-        interactive = is_tty_interactive()
     processor.process(interactive, force, cascade)
     return MessageResult(f"Teardown is now complete.")
 
@@ -246,7 +250,7 @@ def app_deploy(
     ),
     recursive: Optional[bool] = typer.Option(
         None,
-        "--recursive",
+        "--recursive/--no-recursive",
         "-r",
         help=f"""Whether to traverse and deploy files from subdirectories. If set, the command deploys all files and subdirectories; otherwise, only files in the current directory are deployed.""",
     ),
@@ -276,8 +280,13 @@ def app_deploy(
         project_root=cli_context.project_root,
     )
 
-    mapped_files = manager.build_bundle()
-    manager.deploy(prune, recursive, files, mapped_files)
+    bundle_map = manager.build_bundle()
+    manager.deploy(
+        bundle_map=bundle_map,
+        prune=prune,
+        recursive=recursive,
+        local_paths_to_sync=files,
+    )
 
     return MessageResult(
         f"Deployed successfully. Application package and stage are up-to-date."

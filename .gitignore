@@ -16,6 +16,7 @@ dist/
 gen_docs/
 /venv/
 .env
+.vscode
 
 ^app.zip
 ^snowflake.yml

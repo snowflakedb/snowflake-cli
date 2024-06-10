@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli.plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     NAME_COL,
@@ -88,7 +89,10 @@ def test_sync_deploy_root_with_stage(
 
     native_app_manager = _get_na_manager()
     assert mock_diff_result.has_changes()
-    native_app_manager.sync_deploy_root_with_stage("new_role", True, True)
+    mock_bundle_map = mock.Mock(spec=BundleMap)
+    native_app_manager.sync_deploy_root_with_stage(
+        bundle_map=mock_bundle_map, role="new_role", prune=True, recursive=True
+    )
 
     expected = [
         mock.call("select current_role()", cursor_class=DictCursor),
@@ -151,7 +155,10 @@ def test_sync_deploy_root_with_stage_prune(
     )
     native_app_manager = _get_na_manager()
 
-    native_app_manager.sync_deploy_root_with_stage("role", prune, True)
+    mock_bundle_map = mock.Mock(spec=BundleMap)
+    native_app_manager.sync_deploy_root_with_stage(
+        bundle_map=mock_bundle_map, role="new_role", prune=prune, recursive=True
+    )
 
     if expected_warn:
         files_str = "\n".join(only_on_stage_files)

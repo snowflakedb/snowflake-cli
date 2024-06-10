@@ -14,6 +14,7 @@
         }),
       ]),
       'deploy_root': 'output/deploy/',
+      'generated_root': '__generated/',
       'name': 'integration',
       'package': dict({
         'distribution': 'internal',
@@ -46,6 +47,7 @@
         }),
       ]),
       'deploy_root': 'output/deploy/',
+      'generated_root': '__generated/',
       'name': 'integration_external',
       'package': dict({
         'distribution': 'external',
@@ -70,10 +72,21 @@
     'native_app': dict({
       'application': None,
       'artifacts': list([
-        'setup.sql',
-        'README.md',
+        dict({
+          'dest': None,
+          'processors': list([
+          ]),
+          'src': 'setup.sql',
+        }),
+        dict({
+          'dest': None,
+          'processors': list([
+          ]),
+          'src': 'README.md',
+        }),
       ]),
       'deploy_root': 'output/deploy/',
+      'generated_root': '__generated/',
       'name': 'minimal',
       'package': None,
       'source_stage': 'app_src.stage',
@@ -94,8 +107,18 @@
         'warehouse': None,
       }),
       'artifacts': list([
-        'setup.sql',
-        'app/README.md',
+        dict({
+          'dest': None,
+          'processors': list([
+          ]),
+          'src': 'setup.sql',
+        }),
+        dict({
+          'dest': None,
+          'processors': list([
+          ]),
+          'src': 'app/README.md',
+        }),
         dict({
           'dest': 'ui/',
           'processors': list([
@@ -104,6 +127,7 @@
         }),
       ]),
       'deploy_root': 'output/deploy/',
+      'generated_root': '__generated/',
       'name': 'myapp',
       'package': dict({
         'distribution': 'internal',
@@ -133,8 +157,18 @@
         'warehouse': None,
       }),
       'artifacts': list([
-        'setup.sql',
-        'app/README.md',
+        dict({
+          'dest': None,
+          'processors': list([
+          ]),
+          'src': 'setup.sql',
+        }),
+        dict({
+          'dest': None,
+          'processors': list([
+          ]),
+          'src': 'app/README.md',
+        }),
         dict({
           'dest': 'ui/',
           'processors': list([
@@ -143,6 +177,7 @@
         }),
       ]),
       'deploy_root': 'output/deploy/',
+      'generated_root': '__generated/',
       'name': 'myapp',
       'package': dict({
         'distribution': 'internal',
