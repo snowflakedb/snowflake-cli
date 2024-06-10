@@ -366,8 +366,7 @@ class NativeAppManager(SqlExecutionMixin):
         the local filesystem.
 
         Args:
-            bundle_map: the artifact mapping computed during the `bundle` step. Required when local_paths_to_sync is
-             provided.
+            bundle_map (BundleMap): The artifact mapping computed by the `build_bundle` function.
             role (str): The name of the role to use for queries and commands.
             prune (bool): Whether to prune artifacts from the stage that don't exist locally.
             recursive (bool): Whether to traverse directories recursively.
