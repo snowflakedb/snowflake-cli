@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from src.snowflake.cli.api.project.definition import load_project_definition
+from src.snowflake.cli.api.project.definition import load_project
 
 TEST_DATA = Path(__file__).parent.parent / "test_data" / "streamlit"
 FILE_WITH_LONG_LIST = TEST_DATA / "with_list_in_source_file.yml"
@@ -28,6 +28,6 @@ ANOTHER_FILE_WITH_SINGLE_ITEM = TEST_DATA / "another_file_with_single_item.yml"
 )
 def test_load_project_definition(test_files, expected):
 
-    result = load_project_definition(test_files)
+    result = load_project(test_files).project_definition
 
     assert expected in result.streamlit.additional_source_files
