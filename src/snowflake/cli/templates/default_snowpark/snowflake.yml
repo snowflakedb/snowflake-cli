@@ -1,4 +1,4 @@
-definition_version: 1
+definition_version: "1.1"
 snowpark:
   project_name: "my_snowpark_project"
   stage_name: "dev_deployment"

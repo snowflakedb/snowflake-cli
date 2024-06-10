@@ -52,7 +52,7 @@ def test_sql_execute_multiple_file(mock_execute, runner, mock_cursor):
         result = runner.invoke(["sql", "-f", f1, "-f", f2])
 
     assert result.exit_code == 0
-    mock_execute.has_calls([mock.call(query), mock.call(query)])
+    mock_execute.assert_has_calls([mock.call(query), mock.call(query)])
 
 
 @mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
@@ -66,12 +66,10 @@ def test_sql_execute_from_stdin(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with(query)
 
 
-def test_sql_fails_if_no_query_file_or_stdin(runner):
+def test_sql_help_if_no_query_file_or_stdin(runner, snapshot):
     result = runner.invoke(["sql"])
-
-    assert_that_result_is_usage_error(
-        result, "Use either query, filename or input option."
-    )
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot
 
 
 @pytest.mark.parametrize("inputs", [("-i", "-q", "foo"), ("-i",), ("-q", "foo")])
@@ -334,6 +332,17 @@ def test_uses_variables_from_snowflake_yml(
 
     assert result.exit_code == 0
     mock_execute_query.assert_called_once_with("select foo_value")
+
+
+@mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
+def test_uses_variables_from_snowflake_local_yml(
+    mock_execute_query, project_directory, runner
+):
+    with project_directory("sql_templating"):
+        result = runner.invoke(["sql", "-q", "select &{ ctx.env.sf_var_override }"])
+
+    assert result.exit_code == 0
+    mock_execute_query.assert_called_once_with("select foo_value_override")
 
 
 @mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")

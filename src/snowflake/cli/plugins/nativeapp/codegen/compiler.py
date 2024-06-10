@@ -3,11 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Optional
 
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
     ProcessorMapping,
 )
+from snowflake.cli.plugins.nativeapp.artifacts import resolve_without_follow
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
     ArtifactProcessor,
     UnsupportedArtifactProcessorError,
@@ -29,11 +31,17 @@ class NativeAppCompiler:
     """
 
     def __init__(
-        self, project_definition: NativeApp, project_root: Path, deploy_root: Path
+        self,
+        project_definition: NativeApp,
+        project_root: Path,
+        deploy_root: Path,
+        generated_root: Path,
     ):
         self.project_definition = project_definition
         self.project_root = project_root
         self.deploy_root = deploy_root
+        self.generated_root = generated_root
+
         self.artifacts = [
             artifact
             for artifact in project_definition.artifacts
@@ -47,19 +55,28 @@ class NativeAppCompiler:
         Go through every artifact object in the project definition of a native app, and execute processors in order of specification for each of the artifact object.
         May have side-effects on the filesystem by either directly editing source files or the deploy root.
         """
+        should_proceed = False
         for artifact in self.artifacts:
-            for processor in artifact.processors:
-                artifact_processor = self._try_create_processor(
-                    processor_mapping=processor,
-                )
-                if artifact_processor is None:
-                    raise UnsupportedArtifactProcessorError(
-                        processor_name=processor.name
+            if artifact.processors:
+                should_proceed = True
+                break
+        if not should_proceed:
+            return
+
+        with cc.phase("Invoking artifact processors"):
+            for artifact in self.artifacts:
+                for processor in artifact.processors:
+                    artifact_processor = self._try_create_processor(
+                        processor_mapping=processor,
                     )
-                else:
-                    artifact_processor.process(
-                        artifact_to_process=artifact, processor_mapping=processor
-                    )
+                    if artifact_processor is None:
+                        raise UnsupportedArtifactProcessorError(
+                            processor_name=processor.name
+                        )
+                    else:
+                        artifact_processor.process(
+                            artifact_to_process=artifact, processor_mapping=processor
+                        )
 
     def _try_create_processor(
         self,
@@ -77,8 +94,9 @@ class NativeAppCompiler:
             else:
                 curr_processor = SnowparkAnnotationProcessor(
                     project_definition=self.project_definition,
-                    project_root=self.project_root,
-                    deploy_root=self.deploy_root,
+                    project_root=resolve_without_follow(self.project_root),
+                    deploy_root=resolve_without_follow(self.deploy_root),
+                    generated_root=resolve_without_follow(self.generated_root),
                 )
                 self.cached_processors[SNOWPARK_PROCESSOR] = curr_processor
                 return curr_processor

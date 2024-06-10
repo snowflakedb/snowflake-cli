@@ -13,6 +13,9 @@ from tests_integration.test_utils import (
     pushd,
     row_from_snowflake_session,
 )
+from tests_integration.testing_utils import (
+    assert_that_result_failed_with_message_containing,
+)
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
 TEST_ENV = generate_user_env(USER_NAME)
@@ -285,6 +288,14 @@ def test_nativeapp_deploy_directory(
 
     with pushd(Path(os.getcwd(), project_dir)):
         touch("app/dir/file.txt")
+        result = runner.invoke_with_connection(
+            ["app", "deploy", "app/dir", "--no-recursive"],
+            env=TEST_ENV,
+        )
+        assert_that_result_failed_with_message_containing(
+            result, "Add the -r flag to deploy directories."
+        )
+
         result = runner.invoke_with_connection_json(
             ["app", "deploy", "app/dir", "-r"],
             env=TEST_ENV,

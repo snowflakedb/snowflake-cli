@@ -3,7 +3,6 @@ import logging
 import typer
 from snowflake.cli.api.commands.flags import identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyper
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.types import MessageResult
 from snowflake.cli.plugins.notebook.manager import NotebookManager
 from snowflake.cli.plugins.notebook.types import NotebookName, NotebookStagePath
@@ -12,7 +11,6 @@ from typing_extensions import Annotated
 app = SnowTyper(
     name="notebook",
     help="Manages notebooks in Snowflake.",
-    hidden=FeatureFlag.ENABLE_NOTEBOOKS.is_disabled(),
 )
 log = logging.getLogger(__name__)
 

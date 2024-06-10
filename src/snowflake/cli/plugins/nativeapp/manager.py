@@ -17,6 +17,7 @@ from snowflake.cli.api.project.definition import (
     default_role,
 )
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
+from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
     extract_schema,
     to_identifier,
@@ -25,11 +26,9 @@ from snowflake.cli.api.project.util import (
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.connection.util import make_snowsight_url
 from snowflake.cli.plugins.nativeapp.artifacts import (
-    ArtifactMapping,
     BundleMap,
     build_bundle,
     resolve_without_follow,
-    translate_artifact,
 )
 from snowflake.cli.plugins.nativeapp.codegen.compiler import (
     NativeAppCompiler,
@@ -158,12 +157,16 @@ class NativeAppManager(SqlExecutionMixin):
         return self._project_definition
 
     @cached_property
-    def artifacts(self) -> List[ArtifactMapping]:
-        return [translate_artifact(item) for item in self.definition.artifacts]
+    def artifacts(self) -> List[PathMapping]:
+        return self.definition.artifacts
 
     @cached_property
     def deploy_root(self) -> Path:
         return Path(self.project_root, self.definition.deploy_root)
+
+    @cached_property
+    def generated_root(self) -> Path:
+        return Path(self.deploy_root, self.definition.generated_root)
 
     @cached_property
     def package_scripts(self) -> List[str]:
@@ -321,17 +324,18 @@ class NativeAppManager(SqlExecutionMixin):
                 project_definition=self._project_definition,
                 project_root=self.project_root,
                 deploy_root=self.deploy_root,
+                generated_root=self.generated_root,
             )
             compiler.compile_artifacts()
         return mapped_files
 
     def sync_deploy_root_with_stage(
         self,
+        bundle_map: BundleMap,
         role: str,
         prune: bool,
         recursive: bool,
         local_paths_to_sync: List[Path] | None = None,
-        bundle_map: Optional[BundleMap] = None,
     ) -> DiffResult:
         """
         Ensures that the files on our remote stage match the artifacts we have in
@@ -373,8 +377,6 @@ class NativeAppManager(SqlExecutionMixin):
 
         files_not_removed = []
         if local_paths_to_sync:
-            assert bundle_map is not None
-
             # Deploying specific files/directories
             resolved_paths_to_sync = [
                 resolve_without_follow(p) for p in local_paths_to_sync
@@ -547,10 +549,10 @@ class NativeAppManager(SqlExecutionMixin):
 
     def deploy(
         self,
+        bundle_map: BundleMap,
         prune: bool,
         recursive: bool,
         local_paths_to_sync: List[Path] | None = None,
-        bundle_map: Optional[BundleMap] = None,
     ) -> DiffResult:
         """app deploy process"""
 
@@ -563,7 +565,11 @@ class NativeAppManager(SqlExecutionMixin):
 
             # 3. Upload files from deploy root local folder to the above stage
             diff = self.sync_deploy_root_with_stage(
-                self.package_role, prune, recursive, local_paths_to_sync, bundle_map
+                bundle_map=bundle_map,
+                role=self.package_role,
+                prune=prune,
+                recursive=recursive,
+                local_paths_to_sync=local_paths_to_sync,
             )
 
         return diff

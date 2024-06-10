@@ -45,13 +45,10 @@ def test_object_commands(runner, sf_git_repository):
 
 @pytest.mark.integration
 def test_fetch(runner, sf_git_repository):
-    result = runner.invoke_with_connection_json(["git", "fetch", sf_git_repository])
-    assert result.exit_code == 0
-    assert result.json == [
-        {
-            "status": f"Git Repository {sf_git_repository} is up to date. No change was fetched."
-        }
-    ]
+    result = runner.invoke_with_connection(["git", "fetch", sf_git_repository])
+    # we check only command's exit code, as checking its output would be flaky
+    # (the repository state changes often enough)
+    assert result.exit_code == 0, result.output
 
 
 @pytest.mark.integration

@@ -22,6 +22,8 @@ class SnowTyper(typer.Typer):
             **kwargs,
             context_settings=DEFAULT_CONTEXT_SETTINGS,
             pretty_exceptions_show_locals=False,
+            no_args_is_help=True,
+            add_completion=True,
         )
 
     @wraps(typer.Typer.command)

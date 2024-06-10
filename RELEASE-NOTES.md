@@ -4,6 +4,23 @@
 ## Deprecations
 
 ## New additions
+* Add `snow object create` command
+* Added `snow app bundle` command that prepares a local folder in the project directory with artifacts to be uploaded to a stage as part of creating a Snowflake Native App.
+* Changed `snow app version create --patch` to require an integer patch number, aligning with what Snowflake expects
+* Added `snow notebook` commands:
+  * `snow notebook execute` enabling head-less execution of a notebook.
+  * `snow notebook create` proving an option to create a Snowflake Notebook from a file on stage.
+
+## Fixes and improvements
+
+
+# v2.4.0
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+>>>>>>> main
 * Added the `--cascade` option to `snow app teardown` command that drops all application objects owned by the application.
  * Add external access integration to snow object commands
  * Add aliases for `snow object list/describe/drop` commands under:
@@ -18,12 +35,24 @@
        of `snowflake.yml` will be used to expand templates.
  * `snow sql` support executing multiple files. Users can use `-f/--file` flag more than once to execute queries
       from many files.
- *  `snow connection test` command accepts all connection parameters including support for temporary connection.
+ * `snow git execute` and `snow stage execute` support passing input variables for SQL execution.
+* Added `snow cortex` commands:
+    * `complete` - Given a prompt, the command generates a response using your choice of language model.
+      In the simplest use case, the prompt is a single string. You may also provide a JSON file with conversation history including multiple prompts and responses for interactive chat-style usage.
+    * `extract-answer` - Extracts an answer to a given question from a text document.
+      The document may be a plain-English document or a string representation of a semi-structured (JSON) data object.
+    * `sentiment` - Returns sentiment as a score between -1 to 1 (with -1 being the most negative and 1 the most positive, with values around 0 neutral) for the given English-language input text.
+    * `summarize` - Summarizes the given English-language input text.
+    * `translate` - Translates text from the indicated or detected source language to a target language.
+    * `search`    - for integration with Cortex Search Service
+* When invoked without command help is displayed by default with list of available commands.
+* Add tab-completion for `snow` command.
 
 ## Fixes and improvements
 * Improved support for quoted identifiers.
 * Fixed creating patches with `snow app version create` when there are 2 or more existing patches on a version
 * Using `--format=json` adds trailing new line to avoid `%` being added by some terminals to signal no new line at the end of output.
+* Fixed `--interactive` flag to be enabled by default in interactive environments and added the `--no-interactive` flag to be able to turn off prompting.
 
 # v2.3.1
 ## Backward incompatibility

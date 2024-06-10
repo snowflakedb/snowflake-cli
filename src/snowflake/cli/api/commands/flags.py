@@ -417,7 +417,6 @@ VariablesOption = typer.Option(
     "--variable",
     "-D",
     help="Variables for the template. For example: `-D \"<key>=<value>\"`, string values must be in `''`.",
-    hidden=True,
     show_default=False,
 )
 
@@ -544,6 +543,19 @@ def project_definition_option(optional: bool = False):
         "--project",
         help=f"Path where Snowflake project resides. Defaults to current working directory.",
         callback=_callback,
+        show_default=False,
+    )
+
+
+def readable_file_option(param_name: str, help_str: str) -> typer.Option:
+    return typer.Option(
+        None,
+        param_name,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        help=help_str,
         show_default=False,
     )
 
