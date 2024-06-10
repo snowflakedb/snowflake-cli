@@ -80,8 +80,9 @@ def create(
     )
 
     # We need build_bundle() to (optionally) find version in manifest.yml and create an application package
-    processor.build_bundle()
+    bundle_map = processor.build_bundle()
     processor.process(
+        bundle_map=bundle_map,
         version=version,
         patch=patch,
         policy=policy,
