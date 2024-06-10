@@ -1,7 +1,5 @@
 import pytest
-from snowflake.cli.api.project.definition import (
-    load_project_definition,
-)
+from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.project.schemas.native_app.path_mapping import ProcessorMapping
 
 
@@ -9,7 +7,7 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import ProcessorM
     "project_definition_files", ["napp_with_annotation_processor"], indirect=True
 )
 def test_napp_project_with_annotation_processor(project_definition_files):
-    project = load_project_definition(project_definition_files)
+    project = load_project(project_definition_files).project_definition
     assert len(project.native_app.artifacts) == 3
 
     result = project.native_app.artifacts[2]

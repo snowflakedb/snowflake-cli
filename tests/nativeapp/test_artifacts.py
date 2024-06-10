@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 import pytest
-from snowflake.cli.api.project.definition import load_project_definition
+from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.plugins.nativeapp.artifacts import (
     ArtifactError,
@@ -702,7 +702,7 @@ def test_bundle_map_ignores_sources_in_deploy_root(bundle_map):
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_napp_project_1_artifacts(project_definition_files, snapshot):
     project_root = project_definition_files[0].parent
-    native_app = load_project_definition(project_definition_files).native_app
+    native_app = load_project(project_definition_files).project_definition.native_app
 
     with pushd(project_root) as local_path:
         deploy_root = Path(local_path, native_app.deploy_root)

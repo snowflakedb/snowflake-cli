@@ -16,6 +16,14 @@ class MissingConfiguration(ClickException):
     pass
 
 
+class CycleDetectedError(ClickException):
+    pass
+
+
+class InvalidTemplate(ClickException):
+    pass
+
+
 class InvalidConnectionConfiguration(ClickException):
     def format_message(self):
         return f"Invalid connection configuration. {self.message}"
