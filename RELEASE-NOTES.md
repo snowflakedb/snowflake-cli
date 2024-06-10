@@ -11,7 +11,7 @@
   * `snow notebook create` proving an option to create a Snowflake Notebook from a file on stage.
 
 ## Fixes and improvements
-* Fixed ZIP packaging of snowpark project dependencies containing implicit namespace packages.
+* Fixed ZIP packaging of Snowpark project dependencies containing implicit namespace packages like `snowflake`.
 
 
 # v2.4.0
