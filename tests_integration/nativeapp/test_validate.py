@@ -23,7 +23,7 @@ def test_nativeapp_validate(runner, snowflake_session):
     with pushd(Path(os.getcwd(), project_name)):
         try:
             # validate the app's setup script
-            result = runner.invoke_with_connection_json(
+            result = runner.invoke_with_connection(
                 ["app", "validate"],
                 env=TEST_ENV,
             )
@@ -32,7 +32,7 @@ def test_nativeapp_validate(runner, snowflake_session):
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
+            result = runner.invoke_with_connection(
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,
             )
@@ -57,7 +57,7 @@ def test_nativeapp_validate_failing(runner, snowflake_session):
 
         try:
             # validate the app's setup script
-            result = runner.invoke_with_connection_json(
+            result = runner.invoke_with_connection(
                 ["app", "validate"],
                 env=TEST_ENV,
             )
@@ -69,7 +69,7 @@ def test_nativeapp_validate_failing(runner, snowflake_session):
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
+            result = runner.invoke_with_connection(
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,
             )
