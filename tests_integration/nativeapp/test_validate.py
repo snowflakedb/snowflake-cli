@@ -29,9 +29,7 @@ def test_nativeapp_validate(runner, temporary_working_directory):
             )
             assert result.exit_code == 0, result.output
             assert "Native App validation succeeded." in result.output
-
         finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
             result = runner.invoke_with_connection(
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,
@@ -56,7 +54,8 @@ def test_nativeapp_validate_failing(runner, temporary_working_directory):
         )
 
         try:
-            # validate the app's setup script
+            # validate the app's setup script, this will fail
+            # because we include an empty file
             result = runner.invoke_with_connection(
                 ["app", "validate"],
                 env=TEST_ENV,
@@ -66,9 +65,7 @@ def test_nativeapp_validate_failing(runner, temporary_working_directory):
                 "Snowflake Native App setup script failed validation." in result.output
             )
             assert "Empty SQL statement" in result.output
-
         finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
             result = runner.invoke_with_connection(
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,
