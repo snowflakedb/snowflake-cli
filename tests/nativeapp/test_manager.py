@@ -1063,6 +1063,7 @@ def test_validate_use_scratch_stage(
 
     mock_build_bundle.assert_called_once()
     mock_deploy.assert_called_with(
+        bundle_map=mock_build_bundle.return_value,
         prune=True,
         recursive=True,
         stage_fqn=native_app_manager.scratch_stage_fqn,
@@ -1127,6 +1128,7 @@ def test_validate_failing_drops_scratch_stage(
 
     mock_build_bundle.assert_called_once()
     mock_deploy.assert_called_with(
+        bundle_map=mock_build_bundle.return_value,
         prune=True,
         recursive=True,
         stage_fqn=native_app_manager.scratch_stage_fqn,
