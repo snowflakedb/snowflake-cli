@@ -10,15 +10,21 @@ log = logging.getLogger(__name__)
 
 IGNORED_FILES = [
     "**/.DS_Store",
+    "**/.git",
     "**/.git/*",
     "**/.gitignore",
+    "**/.env",
     "**/.env/*",
+    "**/.venv",
     "**/.venv/*",
     "**/__pycache__",
     "**/*.zip",
     "**/*.pyc",
+    "**/env",
     "**/env/*",
+    "**/ENV",
     "**/ENV/*",
+    "**/venv",
     "**/venv/*",
     "**/requirements.txt",
     "**/requirements.snowflake.txt",
@@ -52,9 +58,6 @@ def zip_dir(
 
 
 def _to_be_zipped(file: Path) -> bool:
-    if file.is_dir():
-        return False
-
     for pattern in IGNORED_FILES:
         # This has to be a string because of fnmatch
         file_as_str = str(file)
