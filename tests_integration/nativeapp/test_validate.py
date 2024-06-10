@@ -48,10 +48,7 @@ def test_nativeapp_validate_failing(runner, temporary_working_directory):
 
     with pushd(Path(os.getcwd(), project_name)):
         # Create invalid SQL file
-        Path("app/empty.sql").touch()
-        Path("app/setup_script.sql").write_text(
-            "EXECUTE IMMEDIATE FROM './empty.sql';\n"
-        )
+        Path("app/setup_script.sql").write_text("Lorem ipsum dolor sit amet")
 
         try:
             # validate the app's setup script, this will fail
@@ -64,7 +61,7 @@ def test_nativeapp_validate_failing(runner, temporary_working_directory):
             assert (
                 "Snowflake Native App setup script failed validation." in result.output
             )
-            assert "Empty SQL statement" in result.output
+            assert "syntax error" in result.output
         finally:
             result = runner.invoke_with_connection(
                 ["app", "teardown", "--force"],
