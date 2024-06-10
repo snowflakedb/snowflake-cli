@@ -181,7 +181,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('snowflake-snowpark-python===0.15.0-rc1')
+  PACKAGES=('snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='main.my_function_handler'
@@ -203,7 +203,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('snowflake-snowpark-python===0.15.0-rc1')
+  PACKAGES=('snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='main.my_function_handler'
@@ -269,7 +269,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('snowflake-snowpark-python  ==  0.15.0')
+  PACKAGES=('snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='main.my_function_handler'
@@ -335,7 +335,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('snowflake-snowpark-python==0.15.0')
+  PACKAGES=('snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='main.my_function_handler'
@@ -357,7 +357,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('snowflake-snowpark-python==0.15.0')
+  PACKAGES=('snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='main.my_function_handler'
@@ -379,7 +379,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('snowflake-snowpark-python<0.16.0')
+  PACKAGES=('snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='main.my_function_handler'
@@ -401,7 +401,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('snowflake-snowpark-python<=0.17.0')
+  PACKAGES=('snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='main.my_function_handler'
@@ -423,7 +423,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('snowflake-snowpark-python>=0.14.0')
+  PACKAGES=('snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='main.my_function_handler'
@@ -445,7 +445,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('snowflake-snowpark-python>0.13.0')
+  PACKAGES=('snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='main.my_function_handler'
@@ -467,7 +467,7 @@
   LANGUAGE PYTHON
   RUNTIME_VERSION=3.11
   IMPORTS=('/path/to/import1.py', '/path/to/import2.zip', '/stagepath/main.py')
-  PACKAGES=('snowflake-snowpark-python===0.15.0')
+  PACKAGES=('snowflake-snowpark-python')
   EXTERNAL_ACCESS_INTEGRATIONS=('integration_one', 'integration_two')
   SECRETS=('key1'=secret_one, 'key2'=integration_two)
   HANDLER='main.my_function_handler'
