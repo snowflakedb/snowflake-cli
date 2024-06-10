@@ -53,12 +53,16 @@ class FQN:
         return self._name
 
     @property
-    def identifier(self) -> str:
+    def prefix(self) -> str:
         if self.database:
-            return f"{self.database}.{self.schema if self.schema else 'PUBLIC'}.{self.name}"
+            return f"{self.database}.{self.schema if self.schema else 'PUBLIC'}"
         if self.schema:
-            return f"{self.schema}.{self.name}"
-        return self.name
+            return f"{self.schema}"
+        return ""
+
+    @property
+    def identifier(self) -> str:
+        return f"{self.prefix}.{self.name}"
 
     @property
     def url_identifier(self) -> str:
@@ -91,6 +95,13 @@ class FQN:
         if signature := result.group("signature"):
             unqualified_name = unqualified_name + signature
         return cls(name=unqualified_name, schema=schema, database=database)
+
+    @classmethod
+    def from_stage(cls, stage: str) -> "FQN":
+        name = stage
+        if stage.startswith("@"):
+            name = stage[1:]
+        return cls.from_string(name)
 
     @classmethod
     def from_identifier_model(cls, model: ObjectIdentifierBaseModel) -> "FQN":

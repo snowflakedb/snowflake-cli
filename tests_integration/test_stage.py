@@ -244,10 +244,7 @@ def test_stage_execute_python(
         {"status": f"Stage area {stage_name.upper()} successfully created."},
     )
 
-    files = [
-        "script1.py",
-        "script_template.py",
-    ]
+    files = ["script1.py", "script_template.py", "requirements.txt"]
     for name in files:
         result = runner.invoke_with_connection_json(
             [

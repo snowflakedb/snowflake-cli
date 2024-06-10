@@ -22,6 +22,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from os import path
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from textwrap import dedent
 from typing import Dict, List, Optional, Union
 
@@ -32,6 +33,7 @@ from snowflake.cli.api.commands.flags import (
     parse_key_value_variables,
 )
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -67,6 +69,9 @@ class StagePathParts:
             if self.stage_name.endswith("/")
             else f"{self.stage_name}/{self.directory}".lower()
         )
+
+    def get_full_stage_path(self, path: str):
+        return FQN.from_stage(self.stage).prefix + "." + path
 
 
 class StageManager(SqlExecutionMixin):
@@ -240,14 +245,17 @@ class StageManager(SqlExecutionMixin):
             raise ClickException(f"No files matched pattern '{stage_path}'")
 
         # sort filtered files in alphabetical order with directories at the end
-        sorted_file_list = sorted(
-            filtered_file_list, key=lambda f: (path.dirname(f), path.basename(f))
-        )
+        sorted_file_list = self._sort_paths(filtered_file_list)
 
         parsed_variables = parse_key_value_variables(variables)
         sql_variables = self._parse_execute_variables(parsed_variables)
         python_variables = {str(v.key).upper(): v.value for v in parsed_variables}
         results = []
+
+        if any(file.endswith(".py") for file in sorted_file_list):
+            self._python_exe_procedure = self._bootstrap_snowpark_execution_environment(
+                stage_path_parts
+            )
 
         for file in sorted_file_list:
             if file.endswith(".py"):
@@ -264,6 +272,12 @@ class StageManager(SqlExecutionMixin):
             results.append(result)
 
         return results
+
+    def _sort_paths(self, filtered_file_list: List[str]):
+        """Sorts file paths from top to bottom."""
+        return sorted(
+            filtered_file_list, key=lambda f: (path.dirname(f), path.basename(f))
+        )
 
     def _split_stage_path(self, stage_path: str) -> StagePathParts:
         """
@@ -283,8 +297,12 @@ class StageManager(SqlExecutionMixin):
         directory = "/".join(Path(stage_path).parts[1:])
         return StagePathParts(stage, stage_name, directory)
 
-    def _get_files_list_from_stage(self, stage_path_parts: StagePathParts) -> List[str]:
-        files_list_result = self.list_files(stage_path_parts.stage).fetchall()
+    def _get_files_list_from_stage(
+        self, stage_path_parts: StagePathParts, pattern: str | None = None
+    ) -> List[str]:
+        files_list_result = self.list_files(
+            stage_path_parts.stage, pattern=pattern
+        ).fetchall()
 
         if not files_list_result:
             raise ClickException(f"No files found on stage '{stage_path_parts.stage}'")
@@ -368,12 +386,57 @@ class StageManager(SqlExecutionMixin):
         file_path = Path(file).parts[1:]
         return f"{stage}/{'/'.join(file_path)}"
 
-    def _bootstrap_snowpark_execution_environment(self):
+    def _check_for_requirements_file(
+        self, stage_path_parts: StagePathParts
+    ) -> List[str]:
+        """Looks for requirements.txt file on stage."""
+        req_files_on_stage = self._get_files_list_from_stage(
+            stage_path_parts, pattern=".*requirements\.txt$"
+        )
+        if not req_files_on_stage:
+            return []
+
+        # Construct all possible path for requirements file for this context
+        req_file_name = "requirements.txt"
+        current_file = Path(stage_path_parts.path) / req_file_name
+        possible_req_files = []
+
+        while not current_file.parent.is_mount():
+            possible_req_files.append(str(current_file.parent / req_file_name))
+            current_file = current_file.parent
+
+        # Now for every possible path check if the file exists on stage,
+        # if yes break, we use the first possible file
+        requirements_file = None
+        for req_file in possible_req_files:
+            if req_file in req_files_on_stage:
+                requirements_file = req_file
+                break
+
+        # If we haven't found any matching requirements
+        if requirements_file is None:
+            return []
+
+        # req_file at this moment is the first found requirements file
+        with TemporaryDirectory() as tmp_dir:
+            self.get(
+                stage_path_parts.get_full_stage_path(requirements_file), Path(tmp_dir)
+            )
+            requirements = (Path(tmp_dir) / "requirements.txt").read_text().splitlines()
+
+        return requirements
+
+    def _bootstrap_snowpark_execution_environment(
+        self, stage_path_parts: StagePathParts
+    ):
         """Prepares Snowpark session for executing Python code remotely."""
         from snowflake.snowpark.functions import sproc
 
         self.snowpark_session.add_packages("snowflake-snowpark-python")
         self.snowpark_session.add_packages("snowflake.core")
+        requirements = self._check_for_requirements_file(stage_path_parts)
+        for req in requirements:
+            self.snowpark_session.add_packages(req)
 
         @sproc(is_permanent=False)
         def _python_execution_procedure(
@@ -404,12 +467,6 @@ class StageManager(SqlExecutionMixin):
         Currently, there's no option to pass input to the execution.
         """
         from snowflake.snowpark.exceptions import SnowparkSQLException
-
-        # Bootstrap Snowpark session
-        if self._python_exe_procedure is None:
-            self._python_exe_procedure = (
-                self._bootstrap_snowpark_execution_environment()
-            )
 
         try:
             self._python_exe_procedure(self.get_standard_stage_prefix(file), variables)  # type: ignore

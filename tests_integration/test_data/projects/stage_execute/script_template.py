@@ -11,3 +11,9 @@ assert database.name.upper() == os.environ["TEST_DATABASE_NAME"].upper()
 
 # Make a side effect that we can check in tests
 database.schemas.create(Schema(name=os.environ["TEST_ID"]))
+
+# Check if an external dependency works
+from sklearn import show_versions
+import matplotlib
+
+show_versions()

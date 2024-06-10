@@ -957,3 +957,54 @@ def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
 
     queries = ctx.get_queries()
     assert queries[0] == queries[1]
+
+
+@pytest.mark.parametrize(
+    "files, selected, packages",
+    [
+        ([], None, []),
+        (["my_stage/dir/parallel/requirements.txt"], None, []),
+        (
+            ["my_stage/dir/files/requirements.txt"],
+            "db.schema.my_stage/dir/files/requirements.txt",
+            ["aaa", "bbb"],
+        ),
+        (
+            [
+                "my_stage/requirements.txt",
+                "my_stage/dir/requirements.txt",
+                "my_stage/dir/files/requirements.txt",
+            ],
+            "db.schema.my_stage/dir/files/requirements.txt",
+            ["aaa", "bbb"],
+        ),
+        (
+            ["my_stage/requirements.txt"],
+            "db.schema.my_stage/requirements.txt",
+            ["aaa", "bbb"],
+        ),
+    ],
+)
+def test_stage_manager_check_for_requirements_file(files, selected, packages):
+    class _MockGetter:
+        def __init__(self):
+            self.download_file = None
+
+        def __call__(self, file_on_stage, target_dir):
+            self.download_file = file_on_stage
+            (Path(target_dir) / "requirements.txt").write_text("\n".join(packages))
+
+    get_mock = _MockGetter()
+    sm = StageManager()
+    with mock.patch.object(
+        sm, "_get_files_list_from_stage", lambda parts, pattern: files
+    ):
+        with mock.patch.object(StageManager, "get", get_mock) as get_mock:
+            result = sm._check_for_requirements_file(  # noqa: SLF001
+                stage_path_parts=sm._split_stage_path(  # noqa: SLF001
+                    "@db.schema.my_stage/dir/files"
+                )
+            )
+
+    assert result == packages
+    assert get_mock.download_file == selected

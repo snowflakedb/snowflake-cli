@@ -27,7 +27,7 @@
     }),
     dict({
       'Error': None,
-      'File': '@test_stage_execute/script_template.py',
+      'File': 'test_stage_execute/script_template.py',
       'Status': 'SUCCESS',
     }),
   ])
