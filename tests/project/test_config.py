@@ -8,7 +8,7 @@ from unittest.mock import PropertyMock
 import pytest
 from snowflake.cli.api.project.definition import (
     generate_local_override_yml,
-    load_project_definition,
+    load_project,
 )
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
@@ -17,7 +17,7 @@ from snowflake.cli.api.project.schemas.project_definition import ProjectDefiniti
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_napp_project_1(project_definition_files):
-    project = load_project_definition(project_definition_files)
+    project = load_project(project_definition_files).project_definition
     assert project.native_app.name == "myapp"
     assert project.native_app.deploy_root == "output/deploy/"
     assert project.native_app.package.role == "accountadmin"
@@ -28,7 +28,7 @@ def test_napp_project_1(project_definition_files):
 
 @pytest.mark.parametrize("project_definition_files", ["minimal"], indirect=True)
 def test_na_minimal_project(project_definition_files: List[Path]):
-    project = load_project_definition(project_definition_files)
+    project = load_project(project_definition_files).project_definition
     assert project.native_app.name == "minimal"
     assert project.native_app.artifacts == [
         PathMapping(src="setup.sql"),
@@ -64,7 +64,7 @@ def test_na_minimal_project(project_definition_files: List[Path]):
 @pytest.mark.parametrize("project_definition_files", ["underspecified"], indirect=True)
 def test_underspecified_project(project_definition_files):
     with pytest.raises(SchemaValidationError) as exc_info:
-        load_project_definition(project_definition_files)
+        load_project(project_definition_files).project_definition
 
     assert "NativeApp" in str(exc_info)
     assert "Your project definition is missing following fields: ('artifacts',)" in str(
@@ -77,7 +77,7 @@ def test_underspecified_project(project_definition_files):
 )
 def test_fails_without_definition_version(project_definition_files):
     with pytest.raises(SchemaValidationError) as exc_info:
-        load_project_definition(project_definition_files)
+        load_project(project_definition_files).project_definition
 
     assert "ProjectDefinition" in str(exc_info)
     assert (
@@ -89,7 +89,7 @@ def test_fails_without_definition_version(project_definition_files):
 @pytest.mark.parametrize("project_definition_files", ["unknown_fields"], indirect=True)
 def test_does_not_accept_unknown_fields(project_definition_files):
     with pytest.raises(SchemaValidationError) as exc_info:
-        load_project_definition(project_definition_files)
+        load_project(project_definition_files).project_definition
 
     assert "NativeApp" in str(exc_info)
     assert (
@@ -120,7 +120,7 @@ def test_does_not_accept_unknown_fields(project_definition_files):
     indirect=True,
 )
 def test_fields_are_parsed_correctly(project_definition_files, snapshot):
-    result = load_project_definition(project_definition_files).model_dump()
+    result = load_project(project_definition_files).project_definition.model_dump()
     assert result == snapshot
 
 
