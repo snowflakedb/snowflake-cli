@@ -1092,7 +1092,7 @@ def test_upgrade_app_recreate_app(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
 def test_upgrade_app_from_version_throws_usage_error_one(
-    mock_existing, policy_param, temp_dir
+    mock_existing, policy_param, temp_dir, mock_bundle_map
 ):
 
     current_working_directory = os.getcwd()
@@ -1104,7 +1104,12 @@ def test_upgrade_app_from_version_throws_usage_error_one(
 
     run_processor = _get_na_run_processor()
     with pytest.raises(UsageError):
-        run_processor.process(policy=policy_param, version="v1", is_interactive=True)
+        run_processor.process(
+            bundle_map=mock_bundle_map,
+            policy=policy_param,
+            version="v1",
+            is_interactive=True,
+        )
 
 
 # Test upgrade app method for version AND no existing app package from version info
@@ -1116,7 +1121,7 @@ def test_upgrade_app_from_version_throws_usage_error_one(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
 def test_upgrade_app_from_version_throws_usage_error_two(
-    mock_existing, policy_param, temp_dir
+    mock_existing, policy_param, temp_dir, mock_bundle_map
 ):
 
     current_working_directory = os.getcwd()
@@ -1128,7 +1133,12 @@ def test_upgrade_app_from_version_throws_usage_error_two(
 
     run_processor = _get_na_run_processor()
     with pytest.raises(UsageError):
-        run_processor.process(policy=policy_param, version="v1", is_interactive=True)
+        run_processor.process(
+            bundle_map=mock_bundle_map,
+            policy=policy_param,
+            version="v1",
+            is_interactive=True,
+        )
 
 
 # Test upgrade app method for version AND existing app info AND user wants to drop app AND drop succeeds AND app is created successfully
@@ -1152,6 +1162,7 @@ def test_upgrade_app_recreate_app_from_version(
     policy_param,
     temp_dir,
     mock_cursor,
+    mock_bundle_map,
 ):
     mock_get_existing_app_info.return_value = {
         "name": "myapp",
@@ -1219,7 +1230,12 @@ def test_upgrade_app_recreate_app_from_version(
     )
 
     run_processor = _get_na_run_processor()
-    run_processor.process(policy=policy_param, version="v1", is_interactive=True)
+    run_processor.process(
+        bundle_map=mock_bundle_map,
+        policy=policy_param,
+        version="v1",
+        is_interactive=True,
+    )
     assert mock_execute.mock_calls == expected
 
 

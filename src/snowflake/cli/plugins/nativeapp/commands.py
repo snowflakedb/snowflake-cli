@@ -146,7 +146,7 @@ def app_run(
         help=f"""The version defined in an existing application package from which you want to create an application object.
         The application object and application package names are determined from the project definition file.""",
     ),
-    patch: Optional[str] = typer.Option(
+    patch: Optional[int] = typer.Option(
         None,
         "--patch",
         help=f"""The patch number under the given `--version` defined in an existing application package that should be used to create an application object.
@@ -181,8 +181,9 @@ def app_run(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    processor.build_bundle()
+    bundle_map = processor.build_bundle()
     processor.process(
+        bundle_map=bundle_map,
         policy=policy,
         version=version,
         patch=patch,
@@ -279,8 +280,13 @@ def app_deploy(
         project_root=cli_context.project_root,
     )
 
-    mapped_files = manager.build_bundle()
-    manager.deploy(prune, recursive, files, mapped_files)
+    bundle_map = manager.build_bundle()
+    manager.deploy(
+        bundle_map=bundle_map,
+        prune=prune,
+        recursive=recursive,
+        local_paths_to_sync=files,
+    )
 
     return MessageResult(
         f"Deployed successfully. Application package and stage are up-to-date."
