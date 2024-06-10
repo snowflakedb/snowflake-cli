@@ -49,7 +49,7 @@ def project_definition_files(request) -> Generator[List[Path], None, None]:
     Expects indirect parameterization, e.g.
     @pytest.mark.parametrize("project_definition_files", ["project_1"], indirect=True)
     def test_my_project(project_definition_files):
-        project = load_project_definition(project_definition_files)
+        project = load_project(project_definition_files).project_definition
     """
     dir_name = request.param
     with snowflake_ymls(dir_name) as ymls:

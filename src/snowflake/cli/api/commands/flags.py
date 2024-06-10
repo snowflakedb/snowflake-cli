@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tempfile
 from dataclasses import dataclass
 from enum import Enum
@@ -14,6 +15,7 @@ from snowflake.cli.api.cli_global_context import cli_context_manager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.output.formats import OutputFormat
+from snowflake.cli.api.utils.rendering import CONTEXT_KEY
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
@@ -499,6 +501,7 @@ def project_type_option(project_name: str):
 
         cli_context_manager.set_project_definition(project_definition)
         cli_context_manager.set_project_root(project_root)
+        cli_context_manager.set_template_context(dm.template_context)
         return project_definition
 
     if project_name == "native_app":
@@ -527,14 +530,17 @@ def project_definition_option(optional: bool = False):
             dm = DefinitionManager(project_path)
             project_definition = dm.project_definition
             project_root = dm.project_root
+            template_context = dm.template_context
         except MissingConfiguration:
             if optional:
                 project_definition = None
                 project_root = None
+                template_context = {CONTEXT_KEY: {"env": os.environ}}
             else:
                 raise
         cli_context_manager.set_project_definition(project_definition)
         cli_context_manager.set_project_root(project_root)
+        cli_context_manager.set_template_context(template_context)
         return project_definition
 
     return typer.Option(

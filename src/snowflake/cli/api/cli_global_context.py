@@ -212,6 +212,7 @@ class _CliGlobalContextManager:
         self._experimental = False
         self._project_definition = None
         self._project_root = None
+        self._template_context = None
         self._silent: bool = False
 
     def reset(self):
@@ -258,6 +259,13 @@ class _CliGlobalContextManager:
 
     def set_project_root(self, project_root: Path):
         self._project_root = project_root
+
+    @property
+    def template_context(self) -> dict:
+        return self._template_context
+
+    def set_template_context(self, template_context: dict):
+        self._template_context = template_context
 
     @property
     def connection_context(self) -> _ConnectionContext:
@@ -310,6 +318,10 @@ class _CliGlobalContextAccess:
     @property
     def project_root(self):
         return self._manager.project_root
+
+    @property
+    def template_context(self) -> dict:
+        return self._manager.template_context
 
     @property
     def silent(self) -> bool:
