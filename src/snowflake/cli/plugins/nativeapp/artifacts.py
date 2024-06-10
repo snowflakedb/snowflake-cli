@@ -512,8 +512,7 @@ def symlink_or_copy(
     src: Path, dst: Path, deploy_root: Path, makedirs=True, overwrite=True
 ) -> None:
     """
-    Tries to create a symlink to src at dst; failing that (i.e. in Windows
-    without Administrator / Developer Mode) copies the file from src to dst instead.
+    Symlinks files from src to dst. If the src contains parent directories, then copies the empty directory shell to the deploy root.
     If makedirs is True, the directory hierarchy above dst is created if any
     of those directories do not exist.
     """
@@ -524,17 +523,32 @@ def symlink_or_copy(
 
     # Verify that the mapping isn't accidentally trying to create a file in the project source through symlinks.
     # We need to ensure we're resolving symlinks for this check to be effective.
+    # We are unlikely to hit this if calling the function through bundle map, keeping it here for other future use cases outside bundle.
     resolved_dst = dst.resolve()
     resolved_deploy_root = deploy_root.resolve()
-    if resolved_deploy_root not in resolved_dst.parents:
+    dst_is_deploy_root = resolved_deploy_root == resolved_dst
+    if (not dst_is_deploy_root) and (resolved_deploy_root not in resolved_dst.parents):
         raise NotInDeployRootError(dest_path=dst, deploy_root=deploy_root, src_path=src)
 
-    if overwrite:
+    if (not dst_is_deploy_root) and overwrite:
+        # TODO Verify: We do not want to delete if dst_is_deploy_root as it may contain artifacts from other runs of bundle map
+        # But this will treat deploy_root as a special dst, as compared to another dst directory that may also have other artifacts from a prev run
         delete(dst)
-    try:
-        os.symlink(src, dst)
-    except OSError:
-        ssrc.copy(dst)
+
+    absolute_src = resolve_without_follow(src)
+    if absolute_src.is_file():
+        try:
+            os.symlink(absolute_src, dst)
+        except OSError:
+            ssrc.copy(dst)
+    else:
+        # 1. Create an empty shell directory in the deploy root
+        dst.mkdir(exist_ok=True)
+        # 2. Get all children of the current directory, files and sub-directories
+        for child in sorted(absolute_src.iterdir()):
+            child_path = Path(absolute_src, child.name)
+            dest_path = Path(dst, child.name)
+            symlink_or_copy(src=child_path, dst=dest_path, deploy_root=deploy_root)
 
 
 def resolve_without_follow(path: Path) -> Path:
