@@ -12,13 +12,13 @@ TEST_ENV = generate_user_env(USER_NAME)
 
 
 @pytest.mark.integration
-def test_nativeapp_validate(runner, snowflake_session):
+def test_nativeapp_validate(runner, temporary_working_directory):
     project_name = "myapp"
     result = runner.invoke_json(
         ["app", "init", project_name],
         env=TEST_ENV,
     )
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
 
     with pushd(Path(os.getcwd(), project_name)):
         try:
@@ -27,7 +27,7 @@ def test_nativeapp_validate(runner, snowflake_session):
                 ["app", "validate"],
                 env=TEST_ENV,
             )
-            assert result.exit_code == 0
+            assert result.exit_code == 0, result.output
             assert "Native App validation succeeded." in result.output
 
         finally:
@@ -36,17 +36,17 @@ def test_nativeapp_validate(runner, snowflake_session):
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,
             )
-            assert result.exit_code == 0
+            assert result.exit_code == 0, result.output
 
 
 @pytest.mark.integration
-def test_nativeapp_validate_failing(runner, snowflake_session):
+def test_nativeapp_validate_failing(runner, temporary_working_directory):
     project_name = "myapp"
     result = runner.invoke_json(
         ["app", "init", project_name],
         env=TEST_ENV,
     )
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
 
     with pushd(Path(os.getcwd(), project_name)):
         # Create invalid SQL file
@@ -61,7 +61,7 @@ def test_nativeapp_validate_failing(runner, snowflake_session):
                 ["app", "validate"],
                 env=TEST_ENV,
             )
-            assert result.exit_code == 1
+            assert result.exit_code == 1, result.output
             assert (
                 "Snowflake Native App setup script failed validation." in result.output
             )
@@ -73,4 +73,4 @@ def test_nativeapp_validate_failing(runner, snowflake_session):
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,
             )
-            assert result.exit_code == 0
+            assert result.exit_code == 0, result.output
