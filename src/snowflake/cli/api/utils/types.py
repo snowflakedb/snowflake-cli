@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Dict
+
+Context = Dict[str, Any]
+Definition = Dict[str, Any]
 
 
 def try_cast_to_bool(value: Any) -> bool:

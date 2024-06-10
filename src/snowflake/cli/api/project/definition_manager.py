@@ -9,6 +9,7 @@ from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.project.definition import ProjectProperties, load_project
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.cli.api.utils.rendering import CONTEXT_KEY
+from snowflake.cli.api.utils.types import Context
 
 
 def _compat_is_mount(path: Path):
@@ -110,7 +111,7 @@ class DefinitionManager:
         return self._project_properties.project_definition
 
     @functools.cached_property
-    def template_context(self) -> dict:
+    def template_context(self) -> Context:
         definition = self._project_properties.raw_project_definition
 
         return {CONTEXT_KEY: definition}

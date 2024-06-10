@@ -10,6 +10,62 @@ from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplate
 from snowflake.cli.api.utils.dict_utils import deep_merge_dicts, traverse
 from snowflake.cli.api.utils.graph import Graph, Node
 from snowflake.cli.api.utils.rendering import CONTEXT_KEY, get_snowflake_cli_jinja_env
+from snowflake.cli.api.utils.types import Context, Definition
+
+
+class TemplatedEnvironment:
+    """
+    This class is a utility class
+    that encapsulates some of the Jinja Templating functionality.
+    """
+
+    def __init__(self, env: Environment):
+        self._jinja_env: Environment = env
+
+    def render(self, template_value: Any, context: Context) -> Any:
+        if not self.get_referenced_vars(template_value):
+            return template_value
+
+        jinja_template = self._jinja_env.from_string(str(template_value))
+        return jinja_template.render(context)
+
+    def get_referenced_vars(self, template_value: Any) -> set[TemplateVar]:
+        template_str = str(template_value)
+        ast = self._jinja_env.parse(template_str)
+        return self._get_referenced_vars(ast, template_str)
+
+    def _get_referenced_vars(
+        self,
+        ast_node: nodes.Template,
+        template_value: str,
+        current_attr_chain: Optional[list[str]] = None,
+    ) -> set[TemplateVar]:
+        """
+        Traverse Jinja AST to find the variable chain referenced by the template.
+        A variable like ctx.env.test is internally represented in the AST tree as
+        Getattr Node (attr='test') -> Getattr Node (attr='env') -> Name Node (name='ctx')
+        """
+        all_referenced_vars: set[TemplateVar] = set()
+        if isinstance(ast_node, nodes.Getattr):
+            current_attr_chain = [ast_node.attr] + (current_attr_chain or [])  # type: ignore[attr-defined]
+        elif isinstance(ast_node, nodes.Name):
+            current_attr_chain = [ast_node.name] + (current_attr_chain or [])  # type: ignore[attr-defined]
+            all_referenced_vars.add(TemplateVar(current_attr_chain))
+            current_attr_chain = None
+        elif (
+            not isinstance(ast_node, (nodes.Template, nodes.TemplateData, nodes.Output))
+            or current_attr_chain is not None
+        ):
+            raise InvalidTemplate(f"Unexpected templating syntax in {template_value}")
+
+        for child_node in ast_node.iter_child_nodes():
+            all_referenced_vars.update(
+                self._get_referenced_vars(
+                    child_node, template_value, current_attr_chain
+                )
+            )
+
+        return all_referenced_vars
 
 
 class TemplateVar:
@@ -26,7 +82,7 @@ class TemplateVar:
 
     def __init__(self, vars_chain):
         self._vars_chain: list[str] = list(vars_chain)
-        self.templated_value: Optional[str] = None
+        self.templated_value: Optional[Any] = None
         self.rendered_value: Optional[Any] = None
 
     @property
@@ -48,7 +104,7 @@ class TemplateVar:
             )
         return self._vars_chain[2]
 
-    def add_to_context(self, context: dict[str, Any]) -> None:
+    def add_to_context(self, context: Context) -> None:
         """
         Takes a multi-level context dict as input. Modifies the context dict with the rendered value of this variable.
 
@@ -67,7 +123,7 @@ class TemplateVar:
                 current_dict_level.setdefault(var, {})
                 current_dict_level = current_dict_level[var]
 
-    def read_from_context(self, context: dict[str, Any]) -> Any:
+    def read_from_context(self, context: Context) -> Any:
         """
         Takes a multi-level context dict as input.
 
@@ -102,46 +158,8 @@ class TemplateVar:
         return self.key == other.key
 
 
-def _get_referenced_vars(
-    ast_node: nodes.Template,
-    template_value: str,
-    current_attr_chain: Optional[list[str]] = None,
-) -> set[TemplateVar]:
-    """
-    Traverse Jinja AST to find the variable chain referenced by the template.
-    A variable like ctx.env.test is internally represented in the AST tree as
-    Getattr Node (attr='test') -> Getattr Node (attr='env') -> Name Node (name='ctx')
-    """
-    all_referenced_vars: set[TemplateVar] = set()
-    if isinstance(ast_node, nodes.Getattr):
-        current_attr_chain = [ast_node.attr] + (current_attr_chain or [])  # type: ignore[attr-defined]
-    elif isinstance(ast_node, nodes.Name):
-        current_attr_chain = [ast_node.name] + (current_attr_chain or [])  # type: ignore[attr-defined]
-        all_referenced_vars.add(TemplateVar(current_attr_chain))
-        current_attr_chain = None
-    elif (
-        not isinstance(ast_node, (nodes.Template, nodes.TemplateData, nodes.Output))
-        or current_attr_chain is not None
-    ):
-        raise InvalidTemplate(f"Unexpected templating syntax in {template_value}")
-
-    for child_node in ast_node.iter_child_nodes():
-        all_referenced_vars.update(
-            _get_referenced_vars(child_node, template_value, current_attr_chain)
-        )
-
-    return all_referenced_vars
-
-
-def _get_referenced_vars_from_str(
-    env: Environment, template_str: str
-) -> set[TemplateVar]:
-    ast = env.parse(template_str)
-    return _get_referenced_vars(ast, template_str)
-
-
 def _build_dependency_graph(
-    env: Environment, all_vars: set[TemplateVar], context: dict[str, Any]
+    env: TemplatedEnvironment, all_vars: set[TemplateVar], context: Context
 ) -> Graph[TemplateVar]:
     dependencies_graph = Graph[TemplateVar]()
     for variable in all_vars:
@@ -155,13 +173,8 @@ def _build_dependency_graph(
             variable.rendered_value = env_value
             variable.templated_value = env_value
         else:
-            value: Any = variable.read_from_context(context)
-            variable.templated_value = str(value)
-            dependencies_vars = _get_referenced_vars_from_str(
-                env, variable.templated_value
-            )
-            if len(dependencies_vars) == 0:
-                variable.rendered_value = value
+            variable.templated_value = variable.read_from_context(context)
+            dependencies_vars = env.get_referenced_vars(variable.templated_value)
 
             for referenced_var in dependencies_vars:
                 dependencies_graph.add_directed_edge(variable.key, referenced_var.key)
@@ -169,30 +182,20 @@ def _build_dependency_graph(
     return dependencies_graph
 
 
-def _render_graph_node(jinja_env: Environment, node: Node[TemplateVar]) -> None:
+def _render_graph_node(env: TemplatedEnvironment, node: Node[TemplateVar]) -> None:
     if node.data.rendered_value is not None:
         # Do not re-evaluate resolved nodes like env variable nodes
         # which might contain template-like values, or non-string nodes
         return
 
-    current_context: dict[str, Any] = {}
+    current_context: Context = {}
     for dep_node in node.neighbors:
         dep_node.data.add_to_context(current_context)
 
-    template = jinja_env.from_string(node.data.templated_value)
-    node.data.rendered_value = template.render(current_context)
+    node.data.rendered_value = env.render(node.data.templated_value, current_context)
 
 
-def _render_dict_element(
-    jinja_env: Environment, context: dict[str, Any], element: str
-) -> str:
-    if _get_referenced_vars_from_str(jinja_env, element):
-        template = jinja_env.from_string(element)
-        return template.render(context)
-    return element
-
-
-def render_definition_template(original_definition: dict[str, Any]) -> dict[str, Any]:
+def render_definition_template(original_definition: Definition) -> Definition:
     """
     Takes a definition file as input. An arbitrary structure containing dict|list|scalars,
     with the top level being a dictionary.
@@ -212,18 +215,18 @@ def render_definition_template(original_definition: dict[str, Any]) -> dict[str,
     ) < Version("1.1"):
         return definition
 
-    jinja_env = get_snowflake_cli_jinja_env()
+    template_env = TemplatedEnvironment(get_snowflake_cli_jinja_env())
     project_context = {CONTEXT_KEY: definition}
 
     referenced_vars = set()
 
     def find_any_template_vars(element):
-        referenced_vars.update(_get_referenced_vars_from_str(jinja_env, element))
+        referenced_vars.update(template_env.get_referenced_vars(element))
 
     traverse(definition, visit_action=find_any_template_vars)
 
     dependencies_graph = _build_dependency_graph(
-        jinja_env, referenced_vars, project_context
+        template_env, referenced_vars, project_context
     )
 
     def on_cycle_action(node: Node[TemplateVar]):
@@ -232,19 +235,19 @@ def render_definition_template(original_definition: dict[str, Any]) -> dict[str,
         )
 
     dependencies_graph.dfs(
-        visit_action=lambda node: _render_graph_node(jinja_env, node),
+        visit_action=lambda node: _render_graph_node(template_env, node),
         on_cycle_action=on_cycle_action,
     )
 
     # now that we determined the values of all templated vars,
     # use these resolved values as a fresh context to resolve definition
-    final_context: dict = {}
+    final_context: Context = {}
     for node in dependencies_graph.get_all_nodes():
         node.data.add_to_context(final_context)
 
     traverse(
         definition,
-        update_action=lambda val: _render_dict_element(jinja_env, final_context, val),
+        update_action=lambda val: template_env.render(val, final_context),
     )
     deep_merge_dicts(definition, {"env": dict(os.environ)})
 

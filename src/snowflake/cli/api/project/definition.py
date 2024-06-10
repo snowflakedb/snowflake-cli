@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, List
+from typing import List
 
 import yaml.loader
 from snowflake.cli.api.cli_global_context import cli_context
@@ -17,6 +17,7 @@ from snowflake.cli.api.project.util import (
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
 from snowflake.cli.api.utils.dict_utils import deep_merge_dicts
+from snowflake.cli.api.utils.types import Definition
 from yaml import load
 
 DEFAULT_USERNAME = "unknown_user"
@@ -39,10 +40,10 @@ class ProjectProperties:
     """
 
     project_definition: ProjectDefinition
-    raw_project_definition: dict[str, Any]
+    raw_project_definition: Definition
 
 
-def _get_merged_definitions(paths: List[Path]) -> dict[str, Any]:
+def _get_merged_definitions(paths: List[Path]) -> Definition:
     spaths: List[SecurePath] = [SecurePath(p) for p in paths]
     if len(spaths) == 0:
         raise ValueError("Need at least one definition file.")
@@ -66,8 +67,8 @@ def load_project(paths: List[Path]) -> ProjectProperties:
     are merged in left-to-right order (increasing precedence).
     Templating is also applied after the merging process.
     """
-    merged_files = _get_merged_definitions(paths)
-    rendered_definition = render_definition_template(merged_files)
+    merged_definitions = _get_merged_definitions(paths)
+    rendered_definition = render_definition_template(merged_definitions)
     return ProjectProperties(
         ProjectDefinition(**rendered_definition), rendered_definition
     )
