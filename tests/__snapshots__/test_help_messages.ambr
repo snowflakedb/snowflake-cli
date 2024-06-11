@@ -901,6 +901,8 @@
   │                                        [default: optional]                   │
   │ --private-key            -k      TEXT  Path to file containing private key   │
   │                                        [default: optional]                   │
+  │ --default                              If provided the connection will be    │
+  │                                        configured as default connection.     │
   │ --help                                 Show this message and exit.           │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
