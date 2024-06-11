@@ -48,6 +48,29 @@ def test_new_connection_can_be_added(runner, snapshot):
     assert content == snapshot
 
 
+def test_new_connection_can_be_added_as_default(runner, snapshot):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            [
+                "connection",
+                "add",
+                "--connection-name",
+                "default-conn",
+                "--username",
+                "user1",
+                "--password",
+                "password1",
+                "--account",
+                "account1",
+                "--default",
+            ],
+        )
+        content = tmp_file.read()
+    assert result.exit_code == 0, result.output
+    assert content == snapshot
+
+
 def test_new_connection_with_jwt_auth(runner, snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
