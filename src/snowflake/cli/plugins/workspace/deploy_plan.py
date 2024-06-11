@@ -13,23 +13,29 @@ class DeployPlan:
             self.stages[stage_name] = []
         self.stages[stage_name].append(artifact)
 
+    def create_deploy_plan_sql(self):
+        put_files_sql = "\n".join(
+            f"PUT file://output/deploy/stage1/{artifact['dest']} @TEST_APP.PUBLIC.stage1 auto_compress=false overwrite=True;"
+            for artifact in self.stages["stage1"]
+        )
+        sql_lines = "\n".join(self.sql)
+        return f"""-- Upload files to stages
+CREATE STAGE IF NOT EXISTS TEST_APP.PUBLIC.stage1;
+{put_files_sql}
+
+{sql_lines}"""
+
     def __str__(self):
         stages_str = ""
-        for stage_name, stage in self.stages.items():
-            stages_str += f"{stage_name}:\n"
+        for stage_name, artifacts in self.stages.items():
+            stages_str += stage_name + ":\n"
             stages_str += "\n".join(
-                f"- {artifact['dest']} ({artifact['src']})" for artifact in stage
+                f"- {artifact['dest']} ({artifact['src']})" for artifact in artifacts
             )
-        sql_str = "\n".join(self.sql)
         return f"""
 Stages:
 {stages_str}
 
 SQL:
-
--- Upload files to stages
-CREATE STAGE IF NOT EXISTS db_name.schema_name.stage_name;
-PUT file://local_file_path @db_name.schema_name.stage_name/path;
-
-{sql_str}
+{self.create_deploy_plan_sql()}
 """

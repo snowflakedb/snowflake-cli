@@ -11,9 +11,10 @@ class ApplicationEntity(Entity):
         app_name = self.config["name"]
         pkg_entity = ctx.get_entity(self.config["from"])
         app_pkg_name = pkg_entity.config["name"]
+        db = ctx.get_db_name()
         schema = ctx.get_schema_name()
         stage = ctx.get_stage_name()
 
         plan.add_sql(
-            f"CREATE APPLICATION IF NOT EXISTS {app_name} USING '@{app_pkg_name}.{schema}.{stage}/src/app';"
+            f"CREATE APPLICATION IF NOT EXISTS {app_name} FROM application package {app_pkg_name} USING '@{db}.{schema}.{stage}';"
         )

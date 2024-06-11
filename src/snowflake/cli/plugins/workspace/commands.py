@@ -25,7 +25,7 @@ def deploy(
             "ui": {
                 "type": "streamlit",
                 "name": "dashboard",
-                "stage": "my_stage",  # used when deployed as standalone
+                "stage": "stage1",  # used when deployed as standalone
                 "main_file": "src/ui/main.py",
                 "meta": {
                     "files": [
@@ -82,6 +82,9 @@ def deploy(
     }
 
     manager = WorkspaceManager(workspace_definition=workspace_definition)
-    plan = manager.deploy(key)
+    deploy_plan = manager.deploy(key)
+    with open("output/deploy/deploy_plan.sql", "w") as deploy_plan_file:
+        deploy_plan_file.write(deploy_plan.create_deploy_plan_sql())
+    # manager.execute_plan(deploy_plan)
 
-    return MessageResult(plan)
+    return MessageResult(deploy_plan)

@@ -32,8 +32,16 @@ class StreamlitEntity(Entity):
             main_file=self.config["main_file"],
         )
         streamlit_name = FQN.from_identifier_model(streamlit)
-        plan.add_sql(
-            f"""CREATE OR REPLACE STREAMLIT {db_name}.{schema_name}.{streamlit_name}
+
+        if parent:
+            plan.add_sql(
+                f"""CREATE OR REPLACE STREAMLIT {db_name}.{schema_name}.{streamlit_name}
+    FROM '@{db_name}.{schema_name}.{stage_name}/{streamlit_name}'
+    MAIN_FILE = '{streamlit.main_file}';"""
+            )
+        else:
+            plan.add_sql(
+                f"""CREATE OR REPLACE STREAMLIT {db_name}.{schema_name}.{streamlit_name}
     ROOT_LOCATION = '@{db_name}.{schema_name}.{stage_name}/{streamlit_name}'
     MAIN_FILE = '{streamlit.main_file}';"""
-        )
+            )
