@@ -1,3 +1,19 @@
+<!--
+ Copyright (c) 2024 Snowflake Inc.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
 # Unreleased version
 ## Backward incompatibility
 
@@ -10,11 +26,13 @@
   * `snow notebook execute` enabling head-less execution of a notebook.
   * `snow notebook create` proving an option to create a Snowflake Notebook from a file on stage.
 * Added templating support for project definition file.
-  * Template variables can now be used anywhere in the the project definition file.
+  * Template variables can now be used anywhere in the project definition file.
+* Added `--default` flag to `snow connection add` commands allowing users to mark the new connection as default.
 
 ## Fixes and improvements
 * Fixed error handling for malformatted `config.toml`
 * Fixed ZIP packaging of Snowpark project dependencies containing implicit namespace packages like `snowflake`.
+* Deploying function/procedure with `--replace` flag now copies all grants
 
 # v2.4.0
 ## Backward incompatibility

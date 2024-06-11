@@ -1,3 +1,17 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import json
 import os
 from pathlib import Path
@@ -27,6 +41,29 @@ def test_new_connection_can_be_added(runner, snapshot):
                 "account1",
                 "--port",
                 "8080",
+            ],
+        )
+        content = tmp_file.read()
+    assert result.exit_code == 0, result.output
+    assert content == snapshot
+
+
+def test_new_connection_can_be_added_as_default(runner, snapshot):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            [
+                "connection",
+                "add",
+                "--connection-name",
+                "default-conn",
+                "--username",
+                "user1",
+                "--password",
+                "password1",
+                "--account",
+                "account1",
+                "--default",
             ],
         )
         content = tmp_file.read()

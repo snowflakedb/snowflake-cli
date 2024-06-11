@@ -1,3 +1,17 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from __future__ import annotations
 
 import logging
@@ -204,6 +218,12 @@ def add(
         prompt="Path to private key file",
         help="Path to file containing private key",
     ),
+    set_as_default: bool = typer.Option(
+        False,
+        "--default",
+        is_flag=True,
+        help="If provided the connection will be configured as default connection.",
+    ),
     **options,
 ) -> CommandResult:
     """Adds a connection to configuration file."""
@@ -227,6 +247,11 @@ def add(
             private_key_path=private_key_path,
         ),
     )
+    if set_as_default:
+        set_config_value(
+            section=None, key="default_connection_name", value=connection_name
+        )
+
     return MessageResult(
         f"Wrote new connection {connection_name} to {CONFIG_MANAGER.file_path}"
     )
