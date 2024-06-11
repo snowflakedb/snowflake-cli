@@ -218,6 +218,12 @@ def add(
         prompt="Path to private key file",
         help="Path to file containing private key",
     ),
+    set_as_default: bool = typer.Option(
+        False,
+        "--default",
+        is_flag=True,
+        help="If provided the connection will be configured as default connection.",
+    ),
     **options,
 ) -> CommandResult:
     """Adds a connection to configuration file."""
@@ -241,6 +247,11 @@ def add(
             private_key_path=private_key_path,
         ),
     )
+    if set_as_default:
+        set_config_value(
+            section=None, key="default_connection_name", value=connection_name
+        )
+
     return MessageResult(
         f"Wrote new connection {connection_name} to {CONFIG_MANAGER.file_path}"
     )
