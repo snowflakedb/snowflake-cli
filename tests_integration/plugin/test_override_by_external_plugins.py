@@ -12,8 +12,8 @@ def test_override_build_in_commands(runner, test_root_path, _install_plugin, cap
     result = runner.invoke(["--config-file", config_path, "connection", "list"])
 
     assert (
-        caplog.messages[0]
-        == "Cannot register plugin [override]: Cannot add command [snow connection list] because it already exists."
+        "Cannot register plugin [override]: Cannot add command [snow connection list] because it already exists."
+        in caplog.messages
     )
     assert result.output == dedent(
         """\

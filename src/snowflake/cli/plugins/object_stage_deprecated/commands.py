@@ -6,7 +6,7 @@ import typer
 from snowflake.cli.api.commands.flags import (
     PatternOption,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.plugins.command import CommandPath
 from snowflake.cli.plugins.stage.commands import (
@@ -23,7 +23,7 @@ _deprecated_command_msg = (
     f" Please use `{CommandPath(['stage'])}` instead."
 )
 
-app = SnowTyper(name="stage", help="Manages stages.", deprecated=True)
+app = SnowTyperFactory(name="stage", help="Manages stages.", deprecated=True)
 
 
 @app.callback()

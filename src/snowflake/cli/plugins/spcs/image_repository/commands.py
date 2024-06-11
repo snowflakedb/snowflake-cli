@@ -11,7 +11,7 @@ from snowflake.cli.api.commands.flags import (
     ReplaceOption,
     like_option,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import (
@@ -27,7 +27,7 @@ from snowflake.cli.plugins.object.command_aliases import (
 from snowflake.cli.plugins.spcs.image_registry.manager import RegistryManager
 from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="image-repository",
     help="Manages Snowpark Container Services image repositories.",
     short_help="Manages image repositories.",

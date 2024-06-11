@@ -1,10 +1,10 @@
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import MessageResult, ObjectResult
 from snowflake.cli.plugins.spcs.image_registry.manager import (
     RegistryManager,
 )
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="image-registry",
     help="Manages Snowpark Container Services image registries.",
     short_help="Manages image registries.",
