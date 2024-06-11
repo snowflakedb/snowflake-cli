@@ -395,10 +395,16 @@ def test_bundle_map_handles_missing_dest(bundle_map):
     )
 
 
-def test_bundle_map_disallows_conflicting_dest_types(bundle_map):
+def test_bundle_map_disallows_mapping_files_as_directories(bundle_map):
     bundle_map.add(PathMapping(src="app", dest="deployed/"))
     with pytest.raises(ArtifactError):
         bundle_map.add(PathMapping(src="**/main.py", dest="deployed"))
+
+
+def test_bundle_map_disallows_mapping_directories_as_files(bundle_map):
+    bundle_map.add(PathMapping(src="**/main.py", dest="deployed"))
+    with pytest.raises(ArtifactError):
+        bundle_map.add(PathMapping(src="app", dest="deployed"))
 
 
 def test_bundle_map_allows_deploying_other_sources_to_renamed_directory(bundle_map):
@@ -468,6 +474,76 @@ def test_bundle_map_disallows_absolute_dest(bundle_map):
         absolute_dest = bundle_map.deploy_root() / "deployed"
         assert absolute_dest.is_absolute()
         bundle_map.add(PathMapping(src="app", dest=str(absolute_dest)))
+
+
+def test_bundle_map_disallows_clobbering_parent_directories(bundle_map):
+    # one level of nesting
+    with pytest.raises(TooManyFilesError):
+        bundle_map.add(PathMapping(src="snowflake.yml", dest="./app/"))
+        # Adding a new rule to populate ./app/ from an existing directory. This would
+        # clobber the output of the previous rule, so it's disallowed
+        bundle_map.add(PathMapping(src="./app", dest="./"))
+
+    # same as above but with multiple levels of nesting
+    with pytest.raises(TooManyFilesError):
+        bundle_map.add(PathMapping(src="snowflake.yml", dest="./src/snowpark/a/"))
+        bundle_map.add(PathMapping(src="./src/snowpark", dest="./src/"))
+
+
+def test_bundle_map_disallows_clobbering_child_directories(bundle_map):
+    with pytest.raises(TooManyFilesError):
+        bundle_map.add(PathMapping(src="./src/snowpark", dest="./python/"))
+        bundle_map.add(PathMapping(src="./app", dest="./python/snowpark/a"))
+
+
+def test_bundle_map_allows_augmenting_dest_directories(bundle_map):
+    # one level of nesting
+    # First populate {deploy}/app from an existing directory
+    bundle_map.add(PathMapping(src="./app", dest="./"))
+    # Then add a new file to that directory
+    bundle_map.add(PathMapping(src="snowflake.yml", dest="./app/"))
+
+    # verify that when iterating over mappings, the base directory rule appears first,
+    # followed by the file. This is important for correctness, and should be
+    # deterministic
+    ordered_dests = [
+        dest for (_, dest) in bundle_map.all_mappings(expand_directories=True)
+    ]
+    file_index = ordered_dests.index(Path("app/snowflake.yml"))
+    dir_index = ordered_dests.index(Path("app"))
+    assert dir_index < file_index
+
+
+def test_bundle_map_allows_augmenting_dest_directories_nested(bundle_map):
+    # same as above but with multiple levels of nesting
+    bundle_map.add(PathMapping(src="./src/snowpark", dest="./src/"))
+    bundle_map.add(PathMapping(src="snowflake.yml", dest="./src/snowpark/a/"))
+
+    ordered_dests = [
+        dest for (_, dest) in bundle_map.all_mappings(expand_directories=True)
+    ]
+    file_index = ordered_dests.index(Path("src/snowpark/a/snowflake.yml"))
+    dir_index = ordered_dests.index(Path("src/snowpark"))
+    assert dir_index < file_index
+
+
+def test_bundle_map_returns_mappings_in_insertion_order(bundle_map):
+    # this behaviour is important to make sure the deploy root is populated in a
+    # deterministic manner, so verify it here
+    bundle_map.add(PathMapping(src="./app", dest="./"))
+    bundle_map.add(PathMapping(src="snowflake.yml", dest="./app/"))
+    bundle_map.add(PathMapping(src="./src/snowpark", dest="./src/"))
+    bundle_map.add(PathMapping(src="snowflake.yml", dest="./src/snowpark/a/"))
+
+    ordered_dests = [
+        dest for (_, dest) in bundle_map.all_mappings(expand_directories=False)
+    ]
+    assert ordered_dests == [
+        Path("app"),
+        Path("app/snowflake.yml"),
+        Path("src/snowpark"),
+        Path("src/snowpark/a/snowflake.yml"),
+    ]
 
 
 def test_bundle_map_all_mappings_can_generates_absolute_directories_when_requested(

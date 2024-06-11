@@ -18,7 +18,7 @@ import itertools
 import os
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 from click.exceptions import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
@@ -101,6 +101,109 @@ class NotInDeployRootError(ClickException):
 ArtifactPredicate = Callable[[Path, Path], bool]
 
 
+class _ArtifactPathMap:
+    """
+    A specialized version of an ordered multimap used to keep track of artifact
+    source-destination mappings. The mapping is bidirectional, so it can be queried
+    by source or destination paths. All paths manipulated by this class must be in
+    relative, canonical form (relative to the project or deploy roots, as appropriate).
+    """
+
+    def __init__(self, project_root: Path):
+        self._project_root = project_root
+
+        # All (src,dest) pairs in inserting order, for iterating
+        self.__src_dest_pairs: List[Tuple[Path, Path]] = []
+        # built-in dict instances are ordered as of Python 3.7
+        self.__src_to_dest: Dict[Path, List[Path]] = {}
+        self.__dest_to_src: Dict[Path, List[Path]] = {}
+        self._dest_is_dir: Dict[Path, bool] = {}
+
+    def put(self, src: Path, dest: Path, dest_is_dir: bool) -> None:
+        """
+        Adds a new source-destination mapping pair to this map, if necessary.
+
+        Arguments:
+            src {Path} -- the source path, in canonical form.
+            dest {Path} -- the destination path, in canonical form.
+            dest_is_dir {bool} -- whether the destination path is a directory.
+        """
+        # Both paths should be in canonical form
+        assert not src.is_absolute()
+        assert not dest.is_absolute()
+
+        absolute_src = self._project_root / src
+
+        current_sources = self.__dest_to_src.get(dest, [])
+        src_is_dir = absolute_src.is_dir()
+        if dest_is_dir:
+            # directory -> directory
+            # Check that dest is currently unmapped
+            current_is_dir = self._dest_is_dir.get(dest, False)
+            if current_is_dir:
+                # mapping to an existing directory is not allowed
+                raise TooManyFilesError(dest)
+        else:
+            # file -> file
+            # Check that there is no previous mapping for the same file.
+            if current_sources and src not in current_sources:
+                # There is already a different source mapping to this destination
+                raise TooManyFilesError(dest)
+
+        if src_is_dir:
+            # mark all subdirectories of this source as directories so that we can
+            # detect accidental clobbering
+            for (root, _, files) in os.walk(absolute_src, followlinks=True):
+                canonical_subdir = Path(root).relative_to(absolute_src)
+                canonical_dest_subdir = dest / canonical_subdir
+                self._update_dest_is_dir(canonical_dest_subdir, is_dir=True)
+                for f in files:
+                    self._update_dest_is_dir(canonical_dest_subdir / f, is_dir=False)
+
+        # make sure we check of dest_is_dir consistency regardless of whether the
+        # insertion happened. This update can fail, so we need to do it first to
+        # avoid applying partial updates to the underlying data storage.
+        self._update_dest_is_dir(dest, dest_is_dir)
+
+        dests = self.__src_to_dest.setdefault(src, [])
+        srcs = self.__dest_to_src.setdefault(dest, [])
+        if dest not in dests:
+            dests.append(dest)
+            srcs.append(src)
+            self.__src_dest_pairs.append((src, dest))
+
+    def get_sources(self, dest: Path) -> Iterable[Path]:
+        """
+        Returns all source paths associated with the provided destination path, in insertion order.
+        """
+        return self.__dest_to_src.get(dest, [])
+
+    def get_destinations(self, src: Path) -> Iterable[Path]:
+        """
+        Returns all destination paths associated with the provided source path, in insertion order.
+        """
+        return self.__src_to_dest.get(src, [])
+
+    def __iter__(self) -> Iterator[Tuple[Path, Path]]:
+        """
+        Returns all (source, destination) pairs known to this map, in insertion order.
+        """
+        return iter(self.__src_dest_pairs)
+
+    def _update_dest_is_dir(self, dest: Path, is_dir: bool) -> None:
+        current_is_dir = self._dest_is_dir.get(dest, None)
+        if current_is_dir is not None and current_is_dir != is_dir:
+            raise ArtifactError(
+                "Conflicting type for destination path: {canonical_dest}"
+            )
+
+        parent = dest.parent
+        if parent != dest:
+            self._update_dest_is_dir(parent, True)
+
+        self._dest_is_dir[dest] = is_dir
+
+
 class BundleMap:
     """
     Computes the mapping between project directory artifacts (aka source artifacts) to their deploy root location
@@ -110,9 +213,7 @@ class BundleMap:
     def __init__(self, *, project_root: Path, deploy_root: Path):
         self._project_root: Path = resolve_without_follow(project_root)
         self._deploy_root: Path = resolve_without_follow(deploy_root)
-        self._src_to_dest: Dict[Path, List[Path]] = {}
-        self._dest_to_src: Dict[Path, List[Path]] = {}
-        self._dest_is_dir: Dict[Path, bool] = {}
+        self._artifact_map = _ArtifactPathMap(project_root=self._project_root)
 
     def deploy_root(self) -> Path:
         return self._deploy_root
@@ -140,7 +241,7 @@ class BundleMap:
             )
 
         if self._deploy_root in absolute_src.parents:
-            # ignore this item since it's in the deploy root. This can happen if the bundle map is create
+            # ignore this item since it's in the deploy root. This can happen if the bundle map is created
             # after the bundle step and a project is using rules that are not sufficiently constrained.
             # Since the bundle step starts with deleting the deploy root, we wouldn't normally encounter this situation.
             return
@@ -148,26 +249,14 @@ class BundleMap:
         canonical_src = self._canonical_src(src)
         canonical_dest = self._canonical_dest(dest)
 
-        src_is_dir = absolute_src.is_dir()
         if map_as_child:
             # Make sure the destination is a child of the original, since this was requested
             canonical_dest = canonical_dest / canonical_src.name
-            dest_is_dir = src.is_dir()
+            dest_is_dir = absolute_src.is_dir()
 
-        # Verify that multiple files are not being mapped to a single file destination
-        current_sources = self._dest_to_src.setdefault(canonical_dest, [])
-        if not dest_is_dir:
-            # the destination is a file
-            if (canonical_src not in current_sources) and len(current_sources) > 0:
-                raise TooManyFilesError(dest)
-
-        # Perform all updates together we don't end up with inconsistent state
-        self._update_dest_is_dir(canonical_dest, dest_is_dir)
-        current_dests = self._src_to_dest.setdefault(canonical_src, [])
-        if canonical_dest not in current_dests:
-            current_dests.append(canonical_dest)
-        if canonical_src not in current_sources:
-            current_sources.append(canonical_src)
+        self._artifact_map.put(
+            src=canonical_src, dest=canonical_dest, dest_is_dir=dest_is_dir
+        )
 
     def _add_mapping(self, src: str, dest: Optional[str] = None):
         """
@@ -215,24 +304,36 @@ class BundleMap:
         """
         self._add_mapping(mapping.src, mapping.dest)
 
-    def _mappings_for_source(
+    def _yield_all(
         self,
         src: Path,
+        dest: Path,
         absolute: bool = False,
         expand_directories: bool = False,
         predicate: ArtifactPredicate = lambda src, dest: True,
     ) -> Iterator[Tuple[Path, Path]]:
+        """
+        Expands the specified source-destination mapping according to the provided options.
+        The original mapping is yielded, followed by any expanded mappings derived from
+        it.
+
+        Arguments:
+            src {Path} -- the source path
+            dest {Path} -- the destination path
+            absolute {bool} -- when True, all mappings will be yielded as absolute paths
+            expand_directories {bool} -- when True, child mappings are yielded if the source path is a directory.
+            predicate {ArtifactPredicate} -- when specified, only mappings satisfying this predicate will be yielded.
+        """
         canonical_src = self._canonical_src(src)
-        canonical_dests = self._src_to_dest.get(canonical_src)
-        assert canonical_dests is not None
+        canonical_dest = self._canonical_dest(dest)
 
         absolute_src = self._absolute_src(canonical_src)
+        absolute_dest = self._absolute_dest(canonical_dest)
         src_for_output = self._to_output_src(absolute_src, absolute)
-        dests_for_output = [self._to_output_dest(p, absolute) for p in canonical_dests]
+        dest_for_output = self._to_output_dest(absolute_dest, absolute)
 
-        for d in dests_for_output:
-            if predicate(src_for_output, d):
-                yield src_for_output, d
+        if predicate(src_for_output, dest_for_output):
+            yield src_for_output, dest_for_output
 
         if absolute_src.is_dir() and expand_directories:
             # both src and dest are directories, and expanding directories was requested. Traverse src, and map each
@@ -240,11 +341,10 @@ class BundleMap:
             for (root, subdirs, files) in os.walk(absolute_src, followlinks=True):
                 relative_root = Path(root).relative_to(absolute_src)
                 for name in itertools.chain(subdirs, files):
-                    for d in dests_for_output:
-                        src_file_for_output = src_for_output / relative_root / name
-                        dest_file_for_output = d / relative_root / name
-                        if predicate(src_file_for_output, dest_file_for_output):
-                            yield src_file_for_output, dest_file_for_output
+                    src_file_for_output = src_for_output / relative_root / name
+                    dest_file_for_output = dest_for_output / relative_root / name
+                    if predicate(src_file_for_output, dest_file_for_output):
+                        yield src_file_for_output, dest_file_for_output
 
     def all_mappings(
         self,
@@ -268,9 +368,10 @@ class BundleMap:
         Returns:
           An iterator over all matching deployed artifacts.
         """
-        for src in self._src_to_dest.keys():
-            for deployed_src, deployed_dest in self._mappings_for_source(
+        for src, dest in self._artifact_map:
+            for deployed_src, deployed_dest in self._yield_all(
                 src,
+                dest,
                 absolute=absolute,
                 expand_directories=expand_directories,
                 predicate=predicate,
@@ -298,8 +399,8 @@ class BundleMap:
 
         output_destinations: List[Path] = []
 
-        canonical_dests = self._src_to_dest.get(canonical_src)
-        if canonical_dests is not None:
+        canonical_dests = self._artifact_map.get_destinations(canonical_src)
+        if canonical_dests:
             for d in canonical_dests:
                 output_destinations.append(self._to_output_dest(d, is_absolute))
 
@@ -359,19 +460,6 @@ class BundleMap:
 
     def _to_output_src(self, src: Path, absolute: bool) -> Path:
         return self._absolute_src(src) if absolute else self._canonical_src(src)
-
-    def _update_dest_is_dir(self, canonical_dest: Path, is_dir: bool) -> None:
-        current_is_dir = self._dest_is_dir.get(canonical_dest, None)
-        if current_is_dir is not None and is_dir != current_is_dir:
-            raise ArtifactError(
-                "Conflicting type for destination path: {canonical_dest}"
-            )
-
-        parent = canonical_dest.parent
-        if parent != canonical_dest:
-            self._update_dest_is_dir(parent, True)
-
-        self._dest_is_dir[canonical_dest] = is_dir
 
 
 def specifies_directory(s: str) -> bool:
