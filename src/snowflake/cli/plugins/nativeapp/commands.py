@@ -9,7 +9,7 @@ from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -37,7 +37,7 @@ from snowflake.cli.plugins.nativeapp.utils import (
 )
 from snowflake.cli.plugins.nativeapp.version.commands import app as versions_app
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="app",
     help="Manages a Snowflake Native App",
 )

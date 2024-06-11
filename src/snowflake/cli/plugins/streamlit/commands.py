@@ -13,7 +13,7 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import ReplaceOption, like_option
 from snowflake.cli.api.commands.project_initialisation import add_init_command
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
@@ -28,7 +28,7 @@ from snowflake.cli.plugins.object.command_aliases import (
 )
 from snowflake.cli.plugins.streamlit.manager import StreamlitManager
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="streamlit",
     help="Manages a Streamlit app in Snowflake.",
 )

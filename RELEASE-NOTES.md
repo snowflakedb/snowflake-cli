@@ -13,8 +13,8 @@
   * Template variables can now be used anywhere in the the project definition file.
 
 ## Fixes and improvements
+* Fixed error handling for malformatted `config.toml`
 * Fixed ZIP packaging of Snowpark project dependencies containing implicit namespace packages like `snowflake`.
-
 
 # v2.4.0
 ## Backward incompatibility

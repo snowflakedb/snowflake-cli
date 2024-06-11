@@ -2,13 +2,13 @@ import logging
 
 import typer
 from snowflake.cli.api.commands.flags import identifier_argument
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import MessageResult
 from snowflake.cli.plugins.notebook.manager import NotebookManager
 from snowflake.cli.plugins.notebook.types import NotebookName, NotebookStagePath
 from typing_extensions import Annotated
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="notebook",
     help="Manages notebooks in Snowflake.",
 )

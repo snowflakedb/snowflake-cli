@@ -13,7 +13,7 @@ from snowflake.cli.api.commands.flags import (
     VariablesOption,
     like_option,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import (
@@ -31,7 +31,7 @@ from snowflake.cli.plugins.object.command_aliases import (
 from snowflake.cli.plugins.stage.diff import DiffResult, compute_stage_diff
 from snowflake.cli.plugins.stage.manager import OnErrorType, StageManager
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="stage",
     help="Manages stages.",
 )

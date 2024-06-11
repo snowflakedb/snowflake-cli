@@ -9,7 +9,7 @@ import typer
 from click import UsageError
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import readable_file_option
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -26,7 +26,7 @@ from snowflake.cli.plugins.cortex.types import (
     Text,
 )
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="cortex",
     help="Provides access to Snowflake Cortex.",
 )

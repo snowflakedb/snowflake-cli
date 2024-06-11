@@ -1,4 +1,4 @@
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.plugins.spcs.compute_pool.commands import (
     app as compute_pools_app,
 )
@@ -9,7 +9,7 @@ from snowflake.cli.plugins.spcs.image_repository.commands import (
 from snowflake.cli.plugins.spcs.jobs.commands import app as jobs_app
 from snowflake.cli.plugins.spcs.services.commands import app as services_app
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="spcs",
     help="Manages Snowpark Container Services compute pools, services, image registries, and image repositories.",
 )

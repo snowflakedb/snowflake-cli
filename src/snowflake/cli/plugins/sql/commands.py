@@ -8,12 +8,12 @@ from snowflake.cli.api.commands.flags import (
     parse_key_value_variables,
     project_definition_option,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, MultipleResults, QueryResult
 from snowflake.cli.plugins.sql.manager import SqlManager
 
 # simple Typer with defaults because it won't become a command group as it contains only one command
-app = SnowTyper()
+app = SnowTyperFactory()
 
 
 def _parse_key_value(key_value_str: str):
