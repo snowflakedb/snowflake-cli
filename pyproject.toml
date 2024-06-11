@@ -78,6 +78,7 @@ test-cov = [
   "coverage run --source=snowflake.cli --module pytest -m loaded_modules --snapshot-warn-unused tests/ ",
   "coverage report",
 ]
+test-update = ["pytest --snapshot-update"]
 
 [tool.hatch.envs.e2e]
 template = "e2e"
@@ -85,6 +86,7 @@ features = ["development"]
 
 [tool.hatch.envs.e2e.scripts]
 test = ["pytest -m e2e --snapshot-warn-unused --durations=0"]
+test-update = ["pytest -m e2e --snapshot-update"]
 
 [tool.hatch.envs.performance]
 template = "performance"
@@ -107,6 +109,8 @@ test = ["pytest -m integration -n4 --dist=loadfile --snapshot-warn-unused"]
 test-experimental = [
   "pytest -m integration_experimental --snapshot-warn-unused",
 ]
+test-update = ["pytest -m integration --snapshot-update"]
+test-update-experimental = ["pytest -m integration_experimental --snapshot-update"]
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.8", "3.9", "3.10", "3.11", "3.12"]
