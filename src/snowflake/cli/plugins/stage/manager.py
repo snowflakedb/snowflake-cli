@@ -71,7 +71,9 @@ class StagePathParts:
         )
 
     def get_full_stage_path(self, path: str):
-        return FQN.from_stage(self.stage).prefix + "." + path
+        if prefix := FQN.from_stage(self.stage).prefix:
+            return prefix + "." + path
+        return path
 
 
 class StageManager(SqlExecutionMixin):
@@ -245,11 +247,13 @@ class StageManager(SqlExecutionMixin):
             raise ClickException(f"No files matched pattern '{stage_path}'")
 
         # sort filtered files in alphabetical order with directories at the end
-        sorted_file_list = self._sort_paths(filtered_file_list)
+        sorted_file_list = sorted(
+            filtered_file_list, key=lambda f: (path.dirname(f), path.basename(f))
+        )
 
         parsed_variables = parse_key_value_variables(variables)
         sql_variables = self._parse_execute_variables(parsed_variables)
-        python_variables = {str(v.key).upper(): v.value for v in parsed_variables}
+        python_variables = {str(v.key): v.value for v in parsed_variables}
         results = []
 
         if any(file.endswith(".py") for file in sorted_file_list):
@@ -258,26 +262,22 @@ class StageManager(SqlExecutionMixin):
             )
 
         for file in sorted_file_list:
+            file_stage_path = self._build_file_stage_path(stage_path_parts, file)
             if file.endswith(".py"):
                 result = self._execute_python(
-                    file=file, on_error=on_error, variables=python_variables
+                    file_stage_path=file_stage_path,
+                    on_error=on_error,
+                    variables=python_variables,
                 )
             else:
                 result = self._call_execute_immediate(
-                    stage_path_parts=stage_path_parts,
-                    file=file,
+                    file_stage_path=file_stage_path,
                     variables=sql_variables,
                     on_error=on_error,
                 )
             results.append(result)
 
         return results
-
-    def _sort_paths(self, filtered_file_list: List[str]):
-        """Sorts file paths from top to bottom."""
-        return sorted(
-            filtered_file_list, key=lambda f: (path.dirname(f), path.basename(f))
-        )
 
     def _split_stage_path(self, stage_path: str) -> StagePathParts:
         """
@@ -362,22 +362,20 @@ class StageManager(SqlExecutionMixin):
 
     def _call_execute_immediate(
         self,
-        stage_path_parts: StagePathParts,
-        file: str,
+        file_stage_path: str,
         variables: Optional[str],
         on_error: OnErrorType,
     ) -> Dict:
-        file_stage_path = self._build_file_stage_path(stage_path_parts, file)
         try:
             query = f"execute immediate from {file_stage_path}"
             if variables:
                 query += variables
             self._execute_query(query)
-            cli_console.step(f"SUCCESS - {file}")
-            return StageManager._success_result(file=file)
+            cli_console.step(f"SUCCESS - {file_stage_path}")
+            return StageManager._success_result(file=file_stage_path)
         except ProgrammingError as e:
             StageManager._handle_execution_exception(on_error=on_error, exception=e)
-            return StageManager._error_result(file=file, msg=e.msg)
+            return StageManager._error_result(file=file_stage_path, msg=e.msg)
 
     def _build_file_stage_path(
         self, stage_path_parts: StagePathParts, file: str
@@ -461,7 +459,9 @@ class StageManager(SqlExecutionMixin):
 
         return _python_execution_procedure
 
-    def _execute_python(self, file: str, on_error: OnErrorType, variables: Dict):
+    def _execute_python(
+        self, file_stage_path: str, on_error: OnErrorType, variables: Dict
+    ):
         """
         Executes Python file from stage using a Snowpark temporary procedure.
         Currently, there's no option to pass input to the execution.
@@ -469,8 +469,8 @@ class StageManager(SqlExecutionMixin):
         from snowflake.snowpark.exceptions import SnowparkSQLException
 
         try:
-            self._python_exe_procedure(self.get_standard_stage_prefix(file), variables)  # type: ignore
-            return StageManager._success_result(file=file)
+            self._python_exe_procedure(self.get_standard_stage_prefix(file_stage_path), variables)  # type: ignore
+            return StageManager._success_result(file=file_stage_path)
         except SnowparkSQLException as e:
             StageManager._handle_execution_exception(on_error=on_error, exception=e)
-            return StageManager._error_result(file=file, msg=e.message)
+            return StageManager._error_result(file=file_stage_path, msg=e.message)

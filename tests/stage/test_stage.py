@@ -754,7 +754,7 @@ def test_execute_with_variables(mock_bootstrap, mock_execute, mock_cursor, runne
             "-D",
             "key2=1",
             "-D",
-            "key3=TRUE",
+            "KEY3=TRUE",
             "-D",
             "key4=NULL",
             "-D",
@@ -766,17 +766,17 @@ def test_execute_with_variables(mock_bootstrap, mock_execute, mock_cursor, runne
     assert mock_execute.mock_calls == [
         mock.call("ls @exe", cursor_class=DictCursor),
         mock.call(
-            f"execute immediate from @exe/s1.sql using (key1=>'string value', key2=>1, key3=>TRUE, key4=>NULL, key5=>'var=value')"
+            f"execute immediate from @exe/s1.sql using (key1=>'string value', key2=>1, KEY3=>TRUE, key4=>NULL, key5=>'var=value')"
         ),
     ]
     mock_bootstrap.return_value.assert_called_once_with(
         "@exe/s2.py",
         {
-            "KEY1": "'string value'",
-            "KEY2": "1",
+            "key1": "'string value'",
+            "key2": "1",
             "KEY3": "TRUE",
-            "KEY4": "NULL",
-            "KEY5": "'var=value'",
+            "key4": "NULL",
+            "key5": "'var=value'",
         },
     )
 

@@ -62,7 +62,9 @@ class FQN:
 
     @property
     def identifier(self) -> str:
-        return f"{self.prefix}.{self.name}"
+        if self.prefix:
+            return f"{self.prefix}.{self.name}"
+        return self.name
 
     @property
     def url_identifier(self) -> str:
