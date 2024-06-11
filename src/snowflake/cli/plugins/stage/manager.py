@@ -399,7 +399,9 @@ class StageManager(SqlExecutionMixin):
         current_file = Path(stage_path_parts.path) / req_file_name
         possible_req_files = []
 
-        while not current_file.parent.is_mount():
+        while (
+            current_file.parent != current_file
+        ):  # At some point .parent will return same root value
             possible_req_files.append(str(current_file.parent / req_file_name))
             current_file = current_file.parent
 
