@@ -100,6 +100,36 @@ def test_snowpark_flow(
             returns="VARCHAR(16777216)",
         )
 
+        # Grants are given correctly
+
+        _test_steps.set_grants_on_selected_object(
+            object_type="procedure",
+            object_name="hello_procedure(VARCHAR)",
+            privillege="USAGE",
+            role="test_role",
+        )
+
+        _test_steps.set_grants_on_selected_object(
+            object_type="function",
+            object_name="hello_function(VARCHAR)",
+            privillege="USAGE",
+            role="test_role",
+        )
+
+        _test_steps.assert_that_object_has_expected_grant(
+            object_type="procedure",
+            object_name="hello_procedure(VARCHAR)",
+            expected_privillege="USAGE",
+            expected_role="test_role",
+        )
+
+        _test_steps.assert_that_object_has_expected_grant(
+            object_type="function",
+            object_name="hello_function(VARCHAR)",
+            expected_privillege="USAGE",
+            expected_role="test_role",
+        )
+
         # Created objects can be executed
         _test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
@@ -227,6 +257,22 @@ def test_snowpark_flow(
 
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(
             *expected_files, stage_name=STAGE_NAME
+        )
+
+        # Grants are preserved after updates
+
+        _test_steps.assert_that_object_has_expected_grant(
+            object_type="procedure",
+            object_name="hello_procedure(VARCHAR)",
+            expected_privillege="USAGE",
+            expected_role="test_role",
+        )
+
+        _test_steps.assert_that_object_has_expected_grant(
+            object_type="function",
+            object_name="hello_function(VARCHAR)",
+            expected_privillege="USAGE",
+            expected_role="test_role",
         )
 
         # Check if objects can be dropped

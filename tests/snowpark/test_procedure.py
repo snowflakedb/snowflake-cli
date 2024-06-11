@@ -72,6 +72,7 @@ def test_deploy_procedure(
         dedent(
             """\
             create or replace procedure MockDatabase.MockSchema.procedureName(name string)
+            copy grants
             returns string
             language python
             runtime_version=3.8
@@ -83,6 +84,7 @@ def test_deploy_procedure(
         dedent(
             """\
             create or replace procedure MockDatabase.MockSchema.test()
+            copy grants
             returns string
             language python
             runtime_version=3.10
@@ -138,6 +140,7 @@ def test_deploy_procedure_with_external_access(
         dedent(
             """\
             create or replace procedure MockDatabase.MockSchema.procedureName(name string)
+            copy grants
             returns string
             language python
             runtime_version=3.8

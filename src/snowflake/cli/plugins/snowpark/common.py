@@ -167,6 +167,7 @@ class SnowparkObjectManager(SqlExecutionMixin):
 
         query = [
             f"create or replace {self._object_type.value.sf_name} {identifier}",
+            f"copy grants",
             f"returns {return_type}",
             "language python",
             f"runtime_version={runtime or DEFAULT_RUNTIME}",

@@ -31,6 +31,7 @@
 ## Fixes and improvements
 * Fixed error handling for malformatted `config.toml`
 * Fixed ZIP packaging of Snowpark project dependencies containing implicit namespace packages like `snowflake`.
+* Deploying function/procedure with `--replace` flag now copies all grants
 
 # v2.4.0
 ## Backward incompatibility

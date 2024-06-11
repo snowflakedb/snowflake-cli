@@ -365,3 +365,30 @@ class SnowparkTestSteps:
                 stage_name=stage_name
             )
         ]
+
+    def set_grants_on_selected_object(
+        self, object_type: str, object_name: str, privillege: str, role: str
+    ):
+        self._setup.sql_test_helper.execute_single_sql(
+            f"GRANT {privillege} ON {object_type} {object_name} TO ROLE {role};"
+        )
+
+    def assert_that_object_has_expected_grant(
+        self,
+        object_type: str,
+        object_name: str,
+        expected_privillege: str,
+        expected_role: str,
+    ):
+        result = self._setup.sql_test_helper.execute_single_sql(
+            f"SHOW GRANTS ON {object_type} {object_name};"
+        )
+        assert any(
+            [
+                (
+                    grant.get("privilege") == expected_privillege.upper()
+                    and grant.get("grantee_name") == expected_role.upper()
+                )
+                for grant in result
+            ]
+        )
