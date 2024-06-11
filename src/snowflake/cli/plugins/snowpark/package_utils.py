@@ -59,7 +59,7 @@ def parse_requirements(
         for line in requirements_file.read_text(
             file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB
         ).splitlines():
-            line = re.sub("\s*#.*", "", line).strip()
+            line = re.sub(r"\s*#.*", "", line).strip()
             if line:
                 reqs.append(Requirement.parse(line))
     return reqs

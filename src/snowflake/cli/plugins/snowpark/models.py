@@ -133,7 +133,7 @@ class WheelMetadata:
     @staticmethod
     def to_wheel_name_format(package_name: str) -> str:
         # https://peps.python.org/pep-0491/#escaping-and-unicode
-        return re.sub("[^\w\d.]+", "_", package_name, re.UNICODE)
+        return re.sub(r"[^\w\d.]+", "_", package_name, re.UNICODE)
 
 
 def get_package_name(name: str) -> str:

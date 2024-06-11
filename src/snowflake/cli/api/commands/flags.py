@@ -457,7 +457,7 @@ PatternOption = typer.Option(
     "--pattern",
     help=(
         "Regex pattern for filtering files by name."
-        ' For example --pattern ".*\.txt" will filter only files with .txt extension.'
+        r' For example --pattern ".*\.txt" will filter only files with .txt extension.'
     ),
     show_default=False,
     callback=_pattern_option_callback,
