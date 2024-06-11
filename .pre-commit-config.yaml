@@ -84,7 +84,9 @@ repos:
         files: \.sql$
         exclude: |
           (?x)
-          ^\.github/
+          ^\.github/|
+          tests/test_data/projects/.*|
+          tests_integration/test_data/projects/.*
         args:
           - --comment-style
           - "/*||*/"
@@ -102,7 +104,11 @@ repos:
           - --fuzzy-match-generates-todo
       - id: insert-license
         name: Add license for all Python files
-        exclude: ^\.github/.*$
+        exclude: |
+          (?x)
+          ^\.github/|
+          tests/test_data/projects/.*|
+          tests_integration/test_data/projects/.*
         files: \.py$|\.pyi$
         args:
           - --comment-style
@@ -112,7 +118,11 @@ repos:
           - --fuzzy-match-generates-todo
       - id: insert-license
         name: Add license for all Markdown files
-        exclude: ^\.github/.*$
+        exclude: |
+          (?x)
+          ^\.github/|
+          tests/test_data/projects/.*|
+          tests_integration/test_data/projects/.*
         files: \.md$
         args:
           - --comment-style
