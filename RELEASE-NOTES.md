@@ -6,7 +6,7 @@
 ## New additions
 
 ## Fixes and improvements
-
+* Fixed MFA caching
 
 # v2.4.0
 ## Backward incompatibility
