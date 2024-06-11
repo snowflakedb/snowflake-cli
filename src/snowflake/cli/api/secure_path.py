@@ -50,7 +50,7 @@ class SecurePath:
         """
         When the path points to a directory, yield path objects of the directory contents.
         Otherwise, NotADirectoryError is raised.
-        If the locartion does not exists, FileNotFoundError is raised.
+        If the location does not exist, FileNotFoundError is raised.
 
         For details, check pathlib.Path.iterdir()
         """
@@ -64,6 +64,25 @@ class SecurePath:
         """
         return self._path.exists()
 
+    def is_dir(self) -> bool:
+        """
+        Return True if the path points to a directory (or a symbolic link pointing to a directory),
+        False if it points to another kind of file.
+        """
+        return self._path.is_dir()
+
+    def is_file(self) -> bool:
+        """
+        Return True if the path points to a regular file (or a symbolic link pointing to a regular file),
+        False if it points to another kind of file.
+        """
+        return self._path.is_file()
+
+    @property
+    def name(self) -> str:
+        """A string representing the final path component."""
+        return self._path.name
+
     def chmod(self, permissions_mask: int) -> None:
         """
         Change the file mode and permissions, like os.chmod().
@@ -72,6 +91,20 @@ class SecurePath:
             "Update permissions of file %s to %s", self._path, oct(permissions_mask)
         )
         self._path.chmod(permissions_mask)
+
+    def restrict_permissions(self) -> None:
+        """
+        Restrict file/directory permissions to owner-only.
+        """
+        import stat
+
+        owner_permissions = (
+            # https://docs.python.org/3/library/stat.html
+            stat.S_IRUSR  # readable by owner
+            | stat.S_IWUSR  # writeable by owner
+            | stat.S_IXUSR  # executable by owner
+        )
+        self.chmod(self._path.stat().st_mode & owner_permissions)
 
     def touch(self, permissions_mask: int = 0o600, exist_ok: bool = True) -> None:
         """
@@ -90,9 +123,13 @@ class SecurePath:
         """
         Create a directory at this given path. For details, check pathlib.Path.mkdir()
         """
+        if parents and not self.parent.exists():
+            self.parent.mkdir(
+                permissions_mask=permissions_mask, exist_ok=exist_ok, parents=True
+            )
         if not self.exists():
             log.info("Creating directory %s", str(self._path))
-        self._path.mkdir(mode=permissions_mask, parents=parents, exist_ok=exist_ok)
+        self._path.mkdir(mode=permissions_mask, exist_ok=exist_ok)
 
     def read_text(self, file_size_limit_mb: int, *args, **kwargs) -> str:
         """
@@ -203,19 +240,20 @@ class SecurePath:
                 for child in src.iterdir():
                     _recursive_check_for_conflicts(child, dst / child.name)
 
-        def _recursive_copy(src: Path, dst: Path):
+        def _recursive_copy(src: SecurePath, dst: SecurePath):
             if src.is_file():
-                log.info("Copying file %s into %s", src, dst)
+                log.info("Copying file %s into %s", src.path, dst.path)
                 if dst.exists():
                     dst.unlink()
-                shutil.copyfile(src, dst)
+                shutil.copyfile(src.path, dst.path)
+                dst.restrict_permissions()
             if src.is_dir():
-                self.__class__(dst).mkdir(exist_ok=True)
+                dst.mkdir(exist_ok=True)
                 for child in src.iterdir():
                     _recursive_copy(child, dst / child.name)
 
         _recursive_check_for_conflicts(self._path, destination)
-        _recursive_copy(self._path, destination)
+        _recursive_copy(self, self.__class__(destination))
 
         return SecurePath(destination)
 

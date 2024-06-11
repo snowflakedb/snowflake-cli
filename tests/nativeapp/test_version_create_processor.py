@@ -217,7 +217,10 @@ def test_add_new_patch_custom(mock_execute, temp_dir, mock_cursor):
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
 def test_process_no_version_from_user_no_version_in_manifest(
-    mock_version_info_in_manifest, policy_param, temp_dir
+    mock_version_info_in_manifest,
+    policy_param,
+    temp_dir,
+    mock_bundle_map,
 ):
     current_working_directory = os.getcwd()
     create_named_file(
@@ -229,6 +232,7 @@ def test_process_no_version_from_user_no_version_in_manifest(
     processor = _get_version_create_processor()
     with pytest.raises(ClickException):
         processor.process(
+            bundle_map=mock_bundle_map,
             version=None,
             patch=None,
             policy=policy_param,
@@ -246,7 +250,10 @@ def test_process_no_version_from_user_no_version_in_manifest(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
 def test_process_no_version_exists_throws_bad_option_exception_one(
-    mock_existing_version_info, policy_param, temp_dir
+    mock_existing_version_info,
+    policy_param,
+    temp_dir,
+    mock_bundle_map,
 ):
     current_working_directory = os.getcwd()
     create_named_file(
@@ -258,6 +265,7 @@ def test_process_no_version_exists_throws_bad_option_exception_one(
     processor = _get_version_create_processor()
     with pytest.raises(BadOptionUsage):
         processor.process(
+            bundle_map=mock_bundle_map,
             version="v1",
             patch="12",
             policy=policy_param,
@@ -275,7 +283,10 @@ def test_process_no_version_exists_throws_bad_option_exception_one(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
 def test_process_no_version_exists_throws_bad_option_exception_two(
-    mock_existing_version_info, policy_param, temp_dir
+    mock_existing_version_info,
+    policy_param,
+    temp_dir,
+    mock_bundle_map,
 ):
     current_working_directory = os.getcwd()
     create_named_file(
@@ -287,6 +298,7 @@ def test_process_no_version_exists_throws_bad_option_exception_two(
     processor = _get_version_create_processor()
     with pytest.raises(BadOptionUsage):
         processor.process(
+            bundle_map=mock_bundle_map,
             version="v1",
             patch="12",
             policy=policy_param,
@@ -333,6 +345,7 @@ def test_process_no_existing_release_directives_or_versions(
     policy_param,
     temp_dir,
     mock_cursor,
+    mock_bundle_map,
 ):
     version = "V1"
     side_effects, expected = mock_execute_helper(
@@ -356,6 +369,7 @@ def test_process_no_existing_release_directives_or_versions(
 
     processor = _get_version_create_processor()
     processor.process(
+        bundle_map=mock_bundle_map,
         version=version,
         patch=None,
         policy=policy_param,
@@ -415,6 +429,7 @@ def test_process_no_existing_release_directives_w_existing_version(
     policy_param,
     temp_dir,
     mock_cursor,
+    mock_bundle_map,
 ):
     version = "V1"
     mock_existing_version_info.return_value = {
@@ -444,6 +459,7 @@ def test_process_no_existing_release_directives_w_existing_version(
 
     processor = _get_version_create_processor()
     processor.process(
+        bundle_map=mock_bundle_map,
         version=version,
         patch=12,
         policy=policy_param,
@@ -507,6 +523,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
     expected_code,
     temp_dir,
     mock_cursor,
+    mock_bundle_map,
 ):
     version = "V1"
     mock_existing_version_info.return_value = {"version": version, "patch": 0}
@@ -536,6 +553,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
     processor = _get_version_create_processor()
     with pytest.raises(typer.Exit):
         result = processor.process(
+            bundle_map=mock_bundle_map,
             version=version,
             patch=12,
             policy=policy_param,
@@ -601,6 +619,7 @@ def test_process_existing_release_directives_w_existing_version_two(
     is_interactive_param,
     temp_dir,
     mock_cursor,
+    mock_bundle_map,
 ):
     version = "V1"
     mock_existing_version_info.return_value = {
@@ -634,6 +653,7 @@ def test_process_existing_release_directives_w_existing_version_two(
 
     processor = _get_version_create_processor()
     processor.process(
+        bundle_map=mock_bundle_map,
         version=version,
         patch=12,
         policy=policy_param,

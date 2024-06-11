@@ -9,7 +9,7 @@ from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, MessageResult, QueryResult
 from snowflake.cli.plugins.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowflake.cli.plugins.nativeapp.policy import (
@@ -23,7 +23,7 @@ from snowflake.cli.plugins.nativeapp.version.version_processor import (
     NativeAppVersionDropProcessor,
 )
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="version",
     help="Manages versions defined in an application package",
 )
@@ -38,7 +38,7 @@ def create(
         None,
         help=f"""Version to define in your application package. If the version already exists, an auto-incremented patch is added to the version instead. Defaults to the version specified in the `manifest.yml` file.""",
     ),
-    patch: Optional[str] = typer.Option(
+    patch: Optional[int] = typer.Option(
         None,
         "--patch",
         help=f"""The patch number you want to create for an existing version.
@@ -80,8 +80,9 @@ def create(
     )
 
     # We need build_bundle() to (optionally) find version in manifest.yml and create an application package
-    processor.build_bundle()
+    bundle_map = processor.build_bundle()
     processor.process(
+        bundle_map=bundle_map,
         version=version,
         patch=patch,
         policy=policy,

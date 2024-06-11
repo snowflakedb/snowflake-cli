@@ -12,7 +12,11 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import QueryResult
 from snowflake.cli.app import loggers
 
-pytest_plugins = ["tests.testing_utils.fixtures", "tests.project.fixtures"]
+pytest_plugins = [
+    "tests.testing_utils.fixtures",
+    "tests.project.fixtures",
+    "tests.nativeapp.fixtures",
+]
 
 
 @pytest.fixture(autouse=True)

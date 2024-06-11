@@ -14,6 +14,7 @@ from snowflake.cli.api.project.util import (
     unquote_identifier,
 )
 from snowflake.cli.api.utils.cursor import find_all_rows
+from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
@@ -195,7 +196,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         policy: PolicyBase,
         is_interactive: bool,
         version: Optional[str] = None,
-        patch: Optional[str] = None,
+        patch: Optional[int] = None,
     ):
 
         patch_clause = f"patch {patch}" if patch else ""
@@ -278,9 +279,10 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
 
     def process(
         self,
+        bundle_map: BundleMap,
         policy: PolicyBase,
         version: Optional[str] = None,
-        patch: Optional[str] = None,
+        patch: Optional[int] = None,
         from_release_directive: bool = False,
         is_interactive: bool = False,
         *args,
@@ -312,5 +314,5 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             )
             return
 
-        diff = self.deploy(prune=True, recursive=True)
+        diff = self.deploy(bundle_map=bundle_map, prune=True, recursive=True)
         self._create_dev_app(diff)

@@ -9,7 +9,7 @@ from snowflake.cli.api.commands.flags import (
     OverrideableOption,
     like_option,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
 from snowflake.cli.api.project.util import is_valid_object_name
@@ -22,7 +22,7 @@ from snowflake.cli.plugins.spcs.common import (
 )
 from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="compute-pool",
     help="Manages Snowpark Container Services compute pools.",
     short_help="Manages compute pools.",

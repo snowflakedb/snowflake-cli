@@ -14,7 +14,10 @@ from snowflake.cli.api.utils.cursor import (
     find_all_rows,
     find_first_row,
 )
-from snowflake.cli.plugins.nativeapp.artifacts import find_version_info_in_manifest_file
+from snowflake.cli.plugins.nativeapp.artifacts import (
+    BundleMap,
+    find_version_info_in_manifest_file,
+)
 from snowflake.cli.plugins.nativeapp.constants import VERSION_COL
 from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
@@ -117,7 +120,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 f"Version {version} created for application package {self.package_name}."
             )
 
-    def add_new_patch_to_version(self, version: str, patch: Optional[str] = None):
+    def add_new_patch_to_version(self, version: str, patch: Optional[int] = None):
         """
         Add a new patch, optionally a custom one, to an existing version in an application package.
         """
@@ -148,8 +151,9 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
 
     def process(
         self,
+        bundle_map: BundleMap,
         version: Optional[str],
-        patch: Optional[str],
+        patch: Optional[int],
         policy: PolicyBase,
         git_policy: PolicyBase,
         is_interactive: bool,
@@ -202,7 +206,10 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
 
             # Upload files from deploy root local folder to the above stage
             self.sync_deploy_root_with_stage(
-                self.package_role, prune=True, recursive=True
+                bundle_map=bundle_map,
+                role=self.package_role,
+                prune=True,
+                recursive=True,
             )
 
         # Warn if the version exists in a release directive(s)

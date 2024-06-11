@@ -2,15 +2,15 @@ import sys
 from pathlib import Path
 
 import typer
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
 from snowflake.cli.plugins.spcs.common import print_log_lines
 from snowflake.cli.plugins.spcs.jobs.manager import JobManager
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="job",
     help="Manages Snowpark jobs.",
-    hidden=True,
+    is_hidden=lambda: True,
 )
 
 

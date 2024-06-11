@@ -137,6 +137,27 @@ def udf_sum(first: int, second: int) -> int:
 @custom
 def helper():
     pass
+    
+    
+@custom
+@udtf(
+    name="alt_int",
+    replace=True,
+    output_schema=StructType([StructField("number", IntegerType())]),
+    input_types=[IntegerType()],
+)
+@module.annotation
+class Alternator:
+    def __init__(self):
+        self._positive = True
+
+    def process(self, n):
+        for i in range(n):
+            if self._positive:
+                yield (1,)
+            else:
+                yield (-1,)
+            self._positive = not self._positive
 """
 ).strip()
 
@@ -160,8 +181,17 @@ def test_deannotate_module_source_removes_all_annotations(snapshot):
             Argument(name="second", type="int"),
         ],
     )
+    udtf = NativeAppExtensionFunction(
+        type="function",
+        handler="math_fns.Alternator",
+        returns="TABLE",
+        signature=[
+            Argument(name="n", type="int"),
+        ],
+    )
     assert (
-        ef_utils.deannotate_module_source(TEST_SNOWPARK_CODE, [sproc, udf]) == snapshot
+        ef_utils.deannotate_module_source(TEST_SNOWPARK_CODE, [sproc, udf, udtf])
+        == snapshot
     )
 
 
@@ -184,16 +214,24 @@ def test_deannotate_module_source_preserves_specified_annotations(snapshot):
             Argument(name="second", type="int"),
         ],
     )
+    udtf = NativeAppExtensionFunction(
+        type="function",
+        handler="math_fns.Alternator",
+        returns="TABLE",
+        signature=[
+            Argument(name="n", type="int"),
+        ],
+    )
     assert (
         ef_utils.deannotate_module_source(
-            TEST_SNOWPARK_CODE, [sproc, udf], annotations_to_preserve=["custom"]
+            TEST_SNOWPARK_CODE, [sproc, udf, udtf], annotations_to_preserve=["custom"]
         )
         == snapshot
     )
     assert (
         ef_utils.deannotate_module_source(
             TEST_SNOWPARK_CODE,
-            [sproc, udf],
+            [sproc, udf, udtf],
             annotations_to_preserve=["module.annotation"],
         )
         == snapshot
@@ -219,6 +257,14 @@ def test_deannotate_module_source_is_identity_when_no_functions_present(snapshot
             Argument(name="second", type="int"),
         ],
     )
+    udtf = NativeAppExtensionFunction(
+        type="function",
+        handler="math_fns.Alternator",
+        returns="TABLE",
+        signature=[
+            Argument(name="n", type="int"),
+        ],
+    )
 
     non_annotated_code = dedent(
         """
@@ -229,7 +275,7 @@ def test_deannotate_module_source_is_identity_when_no_functions_present(snapshot
 
     assert (
         ef_utils.deannotate_module_source(
-            non_annotated_code, [sproc, udf], annotations_to_preserve=["custom"]
+            non_annotated_code, [sproc, udf, udtf], annotations_to_preserve=["custom"]
         )
         == non_annotated_code
     )
@@ -256,17 +302,28 @@ def test_deannotate_module_source_is_identity_when_no_annotated_functions_presen
             Argument(name="second", type="int"),
         ],
     )
+    udtf = NativeAppExtensionFunction(
+        type="function",
+        handler="math_fns.Alternator",
+        returns="TABLE",
+        signature=[
+            Argument(name="n", type="int"),
+        ],
+    )
 
     non_annotated_code = dedent(
         """
     def foo():
+        pass
+        
+    class Bar:
         pass
     """
     )
 
     assert (
         ef_utils.deannotate_module_source(
-            non_annotated_code, [sproc, udf], annotations_to_preserve=["custom"]
+            non_annotated_code, [sproc, udf, udtf], annotations_to_preserve=["custom"]
         )
         == non_annotated_code
     )
@@ -293,8 +350,16 @@ def test_deannotate_module_source_is_identity_when_extension_function_does_not_m
             Argument(name="second", type="int"),
         ],
     )
+    udtf = NativeAppExtensionFunction(
+        type="function",
+        handler="math_fns.MyAlternator",  # trigger mismatch
+        returns="TABLE",
+        signature=[
+            Argument(name="n", type="int"),
+        ],
+    )
 
     assert (
-        ef_utils.deannotate_module_source(TEST_SNOWPARK_CODE, [sproc, udf])
+        ef_utils.deannotate_module_source(TEST_SNOWPARK_CODE, [sproc, udf, udtf])
         == TEST_SNOWPARK_CODE
     )

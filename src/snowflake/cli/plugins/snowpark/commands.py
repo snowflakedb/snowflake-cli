@@ -18,7 +18,7 @@ from snowflake.cli.api.commands.flags import (
     like_option,
 )
 from snowflake.cli.api.commands.project_initialisation import add_init_command
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import (
     DEFAULT_SIZE_LIMIT_MB,
     DEPLOYMENT_STAGE,
@@ -63,6 +63,7 @@ from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
     AnacondaPackagesManager,
 )
+from snowflake.cli.plugins.snowpark.package.commands import app as package_app
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
@@ -79,10 +80,11 @@ from snowflake.connector import DictCursor, ProgrammingError
 
 log = logging.getLogger(__name__)
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="snowpark",
     help="Manages procedures and functions.",
 )
+app.add_typer(package_app)
 
 ObjectTypeArgument = typer.Argument(
     help="Type of Snowpark object",

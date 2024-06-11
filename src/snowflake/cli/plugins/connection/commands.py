@@ -10,7 +10,7 @@ from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import (
     PLAIN_PASSWORD_MSG,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.config import (
     ConnectionConfig,
     add_connection,
@@ -32,7 +32,7 @@ from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="connection",
     help="Manages connections to Snowflake.",
 )
