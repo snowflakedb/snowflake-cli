@@ -1,4 +1,4 @@
-# Unreleased version
+# v2.4.1
 ## Backward incompatibility
 
 ## Deprecations
