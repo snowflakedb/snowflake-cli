@@ -38,6 +38,7 @@ def test_deploy_function(
         dedent(
             """\
             create or replace function MockDatabase.MockSchema.func1(a string default 'default value', b variant)
+            copy grants
             returns string
             language python
             runtime_version=3.10
@@ -85,6 +86,7 @@ def test_deploy_function_with_external_access(
         dedent(
             """\
             create or replace function MockDatabase.MockSchema.func1(a string, b variant)
+            copy grants
             returns string
             language python
             runtime_version=3.8
@@ -204,6 +206,7 @@ def test_deploy_function_needs_update_because_packages_changes(
         dedent(
             """\
             create or replace function MockDatabase.MockSchema.func1(a string default 'default value', b variant)
+            copy grants
             returns string
             language python
             runtime_version=3.10
@@ -254,6 +257,7 @@ def test_deploy_function_needs_update_because_handler_changes(
         dedent(
             """\
             create or replace function MockDatabase.MockSchema.func1(a string default 'default value', b variant)
+            copy grants
             returns string
             language python
             runtime_version=3.10
