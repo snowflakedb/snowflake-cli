@@ -23,8 +23,6 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.models import (
 )
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
-from syrupy.extensions.amber import AmberSnapshotExtension
-from syrupy.location import PyTestLocation
 from typer import Typer
 from typer.testing import CliRunner
 
@@ -372,26 +370,3 @@ def native_app_extension_function(
     native_app_extension_function_raw_data,
 ) -> NativeAppExtensionFunction:
     return NativeAppExtensionFunction(**native_app_extension_function_raw_data)
-
-
-def create_python_version_dependent_snapshot(version: str):
-    class VersionedSnapshot(AmberSnapshotExtension):
-        @classmethod
-        def dirname(cls, *, test_location: "PyTestLocation") -> str:
-            return str(
-                Path(test_location.filepath).parent.joinpath("__snapshots__", version)
-            )
-
-    return VersionedSnapshot
-
-
-@pytest.fixture
-def snapshot_for_312(snapshot):
-    return snapshot.use_extension(create_python_version_dependent_snapshot("3_12"))
-
-
-@pytest.fixture
-def snapshot_for_311_and_less(snapshot):
-    return snapshot.use_extension(
-        create_python_version_dependent_snapshot("3_11_and_less")
-    )

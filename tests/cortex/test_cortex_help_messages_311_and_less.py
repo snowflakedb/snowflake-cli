@@ -10,13 +10,13 @@ if sys.version_info >= (3, 12):
     )
 
 
-def test_cortex_help_messages_for_312(runner, snapshot_for_311_and_less):
+def test_cortex_help_messages_for_312(runner, snapshot):
     result = runner.invoke(["cortex", "--help"])
     assert result.exit_code == 0
-    assert result.output == snapshot_for_311_and_less
+    assert result.output == snapshot
 
 
-def test_cortex_help_messages_for_312_no_help_flag(runner, snapshot_for_311_and_less):
+def test_cortex_help_messages_for_312_no_help_flag(runner, snapshot):
     result = runner.invoke(["cortex"])
     assert result.exit_code == 0
-    assert result.output == snapshot_for_311_and_less
+    assert result.output == snapshot
